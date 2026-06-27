@@ -1,0 +1,154 @@
+{
+  "sessionId": "11111111-1111-4111-8111-111111111111",
+  "title": "Refactor auth module",
+  "cwd": "/Users/demo/proj",
+  "gitBranch": "main",
+  "version": "1.2.3",
+  "models": ["claude-opus-4", "claude-haiku"],
+  "turnCount": 3,
+  "userMessageCount": 2,
+  "toolCallCount": 1,
+  "peakContextTokens": 1150,
+  "peakTurnIndex": 1,
+  "peakCacheReadTokens": 1000,
+  "finalContextTokens": 970,
+  "totalOutputTokens": 1400,
+  "systemOverheadTokens": 258,
+  "contextWindow": 1000000,
+  "contextWindowInferred": true,
+  "dumbZoneCrossTurn": -1,
+  "dumbZoneFraction": 0.4,
+  "dumbZoneTurns": 0,
+  "compactionTurns": [],
+  "turns": [
+    {
+      "requestId": "req-1",
+      "contextTokens": 300,
+      "outputTokens": 500,
+      "cacheReadTokens": 0
+    },
+    {
+      "requestId": "req-2",
+      "contextTokens": 1150,
+      "outputTokens": 800,
+      "cacheReadTokens": 1000
+    },
+    {
+      "requestId": "req-3",
+      "contextTokens": 970,
+      "outputTokens": 100,
+      "cacheReadTokens": 900
+    }
+  ],
+  "budget": [
+    {
+      "key": "system_tools",
+      "tokens": 258
+    },
+    {
+      "key": "listings",
+      "tokens": 12
+    },
+    {
+      "key": "memory",
+      "tokens": 17
+    },
+    {
+      "key": "prompts",
+      "tokens": 13
+    },
+    {
+      "key": "tool_results",
+      "tokens": 36
+    },
+    {
+      "key": "assistant_text",
+      "tokens": 31
+    },
+    {
+      "key": "thinking",
+      "tokens": 469
+    },
+    {
+      "key": "unattributed",
+      "tokens": 314
+    }
+  ],
+  "snapshots": [
+    {
+      "turnIndex": 0,
+      "ctx": 300,
+      "slices": {
+        "system_tools": 258,
+        "thinking": 0,
+        "assistant_text": 0,
+        "tool_results": 0,
+        "prompts": 13,
+        "memory": 17,
+        "listings": 12,
+        "files": 0,
+        "other": 0,
+        "unattributed": 0
+      }
+    },
+    {
+      "turnIndex": 1,
+      "ctx": 1150,
+      "slices": {
+        "system_tools": 258,
+        "thinking": 469,
+        "assistant_text": 31,
+        "tool_results": 36,
+        "prompts": 13,
+        "memory": 17,
+        "listings": 12,
+        "files": 0,
+        "other": 0,
+        "unattributed": 314
+      }
+    },
+    {
+      "turnIndex": 2,
+      "ctx": 970,
+      "slices": {
+        "system_tools": 258,
+        "thinking": 639.6193222782985,
+        "assistant_text": 27.72025955299207,
+        "tool_results": 18.480173035328043,
+        "prompts": 11.293439077144917,
+        "memory": 8.726748377793799,
+        "listings": 6.160057678442682,
+        "files": 0,
+        "other": 0,
+        "unattributed": 0
+      }
+    }
+  ],
+  "biggestItemsTop": [
+    {
+      "kind": "tool-result",
+      "title": "tool_result",
+      "tokensEst": 36
+    },
+    {
+      "kind": "assistant-text",
+      "title": "Assistant",
+      "tokensEst": 23
+    },
+    {
+      "kind": "assistant-text",
+      "title": "Assistant",
+      "tokensEst": 19
+    },
+    {
+      "kind": "attachment",
+      "title": "file: CLAUDE.md",
+      "tokensEst": 17
+    },
+    {
+      "kind": "user-prompt",
+      "title": "User prompt",
+      "tokensEst": 13
+    }
+  ]
+}

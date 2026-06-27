@@ -1,0 +1,5 @@
+{
+  "agentType": "investigator",
+  "description": "investigate test failures",
+  "toolUseId": "tool-task-1"
+}
