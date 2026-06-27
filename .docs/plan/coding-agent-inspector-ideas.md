@@ -101,6 +101,11 @@ Tags: **[value]** high / med / low · **[effort]** S/M/L · **[risk]** read-only
 - **CLAUDE.md ⇄ AGENTS.md unified view** — reconcile the two standards.
 - **Lint instructions** — contradictions, dead references, oversized files, conflicting rules across layers.
 - **Per-project instruction inspector** — what each repo injects.
+- **Global rules unifier (one source, symlinked)** — the *user/global*-level counterpart to the resolver above. Each agent reads a **different** global entry point: Claude `~/.claude/CLAUDE.md`, Codex `~/.codex/AGENTS.md`, Pi `~/.pi/AGENTS.md`. User opts in to a single canonical file at `~/.agents/AGENTS.md`; the app **symlinks** each agent's entry point to it (a symlink keeps the agent's own filename, e.g. `~/.claude/CLAUDE.md` → `~/.agents/AGENTS.md`), so you write your global rules **once** and every agent picks them up. Builds on "CLAUDE.md ⇄ AGENTS.md unified view." [value high] [effort M] [risk write] — **not first priority** (first = port the session + memory skills).
+  - **Activate / deactivate** — opt-in toggle. Deactivate restores real files from the links (fully reversible).
+  - **Safe migration** — entry points may already hold content (e.g. an existing `~/.claude/CLAUDE.md`); on activate, **back up + merge** each into the canonical file before replacing with a symlink. Never silently clobber.
+  - **Status / drift view** — per agent: linked-to-canonical vs has-own-file vs missing; one-click "link this agent."
+  - **Portability caveat** — symlinks are clean on macOS/Linux; Windows (future Electron) needs privilege or a copy/sync fallback. L1 target: macOS/Linux.
 
 ### D. MCP servers
 
