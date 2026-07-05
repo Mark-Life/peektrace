@@ -208,10 +208,10 @@ export const SessionHistory = ({
 
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md border px-3 py-2 text-xs",
+          "flex items-center gap-2 rounded-md border px-3 py-2 text-destructive text-xs",
           redacted
-            ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
-            : "border-red-500/40 bg-red-500/10 text-red-300"
+            ? "border-destructive/30 bg-destructive/5"
+            : "border-destructive/60 bg-destructive/15 font-medium"
         )}
         data-testid="redaction-banner"
       >
