@@ -1,11 +1,11 @@
-/** Dark-first theme provider + toggle, built on `next-themes` (shipped in ui). */
+/** Theme provider + toggle, built on `next-themes` (shipped in ui). */
 import { Button } from "@workspace/ui/components/button";
-import { MoonIcon, SunIcon } from "lucide-react";
+import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 /**
- * Wrap the app in `next-themes`. Forensic tool → default dark, but honor an
+ * Wrap the app in `next-themes`. Default to the OS preference, but honor an
  * explicit user choice and persist it.
  */
 export const ThemeProvider = ({
@@ -15,7 +15,7 @@ export const ThemeProvider = ({
 }) => (
   <NextThemeProvider
     attribute="class"
-    defaultTheme="dark"
+    defaultTheme="system"
     disableTransitionOnChange
     enableSystem
   >
@@ -23,19 +23,69 @@ export const ThemeProvider = ({
   </NextThemeProvider>
 );
 
-/** Light/dark toggle button for the sidebar footer. */
+const ORDER = ["light", "dark", "system"] as const;
+type ThemeMode = (typeof ORDER)[number];
+
+const ICONS: Record<ThemeMode, typeof SunIcon> = {
+  light: SunIcon,
+  dark: MoonIcon,
+  system: MonitorIcon,
+};
+
+/** Returns true when focus is inside a field where typing should win over shortcuts. */
+const isTypingTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  const tag = target.tagName;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    target.isContentEditable
+  );
+};
+
+/** Cycles light → dark → system, also bound to the `D` shortcut. */
 export const ThemeToggle = () => {
-  const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
+
+  const current = (mounted ? (theme as ThemeMode) : "system") ?? "system";
+  const next: ThemeMode =
+    ORDER[(ORDER.indexOf(current) + 1) % ORDER.length] ?? "system";
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key.toLowerCase() !== "d" ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        isTypingTarget(event.target)
+      ) {
+        return;
+      }
+      setTheme(next);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [next, setTheme]);
+
+  const Icon = ICONS[current];
+  const label = `Switch to ${next} theme`;
+
   return (
     <Button
-      aria-label="Toggle theme"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={label}
+      onClick={() => setTheme(next)}
       size="sm"
       variant="ghost"
     >
-      {isDark ? <SunIcon /> : <MoonIcon />}
-      <span>{isDark ? "Light" : "Dark"}</span>
+      <Icon />
+      <span className="capitalize">{current}</span>
     </Button>
   );
 };
