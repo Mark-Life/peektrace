@@ -1,0 +1,9 @@
+{
+  "extends": "@workspace/typescript-config/effect-library.json",
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "types": ["node", "bun"]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules"]
+}

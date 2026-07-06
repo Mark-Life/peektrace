@@ -97,11 +97,18 @@ One principle: **all logic lives in the core; every interface is dumb.** The cor
 | Package | Role | Status |
 |---|---|---|
 | `packages/core` | domain + Effect services: `ingest` · `index` · `edit` · `watch` | new |
-| `packages/api`  | Effect RPC contract (shared types) | exists → repurpose |
-| `apps/web`      | Vite/React + Effect Atom UI | exists |
+| `packages/api`  | Effect RPC contract (shared types) | exists → repurpose [^deviation] |
+| `apps/web`      | Vite/React + Effect Atom UI | exists [^deviation] |
 | `apps/cli`      | technical interface (boots core; one-shot commands) | **new, first** |
 | `apps/desktop`  | Electron shell wrapping web + core | **later** |
 | `packages/ui`, `packages/env`, `packages/typescript-config` | shared UI / env / tsconfig | exist |
+
+[^deviation]: **Built differently than this table.** The RPC contract lives in a
+**new `packages/rpc`** (Effect RPC) — `packages/api` (oRPC) is left untouched —
+and the inspector UI is a **new `apps/inspector`** (Vite) rather than repurposing
+`apps/web`, which stays Next.js marketing. Both `apps/web` and `packages/api` are
+intentionally not modified so the marketing app keeps building. See the locked
+deviations in [`plan.md` §2](./plan.md#2-deviations-from-goalmd-decided).
 
 ### File edits — how writes work safely
 

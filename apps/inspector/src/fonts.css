@@ -1,0 +1,18 @@
+/*
+ * Inspector font variables.
+ *
+ * `@workspace/ui/globals.css` externalizes its font stacks: it maps the
+ * Tailwind `font-sans`/`font-heading` utilities to `var(--font-sans)` /
+ * `var(--font-heading)` and expects the consuming app to define them. The web
+ * app supplies these via `next/font` (DM Sans + Geist). This Vite app has no
+ * font loader, so without these declarations `var(--font-sans)` is invalid and
+ * the browser falls back to its default serif. Define a system-ui stack here.
+ *
+ * Imported in `main.tsx` AFTER globals.css so it wins the cascade.
+ */
+:root {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-sans);
+}

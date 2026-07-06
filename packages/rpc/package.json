@@ -1,0 +1,26 @@
+{
+  "name": "@workspace/rpc",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "effect": "latest",
+    "@effect/rpc": "latest",
+    "@effect/platform": "latest",
+    "@workspace/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "@effect/platform-bun": "latest",
+    "@types/bun": "^1.3.14",
+    "typescript": "^6.0.3"
+  }
+}

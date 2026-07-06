@@ -11,6 +11,10 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "//#check": {},
     "//#fix": {
       "cache": false
