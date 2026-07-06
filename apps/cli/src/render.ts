@@ -9,13 +9,34 @@ const pad = (value: string, width: number): string =>
   value.length >= width ? value : value + " ".repeat(width - value.length);
 
 /**
- * Render an aligned text table. Columns size to their widest cell; an empty
- * `rows` yields a single "(none)" line under the header.
+ * Tab-separated twin of {@link table}: one lowercased header line, then raw
+ * tab-joined rows — no padding, no rule. Emitted when stdout is piped/captured
+ * (an LLM tool call), stripping the alignment whitespace a human never sees.
  */
-export const table = (
+const compactTable = (
   headers: readonly string[],
   rows: readonly (readonly string[])[]
 ): string => {
+  const head = headers.map((h) => h.toLowerCase()).join("\t");
+  if (rows.length === 0) {
+    return `${head}\n(none)`;
+  }
+  return [head, ...rows.map((row) => row.join("\t"))].join("\n");
+};
+
+/**
+ * Render a text table. Columns size to their widest cell; an empty `rows`
+ * yields a single "(none)" line under the header. Pass `compact` (set when
+ * stdout is not a TTY) to emit the token-lean tab-separated form instead.
+ */
+export const table = (
+  headers: readonly string[],
+  rows: readonly (readonly string[])[],
+  opts?: { readonly compact?: boolean }
+): string => {
+  if (opts?.compact) {
+    return compactTable(headers, rows);
+  }
   const widths = headers.map((header, col) =>
     rows.reduce(
       (max, row) => Math.max(max, (row[col] ?? "").length),

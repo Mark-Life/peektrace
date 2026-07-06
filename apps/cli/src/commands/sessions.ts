@@ -68,7 +68,8 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
         return yield* Console.log(
           table(
             ["ID", "PROJECT", "MODEL", "MSGS", "SIZE", "UPDATED", "TITLE"],
-            rows
+            rows,
+            { compact: g.compact }
           )
         );
       })
@@ -100,7 +101,8 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
           ["turns", String(a.turnCount)],
           ["tool calls", String(a.toolCallCount)],
           ["dumb-zone cross turn", String(a.dumbZoneCrossTurn)],
-        ]
+        ],
+        { compact: g.compact }
       );
       const budgetRows = a.budget
         .filter((slice) => slice.tokens > 0)
@@ -111,7 +113,9 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
             ? percent(slice.tokens / a.peakContextTokens)
             : "-",
         ]);
-      const budget = table(["BUDGET (AT PEAK)", "TOKENS", "%"], budgetRows);
+      const budget = table(["BUDGET (AT PEAK)", "TOKENS", "%"], budgetRows, {
+        compact: g.compact,
+      });
       return yield* Console.log(`${summary}\n\n${budget}`);
     })
   );

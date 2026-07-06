@@ -31,7 +31,9 @@ export const makeMemoryLs = (globals: GlobalsAccessor) =>
           String(p.fileCount),
           p.hasIndex ? "yes" : "no",
         ]);
-        return yield* Console.log(table(["PROJECT", "FILES", "INDEX"], rows));
+        return yield* Console.log(
+          table(["PROJECT", "FILES", "INDEX"], rows, { compact: g.compact })
+        );
       }
       const slug = project.value;
       const vault = yield* withClient(g, (client) =>
@@ -49,7 +51,10 @@ export const makeMemoryLs = (globals: GlobalsAccessor) =>
       ]);
       const header = `vault ${vault.slug} (${vault.state}) — ${vault.entries.length} entries\n`;
       return yield* Console.log(
-        header + table(["NAME", "TYPE", "INDEX", "SIZE", "DESCRIPTION"], rows)
+        header +
+          table(["NAME", "TYPE", "INDEX", "SIZE", "DESCRIPTION"], rows, {
+            compact: g.compact,
+          })
       );
     })
   );
@@ -84,7 +89,8 @@ export const makeMemoryShow = (globals: GlobalsAccessor) =>
             ["modified", entry.mtime],
             ["in index", entry.inIndex ? "yes" : "no"],
             ["links", String(entry.links.length)],
-          ]
+          ],
+          { compact: g.compact }
         );
         return yield* Console.log(`${meta}\n\n${entry.body}`);
       })

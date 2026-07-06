@@ -26,6 +26,8 @@ export type PeepholeClient = Effect.Effect.Success<
 
 /** Resolved global flags that pick the transport + safety posture. */
 export interface Globals {
+  /** Render token-lean tab-separated tables (the default; off under `--pretty`). */
+  readonly compact: boolean;
   /** Emit raw JSON instead of rendered tables. */
   readonly json: boolean;
   /** Refuse any mutating command (compile-time-ish safe mode). */

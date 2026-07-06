@@ -21,6 +21,11 @@ const jsonOpt = Options.boolean("json").pipe(
 const readOnlyOpt = Options.boolean("read-only").pipe(
   Options.withDescription("Refuse any mutating command (safe mode)")
 );
+const prettyOpt = Options.boolean("pretty").pipe(
+  Options.withDescription(
+    "Render aligned tables instead of the default compact tab-separated output"
+  )
+);
 const remoteOpt = Options.text("remote").pipe(
   Options.withDescription("Target a running `peephole serve` over HTTP"),
   Options.optional
@@ -34,7 +39,13 @@ const otelOpt = Options.boolean("otel").pipe(
 /** Root command — carries the global flags; prints a banner when run bare. */
 const peephole = Command.make(
   "peephole",
-  { json: jsonOpt, readOnly: readOnlyOpt, remote: remoteOpt, otel: otelOpt },
+  {
+    json: jsonOpt,
+    readOnly: readOnlyOpt,
+    remote: remoteOpt,
+    otel: otelOpt,
+    pretty: prettyOpt,
+  },
   () =>
     Console.log(
       "Peephole — local, loopback-only inspector for Claude Code.\n" +
@@ -48,6 +59,7 @@ const globals: GlobalsAccessor = () =>
     json: config.json,
     readOnly: config.readOnly,
     remote: Option.getOrUndefined(config.remote),
+    compact: !config.pretty,
   }));
 
 const sessions = Command.make("sessions").pipe(
