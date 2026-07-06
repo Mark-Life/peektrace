@@ -13,7 +13,16 @@
  * a future streaming RPC). Read-only: it never writes to disk.
  */
 import { FileSystem } from "@effect/platform";
-import { Context, Duration, Effect, Layer, PubSub, Ref, Stream } from "effect";
+import {
+  Cause,
+  Context,
+  Duration,
+  Effect,
+  Layer,
+  PubSub,
+  Ref,
+  Stream,
+} from "effect";
 import { AgentRegistry } from "./agents";
 
 /** Coarse refresh scopes the UI subscribes to. */
@@ -139,7 +148,11 @@ export const WatchServiceLive = Layer.scoped(
           yield* Effect.forEach(distinct, (inv) => PubSub.publish(hub, inv), {
             discard: true,
           });
-        });
+        }).pipe(
+          Effect.withSpan("WatchService.flush", {
+            attributes: { batch: batch.length },
+          })
+        );
 
       const pump = fs.watch(root, { recursive: true }).pipe(
         Stream.map((event) => classify({ path: event.path, root })),
@@ -147,8 +160,15 @@ export const WatchServiceLive = Layer.scoped(
         Stream.groupedWithin(MAX_BATCH, DEBOUNCE),
         Stream.mapEffect((chunk) => flush([...chunk])),
         Stream.runDrain,
-        Effect.catchAllCause(() => Effect.void),
-        Effect.withSpan("WatchService.pump", { attributes: { root } })
+        // The watcher is a `forkScoped` daemon: it only ever ends when the scope
+        // closes (fiber interruption), so we must not wrap it in a lifetime span
+        // — that span would always resolve `fail` on interrupt. Swallow the
+        // expected interruption; surface any genuine watch failure as a log.
+        Effect.catchAllCause((cause) =>
+          Cause.isInterruptedOnly(cause)
+            ? Effect.void
+            : Effect.logError("WatchService.pump failed", cause)
+        )
       );
       yield* Effect.forkScoped(pump);
     }

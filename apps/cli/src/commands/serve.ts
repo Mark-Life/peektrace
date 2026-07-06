@@ -178,7 +178,7 @@ export const makeServe = () =>
           Layer.mergeAll(
             serverLayer,
             RpcSerialization.layerNdjson,
-            makeHandlersLayer()
+            makeHandlersLayer({ rootSpans: true })
           )
         )
       );

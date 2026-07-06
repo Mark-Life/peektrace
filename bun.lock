@@ -29,6 +29,7 @@
         "@effect/rpc": "latest",
         "@workspace/core": "workspace:*",
         "@workspace/rpc": "workspace:*",
+        "@workspace/telemetry": "workspace:*",
         "effect": "latest",
       },
       "devDependencies": {
@@ -143,6 +144,21 @@
       "devDependencies": {
         "@effect/platform-bun": "latest",
         "@types/bun": "^1.3.14",
+        "@workspace/typescript-config": "workspace:*",
+        "typescript": "^6.0.3",
+      },
+    },
+    "packages/telemetry": {
+      "name": "@workspace/telemetry",
+      "version": "0.0.1",
+      "dependencies": {
+        "@effect/sql": "0.51.1",
+        "@effect/sql-sqlite-bun": "0.52.0",
+        "effect": "latest",
+      },
+      "devDependencies": {
+        "@types/bun": "^1.3.14",
+        "@types/node": "^26.0.1",
         "@workspace/typescript-config": "workspace:*",
         "typescript": "^6.0.3",
       },
@@ -307,6 +323,8 @@
     "@effect/rpc": ["@effect/rpc@0.75.1", "", { "dependencies": { "msgpackr": "^1.11.10" }, "peerDependencies": { "@effect/platform": "^0.96.1", "effect": "^3.21.2" } }, "sha512-8yxF8+mMGGEbF8BUCp34HjdJj7CvTpGeZxBcpsDF6v7zPiGbJL1UDLzA8ZqYjmcngBHhPecbmeONTk/LiLAaEg=="],
 
     "@effect/sql": ["@effect/sql@0.51.1", "", { "dependencies": { "uuid": "^11.0.3" }, "peerDependencies": { "@effect/experimental": "^0.60.0", "@effect/platform": "^0.96.1", "effect": "^3.21.2" } }, "sha512-iPDAefrJcI0HcTk9keP9Gq8Pg08K1HmpnmZZt85AqyTcvorhoNsXDFiKBbPldfV2CortwVkacX8KjO9GPpSYCA=="],
+
+    "@effect/sql-sqlite-bun": ["@effect/sql-sqlite-bun@0.52.0", "", { "peerDependencies": { "@effect/experimental": "^0.60.0", "@effect/platform": "^0.96.0", "@effect/sql": "^0.51.0", "effect": "^3.21.0" } }, "sha512-iqQ7SvSNxq0HLjKW5IQ29FsCTzOD1CuX1wuBEuPLLgPCvuEykEHLn4zDrs2qJ+O3CBEUm4kiCy29tmfHE7uAdw=="],
 
     "@effect/typeclass": ["@effect/typeclass@0.40.0", "", { "peerDependencies": { "effect": "^3.21.0" } }, "sha512-L/2o2ImeqbemFlqH0b3y2PqQTFc+E0/DUnffCU8bkJUGh0yUZmh2RXuXhR8QOpfNCe718JQjI+mLnpVF2MMmaQ=="],
 
@@ -803,6 +821,8 @@
     "@workspace/env": ["@workspace/env@workspace:packages/env"],
 
     "@workspace/rpc": ["@workspace/rpc@workspace:packages/rpc"],
+
+    "@workspace/telemetry": ["@workspace/telemetry@workspace:packages/telemetry"],
 
     "@workspace/typescript-config": ["@workspace/typescript-config@workspace:packages/typescript-config"],
 

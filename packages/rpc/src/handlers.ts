@@ -39,6 +39,7 @@ import { Effect, Layer } from "effect";
 import {
   CapabilityUnsupportedError,
   FileChangedError,
+  type MemoryFrontmatterPatch,
   MemoryNotFoundError,
   MemoryValidationError,
   PathOutsideRootError,
@@ -109,81 +110,115 @@ const toWire = (error: CoreError): Effect.Effect<never, WireError> => {
 const wire = <A, R>(effect: Effect.Effect<A, CoreError, R>) =>
   Effect.catchAll(effect, toWire);
 
-/** Handler layer: requires the core services in context. */
-export const handlersLive = PeepholeRpcs.toLayer(
-  Effect.gen(function* () {
-    const sessions = yield* SessionsService;
-    const memory = yield* MemoryService;
-    const caps = yield* CapabilityRegistry;
-    const watch = yield* WatchService;
+/** Build the memory-update frontmatter patch, dropping undefined fields. */
+const buildMemoryPatch = (
+  frontmatter: typeof MemoryFrontmatterPatch.Type | undefined
+) => {
+  if (frontmatter === undefined) {
+    return;
+  }
+  return {
+    ...(frontmatter.name === undefined ? {} : { name: frontmatter.name }),
+    ...(frontmatter.description === undefined
+      ? {}
+      : { description: frontmatter.description }),
+    ...(frontmatter.type === undefined ? {} : { type: frontmatter.type }),
+  };
+};
 
-    return {
-      "capabilities.list": () => caps.list(),
-      "watch.poll": () => watch.versions,
-      "sessions.list": ({ project }) =>
-        sessions
-          .list()
-          .pipe(
-            Effect.map((headers) =>
-              project
-                ? headers.filter((header) => header.project === project)
-                : headers
-            )
-          ),
-      "sessions.get": ({ id, redact }) =>
-        wire(
-          sessions.parse({ id, ...(redact === undefined ? {} : { redact }) })
-        ),
-      "sessions.analyze": ({ id, window, dumbZone, redact }) =>
-        wire(
-          sessions.analyze({
-            id,
-            ...(window === undefined ? {} : { window }),
-            ...(dumbZone === undefined ? {} : { dumbZone }),
-            ...(redact === undefined ? {} : { redact }),
+/**
+ * Wrap every handler in a root span so a tracer can assemble one wide event per
+ * RPC call. rpc gains no telemetry dependency — this is a plain string attribute.
+ */
+const withRootSpans = <H extends Record<string, (...args: never[]) => unknown>>(
+  handlers: H,
+  rootSpans: boolean
+): H => {
+  if (!rootSpans) {
+    return handlers;
+  }
+  return Object.fromEntries(
+    Object.entries(handlers).map(([tag, handler]) => [
+      tag,
+      (...args: never[]) =>
+        (handler(...args) as Effect.Effect<unknown, unknown, unknown>).pipe(
+          Effect.withSpan(`rpc.${tag}`, {
+            attributes: { "peephole.root": true, "peephole.kind": "rpc" },
           })
         ),
-      "memory.allVaults": () => memory.getAllVaults(),
-      "memory.projects": () => memory.listProjects(),
-      "memory.vault": ({ project }) => memory.getVault(project),
-      "memory.create": ({ project, name, description, type, body }) =>
-        wire(memory.create({ project, name, description, type, body })),
-      "memory.update": ({
-        project,
-        name,
-        frontmatter,
-        body,
-        expectedMtime,
-      }) => {
-        const patch =
-          frontmatter === undefined
-            ? undefined
-            : {
-                ...(frontmatter.name === undefined
-                  ? {}
-                  : { name: frontmatter.name }),
-                ...(frontmatter.description === undefined
-                  ? {}
-                  : { description: frontmatter.description }),
-                ...(frontmatter.type === undefined
-                  ? {}
-                  : { type: frontmatter.type }),
-              };
-        return wire(
-          memory.update({
+    ])
+  ) as H;
+};
+
+/** Handler layer factory: requires the core services in context. */
+const makeHandlersLive = (rootSpans: boolean) =>
+  PeepholeRpcs.toLayer(
+    Effect.gen(function* () {
+      const sessions = yield* SessionsService;
+      const memory = yield* MemoryService;
+      const caps = yield* CapabilityRegistry;
+      const watch = yield* WatchService;
+
+      return withRootSpans(
+        {
+          "capabilities.list": () => caps.list(),
+          "watch.poll": () => watch.versions,
+          "sessions.list": ({ project }) =>
+            sessions
+              .list()
+              .pipe(
+                Effect.map((headers) =>
+                  project
+                    ? headers.filter((header) => header.project === project)
+                    : headers
+                )
+              ),
+          "sessions.get": ({ id, redact }) =>
+            wire(
+              sessions.parse({
+                id,
+                ...(redact === undefined ? {} : { redact }),
+              })
+            ),
+          "sessions.analyze": ({ id, window, dumbZone, redact }) =>
+            wire(
+              sessions.analyze({
+                id,
+                ...(window === undefined ? {} : { window }),
+                ...(dumbZone === undefined ? {} : { dumbZone }),
+                ...(redact === undefined ? {} : { redact }),
+              })
+            ),
+          "memory.allVaults": () => memory.getAllVaults(),
+          "memory.projects": () => memory.listProjects(),
+          "memory.vault": ({ project }) => memory.getVault(project),
+          "memory.create": ({ project, name, description, type, body }) =>
+            wire(memory.create({ project, name, description, type, body })),
+          "memory.update": ({
             project,
             name,
-            ...(patch === undefined ? {} : { frontmatter: patch }),
-            ...(body === undefined ? {} : { body }),
-            ...(expectedMtime === undefined ? {} : { expectedMtime }),
-          })
-        );
-      },
-      "memory.delete": ({ project, name }) =>
-        wire(memory.delete({ project, name })),
-    };
-  })
-);
+            frontmatter,
+            body,
+            expectedMtime,
+          }) => {
+            const patch = buildMemoryPatch(frontmatter);
+            return wire(
+              memory.update({
+                project,
+                name,
+                ...(patch === undefined ? {} : { frontmatter: patch }),
+                ...(body === undefined ? {} : { body }),
+                ...(expectedMtime === undefined ? {} : { expectedMtime }),
+              })
+            );
+          },
+          "memory.delete": ({ project, name }) =>
+            wire(memory.delete({ project, name })),
+        },
+        rootSpans
+      );
+    })
+  );
 
 /** Injection points for the core service wiring. */
 export interface HandlersLayerOptions {
@@ -191,6 +226,8 @@ export interface HandlersLayerOptions {
   readonly agents?: Layer.Layer<AgentRegistry>;
   /** Provide a custom platform `FileSystem` (defaults to Bun). */
   readonly fileSystem?: Layer.Layer<FileSystem.FileSystem>;
+  /** Wrap each handler in a root span so a tracer emits one wide event per call. */
+  readonly rootSpans?: boolean;
 }
 
 /** Compose the core services (sessions + memory + capabilities) over the FS. */
@@ -222,4 +259,6 @@ const coreServicesLayer = (options?: HandlersLayerOptions) => {
  * in-process client. Pass `agents`/`fileSystem` to retarget IO in tests.
  */
 export const makeHandlersLayer = (options?: HandlersLayerOptions) =>
-  handlersLive.pipe(Layer.provide(coreServicesLayer(options)));
+  makeHandlersLive(options?.rootSpans ?? false).pipe(
+    Layer.provide(coreServicesLayer(options))
+  );

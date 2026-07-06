@@ -18,7 +18,8 @@
     "@effect/platform-bun": "latest",
     "@effect/rpc": "latest",
     "@workspace/core": "workspace:*",
-    "@workspace/rpc": "workspace:*"
+    "@workspace/rpc": "workspace:*",
+    "@workspace/telemetry": "workspace:*"
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",

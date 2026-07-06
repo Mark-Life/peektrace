@@ -30,6 +30,5 @@ export {
 } from "./contract";
 export {
   type HandlersLayerOptions,
-  handlersLive,
   makeHandlersLayer,
 } from "./handlers";

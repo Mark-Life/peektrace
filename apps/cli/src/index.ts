@@ -8,12 +8,17 @@
  */
 import { Command, Options } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
-import { Console, Effect, Option } from "effect";
+import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
+import { Console, Effect, Layer, Option } from "effect";
 import type { GlobalsAccessor } from "./client";
+import { makeDoctor } from "./commands/doctor";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
 import { otelEnabled, tracingLayer } from "./tracing";
+
+/** The build version reported by the CLI and stamped on every wide event. */
+export const APP_VERSION = "0.0.1";
 
 const jsonOpt = Options.boolean("json").pipe(
   Options.withDescription("Emit raw JSON instead of rendered tables")
@@ -35,6 +40,14 @@ const otelOpt = Options.boolean("otel").pipe(
     "Log Effect spans to stderr (also enabled by PEEPHOLE_OTEL)"
   )
 );
+const telemetryOpt = Options.boolean("telemetry", {
+  negationNames: ["no-telemetry"],
+}).pipe(
+  Options.withDescription(
+    "Persist local wide-event telemetry (default on; --no-telemetry to disable)"
+  ),
+  Options.withDefault(true)
+);
 
 /** Root command — carries the global flags; prints a banner when run bare. */
 const peephole = Command.make(
@@ -44,6 +57,7 @@ const peephole = Command.make(
     readOnly: readOnlyOpt,
     remote: remoteOpt,
     otel: otelOpt,
+    telemetry: telemetryOpt,
     pretty: prettyOpt,
   },
   () =>
@@ -78,21 +92,43 @@ const memory = Command.make("memory").pipe(
 );
 
 const command = peephole.pipe(
-  Command.withSubcommands([sessions, memory, makeServe()])
+  Command.withSubcommands([sessions, memory, makeServe(), makeDoctor()])
 );
 
 const cli = Command.run(command, {
   name: "Peephole",
-  version: "0.0.1",
+  version: APP_VERSION,
 });
 
-// The tracer is installed at the runtime boundary so spans from every command
-// (and the long-lived `serve` fibers) are exported. The `--otel` flag is read
-// from argv here purely to pick the layer; it is also declared as a real option
-// above so CLI parsing accepts it. Off by default → default no-op tracer.
-const tracing = tracingLayer(otelEnabled(process.argv.includes("--otel")));
+// One tracer slot is chosen at boot from raw argv (flags are also parsed by
+// @effect/cli, but the tracer layer must be picked before dispatch). Telemetry
+// is ON by default and persists one wide event per invocation to local SQLite;
+// `--no-telemetry` (or `PEEPHOLE_NO_TELEMETRY`) opts out. `--otel` becomes the
+// stderr echo. When telemetry is off, `--otel` still drives the console tracer.
+const telemetryOn =
+  !process.argv.includes("--no-telemetry") &&
+  process.env.PEEPHOLE_NO_TELEMETRY == null;
+const echo = otelEnabled(process.argv.includes("--otel"));
+
+/** Pick the single tracer layer: local telemetry when on, else the echo/no-op. */
+const selectTracing = () => {
+  if (telemetryOn) {
+    return TelemetryTracerLive({ echo, appVersion: APP_VERSION }).pipe(
+      Layer.provide(TelemetryStoreLive)
+    );
+  }
+  return tracingLayer(echo);
+};
+const tracing = selectTracing();
 
 cli(process.argv).pipe(
+  Effect.withSpan("cli", {
+    attributes: {
+      "peephole.root": true,
+      "peephole.kind": "cli",
+      argv: process.argv.slice(2).join(" "),
+    },
+  }),
   Effect.provide(BunContext.layer),
   Effect.provide(tracing),
   BunRuntime.runMain
