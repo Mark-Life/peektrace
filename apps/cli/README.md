@@ -21,8 +21,47 @@ bun run apps/cli/src/index.ts serve
 bunx peephole serve
 ```
 
-`./src/index.ts` is the package `bin` (`peephole`), so a global install /
-`bunx` exposes the same commands documented below.
+`./src/index.ts` is the package `bin` (`peephole`) for local `bun run`, so a
+workspace `bunx` exposes the same commands documented below.
+
+## Distribution (npm)
+
+Published as a single unscoped package `peephole` that ships prebuilt binaries
+via `os`/`cpu`-filtered optional dependencies — one per platform, named
+`peephole-cli-<platform>-<arch>` (`darwin-arm64`, `darwin-x64`, `linux-x64`,
+`win32-x64`). Installing pulls only the host's binary; a tiny Node shim
+(`peephole.js`) resolves it and forwards argv.
+
+```sh
+npm install -g peephole      # or: bun install -g peephole
+peephole serve
+```
+
+`bun run --cwd apps/cli build:npm` cross-compiles every target (re-running
+`src/build.ts` with `BUN_TARGET`) and stages the publishable package dirs under
+the gitignored `apps/cli/dist-npm/`. Nothing is published automatically: publish
+each `peephole-cli-*` variant first, then the `peephole` wrapper (so its
+optionalDependencies resolve). The scoped `@peephole/*` naming is a documented
+alternative (needs an npm org) — see the header of `scripts/build-npm.ts`.
+
+### Running on a VPS / headless server
+
+The Linux binary runs headless. `peephole serve` binds loopback (`127.0.0.1`)
+only by default — nothing is exposed off-box and there is **no auth**. Reach it
+over an SSH tunnel:
+
+```sh
+ssh -N -L 4321:127.0.0.1:4321 user@server   # then open http://127.0.0.1:4321
+```
+
+To bind the network directly, pass `--host` (peephole warns at startup):
+
+```sh
+peephole serve --host 0.0.0.0                # no auth — firewall yourself
+```
+
+Only expose it behind a trusted firewall/private network; consider pairing with
+`--read-only`. The default stays loopback-only.
 
 ## Execution modes
 

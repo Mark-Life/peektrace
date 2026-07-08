@@ -1,0 +1,34 @@
+{
+  "name": "@workspace/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "predev": "bun run --filter=inspector build",
+    "dev": "electron-vite dev",
+    "prebuild": "bun run --filter=inspector build",
+    "build": "bun run scripts/build-sidecar.ts && electron-vite build",
+    "preview": "electron-vite preview",
+    "package": "electron-builder --config electron-builder.config.ts",
+    "package:mac": "electron-builder --mac --config electron-builder.config.ts",
+    "package:win": "electron-builder --win --config electron-builder.config.ts",
+    "package:linux": "electron-builder --linux --config electron-builder.config.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "electron-updater": "^6"
+  },
+  "devDependencies": {
+    "@workspace/typescript-config": "workspace:*",
+    "@types/node": "^24.9.2",
+    "electron": "41.2.1",
+    "electron-builder": "^26",
+    "electron-log": "^5",
+    "electron-store": "^10",
+    "electron-vite": "^5",
+    "electron-window-state": "^5.0.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0"
+  }
+}

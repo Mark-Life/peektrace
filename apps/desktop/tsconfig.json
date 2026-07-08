@@ -1,0 +1,9 @@
+{
+  "extends": "@workspace/typescript-config/effect-library.json",
+  "compilerOptions": {
+    "strictNullChecks": true,
+    "types": ["node", "electron", "bun"]
+  },
+  "include": ["src", "scripts", "electron.vite.config.ts"],
+  "exclude": ["node_modules", "out"]
+}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements applied to the signed Peephole .app (and
+  inherited by child processes). These matter only once the app is signed; they
+  are harmless in the current unsigned build. Each key is required:
+    - allow-jit: Electron's V8/Chromium JITs JS -> needs writable+executable pages.
+    - allow-unsigned-executable-memory: pairs with JIT; hardened runtime otherwise
+      forbids executing unsigned mapped memory (V8 codegen + Bun's JSC).
+    - allow-dyld-environment-variables: hardened runtime strips DYLD_/NODE_* env at
+      exec; Peephole passes PEEPHOLE_* env to the sidecar child and Electron reads
+      NODE_OPTIONS/NODE_PATH -> without this they are dropped.
+    - disable-library-validation: the embedded Bun-compiled `peephole` binary in
+      Resources/ loads dylibs outside the app's signing chain -> Apple's library
+      validator would otherwise refuse to load them.
+-->
+<plist version="1.0">
+  <dict>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+  </dict>
+</plist>

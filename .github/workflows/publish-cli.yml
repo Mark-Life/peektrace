@@ -1,0 +1,127 @@
+name: Publish CLI
+
+run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
+# Publishes the `peephole` npm CLI. A push of a `cli-v<semver>` tag drives an
+# automatic publish; workflow_dispatch stays available for repair runs. The tag
+# is the source of truth for the version: the workflow strips `cli-v`, stamps
+# the bare semver into apps/cli/package.json, then build:npm cross-compiles all
+# four platform binaries on this one host and stages them under dist-npm/.
+#
+# npm layout (see apps/cli/scripts/build-npm.ts): four unscoped per-platform
+# packages `peephole-cli-<platform>-<arch>` (each os/cpu-filtered) plus the
+# `peephole` wrapper whose optionalDependencies pin those variants at the exact
+# version. The variants MUST publish before the wrapper so its optional deps
+# resolve.
+
+on:
+  push:
+    tags:
+      - "cli-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to publish (e.g. cli-v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-cli-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Derive version from tag
+        env:
+          RAW_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${RAW_TAG#cli-v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Tag '$RAW_TAG' does not yield a valid semver (got '$VERSION'). Expected cli-v<semver>." >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Publishing peephole@$VERSION"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Stamp AFTER install so the frozen lockfile check sees the committed
+      # version. build-npm.ts re-reads apps/cli/package.json at build time and
+      # stamps VERSION into the wrapper, every variant, and the wrapper's
+      # optionalDependencies, so they all match.
+      - name: Stamp CLI version
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        working-directory: apps/cli
+
+      - name: Build inspector UI
+        run: bun run --filter=inspector build
+
+      - name: Stage npm packages
+        run: bun run --filter=peephole build:npm
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Idempotent publish: skip if the exact name@version already exists,
+          # and treat a race where npm reports it as already published as
+          # success — so a partially-failed run is safe to retry.
+          publish_dir() {
+            local dir="$1"
+            local name version
+            name="$(node -p "require('./$dir/package.json').name")"
+            version="$(node -p "require('./$dir/package.json').version")"
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "Skip: $name@$version already published."
+              return 0
+            fi
+            echo "Publishing $name@$version"
+            local out
+            if out="$(npm publish "$dir" --access public 2>&1)"; then
+              printf '%s\n' "$out"
+              return 0
+            fi
+            printf '%s\n' "$out"
+            if printf '%s' "$out" | grep -Eqi 'previously published|cannot publish over|version already exists'; then
+              echo "Treating as already published: $name@$version"
+              return 0
+            fi
+            return 1
+          }
+
+          # Per-platform variants FIRST (sequentially — the registry 409s on
+          # concurrent packument writes), then the wrapper LAST so its
+          # optionalDependencies already exist in the registry.
+          for d in apps/cli/dist-npm/peephole-cli-*; do
+            publish_dir "$d"
+          done
+          publish_dir "apps/cli/dist-npm/peephole"

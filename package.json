@@ -15,6 +15,8 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "serve": "bun run --filter=inspector build && bun run apps/cli/src/index.ts serve",
+    "desktop:dev": "bun run --filter=@workspace/desktop dev",
+    "desktop:package": "bun run --filter=@workspace/desktop package:mac",
     "lint": "bun run check",
     "typecheck": "turbo typecheck",
     "format": "bun run fix",

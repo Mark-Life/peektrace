@@ -9,7 +9,11 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "start": "bun run src/index.ts"
+    "start": "bun run src/index.ts",
+    "build:ui": "bun run --filter=inspector build",
+    "build:binary": "bun run src/build.ts",
+    "build:npm": "bun run scripts/build-npm.ts",
+    "build": "bun run src/build.ts"
   },
   "dependencies": {
     "effect": "latest",

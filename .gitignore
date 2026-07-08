@@ -27,6 +27,19 @@ out/
 build
 dist
 
+# Staged npm publish artifacts (peephole CLI per-platform packages)
+apps/cli/dist-npm/
+
+# Desktop packaging artifacts
+apps/desktop/resources/
+apps/desktop/dist-app/
+apps/desktop/out/
+
+# Committed buildResources (icon + entitlements) — the bare `build` rule above
+# ignores every `build/` dir; keep this one tracked.
+!apps/desktop/build/
+!apps/desktop/build/**
+
 
 # Debug
 npm-debug.log*

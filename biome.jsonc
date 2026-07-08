@@ -9,6 +9,7 @@
       "packages/**/*.tsx",
       "!node_modules/**/*",
       "!dist/**/*",
+      "!apps/cli/scripts/npm",
       "!packages/ui/src/components/**/*",
       "!packages/ui/src/hooks/**/*",
       "!packages/ui/src/lib/**/*"
@@ -31,6 +32,9 @@
       }
     }
   ],
+  "javascript": {
+    "globals": ["Bun"]
+  },
   "linter": {
     "enabled": true,
     "rules": {

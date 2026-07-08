@@ -8,6 +8,14 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
+    "build:binary": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@workspace/desktop#build": {
+      "dependsOn": ["inspector#build", "peephole#build:binary"],
+      "outputs": ["out/**", "dist-app/**", "resources/**"]
+    },
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },

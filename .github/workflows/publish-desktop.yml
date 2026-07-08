@@ -1,0 +1,298 @@
+name: Publish Desktop App
+
+run-name: "publish desktop ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+
+# Builds the Peephole Electron app for mac (arm64 + x64), Windows (x64) and
+# Linux (x64), each with the compiled `peephole` CLI bundled as a sidecar in
+# resources/peephole/, then attaches the installers + auto-update manifests to
+# the GitHub Release matching the tag so electron-updater can pick them up.
+#
+# The desktop stream owns an INDEPENDENT `desktop-v<semver>` tag (decoupled
+# from the CLI's cli-v* stream): pushing such a tag drives an automatic build;
+# workflow_dispatch stays available for repair runs. The tag is the source of
+# truth for the app version — the build job strips `desktop-v` and stamps the
+# bare semver into apps/desktop/package.json (and apps/cli/package.json so the
+# bundled `peephole --version` matches) before electron-builder embeds it.
+#
+# Builds ship UNSIGNED for now (no CSC_LINK / APPLE_API_* secrets); the mac
+# signing env below is left commented for a later signed-build pass.
+
+on:
+  push:
+    tags:
+      - "desktop-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to publish (e.g. desktop-v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # smoke: only legs whose target matches the runner can exec + boot the
+          # compiled sidecar. The mac x64 leg cross-compiles on an arm64 runner,
+          # so its binary can't run natively there -> no smoke.
+          - os: macos-latest
+            arch: arm64
+            platform: mac
+            bun-target: bun-darwin-arm64
+            smoke: true
+          - os: macos-latest
+            arch: x64
+            platform: mac
+            bun-target: bun-darwin-x64
+            smoke: false
+          - os: ubuntu-latest
+            arch: x64
+            platform: linux
+            bun-target: bun-linux-x64
+            smoke: true
+          - os: windows-latest
+            arch: x64
+            platform: win
+            bun-target: bun-windows-x64
+            smoke: true
+
+    runs-on: ${{ matrix.os }}
+
+    # concurrency below never cancels an in-flight publish, so a hung leg would
+    # wedge the queue indefinitely without a deadline. A healthy leg is minutes.
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Derive version from tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#desktop-v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Tag '$RELEASE_TAG' does not yield a valid semver (got '$VERSION'). Expected desktop-v<semver>." >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Building Peephole desktop $VERSION"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Stamp AFTER install so the frozen lockfile check passes. electron-builder
+      # reads apps/desktop/package.json at pack time (app version + latest*.yml
+      # `version:` + artifact naming); apps/cli is stamped too so the bundled
+      # sidecar reports the same version.
+      - name: Stamp desktop version
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        working-directory: apps/desktop
+
+      - name: Stamp CLI version
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        working-directory: apps/cli
+
+      - name: Build inspector UI
+        run: bun run --filter=inspector build
+
+      - name: Build bundled sidecar
+        env:
+          BUN_TARGET: ${{ matrix.bun-target }}
+        run: bun scripts/build-sidecar.ts
+        working-directory: apps/desktop
+
+      # Gate the release on the compiled binary actually booting: `bun build
+      # --compile` doesn't bundle native bindings dev mode resolves from
+      # node_modules, so a binary can typecheck yet die on launch.
+      - name: Smoke test sidecar (unix)
+        if: matrix.smoke && matrix.platform != 'win'
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          PORT=4321
+          ./resources/peephole/peephole serve --port "$PORT" --no-open &
+          SRV=$!
+          trap 'kill "$SRV" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            if curl -fsS "http://127.0.0.1:$PORT/health" 2>/dev/null | grep -q '^ok$'; then
+              echo "Smoke OK: /health returned ok"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Sidecar smoke test failed: /health never returned ok" >&2
+          exit 1
+
+      - name: Smoke test sidecar (windows)
+        if: matrix.smoke && matrix.platform == 'win'
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $port = 4321
+          $proc = Start-Process -FilePath "./resources/peephole/peephole.exe" `
+            -ArgumentList "serve","--port","$port","--no-open" -PassThru -NoNewWindow
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              try {
+                $r = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:$port/health" -TimeoutSec 2
+                if ($r.Content -match "ok") { $ok = $true; break }
+              } catch { Start-Sleep -Seconds 1 }
+            }
+            if (-not $ok) { Write-Error "Sidecar smoke test failed: /health never returned ok"; exit 1 }
+            Write-Host "Smoke OK: /health returned ok"
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Build Electron main/preload/renderer
+        run: bunx --bun electron-vite build
+        working-directory: apps/desktop
+
+      # mac signing/notarization env — left commented until certs exist. Add the
+      # secrets, then wire these back into the electron-builder step below:
+      #   CSC_LINK, CSC_KEY_PASSWORD (Developer ID cert, .p12 base64)
+      #   APPLE_API_KEY (path), APPLE_API_KEY_ID, APPLE_API_ISSUER (notarytool)
+      # Without them electron-builder silently emits an unsigned build.
+      - name: Build desktop distributables
+        env:
+          # electron-builder reads GH_TOKEN for its own publish step; we pass
+          # --publish never and the release job attaches assets explicitly, so
+          # this is only for provider metadata.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # CSC_LINK: ${{ secrets.CSC_LINK }}
+          # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          # APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          # APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: bunx --bun electron-builder --${{ matrix.platform }} --${{ matrix.arch }} --publish never --config electron-builder.config.ts
+        working-directory: apps/desktop
+
+      # Each mac leg emits a latest-mac.yml listing only its arch; rename per
+      # arch so download-artifact merge-multiple can't clobber. The release job
+      # merges them back into the single latest-mac.yml the updater fetches.
+      - name: Rename mac update manifest per arch
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: mv apps/desktop/dist-app/latest-mac.yml "apps/desktop/dist-app/latest-mac-${{ matrix.arch }}.yml"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            apps/desktop/dist-app/*.dmg
+            apps/desktop/dist-app/*.zip
+            apps/desktop/dist-app/*.exe
+            apps/desktop/dist-app/*.AppImage
+            apps/desktop/dist-app/*.deb
+            apps/desktop/dist-app/*.rpm
+            apps/desktop/dist-app/*.blockmap
+            apps/desktop/dist-app/latest*.yml
+          if-no-files-found: warn
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.9
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # Union the two mac legs' per-arch manifests into the single latest-mac.yml
+      # electron-updater fetches (x64 first — its legacy top-level fields win).
+      - name: Merge mac update manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f artifacts/latest-mac-x64.yml ] && [ -f artifacts/latest-mac-arm64.yml ]; then
+            bun apps/desktop/scripts/merge-latest-mac-yml.ts \
+              artifacts/latest-mac-x64.yml \
+              artifacts/latest-mac-arm64.yml \
+              artifacts/latest-mac.yml
+            rm artifacts/latest-mac-x64.yml artifacts/latest-mac-arm64.yml
+          else
+            echo "One or both per-arch mac manifests missing; skipping merge."
+          fi
+
+      # The desktop tag is independent (no CLI-created draft), so this job owns
+      # the release lifecycle: create it as a draft if missing (idempotent),
+      # attach every asset, then flip to published.
+      - name: Ensure draft release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --title "$RELEASE_TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
+
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r file; do
+            echo "Uploading: $file"
+            gh release upload "$RELEASE_TAG" "$file" --repo "$GITHUB_REPOSITORY" --clobber
+          done < <(find artifacts -type f \
+            \( -name "*.dmg" -o -name "*.zip" -o -name "*.exe" \
+            -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+            -o -name "*.blockmap" \
+            -o -name "latest*.yml" \))
+
+      # Flip draft -> published only after every asset is uploaded; this is the
+      # atomic point where /releases/latest and the updater feed become valid.
+      - name: Promote release (draft -> published)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$RELEASE_TAG" --draft=false --repo "$GITHUB_REPOSITORY"
