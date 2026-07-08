@@ -39,13 +39,39 @@ bun run serve
 ```
 
 `bun run serve` builds `apps/inspector` then runs `peephole serve`. To run the
-binary directly (e.g. with flags), or once the package is published:
+binary directly (e.g. with flags):
 
 ```sh
 bun run --filter=inspector build          # emit apps/inspector/dist once
 bun run apps/cli/src/index.ts serve       # in-process serve
-bunx peephole serve                       # published-package form
 ```
+
+### Install as a global CLI
+
+```sh
+npm i -g peephole      # or: bun add -g peephole
+peephole serve         # loopback inspector; open the printed URL
+```
+
+Ships prebuilt per-platform binaries (macOS arm64/x64, Linux x64, Windows x64)
+via optional dependencies — no build step, no Bun on the target. On a headless
+server (e.g. a VPS), `peephole serve --host 0.0.0.0 --port <p>` binds all
+interfaces (**no auth — firewall it yourself**); the default is loopback-only.
+
+### Desktop app
+
+`apps/desktop` wraps the same compiled binary in an Electron shell — native
+window, single-instance lock, and auto-update from GitHub Releases. The shell
+spawns the binary as a loopback sidecar and loads its URL.
+
+```sh
+bun run desktop:dev        # run unpackaged
+bun run desktop:package    # build a macOS .dmg (unsigned)
+```
+
+CI publishes the desktop app on `desktop-v*` tags and the CLI on `cli-v*` tags.
+Mac builds are currently **unsigned** (Gatekeeper right-click → Open on first
+launch); signing/notarization is documented in `.docs/plan/desktop-app.md`.
 
 ### One-shot CLI
 
@@ -80,13 +106,15 @@ transport.
 | --- | --- |
 | `packages/core` | Effect services: agents · capabilities · sessions · memory · fs · watch |
 | `packages/rpc` | Effect-RPC contract + handlers + typed client |
-| `apps/cli` | `peephole` binary: one-shot commands + `serve` |
+| `apps/cli` | `peephole` binary: one-shot commands + `serve` + npm packaging |
 | `apps/inspector` | Vite + React + Effect-Atom UI |
+| `apps/desktop` | Electron shell around the compiled binary (sidecar + auto-update) |
 
-> Single-binary spike: `bun build --compile` against `apps/cli/src/index.ts`
-> can in principle ship a standalone `peephole` executable (the inspector `dist`
-> would need to be embedded or shipped alongside, since `serve` resolves it from
-> `apps/inspector/dist`). Not wired yet — noted as a packaging follow-up.
+> **Distribution.** `apps/cli` compiles to a standalone `peephole` executable
+> with the inspector **embedded** (`bun run --filter=peephole build:binary`) — it
+> serves with zero external files. The same binary ships two ways: `npm i -g
+> peephole` (per-platform packages) and as the sidecar inside the Peephole
+> desktop app. Full plan: `.docs/plan/desktop-app.md`.
 
 ---
 
