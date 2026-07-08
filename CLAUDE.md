@@ -1,4 +1,5 @@
-@.agents/skills/quality-code/SKILL.md
+## Coding
+for coding load quality-code skill
 
 When making decisions on new stack, or libs to add, read stack options from the template author at `.docs/stack.md`.
 
