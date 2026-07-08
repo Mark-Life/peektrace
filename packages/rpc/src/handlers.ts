@@ -163,14 +163,16 @@ const makeHandlersLive = (rootSpans: boolean) =>
         {
           "capabilities.list": () => caps.list(),
           "watch.poll": () => watch.versions,
-          "sessions.list": ({ project }) =>
+          "sessions.list": ({ project, agent }) =>
             sessions
               .list()
               .pipe(
                 Effect.map((headers) =>
-                  project
-                    ? headers.filter((header) => header.project === project)
-                    : headers
+                  headers.filter(
+                    (header) =>
+                      (!project || header.project === project) &&
+                      (!agent || header.agent === agent)
+                  )
                 )
               ),
           "sessions.get": ({ id, redact }) =>

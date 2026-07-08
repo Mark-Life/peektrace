@@ -50,15 +50,29 @@ describe("AgentRegistry slug encoding", () => {
 });
 
 describe("AgentRegistry agent gating", () => {
-  test("non-Claude resolvers fail with AgentUnsupportedError", () =>
+  test("Claude-layout resolvers fail for non-Claude agents", () =>
     run(
       Effect.gen(function* () {
         const reg = yield* AgentRegistry;
-        const result = yield* Effect.either(reg.projectsRoot("codex"));
+        // listProjectSlugs / memoryDir are gated on the Claude project layout;
+        // Codex (date tree) has no per-project dirs even though it is supported.
+        const result = yield* Effect.either(reg.listProjectSlugs("codex"));
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
           expect(result.left._tag).toBe("AgentUnsupportedError");
           expect(result.left.agent).toBe("codex");
+        }
+      })
+    ));
+
+  test("unsupported agents fail session resolvers too", () =>
+    run(
+      Effect.gen(function* () {
+        const reg = yield* AgentRegistry;
+        const result = yield* Effect.either(reg.projectsRoot("opencode"));
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("AgentUnsupportedError");
         }
       })
     ));
@@ -73,7 +87,14 @@ describe("AgentRegistry agent gating", () => {
           expect(roots.projectsRoot.length).toBeGreaterThan(0);
         }
         expect(reg.roots("claude").supported).toBe(true);
-        expect(reg.roots("codex").supported).toBe(false);
+        // Codex + Pi sessions are now parseable.
+        expect(reg.roots("codex").supported).toBe(true);
+        expect(reg.roots("pi").supported).toBe(true);
+        expect(reg.roots("opencode").supported).toBe(false);
+        expect(
+          reg.roots("pi").projectsRoot.endsWith("/.pi/agent/sessions")
+        ).toBe(true);
+        expect(reg.roots("codex").layout).toBe("codex-datetree");
       })
     ));
 });

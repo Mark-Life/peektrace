@@ -24,6 +24,7 @@ const encodeSlug = (p: string) => p.replace(/[/.]/g, "-");
 const stubRoots = (id: AgentId): AgentRoots => ({
   id,
   home: join(FIXTURE_DIR, "home"),
+  layout: id === "claude" ? "claude-projects" : "none",
   projectsRoot: PROJECTS_ROOT,
   supported: id === "claude",
 });
@@ -33,6 +34,18 @@ const agentStub: AgentRegistryShape = {
   encodeSlug,
   gitRoot: (cwd) => Effect.succeed(cwd),
   listProjectSlugs: () => Effect.succeed([SLUG]),
+  listSessionFiles: (id) =>
+    Effect.succeed(
+      id === "claude"
+        ? [
+            {
+              path: join(PROJECTS_ROOT, SLUG, `${SESSION_ID}.jsonl`),
+              id: SESSION_ID,
+              slug: SLUG,
+            },
+          ]
+        : []
+    ),
   memoryDir: ({ slug }) => Effect.succeed(join(PROJECTS_ROOT, slug, "memory")),
   projectsRoot: () => Effect.succeed(PROJECTS_ROOT),
   roots: stubRoots,
@@ -68,6 +81,7 @@ describe("SessionsService.list (lazy headers)", () => {
         const h = headers[0];
         expect(h.id).toBe(SESSION_ID);
         expect(h.project).toBe(SLUG);
+        expect(h.agent).toBe("claude");
         expect(h.cwd).toBe("/Users/demo/proj");
         expect(h.gitBranch).toBe("main");
         expect(h.model).toBe("claude-opus-4");

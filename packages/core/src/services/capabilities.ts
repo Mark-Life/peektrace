@@ -50,14 +50,30 @@ const CAPABILITIES: readonly Capability[] = [
     group: "Sessions",
     title: "Session browser",
     description: "Browse sessions and open a transcript with full history.",
-    perAgent: claudeOnly({ codex: "Codex sessions: planned" }),
+    perAgent: {
+      claude: { level: "supported" },
+      codex: { level: "supported" },
+      pi: { level: "supported" },
+      opencode: { level: "planned" },
+    },
   },
   {
     id: "session.debug-context",
     group: "Sessions",
     title: "Context debug",
     description: "Reproduce the context-budget forensics at peak.",
-    perAgent: claudeOnly(),
+    perAgent: {
+      claude: { level: "supported" },
+      codex: {
+        level: "partial",
+        note: "Ground-truth usage + authoritative window; no on-disk memory attribution.",
+      },
+      pi: {
+        level: "partial",
+        note: "Ground-truth usage; context window inferred from the model.",
+      },
+      opencode: { level: "planned" },
+    },
   },
   {
     id: "memory.view",

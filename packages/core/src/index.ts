@@ -6,6 +6,8 @@ export {
   type AgentRegistryShape,
   type AgentRoots,
   AgentUnsupportedError,
+  type SessionFileRef,
+  type SessionLayout,
 } from "./services/agents";
 export {
   type Capability,
@@ -46,6 +48,12 @@ export {
   parseJsonl,
 } from "./services/sessions/parse";
 export {
+  PARSERS,
+  parseCodexSession,
+  parsePiSession,
+  type SessionParser,
+} from "./services/sessions/parsers";
+export {
   redactParsed,
   redactSession,
   redactText,
@@ -70,6 +78,7 @@ export {
   LoadedCategory,
   OnDiskContextFile,
   ParsedSession,
+  Provider,
   SessionHeader,
   SubagentRef,
   SystemLine,

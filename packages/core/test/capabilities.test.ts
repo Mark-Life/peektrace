@@ -32,19 +32,26 @@ describe("CapabilityRegistry matrix", () => {
       Effect.gen(function* () {
         const reg = yield* CapabilityRegistry;
         const caps = yield* reg.list();
-        const committed = [
-          "session.view",
-          "session.debug-context",
-          "memory.view",
-          "memory.crud",
-        ];
-        for (const id of committed) {
-          const cap = caps.find((c) => c.id === id);
+        const findCap = (id: string) => caps.find((c) => c.id === id);
+        // Memory surfaces remain Claude-only.
+        for (const id of ["memory.view", "memory.crud"]) {
+          const cap = findCap(id);
           expect(cap?.perAgent.claude.level).toBe("supported");
           expect(cap?.perAgent.codex.level).toBe("planned");
           expect(cap?.perAgent.pi.level).toBe("planned");
           expect(cap?.perAgent.opencode.level).toBe("planned");
         }
+        // Session browsing now spans Claude, Codex and Pi.
+        const view = findCap("session.view");
+        expect(view?.perAgent.claude.level).toBe("supported");
+        expect(view?.perAgent.codex.level).toBe("supported");
+        expect(view?.perAgent.pi.level).toBe("supported");
+        expect(view?.perAgent.opencode.level).toBe("planned");
+        // Context forensics are full for Claude, partial for Codex/Pi.
+        const debug = findCap("session.debug-context");
+        expect(debug?.perAgent.claude.level).toBe("supported");
+        expect(debug?.perAgent.codex.level).toBe("partial");
+        expect(debug?.perAgent.pi.level).toBe("partial");
       })
     ));
 

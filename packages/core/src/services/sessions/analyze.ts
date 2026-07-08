@@ -377,8 +377,13 @@ export const analyze = (
   const peak = computePeak(turns);
   const finalContextTokens = turns.at(-1)?.contextTokens ?? 0;
 
-  const contextWindow = opts.window ?? DEFAULT_WINDOW;
-  const contextWindowInferred = opts.window === undefined;
+  // Precedence: explicit override > authoritative value from the transcript
+  // (Codex `model_context_window`) > the inferred default. Only the last case
+  // marks the window as inferred.
+  const native = p.nativeContextWindow;
+  const contextWindow = opts.window ?? native ?? DEFAULT_WINDOW;
+  const contextWindowInferred =
+    opts.window === undefined && native === undefined;
 
   const systemOverheadTokens = computeSystemOverhead(p);
   const { snapshots, compactionTurns } = walkTurns({ p, systemOverheadTokens });
