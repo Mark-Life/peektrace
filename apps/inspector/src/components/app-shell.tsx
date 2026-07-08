@@ -76,7 +76,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
             P
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="font-semibold text-sm">Peephole</span>
+            <span className="font-semibold text-sm">Peektrace</span>
             <span className="text-muted-foreground text-xs">
               Claude inspector
             </span>

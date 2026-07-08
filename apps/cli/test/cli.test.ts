@@ -1,4 +1,4 @@
-/** Smoke tests for the `peephole` CLI building blocks.
+/** Smoke tests for the `peektrace` CLI building blocks.
  *
  * Covers the pure renderers and one real in-process RPC round-trip
  * (`capabilities.list`) driven through the same client + handlers the CLI uses —

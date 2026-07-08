@@ -1,7 +1,7 @@
 /** Public surface of `@workspace/rpc`: the Effect-RPC contract, the wired
  * handler layer factory, and the typed clients (HTTP + in-process). */
 export {
-  createPeepholeClient,
+  createPeektraceClient,
   makeInProcessClient,
   protocolLayer,
 } from "./client";
@@ -18,7 +18,7 @@ export {
   MemoryValidationError,
   MemoryVaultPayload,
   PathOutsideRootError,
-  PeepholeRpcs,
+  PeektraceRpcs,
   SessionAnalyzePayload,
   SessionGetPayload,
   SessionNotFoundError,

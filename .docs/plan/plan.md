@@ -1,4 +1,4 @@
-# Peephole — Build Plan (L1)
+# Peektrace — Build Plan (L1)
 
 Spec for an AI coding agent. Companion to [`goal.md`](./goal.md) (architecture) and
 [`coding-agent-inspector-ideas.md`](./coding-agent-inspector-ideas.md) (backlog).
@@ -8,13 +8,13 @@ This file = phases → steps → Definition of Done. Build in order; steps marke
 
 ## 0. End state (acceptance)
 
-`bunx peephole serve` boots the Effect core, serves a Vite/React UI + Effect-RPC on `127.0.0.1`, opens the browser. The UI has three sections:
+`bunx peektrace serve` boots the Effect core, serves a Vite/React UI + Effect-RPC on `127.0.0.1`, opens the browser. The UI has three sections:
 
 1. **Memory** — view / create / edit / delete **Claude Code** memories across **all projects** (cross-project explorer, same default as the `memory-view` skill: every memory on the machine grouped by project, with per-project drill-in), with the forensic surface (budget gauge, type donut, browse table, index↔files diff, link graph). CRUD writes back to disk atomically.
 2. **Sessions** — browse **Claude** sessions, open one, see full context debug = parity with `session-report` (context budget at peak, growth timeline + dumb-zone, thinking band, loaded artifacts, full searchable history). (Codex/Pi/OpenCode are **out of scope** for the build — they appear only in the matrix as not-yet-supported.)
 3. **Capabilities** — a feature × agent support matrix (Claude / Codex / Pi / OpenCode). Click a cell → why it is supported / partial / planned / unsupported (e.g. "memory edit: Claude only", "Codex sessions: planned").
 
-`peephole serve` is the headline. One-shot CLI commands (`sessions ls`, `memory ls`, …) exist for scripting. All disk I/O is in `core`; interfaces stay dumb.
+`peektrace serve` is the headline. One-shot CLI commands (`sessions ls`, `memory ls`, …) exist for scripting. All disk I/O is in `core`; interfaces stay dumb.
 
 ---
 
@@ -130,7 +130,7 @@ Decisions are locked (see resolved list §13).
   - `memory.allVaults` · `memory.projects` · `memory.vault(project)` · `memory.create` · `memory.update` · `memory.delete`
   All payload types derived from core schemas (no hand-duplication). Errors surfaced as typed RPC failures (`FileChangedError`, `CapabilityUnsupportedError`, …).
 - **4.2 — Handlers.** Implement the group against core services; compose required layers. Keep handlers thin (no logic).
-- **4.3 — Client.** Export a typed RPC client factory (`createPeepholeClient(baseUrl)`) for in-process and HTTP transports. End-to-end types: disk → core → UI.
+- **4.3 — Client.** Export a typed RPC client factory (`createPeektraceClient(baseUrl)`) for in-process and HTTP transports. End-to-end types: disk → core → UI.
 
 **DoD:** an in-process `bun test` drives every procedure through the real handlers + core against fixtures (no HTTP) and gets typed results · a forced `memory.update` CAS conflict returns the typed error over RPC · client types compile against the contract with zero `any`.
 
@@ -138,13 +138,13 @@ Decisions are locked (see resolved list §13).
 
 ## Phase 5 — CLI app (`apps/cli`) + `serve`
 
-**Goal:** `peephole` binary: scriptable commands + the browser server.
+**Goal:** `peektrace` binary: scriptable commands + the browser server.
 
-- **5.1 — `@effect/cli` skeleton.** `peephole` with subcommands. Two execution modes: **in-process** (provide core layers directly) and `--remote <url>` (RPC HTTP client). Global flags: `--read-only` (swap `FsReadOnly`), `--json`.
+- **5.1 — `@effect/cli` skeleton.** `peektrace` with subcommands. Two execution modes: **in-process** (provide core layers directly) and `--remote <url>` (RPC HTTP client). Global flags: `--read-only` (swap `FsReadOnly`), `--json`.
 - **5.2 — One-shot commands.** `sessions ls [--agent] [--project]`, `sessions analyze <id>`, `memory ls [project]`, `memory show <project> <name>`, `memory rm <project> <name>`. Render tables to stdout; `--json` emits raw.
 - **5.3 — `serve` command.** `@effect/platform-bun` `BunHttpServer`: mount RPC handler at `/rpc`; serve the built inspector static assets (from `apps/inspector/dist`) at `/`; bind `127.0.0.1:<port>` (default + auto-pick if busy); open browser (`--open`, default true); `--no-open`, `--port`. Provide all core layers once at server boot; integrate `watch` (Phase 9) for live updates.
 
-**DoD:** `peephole sessions ls` lists real local sessions · `peephole memory ls` lists projects with memory · `peephole serve --no-open` starts, `curl /rpc` returns a valid RPC response, `/` serves `index.html` · `--read-only` makes `memory rm` fail with a clear message · `--remote <url>` hits a running server.
+**DoD:** `peektrace sessions ls` lists real local sessions · `peektrace memory ls` lists projects with memory · `peektrace serve --no-open` starts, `curl /rpc` returns a valid RPC response, `/` serves `index.html` · `--read-only` makes `memory rm` fail with a clear message · `--remote <url>` hits a running server.
 
 ---
 
@@ -154,9 +154,9 @@ Decisions are locked (see resolved list §13).
 
 - **6.1 — Vite + React 19 + Tailwind v4** importing `@workspace/ui` (shadcn). App shell: left nav (Memory · Sessions · Capabilities), routing, dark mode (`next-themes` already in ui).
 - **6.2 — Effect Atom data layer.** Atoms wrapping the RPC client; loading/error/success as a discriminated union (no flag bags). One `client` atom configurable by base URL.
-- **6.3 — Dev vs prod transport.** Dev: Vite dev server + proxy `/rpc` → running `peephole serve` (or a `dev:server` script). Prod: same-origin (served by `serve`). Document both in `apps/inspector/README.md`.
+- **6.3 — Dev vs prod transport.** Dev: Vite dev server + proxy `/rpc` → running `peektrace serve` (or a `dev:server` script). Prod: same-origin (served by `serve`). Document both in `apps/inspector/README.md`.
 
-**DoD:** `bun dev` (inspector) renders the shell, reaches `/rpc`, shows live `capabilities.list` data · production build (`vite build`) emits `dist/` that `peephole serve` serves successfully.
+**DoD:** `bun dev` (inspector) renders the shell, reaches `/rpc`, shows live `capabilities.list` data · production build (`vite build`) emits `dist/` that `peektrace serve` serves successfully.
 
 ---
 
@@ -202,7 +202,7 @@ Decisions are locked (see resolved list §13).
 
 **Goal:** Ship-quality seed.
 
-- **10.1** `peephole serve` packaged path: `vite build` → `serve` ships the static UI; document `bunx peephole serve`. Optional `bun build --compile` single-binary spike (note only).
+- **10.1** `peektrace serve` packaged path: `vite build` → `serve` ships the static UI; document `bunx peektrace serve`. Optional `bun build --compile` single-binary spike (note only).
 - **10.2** Error/empty states everywhere: no projects with memory, no sessions, unreadable/locked files, malformed transcripts (defensive parsing — undocumented formats may drift; skip-and-warn, never crash).
 - **10.3** OTel: confirm spans on every core IO op; a `--otel` flag or env wiring an exporter (no-op default).
 - **10.4** Docs: root `README` section + `apps/cli/README` (commands, modes) + `apps/inspector/README` (dev/prod). Update `goal.md` package table footnote pointing to the `packages/rpc` / `apps/inspector` deviation.

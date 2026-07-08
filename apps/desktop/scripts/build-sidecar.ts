@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 /**
- * Stage the compiled `peephole` CLI binary as the desktop sidecar.
+ * Stage the compiled `peektrace` CLI binary as the desktop sidecar.
  *
  * Runs the CLI's own `src/build.ts` (which compiles a single self-contained Bun
  * binary for the host, or the `BUN_TARGET` cross target so CI can drive one leg
- * per arch), then copies the emitted binary into `resources/peephole/` and sets
+ * per arch), then copies the emitted binary into `resources/peektrace/` and sets
  * the unix exec bit. electron-builder later ships that directory verbatim as an
  * `extraResources` entry — outside the asar, since asar-packed files can't be
  * exec'd.
@@ -22,7 +22,7 @@ const SCRIPTS_DIR = import.meta.dirname;
 const ROOT = resolve(SCRIPTS_DIR, "..");
 const REPO_ROOT = resolve(ROOT, "..", "..");
 const CLI_ROOT = join(REPO_ROOT, "apps", "cli");
-const OUT_DIR = join(ROOT, "resources", "peephole");
+const OUT_DIR = join(ROOT, "resources", "peektrace");
 
 /**
  * Bun compile target strings keyed by `<platform>-<arch>`. Kept in sync with the
@@ -65,9 +65,9 @@ const compileBinary = (target: string) => {
   }
 };
 
-/** Copy the compiled binary (plus any sibling assets) into `resources/peephole/`. */
+/** Copy the compiled binary (plus any sibling assets) into `resources/peektrace/`. */
 const stageBinary = async (target: string) => {
-  const binaryName = target.includes("windows") ? "peephole.exe" : "peephole";
+  const binaryName = target.includes("windows") ? "peektrace.exe" : "peektrace";
   const source = join(CLI_ROOT, "dist", target, binaryName);
   const dest = join(OUT_DIR, binaryName);
 

@@ -20,8 +20,8 @@ describe("AgentRegistry slug encoding", () => {
       Effect.gen(function* () {
         const reg = yield* AgentRegistry;
         expect(reg.encodeSlug("/Users/x/Code/y.z")).toBe("-Users-x-Code-y-z");
-        expect(reg.encodeSlug("/Users/andrey/Code/personal/peephole")).toBe(
-          "-Users-andrey-Code-personal-peephole"
+        expect(reg.encodeSlug("/Users/andrey/Code/personal/peektrace")).toBe(
+          "-Users-andrey-Code-personal-peektrace"
         );
         expect(reg.encodeSlug("/a.b.c/d")).toBe("-a-b-c-d");
       })

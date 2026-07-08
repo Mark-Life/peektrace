@@ -2,7 +2,7 @@
  *
  * Every core IO op is already wrapped in `Effect.withSpan`; those spans go to a
  * no-op tracer by default (no exporter, no allocation beyond Effect's own). When
- * `--otel` is passed or `PEEPHOLE_OTEL` is set, we install a tiny console span
+ * `--otel` is passed or `PEEKTRACE_OTEL` is set, we install a tiny console span
  * exporter so each span prints `name durationMs ok/fail {attrs}` to stderr. This
  * keeps the dependency footprint at zero (no `@effect/opentelemetry`) while still
  * making the existing instrumentation observable on demand.
@@ -73,10 +73,11 @@ const consoleTracer: Tracer.Tracer = Tracer.make({
   },
 });
 
-/** True when console tracing is requested via flag or `PEEPHOLE_OTEL` env. */
+/** True when console tracing is requested via flag or `PEEKTRACE_OTEL` env. */
 export const otelEnabled = (flag = false): boolean =>
   flag ||
-  (process.env.PEEPHOLE_OTEL !== undefined && process.env.PEEPHOLE_OTEL !== "");
+  (process.env.PEEKTRACE_OTEL !== undefined &&
+    process.env.PEEKTRACE_OTEL !== "");
 
 /**
  * The tracing layer: a console span tracer when `enabled`, else `Layer.empty`

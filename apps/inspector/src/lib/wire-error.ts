@@ -1,4 +1,4 @@
-/** Narrow a failed mutation `Exit` to its typed Peephole wire error.
+/** Narrow a failed mutation `Exit` to its typed Peektrace wire error.
  *
  * RPC mutations resolve to an `Exit<Success, WireError>`; on failure the typed
  * domain error (`FileChangedError`, `CapabilityUnsupportedError`, …) lives in the

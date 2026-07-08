@@ -1,7 +1,7 @@
 /**
  * Inline screens rendered as `data:` URLs in the main BrowserWindow, so the
  * preload bridge stays available and their buttons can drive the same
- * `window.peephole` IPC the app uses. `startupWindowHtml` shows while the
+ * `window.peektrace` IPC the app uses. `startupWindowHtml` shows while the
  * sidecar boots; `sidecarCrashHtml` replaces the dead web UI when the sidecar
  * exits under a live window, offering a one-click restart.
  */
@@ -10,7 +10,7 @@ export const startupWindowHtml = (): string => `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Peephole</title>
+    <title>Peektrace</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -95,7 +95,7 @@ export const startupWindowHtml = (): string => `<!doctype html>
   <body>
     <main>
       <div class="mark">Pe</div>
-      <h1>Starting Peephole&hellip;</h1>
+      <h1>Starting Peektrace&hellip;</h1>
       <p>Preparing your local workspace.</p>
       <div class="activity" aria-hidden="true"></div>
     </main>
@@ -106,7 +106,7 @@ export const sidecarCrashHtml = (): string => `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Peephole</title>
+    <title>Peektrace</title>
     <style>
       :root { color-scheme: dark; }
       body {
@@ -140,7 +140,7 @@ export const sidecarCrashHtml = (): string => `<!doctype html>
   <body>
     <main class="card">
       <div class="icon">&#9888;&#65039;</div>
-      <h1>The local Peephole server stopped unexpectedly</h1>
+      <h1>The local Peektrace server stopped unexpectedly</h1>
       <p>Your data is safe. Restart the server to keep working.</p>
       <div class="row">
         <button id="restart">Restart server</button>
@@ -153,9 +153,9 @@ export const sidecarCrashHtml = (): string => `<!doctype html>
         status.textContent = "Restarting\\u2026";
         try {
           // Main restarts the sidecar and reloads this window on success.
-          await window.peephole.restartServer();
+          await window.peektrace.restartServer();
         } catch {
-          status.textContent = "Restart failed \\u2014 try quitting and reopening Peephole.";
+          status.textContent = "Restart failed \\u2014 try quitting and reopening Peektrace.";
         }
       });
     </script>

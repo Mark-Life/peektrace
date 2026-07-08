@@ -22,7 +22,7 @@ export type DesktopUpdateStatus =
   | { readonly state: "installing"; readonly version: string };
 
 // IPC channels for a future renderer card are intentionally omitted in the MVP
-// (nothing to push to). When a renderer is added, prefix them "peephole:":
-//   export const UPDATE_STATUS_CHANNEL = "peephole:updates:status" as const;
-//   export const UPDATE_STATUS_GET_CHANNEL = "peephole:updates:status:get" as const;
-//   export const UPDATE_INSTALL_CHANNEL = "peephole:updates:quit-and-install" as const;
+// (nothing to push to). When a renderer is added, prefix them "peektrace:":
+//   export const UPDATE_STATUS_CHANNEL = "peektrace:updates:status" as const;
+//   export const UPDATE_STATUS_GET_CHANNEL = "peektrace:updates:status:get" as const;
+//   export const UPDATE_INSTALL_CHANNEL = "peektrace:updates:quit-and-install" as const;

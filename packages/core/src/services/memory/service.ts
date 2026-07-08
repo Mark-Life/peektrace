@@ -31,7 +31,7 @@ export interface MemoryServiceShape {
 }
 
 /** Claude memory read model + safe CRUD. */
-export class MemoryService extends Context.Tag("@peephole/MemoryService")<
+export class MemoryService extends Context.Tag("@peektrace/MemoryService")<
   MemoryService,
   MemoryServiceShape
 >() {}

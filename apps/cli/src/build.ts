@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-/** Compile the peephole CLI into a single self-contained binary.
+/** Compile the peektrace CLI into a single self-contained binary.
  *
  * Steps:
  * 1. Build the inspector UI (`bun run --filter=inspector build`) into
@@ -9,7 +9,7 @@
  *    reference. The import attribute is what makes `bun build --compile` bake
  *    each asset into the binary's virtual filesystem.
  * 3. `bun build --compile` `src/index.ts` for the host target (or `BUN_TARGET`),
- *    emitting `dist/<target>/peephole`.
+ *    emitting `dist/<target>/peektrace`.
  * 4. Restore the committed stub of `src/embedded-ui.gen.ts` in a `finally`, so
  *    the working tree is never left with machine-specific generated imports.
  *
@@ -119,7 +119,7 @@ ${entries}
 
 /** Compile `src/index.ts` into a standalone binary for `target`. */
 const compileBinary = async (target: Bun.Build.CompileTarget) => {
-  const outfile = join(CLI_ROOT, "dist", target, "peephole");
+  const outfile = join(CLI_ROOT, "dist", target, "peektrace");
   await Bun.build({
     entrypoints: [ENTRYPOINT],
     minify: true,

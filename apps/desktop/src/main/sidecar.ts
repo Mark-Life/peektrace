@@ -1,14 +1,14 @@
 /**
  * Sidecar lifecycle manager run inside the Electron main process.
  *
- * The shell picks a free loopback port, spawns the `peephole` server on it, and
- * waits for the machine-readable `PEEPHOLE_READY:<port>` line on stdout before
+ * The shell picks a free loopback port, spawns the `peektrace` server on it, and
+ * waits for the machine-readable `PEEKTRACE_READY:<port>` line on stdout before
  * navigating the window. The port on the READY line is authoritative — the
  * server may land on a different port than requested. Human-readable log text is
  * never part of the startup contract.
  *
  * In dev the sidecar is `bun run apps/cli/src/index.ts serve`; a packaged build
- * runs the bundled compiled binary from `resources/peephole/`.
+ * runs the bundled compiled binary from `resources/peektrace/`.
  */
 
 import { type ChildProcess, spawn } from "node:child_process";
@@ -25,7 +25,7 @@ const sidecarLog = log.scope("sidecar");
 // Rolling stderr tail attached to failure reports. Bounded so a chatty sidecar
 // can't grow it without limit over a long session.
 const STDERR_TAIL_LIMIT = 8192;
-const READY_SENTINEL = "PEEPHOLE_READY";
+const READY_SENTINEL = "PEEKTRACE_READY";
 const NEWLINE_SPLIT = /\r?\n/;
 const PORT_IN_USE_PATTERN = /EADDRINUSE|address already in use/i;
 const HOST = "127.0.0.1";
@@ -107,15 +107,15 @@ interface SidecarCommand {
 
 /**
  * Resolve the `[command, args, cwd]` to launch the sidecar on `port`. Packaged
- * builds run the bundled compiled binary from `resources/peephole/`; dev runs
+ * builds run the bundled compiled binary from `resources/peektrace/`; dev runs
  * the CLI TypeScript entry directly through `bun`.
  */
 const resolveSidecar = (port: number): SidecarCommand => {
   if (app.isPackaged) {
     const binaryName =
-      process.platform === "win32" ? "peephole.exe" : "peephole";
+      process.platform === "win32" ? "peektrace.exe" : "peektrace";
     return {
-      command: join(process.resourcesPath, "peephole", binaryName),
+      command: join(process.resourcesPath, "peektrace", binaryName),
       args: ["serve", "--port", String(port), "--no-open"],
       cwd: process.resourcesPath,
     };
@@ -131,7 +131,7 @@ const resolveSidecar = (port: number): SidecarCommand => {
   };
 };
 
-/** Spawn the sidecar and resolve once it announces `PEEPHOLE_READY:<port>`. */
+/** Spawn the sidecar and resolve once it announces `PEEKTRACE_READY:<port>`. */
 export const startSidecar = async (): Promise<SidecarConnection> => {
   const port = await pickFreePort();
   const { command, args, cwd } = resolveSidecar(port);
@@ -141,8 +141,8 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
     stdio: ["ignore", "pipe", "pipe"],
     env: {
       ...process.env,
-      // Signals the server to print the PEEPHOLE_READY:<port> handshake line.
-      PEEPHOLE_CLIENT: "desktop",
+      // Signals the server to print the PEEKTRACE_READY:<port> handshake line.
+      PEEKTRACE_CLIENT: "desktop",
     },
   });
 
@@ -165,7 +165,7 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
 
     const onStdout = (chunk: Buffer) => {
       const text = chunk.toString("utf8");
-      process.stdout.write(`[peephole] ${text}`);
+      process.stdout.write(`[peektrace] ${text}`);
       logStdoutLine(text);
       stdoutControlBuffer += text;
       const rawLines = stdoutControlBuffer.split(NEWLINE_SPLIT);
@@ -200,7 +200,7 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
     const onStderr = (chunk: Buffer) => {
       const text = chunk.toString("utf8");
       stderrBuffer = (stderrBuffer + text).slice(-STDERR_TAIL_LIMIT);
-      process.stderr.write(`[peephole] ${text}`);
+      process.stderr.write(`[peektrace] ${text}`);
       logStderrLine(text);
     };
 

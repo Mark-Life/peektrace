@@ -2,15 +2,15 @@ name: Publish CLI
 
 run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
 
-# Publishes the `peephole` npm CLI. A push of a `cli-v<semver>` tag drives an
+# Publishes the `peektrace` npm CLI. A push of a `cli-v<semver>` tag drives an
 # automatic publish; workflow_dispatch stays available for repair runs. The tag
 # is the source of truth for the version: the workflow strips `cli-v`, stamps
 # the bare semver into apps/cli/package.json, then build:npm cross-compiles all
 # four platform binaries on this one host and stages them under dist-npm/.
 #
 # npm layout (see apps/cli/scripts/build-npm.ts): four unscoped per-platform
-# packages `peephole-cli-<platform>-<arch>` (each os/cpu-filtered) plus the
-# `peephole` wrapper whose optionalDependencies pin those variants at the exact
+# packages `peektrace-<platform>-<arch>` (each os/cpu-filtered) plus the
+# `peektrace` wrapper whose optionalDependencies pin those variants at the exact
 # version. The variants MUST publish before the wrapper so its optional deps
 # resolve.
 
@@ -66,7 +66,7 @@ jobs:
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Publishing peephole@$VERSION"
+          echo "Publishing peektrace@$VERSION"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -83,7 +83,7 @@ jobs:
         run: bun run --filter=inspector build
 
       - name: Stage npm packages
-        run: bun run --filter=peephole build:npm
+        run: bun run --filter=peektrace build:npm
 
       - name: Publish to npm
         env:
@@ -121,7 +121,7 @@ jobs:
           # Per-platform variants FIRST (sequentially — the registry 409s on
           # concurrent packument writes), then the wrapper LAST so its
           # optionalDependencies already exist in the registry.
-          for d in apps/cli/dist-npm/peephole-cli-*; do
+          for d in apps/cli/dist-npm/peektrace-*; do
             publish_dir "$d"
           done
-          publish_dir "apps/cli/dist-npm/peephole"
+          publish_dir "apps/cli/dist-npm/peektrace"

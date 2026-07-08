@@ -15,7 +15,7 @@ const child = Effect.void.pipe(
 const withRoot = <A, E, R>(body: Effect.Effect<A, E, R>) =>
   body.pipe(
     Effect.withSpan("root", {
-      attributes: { "peephole.root": true, "peephole.kind": "cli" },
+      attributes: { "peektrace.root": true, "peektrace.kind": "cli" },
     })
   );
 
@@ -44,8 +44,8 @@ describe("TelemetryTracer", () => {
     expect(e.name).toBe("root");
     expect(e.kind).toBe("cli");
     expect(e.spans.some((s) => s.attributes.id === "c1")).toBe(true);
-    expect(e.attributes).not.toHaveProperty("peephole.root");
-    expect(e.attributes).not.toHaveProperty("peephole.kind");
+    expect(e.attributes).not.toHaveProperty("peektrace.root");
+    expect(e.attributes).not.toHaveProperty("peektrace.kind");
   });
 
   it("records a tagged failure as outcome=error", async () => {

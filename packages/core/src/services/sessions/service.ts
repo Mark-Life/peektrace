@@ -71,7 +71,7 @@ export interface SessionsServiceShape {
 }
 
 /** Claude session ingest + analysis. */
-export class SessionsService extends Context.Tag("@peephole/SessionsService")<
+export class SessionsService extends Context.Tag("@peektrace/SessionsService")<
   SessionsService,
   SessionsServiceShape
 >() {}

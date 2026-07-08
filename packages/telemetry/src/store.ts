@@ -15,7 +15,7 @@ export interface TelemetryStore {
   readonly record: (e: WideEvent) => Effect.Effect<void>;
 }
 export const TelemetryStore = Context.GenericTag<TelemetryStore>(
-  "peephole/TelemetryStore"
+  "peektrace/TelemetryStore"
 );
 
 const RETENTION_DAYS = 30;
@@ -64,7 +64,7 @@ export const make = Effect.gen(function* () {
   return store;
 });
 
-const dbDir = process.env.PEEPHOLE_DIR ?? join(homedir(), ".peephole");
+const dbDir = process.env.PEEKTRACE_DIR ?? join(homedir(), ".peektrace");
 const ClientLive = Layer.unwrapEffect(
   Effect.sync(() => {
     mkdirSync(dbDir, { recursive: true });

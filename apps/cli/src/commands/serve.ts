@@ -1,4 +1,4 @@
-/** `peephole serve` — the headline command.
+/** `peektrace serve` — the headline command.
  *
  * Boots a loopback-only Bun HTTP server that:
  * - mounts the Effect-RPC handler (NDJSON over HTTP) at `POST /rpc`, backed by the
@@ -27,7 +27,7 @@ import {
 } from "@effect/platform";
 import { BunHttpServer } from "@effect/platform-bun";
 import { RpcSerialization, RpcServer } from "@effect/rpc";
-import { makeHandlersLayer, PeepholeRpcs } from "@workspace/rpc";
+import { makeHandlersLayer, PeektraceRpcs } from "@workspace/rpc";
 import { Console, Effect, Layer } from "effect";
 import embeddedUI from "../embedded-ui.gen";
 
@@ -184,11 +184,11 @@ const embeddedStaticHandler = (manifest: Record<string, string>) =>
 
 /** Resolve the static handler + a human-readable UI source label.
  *
- * Order: `PEEPHOLE_CLIENT_DIR` dev override, then the embedded manifest baked
+ * Order: `PEEKTRACE_CLIENT_DIR` dev override, then the embedded manifest baked
  * into a compiled binary, then the on-disk inspector `dist/` (source runs).
  */
 const resolveStaticHandler = () => {
-  const override = process.env.PEEPHOLE_CLIENT_DIR;
+  const override = process.env.PEEKTRACE_CLIENT_DIR;
   if (override) {
     const dir = resolve(override);
     return { handler: fileSystemStaticHandler(dir), source: dir };
@@ -206,7 +206,7 @@ const serveProgram = (args: {
 }) =>
   Effect.gen(function* () {
     const server = yield* HttpServer.HttpServer;
-    const rpcApp = yield* RpcServer.toHttpApp(PeepholeRpcs);
+    const rpcApp = yield* RpcServer.toHttpApp(PeektraceRpcs);
     const { handler: staticHandler, source: uiSource } = resolveStaticHandler();
     const router = HttpRouter.empty.pipe(
       HttpRouter.mountApp("/rpc", rpcApp),
@@ -224,7 +224,7 @@ const serveProgram = (args: {
     const displayHost =
       args.host === "0.0.0.0" || args.host === "::" ? "127.0.0.1" : args.host;
     const url = `http://${displayHost}:${port}`;
-    yield* Console.log(`Peephole serving on ${url}`);
+    yield* Console.log(`Peektrace serving on ${url}`);
     yield* Console.log(`  RPC:    ${url}/rpc`);
     yield* Console.log(`  UI:     ${url}/  (from ${uiSource})`);
     yield* Console.log(
@@ -233,15 +233,15 @@ const serveProgram = (args: {
 
     if (!isLoopbackHost(args.host)) {
       yield* Console.warn(
-        `  WARNING: bound to ${args.host} (not loopback). Peephole has no auth — ` +
+        `  WARNING: bound to ${args.host} (not loopback). Peektrace has no auth — ` +
           "anyone who can reach this port can read your Claude Code data. " +
           "Restrict access with a firewall or use --read-only."
       );
     }
 
     // Machine-readable readiness line for a supervising desktop shell.
-    if (process.env.PEEPHOLE_CLIENT === "desktop") {
-      yield* Console.log(`PEEPHOLE_READY:${port}`);
+    if (process.env.PEEKTRACE_CLIENT === "desktop") {
+      yield* Console.log(`PEEKTRACE_READY:${port}`);
     }
 
     // WatchService is provisioned as part of `makeHandlersLayer` (see

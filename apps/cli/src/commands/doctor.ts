@@ -1,8 +1,8 @@
-/** `peephole doctor` — write a redacted local telemetry bundle for support.
+/** `peektrace doctor` — write a redacted local telemetry bundle for support.
  *
  * Reads recent wide events from the local {@link TelemetryStore}, recursively
  * redacts every string through the core `redactText` rules, and writes a JSON
- * bundle to `PEEPHOLE_DIR` (or `~/.peephole`). Nothing leaves the machine until
+ * bundle to `PEEKTRACE_DIR` (or `~/.peektrace`). Nothing leaves the machine until
  * the user emails the file to 108@mark-life.com.
  */
 import { homedir } from "node:os";
@@ -98,15 +98,15 @@ export const makeDoctor = () =>
         const fs = yield* FileSystem.FileSystem;
         const events = yield* store.recent({ limit: last, interestingOnly });
         const bundle = {
-          schema: "peephole-report/v1",
+          schema: "peektrace-report/v1",
           generatedAt: Date.now(),
           count: events.length,
           events: events.map((event) => redactJson(event)),
         };
-        const dir = process.env.PEEPHOLE_DIR ?? join(homedir(), ".peephole");
+        const dir = process.env.PEEKTRACE_DIR ?? join(homedir(), ".peektrace");
         yield* fs.makeDirectory(dir, { recursive: true }).pipe(Effect.ignore);
         const path = Option.getOrElse(out, () =>
-          join(dir, `peephole-report-${bundle.count}.json`)
+          join(dir, `peektrace-report-${bundle.count}.json`)
         );
         yield* fs.writeFileString(path, JSON.stringify(bundle, null, 2));
         yield* Console.log(`Wrote ${bundle.count} events → ${path}`);

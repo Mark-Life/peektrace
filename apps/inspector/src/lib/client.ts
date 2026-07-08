@@ -2,17 +2,17 @@
  *
  * One configurable RPC client, exposed as an `AtomRpc.Tag`. Every procedure
  * becomes either:
- * - `PeepholeClient.query(tag, payload)` → `Atom<Result<Success, Error>>`, where
+ * - `PeektraceClient.query(tag, payload)` → `Atom<Result<Success, Error>>`, where
  *   `Result` is the loading/success/failure discriminated union (no flag bags);
- * - `PeepholeClient.mutation(tag)` → a writable `AtomResultFn` for create/update/
+ * - `PeektraceClient.mutation(tag)` → a writable `AtomResultFn` for create/update/
  *   delete (used by the Memory UI in the next phase).
  *
  * Transport is a single same-origin HTTP/NDJSON protocol layer pointed at
  * `${BASE_URL}/rpc`. `BASE_URL` defaults to `""` (same origin) so:
- * - dev: Vite proxies `/rpc` → a running `peephole serve` (see `vite.config.ts`);
- * - prod: `peephole serve` hosts both `dist/` and `/rpc` on the same origin.
+ * - dev: Vite proxies `/rpc` → a running `peektrace serve` (see `vite.config.ts`);
+ * - prod: `peektrace serve` hosts both `dist/` and `/rpc` on the same origin.
  *
- * Override with `VITE_PEEPHOLE_BASE_URL` (e.g. an absolute `http://host:port`)
+ * Override with `VITE_PEEKTRACE_BASE_URL` (e.g. an absolute `http://host:port`)
  * to point the UI at a remote server. The base URL is the single knob; nothing
  * else changes.
  */
@@ -20,11 +20,11 @@
 import { FetchHttpClient } from "@effect/platform";
 import { RpcClient, RpcSerialization } from "@effect/rpc";
 import { AtomRpc } from "@effect-atom/atom-react";
-import { PeepholeRpcs } from "@workspace/rpc/contract";
+import { PeektraceRpcs } from "@workspace/rpc/contract";
 import { Layer } from "effect";
 
-/** Same-origin by default; override to target a remote `peephole serve`. */
-const BASE_URL = import.meta.env.VITE_PEEPHOLE_BASE_URL ?? "";
+/** Same-origin by default; override to target a remote `peektrace serve`. */
+const BASE_URL = import.meta.env.VITE_PEEKTRACE_BASE_URL ?? "";
 
 /** Strip a trailing slash so `${BASE_URL}/rpc` never doubles up. */
 const TRAILING_SLASH = /\/$/;
@@ -38,13 +38,13 @@ const protocol = RpcClient.layerProtocolHttp({
 );
 
 /**
- * The single typed Peephole RPC client atom. Exposes `.query` / `.mutation`
+ * The single typed Peektrace RPC client atom. Exposes `.query` / `.mutation`
  * helpers that yield `Result`-typed atoms over the contract procedures.
  */
-export class PeepholeClient extends AtomRpc.Tag<PeepholeClient>()(
-  "PeepholeClient",
+export class PeektraceClient extends AtomRpc.Tag<PeektraceClient>()(
+  "PeektraceClient",
   {
-    group: PeepholeRpcs,
+    group: PeektraceRpcs,
     protocol,
   }
 ) {}

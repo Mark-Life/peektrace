@@ -42,7 +42,7 @@ const outcomeOf = (exit: Exit.Exit<unknown, unknown>) => {
 };
 
 /**
- * A tracer that assembles one wide event per `peephole.root` span and flushes
+ * A tracer that assembles one wide event per `peektrace.root` span and flushes
  * it synchronously to the {@link TelemetryStore} on root-span end.
  */
 export const TelemetryTracerLive = (opts: {
@@ -94,14 +94,14 @@ export const TelemetryTracerLive = (opts: {
         const spans = buffers.get(root.traceId) ?? [];
         buffers.delete(root.traceId);
         const attrs = Object.fromEntries(
-          [...root.attributes].filter(([k]) => !k.startsWith("peephole."))
+          [...root.attributes].filter(([k]) => !k.startsWith("peektrace."))
         );
         const event = {
           id: crypto.randomUUID(),
           traceId: root.traceId,
           ts: Date.now(),
           kind:
-            (root.attributes.get("peephole.kind") as "cli" | "rpc") ?? "cli",
+            (root.attributes.get("peektrace.kind") as "cli" | "rpc") ?? "cli",
           name: root.name,
           appVersion: opts.appVersion,
           platform: PLATFORM,
@@ -115,7 +115,7 @@ export const TelemetryTracerLive = (opts: {
 
       const tracer = Tracer.make({
         span(name, parent, context, links, startTime, kind, options) {
-          const isRoot = options?.attributes?.["peephole.root"] === true;
+          const isRoot = options?.attributes?.["peektrace.root"] === true;
           const traceId = isRoot
             ? nextId()
             : Option.match(parent, {
