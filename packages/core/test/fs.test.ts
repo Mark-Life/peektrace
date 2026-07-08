@@ -26,7 +26,7 @@ const run = <A, E>(program: Effect.Effect<A, E, ReadFs | WriteFs>) =>
 
 let dir = "";
 beforeAll(() => {
-  dir = mkdtempSync(join(tmpdir(), "peephole-fs-"));
+  dir = mkdtempSync(join(tmpdir(), "peektrace-fs-"));
 });
 afterAll(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -102,7 +102,10 @@ describe("path containment", () => {
     run(
       Effect.gen(function* () {
         const write = yield* WriteFs;
-        const escapePath = join(homedir(), `peephole-escape-${Date.now()}.txt`);
+        const escapePath = join(
+          homedir(),
+          `peektrace-escape-${Date.now()}.txt`
+        );
         const result = yield* Effect.either(
           write.atomicWrite({ path: escapePath, content: "nope" })
         );

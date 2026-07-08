@@ -6,24 +6,24 @@ import type { DesktopServerSettings } from "../shared/server-settings";
 const api = {
   /** Open an http(s) URL in the user's default browser (scheme-checked in main). */
   openExternal(url: string): Promise<void> {
-    return ipcRenderer.invoke("peephole:shell:open-external", url);
+    return ipcRenderer.invoke("peektrace:shell:open-external", url);
   },
   /** Read the persisted server settings (currently just the port). */
   getSettings(): Promise<DesktopServerSettings> {
-    return ipcRenderer.invoke("peephole:settings:get");
+    return ipcRenderer.invoke("peektrace:settings:get");
   },
   /** Patch one or more server settings. Returns the new full settings. */
   updateSettings(
     patch: Partial<DesktopServerSettings>
   ): Promise<DesktopServerSettings> {
-    return ipcRenderer.invoke("peephole:settings:update", patch);
+    return ipcRenderer.invoke("peektrace:settings:update", patch);
   },
   /** Restart the sidecar; main reloads the window on success. */
   restartServer(): Promise<void> {
-    return ipcRenderer.invoke("peephole:server:restart");
+    return ipcRenderer.invoke("peektrace:server:restart");
   },
 } as const;
 
-contextBridge.exposeInMainWorld("peephole", api);
+contextBridge.exposeInMainWorld("peektrace", api);
 
-export type PeepholeBridge = typeof api;
+export type PeektraceBridge = typeof api;

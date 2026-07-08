@@ -108,7 +108,7 @@ const run = <A, E>(program: Effect.Effect<A, E, MemoryService>) =>
   );
 
 beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "peephole-mem-"));
+  root = mkdtempSync(join(tmpdir(), "peektrace-mem-"));
   seedVault(root);
 });
 afterAll(() => {

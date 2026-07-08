@@ -33,7 +33,7 @@ export class AgentUnsupportedError extends Data.TaggedError(
  * are stubbed and would throw at import time if invoked eagerly.
  *
  * Claude's projects root defaults to `~/.claude/projects` but may be overridden
- * via `PEEPHOLE_CLAUDE_PROJECTS` so tooling (and especially automated browser
+ * via `PEEKTRACE_CLAUDE_PROJECTS` so tooling (and especially automated browser
  * tests) can point at a throwaway temp dir instead of the user's real memories.
  */
 const buildRoots = (): Record<AgentId, AgentRoots> => {
@@ -43,7 +43,7 @@ const buildRoots = (): Record<AgentId, AgentRoots> => {
       id: "claude",
       home: join(HOME, ".claude"),
       projectsRoot:
-        process.env.PEEPHOLE_CLAUDE_PROJECTS ??
+        process.env.PEEKTRACE_CLAUDE_PROJECTS ??
         join(HOME, ".claude", "projects"),
       supported: true,
     },
@@ -109,7 +109,7 @@ export interface AgentRegistryShape {
 }
 
 /** Per-agent on-disk roots and path resolvers. Only Claude is implemented. */
-export class AgentRegistry extends Context.Tag("@peephole/AgentRegistry")<
+export class AgentRegistry extends Context.Tag("@peektrace/AgentRegistry")<
   AgentRegistry,
   AgentRegistryShape
 >() {}

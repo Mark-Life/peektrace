@@ -15,13 +15,13 @@ import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type { WatchVersions } from "@workspace/rpc/contract";
 import { useEffect, useRef } from "react";
 import { allVaultsAtom, sessionsListAtom } from "./atoms";
-import { PeepholeClient } from "./client";
+import { PeektraceClient } from "./client";
 
 /** Poll cadence for the watch token (ms). */
 const POLL_INTERVAL = 1000;
 
 /** Live per-scope watch versions (`watch.poll`). */
-export const watchVersionsAtom = PeepholeClient.query("watch.poll", undefined);
+export const watchVersionsAtom = PeektraceClient.query("watch.poll", undefined);
 
 /**
  * Mount once at the app root. Polls `watch.poll` every `POLL_INTERVAL`ms and

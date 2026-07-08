@@ -1,9 +1,9 @@
-/** `peephole doctor` export redaction over a real local SQLite store.
+/** `peektrace doctor` export redaction over a real local SQLite store.
  *
  * Seeds a temp-dir `TelemetryStoreLive` with an event whose attribute carries a
  * secret, runs the real doctor command, then asserts the on-disk bundle has the
  * secret replaced by a `[REDACTED:...]` marker with structure intact. Telemetry
- * modules are imported dynamically so `PEEPHOLE_DIR` is set before the store's
+ * modules are imported dynamically so `PEEKTRACE_DIR` is set before the store's
  * db path is captured at module load.
  */
 import { describe, expect, test } from "bun:test";
@@ -13,8 +13,8 @@ import { join } from "node:path";
 
 describe("doctor export", () => {
   test("redacts secrets in the written bundle", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "peephole-doctor-"));
-    process.env.PEEPHOLE_DIR = dir;
+    const dir = mkdtempSync(join(tmpdir(), "peektrace-doctor-"));
+    process.env.PEEKTRACE_DIR = dir;
 
     const { Command } = await import("@effect/cli");
     const { BunContext } = await import("@effect/platform-bun");
@@ -47,14 +47,14 @@ describe("doctor export", () => {
     );
 
     const run = Command.run(makeDoctor(), {
-      name: "peephole",
+      name: "peektrace",
       version: "0.0.1",
     });
     await Effect.runPromise(
-      run(["bun", "peephole"]).pipe(Effect.provide(BunContext.layer))
+      run(["bun", "peektrace"]).pipe(Effect.provide(BunContext.layer))
     );
 
-    const path = join(dir, "peephole-report-1.json");
+    const path = join(dir, "peektrace-report-1.json");
     const raw = readFileSync(path, "utf8");
     expect(raw).not.toContain(secret);
     expect(raw).toContain("[REDACTED:anthropic-key]");
@@ -64,7 +64,7 @@ describe("doctor export", () => {
       count: number;
       events: { attributes: { argv: string; token: string } }[];
     };
-    expect(bundle.schema).toBe("peephole-report/v1");
+    expect(bundle.schema).toBe("peektrace-report/v1");
     expect(bundle.count).toBe(1);
     expect(bundle.events[0]?.attributes.token).toBe("[REDACTED:anthropic-key]");
     expect(bundle.events[0]?.attributes.argv).toBe("sessions ls");

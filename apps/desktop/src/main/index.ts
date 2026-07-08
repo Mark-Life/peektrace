@@ -46,8 +46,8 @@ interface ProgressInfo {
 // Pin userData to an app-name-scoped dir BEFORE app.ready so every Electron-side
 // consumer (electron-store, electron-log, window-state) lands at a predictable
 // spot.
-app.setName("Peephole");
-app.setPath("userData", join(app.getPath("appData"), "Peephole"));
+app.setName("Peektrace");
+app.setPath("userData", join(app.getPath("appData"), "Peektrace"));
 
 log.initialize({ preload: true });
 log.transports.file.level = "info";
@@ -209,7 +209,7 @@ const createWindow = async (conn: SidecarConnection): Promise<void> => {
       window.show();
     }
   } catch (error) {
-    log.error("Failed to load Peephole web UI", error);
+    log.error("Failed to load Peektrace web UI", error);
     if (!existingWindow) {
       destroyWindow(window);
     }
@@ -248,10 +248,10 @@ const ensureSingleInstance = (): boolean => {
 const showPortInUseDialog = async (port: number) => {
   await dialog.showMessageBox({
     type: "error",
-    title: "Peephole port in use",
+    title: "Peektrace port in use",
     message: `Port ${port} is already taken.`,
     detail:
-      "Another process is listening on that port. Quit it and relaunch Peephole.",
+      "Another process is listening on that port. Quit it and relaunch Peektrace.",
     buttons: ["OK"],
   });
 };
@@ -271,7 +271,7 @@ const startWithCurrentSettings =
         return null;
       }
       lastSidecarStartError = error;
-      log.error("Failed to start Peephole sidecar", error);
+      log.error("Failed to start Peektrace sidecar", error);
       return null;
     }
   };
@@ -294,18 +294,18 @@ const restartSidecarAndReload = async (): Promise<void> => {
 };
 
 const registerIpcHandlers = () => {
-  ipcMain.handle("peephole:server:restart", () => restartSidecarAndReload());
+  ipcMain.handle("peektrace:server:restart", () => restartSidecarAndReload());
   ipcMain.handle(
-    "peephole:settings:get",
+    "peektrace:settings:get",
     (): DesktopServerSettings => getServerSettings()
   );
   ipcMain.handle(
-    "peephole:settings:update",
+    "peektrace:settings:update",
     (_evt, patch: Partial<DesktopServerSettings>): DesktopServerSettings =>
       updateServerSettings(patch)
   );
   ipcMain.handle(
-    "peephole:shell:open-external",
+    "peektrace:shell:open-external",
     async (_evt, rawUrl: unknown) => {
       if (typeof rawUrl !== "string") {
         return;
@@ -341,7 +341,7 @@ const installApplicationMenu = () => {
         label: "Documentation",
         click: () => {
           shell
-            .openExternal("https://github.com/Mark-Life/peephole")
+            .openExternal("https://github.com/Mark-Life/peektrace")
             .catch(() => undefined);
         },
       },
@@ -442,7 +442,7 @@ const promptInstallUpdate = async (version: string) => {
     const response = await dialog.showMessageBox({
       type: "info",
       title: "Update ready",
-      message: `Peephole ${version} is ready to install.`,
+      message: `Peektrace ${version} is ready to install.`,
       detail:
         "Restart now to apply the update, or keep working — we'll prompt again later.",
       buttons: ["Restart now", "Later"],
@@ -451,7 +451,7 @@ const promptInstallUpdate = async (version: string) => {
     });
     if (response.response === 0) {
       // Stop the sidecar cleanly before Squirrel swaps the bundle, so no
-      // orphaned peephole process holds a lock on the binary during the swap.
+      // orphaned peektrace process holds a lock on the binary during the swap.
       if (connection) {
         await stopSidecar(connection.child);
         connection = null;
@@ -602,8 +602,8 @@ const showFatalSidecarDialog = async (error: unknown) => {
     error instanceof Error ? (error.stack ?? error.message) : String(error);
   await dialog.showMessageBox({
     type: "error",
-    title: "Peephole failed to start",
-    message: "The local Peephole server crashed during startup.",
+    title: "Peektrace failed to start",
+    message: "The local Peektrace server crashed during startup.",
     detail: `${detail.slice(0, FATAL_DETAIL_MAX)}\n\nFull log: ${log.transports.file.getFile().path}`,
     buttons: ["Quit"],
   });

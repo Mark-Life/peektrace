@@ -109,7 +109,7 @@ export interface CapabilityRegistryShape {
 
 /** Static, typed feature × agent support matrix. */
 export class CapabilityRegistry extends Context.Tag(
-  "@peephole/CapabilityRegistry"
+  "@peektrace/CapabilityRegistry"
 )<CapabilityRegistry, CapabilityRegistryShape>() {}
 
 /** Live layer backed by the seeded matrix. */

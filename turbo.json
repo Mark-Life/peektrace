@@ -13,7 +13,7 @@
       "outputs": ["dist/**"]
     },
     "@workspace/desktop#build": {
-      "dependsOn": ["inspector#build", "peephole#build:binary"],
+      "dependsOn": ["inspector#build", "peektrace#build:binary"],
       "outputs": ["out/**", "dist-app/**", "resources/**"]
     },
     "typecheck": {

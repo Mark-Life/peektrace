@@ -1,4 +1,4 @@
-/** `peephole sessions` subcommands: `ls` and `analyze`.
+/** `peektrace sessions` subcommands: `ls` and `analyze`.
  *
  * Both run against the shared RPC client (in-process or `--remote`). Tables go to
  * stdout by default; `--json` emits the raw RPC payload. Only Claude is wired —

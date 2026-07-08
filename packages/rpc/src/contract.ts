@@ -1,4 +1,4 @@
-/** Effect-RPC contract for Peephole.
+/** Effect-RPC contract for Peektrace.
  *
  * One `RpcGroup` over the core services. Every success/payload shape is derived
  * from the core `effect/Schema` definitions (imported from `@workspace/core`) so
@@ -206,10 +206,10 @@ export const MemoryDeletePayload = Schema.Struct({
 // --- The RPC group ---
 
 /**
- * The single typed Peephole RPC surface. Tags are dotted (`group.method`) so the
+ * The single typed Peektrace RPC surface. Tags are dotted (`group.method`) so the
  * generated client nests as `client.sessions.analyze(...)` etc.
  */
-export const PeepholeRpcs = RpcGroup.make(
+export const PeektraceRpcs = RpcGroup.make(
   Rpc.make("capabilities.list", {
     success: Schema.Array(Capability),
   }),
@@ -264,4 +264,4 @@ export const PeepholeRpcs = RpcGroup.make(
 );
 
 /** The RPC group type, for client/handler derivation. */
-export type PeepholeRpcs = typeof PeepholeRpcs;
+export type PeektraceRpcs = typeof PeektraceRpcs;

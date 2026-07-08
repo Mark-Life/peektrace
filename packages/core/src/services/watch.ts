@@ -2,7 +2,7 @@
  *
  * `WatchService` runs the `@effect/platform` recursive file watcher over the
  * Claude projects root (resolved by `AgentRegistry`, honoring
- * `PEEPHOLE_CLAUDE_PROJECTS`) and turns raw `WatchEvent`s into coarse
+ * `PEEKTRACE_CLAUDE_PROJECTS`) and turns raw `WatchEvent`s into coarse
  * invalidation signals the UI can act on: a memory `.md` file changing bumps the
  * `memory` scope, a session `.jsonl` file changing bumps `sessions`.
  *
@@ -49,7 +49,7 @@ export interface WatchServiceShape {
 }
 
 /** Filesystem watcher over the agent roots, emitting coalesced invalidations. */
-export class WatchService extends Context.Tag("@peephole/WatchService")<
+export class WatchService extends Context.Tag("@peektrace/WatchService")<
   WatchService,
   WatchServiceShape
 >() {}

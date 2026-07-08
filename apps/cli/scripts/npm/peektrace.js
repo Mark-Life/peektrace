@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 
 /**
- * Published `bin` launcher for the `peephole` npm package.
+ * Published `bin` launcher for the `peektrace` npm package.
  *
  * This is NOT the in-monorepo dev entry (`src/index.ts`). It ships only inside
- * the generated `dist-npm/peephole/` wrapper and is staged there by
+ * the generated `dist-npm/peektrace/` wrapper and is staged there by
  * `scripts/build-npm.ts`. Zero runtime dependencies: pure Node CommonJS using
  * only `child_process`/`fs`/`path`/`os`, so it runs under npm, bun and pnpm.
  *
  * Binary selection: the real compiled executable lives in a per-platform
- * optional dependency named `peephole-cli-<platform>-<arch>` (e.g.
- * `peephole-cli-darwin-arm64`). npm/bun install only the variant whose `os`/`cpu`
+ * optional dependency named `peektrace-<platform>-<arch>` (e.g.
+ * `peektrace-darwin-arm64`). npm/bun install only the variant whose `os`/`cpu`
  * match the host and skip the rest, so exactly one is present. We `require.resolve`
- * it and spawn `bin/peephole` (or `bin/peephole.exe` on Windows), forwarding argv,
+ * it and spawn `bin/peektrace` (or `bin/peektrace.exe` on Windows), forwarding argv,
  * inheriting stdio and propagating the exit code/signal.
  *
  * Package names use the raw `os.platform()` value (`win32`, not `windows`), which
@@ -74,15 +74,15 @@ function detectPackageManager() {
 /** Resolve the host's binary and hand off; exits the process (never returns). */
 function main() {
   // Escape hatch: point at an explicit binary (useful for local testing / VPS).
-  if (process.env.PEEPHOLE_BIN_PATH) {
-    spawnAndExit(process.env.PEEPHOLE_BIN_PATH);
+  if (process.env.PEEKTRACE_BIN_PATH) {
+    spawnAndExit(process.env.PEEKTRACE_BIN_PATH);
     return;
   }
 
-  const binary = process.platform === "win32" ? "peephole.exe" : "peephole";
+  const binary = process.platform === "win32" ? "peektrace.exe" : "peektrace";
   const platform = os.platform();
   const arch = os.arch();
-  const packageName = "peephole-cli-" + platform + "-" + arch;
+  const packageName = "peektrace-" + platform + "-" + arch;
 
   try {
     const pkgJson = require.resolve(packageName + "/package.json");
@@ -99,12 +99,12 @@ function main() {
   const pm = detectPackageManager();
   const reinstall =
     pm === "bun"
-      ? "bun install -g peephole"
+      ? "bun install -g peektrace"
       : pm === "npm"
-        ? "npm install -g peephole"
-        : "reinstall peephole";
+        ? "npm install -g peektrace"
+        : "reinstall peektrace";
   console.error(
-    "peephole: could not locate a platform binary for " +
+    "peektrace: could not locate a platform binary for " +
       platform +
       "-" +
       arch +

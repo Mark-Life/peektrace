@@ -108,7 +108,7 @@ const withClient = <A, E>(
   );
 
 beforeAll(() => {
-  root = mkdtempSync(join(tmpdir(), "peephole-rpc-"));
+  root = mkdtempSync(join(tmpdir(), "peektrace-rpc-"));
   seed(root);
 });
 afterAll(() => {

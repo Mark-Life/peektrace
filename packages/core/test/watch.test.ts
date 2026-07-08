@@ -22,7 +22,7 @@ let memFile = "";
 let sessionFile = "";
 
 beforeAll(() => {
-  base = mkdtempSync(join(tmpdir(), "peephole-watch-"));
+  base = mkdtempSync(join(tmpdir(), "peektrace-watch-"));
   const memDir = join(base, SLUG, "memory");
   mkdirSync(memDir, { recursive: true });
   memFile = join(memDir, "note.md");
@@ -135,7 +135,7 @@ describe("WatchService", () => {
   );
 
   test("reports a no-op zero snapshot when the root is absent", () => {
-    const missing = join(tmpdir(), "peephole-watch-missing-xyz");
+    const missing = join(tmpdir(), "peektrace-watch-missing-xyz");
     const noopAgents: AgentRegistryShape = {
       ...makeAgents(),
       projectsRoot: () => Effect.succeed(missing),

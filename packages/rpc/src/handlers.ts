@@ -1,4 +1,4 @@
-/** Handlers for the Peephole RPC group + the layer that wires them to core.
+/** Handlers for the Peektrace RPC group + the layer that wires them to core.
  *
  * Handlers are thin: each calls one core service method and maps any core
  * `Data.TaggedError` to its `Schema.TaggedError` wire twin (see `contract.ts`).
@@ -43,7 +43,7 @@ import {
   MemoryNotFoundError,
   MemoryValidationError,
   PathOutsideRootError,
-  PeepholeRpcs,
+  PeektraceRpcs,
   SessionNotFoundError,
   TranscriptParseError,
   type WireError,
@@ -143,7 +143,7 @@ const withRootSpans = <H extends Record<string, (...args: never[]) => unknown>>(
       (...args: never[]) =>
         (handler(...args) as Effect.Effect<unknown, unknown, unknown>).pipe(
           Effect.withSpan(`rpc.${tag}`, {
-            attributes: { "peephole.root": true, "peephole.kind": "rpc" },
+            attributes: { "peektrace.root": true, "peektrace.kind": "rpc" },
           })
         ),
     ])
@@ -152,7 +152,7 @@ const withRootSpans = <H extends Record<string, (...args: never[]) => unknown>>(
 
 /** Handler layer factory: requires the core services in context. */
 const makeHandlersLive = (rootSpans: boolean) =>
-  PeepholeRpcs.toLayer(
+  PeektraceRpcs.toLayer(
     Effect.gen(function* () {
       const sessions = yield* SessionsService;
       const memory = yield* MemoryService;

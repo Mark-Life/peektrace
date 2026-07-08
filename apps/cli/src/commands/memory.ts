@@ -1,4 +1,4 @@
-/** `peephole memory` subcommands: `ls`, `show`, `rm`.
+/** `peektrace memory` subcommands: `ls`, `show`, `rm`.
  *
  * `ls` with no argument lists every project that has memory; with a project slug
  * it lists that vault's entries. `show` prints one entry (frontmatter + body).

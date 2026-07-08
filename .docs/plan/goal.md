@@ -1,4 +1,4 @@
-# Peephole — Goal & Architecture
+# Peektrace — Goal & Architecture
 
 Companion to [`coding-agent-inspector-ideas.md`](./coding-agent-inspector-ideas.md). That file is the full feature dump; this file pins down **what we build first** and **how it's structured**.
 
@@ -21,13 +21,13 @@ The bet, grounded in the ideas dump: nobody surfaces this state well, and it's f
 
 ## 2. Starting point — two skills become the first product stories
 
-Two existing, proven skills are the seed. Both are **user-invoked, deterministic, zero-dep TypeScript that emits a self-contained, secret-redacted, human-facing HTML artifact** — local and private, never fed back to an LLM. Peephole keeps that privacy posture but turns the **one-shot HTML into a live, persistent, interactive surface** in the app.
+Two existing, proven skills are the seed. Both are **user-invoked, deterministic, zero-dep TypeScript that emits a self-contained, secret-redacted, human-facing HTML artifact** — local and private, never fed back to an LLM. Peektrace keeps that privacy posture but turns the **one-shot HTML into a live, persistent, interactive surface** in the app.
 
 ### Story 1 — Session inspector (from `session-report`)
 
 Source skill: [`agent-skills/skills/session-report/SKILL.md`](/Users/andrey/Code/personal/agent-skills/skills/session-report/SKILL.md)
 
-What it already does → what Peephole surfaces live:
+What it already does → what Peektrace surfaces live:
 
 - **Context budget at peak** — where every token goes: system+tools, listings, CLAUDE.md/memory, opened files, prompts, tool results, assistant text, **thinking** (the hidden giant), unattributed overhead.
 - **Context-growth timeline** — per-turn context size, the dumb-zone band (~40% context-rot cutoff), compaction cliffs, peak marker.
@@ -40,7 +40,7 @@ In the app this becomes a **persistent, browsable session viewer** instead of a 
 
 Source skill: [`agent-skills/skills/memory-view/SKILL.md`](/Users/andrey/Code/personal/agent-skills/skills/memory-view/SKILL.md)
 
-The source skill is **read-only by design** (the model never edits; the script only renders). Peephole's deliberate step beyond it: **the memory surface is also an editor.**
+The source skill is **read-only by design** (the model never edits; the script only renders). Peektrace's deliberate step beyond it: **the memory surface is also an editor.**
 
 Keep from the skill:
 

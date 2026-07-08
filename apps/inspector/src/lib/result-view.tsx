@@ -26,7 +26,7 @@ const DefaultPending = () => (
 );
 
 /**
- * Render a failed query. When the `Cause` carries a typed Peephole wire error we
+ * Render a failed query. When the `Cause` carries a typed Peektrace wire error we
  * show its friendly message; otherwise (defects, transport faults) we fall back
  * to the pretty-printed cause so nothing is ever swallowed or blank-screened.
  */

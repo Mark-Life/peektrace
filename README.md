@@ -1,11 +1,11 @@
-# Peephole
+# Peektrace
 
 A **local-first, loopback-only inspector and editor for Claude Code state** —
 the memories and sessions Claude scatters under `~/.claude`, surfaced in one live
 pane. Scope is L1: a single machine, your own data, never the cloud and never
 fed back to a model.
 
-`peephole serve` boots an Effect-TS core, serves a Vite/React UI + a typed
+`peektrace serve` boots an Effect-TS core, serves a Vite/React UI + a typed
 Effect-RPC contract on `127.0.0.1`, and opens the browser. Three sections:
 
 1. **Memory** — view / create / edit / delete Claude Code memories across **all
@@ -38,7 +38,7 @@ bun install
 bun run serve
 ```
 
-`bun run serve` builds `apps/inspector` then runs `peephole serve`. To run the
+`bun run serve` builds `apps/inspector` then runs `peektrace serve`. To run the
 binary directly (e.g. with flags):
 
 ```sh
@@ -49,13 +49,13 @@ bun run apps/cli/src/index.ts serve       # in-process serve
 ### Install as a global CLI
 
 ```sh
-npm i -g peephole      # or: bun add -g peephole
-peephole serve         # loopback inspector; open the printed URL
+npm i -g peektrace      # or: bun add -g peektrace
+peektrace serve         # loopback inspector; open the printed URL
 ```
 
 Ships prebuilt per-platform binaries (macOS arm64/x64, Linux x64, Windows x64)
 via optional dependencies — no build step, no Bun on the target. On a headless
-server (e.g. a VPS), `peephole serve --host 0.0.0.0 --port <p>` binds all
+server (e.g. a VPS), `peektrace serve --host 0.0.0.0 --port <p>` binds all
 interfaces (**no auth — firewall it yourself**); the default is loopback-only.
 
 ### Desktop app
@@ -79,11 +79,11 @@ The same binary exposes scriptable commands (in-process, or `--remote <url>`
 against a running server). Global flags: `--json`, `--read-only`, `--otel`.
 
 ```sh
-peephole sessions ls [--project <slug>]
-peephole sessions analyze <session-id>
-peephole memory ls [project]
-peephole memory show <project> <name>
-peephole memory rm <project> <name>       # refused under --read-only
+peektrace sessions ls [--project <slug>]
+peektrace sessions analyze <session-id>
+peektrace memory ls [project]
+peektrace memory show <project> <name>
+peektrace memory rm <project> <name>       # refused under --read-only
 ```
 
 See [`apps/cli/README.md`](apps/cli/README.md) for every command + flag and
@@ -106,14 +106,14 @@ transport.
 | --- | --- |
 | `packages/core` | Effect services: agents · capabilities · sessions · memory · fs · watch |
 | `packages/rpc` | Effect-RPC contract + handlers + typed client |
-| `apps/cli` | `peephole` binary: one-shot commands + `serve` + npm packaging |
+| `apps/cli` | `peektrace` binary: one-shot commands + `serve` + npm packaging |
 | `apps/inspector` | Vite + React + Effect-Atom UI |
 | `apps/desktop` | Electron shell around the compiled binary (sidecar + auto-update) |
 
-> **Distribution.** `apps/cli` compiles to a standalone `peephole` executable
-> with the inspector **embedded** (`bun run --filter=peephole build:binary`) — it
+> **Distribution.** `apps/cli` compiles to a standalone `peektrace` executable
+> with the inspector **embedded** (`bun run --filter=peektrace build:binary`) — it
 > serves with zero external files. The same binary ships two ways: `npm i -g
-> peephole` (per-platform packages) and as the sidecar inside the Peephole
+> peektrace` (per-platform packages) and as the sidecar inside the Peektrace
 > desktop app. Full plan: `.docs/plan/desktop-app.md`.
 
 ---
@@ -121,7 +121,7 @@ transport.
 # Next.js Monorepo Template
 
 > The repo is scaffolded from a turborepo + Next.js template. `apps/web`
-> (Next.js marketing) and its oRPC `packages/api` are **independent** of Peephole
+> (Next.js marketing) and its oRPC `packages/api` are **independent** of Peektrace
 > and left untouched. The template docs below still apply to that side.
 
 A turborepo-based monorepo template with Next.js, shadcn/ui, and strict code quality via Ultracite.

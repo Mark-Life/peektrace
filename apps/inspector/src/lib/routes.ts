@@ -1,7 +1,7 @@
 /** Tiny hash router — three top-level sections, zero routing deps.
  *
  * Hash routing keeps the static build trivially deep-linkable under
- * `peephole serve` (no server rewrites needed beyond the existing SPA
+ * `peektrace serve` (no server rewrites needed beyond the existing SPA
  * fallback). A section is the part after `#/`, e.g. `#/capabilities`.
  */
 import { useSyncExternalStore } from "react";

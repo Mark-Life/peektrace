@@ -64,13 +64,13 @@ export interface WriteFsShape {
 }
 
 /** Read tag — provided by every FS layer. */
-export class ReadFs extends Context.Tag("@peephole/ReadFs")<
+export class ReadFs extends Context.Tag("@peektrace/ReadFs")<
   ReadFs,
   ReadFsShape
 >() {}
 
 /** Write tag — provided only by the read-write layer. */
-export class WriteFs extends Context.Tag("@peephole/WriteFs")<
+export class WriteFs extends Context.Tag("@peektrace/WriteFs")<
   WriteFs,
   WriteFsShape
 >() {}

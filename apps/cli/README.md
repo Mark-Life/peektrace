@@ -1,6 +1,6 @@
-# Peephole CLI (`apps/cli`)
+# Peektrace CLI (`apps/cli`)
 
-`peephole` — a local, **loopback-only** inspector for Claude Code memories &
+`peektrace` — a local, **loopback-only** inspector for Claude Code memories &
 sessions. One binary built on [`@effect/cli`](https://effect.website): the
 headline `serve` command boots the browser UI, plus one-shot subcommands for
 scripting.
@@ -12,41 +12,41 @@ output. The server binds `127.0.0.1` only — nothing is ever exposed off-box.
 
 ```sh
 # headline: build the UI once, then serve it (from repo root)
-bun run serve                       # = build inspector + peephole serve
+bun run serve                       # = build inspector + peektrace serve
 
 # or invoke the binary directly (in-process mode)
 bun run apps/cli/src/index.ts serve
 
 # published-package form (once distributed)
-bunx peephole serve
+bunx peektrace serve
 ```
 
-`./src/index.ts` is the package `bin` (`peephole`) for local `bun run`, so a
+`./src/index.ts` is the package `bin` (`peektrace`) for local `bun run`, so a
 workspace `bunx` exposes the same commands documented below.
 
 ## Distribution (npm)
 
-Published as a single unscoped package `peephole` that ships prebuilt binaries
+Published as a single unscoped package `peektrace` that ships prebuilt binaries
 via `os`/`cpu`-filtered optional dependencies — one per platform, named
-`peephole-cli-<platform>-<arch>` (`darwin-arm64`, `darwin-x64`, `linux-x64`,
+`peektrace-<platform>-<arch>` (`darwin-arm64`, `darwin-x64`, `linux-x64`,
 `win32-x64`). Installing pulls only the host's binary; a tiny Node shim
-(`peephole.js`) resolves it and forwards argv.
+(`peektrace.js`) resolves it and forwards argv.
 
 ```sh
-npm install -g peephole      # or: bun install -g peephole
-peephole serve
+npm install -g peektrace      # or: bun install -g peektrace
+peektrace serve
 ```
 
 `bun run --cwd apps/cli build:npm` cross-compiles every target (re-running
 `src/build.ts` with `BUN_TARGET`) and stages the publishable package dirs under
 the gitignored `apps/cli/dist-npm/`. Nothing is published automatically: publish
-each `peephole-cli-*` variant first, then the `peephole` wrapper (so its
-optionalDependencies resolve). The scoped `@peephole/*` naming is a documented
+each `peektrace-*` variant first, then the `peektrace` wrapper (so its
+optionalDependencies resolve). The scoped `@peektrace/*` naming is a documented
 alternative (needs an npm org) — see the header of `scripts/build-npm.ts`.
 
 ### Running on a VPS / headless server
 
-The Linux binary runs headless. `peephole serve` binds loopback (`127.0.0.1`)
+The Linux binary runs headless. `peektrace serve` binds loopback (`127.0.0.1`)
 only by default — nothing is exposed off-box and there is **no auth**. Reach it
 over an SSH tunnel:
 
@@ -54,10 +54,10 @@ over an SSH tunnel:
 ssh -N -L 4321:127.0.0.1:4321 user@server   # then open http://127.0.0.1:4321
 ```
 
-To bind the network directly, pass `--host` (peephole warns at startup):
+To bind the network directly, pass `--host` (peektrace warns at startup):
 
 ```sh
-peephole serve --host 0.0.0.0                # no auth — firewall yourself
+peektrace serve --host 0.0.0.0                # no auth — firewall yourself
 ```
 
 Only expose it behind a trusted firewall/private network; consider pairing with
@@ -71,7 +71,7 @@ Every command runs one of two ways:
   Effect layers directly and reads `~/.claude` itself. Best for one-shot
   scripting.
 - **`--remote <url>`** — the CLI becomes a thin Effect-RPC HTTP client against a
-  already-running `peephole serve` (local or a remote box over an SSH tunnel).
+  already-running `peektrace serve` (local or a remote box over an SSH tunnel).
   No core layers are loaded locally.
 
 ## Global flags
@@ -82,8 +82,8 @@ Declared on the root command; apply to every subcommand:
 | --- | --- |
 | `--json` | Emit the raw RPC payload as JSON instead of rendered tables |
 | `--read-only` | Safe mode — refuse any mutating command up-front (e.g. `memory rm`) before the write path is reached |
-| `--remote <url>` | Target a running `peephole serve` over HTTP instead of in-process |
-| `--otel` | Log Effect spans to **stderr** as `[otel] <span> <ms> ok/fail {attrs}` (also enabled by the `PEEPHOLE_OTEL` env var). Off by default → no-op tracer, zero startup cost |
+| `--remote <url>` | Target a running `peektrace serve` over HTTP instead of in-process |
+| `--otel` | Log Effect spans to **stderr** as `[otel] <span> <ms> ok/fail {attrs}` (also enabled by the `PEEKTRACE_OTEL` env var). Off by default → no-op tracer, zero startup cost |
 
 ## Commands
 
@@ -101,7 +101,7 @@ roots for the server's lifetime so Memory + Sessions auto-refresh
 | `--open` / `--no-open` | `--open` | Open the default browser on start; `--no-open` to skip |
 
 ```sh
-peephole serve --no-open --port 4789
+peektrace serve --no-open --port 4789
 ```
 
 If `apps/inspector/dist` is missing, `/` returns a 503 telling you to build the
@@ -118,8 +118,8 @@ message count, size, updated, title.
 | `--project <slug>` | Filter sessions by project slug |
 
 ```sh
-peephole sessions ls
-peephole sessions ls --project -Users-me-myrepo --json
+peektrace sessions ls
+peektrace sessions ls --project -Users-me-myrepo --json
 ```
 
 ### `sessions analyze <id>` — context-budget forensics
@@ -129,8 +129,8 @@ Reproduces the `session-report` math headlessly: verdict
 counts, the dumb-zone crossing turn, and the budget-at-peak partition.
 
 ```sh
-peephole sessions analyze <session-uuid>
-peephole sessions analyze <session-uuid> --json
+peektrace sessions analyze <session-uuid>
+peektrace sessions analyze <session-uuid> --json
 ```
 
 ### `memory ls [project]` — memories overview / one vault
@@ -140,8 +140,8 @@ whether a `MEMORY.md` index exists). With a project slug → that vault's entrie
 (name, type, in-index, size, description).
 
 ```sh
-peephole memory ls
-peephole memory ls -Users-me-myrepo
+peektrace memory ls
+peektrace memory ls -Users-me-myrepo
 ```
 
 ### `memory show <project> <name>` — print one entry
@@ -150,7 +150,7 @@ Frontmatter (name, type, description, size, modified, in-index, link count) plus
 the full body.
 
 ```sh
-peephole memory show -Users-me-myrepo my-note
+peektrace memory show -Users-me-myrepo my-note
 ```
 
 ### `memory rm <project> <name>` — delete an entry
@@ -160,24 +160,24 @@ references it left behind. **Refused** with a clear message when `--read-only`
 is set — the write path is never reached.
 
 ```sh
-peephole memory rm -Users-me-myrepo my-note
-peephole --read-only memory rm -Users-me-myrepo my-note   # refused, no write
+peektrace memory rm -Users-me-myrepo my-note
+peektrace --read-only memory rm -Users-me-myrepo my-note   # refused, no write
 ```
 
 ## Safety: point at a throwaway projects root
 
-Resolution reads `~/.claude/projects` by default. Set `PEEPHOLE_CLAUDE_PROJECTS`
+Resolution reads `~/.claude/projects` by default. Set `PEEKTRACE_CLAUDE_PROJECTS`
 to redirect every read/write at a temp dir — used by the automated tests so they
 never touch real memories:
 
 ```sh
-PEEPHOLE_CLAUDE_PROJECTS=/tmp/seed-projects \
+PEEKTRACE_CLAUDE_PROJECTS=/tmp/seed-projects \
   bun run apps/cli/src/index.ts memory ls
 ```
 
 ## Observability
 
-`--otel` (or `PEEPHOLE_OTEL=1`) installs a minimal console tracer at the runtime
+`--otel` (or `PEEKTRACE_OTEL=1`) installs a minimal console tracer at the runtime
 boundary (`src/tracing.ts`, zero extra deps). Every core IO op is already
 wrapped in `Effect.withSpan`, so spans print to stderr for both one-shot
 commands and the long-lived `serve` fibers. To export to a real collector, swap

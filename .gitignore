@@ -27,7 +27,7 @@ out/
 build
 dist
 
-# Staged npm publish artifacts (peephole CLI per-platform packages)
+# Staged npm publish artifacts (peektrace CLI per-platform packages)
 apps/cli/dist-npm/
 
 # Desktop packaging artifacts

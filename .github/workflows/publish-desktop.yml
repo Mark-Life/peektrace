@@ -2,9 +2,9 @@ name: Publish Desktop App
 
 run-name: "publish desktop ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
 
-# Builds the Peephole Electron app for mac (arm64 + x64), Windows (x64) and
-# Linux (x64), each with the compiled `peephole` CLI bundled as a sidecar in
-# resources/peephole/, then attaches the installers + auto-update manifests to
+# Builds the Peektrace Electron app for mac (arm64 + x64), Windows (x64) and
+# Linux (x64), each with the compiled `peektrace` CLI bundled as a sidecar in
+# resources/peektrace/, then attaches the installers + auto-update manifests to
 # the GitHub Release matching the tag so electron-updater can pick them up.
 #
 # The desktop stream owns an INDEPENDENT `desktop-v<semver>` tag (decoupled
@@ -12,7 +12,7 @@ run-name: "publish desktop ${{ github.event_name == 'workflow_dispatch' && input
 # workflow_dispatch stays available for repair runs. The tag is the source of
 # truth for the app version — the build job strips `desktop-v` and stamps the
 # bare semver into apps/desktop/package.json (and apps/cli/package.json so the
-# bundled `peephole --version` matches) before electron-builder embeds it.
+# bundled `peektrace --version` matches) before electron-builder embeds it.
 #
 # Builds ship UNSIGNED for now (no CSC_LINK / APPLE_API_* secrets); the mac
 # signing env below is left commented for a later signed-build pass.
@@ -102,7 +102,7 @@ jobs:
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Building Peephole desktop $VERSION"
+          echo "Building Peektrace desktop $VERSION"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -138,7 +138,7 @@ jobs:
         run: |
           set -euo pipefail
           PORT=4321
-          ./resources/peephole/peephole serve --port "$PORT" --no-open &
+          ./resources/peektrace/peektrace serve --port "$PORT" --no-open &
           SRV=$!
           trap 'kill "$SRV" 2>/dev/null || true' EXIT
           for _ in $(seq 1 30); do
@@ -157,7 +157,7 @@ jobs:
         shell: pwsh
         run: |
           $port = 4321
-          $proc = Start-Process -FilePath "./resources/peephole/peephole.exe" `
+          $proc = Start-Process -FilePath "./resources/peektrace/peektrace.exe" `
             -ArgumentList "serve","--port","$port","--no-open" -PassThru -NoNewWindow
           try {
             $ok = $false

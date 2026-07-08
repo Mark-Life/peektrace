@@ -17,10 +17,10 @@
       },
     },
     "apps/cli": {
-      "name": "peephole",
+      "name": "peektrace",
       "version": "0.0.1",
       "bin": {
-        "peephole": "./src/index.ts",
+        "peektrace": "./src/index.ts",
       },
       "dependencies": {
         "@effect/cli": "latest",
@@ -1663,7 +1663,7 @@
 
     "pe-library": ["pe-library@0.4.1", "", {}, "sha512-eRWB5LBz7PpDu4PUlwT0PhnQfTQJlDDdPa35urV4Osrm0t0AqQFGn+UIkU3klZvwJ8KPO3VbBFsXquA6p6kqZw=="],
 
-    "peephole": ["peephole@workspace:apps/cli"],
+    "peektrace": ["peektrace@workspace:apps/cli"],
 
     "pend": ["pend@1.2.0", "", {}, "sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg=="],
 

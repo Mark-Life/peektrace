@@ -8,12 +8,12 @@ interface PersistedShape {
   readonly server: DesktopServerSettings;
 }
 
-// PEEPHOLE_DESKTOP_SETTINGS_DIR overrides the store location — an e2e seam so a
+// PEEKTRACE_DESKTOP_SETTINGS_DIR overrides the store location — an e2e seam so a
 // test run gets an isolated settings.json instead of the shared userData dir.
 const store = new Store<PersistedShape>({
   name: "settings",
-  ...(process.env.PEEPHOLE_DESKTOP_SETTINGS_DIR
-    ? { cwd: process.env.PEEPHOLE_DESKTOP_SETTINGS_DIR }
+  ...(process.env.PEEKTRACE_DESKTOP_SETTINGS_DIR
+    ? { cwd: process.env.PEEKTRACE_DESKTOP_SETTINGS_DIR }
     : {}),
   defaults: { server: DEFAULT_SERVER_SETTINGS },
 });

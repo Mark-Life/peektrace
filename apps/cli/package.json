@@ -1,10 +1,10 @@
 {
-  "name": "peephole",
+  "name": "peektrace",
   "version": "0.0.1",
   "type": "module",
   "private": true,
   "bin": {
-    "peephole": "./src/index.ts"
+    "peektrace": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -1,7 +1,7 @@
 import type { Configuration } from "electron-builder";
 
 /**
- * electron-builder configuration for the Peephole desktop app.
+ * electron-builder configuration for the Peektrace desktop app.
  *
  * Packages the `electron-vite` output (`out/`) plus the compiled CLI sidecar
  * staged by `scripts/build-sidecar.ts` into distributable installers.
@@ -18,10 +18,10 @@ import type { Configuration } from "electron-builder";
  * a mismatched-arch artifact (errno -86 / EBADARCH).
  */
 const config: Configuration = {
-  appId: "com.mark-life.peephole",
-  productName: "Peephole",
+  appId: "com.mark-life.peektrace",
+  productName: "Peektrace",
   // biome-ignore lint/suspicious/noTemplateCurlyInString: electron-builder interpolates ${os}/${arch}/${ext} from this literal.
-  artifactName: "peephole-desktop-${os}-${arch}.${ext}",
+  artifactName: "peektrace-desktop-${os}-${arch}.${ext}",
 
   directories: {
     output: "dist-app",
@@ -32,11 +32,11 @@ const config: Configuration = {
   files: ["out/**/*", "package.json"],
 
   // The compiled CLI binary must live OUTSIDE the asar — asar-packed files can't
-  // be exec'd. This lands it at Contents/Resources/peephole/peephole.
+  // be exec'd. This lands it at Contents/Resources/peektrace/peektrace.
   extraResources: [
     {
-      from: "resources/peephole/",
-      to: "peephole/",
+      from: "resources/peektrace/",
+      to: "peektrace/",
       filter: ["**/*"],
     },
   ],
@@ -71,7 +71,7 @@ const config: Configuration = {
   publish: {
     provider: "github",
     owner: "Mark-Life",
-    repo: "peephole",
+    repo: "peektrace",
   },
 };
 

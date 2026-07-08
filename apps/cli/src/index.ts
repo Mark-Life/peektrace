@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
-/** `peephole` — local, loopback-only inspector for Claude Code memories & sessions.
+/** `peektrace` — local, loopback-only inspector for Claude Code memories & sessions.
  *
  * One binary, two execution modes per command: in-process (default; provisions the
  * core layers directly) and `--remote <url>` (HTTP client against a running
- * `peephole serve`). Global flags `--json` and `--read-only` apply to every
+ * `peektrace serve`). Global flags `--json` and `--read-only` apply to every
  * subcommand and are read from this parent command's parsed config.
  */
 import { Command, Options } from "@effect/cli";
@@ -32,12 +32,12 @@ const prettyOpt = Options.boolean("pretty").pipe(
   )
 );
 const remoteOpt = Options.text("remote").pipe(
-  Options.withDescription("Target a running `peephole serve` over HTTP"),
+  Options.withDescription("Target a running `peektrace serve` over HTTP"),
   Options.optional
 );
 const otelOpt = Options.boolean("otel").pipe(
   Options.withDescription(
-    "Log Effect spans to stderr (also enabled by PEEPHOLE_OTEL)"
+    "Log Effect spans to stderr (also enabled by PEEKTRACE_OTEL)"
   )
 );
 const telemetryOpt = Options.boolean("telemetry", {
@@ -50,8 +50,8 @@ const telemetryOpt = Options.boolean("telemetry", {
 );
 
 /** Root command — carries the global flags; prints a banner when run bare. */
-const peephole = Command.make(
-  "peephole",
+const peektrace = Command.make(
+  "peektrace",
   {
     json: jsonOpt,
     readOnly: readOnlyOpt,
@@ -62,14 +62,14 @@ const peephole = Command.make(
   },
   () =>
     Console.log(
-      "Peephole — local, loopback-only inspector for Claude Code.\n" +
-        "Try: peephole serve | sessions ls | memory ls"
+      "Peektrace — local, loopback-only inspector for Claude Code.\n" +
+        "Try: peektrace serve | sessions ls | memory ls"
     )
 );
 
 /** Resolve the parent command's parsed global flags inside any subcommand. */
 const globals: GlobalsAccessor = () =>
-  Effect.map(peephole, (config) => ({
+  Effect.map(peektrace, (config) => ({
     json: config.json,
     readOnly: config.readOnly,
     remote: Option.getOrUndefined(config.remote),
@@ -91,23 +91,23 @@ const memory = Command.make("memory").pipe(
   ])
 );
 
-const command = peephole.pipe(
+const command = peektrace.pipe(
   Command.withSubcommands([sessions, memory, makeServe(), makeDoctor()])
 );
 
 const cli = Command.run(command, {
-  name: "Peephole",
+  name: "Peektrace",
   version: APP_VERSION,
 });
 
 // One tracer slot is chosen at boot from raw argv (flags are also parsed by
 // @effect/cli, but the tracer layer must be picked before dispatch). Telemetry
 // is ON by default and persists one wide event per invocation to local SQLite;
-// `--no-telemetry` (or `PEEPHOLE_NO_TELEMETRY`) opts out. `--otel` becomes the
+// `--no-telemetry` (or `PEEKTRACE_NO_TELEMETRY`) opts out. `--otel` becomes the
 // stderr echo. When telemetry is off, `--otel` still drives the console tracer.
 const telemetryOn =
   !process.argv.includes("--no-telemetry") &&
-  process.env.PEEPHOLE_NO_TELEMETRY == null;
+  process.env.PEEKTRACE_NO_TELEMETRY == null;
 const echo = otelEnabled(process.argv.includes("--otel"));
 
 /** Pick the single tracer layer: local telemetry when on, else the echo/no-op. */
@@ -124,8 +124,8 @@ const tracing = selectTracing();
 cli(process.argv).pipe(
   Effect.withSpan("cli", {
     attributes: {
-      "peephole.root": true,
-      "peephole.kind": "cli",
+      "peektrace.root": true,
+      "peektrace.kind": "cli",
       argv: process.argv.slice(2).join(" "),
     },
   }),

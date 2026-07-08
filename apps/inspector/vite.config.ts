@@ -7,13 +7,13 @@ import { defineConfig } from "vite";
  *
  * - Tailwind v4 via `@tailwindcss/vite` (styles come from
  *   `@workspace/ui/globals.css`, imported in `main.tsx`).
- * - Dev transport: proxy `/rpc` to a running `peephole serve` so the dev server
+ * - Dev transport: proxy `/rpc` to a running `peektrace serve` so the dev server
  *   and the production (same-origin) build hit an identical RPC path. Override
- *   the target with `PEEPHOLE_RPC_TARGET` (default `http://127.0.0.1:4321`).
- * - Prod transport: none needed — `peephole serve` hosts `dist/` and `/rpc`
+ *   the target with `PEEKTRACE_RPC_TARGET` (default `http://127.0.0.1:4321`).
+ * - Prod transport: none needed — `peektrace serve` hosts `dist/` and `/rpc`
  *   on the same origin, so the default base URL `""` resolves `/rpc` directly.
  */
-const RPC_TARGET = process.env.PEEPHOLE_RPC_TARGET ?? "http://127.0.0.1:4321";
+const RPC_TARGET = process.env.PEEKTRACE_RPC_TARGET ?? "http://127.0.0.1:4321";
 
 const EFFECT_RE = /node_modules\/(effect|@effect|@effect-atom)\//;
 const REACT_RE = /node_modules\/(react|react-dom|scheduler)\//;
