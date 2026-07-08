@@ -13,6 +13,14 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # `peektrace` wrapper whose optionalDependencies pin those variants at the exact
 # version. The variants MUST publish before the wrapper so its optional deps
 # resolve.
+#
+# The SAME staged binaries are also published as raw assets on the GitHub
+# Release for the tag (peektrace-darwin-arm64, peektrace-darwin-x64,
+# peektrace-linux-x64, peektrace-windows-x64.exe + a SHA256SUMS), which the
+# native curl|sh / irm|iex installers (install.sh, install.ps1) download. The
+# job runs on macOS so both darwin binaries can be ad-hoc codesigned (free, no
+# Apple account) — without a signature a cross-compiled arm64 binary is
+# 'killed: 9' by the kernel on first launch.
 
 on:
   push:
@@ -26,7 +34,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: publish-cli-${{ github.ref }}
@@ -34,7 +42,9 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    # macOS runner so both darwin binaries can be ad-hoc codesigned before
+    # release (see header). Bun cross-compiles all four targets from here.
+    runs-on: macos-latest
     timeout-minutes: 30
 
     steps:
@@ -66,7 +76,8 @@ jobs:
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Publishing peektrace@$VERSION"
+          echo "TAG=$RAW_TAG" >> "$GITHUB_ENV"
+          echo "Publishing peektrace@$VERSION ($RAW_TAG)"
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -125,3 +136,58 @@ jobs:
             publish_dir "$d"
           done
           publish_dir "apps/cli/dist-npm/peektrace"
+
+      # Collect the four already-compiled binaries from the staged npm packages
+      # and rename them to the SHARED-CONTRACT release-asset names the installers
+      # (install.sh / install.ps1) download.
+      - name: Collect release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          DIST=apps/cli/dist-npm
+          mkdir -p release
+          cp "$DIST/peektrace-darwin-arm64/bin/peektrace"    release/peektrace-darwin-arm64
+          cp "$DIST/peektrace-darwin-x64/bin/peektrace"      release/peektrace-darwin-x64
+          cp "$DIST/peektrace-linux-x64/bin/peektrace"       release/peektrace-linux-x64
+          cp "$DIST/peektrace-win32-x64/bin/peektrace.exe"   release/peektrace-windows-x64.exe
+          chmod +x release/peektrace-darwin-arm64 release/peektrace-darwin-x64 release/peektrace-linux-x64
+          ls -l release
+
+      # Ad-hoc sign BOTH darwin binaries (free, no Apple account). A
+      # cross-compiled unsigned arm64 binary is 'killed: 9' on first launch;
+      # signing here + curl-install (no quarantine attr) means it just runs.
+      - name: Ad-hoc codesign macOS binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          for bin in release/peektrace-darwin-arm64 release/peektrace-darwin-x64; do
+            codesign --sign - --force --timestamp=none "$bin"
+            codesign --verify --verbose "$bin"
+          done
+
+      # Checksums the installers verify. Lines: "<sha256>  <asset>".
+      - name: Generate SHA256SUMS
+        working-directory: release
+        run: shasum -a 256 peektrace-* > SHA256SUMS
+
+      # Create the Release for this tag if missing, then (re)upload every asset.
+      - name: Publish GitHub Release with raw binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
+          gh release upload "$TAG" \
+            release/peektrace-darwin-arm64 \
+            release/peektrace-darwin-x64 \
+            release/peektrace-linux-x64 \
+            release/peektrace-windows-x64.exe \
+            release/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --clobber

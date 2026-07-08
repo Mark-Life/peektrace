@@ -48,15 +48,45 @@ bun run apps/cli/src/index.ts serve       # in-process serve
 
 ### Install as a global CLI
 
+Two ways to get the `peektrace` command — both ship the same prebuilt
+per-platform binary (macOS arm64/x64, Linux x64, Windows x64) with the inspector
+embedded, so there's no build step on the target.
+
+**Native install (no Node required).** Downloads the standalone binary straight
+from GitHub Releases and verifies its SHA-256:
+
+```sh
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/install.ps1 | iex
+```
+
+Installs to `~/.local/bin` (macOS/Linux) or `%LOCALAPPDATA%\peektrace\bin`
+(Windows) and prints PATH guidance if needed. Pin a version with
+`PEEKTRACE_VERSION=cli-v1.2.3` (env var on unix, `$env:PEEKTRACE_VERSION` on
+Windows); `PEEKTRACE_INSTALL_DIR` overrides the target directory. Native install
+is x64-everywhere plus Apple Silicon; on other arches (e.g. Linux arm64) use npm.
+
+**npm (needs Node.js `>=20`).** Ships the per-platform binaries via optional
+dependencies:
+
 ```sh
 npm i -g peektrace      # or: bun add -g peektrace
+```
+
+Either way:
+
+```sh
 peektrace serve         # loopback inspector; open the printed URL
 ```
 
-Ships prebuilt per-platform binaries (macOS arm64/x64, Linux x64, Windows x64)
-via optional dependencies — no build step, no Bun on the target. On a headless
-server (e.g. a VPS), `peektrace serve --host 0.0.0.0 --port <p>` binds all
-interfaces (**no auth — firewall it yourself**); the default is loopback-only.
+On a headless server (e.g. a VPS), `peektrace serve --host 0.0.0.0 --port <p>`
+binds all interfaces (**no auth — firewall it yourself**); the default is
+loopback-only.
 
 ### Desktop app
 
