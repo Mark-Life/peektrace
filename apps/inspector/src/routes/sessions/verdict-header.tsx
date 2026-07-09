@@ -21,6 +21,13 @@ import {
 /** Short id prefix shown in the metadata line. */
 const ID_PREFIX = 8;
 
+/** Display label per transcript provider. */
+const PROVIDER_LABEL: Record<string, string> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  pi: "Pi",
+};
+
 /** A single metadata cell. */
 const Meta = ({
   k,
@@ -79,20 +86,25 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="font-semibold text-lg">
-            {a.title || "Claude Code session"}
+            {a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`}
           </div>
           <div className="font-mono text-muted-foreground text-xs">
             {a.sessionId.slice(0, ID_PREFIX)} · {a.models.join(", ")} ·{" "}
             {a.cwd ?? ""}
           </div>
         </div>
-        <Badge
-          className={cn("text-sm", ZONE_CLASSES[zone].text)}
-          data-testid="health-verdict"
-          variant="outline"
-        >
-          {HEALTH_LABEL[zone]}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge data-testid="session-provider" variant="outline">
+            {PROVIDER_LABEL[a.provider] ?? a.provider}
+          </Badge>
+          <Badge
+            className={cn("text-sm", ZONE_CLASSES[zone].text)}
+            data-testid="health-verdict"
+            variant="outline"
+          >
+            {HEALTH_LABEL[zone]}
+          </Badge>
+        </div>
       </div>
 
       <PeakGauge a={a} />

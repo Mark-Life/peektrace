@@ -3,6 +3,7 @@
  * (cwd, branch, model, timestamps, message count) without building the full
  * event timeline or running budget analysis.
  */
+import type { AgentId } from "../agent-id";
 import type { SessionHeader } from "./schema";
 
 interface RawLine {
@@ -85,6 +86,7 @@ export const buildHeader = (args: {
 
   return {
     id,
+    agent: "claude" as AgentId,
     path,
     project: slug,
     messageCount,

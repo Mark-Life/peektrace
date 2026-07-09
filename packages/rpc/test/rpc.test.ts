@@ -69,6 +69,7 @@ const makeAgents = (base: string): AgentRegistryShape => {
   const roots = (id: AgentRoots["id"]): AgentRoots => ({
     id,
     home: join(base, "home"),
+    layout: id === "claude" ? "claude-projects" : "none",
     projectsRoot: base,
     supported: id === "claude",
   });
@@ -81,6 +82,18 @@ const makeAgents = (base: string): AgentRegistryShape => {
     sessionsGlob: () => Effect.succeed(join(base, "**", "*.jsonl")),
     memoryDir: ({ slug }) => Effect.succeed(join(base, slug, "memory")),
     listProjectSlugs: () => Effect.succeed([SESSION_SLUG, MEM_SLUG]),
+    listSessionFiles: (id) =>
+      Effect.succeed(
+        id === "claude"
+          ? [
+              {
+                path: join(base, SESSION_SLUG, `${SESSION_ID}.jsonl`),
+                id: SESSION_ID,
+                slug: SESSION_SLUG,
+              },
+            ]
+          : []
+      ),
   };
 };
 

@@ -151,6 +151,7 @@ export type WatchVersions = typeof WatchVersions.Type;
 /** `sessions.list` filter. */
 export const SessionsListPayload = Schema.Struct({
   project: Schema.optional(Schema.String),
+  agent: Schema.optional(AgentId),
 });
 
 /** `sessions.get` arguments. */

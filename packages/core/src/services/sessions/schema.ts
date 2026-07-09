@@ -1,4 +1,9 @@
 import { Schema } from "effect";
+import { AgentId } from "../agent-id";
+
+/** Which coding agent produced a transcript. Mirrors the parseable `AgentId`s. */
+export const Provider = Schema.Literal("claude-code", "codex", "pi");
+export type Provider = typeof Provider.Type;
 
 /**
  * Schemas for Claude transcript ingest and the serializable analysis result.
@@ -229,7 +234,7 @@ export type TurnSnapshot = typeof TurnSnapshot.Type;
 
 /** Parsed-but-not-yet-analyzed session. */
 export const ParsedSession = Schema.Struct({
-  provider: Schema.Literal("claude-code"),
+  provider: Provider,
   sessionId: Schema.String,
   path: Schema.String,
   cwd: Schema.optional(Schema.String),
@@ -243,6 +248,13 @@ export const ParsedSession = Schema.Struct({
   turns: Schema.Array(Turn),
   compactionIndexes: Schema.Array(Schema.Number),
   subagents: Schema.Array(SubagentRef),
+  /**
+   * Authoritative context-window size read straight from the transcript
+   * (Codex `model_context_window`); `analyze` prefers it over the inferred
+   * default and flips `contextWindowInferred` off. Absent for agents whose
+   * transcripts don't record it (Claude, Pi).
+   */
+  nativeContextWindow: Schema.optional(Schema.Number),
 });
 export type ParsedSession = typeof ParsedSession.Type;
 
@@ -276,6 +288,8 @@ export type AnalyzedSession = typeof AnalyzedSession.Type;
 export const SessionHeader = Schema.Struct({
   id: Schema.String,
   path: Schema.String,
+  /** The coding agent that produced this transcript (Claude / Codex / Pi). */
+  agent: AgentId,
   cwd: Schema.optional(Schema.String),
   project: Schema.String,
   gitBranch: Schema.optional(Schema.String),

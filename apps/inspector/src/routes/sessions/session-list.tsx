@@ -19,6 +19,14 @@ import { cn } from "@workspace/ui/lib/utils";
 import { useMemo, useState } from "react";
 import { fmtBytes } from "../../lib/session-format";
 
+/** Human-readable label per agent id for the badge. */
+const AGENT_LABEL: Record<string, string> = {
+  claude: "Claude",
+  codex: "Codex",
+  pi: "Pi",
+  opencode: "OpenCode",
+};
+
 /** Characters of the session id shown as a short handle. */
 const ID_PREFIX = 8;
 /** Slice length for `YYYY-MM-DDTHH:MM` (date + minute). */
@@ -72,6 +80,7 @@ const FilterSelect = ({
 const matches = ({
   h,
   query,
+  agent,
   project,
   branch,
   model,
@@ -79,11 +88,15 @@ const matches = ({
 }: {
   readonly h: SessionHeader;
   readonly query: string;
+  readonly agent: string;
   readonly project: string;
   readonly branch: string;
   readonly model: string;
   readonly day: string;
 }): boolean => {
+  if (agent !== "all" && h.agent !== agent) {
+    return false;
+  }
   if (project !== "all" && h.project !== project) {
     return false;
   }
@@ -134,6 +147,9 @@ const SessionRow = ({
       </span>
     </div>
     <div className="flex items-center gap-2 text-muted-foreground text-xs">
+      <Badge className="shrink-0" variant="outline">
+        {AGENT_LABEL[h.agent] ?? h.agent}
+      </Badge>
       <span className="truncate">{h.project}</span>
       {h.gitBranch ? (
         <Badge className="shrink-0" variant="secondary">
@@ -163,11 +179,13 @@ export const SessionList = ({
   readonly onOpen: (id: string) => void;
 }) => {
   const [query, setQuery] = useState("");
+  const [agent, setAgent] = useState("all");
   const [project, setProject] = useState("all");
   const [branch, setBranch] = useState("all");
   const [model, setModel] = useState("all");
   const [day, setDay] = useState("all");
 
+  const agents = useMemo(() => distinct(headers, (h) => h.agent), [headers]);
   const projects = useMemo(
     () => distinct(headers, (h) => h.project),
     [headers]
@@ -185,9 +203,11 @@ export const SessionList = ({
   const rows = useMemo(
     () =>
       [...headers]
-        .filter((h) => matches({ h, query, project, branch, model, day }))
+        .filter((h) =>
+          matches({ h, query, agent, project, branch, model, day })
+        )
         .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? "")),
-    [headers, query, project, branch, model, day]
+    [headers, query, agent, project, branch, model, day]
   );
 
   return (
@@ -200,6 +220,13 @@ export const SessionList = ({
         value={query}
       />
       <div className="grid grid-cols-2 gap-2">
+        <FilterSelect
+          label="Agent"
+          onChange={setAgent}
+          options={agents}
+          testId="session-filter-agent"
+          value={agent}
+        />
         <FilterSelect
           label="Project"
           onChange={setProject}
