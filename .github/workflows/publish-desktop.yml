@@ -2,6 +2,12 @@ name: Publish Desktop App
 
 run-name: "publish desktop ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
 
+# DISABLED: desktop is not a distribution channel yet — shipping a usable mac
+# build needs a paid Apple Developer account for signing/notarization. The
+# automatic `desktop-v*` tag trigger is commented out below; the workflow can
+# still be started by hand from the Actions tab. Restore the trigger to bring
+# the channel back.
+#
 # Builds the Peektrace Electron app for mac (arm64 + x64), Windows (x64) and
 # Linux (x64), each with the compiled `peektrace` CLI bundled as a sidecar in
 # resources/peektrace/, then attaches the installers + auto-update manifests to
@@ -18,9 +24,9 @@ run-name: "publish desktop ${{ github.event_name == 'workflow_dispatch' && input
 # signing env below is left commented for a later signed-build pass.
 
 on:
-  push:
-    tags:
-      - "desktop-v*"
+  # push:
+  #   tags:
+  #     - "desktop-v*"
   workflow_dispatch:
     inputs:
       tag:

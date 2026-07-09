@@ -6,7 +6,7 @@
 # npm, or Bun is required on the target machine.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh
 #
 # Optional environment overrides (all have sensible defaults):
 #   PEEKTRACE_VERSION      Pin a release tag, e.g. cli-v1.2.3 (default: newest cli-v*).
@@ -36,15 +36,12 @@ err() {
   exit 1
 }
 
-# Emit the npm fallback hint and abort.
+# Abort: no prebuilt binary exists for this platform.
 fail_unsupported() {
   warn "error: $1"
   warn ""
-  warn "The native installer has no prebuilt binary for your platform."
-  warn "Install via npm instead (requires Node.js >= 20):"
-  warn ""
-  warn "  npm i -g peektrace"
-  warn ""
+  warn "peektrace has no prebuilt binary for your platform."
+  warn "Supported: macOS (arm64, x64), Linux (x64), Windows (x64)."
   exit 1
 }
 

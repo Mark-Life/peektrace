@@ -51,41 +51,37 @@ bun run apps/cli/src/index.ts serve       # in-process serve
 
 ### Install as a global CLI
 
-Two ways to get the `peektrace` command — both ship the same prebuilt
-per-platform binary (macOS arm64/x64, Linux x64, Windows x64) with the inspector
-embedded, so there's no build step on the target.
-
-**Native install (no Node required).** Downloads the standalone binary straight
-from GitHub Releases and verifies its SHA-256:
+The native installer is the only distribution channel. It downloads a prebuilt
+standalone binary (macOS arm64/x64, Linux x64, Windows x64) with the inspector
+embedded straight from GitHub Releases, verifies its SHA-256, and needs no Node
+and no build step on the target:
 
 ```sh
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh
 ```
 
 ```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.ps1 | iex
 ```
 
 Installs to `~/.local/bin` (macOS/Linux) or `%LOCALAPPDATA%\peektrace\bin`
 (Windows) and prints PATH guidance if needed. Pin a version with
 `PEEKTRACE_VERSION=cli-v1.2.3` (env var on unix, `$env:PEEKTRACE_VERSION` on
-Windows); `PEEKTRACE_INSTALL_DIR` overrides the target directory. Native install
-is x64-everywhere plus Apple Silicon; on other arches (e.g. Linux arm64) use npm.
+Windows); `PEEKTRACE_INSTALL_DIR` overrides the target directory.
 
-**npm (needs Node.js `>=20`).** Ships the per-platform binaries via optional
-dependencies:
+Supported arches are x64 everywhere plus Apple Silicon. On anything else (e.g.
+Linux arm64), build from source with `bun run --cwd apps/cli build`.
 
-```sh
-npm i -g peektrace      # or: bun add -g peektrace
-```
-
-Either way:
+Then:
 
 ```sh
 peektrace serve         # loopback inspector; open the printed URL
 ```
+
+Peektrace is not on npm, and there is no desktop app download yet. Anything
+claiming otherwise under the name `peektrace` is not published by this project.
 
 On a headless server (e.g. a VPS), `peektrace serve --host 0.0.0.0 --port <p>`
 binds all interfaces (**no auth — firewall it yourself**); the default is
@@ -102,9 +98,11 @@ bun run desktop:dev        # run unpackaged
 bun run desktop:package    # build a macOS .dmg (unsigned)
 ```
 
-CI publishes the desktop app on `desktop-v*` tags and the CLI on `cli-v*` tags.
-Mac builds are currently **unsigned** (Gatekeeper right-click → Open on first
-launch); signing/notarization is documented in `.docs/plan/desktop-app.md`.
+CI publishes the CLI binaries on `cli-v*` tags. The desktop app is **not
+distributed yet** — its workflow is manual-dispatch only until the build can be
+signed and notarized. Mac builds are currently **unsigned** (Gatekeeper
+right-click → Open on first launch); signing is documented in
+`.docs/plan/desktop-app.md`.
 
 ### One-shot CLI
 
@@ -145,9 +143,9 @@ transport.
 
 > **Distribution.** `apps/cli` compiles to a standalone `peektrace` executable
 > with the inspector **embedded** (`bun run --filter=peektrace build:binary`) — it
-> serves with zero external files. The same binary ships two ways: `npm i -g
-> peektrace` (per-platform packages) and as the sidecar inside the Peektrace
-> desktop app. Full plan: `.docs/plan/desktop-app.md`.
+> serves with zero external files. It ships one way today: the native installers
+> in `scripts/`, fed by GitHub Releases. The same binary is also the sidecar
+> inside the (undistributed) desktop app. Full plan: `.docs/plan/desktop-app.md`.
 
 ---
 

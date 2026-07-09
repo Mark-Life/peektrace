@@ -9,7 +9,7 @@
   Node.js, npm, or Bun is required on the target machine.
 
   Usage:
-    irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/install.ps1 | iex
+    irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.ps1 | iex
 
   Optional environment overrides:
     $env:PEEKTRACE_VERSION      Pin a release tag, e.g. cli-v1.2.3 (default: newest cli-v*).
