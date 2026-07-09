@@ -51,7 +51,7 @@ export const SessionsRoute = () => {
   return (
     <div className="flex flex-col">
       <SectionHeader
-        description="Browse Claude sessions and inspect context-budget forensics."
+        description="Browse Claude, Codex and Pi sessions and inspect context-budget forensics."
         title="Sessions"
       />
       <ResultView result={result}>

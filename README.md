@@ -14,15 +14,18 @@ Effect-RPC contract on `127.0.0.1`, and opens the browser. Three sections:
    entries flagged "INVISIBLE TO CLAUDE"), type donut, browse table, index↔files
    diff, `[[wikilink]]` graph. CRUD writes back to disk **atomically** (temp +
    rename, compare-and-swap on mtime).
-2. **Sessions** — browse Claude sessions and open one for full context-budget
-   forensics (parity with the `session-report` skill): peak context vs window,
-   budget-at-peak partition incl. the hidden **thinking** band, growth timeline
-   with dumb-zone crossing and compaction cliffs, loaded artifacts, searchable
-   history. Transcripts are **secret-redacted by default**.
+2. **Sessions** — browse **Claude, Codex and Pi** sessions (filter by agent) and
+   open one for full context-budget forensics (parity with the `session-report`
+   skill): peak context vs window, budget-at-peak partition incl. the hidden
+   **thinking** band, growth timeline with dumb-zone crossing and compaction
+   cliffs, loaded artifacts, searchable history. Codex reports its context window
+   authoritatively; Claude subagents fold into the parent. Transcripts are
+   **secret-redacted by default**.
 3. **Capabilities** — a feature × agent support matrix (Claude / Codex / Pi /
    OpenCode). Click a cell to see why a capability is supported / partial /
-   planned / unsupported. Only **Claude** is built today; the others are columns
-   that show the gap.
+   planned / unsupported. Session browsing is live for Claude, Codex and Pi;
+   memory tooling is Claude-only, and OpenCode remains a column that shows the
+   gap.
 
 ### Prerequisites
 
