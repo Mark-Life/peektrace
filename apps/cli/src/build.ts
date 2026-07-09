@@ -117,12 +117,24 @@ ${entries}
   return files.length;
 };
 
+/** Read the CLI package version (CI stamps `package.json` before the build). */
+const readVersion = async () => {
+  const pkg = await Bun.file(join(CLI_ROOT, "package.json")).json();
+  return typeof pkg.version === "string" ? pkg.version : "0.0.0-dev";
+};
+
 /** Compile `src/index.ts` into a standalone binary for `target`. */
-const compileBinary = async (target: Bun.Build.CompileTarget) => {
+const compileBinary = async (
+  target: Bun.Build.CompileTarget,
+  version: string
+) => {
   const outfile = join(CLI_ROOT, "dist", target, "peektrace");
   await Bun.build({
     entrypoints: [ENTRYPOINT],
     minify: true,
+    // Bake the real version into the binary; `index.ts` reads `PEEKTRACE_VERSION`
+    // (a bare undeclared global when run from source, guarded by `typeof`).
+    define: { PEEKTRACE_VERSION: JSON.stringify(version) },
     compile: { target, outfile },
   });
   return outfile;
@@ -130,12 +142,13 @@ const compileBinary = async (target: Bun.Build.CompileTarget) => {
 
 const main = async () => {
   const target = resolveTarget();
+  const version = await readVersion();
   buildInspector();
   try {
     const count = await generateEmbeddedManifest();
     console.log(`Embedded ${count} inspector asset(s).`);
-    const outfile = await compileBinary(target);
-    console.log(`Built ${target} binary: ${outfile}`);
+    const outfile = await compileBinary(target, version);
+    console.log(`Built ${target} binary: ${outfile} (v${version})`);
   } finally {
     await writeFile(GEN_PATH, GEN_STUB, "utf8");
   }

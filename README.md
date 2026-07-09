@@ -107,15 +107,26 @@ right-click → Open on first launch); signing is documented in
 ### One-shot CLI
 
 The same binary exposes scriptable commands (in-process, or `--remote <url>`
-against a running server). Global flags: `--json`, `--read-only`, `--otel`.
+against a running server). Root-level flags are placed **before** the
+subcommand and apply across the CLI: `--json` (raw JSON instead of tables),
+`--pretty` (aligned tables instead of compact tab-separated), `--read-only`
+(refuse mutating commands), `--remote <url>`, `--otel`, and `--no-telemetry`.
+`--read-only` only changes behavior for mutating commands (e.g. `memory rm`);
+`--json` only affects commands that print output.
 
 ```sh
 peektrace sessions ls [--project <slug>]
 peektrace sessions analyze <session-id>
-peektrace memory ls [project]
+peektrace memory ls [project]                    # add --json for raw output
 peektrace memory show <project> <name>
-peektrace memory rm <project> <name>       # refused under --read-only
+peektrace --read-only memory rm <project> <name> # refused, no write performed
+peektrace doctor                                 # write a local support bundle
 ```
+
+`peektrace doctor` collects recent local telemetry events (see Privacy posture),
+recursively redacts them, and writes a JSON bundle to `~/.peektrace` (or
+`PEEKTRACE_DIR`) for you to email to support. It is a support/diagnostics
+export, not a system health check — nothing is uploaded.
 
 See [`apps/cli/README.md`](apps/cli/README.md) for every command + flag and
 [`apps/inspector/README.md`](apps/inspector/README.md) for dev vs prod
@@ -130,6 +141,12 @@ transport.
 - **Safe writes.** Atomic temp-write + rename, compare-and-swap + per-file lock,
   and a compile-time read-only filesystem layer (`--read-only`). Memory edit is
   enabled only where the capability registry says the agent supports it (Claude).
+- **Local telemetry, on by default, never sent anywhere.** Each CLI invocation
+  writes one wide event to a local SQLite file (`~/.peektrace/telemetry.db`, or
+  `PEEKTRACE_DIR`). It stays on your machine — nothing is transmitted off-box.
+  Opt out with `--no-telemetry` or `PEEKTRACE_NO_TELEMETRY=1`. `peektrace doctor`
+  is the only way this data leaves your box, and only if you email the redacted
+  bundle yourself.
 
 ### Packages
 

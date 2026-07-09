@@ -6,7 +6,12 @@
  */
 import { Args, Command, Options } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
-import { type GlobalsAccessor, withClient } from "../client";
+import {
+  type GlobalsAccessor,
+  localJsonOpt,
+  localReadOnlyOpt,
+  withClient,
+} from "../client";
 import { bytes, json, percent, shortId, table, tokens } from "../render";
 
 const agentOpt = Options.text("agent").pipe(
@@ -36,10 +41,15 @@ const verdict = (peakFraction: number, dumbZone: number): string => {
 export const makeSessionsLs = (globals: GlobalsAccessor) =>
   Command.make(
     "ls",
-    { agent: agentOpt, project: projectOpt },
-    ({ agent, project }) =>
+    {
+      agent: agentOpt,
+      project: projectOpt,
+      json: localJsonOpt,
+      readOnly: localReadOnlyOpt,
+    },
+    ({ agent, project, json: jsonFlag, readOnly }) =>
       Effect.gen(function* () {
-        const g = yield* globals();
+        const g = yield* globals({ json: jsonFlag, readOnly });
         const agentId = Option.getOrElse(agent, () => "claude");
         if (agentId !== "claude") {
           return yield* Console.log(
@@ -77,45 +87,52 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
 
 /** `sessions analyze <id>` — print the context-budget forensics summary. */
 export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
-  Command.make("analyze", { id: Args.text({ name: "id" }) }, ({ id }) =>
-    Effect.gen(function* () {
-      const g = yield* globals();
-      const a = yield* withClient(g, (client) =>
-        client.sessions.analyze({ id })
-      );
-      if (g.json) {
-        return yield* Console.log(json(a));
-      }
-      const peakFraction =
-        a.contextWindow > 0 ? a.peakContextTokens / a.contextWindow : 0;
-      const summary = table(
-        ["FIELD", "VALUE"],
-        [
-          ["session", a.sessionId],
-          ["verdict", verdict(peakFraction, a.dumbZoneFraction)],
+  Command.make(
+    "analyze",
+    {
+      id: Args.text({ name: "id" }),
+      json: localJsonOpt,
+      readOnly: localReadOnlyOpt,
+    },
+    ({ id, json: jsonFlag, readOnly }) =>
+      Effect.gen(function* () {
+        const g = yield* globals({ json: jsonFlag, readOnly });
+        const a = yield* withClient(g, (client) =>
+          client.sessions.analyze({ id })
+        );
+        if (g.json) {
+          return yield* Console.log(json(a));
+        }
+        const peakFraction =
+          a.contextWindow > 0 ? a.peakContextTokens / a.contextWindow : 0;
+        const summary = table(
+          ["FIELD", "VALUE"],
           [
-            "peak context",
-            `${tokens(a.peakContextTokens)} / ${tokens(a.contextWindow)} (${percent(peakFraction)})`,
+            ["session", a.sessionId],
+            ["verdict", verdict(peakFraction, a.dumbZoneFraction)],
+            [
+              "peak context",
+              `${tokens(a.peakContextTokens)} / ${tokens(a.contextWindow)} (${percent(peakFraction)})`,
+            ],
+            ["final context", tokens(a.finalContextTokens)],
+            ["turns", String(a.turnCount)],
+            ["tool calls", String(a.toolCallCount)],
+            ["dumb-zone cross turn", String(a.dumbZoneCrossTurn)],
           ],
-          ["final context", tokens(a.finalContextTokens)],
-          ["turns", String(a.turnCount)],
-          ["tool calls", String(a.toolCallCount)],
-          ["dumb-zone cross turn", String(a.dumbZoneCrossTurn)],
-        ],
-        { compact: g.compact }
-      );
-      const budgetRows = a.budget
-        .filter((slice) => slice.tokens > 0)
-        .map((slice) => [
-          slice.label,
-          tokens(slice.tokens),
-          a.peakContextTokens > 0
-            ? percent(slice.tokens / a.peakContextTokens)
-            : "-",
-        ]);
-      const budget = table(["BUDGET (AT PEAK)", "TOKENS", "%"], budgetRows, {
-        compact: g.compact,
-      });
-      return yield* Console.log(`${summary}\n\n${budget}`);
-    })
+          { compact: g.compact }
+        );
+        const budgetRows = a.budget
+          .filter((slice) => slice.tokens > 0)
+          .map((slice) => [
+            slice.label,
+            tokens(slice.tokens),
+            a.peakContextTokens > 0
+              ? percent(slice.tokens / a.peakContextTokens)
+              : "-",
+          ]);
+        const budget = table(["BUDGET (AT PEAK)", "TOKENS", "%"], budgetRows, {
+          compact: g.compact,
+        });
+        return yield* Console.log(`${summary}\n\n${budget}`);
+      })
   );

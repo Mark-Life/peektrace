@@ -113,16 +113,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Stamp AFTER install so the frozen lockfile check passes. electron-builder
-      # reads apps/desktop/package.json at pack time (app version + latest*.yml
-      # `version:` + artifact naming); apps/cli is stamped too so the bundled
-      # sidecar reports the same version.
+      # Stamp AFTER install so the frozen lockfile check passes. Use `npm pkg set`
+      # rather than `npm version`: the latter resolves dependencies and chokes on
+      # the `workspace:*` protocol (EUNSUPPORTEDPROTOCOL), while `npm pkg set` just
+      # rewrites the version field. electron-builder reads apps/desktop/package.json
+      # at pack time (app version + latest*.yml `version:` + artifact naming);
+      # apps/cli is stamped too so the bundled sidecar reports the same version.
       - name: Stamp desktop version
-        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        run: npm pkg set version="$VERSION"
         working-directory: apps/desktop
 
       - name: Stamp CLI version
-        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        run: npm pkg set version="$VERSION"
         working-directory: apps/cli
 
       - name: Build inspector UI

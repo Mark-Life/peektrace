@@ -29,13 +29,17 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { RpcSerialization, RpcServer } from "@effect/rpc";
 import { makeHandlersLayer, PeektraceRpcs } from "@workspace/rpc";
 import { Console, Effect, Layer } from "effect";
+import { type GlobalsAccessor, localReadOnlyOpt } from "../client";
 import embeddedUI from "../embedded-ui.gen";
+import { CliUserError } from "../errors";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4321;
 const PORT_SCAN_ATTEMPTS = 20;
 const NOT_BUILT_STATUS = 503;
-const PORT_IN_USE = -1;
+const FORBIDDEN_STATUS = 403;
+const MIN_PORT = 1;
+const MAX_PORT = 65_535;
 const LEADING_SLASHES = /^\/+/;
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -65,30 +69,69 @@ const openOpt = Options.boolean("open", {
 const isLoopbackHost = (host: string) =>
   host === "127.0.0.1" || host === "localhost" || host === "::1";
 
-/** Probe one port on `host`; resolves -1 when in use. */
-const tryPort = (port: number, host: string): Effect.Effect<number> =>
-  Effect.async<number>((resume) => {
+/** Outcome of probing one port: free, taken, or unbindable (with a reason). */
+type PortProbe =
+  | { readonly _tag: "free"; readonly port: number }
+  | { readonly _tag: "inUse" }
+  | { readonly _tag: "denied" }
+  | { readonly _tag: "error"; readonly message: string };
+
+/** Probe one port on `host`, classifying the bind outcome. */
+const tryPort = (port: number, host: string): Effect.Effect<PortProbe> =>
+  Effect.async<PortProbe>((resume) => {
     const srv = createServer();
-    srv.once("error", () => {
+    srv.once("error", (err: NodeJS.ErrnoException) => {
       srv.close();
-      resume(Effect.succeed(-1));
+      if (err.code === "EADDRINUSE") {
+        resume(Effect.succeed({ _tag: "inUse" }));
+      } else if (err.code === "EACCES") {
+        resume(Effect.succeed({ _tag: "denied" }));
+      } else {
+        resume(
+          Effect.succeed({
+            _tag: "error",
+            message: err.message ?? String(err),
+          })
+        );
+      }
     });
     srv.once("listening", () => {
-      srv.close(() => resume(Effect.succeed(port)));
+      srv.close(() => resume(Effect.succeed({ _tag: "free", port })));
     });
     srv.listen(port, host);
   });
 
-/** Find the first free port at or above `start` on `host`, falling back to `start`. */
-const findFreePort = (start: number, host: string): Effect.Effect<number> =>
+/**
+ * Find the first free port at or above `start` on `host`. Fails cleanly (typed
+ * `CliUserError`, rendered by the boundary) on EACCES (privileged port), an
+ * unexpected bind error, or exhausting the scan window — instead of returning a
+ * busy port or surfacing a Node stack trace.
+ */
+const findFreePort = (
+  start: number,
+  host: string
+): Effect.Effect<number, CliUserError> =>
   Effect.gen(function* () {
-    for (let port = start; port < start + PORT_SCAN_ATTEMPTS; port++) {
-      const free = yield* tryPort(port, host);
-      if (free !== PORT_IN_USE) {
-        return free;
+    const end = start + PORT_SCAN_ATTEMPTS;
+    for (let port = start; port < end; port++) {
+      const probe = yield* tryPort(port, host);
+      if (probe._tag === "free") {
+        return probe.port;
+      }
+      if (probe._tag === "denied") {
+        return yield* new CliUserError({
+          message: `Permission denied binding port ${port} (privileged port; try a port >= 1024).`,
+        });
+      }
+      if (probe._tag === "error") {
+        return yield* new CliUserError({
+          message: `Failed to bind port ${port}: ${probe.message}`,
+        });
       }
     }
-    return start;
+    return yield* new CliUserError({
+      message: `No free port in range ${start}..${end}; pass --port to choose another.`,
+    });
   });
 
 /** Platform-specific `[command, ...args]` to open a URL in the default browser. */
@@ -199,23 +242,110 @@ const resolveStaticHandler = () => {
   return { handler: fileSystemStaticHandler(DIST_DIR), source: DIST_DIR };
 };
 
+/** Origins + Host authorities that legitimately reach this server's `/rpc`. */
+interface RpcAllowlist {
+  readonly hosts: ReadonlySet<string>;
+  readonly origins: ReadonlySet<string>;
+}
+
+/**
+ * Build the `/rpc` allowlist from the actually-bound host + port. Loopback binds
+ * accept the three loopback authorities (`127.0.0.1` / `localhost` / `[::1]`); an
+ * explicit non-loopback `--host` additionally accepts that configured authority
+ * (the user opted into network exposure — the Origin check still guards them).
+ */
+const buildRpcAllowlist = (host: string, port: number): RpcAllowlist => {
+  const authorities = [
+    `127.0.0.1:${port}`,
+    `localhost:${port}`,
+    `[::1]:${port}`,
+  ];
+  if (!isLoopbackHost(host)) {
+    authorities.push(`${host}:${port}`);
+  }
+  return {
+    hosts: new Set(authorities),
+    origins: new Set(authorities.map((a) => `http://${a}`)),
+  };
+};
+
+const HOST_FORBIDDEN_REASON = "request rejected (Host header not allowed)";
+
+/**
+ * DNS-rebinding guard applied to every route: the `Host` header must name an
+ * allowed authority. A missing or spoofed `Host` (e.g. `evil.example.com`,
+ * pointed at the loopback IP by a malicious DNS answer) is refused. Returns a
+ * human reason when the request must be refused, else `undefined`.
+ */
+const hostForbiddenReason = (
+  headers: Record<string, string | undefined>,
+  allow: RpcAllowlist
+): string | undefined => {
+  const host = headers.host;
+  if (host === undefined || !allow.hosts.has(host)) {
+    return HOST_FORBIDDEN_REASON;
+  }
+  return;
+};
+
+/**
+ * Refuse cross-origin (CSRF) and DNS-rebinding requests to `/rpc`. A present
+ * `Origin` must exactly equal the server's own origin (defeats a malicious page's
+ * `fetch`); the `Host` header must be an allowed authority (defeats DNS
+ * rebinding). No `Origin` (curl, same-origin GET) passes the Origin gate. Returns
+ * a human reason when the request must be refused, else `undefined`.
+ */
+const rpcForbiddenReason = (
+  headers: Record<string, string | undefined>,
+  allow: RpcAllowlist
+): string | undefined => {
+  const origin = headers.origin;
+  if (origin !== undefined && !allow.origins.has(origin)) {
+    return "cross-origin request rejected (Origin not allowed)";
+  }
+  return hostForbiddenReason(headers, allow);
+};
+
 /** The scoped serve program: build the router, start serving, keep alive. */
 const serveProgram = (args: {
   readonly open: boolean;
   readonly host: string;
+  readonly port: number;
 }) =>
   Effect.gen(function* () {
     const server = yield* HttpServer.HttpServer;
     const rpcApp = yield* RpcServer.toHttpApp(PeektraceRpcs);
     const { handler: staticHandler, source: uiSource } = resolveStaticHandler();
+    const allow = buildRpcAllowlist(args.host, args.port);
+    // Guard the RPC surface in front of the mounted app: the embedded same-origin
+    // UI still reaches it, but a cross-origin `fetch` or a spoofed Host is 403'd.
+    const guardedRpcApp = Effect.gen(function* () {
+      const req = yield* HttpServerRequest.HttpServerRequest;
+      const reason = rpcForbiddenReason(req.headers, allow);
+      if (reason !== undefined) {
+        return HttpServerResponse.text(reason, { status: FORBIDDEN_STATUS });
+      }
+      return yield* rpcApp;
+    });
     const router = HttpRouter.empty.pipe(
-      HttpRouter.mountApp("/rpc", rpcApp),
+      HttpRouter.mountApp("/rpc", guardedRpcApp),
       HttpRouter.get("/health", Effect.succeed(HttpServerResponse.text("ok"))),
       HttpRouter.get("/", staticHandler),
       HttpRouter.get("/*", staticHandler)
     );
+    // DNS-rebinding guard in front of *every* route (static `/` included, not
+    // just `/rpc`): a request whose `Host` is not an allowed authority is 403'd
+    // before dispatch. The stricter Origin (CSRF) check stays scoped to `/rpc`.
+    const guardedRouter = Effect.gen(function* () {
+      const req = yield* HttpServerRequest.HttpServerRequest;
+      const reason = hostForbiddenReason(req.headers, allow);
+      if (reason !== undefined) {
+        return HttpServerResponse.text(reason, { status: FORBIDDEN_STATUS });
+      }
+      return yield* router;
+    });
 
-    yield* server.serve(router);
+    yield* server.serve(guardedRouter);
 
     const address = server.address;
     const port = address._tag === "TcpAddress" ? address.port : DEFAULT_PORT;
@@ -255,24 +385,30 @@ const serveProgram = (args: {
   });
 
 /** `serve` — start the inspector server (RPC + static UI); loopback by default. */
-export const makeServe = () =>
+export const makeServe = (globals: GlobalsAccessor) =>
   Command.make(
     "serve",
-    { port: portOpt, open: openOpt, host: hostOpt },
-    ({ port, open, host }) =>
+    { port: portOpt, open: openOpt, host: hostOpt, readOnly: localReadOnlyOpt },
+    ({ port, open, host, readOnly }) =>
       Effect.gen(function* () {
+        const g = yield* globals({ readOnly });
+        if (!Number.isInteger(port) || port < MIN_PORT || port > MAX_PORT) {
+          return yield* new CliUserError({
+            message: `Invalid --port ${port}: must be an integer between ${MIN_PORT} and ${MAX_PORT}.`,
+          });
+        }
         const chosen = yield* findFreePort(port, host);
         const serverLayer = BunHttpServer.layer({
           port: chosen,
           hostname: host,
         });
-        yield* serveProgram({ open, host }).pipe(
+        yield* serveProgram({ open, host, port: chosen }).pipe(
           Effect.scoped,
           Effect.provide(
             Layer.mergeAll(
               serverLayer,
               RpcSerialization.layerNdjson,
-              makeHandlersLayer({ rootSpans: true })
+              makeHandlersLayer({ rootSpans: true, readOnly: g.readOnly })
             )
           )
         );

@@ -89,11 +89,13 @@ jobs:
         run: bun install --frozen-lockfile
 
       # Stamp AFTER install so the frozen lockfile check sees the committed
-      # version. build-npm.ts re-reads apps/cli/package.json at build time and
-      # stamps VERSION into the wrapper, every variant, and the wrapper's
-      # optionalDependencies, so they all match.
+      # version. Use `npm pkg set` rather than `npm version`: the latter resolves
+      # dependencies and chokes on the `workspace:*` protocol (EUNSUPPORTEDPROTOCOL),
+      # while `npm pkg set` just rewrites the version field. build-npm.ts re-reads
+      # apps/cli/package.json at build time and stamps VERSION into the wrapper,
+      # every variant, and the wrapper's optionalDependencies, so they all match.
       - name: Stamp CLI version
-        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        run: npm pkg set version="$VERSION"
         working-directory: apps/cli
 
       - name: Build inspector UI

@@ -107,8 +107,12 @@ resolve_tag() {
   fi
 
   info "Resolving latest peektrace CLI release..."
-  _releases="$(fetch "$GITHUB_API/releases")" ||
-    err "failed to query GitHub API at $GITHUB_API/releases"
+  # Request up to 100 releases so the newest cli-v* tag is reachable even when
+  # many desktop-v* releases (which share this repo) sit ahead of it; the API
+  # otherwise returns only the 30 newest, potentially all non-cli.
+  _releases_url="$GITHUB_API/releases?per_page=100"
+  _releases="$(fetch "$_releases_url")" ||
+    err "failed to query GitHub API at $_releases_url"
 
   # Extract the first (newest — the API returns releases newest-first) tag_name
   # that begins with cli-v. Matches: "tag_name": "cli-v1.2.3"
@@ -120,7 +124,7 @@ resolve_tag() {
   )"
 
   if [ -z "$TAG" ]; then
-    err "could not find a cli-v* release via $GITHUB_API/releases"
+    err "could not find a cli-v* release via $_releases_url"
   fi
   info "Latest version: $TAG"
 }
@@ -193,6 +197,25 @@ print_path_hint() {
   esac
 }
 
+# --- install directory -------------------------------------------------------
+
+# Ensure INSTALL_DIR exists and is writable, or fail with clear guidance.
+ensure_install_dir() {
+  if [ -d "$INSTALL_DIR" ]; then
+    if [ ! -w "$INSTALL_DIR" ]; then
+      err "install directory is not writable: $INSTALL_DIR
+Set PEEKTRACE_INSTALL_DIR to a writable directory, or re-run with elevated
+permissions (e.g. sudo), then try again."
+    fi
+    return
+  fi
+
+  mkdir -p "$INSTALL_DIR" 2>/dev/null ||
+    err "could not create install directory: $INSTALL_DIR
+Set PEEKTRACE_INSTALL_DIR to a writable directory, or re-run with elevated
+permissions (e.g. sudo), then try again."
+}
+
 # --- main --------------------------------------------------------------------
 
 main() {
@@ -218,9 +241,12 @@ main() {
   verify_checksum "$_bin_tmp" "$_sums_tmp"
 
   info "Installing to $INSTALL_DIR/$BIN_NAME..."
-  mkdir -p "$INSTALL_DIR"
+  ensure_install_dir
   # Move into place then chmod so the exec bit is guaranteed regardless of umask.
-  mv "$_bin_tmp" "$INSTALL_DIR/$BIN_NAME"
+  mv "$_bin_tmp" "$INSTALL_DIR/$BIN_NAME" ||
+    err "could not write to $INSTALL_DIR.
+Set PEEKTRACE_INSTALL_DIR to a writable directory, or re-run with elevated
+permissions (e.g. sudo), then try again."
   chmod 0755 "$INSTALL_DIR/$BIN_NAME"
 
   info ""

@@ -6,7 +6,7 @@
  * `peektrace serve`). Global flags `--json` and `--read-only` apply to every
  * subcommand and are read from this parent command's parsed config.
  */
-import { Command, Options } from "@effect/cli";
+import { Command, Options, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
 import { Console, Effect, Layer, Option } from "effect";
@@ -15,10 +15,17 @@ import { makeDoctor } from "./commands/doctor";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
+import { formatCliError } from "./errors";
 import { otelEnabled, tracingLayer } from "./tracing";
 
+// Injected at compile time by `src/build.ts` (Bun `define`); a bare undeclared
+// global when running from source, so `typeof` guards against a ReferenceError.
+declare const PEEKTRACE_VERSION: string | undefined;
+
 /** The build version reported by the CLI and stamped on every wide event. */
-export const APP_VERSION = "0.0.1";
+export const APP_VERSION =
+  (typeof PEEKTRACE_VERSION === "string" ? PEEKTRACE_VERSION : undefined) ??
+  "0.0.0-dev";
 
 const jsonOpt = Options.boolean("json").pipe(
   Options.withDescription("Emit raw JSON instead of rendered tables")
@@ -67,11 +74,12 @@ const peektrace = Command.make(
     )
 );
 
-/** Resolve the parent command's parsed global flags inside any subcommand. */
-const globals: GlobalsAccessor = () =>
+/** Resolve the parent command's parsed global flags inside any subcommand,
+ * OR-ing subcommand-local `--json`/`--read-only` onto the parent values. */
+const globals: GlobalsAccessor = (local) =>
   Effect.map(peektrace, (config) => ({
-    json: config.json,
-    readOnly: config.readOnly,
+    json: config.json || (local?.json ?? false),
+    readOnly: config.readOnly || (local?.readOnly ?? false),
     remote: Option.getOrUndefined(config.remote),
     compact: !config.pretty,
   }));
@@ -92,7 +100,7 @@ const memory = Command.make("memory").pipe(
 );
 
 const command = peektrace.pipe(
-  Command.withSubcommands([sessions, memory, makeServe(), makeDoctor()])
+  Command.withSubcommands([sessions, memory, makeServe(globals), makeDoctor()])
 );
 
 const cli = Command.run(command, {
@@ -121,15 +129,39 @@ const selectTracing = () => {
 };
 const tracing = selectTracing();
 
-cli(process.argv).pipe(
+// Convenience alias: `-v` behaves like `--version` (@effect/cli has no built-in
+// short alias for it). No subcommand defines `-v`, so the rewrite is unambiguous.
+const argv = process.argv.map((arg) => (arg === "-v" ? "--version" : arg));
+
+/**
+ * Error boundary for expected user-error paths: @effect/cli `ValidationError`
+ * (already rendered by the cli itself — help/version exit 0, the rest exit 1) and
+ * typed domain failures surfaced from RPC or the commands (rendered as one clean
+ * line to stderr, exit 1). Unexpected defects are NOT caught here, so genuine bugs
+ * still surface — only known user errors are made clean.
+ */
+const handleCliError = (error: unknown) =>
+  Effect.sync(() => {
+    if (ValidationError.isValidationError(error)) {
+      if (!ValidationError.isHelpRequested(error)) {
+        process.exitCode = 1;
+      }
+      return;
+    }
+    process.stderr.write(`${formatCliError(error)}\n`);
+    process.exitCode = 1;
+  });
+
+cli(argv).pipe(
   Effect.withSpan("cli", {
     attributes: {
       "peektrace.root": true,
       "peektrace.kind": "cli",
-      argv: process.argv.slice(2).join(" "),
+      argv: argv.slice(2).join(" "),
     },
   }),
   Effect.provide(BunContext.layer),
   Effect.provide(tracing),
+  Effect.catchAll(handleCliError),
   BunRuntime.runMain
 );

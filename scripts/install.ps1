@@ -39,6 +39,11 @@ $InstallDir = if ($env:PEEKTRACE_INSTALL_DIR) { $env:PEEKTRACE_INSTALL_DIR } els
 $Asset = 'peektrace-windows-x64.exe'
 $BinName = 'peektrace.exe'
 
+# Disable the progress bar: on Windows PowerShell 5.1 its per-byte redraw makes
+# Invoke-WebRequest/Invoke-RestMethod 10-50x slower for large downloads (the
+# ~120 MB binary) and can look hung. Scoped to this script's run.
+$ProgressPreference = 'SilentlyContinue'
+
 function Write-Info { param([string]$Message) Write-Host $Message }
 
 function Fail {

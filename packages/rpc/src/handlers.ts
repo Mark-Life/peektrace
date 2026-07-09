@@ -150,8 +150,19 @@ const withRootSpans = <H extends Record<string, (...args: never[]) => unknown>>(
   ) as H;
 };
 
+/**
+ * Refuse a mutating RPC under read-only mode with a typed wire failure the UI
+ * renders cleanly (no write is attempted; the disk is never touched).
+ */
+const readOnlyRefusal = () =>
+  Effect.fail(
+    new MemoryValidationError({
+      reason: "read-only mode is enabled; refusing to write",
+    })
+  );
+
 /** Handler layer factory: requires the core services in context. */
-const makeHandlersLive = (rootSpans: boolean) =>
+const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
   PeektraceRpcs.toLayer(
     Effect.gen(function* () {
       const sessions = yield* SessionsService;
@@ -195,7 +206,9 @@ const makeHandlersLive = (rootSpans: boolean) =>
           "memory.projects": () => memory.listProjects(),
           "memory.vault": ({ project }) => memory.getVault(project),
           "memory.create": ({ project, name, description, type, body }) =>
-            wire(memory.create({ project, name, description, type, body })),
+            readOnly
+              ? readOnlyRefusal()
+              : wire(memory.create({ project, name, description, type, body })),
           "memory.update": ({
             project,
             name,
@@ -203,6 +216,9 @@ const makeHandlersLive = (rootSpans: boolean) =>
             body,
             expectedMtime,
           }) => {
+            if (readOnly) {
+              return readOnlyRefusal();
+            }
             const patch = buildMemoryPatch(frontmatter);
             return wire(
               memory.update({
@@ -215,7 +231,9 @@ const makeHandlersLive = (rootSpans: boolean) =>
             );
           },
           "memory.delete": ({ project, name }) =>
-            wire(memory.delete({ project, name })),
+            readOnly
+              ? readOnlyRefusal()
+              : wire(memory.delete({ project, name })),
         },
         rootSpans
       );
@@ -228,6 +246,8 @@ export interface HandlersLayerOptions {
   readonly agents?: Layer.Layer<AgentRegistry>;
   /** Provide a custom platform `FileSystem` (defaults to Bun). */
   readonly fileSystem?: Layer.Layer<FileSystem.FileSystem>;
+  /** Refuse every mutating RPC with a typed failure (safe mode); no disk writes. */
+  readonly readOnly?: boolean;
   /** Wrap each handler in a root span so a tracer emits one wide event per call. */
   readonly rootSpans?: boolean;
 }
@@ -261,6 +281,7 @@ const coreServicesLayer = (options?: HandlersLayerOptions) => {
  * in-process client. Pass `agents`/`fileSystem` to retarget IO in tests.
  */
 export const makeHandlersLayer = (options?: HandlersLayerOptions) =>
-  makeHandlersLive(options?.rootSpans ?? false).pipe(
-    Layer.provide(coreServicesLayer(options))
-  );
+  makeHandlersLive(
+    options?.rootSpans ?? false,
+    options?.readOnly ?? false
+  ).pipe(Layer.provide(coreServicesLayer(options)));

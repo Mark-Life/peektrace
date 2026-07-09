@@ -86,10 +86,15 @@ Declared on the root command; apply to every subcommand:
 
 | Flag | Effect |
 | --- | --- |
-| `--json` | Emit the raw RPC payload as JSON instead of rendered tables |
+| `--json` | Emit the raw RPC payload as JSON instead of rendered tables (output commands only) |
+| `--pretty` | Render aligned tables instead of the default compact tab-separated output |
 | `--read-only` | Safe mode — refuse any mutating command up-front (e.g. `memory rm`) before the write path is reached |
 | `--remote <url>` | Target a running `peektrace serve` over HTTP instead of in-process |
 | `--otel` | Log Effect spans to **stderr** as `[otel] <span> <ms> ok/fail {attrs}` (also enabled by the `PEEKTRACE_OTEL` env var). Off by default → no-op tracer, zero startup cost |
+| `--no-telemetry` | Disable local wide-event telemetry for this invocation (also via `PEEKTRACE_NO_TELEMETRY`). Telemetry is **on by default** and writes one event per run to local SQLite — see [Telemetry & privacy](#telemetry--privacy) |
+
+Flags are declared on the root command, so place them **before** the subcommand
+(`peektrace --json memory ls`, `peektrace --read-only memory rm ...`).
 
 ## Commands
 
@@ -103,7 +108,7 @@ roots for the server's lifetime so Memory + Sessions auto-refresh
 
 | Flag | Default | Effect |
 | --- | --- | --- |
-| `--port <n>` | `4321` | Port to bind; auto-picks the next free port (up to 20) if busy |
+| `--port <n>` | `4321` | Port to bind. Scans up to 20 ports from `<n>` and binds the first free one; if all 20 are busy — or the port is invalid or permission-denied — it exits with a clean one-line error (no stack trace) |
 | `--open` / `--no-open` | `--open` | Open the default browser on start; `--no-open` to skip |
 
 ```sh
@@ -170,6 +175,25 @@ peektrace memory rm -Users-me-myrepo my-note
 peektrace --read-only memory rm -Users-me-myrepo my-note   # refused, no write
 ```
 
+### `doctor` — write a redacted support bundle
+
+Reads recent local telemetry events (see [Telemetry & privacy](#telemetry--privacy)),
+recursively redacts every string (provider-format secrets plus a high-entropy
+sweep on credential-ish keys), and writes a JSON bundle to `~/.peektrace` (or
+`PEEKTRACE_DIR`). It is a diagnostics export for support, **not** a system health
+check — nothing is uploaded. Email the file to `108@mark-life.com`.
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--last <n>` | `200` | Max events to include |
+| `--interesting-only` | `false` | Only errors / slow events |
+| `--out <path>` | auto | Output path (defaults to `~/.peektrace/peektrace-report-<count>.json`) |
+
+```sh
+peektrace doctor
+peektrace doctor --interesting-only --out /tmp/report.json
+```
+
 ## Safety: point at a throwaway projects root
 
 Resolution reads `~/.claude/projects` by default. Set `PEEKTRACE_CLAUDE_PROJECTS`
@@ -180,6 +204,16 @@ never touch real memories:
 PEEKTRACE_CLAUDE_PROJECTS=/tmp/seed-projects \
   bun run apps/cli/src/index.ts memory ls
 ```
+
+## Telemetry & privacy
+
+Telemetry is **on by default** and fully local. Every invocation persists one
+wide event (command, timing, span attributes) to a SQLite file at
+`~/.peektrace/telemetry.db` (or `PEEKTRACE_DIR`). **Nothing is transmitted
+off-box** — it exists only to power `peektrace doctor` when you need to file a
+report. Disable it per-invocation with `--no-telemetry`, or globally with
+`PEEKTRACE_NO_TELEMETRY=1`. When telemetry is off, `--otel` still drives the
+stderr span echo below.
 
 ## Observability
 

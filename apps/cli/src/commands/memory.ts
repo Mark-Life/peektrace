@@ -7,7 +7,13 @@
  */
 import { Args, Command } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
-import { type GlobalsAccessor, withClient } from "../client";
+import {
+  type GlobalsAccessor,
+  localJsonOpt,
+  localReadOnlyOpt,
+  withClient,
+} from "../client";
+import { CliUserError } from "../errors";
 import { bytes, json, table } from "../render";
 
 const projectArg = Args.text({ name: "project" }).pipe(Args.optional);
@@ -16,57 +22,65 @@ const nameArg = Args.text({ name: "name" });
 
 /** `memory ls [project]` — projects overview, or one vault's entries. */
 export const makeMemoryLs = (globals: GlobalsAccessor) =>
-  Command.make("ls", { project: projectArg }, ({ project }) =>
-    Effect.gen(function* () {
-      const g = yield* globals();
-      if (Option.isNone(project)) {
-        const projects = yield* withClient(g, (client) =>
-          client.memory.projects()
+  Command.make(
+    "ls",
+    { project: projectArg, json: localJsonOpt, readOnly: localReadOnlyOpt },
+    ({ project, json: jsonFlag, readOnly }) =>
+      Effect.gen(function* () {
+        const g = yield* globals({ json: jsonFlag, readOnly });
+        if (Option.isNone(project)) {
+          const projects = yield* withClient(g, (client) =>
+            client.memory.projects()
+          );
+          if (g.json) {
+            return yield* Console.log(json(projects));
+          }
+          const rows = projects.map((p) => [
+            p.slug,
+            String(p.fileCount),
+            p.hasIndex ? "yes" : "no",
+          ]);
+          return yield* Console.log(
+            table(["PROJECT", "FILES", "INDEX"], rows, { compact: g.compact })
+          );
+        }
+        const slug = project.value;
+        const vault = yield* withClient(g, (client) =>
+          client.memory.vault({ project: slug })
         );
         if (g.json) {
-          return yield* Console.log(json(projects));
+          return yield* Console.log(json(vault));
         }
-        const rows = projects.map((p) => [
-          p.slug,
-          String(p.fileCount),
-          p.hasIndex ? "yes" : "no",
+        const rows = vault.entries.map((e) => [
+          e.slug,
+          e.type ?? "-",
+          e.inIndex ? "yes" : "no",
+          bytes(e.size),
+          e.description ?? "-",
         ]);
+        const header = `vault ${vault.slug} (${vault.state}) — ${vault.entries.length} entries\n`;
         return yield* Console.log(
-          table(["PROJECT", "FILES", "INDEX"], rows, { compact: g.compact })
+          header +
+            table(["NAME", "TYPE", "INDEX", "SIZE", "DESCRIPTION"], rows, {
+              compact: g.compact,
+            })
         );
-      }
-      const slug = project.value;
-      const vault = yield* withClient(g, (client) =>
-        client.memory.vault({ project: slug })
-      );
-      if (g.json) {
-        return yield* Console.log(json(vault));
-      }
-      const rows = vault.entries.map((e) => [
-        e.slug,
-        e.type ?? "-",
-        e.inIndex ? "yes" : "no",
-        bytes(e.size),
-        e.description ?? "-",
-      ]);
-      const header = `vault ${vault.slug} (${vault.state}) — ${vault.entries.length} entries\n`;
-      return yield* Console.log(
-        header +
-          table(["NAME", "TYPE", "INDEX", "SIZE", "DESCRIPTION"], rows, {
-            compact: g.compact,
-          })
-      );
-    })
+      })
   );
 
 /** `memory show <project> <name>` — print one entry's frontmatter + body. */
 export const makeMemoryShow = (globals: GlobalsAccessor) =>
   Command.make(
     "show",
-    { project: projectReq, name: nameArg },
-    ({ project, name }) =>
+    {
+      project: projectReq,
+      name: nameArg,
+      json: localJsonOpt,
+      readOnly: localReadOnlyOpt,
+    },
+    ({ project, name, json: jsonFlag, readOnly }) =>
       Effect.gen(function* () {
-        const g = yield* globals();
+        const g = yield* globals({ json: jsonFlag, readOnly });
         const vault = yield* withClient(g, (client) =>
           client.memory.vault({ project })
         );
@@ -100,16 +114,19 @@ export const makeMemoryShow = (globals: GlobalsAccessor) =>
 export const makeMemoryRm = (globals: GlobalsAccessor) =>
   Command.make(
     "rm",
-    { project: projectReq, name: nameArg },
-    ({ project, name }) =>
+    {
+      project: projectReq,
+      name: nameArg,
+      json: localJsonOpt,
+      readOnly: localReadOnlyOpt,
+    },
+    ({ project, name, json: jsonFlag, readOnly }) =>
       Effect.gen(function* () {
-        const g = yield* globals();
+        const g = yield* globals({ json: jsonFlag, readOnly });
         if (g.readOnly) {
-          return yield* Effect.die(
-            new Error(
-              `Refusing to delete "${name}" in "${project}": --read-only is set (no write performed).`
-            )
-          );
+          return yield* new CliUserError({
+            message: `Refusing to delete "${name}" in "${project}": --read-only is set (no write performed).`,
+          });
         }
         const result = yield* withClient(g, (client) =>
           client.memory.delete({ project, name })
