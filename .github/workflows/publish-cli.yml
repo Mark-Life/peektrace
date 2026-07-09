@@ -2,25 +2,31 @@ name: Publish CLI
 
 run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
 
-# Publishes the `peektrace` npm CLI. A push of a `cli-v<semver>` tag drives an
-# automatic publish; workflow_dispatch stays available for repair runs. The tag
-# is the source of truth for the version: the workflow strips `cli-v`, stamps
-# the bare semver into apps/cli/package.json, then build:npm cross-compiles all
-# four platform binaries on this one host and stages them under dist-npm/.
+# Releases the `peektrace` CLI binaries. A push of a `cli-v<semver>` tag drives
+# an automatic release; workflow_dispatch stays available for repair runs. The
+# tag is the source of truth for the version: the workflow strips `cli-v`,
+# stamps the bare semver into apps/cli/package.json, then build:npm
+# cross-compiles all four platform binaries on this one host and stages them
+# under dist-npm/.
 #
-# npm layout (see apps/cli/scripts/build-npm.ts): four unscoped per-platform
-# packages `peektrace-<platform>-<arch>` (each os/cpu-filtered) plus the
-# `peektrace` wrapper whose optionalDependencies pin those variants at the exact
-# version. The variants MUST publish before the wrapper so its optional deps
-# resolve.
+# Native installers are the ONLY distribution channel right now. The staged
+# binaries are published as raw assets on the GitHub Release for the tag
+# (peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
+# peektrace-windows-x64.exe + a SHA256SUMS), which the curl|sh / irm|iex
+# installers (scripts/install.sh, scripts/install.ps1) download. The job runs on
+# macOS so both darwin binaries can be ad-hoc codesigned (free, no Apple
+# account) — without a signature a cross-compiled arm64 binary is 'killed: 9' by
+# the kernel on first launch.
 #
-# The SAME staged binaries are also published as raw assets on the GitHub
-# Release for the tag (peektrace-darwin-arm64, peektrace-darwin-x64,
-# peektrace-linux-x64, peektrace-windows-x64.exe + a SHA256SUMS), which the
-# native curl|sh / irm|iex installers (install.sh, install.ps1) download. The
-# job runs on macOS so both darwin binaries can be ad-hoc codesigned (free, no
-# Apple account) — without a signature a cross-compiled arm64 binary is
-# 'killed: 9' by the kernel on first launch.
+# npm publishing is DISABLED (see the commented step below) pending registry
+# name registration. The npm staging build still runs: build-npm.ts is what
+# produces and lays out the four compiled binaries this workflow releases.
+#
+# npm layout, for whenever it is re-enabled (see apps/cli/scripts/build-npm.ts):
+# four unscoped per-platform packages `peektrace-<platform>-<arch>` (each
+# os/cpu-filtered) plus the `peektrace` wrapper whose optionalDependencies pin
+# those variants at the exact version. The variants MUST publish before the
+# wrapper so its optional deps resolve.
 
 on:
   push:
@@ -96,50 +102,54 @@ jobs:
       - name: Stage npm packages
         run: bun run --filter=peektrace build:npm
 
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          # Idempotent publish: skip if the exact name@version already exists,
-          # and treat a race where npm reports it as already published as
-          # success — so a partially-failed run is safe to retry.
-          publish_dir() {
-            local dir="$1"
-            local name version
-            name="$(node -p "require('./$dir/package.json').name")"
-            version="$(node -p "require('./$dir/package.json').version")"
-            if npm view "$name@$version" version >/dev/null 2>&1; then
-              echo "Skip: $name@$version already published."
-              return 0
-            fi
-            echo "Publishing $name@$version"
-            local out
-            if out="$(npm publish "$dir" --access public 2>&1)"; then
-              printf '%s\n' "$out"
-              return 0
-            fi
-            printf '%s\n' "$out"
-            if printf '%s' "$out" | grep -Eqi 'previously published|cannot publish over|version already exists'; then
-              echo "Treating as already published: $name@$version"
-              return 0
-            fi
-            return 1
-          }
-
-          # Per-platform variants FIRST (sequentially — the registry 409s on
-          # concurrent packument writes), then the wrapper LAST so its
-          # optionalDependencies already exist in the registry.
-          for d in apps/cli/dist-npm/peektrace-*; do
-            publish_dir "$d"
-          done
-          publish_dir "apps/cli/dist-npm/peektrace"
+      # DISABLED: npm is not a distribution channel yet (the `peektrace` name
+      # still needs registering). Restore this step, and set the NPM_TOKEN
+      # secret, to publish the staged packages again.
+      #
+      # - name: Publish to npm
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      #   shell: bash
+      #   run: |
+      #     set -euo pipefail
+      #
+      #     # Idempotent publish: skip if the exact name@version already exists,
+      #     # and treat a race where npm reports it as already published as
+      #     # success — so a partially-failed run is safe to retry.
+      #     publish_dir() {
+      #       local dir="$1"
+      #       local name version
+      #       name="$(node -p "require('./$dir/package.json').name")"
+      #       version="$(node -p "require('./$dir/package.json').version")"
+      #       if npm view "$name@$version" version >/dev/null 2>&1; then
+      #         echo "Skip: $name@$version already published."
+      #         return 0
+      #       fi
+      #       echo "Publishing $name@$version"
+      #       local out
+      #       if out="$(npm publish "$dir" --access public 2>&1)"; then
+      #         printf '%s\n' "$out"
+      #         return 0
+      #       fi
+      #       printf '%s\n' "$out"
+      #       if printf '%s' "$out" | grep -Eqi 'previously published|cannot publish over|version already exists'; then
+      #         echo "Treating as already published: $name@$version"
+      #         return 0
+      #       fi
+      #       return 1
+      #     }
+      #
+      #     # Per-platform variants FIRST (sequentially — the registry 409s on
+      #     # concurrent packument writes), then the wrapper LAST so its
+      #     # optionalDependencies already exist in the registry.
+      #     for d in apps/cli/dist-npm/peektrace-*; do
+      #       publish_dir "$d"
+      #     done
+      #     publish_dir "apps/cli/dist-npm/peektrace"
 
       # Collect the four already-compiled binaries from the staged npm packages
       # and rename them to the SHARED-CONTRACT release-asset names the installers
-      # (install.sh / install.ps1) download.
+      # (scripts/install.sh / scripts/install.ps1) download.
       - name: Collect release binaries
         shell: bash
         run: |

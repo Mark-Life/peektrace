@@ -17,30 +17,36 @@ bun run serve                       # = build inspector + peektrace serve
 # or invoke the binary directly (in-process mode)
 bun run apps/cli/src/index.ts serve
 
-# published-package form (once distributed)
-bunx peektrace serve
+# installed form (native installer, see root README)
+peektrace serve
 ```
 
 `./src/index.ts` is the package `bin` (`peektrace`) for local `bun run`, so a
 workspace `bunx` exposes the same commands documented below.
 
-## Distribution (npm)
+## Distribution
 
-Published as a single unscoped package `peektrace` that ships prebuilt binaries
-via `os`/`cpu`-filtered optional dependencies — one per platform, named
-`peektrace-<platform>-<arch>` (`darwin-arm64`, `darwin-x64`, `linux-x64`,
-`win32-x64`). Installing pulls only the host's binary; a tiny Node shim
-(`peektrace.js`) resolves it and forwards argv.
-
-```sh
-npm install -g peektrace      # or: bun install -g peektrace
-peektrace serve
-```
+The native installers (`scripts/install.sh` / `scripts/install.ps1`, at the repo
+root) are the only channel. They pull the per-platform binary from the GitHub
+Release that the `Publish CLI` workflow attaches to each `cli-v<semver>` tag.
 
 `bun run --cwd apps/cli build:npm` cross-compiles every target (re-running
-`src/build.ts` with `BUN_TARGET`) and stages the publishable package dirs under
-the gitignored `apps/cli/dist-npm/`. Nothing is published automatically: publish
-each `peektrace-*` variant first, then the `peektrace` wrapper (so its
+`src/build.ts` with `BUN_TARGET`) and stages package dirs under the gitignored
+`apps/cli/dist-npm/`. That staging step is what produces the released binaries,
+so it runs in CI even though nothing is published to a registry.
+
+### npm (not published)
+
+Publishing to npm is disabled pending name registration — the publish step in
+`.github/workflows/publish-cli.yml` is commented out, and no `peektrace` package
+on npm comes from this project.
+
+The staged layout, for whenever it is re-enabled: a single unscoped `peektrace`
+package shipping prebuilt binaries via `os`/`cpu`-filtered optional dependencies
+— one per platform, named `peektrace-<platform>-<arch>` (`darwin-arm64`,
+`darwin-x64`, `linux-x64`, `win32-x64`). Installing pulls only the host's binary;
+a tiny Node shim (`peektrace.js`) resolves it and forwards argv. Publish each
+`peektrace-*` variant first, then the `peektrace` wrapper (so its
 optionalDependencies resolve). The scoped `@peektrace/*` naming is a documented
 alternative (needs an npm org) — see the header of `scripts/build-npm.ts`.
 
