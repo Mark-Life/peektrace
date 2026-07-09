@@ -16,8 +16,12 @@ const GEOM = { W: 1000, H: 440, L: 76, R: 18, T: 22, B: 46 } as const;
 const HATCHED = new Set(["system_tools", "unattributed"]);
 /** Ghost ceiling line drawn for 200K-window models when the window is larger. */
 const CEIL_200K = 200_000;
-/** Y-axis gridline fractions of the context window. */
-const GRID_FRACTIONS = [0, 0.25, 0.5, 0.75, 1] as const;
+/** Y-axis gridlines, evenly spaced as fractions of the context window. */
+const GRID_INTERVALS = 4;
+const GRID_FRACTIONS = Array.from(
+  { length: GRID_INTERVALS + 1 },
+  (_, i) => i / GRID_INTERVALS
+);
 /** Fill opacity for flat vs hatched stacked areas. */
 const AREA_OPACITY = { flat: 0.82, hatch: 0.85 } as const;
 /** Per-turn dot sizing: radius caps at `maxR`, growing with output tokens. */
