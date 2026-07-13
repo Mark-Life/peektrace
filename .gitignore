@@ -30,15 +30,11 @@ dist
 # Staged npm publish artifacts (peektrace CLI per-platform packages)
 apps/cli/dist-npm/
 
-# Desktop packaging artifacts
+# Desktop build + packaging output (electrobun writes to build/ and artifacts/;
+# resources/ is the staged sidecar binary). The committed app icon lives in
+# apps/desktop/assets/, so nothing under build/ needs to be tracked.
 apps/desktop/resources/
-apps/desktop/dist-app/
-apps/desktop/out/
-
-# Committed buildResources (icon + entitlements) — the bare `build` rule above
-# ignores every `build/` dir; keep this one tracked.
-!apps/desktop/build/
-!apps/desktop/build/**
+apps/desktop/artifacts/
 
 
 # Debug

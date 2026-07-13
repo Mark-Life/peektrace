@@ -1,9 +1,19 @@
 {
-  "extends": "@workspace/typescript-config/effect-library.json",
+  "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "strictNullChecks": true,
-    "types": ["node", "electron", "bun"]
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node", "bun"]
   },
-  "include": ["src", "scripts", "electron.vite.config.ts"],
-  "exclude": ["node_modules", "out"]
+  "include": ["src", "scripts", "electrobun.config.ts"],
+  "exclude": ["node_modules", "build", "artifacts"]
 }
