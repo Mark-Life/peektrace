@@ -9,11 +9,9 @@ const INSTALL_COMMAND =
   "curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh";
 
 const PLATFORM_FACTS = [
-  "Single self-contained binary",
-  "macOS (arm64, x64)",
-  "Linux (x64)",
-  "Windows (x64)",
-  "No Node, npm, or Bun required",
+  "One binary",
+  "macOS · Linux · Windows",
+  "No Node, npm, or Bun",
 ];
 
 /**
@@ -49,11 +47,15 @@ export const Hero = () => (
         </h1>
 
         <p className="max-w-xl text-lg text-muted-foreground">
-          Peektrace reconstructs where every token in a Claude Code, Codex, or
-          Pi session actually went — system, tools, memory, files, prompts, tool
-          results, and the usually-invisible thinking band — then scores the
-          session Healthy, Degrading, or Rotting and marks the turn it entered
-          the dumb zone.
+          You can&apos;t see what&apos;s actually loaded in your coding
+          agent&apos;s context window. Peektrace shows you: where the budget
+          went, when the session drifted out of the smart zone, which tools the
+          model called, and what loaded before you typed a word.
+        </p>
+
+        <p className="max-w-xl text-muted-foreground">
+          Works on Claude Code, Codex, and Pi. Reads the transcripts already on
+          your disk.
         </p>
 
         <div className="flex flex-wrap gap-3">
@@ -77,7 +79,8 @@ export const Hero = () => (
 
         <p className="flex items-center gap-2 text-muted-foreground text-sm">
           <Lock aria-hidden="true" className="size-4 shrink-0" />
-          Runs on 127.0.0.1 only. Not a cloud service. Not on npm. No account.
+          Nothing leaves the box. Binds 127.0.0.1, no account, no model ever
+          sees your transcripts.
         </p>
       </div>
 

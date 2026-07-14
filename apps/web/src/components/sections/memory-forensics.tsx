@@ -43,9 +43,9 @@ export const MemoryForensics = () => (
         Stop writing memories the model never loads.
       </h2>
       <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-        MEMORY.md is Claude&apos;s always-loaded index — but only the first 200
-        lines / 25 KB actually reach context. Peektrace gauges your index
-        against that hard cliff and flags every entry past it.
+        Only the first 200 lines / 25 KB of MEMORY.md reach context. Peektrace
+        gauges your index against that cliff and flags everything below the fold
+        as invisible to Claude.
       </p>
 
       <VizSurface
@@ -66,11 +66,10 @@ export const MemoryForensics = () => (
               Memory is a knowledge base that rots.
             </CardTitle>
             <CardDescription>
-              Peektrace parses [[wikilinks]] and markdown links, resolves them
-              by slug, and renders your vault as a graph: node size by file
-              weight, emerald for files the index points at, amber for files it
-              has forgotten. An index-vs-files diff surfaces orphan files and
-              dead MEMORY.md pointers with line numbers.
+              Your vault as a graph: node size by file weight, emerald for files
+              the index points at, amber for files it has forgotten. A diff
+              against disk surfaces orphan files and dead MEMORY.md pointers,
+              with line numbers.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -115,11 +114,10 @@ export const MemoryForensics = () => (
               And it&apos;s fully editable.
             </CardTitle>
             <CardDescription>
-              View, create, edit, and delete Claude memories across every
-              project. Every write is atomic (temp-file + rename) with
-              compare-and-swap on mtime and sha256 — concurrent edits are
-              detected (FileChangedError) and offered reload-or-overwrite, never
-              silently clobbered.
+              Create, edit, and delete memories across every project. Writes are
+              atomic, with compare-and-swap on mtime and sha256 — if the agent
+              edited the file while you were looking at it, you get asked, not
+              clobbered.
             </CardDescription>
           </CardHeader>
           <CardContent>

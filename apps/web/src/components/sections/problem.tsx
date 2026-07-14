@@ -16,17 +16,17 @@ const PROBLEM_CARDS: readonly ProblemCard[] = [
   {
     icon: Brain,
     title: "“It started forgetting.”",
-    body: "A compaction silently evicted history mid-session. Decisions you made before the cliff are gone from context — and nothing told you when.",
+    body: "A compaction evicted your history mid-session. Nothing told you when.",
   },
   {
     icon: TrendingDown,
-    title: "“The answers got worse, then it hit the wall.”",
-    body: "Quality erodes long before you run out of tokens. Past ~40% of the window, models exhibit context rot. Fitting under the hard limit is not the same as being sharp.",
+    title: "“The answers got worse.”",
+    body: "Quality rots past ~40% of the window. Fitting under the limit is not the same as being sharp.",
   },
   {
     icon: EyeOff,
-    title: "“It ignores a memory I clearly wrote down.”",
-    body: "MEMORY.md only loads its first 200 lines / 25 KB. Everything below that fold is on disk but invisible to Claude. You're debugging against knowledge the model has literally never read.",
+    title: "“It ignores a memory I wrote down.”",
+    body: "MEMORY.md loads only its first 200 lines / 25 KB. Below that fold, the model has never read it.",
   },
 ];
 
@@ -67,11 +67,9 @@ export const Problem = () => (
       </div>
 
       <p className="mt-14 text-balance text-center font-heading text-2xl">
-        The transcript is a multi-megabyte{" "}
-        <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
-          .jsonl file
-        </code>
-        . The answer is in there. Peektrace does the accounting.
+        The answer is in a multi-megabyte{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 font-mono">.jsonl</code>{" "}
+        on your disk. Peektrace does the accounting.
       </p>
     </div>
   </section>

@@ -31,14 +31,13 @@ export const BudgetForensics = () => (
         SESSION FORENSICS · peektrace sessions analyze
       </p>
       <h2 className="mt-4 text-balance font-heading text-3xl md:text-4xl">
-        See exactly where the window went — at peak, not just the end.
+        Where the window actually went.
       </h2>
       <p className="mt-4 max-w-3xl text-muted-foreground">
-        Peektrace finds the single turn where context was highest (the peak,
-        often mid-session), then partitions that turn into {CATEGORY_COUNT}{" "}
-        categories — attributed spend plus an honest unattributed residual —
-        that always sum to the real measured size: here, every one of{" "}
-        {fmt(MOCK_SESSION.peakContextTokens)} tokens.
+        Peektrace finds the fullest turn — usually mid-session, not the end —
+        and splits it into {CATEGORY_COUNT} categories that sum to the real
+        measured size. Here: every one of {fmt(MOCK_SESSION.peakContextTokens)}{" "}
+        tokens, accounted for.
       </p>
 
       <VizSurface
@@ -56,12 +55,10 @@ export const BudgetForensics = () => (
           The thinking tax is real.
         </AlertTitle>
         <AlertDescription>
-          Claude stores retained reasoning as empty strings in the transcript —
-          invisible in raw text, but it still occupies the window. Peektrace
-          reconstructs it from ground-truth usage (output_tokens minus visible
-          text). In this session it is the single largest slice at{" "}
-          {THINKING_PCT}% of the peak context — overhead that would otherwise go
-          unexplained.
+          Claude stores retained reasoning as empty strings — invisible in the
+          transcript, but it still eats the window. Peektrace reconstructs it
+          from ground-truth usage. In this session it&apos;s the single largest
+          slice: {THINKING_PCT}% of peak.
         </AlertDescription>
       </Alert>
 

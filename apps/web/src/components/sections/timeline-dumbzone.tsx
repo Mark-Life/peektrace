@@ -29,17 +29,17 @@ const CHIPS = [
   {
     icon: AlertTriangle,
     title: "Dumb zone",
-    body: `Usage at or above ${DUMB_ZONE_PCT}% of the window. Context-rot territory. In this sample you cross it at turn ${CROSS_TURN} and spend ${MOCK_SESSION.dumbZoneTurns} of ${MOCK_SESSION.turnCount} turns there.`,
+    body: `At or above ${DUMB_ZONE_PCT}% of the window, quality rots. This session crosses at turn ${CROSS_TURN} and stays there for ${MOCK_SESSION.dumbZoneTurns} of ${MOCK_SESSION.turnCount} turns.`,
   },
   {
     icon: Scissors,
     title: "Compaction cliff",
-    body: `History summarized away. Detail discussed before the cliff may be gone from context — this session takes ${COMPACTION_COUNT}.`,
+    body: `History summarized away — whatever you settled before the cliff may be gone. This session takes ${COMPACTION_COUNT}.`,
   },
   {
     icon: Diamond,
     title: "Peak",
-    body: `The most-loaded turn: ${fmt(MOCK_SESSION.peakContextTokens)} tokens at turn ${PEAK_TURN}. The last turn can look small after a compaction and hide how close you ran to the wall.`,
+    body: `The fullest turn: ${fmt(MOCK_SESSION.peakContextTokens)} tokens at turn ${PEAK_TURN}. After a compaction the last turn looks small and hides how close you ran to the wall.`,
   },
 ] as const;
 
@@ -56,16 +56,11 @@ export const TimelineDumbzone = () => (
         CONTEXT GROWTH TIMELINE
       </p>
       <h2 className="mt-4 text-balance font-heading font-semibold text-3xl tracking-tight sm:text-4xl">
-        Watch context climb into the dumb zone — and see every cliff where
-        history got dropped.
+        The exact turn your session went dumb.
       </h2>
       <p className="mt-4 max-w-2xl text-pretty text-muted-foreground">
-        A per-turn stacked-area chart of real context, turn 1 to the ceiling. A
-        red danger band marks the dumb zone (context at or above {DUMB_ZONE_PCT}
-        % of the window, where attention and quality quietly degrade). Sharp
-        downward cliffs mark compactions — the moments the agent summarized and
-        evicted growable history. A diamond marks peak; a marker flags the exact
-        turn context first crossed into the danger band.
+        Real context, turn by turn. The red band is the dumb zone. The cliffs
+        are compactions — the moments your history got summarized away.
       </p>
 
       <VizSurface

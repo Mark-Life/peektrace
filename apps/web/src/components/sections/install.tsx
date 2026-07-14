@@ -16,11 +16,11 @@ interface QuickstartStep {
 
 const QUICKSTART: QuickstartStep[] = [
   {
-    title: "Launch the inspector (opens your browser, loopback only)",
+    title: "Boot the inspector — opens your browser, loopback only",
     commands: ["peektrace serve"],
   },
   {
-    title: "Score a session from the terminal",
+    title: "Or score a session without leaving the terminal",
     commands: ["peektrace sessions ls", "peektrace sessions analyze <id>"],
   },
   {
@@ -28,7 +28,7 @@ const QUICKSTART: QuickstartStep[] = [
     commands: ["peektrace memory ls"],
   },
   {
-    title: "Pipe anything into your own tools",
+    title: "Pipe any of it into your own tools",
     commands: ["peektrace --json sessions analyze <id> | jq .verdict"],
   },
 ];
@@ -103,23 +103,20 @@ export const Install = () => (
       <div className="mt-8 max-w-4xl space-y-4">
         <InstallTabs />
         <p className="text-muted-foreground text-sm/relaxed">
-          Downloads the prebuilt binary from GitHub Releases, verifies its
-          SHA256 against SHA256SUMS (refuses to install on mismatch), and drops
-          it on your PATH —{" "}
+          Pulls the prebuilt binary from GitHub Releases, checks its SHA256
+          against SHA256SUMS (and refuses to install on a mismatch), then drops
+          it on your PATH:{" "}
           <code className="font-mono text-foreground">~/.local/bin</code> on
-          macOS/Linux,{" "}
+          macOS and Linux,{" "}
           <code className="font-mono text-foreground">
             %LOCALAPPDATA%\peektrace\bin
           </code>{" "}
-          on Windows. No Node, npm, or Bun required. Supported: macOS (arm64,
-          x64), Linux (x64), Windows (x64).
+          on Windows. macOS (arm64, x64), Linux (x64), Windows (x64).
         </p>
       </div>
 
       <div className="mt-14">
-        <h3 className="font-heading text-xl">
-          Then — from install to forensics:
-        </h3>
+        <h3 className="font-heading text-xl">First run</h3>
         <ol className="mt-6 space-y-4">
           {QUICKSTART.map((step, index) => (
             <li key={step.title}>
@@ -181,9 +178,8 @@ export const Install = () => (
       <Alert className="mt-8" variant="default">
         <Info aria-hidden="true" />
         <AlertDescription>
-          Peektrace is not on npm and there's no desktop app download — the
-          native installer is the only channel. Read-only over an SSH tunnel to
-          a headless VPS works too:{" "}
+          Not on npm, no desktop download — the native installer is the only
+          channel. It also works read-only over an SSH tunnel to a headless VPS:{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
             peektrace --remote http://127.0.0.1:4321 sessions ls
           </code>

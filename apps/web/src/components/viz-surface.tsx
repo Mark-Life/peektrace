@@ -17,6 +17,12 @@ interface VizSurfaceProps {
  * silhouettes, 400-weight zone text, GitHub-dark category hexes), so they are
  * pinned to the dark token set here rather than following the site theme — this
  * is the product surface, shown as it actually renders.
+ *
+ * `min-w-0` is load-bearing: the charts wrap wide, nowrap content (the budget
+ * table, the timeline SVG) whose min-content size propagates up through their
+ * own scroll containers. As a flex or grid item the panel would otherwise take
+ * `min-width: auto`, stretch its track to that intrinsic width, and push the
+ * whole row off a phone screen instead of letting the inner charts scroll.
  */
 export const VizSurface = ({
   caption,
@@ -26,7 +32,7 @@ export const VizSurface = ({
 }: VizSurfaceProps) => (
   <div
     className={cn(
-      "dark flex flex-col gap-4 rounded-2xl border border-border bg-background p-4 text-foreground sm:p-6",
+      "dark flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-background p-4 text-foreground sm:p-6",
       className
     )}
   >
@@ -38,8 +44,10 @@ export const VizSurface = ({
           </span>
         ) : null}
         {caption ? (
+          // Badges are nowrap and `w-fit` by default; the caption is a sentence,
+          // so it has to wrap rather than run past the panel on a phone.
           <Badge
-            className="ml-auto font-mono text-[0.65rem] uppercase tracking-wider"
+            className="ml-auto h-auto max-w-full whitespace-normal font-mono text-[0.65rem] uppercase tracking-wider"
             variant="outline"
           >
             {caption}

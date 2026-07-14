@@ -88,12 +88,11 @@ export const AgentsCapabilities = () => (
         SUPPORT MATRIX
       </span>
       <h2 className="mt-4 text-balance font-heading text-3xl tracking-tight md:text-4xl">
-        Four agents tracked. No hand-waving about what actually works.
+        Four agents. No hand-waving about what works.
       </h2>
       <p className="mt-4 max-w-2xl text-lg text-muted-foreground">
-        Peektrace ships a live feature-by-agent capability matrix — the same
-        typed registry that write-gates the app. Colored pills mean exactly what
-        they say: supported, partial, planned, unsupported.
+        The same matrix ships in the app — and it&apos;s the typed registry that
+        actually gates the features, so it can&apos;t lie to you.
       </p>
 
       <div className="mt-10 overflow-x-auto rounded-xl border border-border">
