@@ -22,7 +22,8 @@ import {
 } from "@workspace/ui/components/sidebar";
 import { cn } from "@workspace/ui/lib/utils";
 import { DatabaseIcon, LayoutGridIcon, MessagesSquareIcon } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType, CSSProperties, ReactNode } from "react";
+import { hasInsetTitlebar } from "../lib/host";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
 import { ThemeToggle } from "../lib/theme";
 
@@ -52,6 +53,48 @@ const NAV_ITEMS: readonly NavItem[] = [
 ];
 
 const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(true|false)/;
+
+/** Space the macOS traffic lights need, kept clear of app chrome. */
+const TITLEBAR_HEIGHT = "h-8";
+
+/**
+ * The lights end at x≈58, past the stock 3rem icon rail, so the desktop rail is
+ * widened to keep them inside the sidebar in either state — the content pane
+ * never has to make room for window chrome.
+ */
+const INSET_RAIL_WIDTH = "5rem";
+
+/** Reserves the titlebar row above the sidebar's own header. */
+const TitlebarSpacer = () =>
+  hasInsetTitlebar() ? (
+    <div aria-hidden="true" className={cn(TITLEBAR_HEIGHT, "shrink-0")} />
+  ) : null;
+
+/** Drags the window from the titlebar row (Electrobun reads this class). */
+const TitlebarDragRegion = () => {
+  const collapsed = useSidebar().state === "collapsed";
+  if (!hasInsetTitlebar()) {
+    return null;
+  }
+  return (
+    <div
+      className={cn(
+        "electrobun-webkit-app-region-drag fixed top-0 left-0 z-30",
+        TITLEBAR_HEIGHT,
+        collapsed ? "w-(--sidebar-width-icon)" : "w-(--sidebar-width)"
+      )}
+    />
+  );
+};
+
+/** Content header: section title, plus the sidebar toggle. */
+const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
+  <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
+    <SidebarTrigger className="-ml-1" />
+    <span className="font-medium text-sm">{active?.label}</span>
+    <span className="text-muted-foreground text-xs">{active?.hint}</span>
+  </header>
+);
 
 /** Persisted open/closed state, written by `SidebarProvider` as a cookie. */
 const readSidebarCookie = () =>
@@ -85,10 +128,17 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
     <SidebarProvider
       className="h-dvh min-h-0"
       defaultOpen={readSidebarCookie()}
+      style={
+        hasInsetTitlebar()
+          ? ({ "--sidebar-width-icon": INSET_RAIL_WIDTH } as CSSProperties)
+          : undefined
+      }
     >
+      <TitlebarDragRegion />
       <Sidebar collapsible="icon">
+        <TitlebarSpacer />
         <SidebarHeader>
-          <div className="flex h-8 items-center gap-2 overflow-hidden">
+          <div className="flex h-8 items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 font-bold text-primary text-xs">
               P
             </div>
@@ -103,7 +153,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="group-data-[collapsible=icon]:items-center">
                 {NAV_ITEMS.map((item) => (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton
@@ -130,11 +180,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="min-w-0 overflow-hidden">
-        <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
-          <SidebarTrigger className="-ml-1" />
-          <span className="font-medium text-sm">{active?.label}</span>
-          <span className="text-muted-foreground text-xs">{active?.hint}</span>
-        </header>
+        <ShellHeader active={active} />
         <div className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto">
           <div
             className={cn(

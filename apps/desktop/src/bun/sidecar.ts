@@ -1,5 +1,5 @@
 /**
- * Sidecar lifecycle manager run inside the Electron main process.
+ * Sidecar lifecycle manager run inside the Electrobun Bun main process.
  *
  * The shell picks a free loopback port, spawns the `peektrace` server on it, and
  * waits for the machine-readable `PEEKTRACE_READY:<port>` line on stdout before
@@ -8,22 +8,18 @@
  * never part of the startup contract.
  *
  * In dev the sidecar is `bun run apps/cli/src/index.ts serve`; a packaged build
- * runs the bundled compiled binary from `resources/peektrace/`.
+ * runs the bundled compiled binary staged under the app's Resources.
  */
-
 import { type ChildProcess, spawn } from "node:child_process";
+import { chmodSync, existsSync } from "node:fs";
 import { createServer } from "node:net";
-import { join, resolve } from "node:path";
-import { app } from "electron";
-import log from "electron-log/main.js";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { PATHS } from "electrobun/bun";
+import { scoped } from "./log";
 
-// Sidecar output is echoed to the terminal (visible when Electron is launched
-// from a shell) and persisted to main.log under the "sidecar" scope — the log
-// file is what a user can actually send us after a crash.
-const sidecarLog = log.scope("sidecar");
+const sidecarLog = scoped("sidecar");
 
-// Rolling stderr tail attached to failure reports. Bounded so a chatty sidecar
-// can't grow it without limit over a long session.
 const STDERR_TAIL_LIMIT = 8192;
 const READY_SENTINEL = "PEEKTRACE_READY";
 const NEWLINE_SPLIT = /\r?\n/;
@@ -34,13 +30,14 @@ const HEALTH_TIMEOUT_MS = 1500;
 const HEALTH_ATTEMPTS = 3;
 const HEALTH_RETRY_DELAY_MS = 150;
 const DECIMAL = 10;
+const EXEC_MODE = 0o755;
 
 // Children deliberately stopped via stopSidecar (quit, restart) — their exits
 // are expected and must not surface as crashes.
 const expectedExits = new WeakSet<ChildProcess>();
 
-// main/index.ts subscribes to swap the dead web UI for the crash screen. A
-// callback (not an import) keeps this module free of window concerns.
+// index.ts subscribes to swap the dead web UI for the crash screen. A callback
+// (not an import) keeps this module free of window concerns.
 let unexpectedExitListener: (() => void) | null = null;
 
 /** Register the callback fired when a live sidecar exits without being asked to. */
@@ -99,6 +96,50 @@ const pickFreePort = (): Promise<number> =>
     });
   });
 
+const binaryName = (): string =>
+  process.platform === "win32" ? "peektrace.exe" : "peektrace";
+
+/**
+ * The bundled sidecar binary is copied to `<Resources>/app/peektrace/` by the
+ * electrobun `copy` step. RESOURCES_FOLDER is derived from the process cwd, which
+ * is not guaranteed inside every launcher, so a few import-relative fallbacks are
+ * probed too. Returns the first path that exists, or null in dev (unstaged).
+ */
+const findPackagedBinary = (): string | null => {
+  const name = binaryName();
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    join(PATHS.RESOURCES_FOLDER, "app", "peektrace", name),
+    join(here, "..", "peektrace", name),
+    join(here, "peektrace", name),
+    join(process.cwd(), "peektrace", name),
+  ];
+  return candidates.find((path) => existsSync(path)) ?? null;
+};
+
+/**
+ * Walk up from a starting directory until the repo's CLI entry is found. Used in
+ * dev to locate `apps/cli/src/index.ts` regardless of the launcher's cwd.
+ */
+const findRepoRoot = (): string => {
+  const marker = join("apps", "cli", "src", "index.ts");
+  const starts = [process.cwd(), dirname(fileURLToPath(import.meta.url))];
+  for (const start of starts) {
+    let dir = start;
+    for (let depth = 0; depth < 10; depth += 1) {
+      if (existsSync(join(dir, marker))) {
+        return dir;
+      }
+      const parent = dirname(dir);
+      if (parent === dir) {
+        break;
+      }
+      dir = parent;
+    }
+  }
+  return process.cwd();
+};
+
 interface SidecarCommand {
   readonly args: readonly string[];
   readonly command: string;
@@ -106,23 +147,32 @@ interface SidecarCommand {
 }
 
 /**
- * Resolve the `[command, args, cwd]` to launch the sidecar on `port`. Packaged
- * builds run the bundled compiled binary from `resources/peektrace/`; dev runs
- * the CLI TypeScript entry directly through `bun`.
+ * Resolve the `[command, args, cwd]` to launch the sidecar on `port`. When a
+ * bundled binary is present (packaged build) it is run directly; otherwise dev
+ * mode runs the CLI TypeScript entry through `bun`.
  */
 const resolveSidecar = (port: number): SidecarCommand => {
-  if (app.isPackaged) {
-    const binaryName =
-      process.platform === "win32" ? "peektrace.exe" : "peektrace";
+  const packaged =
+    process.env.PEEKTRACE_DESKTOP_DEV === "1" ? null : findPackagedBinary();
+  if (packaged) {
+    // The exec bit is preserved end-to-end (stage chmod → copy → tar → extract),
+    // so this is only a belt for odd extractions. Skip it on macOS: electrobun's
+    // extractor deliberately avoids chmod on `.app` bundles to keep code
+    // signatures intact, and we should not diverge once signing is enabled.
+    if (process.platform !== "darwin") {
+      try {
+        chmodSync(packaged, EXEC_MODE);
+      } catch {
+        // The copy step already preserves the exec bit; ignore failures.
+      }
+    }
     return {
-      command: join(process.resourcesPath, "peektrace", binaryName),
+      command: packaged,
       args: ["serve", "--port", String(port), "--no-open"],
-      cwd: process.resourcesPath,
+      cwd: dirname(packaged),
     };
   }
-  // Dev: compiled main lives at apps/desktop/out/main — four levels up is the
-  // repo root, where the CLI entry and the built inspector `dist/` both live.
-  const repoRoot = resolve(import.meta.dirname, "..", "..", "..", "..");
+  const repoRoot = findRepoRoot();
   const cliEntry = resolve(repoRoot, "apps", "cli", "src", "index.ts");
   return {
     command: "bun",
@@ -165,7 +215,6 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
 
     const onStdout = (chunk: Buffer) => {
       const text = chunk.toString("utf8");
-      process.stdout.write(`[peektrace] ${text}`);
       logStdoutLine(text);
       stdoutControlBuffer += text;
       const rawLines = stdoutControlBuffer.split(NEWLINE_SPLIT);
@@ -177,11 +226,7 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
         return;
       }
       if (!child.pid) {
-        reject(
-          new Error(
-            "Sidecar became ready before Electron reported a child pid."
-          )
-        );
+        reject(new Error("Sidecar became ready before a child pid was known."));
         return;
       }
       resolved = true;
@@ -200,7 +245,6 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
     const onStderr = (chunk: Buffer) => {
       const text = chunk.toString("utf8");
       stderrBuffer = (stderrBuffer + text).slice(-STDERR_TAIL_LIMIT);
-      process.stderr.write(`[peektrace] ${text}`);
       logStderrLine(text);
     };
 
@@ -219,8 +263,6 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
       if (rejected) {
         return;
       }
-      // A Node listener prints "EADDRINUSE" / "address already in use" on stderr
-      // before exiting non-zero — classify that as a port conflict.
       if (PORT_IN_USE_PATTERN.test(stderrBuffer)) {
         reject(new SidecarPortInUseError(port));
         return;
@@ -232,6 +274,7 @@ export const startSidecar = async (): Promise<SidecarConnection> => {
       );
     };
 
+    child.on("error", (error) => reject(error as Error));
     child.stdout?.on("data", onStdout);
     child.stderr?.on("data", onStderr);
     child.once("exit", onExit);
@@ -262,6 +305,14 @@ export const isSidecarReachable = async (origin: string): Promise<boolean> => {
     }
   }
   return false;
+};
+
+/** Synchronously flag + SIGTERM the child. Safe to call from a quit handler. */
+export const killSidecarSync = (child: ChildProcess): void => {
+  expectedExits.add(child);
+  if (child.exitCode === null && !child.killed) {
+    child.kill("SIGTERM");
+  }
 };
 
 /** Stop the sidecar: SIGTERM, then SIGKILL if it hasn't exited within 5s. */
