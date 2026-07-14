@@ -1,8 +1,8 @@
-/** Verdict header + peak gauge (Phase 8.2).
+/** Verdict header + peak gauge.
  *
- * Reproduces the `session-report` header: a health word (Healthy / Degrading /
- * Rotting) from peak context vs window, the peak gauge with its dumb-zone marker,
- * and the headline metadata grid (peak, turns, system tax, dumb-zone dwell).
+ * A health word (Healthy / Degrading / Rotting) derived from peak context vs
+ * window, the peak gauge with its dumb-zone marker, and the headline metadata
+ * grid (peak, turns, system tax, dumb-zone dwell).
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
@@ -16,7 +16,7 @@ import {
   PERCENT,
   ZONE_CLASSES,
   zoneOf,
-} from "../../lib/session-format";
+} from "../lib/session-format";
 
 /** Short id prefix shown in the metadata line. */
 const ID_PREFIX = 8;

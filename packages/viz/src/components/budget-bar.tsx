@@ -1,10 +1,10 @@
-/** Budget-at-peak stacked bar + table (Phase 8.2).
+/** Budget-at-peak stacked bar + table.
  *
  * Partitions the peak-turn context into every `BudgetKey` slice — including the
  * recovered `thinking` band and the honest `unattributed` residual — as a single
  * stacked bar plus a per-category table (tokens, % window, % context). Slice
  * order/colors come from core `CAT_META`; hatched slices (system+tools,
- * unattributed) are inferred, matching the report's methodology.
+ * unattributed) are inferred rather than measured.
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import {
@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { fmt, fmtK, PERCENT } from "../../lib/session-format";
+import { fmt, fmtK, PERCENT } from "../lib/session-format";
 
 /** Hatched (inferred) slices get a diagonal overlay rather than a flat fill. */
 const HATCHED = new Set(["system_tools", "unattributed"]);
@@ -29,7 +29,7 @@ const sliceBg = (key: string, color: string): string =>
     ? `repeating-linear-gradient(45deg, rgba(0,0,0,0.35) 0 2px, transparent 2px 6px), ${color}`
     : color;
 
-/** Stacked bar + sortable category table for the peak-turn budget. */
+/** Stacked bar + category table for the peak-turn budget. */
 export const BudgetBar = ({ a }: { readonly a: AnalyzedSession }) => {
   const total = a.budget.reduce((s, b) => s + b.tokens, 0) || 1;
   const free = Math.max(0, a.contextWindow - a.peakContextTokens);

@@ -27,9 +27,9 @@ import {
 } from "@workspace/ui/components/select";
 import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
+import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, ShieldAlertIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { fmt, fmtK, PERCENT } from "../../lib/session-format";
 
 /** Event-kind options for the history type filter. */
 const KIND_OPTIONS = [

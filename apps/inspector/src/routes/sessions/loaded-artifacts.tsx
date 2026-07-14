@@ -17,7 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { firstLine, fmt, fmtBytes, PERCENT } from "../../lib/session-format";
+import {
+  firstLine,
+  fmt,
+  fmtBytes,
+  PERCENT,
+} from "@workspace/viz/lib/session-format";
 
 /** Heavy instruction-file threshold (tokens) that triggers a trim hint. */
 const TRIM_HINT_TOKENS = 5000;

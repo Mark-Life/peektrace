@@ -17,16 +17,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import { BudgetGauge } from "@workspace/viz/components/budget-gauge";
+import { LinkGraph } from "@workspace/viz/components/link-graph";
+import { TypeDonut } from "@workspace/viz/components/type-donut";
 import { PlusIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { BrowseTable } from "./browse-table";
-import { BudgetGauge } from "./budget-gauge";
 import { CreateDialog } from "./create-dialog";
 import { DeleteDialog } from "./delete-dialog";
 import { DiffPanel } from "./diff-panel";
 import { EditDialog } from "./edit-dialog";
-import { LinkGraph } from "./link-graph";
-import { TypeDonut } from "./type-donut";
 
 /** A small titled panel wrapper. */
 const Panel = ({

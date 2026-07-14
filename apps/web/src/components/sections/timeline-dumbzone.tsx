@@ -1,41 +1,53 @@
-import { Badge } from "@workspace/ui/components/badge";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import {
+  GROWTH_TIMELINE_MIN_WIDTH,
+  GROWTH_TIMELINE_WIDTH,
+  GrowthTimeline,
+} from "@workspace/viz/components/growth-timeline";
+import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
+import { MOCK_SESSION } from "@workspace/viz/mock/session";
 import { AlertTriangle, Diamond, Scissors } from "lucide-react";
-import { GrowthTimelineSvg } from "@/components/growth-timeline-svg";
-import { SAMPLE_SESSION } from "@/lib/categories";
+import { VizSurface } from "@/components/viz-surface";
+
+const DUMB_ZONE_PCT = Math.round(MOCK_SESSION.dumbZoneFraction * PERCENT);
+/** Turn numbers are 1-based in the UI; the analyzer stores 0-based indexes. */
+const CROSS_TURN = MOCK_SESSION.dumbZoneCrossTurn + 1;
+const PEAK_TURN = MOCK_SESSION.peakTurnIndex + 1;
+const COMPACTION_COUNT = MOCK_SESSION.compactionTurns.length;
 
 /**
  * Explanatory chips beneath the timeline. Titles pair with a lucide glyph; the
- * dumb-zone cutoff and crossing turn are read from the illustrative sample so no
- * threshold is hardcoded here.
+ * dumb-zone cutoff, crossing turn, and peak are read from the sample session, so
+ * the prose can never drift from what the chart draws.
  */
 const CHIPS = [
   {
     icon: AlertTriangle,
     title: "Dumb zone",
-    body: `Usage at or above ${SAMPLE_SESSION.dumbZonePct}% of the window. Context-rot territory. In this sample you crossed it at turn ${SAMPLE_SESSION.dumbZoneTurn}.`,
+    body: `Usage at or above ${DUMB_ZONE_PCT}% of the window. Context-rot territory. In this sample you cross it at turn ${CROSS_TURN} and spend ${MOCK_SESSION.dumbZoneTurns} of ${MOCK_SESSION.turnCount} turns there.`,
   },
   {
     icon: Scissors,
     title: "Compaction cliff",
-    body: "History summarized away. Detail discussed before the cliff may be gone from context.",
+    body: `History summarized away. Detail discussed before the cliff may be gone from context — this session takes ${COMPACTION_COUNT}.`,
   },
   {
     icon: Diamond,
     title: "Peak",
-    body: "The most-loaded turn. The last turn can look small after a compaction and hide how close you ran to the wall.",
+    body: `The most-loaded turn: ${fmt(MOCK_SESSION.peakContextTokens)} tokens at turn ${PEAK_TURN}. The last turn can look small after a compaction and hide how close you ran to the wall.`,
   },
 ] as const;
 
 /**
- * Context-growth timeline section: a static, hand-authored stacked-area chart
- * that shows context climbing into the dumb zone, the compaction cliffs where
- * history was evicted, and the peak, followed by three explanatory chips.
+ * Context-growth timeline section: the inspector's stacked-area chart of real
+ * per-turn context, held between its native geometry width and a legibility
+ * floor so the axis labels and hairline gridlines render at the size they were
+ * drawn for, and scroll sideways rather than shrink on narrow viewports.
  */
 export const TimelineDumbzone = () => (
   <section className="py-20" id="timeline-dumbzone">
@@ -48,25 +60,25 @@ export const TimelineDumbzone = () => (
         history got dropped.
       </h2>
       <p className="mt-4 max-w-2xl text-pretty text-muted-foreground">
-        A per-turn stacked-area chart of real context from turn 1 to the
-        ceiling. A red danger band marks the dumb zone (context at or above ~40%
-        of the window, where attention and quality quietly degrade). Sharp
+        A per-turn stacked-area chart of real context, turn 1 to the ceiling. A
+        red danger band marks the dumb zone (context at or above {DUMB_ZONE_PCT}
+        % of the window, where attention and quality quietly degrade). Sharp
         downward cliffs mark compactions — the moments the agent summarized and
         evicted growable history. A diamond marks peak; a marker flags the exact
-        turn you first crossed into the danger band.
+        turn context first crossed into the danger band.
       </p>
 
-      <div className="mt-8 rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <div className="mb-4 flex items-center justify-end">
-          <Badge
-            className="font-mono text-[0.65rem] uppercase tracking-wider"
-            variant="outline"
-          >
-            Illustrative sample — not a captured run
-          </Badge>
-        </div>
-        <GrowthTimelineSvg />
-      </div>
+      <VizSurface
+        caption="Illustrative sample — not a captured run"
+        className="mt-8"
+        label="peektrace inspector"
+      >
+        <GrowthTimeline
+          a={MOCK_SESSION}
+          maxWidth={GROWTH_TIMELINE_WIDTH}
+          minWidth={GROWTH_TIMELINE_MIN_WIDTH}
+        />
+      </VizSurface>
 
       <ul className="mt-8 grid gap-4 md:grid-cols-3">
         {CHIPS.map(({ icon: Icon, title, body }) => (

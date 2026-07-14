@@ -1,3 +1,5 @@
+"use client";
+
 /** Memory-type distribution donut (recharts via the shared chart component).
  *
  * One slice per frontmatter `type` (user / feedback / project / reference /
@@ -11,13 +13,13 @@ import {
 } from "@workspace/ui/components/chart";
 import { Cell, Pie, PieChart } from "recharts";
 
-/** Stable colour per known memory type; untyped falls back to muted. */
+/** Stable colour per memory type; core emits `unknown` for untyped entries. */
 const TYPE_COLORS: Record<string, string> = {
   user: "var(--chart-1)",
   feedback: "var(--chart-2)",
   project: "var(--chart-3)",
   reference: "var(--chart-4)",
-  untyped: "var(--chart-5)",
+  unknown: "var(--chart-5)",
 };
 
 /** Render the type-count donut. `typeCounts` is a `{ type: count }` record. */

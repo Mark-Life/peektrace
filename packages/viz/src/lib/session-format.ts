@@ -1,15 +1,15 @@
-/** Shared formatting + health-zone helpers for the session debug views.
+/** Shared formatting + health-zone helpers for the session visualizations.
  *
- * Ports the numeric/health intent from `session-report/scripts/lib/{tokens,
- * render,svg}.ts` so the React surface reproduces the same peak gauge bands,
- * stacking order, and category colors. `CAT_META` (label/color/estimate flag per
- * budget key) is reused straight from core so the UI never re-declares it.
+ * Holds the numeric/health vocabulary the session charts share: peak-gauge
+ * bands, budget stacking order, and token/byte/percent formatting. `CAT_META`
+ * (label/color/estimate flag per budget key) is re-exported straight from core
+ * so the UI never re-declares it.
  */
 import type { BudgetKey } from "@workspace/core/services/sessions/schema";
 
 export { CAT_META } from "@workspace/core/services/sessions/analyze";
 
-/** Floor → top stacking order for the budget bar + timeline (mirrors svg.ts). */
+/** Floor → top stacking order for the budget bar + timeline. */
 export const STACK_ORDER: readonly BudgetKey[] = [
   "system_tools",
   "listings",
@@ -43,7 +43,7 @@ export const HEALTH_LABEL: Record<Zone, string> = {
 /**
  * Classify a context-fill fraction into a health zone. The warn/bad boundary
  * sits at 0.75 by default but is pushed above the dumb-zone threshold when it is
- * set high, so the warn band never collapses (mirrors render.ts `zoneOf`).
+ * set high, so the warn band never collapses.
  */
 export const zoneOf = ({
   frac,
@@ -69,7 +69,7 @@ export const ZONE_CLASSES: Record<Zone, { fill: string; text: string }> = {
 /** Thousands-separated integer (rounds). */
 export const fmt = (n: number): string => Math.round(n).toLocaleString("en-US");
 
-/** Compact `k` notation, e.g. `1.2K`, `1M` (mirrors tokens.ts `fmtK`). */
+/** Compact `k` notation, e.g. `1.2K`, `1M`. */
 export const fmtK = (n: number): string => {
   if (n >= MILLION) {
     return `${(n / MILLION).toFixed(n % MILLION === 0 ? 0 : 1)}M`;
@@ -80,7 +80,7 @@ export const fmtK = (n: number): string => {
   return String(Math.round(n));
 };
 
-/** Percent with one decimal under 10%, else integer (mirrors tokens.ts). */
+/** Percent with one decimal under 10%, else integer. */
 const PCT_DECIMAL_CUTOFF = 10;
 export const fmtPct = (frac: number): string => {
   const pct = frac * PERCENT;

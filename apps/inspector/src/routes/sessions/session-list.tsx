@@ -45,11 +45,11 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
+import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
-import { fmtBytes } from "../../lib/session-format";
 import { DateRangeFilter, toDayKey } from "./date-range-filter";
 
 /** Human-readable label per agent id for the badge. */

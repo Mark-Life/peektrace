@@ -1,3 +1,5 @@
+"use client";
+
 /** Wikilink graph for a vault, drawn as a static SVG circular layout.
  *
  * Nodes (memory files) sit on a circle; edges are the resolved `[[wikilinks]]`
@@ -18,6 +20,12 @@ const NODE_R_RANGE = 9;
 /** Vertical offset of a node label above its circle. */
 const LABEL_OFFSET = 2;
 
+/** Rendered width (px) the ring geometry was drawn for. */
+const DEFAULT_MAX_WIDTH = 360;
+/** Hard ceiling on rendered width: past this the 8px labels and 1px strokes
+ * are scaled far enough past their drawn size that the graph reads as soft. */
+const MAX_WIDTH_CEILING = 480;
+
 /** Place nodes evenly on a ring; returns slug → {x,y}. */
 const layout = (slugs: readonly string[]) => {
   const positions = new Map<string, { x: number; y: number }>();
@@ -32,14 +40,19 @@ const layout = (slugs: readonly string[]) => {
   return positions;
 };
 
+interface LinkGraphProps {
+  readonly graph: typeof GraphData.Type;
+  /** Rendered width cap in px, clamped to the geometry's usable range. */
+  readonly maxWidth?: number;
+  readonly onSelect?: (slug: string) => void;
+}
+
 /** Render the link graph. Empty vaults show a hint instead. */
 export const LinkGraph = ({
   graph,
   onSelect,
-}: {
-  readonly graph: typeof GraphData.Type;
-  readonly onSelect?: (slug: string) => void;
-}) => {
+  maxWidth = DEFAULT_MAX_WIDTH,
+}: LinkGraphProps) => {
   if (graph.nodes.length === 0) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="graph-empty">
@@ -52,9 +65,10 @@ export const LinkGraph = ({
   return (
     <svg
       aria-label="Memory link graph"
-      className="h-auto w-full max-w-[360px]"
+      className="h-auto w-full"
       data-testid="link-graph"
       role="img"
+      style={{ maxWidth: Math.min(maxWidth, MAX_WIDTH_CEILING) }}
       viewBox={`0 0 ${SIZE} ${SIZE}`}
     >
       <title>Memory link graph</title>

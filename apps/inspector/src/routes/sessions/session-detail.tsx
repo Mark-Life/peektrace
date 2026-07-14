@@ -8,15 +8,15 @@
  */
 import { useAtomValue } from "@effect-atom/atom-react";
 import { Button } from "@workspace/ui/components/button";
+import { BudgetBar } from "@workspace/viz/components/budget-bar";
+import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
+import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { ArrowLeftIcon } from "lucide-react";
 import { useState } from "react";
 import { ResultView } from "../../lib/result-view";
 import { useAnalyzedSession } from "../../lib/session-atoms";
-import { BudgetBar } from "./budget-bar";
-import { GrowthTimeline } from "./growth-timeline";
 import { LoadedArtifacts } from "./loaded-artifacts";
 import { SessionHistory } from "./session-history";
-import { VerdictHeader } from "./verdict-header";
 
 /** The full debug view for one session id; `onBack` returns to the list. */
 export const SessionDetail = ({

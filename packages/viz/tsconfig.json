@@ -7,14 +7,12 @@
     "composite": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
-    "types": ["vite/client"],
+    "strictNullChecks": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@workspace/ui/*": ["../../packages/ui/src/*"],
-      "@workspace/core/*": ["../../packages/core/src/*"],
-      "@workspace/viz/*": ["../../packages/viz/src/*"]
+      "@workspace/ui/*": ["../ui/src/*"],
+      "@workspace/core/*": ["../core/src/*"]
     }
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist"]
 }

@@ -2,7 +2,13 @@ import type { NextConfig } from "next";
 import "@workspace/env/web";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@workspace/ui", "@workspace/api", "@workspace/env"],
+  transpilePackages: [
+    "@workspace/ui",
+    "@workspace/api",
+    "@workspace/env",
+    "@workspace/core",
+    "@workspace/viz",
+  ],
   reactCompiler: true,
   typedRoutes: true,
   experimental: {

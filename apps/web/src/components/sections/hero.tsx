@@ -1,14 +1,9 @@
 import { Button } from "@workspace/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card";
+import { BudgetBar } from "@workspace/viz/components/budget-bar";
+import { MOCK_SESSION } from "@workspace/viz/mock/session";
 import { Lock, Terminal } from "lucide-react";
-import { BudgetBar } from "@/components/budget-bar";
 import { CommandBlock } from "@/components/command-block";
-import { SAMPLE_BUDGET } from "@/lib/categories";
+import { VizSurface } from "@/components/viz-surface";
 
 const INSTALL_COMMAND =
   "curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh";
@@ -23,9 +18,10 @@ const PLATFORM_FACTS = [
 
 /**
  * Landing hero: positions Peektrace as context-window forensics, shows the
- * native install one-liner with a copy button, dual CTAs, and the signature
- * budget bar as an illustrative product shot. Static server component; the
- * copy button and scroll CTAs carry their own interactivity.
+ * native install one-liner with a copy button, dual CTAs, and the inspector's
+ * own budget bar — the real component, fed sample data — as the product shot.
+ * Static server component; the copy button and scroll CTAs carry their own
+ * interactivity.
  */
 export const Hero = () => (
   <section className="relative w-full overflow-hidden py-24 md:py-32" id="hero">
@@ -85,16 +81,13 @@ export const Hero = () => (
         </p>
       </div>
 
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="font-mono font-normal text-muted-foreground text-sm">
-            Illustrative sample — peak context, one session
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BudgetBar showLegend slices={SAMPLE_BUDGET} />
-        </CardContent>
-      </Card>
+      <VizSurface
+        caption="Illustrative sample — not a captured run"
+        className="w-full"
+        label="peektrace inspector"
+      >
+        <BudgetBar a={MOCK_SESSION} />
+      </VizSurface>
     </div>
   </section>
 );
