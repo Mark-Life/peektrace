@@ -10,14 +10,17 @@
     "cssVariables": true
   },
   "iconLibrary": "hugeicons",
+  "rtl": false,
+  "menuColor": "default-translucent",
+  "menuAccent": "subtle",
   "aliases": {
     "components": "@workspace/ui/components",
     "utils": "@workspace/ui/lib/utils",
-    "hooks": "@workspace/ui/hooks",
+    "ui": "@workspace/ui/components",
     "lib": "@workspace/ui/lib",
-    "ui": "@workspace/ui/components"
+    "hooks": "@workspace/ui/hooks"
   },
-  "menuColor": "default-translucent",
-  "menuAccent": "subtle",
-  "rtl": false
+  "registries": {
+    "@ai-elements": "https://ai-sdk.dev/elements/api/registry/{name}.json"
+  }
 }

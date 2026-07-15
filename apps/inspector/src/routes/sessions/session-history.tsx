@@ -11,6 +11,10 @@ import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
+import {
+  CodeBlock,
+  CodeBlockCopyButton,
+} from "@workspace/ui/components/ai-elements/code-block";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Collapsible,
@@ -58,6 +62,69 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
+/** Languages we highlight transcript bodies as (subset of shiki bundled langs). */
+type BodyLang = "typescript" | "bash" | "json" | "markdown";
+
+const parseJson = (s: string): unknown => {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return;
+  }
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Join `{ type: "text", text }` blocks (standard tool_result content). */
+const textFromBlocks = (v: unknown): string | null => {
+  if (!Array.isArray(v)) {
+    return null;
+  }
+  const texts = v
+    .filter(
+      (b): b is { text: string } =>
+        isRecord(b) && b.type === "text" && typeof b.text === "string"
+    )
+    .map((b) => b.text);
+  return texts.length > 0 ? texts.join("\n\n") : null;
+};
+
+/**
+ * Turn a raw event body into a syntax-highlightable block, unwrapping
+ * JSON-encoded tool payloads so escaped newlines render as real lines
+ * (e.g. an executor `code` arg or a JSON result string). Returns null to
+ * fall back to plain <pre> for prose, thinking, and non-JSON errors.
+ */
+const displayBody = (
+  e: TimelineEvent
+): { code: string; language: BodyLang } | null => {
+  if (e.kind === "tool-call") {
+    const input = parseJson(e.body);
+    if (isRecord(input)) {
+      if (typeof input.code === "string") {
+        return { code: input.code, language: "typescript" };
+      }
+      if (typeof input.command === "string") {
+        return { code: input.command, language: "bash" };
+      }
+    }
+    return { code: e.body, language: "json" };
+  }
+  if (e.kind === "tool-result") {
+    const parsed = parseJson(e.body);
+    if (parsed === undefined) {
+      return null;
+    }
+    const text = textFromBlocks(parsed);
+    if (text !== null) {
+      return { code: text, language: "markdown" };
+    }
+    return { code: JSON.stringify(parsed, null, 2), language: "json" };
+  }
+  return null;
+};
+
 /** One collapsible transcript event. */
 const EventRow = ({
   e,
@@ -67,6 +134,7 @@ const EventRow = ({
   readonly turn: number;
 }) => {
   const hasBody = e.body.trim().length > 0;
+  const view = hasBody ? displayBody(e) : null;
   const emptyText =
     e.kind === "assistant-thinking"
       ? "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band."
@@ -99,9 +167,21 @@ const EventRow = ({
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words bg-muted/30 px-3 py-2 text-xs">
-          {hasBody ? e.body : emptyText}
-        </pre>
+        {view ? (
+          <div className="max-h-96 overflow-auto">
+            <CodeBlock
+              className="[&_pre]:whitespace-pre-wrap! [&_pre]:wrap-break-word! rounded-none border-0 border-t [&_code]:text-[11px]! [&_pre]:p-3! [&_pre]:text-[9px]! [&_pre]:leading-relaxed!"
+              code={view.code}
+              language={view.language}
+            >
+              <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
+            </CodeBlock>
+          </div>
+        ) : (
+          <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
+            {hasBody ? e.body : emptyText}
+          </pre>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );
