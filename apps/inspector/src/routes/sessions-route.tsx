@@ -19,10 +19,10 @@ import {
 } from "@workspace/ui/components/empty";
 import { cn } from "@workspace/ui/lib/utils";
 import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
-import { useState } from "react";
 import { SectionHeader } from "../components/section-header";
 import { sessionsListAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
+import { closeSession, openSession, useSelectedSessionId } from "../lib/routes";
 import { SessionDetail } from "./sessions/session-detail";
 import { SessionList } from "./sessions/session-list";
 
@@ -51,7 +51,7 @@ const NoSelection = () => (
 /** Sessions section route: responsive master-detail. */
 export const SessionsRoute = () => {
   const result = useAtomValue(sessionsListAtom);
-  const [selected, setSelected] = useState<string | null>(null);
+  const selected = useSelectedSessionId();
 
   return (
     <div className="flex flex-col">
@@ -83,7 +83,7 @@ export const SessionsRoute = () => {
               >
                 <SessionList
                   headers={headers}
-                  onOpen={setSelected}
+                  onOpen={openSession}
                   selectedId={selected}
                 />
               </div>
@@ -96,7 +96,8 @@ export const SessionsRoute = () => {
                 {selected ? (
                   <SessionDetail
                     id={selected}
-                    onBack={() => setSelected(null)}
+                    key={selected}
+                    onBack={closeSession}
                   />
                 ) : (
                   <NoSelection />

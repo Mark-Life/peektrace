@@ -12,9 +12,9 @@ import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { ArrowLeftIcon } from "lucide-react";
-import { useState } from "react";
 import { ResultView } from "../../lib/result-view";
 import { useAnalyzedSession } from "../../lib/session-atoms";
+import { useSessionView } from "../../lib/session-view";
 import { LoadedArtifacts } from "./loaded-artifacts";
 import { SessionHistory } from "./session-history";
 
@@ -26,8 +26,8 @@ export const SessionDetail = ({
   readonly id: string;
   readonly onBack: () => void;
 }) => {
-  const [redacted, setRedacted] = useState(true);
-  const atom = useAnalyzedSession({ id, redact: redacted });
+  const view = useSessionView(id);
+  const atom = useAnalyzedSession({ id, redact: view.state.redacted });
   const result = useAtomValue(atom);
 
   return (
@@ -48,11 +48,7 @@ export const SessionDetail = ({
             <BudgetBar a={a} />
             <GrowthTimeline a={a} />
             <LoadedArtifacts a={a} />
-            <SessionHistory
-              a={a}
-              onToggleRedact={(next) => setRedacted(next)}
-              redacted={redacted}
-            />
+            <SessionHistory a={a} view={view} />
           </div>
         )}
       </ResultView>

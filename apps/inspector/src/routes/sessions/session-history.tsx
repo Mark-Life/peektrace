@@ -16,6 +16,7 @@ import {
   CodeBlockCopyButton,
 } from "@workspace/ui/components/ai-elements/code-block";
 import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -32,8 +33,19 @@ import {
 import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
-import { ChevronRightIcon, ShieldAlertIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ChevronRightIcon,
+  ChevronsDownUpIcon,
+  ChevronsUpDownIcon,
+  ShieldAlertIcon,
+} from "lucide-react";
+import { useMemo } from "react";
+import { setHashParam, useHashParam } from "../../lib/routes";
+import {
+  eventCollapseId,
+  type SessionView,
+  subagentCollapseId,
+} from "../../lib/session-view";
 
 /** Event-kind options for the history type filter. */
 const KIND_OPTIONS = [
@@ -125,13 +137,17 @@ const displayBody = (
   return null;
 };
 
-/** One collapsible transcript event. */
+/** One collapsible transcript event; open state is controlled by the parent. */
 const EventRow = ({
   e,
   turn,
+  open,
+  onOpenChange,
 }: {
   readonly e: TimelineEvent;
   readonly turn: number;
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
 }) => {
   const hasBody = e.body.trim().length > 0;
   const view = hasBody ? displayBody(e) : null;
@@ -145,6 +161,8 @@ const EventRow = ({
       data-kind={e.kind}
       data-sidechain={e.isSidechain ? "true" : "false"}
       data-testid="history-event"
+      onOpenChange={onOpenChange}
+      open={open}
     >
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
         <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
@@ -188,7 +206,15 @@ const EventRow = ({
 };
 
 /** Subagent (sidechain) transcript cards — each runs in its own window. */
-const Subagents = ({ a }: { readonly a: AnalyzedSession }) => {
+const Subagents = ({
+  a,
+  isOpen,
+  onToggle,
+}: {
+  readonly a: AnalyzedSession;
+  readonly isOpen: (id: string) => boolean;
+  readonly onToggle: (id: string, open: boolean) => void;
+}) => {
   if (a.subagents.length === 0) {
     return null;
   }
@@ -204,6 +230,8 @@ const Subagents = ({ a }: { readonly a: AnalyzedSession }) => {
           className="rounded-md border border-border"
           data-testid="subagent-card"
           key={s.id}
+          onOpenChange={(o) => onToggle(subagentCollapseId(s.id), o)}
+          open={isOpen(subagentCollapseId(s.id))}
         >
           <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
             <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
@@ -235,15 +263,12 @@ path: ${s.path}`}
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
   a,
-  redacted,
-  onToggleRedact,
+  view,
 }: {
   readonly a: AnalyzedSession;
-  readonly redacted: boolean;
-  readonly onToggleRedact: (next: boolean) => void;
+  readonly view: SessionView;
 }) => {
-  const [query, setQuery] = useState("");
-  const [kind, setKind] = useState("all");
+  const { query, kind, redacted } = view.state;
   const turns = useMemo(() => turnNumbers(a), [a]);
 
   const crossEvtIdx =
@@ -269,6 +294,43 @@ export const SessionHistory = ({
     [a.events, kind, query]
   );
 
+  // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
+  // shareable link; individual rows persist in the per-session set instead.
+  const expandAll = useHashParam("expand") === "all";
+  const allIds = useMemo(
+    () => [
+      ...visible.map(({ pos }) => eventCollapseId(pos)),
+      ...a.subagents.map((s) => subagentCollapseId(s.id)),
+    ],
+    [visible, a.subagents]
+  );
+
+  const isOpen = (id: string) => expandAll || view.isExpanded(id);
+  const onToggle = (id: string, open: boolean) => {
+    if (expandAll) {
+      if (open) {
+        return;
+      }
+      // Collapsing one while all-open: materialize the rest, drop the flag.
+      view.setExpanded(allIds.filter((x) => x !== id));
+      setHashParam("expand", null);
+      return;
+    }
+    view.toggleExpanded(id, open);
+  };
+
+  const allOpen =
+    expandAll ||
+    (allIds.length > 0 && allIds.every((id) => view.isExpanded(id)));
+  const toggleAll = () => {
+    if (allOpen) {
+      setHashParam("expand", null);
+      view.setExpanded([]);
+    } else {
+      setHashParam("expand", "all");
+    }
+  };
+
   return (
     <section className="flex flex-col gap-3" data-testid="session-history">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -281,7 +343,7 @@ export const SessionHistory = ({
             aria-labelledby="redact-toggle-label"
             checked={!redacted}
             data-testid="redact-toggle"
-            onCheckedChange={(checked) => onToggleRedact(!checked)}
+            onCheckedChange={(checked) => view.setRedacted(!checked)}
           />
         </div>
       </div>
@@ -313,11 +375,11 @@ export const SessionHistory = ({
         <Input
           className="max-w-xs"
           data-testid="history-search"
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => view.setQuery(e.target.value)}
           placeholder="Search history…"
           value={query}
         />
-        <Select onValueChange={setKind} value={kind}>
+        <Select onValueChange={view.setKind} value={kind}>
           <SelectTrigger className="w-40" data-testid="history-kind-filter">
             <SelectValue />
           </SelectTrigger>
@@ -333,6 +395,22 @@ export const SessionHistory = ({
           {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
           dumb zone
         </span>
+        {allIds.length > 0 ? (
+          <Button
+            className="ml-auto"
+            data-testid="history-expand-all"
+            onClick={toggleAll}
+            size="sm"
+            variant="outline"
+          >
+            {allOpen ? (
+              <ChevronsDownUpIcon className="size-3.5" />
+            ) : (
+              <ChevronsUpDownIcon className="size-3.5" />
+            )}
+            {allOpen ? "Collapse all" : "Expand all"}
+          </Button>
+        ) : null}
       </div>
 
       <div className="rounded-md border border-border">
@@ -348,7 +426,12 @@ export const SessionHistory = ({
                 turn {a.dumbZoneCrossTurn + 1}
               </div>
             ) : null}
-            <EventRow e={e} turn={turns[pos] ?? 0} />
+            <EventRow
+              e={e}
+              onOpenChange={(o) => onToggle(eventCollapseId(pos), o)}
+              open={isOpen(eventCollapseId(pos))}
+              turn={turns[pos] ?? 0}
+            />
           </div>
         ))}
         {visible.length === 0 ? (
@@ -358,7 +441,7 @@ export const SessionHistory = ({
         ) : null}
       </div>
 
-      <Subagents a={a} />
+      <Subagents a={a} isOpen={isOpen} onToggle={onToggle} />
     </section>
   );
 };
