@@ -54,7 +54,7 @@ const CAPABILITIES: readonly Capability[] = [
       claude: { level: "supported" },
       codex: { level: "supported" },
       pi: { level: "supported" },
-      opencode: { level: "planned" },
+      opencode: { level: "supported" },
     },
   },
   {
@@ -72,7 +72,10 @@ const CAPABILITIES: readonly Capability[] = [
         level: "partial",
         note: "Ground-truth usage; context window inferred from the model.",
       },
-      opencode: { level: "planned" },
+      opencode: {
+        level: "partial",
+        note: "Session-level ground-truth token totals; per-turn usage may be estimated and the context window is inferred from the model.",
+      },
     },
   },
   {

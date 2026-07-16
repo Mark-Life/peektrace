@@ -7,7 +7,7 @@
  * attribution — are gated on `agent === "claude"`.
  */
 import { FileSystem } from "@effect/platform";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { AGENT_IDS, type AgentId } from "../agent-id";
 import {
   AgentRegistry,
@@ -34,12 +34,6 @@ import type {
 
 const LIST_CONCURRENCY = 8;
 const JSONL = /\.jsonl$/;
-
-const mtimeMsOf = (info: FileSystem.File.Info): number =>
-  Option.match(info.mtime, {
-    onNone: () => 0,
-    onSome: (d) => d.getTime(),
-  });
 
 /** Options accepted by `parse`. */
 export interface ParseRequest {
@@ -84,16 +78,6 @@ export class SessionsService extends Context.Tag("@peektrace/SessionsService")<
   SessionsService,
   SessionsServiceShape
 >() {}
-
-/** Read a transcript file, mapping IO failures to TranscriptParseError. */
-const readTranscript = (fs: FileSystem.FileSystem, path: string) =>
-  fs
-    .readFileString(path)
-    .pipe(
-      Effect.mapError(
-        (e) => new TranscriptParseError({ path, reason: String(e) })
-      )
-    );
 
 /** Parse one subagent file into a SubagentRef (its own window, sidechain on). */
 const parseSubagent = (args: {
@@ -261,7 +245,13 @@ const parseFull = (args: {
         new SessionNotFoundError({ id, searchedRoot: resolved.agent })
       );
     }
-    const text = yield* readTranscript(fs, resolved.path);
+    const { text } = yield* agents
+      .loadTranscript({ agent: resolved.agent, ref: resolved })
+      .pipe(
+        Effect.mapError(
+          (e) => new TranscriptParseError({ path: e.path, reason: e.reason })
+        )
+      );
     const base = parser.parseSession({
       text,
       path: resolved.path,
@@ -278,32 +268,31 @@ const parseFull = (args: {
 
 /** Build one header from a transcript ref via its agent's parser. */
 const headerFor = (args: {
-  readonly fs: FileSystem.FileSystem;
+  readonly agents: AgentRegistryShape;
   readonly agent: AgentId;
   readonly ref: SessionFileRef;
 }): Effect.Effect<SessionHeader | null> => {
-  const { fs, agent, ref } = args;
+  const { agents, agent, ref } = args;
   const parser = PARSERS[agent];
   if (!parser) {
     return Effect.succeed(null);
   }
-  return Effect.gen(function* () {
-    const info = yield* fs.stat(ref.path);
-    if (info.type !== "File") {
-      return null;
-    }
-    const text = yield* fs
-      .readFileString(ref.path)
-      .pipe(Effect.orElseSucceed(() => ""));
-    return parser.buildHeader({
-      text,
-      id: ref.id,
-      slug: ref.slug,
-      path: ref.path,
-      sizeBytes: Number(info.size),
-      mtimeMs: mtimeMsOf(info),
-    });
-  }).pipe(Effect.orElseSucceed(() => null));
+  return agents.loadTranscript({ agent, ref }).pipe(
+    Effect.map(({ text, sizeBytes, mtimeMs }) => {
+      if (text === "" && sizeBytes === 0) {
+        return null;
+      }
+      return parser.buildHeader({
+        text,
+        id: ref.id,
+        slug: ref.slug,
+        path: ref.path,
+        sizeBytes,
+        mtimeMs,
+      });
+    }),
+    Effect.orElseSucceed(() => null)
+  );
 };
 
 const makeService = (args: {
@@ -318,7 +307,7 @@ const makeService = (args: {
       (agent) =>
         agents.listSessionFiles(agent).pipe(
           Effect.flatMap((refs) =>
-            Effect.forEach(refs, (ref) => headerFor({ fs, agent, ref }), {
+            Effect.forEach(refs, (ref) => headerFor({ agents, agent, ref }), {
               concurrency: LIST_CONCURRENCY,
             })
           )

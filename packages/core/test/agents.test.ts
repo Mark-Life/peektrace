@@ -65,15 +65,13 @@ describe("AgentRegistry agent gating", () => {
       })
     ));
 
-  test("unsupported agents fail session resolvers too", () =>
+  test("OpenCode is a supported SQLite-backed agent with a resolvable root", () =>
     run(
       Effect.gen(function* () {
         const reg = yield* AgentRegistry;
-        const result = yield* Effect.either(reg.projectsRoot("opencode"));
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left._tag).toBe("AgentUnsupportedError");
-        }
+        const root = yield* reg.projectsRoot("opencode");
+        expect(root.length).toBeGreaterThan(0);
+        expect(reg.roots("opencode").layout).toBe("opencode-sqlite");
       })
     ));
 
@@ -90,7 +88,7 @@ describe("AgentRegistry agent gating", () => {
         // Codex + Pi sessions are now parseable.
         expect(reg.roots("codex").supported).toBe(true);
         expect(reg.roots("pi").supported).toBe(true);
-        expect(reg.roots("opencode").supported).toBe(false);
+        expect(reg.roots("opencode").supported).toBe(true);
         expect(
           reg.roots("pi").projectsRoot.endsWith("/.pi/agent/sessions")
         ).toBe(true);

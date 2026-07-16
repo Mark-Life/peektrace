@@ -2,7 +2,12 @@ import { Schema } from "effect";
 import { AgentId } from "../agent-id";
 
 /** Which coding agent produced a transcript. Mirrors the parseable `AgentId`s. */
-export const Provider = Schema.Literal("claude-code", "codex", "pi");
+export const Provider = Schema.Literal(
+  "claude-code",
+  "codex",
+  "pi",
+  "opencode"
+);
 export type Provider = typeof Provider.Type;
 
 /**

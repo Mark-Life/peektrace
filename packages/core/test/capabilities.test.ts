@@ -46,12 +46,13 @@ describe("CapabilityRegistry matrix", () => {
         expect(view?.perAgent.claude.level).toBe("supported");
         expect(view?.perAgent.codex.level).toBe("supported");
         expect(view?.perAgent.pi.level).toBe("supported");
-        expect(view?.perAgent.opencode.level).toBe("planned");
-        // Context forensics are full for Claude, partial for Codex/Pi.
+        expect(view?.perAgent.opencode.level).toBe("supported");
+        // Context forensics are full for Claude, partial for Codex/Pi/OpenCode.
         const debug = findCap("session.debug-context");
         expect(debug?.perAgent.claude.level).toBe("supported");
         expect(debug?.perAgent.codex.level).toBe("partial");
         expect(debug?.perAgent.pi.level).toBe("partial");
+        expect(debug?.perAgent.opencode.level).toBe("partial");
       })
     ));
 

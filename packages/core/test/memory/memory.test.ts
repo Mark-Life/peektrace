@@ -85,6 +85,8 @@ const makeAgents = (base: string): AgentRegistryShape => {
     sessionsGlob: () => Effect.succeed(join(base, "**", "*.jsonl")),
     memoryDir: ({ slug }) => Effect.succeed(join(base, slug, "memory")),
     listProjectSlugs: () => Effect.succeed([SLUG_A, SLUG_B]),
+    loadTranscript: () =>
+      Effect.succeed({ text: "", sizeBytes: 0, mtimeMs: 0 }),
   };
 };
 

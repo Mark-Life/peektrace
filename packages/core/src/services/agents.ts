@@ -2,8 +2,14 @@ import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { FileSystem } from "@effect/platform";
-import { Context, Data, Effect, Layer } from "effect";
+import { Context, Data, Effect, Layer, Option } from "effect";
 import { AGENT_IDS, type AgentId } from "./agent-id";
+import {
+  listSessionRefs,
+  loadSessionText,
+  resolveDataDir,
+  type SessionText,
+} from "./sessions/opencode/reader";
 
 export { AGENT_IDS, AgentId } from "./agent-id";
 
@@ -15,6 +21,8 @@ export type SessionLayout =
   | "codex-datetree"
   /** `~/.pi/agent/sessions/<cwd-slug>/<iso>_<uuid>.jsonl`. */
   | "pi-cwd-slug"
+  /** OpenCode SQLite DB (+ legacy JSON tree) under `~/.local/share/opencode`. */
+  | "opencode-sqlite"
   /** No parseable session layout yet. */
   | "none";
 
@@ -48,6 +56,17 @@ export class AgentUnsupportedError extends Data.TaggedError(
   readonly agent: AgentId;
   readonly operation: string;
 }> {}
+
+/** Raised when a transcript cannot be read (file IO or SQLite/tree read). */
+export class TranscriptReadError extends Data.TaggedError(
+  "TranscriptReadError"
+)<{
+  readonly path: string;
+  readonly reason: string;
+}> {}
+
+/** A transcript's raw text plus the stat used for header sizing/recency. */
+export type TranscriptPayload = SessionText;
 
 /**
  * Build the declared roots for every agent. Computed lazily (and memoized) so
@@ -91,10 +110,10 @@ const buildRoots = (): Record<AgentId, AgentRoots> => {
     },
     opencode: {
       id: "opencode",
-      home: join(HOME, ".local", "share", "opencode"),
-      layout: "none",
-      projectsRoot: join(HOME, ".local", "share", "opencode", "project"),
-      supported: false,
+      home: resolveDataDir(),
+      layout: "opencode-sqlite",
+      projectsRoot: resolveDataDir(),
+      supported: true,
     },
   };
 };
@@ -169,6 +188,15 @@ export interface AgentRegistryShape {
   readonly listSessionFiles: (
     agent: AgentId
   ) => Effect.Effect<readonly SessionFileRef[]>;
+  /**
+   * Load one transcript's text + stat, abstracting over file-backed agents
+   * (Claude/Codex/Pi read `ref.path` off disk) and OpenCode (whose `ref.path`
+   * is a `<dataDir>#<sessionId>` handle the SQLite/tree reader serializes).
+   */
+  readonly loadTranscript: (args: {
+    readonly agent: AgentId;
+    readonly ref: SessionFileRef;
+  }) => Effect.Effect<TranscriptPayload, TranscriptReadError>;
   /** Per-project memory dir for an agent + slug. */
   readonly memoryDir: (args: {
     readonly agent: AgentId;
@@ -356,6 +384,17 @@ export const AgentRegistryLive = Layer.effect(
                 )
               )
             );
+          case "opencode-sqlite":
+            return Effect.sync(() =>
+              listSessionRefs(root).map(
+                (ref) =>
+                  ({
+                    id: ref.id,
+                    slug: ref.directory ?? "",
+                    path: `${root}#${ref.id}`,
+                  }) satisfies SessionFileRef
+              )
+            );
           default:
             return Effect.succeed([] as readonly SessionFileRef[]);
         }
@@ -368,6 +407,61 @@ export const AgentRegistryLive = Layer.effect(
       );
     };
 
+    /** OpenCode: `<dataDir>#<sessionId>` → serialized dialect via the reader. */
+    const loadOpencodeTranscript = (ref: SessionFileRef) =>
+      Effect.try({
+        try: () => {
+          // Split on the LAST `#`: OpenCode session ids (`ses_<base62>`) never
+          // contain `#`, so lastIndexOf lands on the `<dataDir>#<id>` delimiter.
+          const hash = ref.path.lastIndexOf("#");
+          const dataDir =
+            hash >= 0 ? ref.path.slice(0, hash) : ROOTS().opencode.projectsRoot;
+          const sessionId = hash >= 0 ? ref.path.slice(hash + 1) : ref.id;
+          return loadSessionText(
+            dataDir,
+            sessionId
+          ) satisfies TranscriptPayload;
+        },
+        catch: (e) =>
+          new TranscriptReadError({ path: ref.path, reason: String(e) }),
+      });
+
+    /** File-backed agents (Claude/Codex/Pi): stat + read `ref.path` off disk. */
+    const loadFileTranscript = (ref: SessionFileRef) =>
+      Effect.gen(function* () {
+        const info = yield* fs.stat(ref.path);
+        const text = yield* fs.readFileString(ref.path);
+        const mtimeMs = Option.match(info.mtime, {
+          onNone: () => 0,
+          onSome: (d) => d.getTime(),
+        });
+        return {
+          text,
+          sizeBytes: Number(info.size),
+          mtimeMs,
+        } satisfies TranscriptPayload;
+      }).pipe(
+        Effect.mapError(
+          (e) => new TranscriptReadError({ path: ref.path, reason: String(e) })
+        )
+      );
+
+    const loadTranscript = ({
+      agent,
+      ref,
+    }: {
+      readonly agent: AgentId;
+      readonly ref: SessionFileRef;
+    }) =>
+      (ROOTS()[agent].layout === "opencode-sqlite"
+        ? loadOpencodeTranscript(ref)
+        : loadFileTranscript(ref)
+      ).pipe(
+        Effect.withSpan("AgentRegistry.loadTranscript", {
+          attributes: { agent },
+        })
+      );
+
     return {
       encodeSlug,
       roots: (agent) => ROOTS()[agent],
@@ -376,6 +470,7 @@ export const AgentRegistryLive = Layer.effect(
       projectsRoot,
       listProjectSlugs,
       listSessionFiles,
+      loadTranscript,
       sessionsGlob,
       memoryDir,
     } satisfies AgentRegistryShape;

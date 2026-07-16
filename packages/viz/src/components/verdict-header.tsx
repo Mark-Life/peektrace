@@ -26,6 +26,7 @@ const PROVIDER_LABEL: Record<string, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
   pi: "Pi",
+  opencode: "OpenCode",
 };
 
 /** A single metadata cell. */

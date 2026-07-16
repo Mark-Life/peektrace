@@ -46,6 +46,15 @@ const agentStub: AgentRegistryShape = {
           ]
         : []
     ),
+  loadTranscript: ({ ref }) =>
+    Effect.sync(() => {
+      const text = readFileSync(ref.path, "utf8");
+      return {
+        text,
+        sizeBytes: Buffer.byteLength(text, "utf8"),
+        mtimeMs: 0,
+      };
+    }),
   memoryDir: ({ slug }) => Effect.succeed(join(PROJECTS_ROOT, slug, "memory")),
   projectsRoot: () => Effect.succeed(PROJECTS_ROOT),
   roots: stubRoots,

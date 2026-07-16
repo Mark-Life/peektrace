@@ -1,0 +1,16 @@
+{"kind":"session","id":"ses_test123","directory":"/Users/demo/proj","title":"Test session","version":"1.18.2","model":{"id":"gpt-5.6-terra-fast","providerID":"openai"},"agent":"build","timeCreated":1784148745485,"timeUpdated":1784148748261,"cost":0.01,"tokensInput":8305,"tokensOutput":28,"tokensReasoning":0,"tokensCacheRead":8192,"tokensCacheWrite":128}
+{"kind":"message","role":"user","time":{"created":1784148745485},"agent":"build","id":"msg_user1","sessionID":"ses_test123"}
+{"kind":"part","type":"text","text":"hey there, list the files","id":"prt_u1","sessionID":"ses_test123","messageID":"msg_user1"}
+{"kind":"message","role":"assistant","modelID":"gpt-5.6-terra-fast","providerID":"openai","tokens":{"total":8311,"input":8305,"output":6,"reasoning":0,"cache":{"write":128,"read":8192}},"time":{"created":1784148745500},"id":"msg_asst1","sessionID":"ses_test123"}
+{"kind":"part","type":"reasoning","text":"The user wants a file listing.","id":"prt_r1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"tool","tool":"glob","callID":"call-abc","state":{"status":"completed","input":{"pattern":"README*"},"output":"README.md\npackages/README.md","metadata":{"count":2},"title":"","time":{"start":1,"end":2}},"id":"prt_t1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"tool","tool":"bash","callID":"call-err","state":{"status":"error","input":{"command":"exit 1"},"output":"command failed","time":{"start":3,"end":4}},"id":"prt_t2","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"tool","tool":"read","callID":"call-run","state":{"status":"running","input":{"path":"src/app.ts"}},"id":"prt_t3","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"file","filename":"src/app.ts","mime":"text/plain","url":"file:///Users/demo/proj/src/app.ts","id":"prt_f1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"patch","hash":"abc123","files":["src/app.ts"],"id":"prt_p1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"snapshot","snapshot":"snap-1","id":"prt_sn1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"subtask","tool":"task","id":"prt_st1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"agent","name":"reviewer","id":"prt_ag1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"retry","id":"prt_rt1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"step-finish","id":"prt_s1","sessionID":"ses_test123","messageID":"msg_asst1"}
+{"kind":"part","type":"compaction","id":"prt_c1","sessionID":"ses_test123","messageID":"msg_asst1"}

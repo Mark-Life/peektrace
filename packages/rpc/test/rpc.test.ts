@@ -94,6 +94,15 @@ const makeAgents = (base: string): AgentRegistryShape => {
             ]
           : []
       ),
+    loadTranscript: ({ ref }) =>
+      Effect.sync(() => {
+        const text = readFileSync(ref.path, "utf8");
+        return {
+          text,
+          sizeBytes: Buffer.byteLength(text, "utf8"),
+          mtimeMs: 0,
+        };
+      }),
   };
 };
 
