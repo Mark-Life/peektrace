@@ -26,7 +26,6 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import { Fragment, useState } from "react";
-import { SectionHeader } from "../components/section-header";
 import { capabilitiesAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
 
@@ -218,10 +217,6 @@ export const CapabilitiesRoute = () => {
   const [selection, setSelection] = useState<Selection | null>(null);
   return (
     <div>
-      <SectionHeader
-        description="Which inspector features each coding agent supports. Click a cell for detail."
-        title="Capabilities"
-      />
       <ResultView result={result}>
         {(caps) => (
           <>

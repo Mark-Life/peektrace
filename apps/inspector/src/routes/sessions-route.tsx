@@ -19,7 +19,6 @@ import {
 } from "@workspace/ui/components/empty";
 import { cn } from "@workspace/ui/lib/utils";
 import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
-import { SectionHeader } from "../components/section-header";
 import { sessionsListAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
 import { closeSession, openSession, useSelectedSessionId } from "../lib/routes";
@@ -55,10 +54,6 @@ export const SessionsRoute = () => {
 
   return (
     <div className="flex flex-col">
-      <SectionHeader
-        description="Browse Claude, Codex and Pi sessions and inspect context-budget forensics."
-        title="Sessions"
-      />
       <ResultView result={result}>
         {(headers) =>
           headers.length === 0 ? (
