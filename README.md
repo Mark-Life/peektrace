@@ -147,6 +147,13 @@ transport.
   Opt out with `--no-telemetry` or `PEEKTRACE_NO_TELEMETRY=1`. `peektrace doctor`
   is the only way this data leaves your box, and only if you email the redacted
   bundle yourself.
+- **Startup update check — the one outbound call.** On `peektrace serve` startup
+  a best-effort, non-blocking request to the GitHub releases API checks whether a
+  newer `cli-v*` release exists and, if so, prints a single hint line. The result
+  is cached to `~/.peektrace/update-check.json` (or `PEEKTRACE_DIR`) for ~24h, so
+  it hits the network at most once a day, and it never blocks or delays the
+  server. It sends no data about you — just a plain GET. Disable it entirely with
+  `PEEKTRACE_NO_UPDATE_CHECK=1`.
 
 ### Packages
 

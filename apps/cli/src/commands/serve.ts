@@ -32,6 +32,8 @@ import { Console, Effect, Layer } from "effect";
 import { type GlobalsAccessor, localReadOnlyOpt } from "../client";
 import embeddedUI from "../embedded-ui.gen";
 import { CliUserError } from "../errors";
+import { startupUpdateNotice } from "../upgrade/update-check";
+import { APP_VERSION } from "../version";
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 4321;
@@ -381,6 +383,12 @@ const serveProgram = (args: {
     if (args.open) {
       yield* openBrowser(url);
     }
+
+    // Best-effort, non-blocking release check: forked so it never delays
+    // startup, self-timing-out and error-swallowing, and gated/cached inside
+    // `startupUpdateNotice`. Prints one line if a newer release exists.
+    yield* Effect.forkDaemon(startupUpdateNotice(APP_VERSION));
+
     yield* Effect.never;
   });
 
