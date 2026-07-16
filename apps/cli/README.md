@@ -194,6 +194,34 @@ peektrace doctor
 peektrace doctor --interesting-only --out /tmp/report.json
 ```
 
+### `upgrade` — self-update to the latest release
+
+Resolves the newest `cli-v*` release from the GitHub API (mirroring the native
+installers), downloads the host binary + `SHA256SUMS`, verifies the sha256, then
+**atomically replaces** the running executable (temp file in the same directory,
+fsync, rename-over-self — safe while running; the change takes effect on the next
+launch). A checksum mismatch or a missing manifest entry aborts **without**
+touching the installed binary. Honours the same `PEEKTRACE_BASE_URL` /
+`PEEKTRACE_GITHUB_API` / `PEEKTRACE_VERSION` overrides as `scripts/install.sh`.
+
+Windows cannot replace a running `.exe` in place, so `upgrade` there prints a
+message pointing back at the PowerShell installer instead of attempting the swap.
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--version <tag>` | latest | Install a specific release tag (`cli-v1.2.3`) instead of the latest — pin or downgrade |
+| `--check` | `false` | Only report whether an update is available; download and write nothing |
+
+```sh
+peektrace upgrade                    # download + verify + replace with the latest
+peektrace upgrade --check            # "up to date" or "a newer version is available"
+peektrace upgrade --version cli-v1.2.3
+```
+
+`peektrace serve` also runs a best-effort, cached, opt-out-able check on startup
+that prints a one-line hint when a newer release exists — see the root README's
+Privacy posture (`PEEKTRACE_NO_UPDATE_CHECK=1` disables it).
+
 ## Safety: point at a throwaway projects root
 
 Resolution reads `~/.claude/projects` by default. Set `PEEKTRACE_CLAUDE_PROJECTS`

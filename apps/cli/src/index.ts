@@ -15,17 +15,12 @@ import { makeDoctor } from "./commands/doctor";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
+import { makeUpgrade } from "./commands/upgrade";
 import { formatCliError } from "./errors";
 import { otelEnabled, tracingLayer } from "./tracing";
+import { APP_VERSION } from "./version";
 
-// Injected at compile time by `src/build.ts` (Bun `define`); a bare undeclared
-// global when running from source, so `typeof` guards against a ReferenceError.
-declare const PEEKTRACE_VERSION: string | undefined;
-
-/** The build version reported by the CLI and stamped on every wide event. */
-export const APP_VERSION =
-  (typeof PEEKTRACE_VERSION === "string" ? PEEKTRACE_VERSION : undefined) ??
-  "0.0.0-dev";
+export { APP_VERSION } from "./version";
 
 const jsonOpt = Options.boolean("json").pipe(
   Options.withDescription("Emit raw JSON instead of rendered tables")
@@ -100,7 +95,13 @@ const memory = Command.make("memory").pipe(
 );
 
 const command = peektrace.pipe(
-  Command.withSubcommands([sessions, memory, makeServe(globals), makeDoctor()])
+  Command.withSubcommands([
+    sessions,
+    memory,
+    makeServe(globals),
+    makeDoctor(),
+    makeUpgrade(),
+  ])
 );
 
 const cli = Command.run(command, {
