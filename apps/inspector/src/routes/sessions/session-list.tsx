@@ -91,7 +91,7 @@ const MONTHS = [
   "Dec",
 ];
 
-/** The five facets a header can be narrowed by, plus the free-text query. */
+/** The facets a header can be narrowed by, plus the free-text query. */
 interface Filters {
   readonly agent: string;
   readonly branch: string;
@@ -99,6 +99,7 @@ interface Filters {
   readonly project: string;
   readonly query: string;
   readonly range: DateRange | undefined;
+  readonly source: string;
 }
 
 /** No facet selected, no query — the state the reset action restores. */
@@ -109,13 +110,15 @@ const NO_FILTERS: Filters = {
   branch: ANY,
   model: ANY,
   range: undefined,
+  source: ANY,
 };
 
 /** How many facets (query counts as one) currently constrain the list. */
 const activeCount = (f: Filters): number =>
   (f.query.length > 0 ? 1 : 0) +
   (f.range?.from ? 1 : 0) +
-  [f.agent, f.project, f.branch, f.model].filter((v) => v !== ANY).length;
+  [f.agent, f.project, f.branch, f.model, f.source].filter((v) => v !== ANY)
+    .length;
 
 /** Distinct, sorted non-empty values of one header field. */
 const distinct = (
@@ -205,6 +208,9 @@ const matches = (h: SessionHeader, f: Filters): boolean => {
   if (f.model !== ANY && h.model !== f.model) {
     return false;
   }
+  if (f.source !== ANY && (h.sourceLabel ?? "") !== f.source) {
+    return false;
+  }
   if (f.range && !inRange(h, f.range)) {
     return false;
   }
@@ -267,6 +273,11 @@ const SessionRow = ({
           >
             {AGENT_LABEL[h.agent] ?? h.agent}
           </Badge>
+          {h.sourceLabel ? (
+            <Badge className="shrink-0" variant="secondary">
+              {h.sourceLabel}
+            </Badge>
+          ) : null}
           <Truncated full={h.project}>{h.project}</Truncated>
         </ItemDescription>
         {h.gitBranch ? (
@@ -348,6 +359,10 @@ export const SessionList = ({
     [headers]
   );
   const models = useMemo(() => distinct(headers, (h) => h.model), [headers]);
+  const sources = useMemo(
+    () => distinct(headers, (h) => h.sourceLabel),
+    [headers]
+  );
   const days = useMemo(
     () => distinct(headers, (h) => dayOf(h.startedAt) || undefined),
     [headers]
@@ -418,6 +433,15 @@ export const SessionList = ({
           testId="session-filter-model"
           value={filters.model}
         />
+        {sources.length > 1 ? (
+          <FilterSelect
+            label="Source"
+            onChange={set("source")}
+            options={sources}
+            testId="session-filter-source"
+            value={filters.source}
+          />
+        ) : null}
         <DateRangeFilter
           days={days}
           onChange={set("range")}

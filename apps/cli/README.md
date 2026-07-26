@@ -236,6 +236,28 @@ finds sessions wherever the agent actually stores them:
 Unset, each falls back to its default `~/.<agent>` location. A colon-separated
 `CLAUDE_CONFIG_DIR` (Claude Code's multi-dir form) resolves to its first entry.
 
+## Scanning several roots at once
+
+An env var only names one dir at a time. To scan **multiple** roots per agent in
+parallel — e.g. a personal and a separate work Claude account — declare the extra
+roots in `~/.peektrace/config.json` (or `$PEEKTRACE_DIR/config.json`):
+
+```json
+{
+  "roots": {
+    "claude": [{ "path": "~/work/.claude", "label": "work" }],
+    "codex": [{ "path": "~/work/.codex", "label": "work" }]
+  }
+}
+```
+
+`path` is the agent's config HOME dir (same thing the env vars point at); the
+transcript root is derived from it per layout. `label` is optional and defaults
+to the dir's basename. Each configured root is **unioned** with the agent's
+env/default root (deduped by resolved path), so every session shows up in one
+merged list. When an agent has more than one source, each session row is tagged
+with its source label and a **Source** filter appears in the inspector.
+
 ## Safety: point at a throwaway projects root
 
 The `PEEKTRACE_*` vars are internal test hooks and take precedence over the

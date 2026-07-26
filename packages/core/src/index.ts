@@ -5,9 +5,12 @@ export {
   AgentRegistryLive,
   type AgentRegistryShape,
   type AgentRoots,
+  type AgentSource,
   AgentUnsupportedError,
+  computeRoots,
   type SessionFileRef,
   type SessionLayout,
+  sourcesOf,
 } from "./services/agents";
 export {
   type Capability,
@@ -18,6 +21,11 @@ export {
   type SupportLevel,
   seededCapabilities,
 } from "./services/capabilities";
+export {
+  loadConfig,
+  type PeektraceConfig,
+  parseConfig,
+} from "./services/config";
 export {
   FileChangedError,
   type FileStat,

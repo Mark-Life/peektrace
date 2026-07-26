@@ -6,6 +6,7 @@ import {
   AgentRegistry,
   AgentRegistryLive,
   computeRoots,
+  sourcesOf,
 } from "../src/services/agents";
 
 const layer = AgentRegistryLive.pipe(Layer.provide(BunFileSystem.layer));
@@ -95,6 +96,88 @@ describe("computeRoots native overrides", () => {
       HOME
     );
     expect(roots.claude.projectsRoot).toBe("/tmp/seed");
+  });
+});
+
+describe("computeRoots multi-source config", () => {
+  const HOME = "/home/u";
+
+  test("no config → single default source (sources omitted)", () => {
+    const claude = computeRoots({}, HOME).claude;
+    expect(claude.sources).toBeUndefined();
+    const srcs = sourcesOf(claude);
+    expect(srcs).toHaveLength(1);
+    expect(srcs[0]).toMatchObject({
+      id: "claude",
+      isDefault: true,
+      projectsRoot: "/home/u/.claude/projects",
+    });
+  });
+
+  test("config adds a labeled extra source, default first", () => {
+    const claude = computeRoots({}, HOME, {
+      roots: { claude: [{ path: "/work/.claude", label: "work" }] },
+    }).claude;
+    const srcs = sourcesOf(claude);
+    expect(srcs).toHaveLength(2);
+    expect(srcs[0]).toMatchObject({ id: "claude", isDefault: true });
+    expect(srcs[1]).toMatchObject({
+      id: "claude:work",
+      label: "work",
+      home: "/work/.claude",
+      projectsRoot: "/work/.claude/projects",
+      isDefault: false,
+    });
+    // The scalar convenience fields still point at the default source.
+    expect(claude.projectsRoot).toBe("/home/u/.claude/projects");
+  });
+
+  test("expands a leading ~ in a config path", () => {
+    const claude = computeRoots({}, HOME, {
+      roots: { claude: [{ path: "~/work/.claude" }] },
+    }).claude;
+    expect(sourcesOf(claude)[1]?.projectsRoot).toBe(
+      "/home/u/work/.claude/projects"
+    );
+  });
+
+  test("dedupes a config source that resolves to the default root", () => {
+    const claude = computeRoots({}, HOME, {
+      roots: { claude: [{ path: "/home/u/.claude", label: "dup" }] },
+    }).claude;
+    // Same projectsRoot as the default → collapsed to one source.
+    expect(claude.sources).toBeUndefined();
+    expect(sourcesOf(claude)).toHaveLength(1);
+  });
+
+  test("makes source labels unique so the UI facet never merges them", () => {
+    const claude = computeRoots({}, HOME, {
+      roots: {
+        claude: [
+          { path: "/a/.claude", label: "work" },
+          { path: "/b/.claude", label: "work" },
+          { path: "/c/.claude", label: "default" },
+        ],
+      },
+    }).claude;
+    const labels = sourcesOf(claude).map((s) => s.label);
+    expect(labels).toEqual(["default", "work", "work-2", "default-2"]);
+    // Unique labels ⇒ unique ids.
+    expect(new Set(sourcesOf(claude).map((s) => s.id)).size).toBe(4);
+  });
+
+  test("derives codex/opencode extra roots per layout", () => {
+    const roots = computeRoots({}, HOME, {
+      roots: {
+        codex: [{ path: "/work/.codex", label: "work" }],
+        opencode: [{ path: "/work/oc", label: "work" }],
+      },
+    });
+    expect(sourcesOf(roots.codex)[1]?.projectsRoot).toBe(
+      "/work/.codex/sessions"
+    );
+    // OpenCode's transcript root IS the data dir.
+    expect(sourcesOf(roots.opencode)[1]?.projectsRoot).toBe("/work/oc");
   });
 });
 

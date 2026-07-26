@@ -13,6 +13,7 @@ import {
   AgentRegistry,
   type AgentRegistryShape,
   type SessionFileRef,
+  sourcesOf,
 } from "../agents";
 import { analyze } from "./analyze";
 import { SessionNotFoundError, TranscriptParseError } from "./errors";
@@ -116,13 +117,14 @@ interface Resolution extends SessionFileRef {
 const supportedAgents = (agents: AgentRegistryShape): readonly AgentId[] =>
   AGENT_IDS.filter((id) => agents.roots(id).supported && PARSERS[id]);
 
-/** Infer the owning agent of a direct `.jsonl` path from its containing root. */
+/** Infer the owning agent of a direct `.jsonl` path from its containing root
+ * (any of the agent's sources, so a second account's path resolves too). */
 const agentForPath = (
   agents: AgentRegistryShape,
   path: string
 ): AgentId | undefined =>
   supportedAgents(agents).find((id) =>
-    path.startsWith(agents.roots(id).projectsRoot)
+    sourcesOf(agents.roots(id)).some((s) => path.startsWith(s.projectsRoot))
   );
 
 /** Resolve a direct `.jsonl` path to its owning agent, or null if not one. */
@@ -233,7 +235,11 @@ const parseFull = (args: {
   readonly agents: AgentRegistryShape;
   readonly id: string;
 }): Effect.Effect<
-  { readonly agent: AgentId; readonly parsed: ParsedSession },
+  {
+    readonly agent: AgentId;
+    readonly parsed: ParsedSession;
+    readonly source?: string;
+  },
   SessionNotFoundError | TranscriptParseError
 > => {
   const { fs, agents, id } = args;
@@ -262,7 +268,11 @@ const parseFull = (args: {
       resolved.agent === "claude"
         ? yield* foldClaudeSubagents({ fs, agents, parsed: base, id })
         : base;
-    return { agent: resolved.agent, parsed };
+    return {
+      agent: resolved.agent,
+      parsed,
+      ...(resolved.source ? { source: resolved.source.id } : {}),
+    };
   }).pipe(Effect.withSpan("Sessions.parse", { attributes: { id } }));
 };
 
@@ -282,7 +292,7 @@ const headerFor = (args: {
       if (text === "" && sizeBytes === 0) {
         return null;
       }
-      return parser.buildHeader({
+      const header = parser.buildHeader({
         text,
         id: ref.id,
         slug: ref.slug,
@@ -290,6 +300,9 @@ const headerFor = (args: {
         sizeBytes,
         mtimeMs,
       });
+      return ref.source
+        ? { ...header, source: ref.source.id, sourceLabel: ref.source.label }
+        : header;
     }),
     Effect.orElseSucceed(() => null)
   );
@@ -332,13 +345,14 @@ const makeService = (args: {
     redact = true,
   }) =>
     Effect.gen(function* () {
-      const { agent, parsed } = yield* parseFull({ fs, agents, id });
+      const { agent, parsed, source } = yield* parseFull({ fs, agents, id });
       const onDiskContextFiles =
         agent === "claude"
           ? yield* gatherOnDiskContextFiles({
               fs,
               agents,
               ...(parsed.cwd ? { cwd: parsed.cwd } : {}),
+              ...(source ? { source } : {}),
             })
           : [];
       const result = analyze(parsed, {
