@@ -39,7 +39,7 @@ beforeAll(() => {
   seed(defaultProjects, SLUG_A, ID_A);
   seed(workProjects, SLUG_B, ID_B);
   writeFileSync(
-    join(ptDir, "config.json"),
+    join(ptDir, "settings.json"),
     JSON.stringify({ roots: { claude: [{ path: workHome, label: "work" }] } })
   );
   process.env.PEEKTRACE_DIR = ptDir;

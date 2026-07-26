@@ -1,9 +1,9 @@
-/** Optional user config for peektrace: extra agent roots to scan in parallel.
+/** Optional user settings for peektrace: extra agent roots to scan in parallel.
  *
- * Lives at `~/.peektrace/config.json` (or `$PEEKTRACE_DIR/config.json`) and lets
- * a user point peektrace at additional config dirs per agent — e.g. a separate
- * work Claude account alongside the personal `~/.claude` — so both show up in one
- * merged session list, each row labeled by its source.
+ * Lives at `~/.peektrace/settings.json` (or `$PEEKTRACE_DIR/settings.json`) and
+ * lets a user point peektrace at additional config dirs per agent — e.g. a
+ * separate work Claude account alongside the personal `~/.claude` — so both show
+ * up in one merged session list, each row labeled by its source.
  *
  * ```json
  * { "roots": { "claude": [{ "path": "~/work/.claude", "label": "work" }] } }
@@ -30,8 +30,8 @@ export const RootEntry = Schema.Struct({
 });
 export type RootEntry = typeof RootEntry.Type;
 
-/** The parsed `config.json`. Every field optional so a partial file is valid. */
-export const PeektraceConfig = Schema.Struct({
+/** The parsed `settings.json`. Every field optional so a partial file is valid. */
+export const PeektraceSettings = Schema.Struct({
   /** Extra roots per agent, unioned with each agent's env/default root. A
    * `partial` record so declaring only some agents (or none) is valid. */
   roots: Schema.optional(
@@ -40,33 +40,33 @@ export const PeektraceConfig = Schema.Struct({
     )
   ),
 });
-export type PeektraceConfig = typeof PeektraceConfig.Type;
+export type PeektraceSettings = typeof PeektraceSettings.Type;
 
-/** The empty config used whenever no file exists or parsing fails. */
-export const EMPTY_CONFIG: PeektraceConfig = {};
+/** The empty settings used whenever no file exists or parsing fails. */
+export const EMPTY_SETTINGS: PeektraceSettings = {};
 
-const decode = Schema.decodeUnknownEither(PeektraceConfig);
+const decode = Schema.decodeUnknownEither(PeektraceSettings);
 const decodeEntry = Schema.decodeUnknownEither(RootEntry);
 
 const isAgentId = (key: string): key is (typeof AGENT_IDS)[number] =>
   (AGENT_IDS as readonly string[]).includes(key);
 
 /**
- * Parse raw `config.json` text into a `PeektraceConfig`, best-effort and
+ * Parse raw `settings.json` text into a `PeektraceSettings`, best-effort and
  * TOLERANT: a whole-file decode is tried first, and on failure each agent's
  * entries are salvaged individually so one malformed entry never discards the
- * valid roots beside it. Any JSON error yields the empty config. Pure.
+ * valid roots beside it. Any JSON error yields the empty settings. Pure.
  */
-export const parseConfig = (raw: string): PeektraceConfig => {
+export const parseSettings = (raw: string): PeektraceSettings => {
   const trimmed = raw.trim();
   if (trimmed === "") {
-    return EMPTY_CONFIG;
+    return EMPTY_SETTINGS;
   }
   let json: unknown;
   try {
     json = JSON.parse(trimmed);
   } catch {
-    return EMPTY_CONFIG;
+    return EMPTY_SETTINGS;
   }
   const whole = decode(json);
   if (whole._tag === "Right") {
@@ -78,7 +78,7 @@ export const parseConfig = (raw: string): PeektraceConfig => {
       ? (json as { roots?: unknown }).roots
       : undefined;
   if (typeof rootsRaw !== "object" || rootsRaw === null) {
-    return EMPTY_CONFIG;
+    return EMPTY_SETTINGS;
   }
   const roots: Partial<Record<(typeof AGENT_IDS)[number], RootEntry[]>> = {};
   for (const [key, value] of Object.entries(rootsRaw)) {
@@ -93,27 +93,27 @@ export const parseConfig = (raw: string): PeektraceConfig => {
       roots[key] = entries;
     }
   }
-  return Object.keys(roots).length > 0 ? { roots } : EMPTY_CONFIG;
+  return Object.keys(roots).length > 0 ? { roots } : EMPTY_SETTINGS;
 };
 
 /**
- * Read + parse the config file at `path` via the platform FileSystem. Never
- * fails: a missing/unreadable file resolves to the empty config. A file that is
- * present + non-empty but parses to nothing is logged (so a typo'd config that
+ * Read + parse the settings file at `path` via the platform FileSystem. Never
+ * fails: a missing/unreadable file resolves to the empty settings. A file that
+ * is present + non-empty but parses to nothing is logged (so a typo'd file that
  * silently disables the feature is at least visible in `--otel`/debug logs).
  */
-export const loadConfig = (
+export const loadSettings = (
   fs: FileSystem.FileSystem,
   path: string
-): Effect.Effect<PeektraceConfig> =>
+): Effect.Effect<PeektraceSettings> =>
   fs.readFileString(path).pipe(
     Effect.flatMap((raw) => {
-      const parsed = parseConfig(raw);
+      const parsed = parseSettings(raw);
       return raw.trim() !== "" && parsed.roots === undefined
         ? Effect.logWarning(
-            `peektrace: ignoring unparseable config at ${path}`
+            `peektrace: ignoring unparseable settings at ${path}`
           ).pipe(Effect.as(parsed))
         : Effect.succeed(parsed);
     }),
-    Effect.orElseSucceed(() => EMPTY_CONFIG)
+    Effect.orElseSucceed(() => EMPTY_SETTINGS)
   );

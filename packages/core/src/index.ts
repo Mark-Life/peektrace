@@ -22,11 +22,6 @@ export {
   seededCapabilities,
 } from "./services/capabilities";
 export {
-  loadConfig,
-  type PeektraceConfig,
-  parseConfig,
-} from "./services/config";
-export {
   FileChangedError,
   type FileStat,
   FsLive,
@@ -104,6 +99,11 @@ export {
   SessionsServiceLive,
   type SessionsServiceShape,
 } from "./services/sessions/service";
+export {
+  loadSettings,
+  type PeektraceSettings,
+  parseSettings,
+} from "./services/settings";
 export {
   type Invalidation,
   type WatchScope,

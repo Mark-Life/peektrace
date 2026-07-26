@@ -240,7 +240,7 @@ Unset, each falls back to its default `~/.<agent>` location. A colon-separated
 
 An env var only names one dir at a time. To scan **multiple** roots per agent in
 parallel — e.g. a personal and a separate work Claude account — declare the extra
-roots in `~/.peektrace/config.json` (or `$PEEKTRACE_DIR/config.json`):
+roots in `~/.peektrace/settings.json` (or `$PEEKTRACE_DIR/settings.json`):
 
 ```json
 {

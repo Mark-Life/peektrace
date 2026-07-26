@@ -4,13 +4,17 @@ import { basename, join } from "node:path";
 import { FileSystem } from "@effect/platform";
 import { Context, Data, Effect, Layer, Option } from "effect";
 import { AGENT_IDS, type AgentId } from "./agent-id";
-import { loadConfig, type PeektraceConfig, type RootEntry } from "./config";
 import {
   listSessionRefs,
   loadSessionText,
   resolveDataDir,
   type SessionText,
 } from "./sessions/opencode/reader";
+import {
+  loadSettings,
+  type PeektraceSettings,
+  type RootEntry,
+} from "./settings";
 
 export { AGENT_IDS, AgentId } from "./agent-id";
 
@@ -199,14 +203,14 @@ const buildSources = (
  * (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` for OpenCode), falling back
  * to the default `~/.<agent>` location. The `PEEKTRACE_*` vars remain internal
  * test hooks and, where present, still win over everything for the default
- * source's projects root. Extra roots declared in `config.roots` are appended as
- * additional sources so a user can scan several config dirs (e.g. a separate
+ * source's projects root. Extra roots declared in `settings.roots` are appended
+ * as additional sources so a user can scan several config dirs (e.g. a separate
  * work account) in parallel; `sources` is set only when more than one exists.
  */
 export const computeRoots = (
   env: NodeJS.ProcessEnv,
   home: string,
-  config: PeektraceConfig = {}
+  settings: PeektraceSettings = {}
 ): Record<AgentId, AgentRoots> => {
   const claudeHome = firstDir(env.CLAUDE_CONFIG_DIR) ?? join(home, ".claude");
   const codexHome = env.CODEX_HOME ?? join(home, ".codex");
@@ -243,7 +247,7 @@ export const computeRoots = (
     },
   };
   const withSources = (roots: AgentRoots): AgentRoots => {
-    const sources = buildSources(roots, config.roots?.[roots.id] ?? [], home);
+    const sources = buildSources(roots, settings.roots?.[roots.id] ?? [], home);
     return sources.length > 1 ? { ...roots, sources } : roots;
   };
   return {
@@ -390,23 +394,23 @@ const requireClaudeLayout = (
     ? Effect.void
     : Effect.fail(new AgentUnsupportedError({ agent, operation }));
 
-/** Path to the optional user config file, under `PEEKTRACE_DIR` or `~/.peektrace`. */
-const configPath = (): string =>
+/** Path to the optional user settings file, under `PEEKTRACE_DIR` or `~/.peektrace`. */
+const settingsPath = (): string =>
   join(
     process.env.PEEKTRACE_DIR ?? join(homedir(), ".peektrace"),
-    "config.json"
+    "settings.json"
   );
 
 /** Live layer: resolves agent paths via the platform FileSystem, folding in the
- * user config so extra roots (e.g. a second Claude account) are scanned too. */
+ * user settings so extra roots (e.g. a second Claude account) are scanned too. */
 export const AgentRegistryLive = Layer.effect(
   AgentRegistry,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    // Config-aware roots, built once at layer construction. Node IO happens here
-    // (server-side), never at import — the browser only ever pulls the schemas.
-    const config = yield* loadConfig(fs, configPath());
-    const roots = computeRoots(process.env, homedir(), config);
+    // Settings-aware roots, built once at layer construction. Node IO happens
+    // here (server-side), never at import — the browser only pulls the schemas.
+    const settings = yield* loadSettings(fs, settingsPath());
+    const roots = computeRoots(process.env, homedir(), settings);
     const rootOf = (agent: AgentId): AgentRoots => roots[agent];
 
     const allowedRoots = AGENT_IDS.flatMap((id) =>
