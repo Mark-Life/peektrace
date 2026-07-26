@@ -21,7 +21,12 @@ import {
   useSidebar,
 } from "@workspace/ui/components/sidebar";
 import { cn } from "@workspace/ui/lib/utils";
-import { DatabaseIcon, LayoutGridIcon, MessagesSquareIcon } from "lucide-react";
+import {
+  DatabaseIcon,
+  LayoutGridIcon,
+  MessagesSquareIcon,
+  SettingsIcon,
+} from "lucide-react";
 import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { hasInsetTitlebar } from "../lib/host";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
@@ -49,6 +54,12 @@ const NAV_ITEMS: readonly NavItem[] = [
     label: "Capabilities",
     icon: LayoutGridIcon,
     hint: "Support matrix",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    icon: SettingsIcon,
+    hint: "Agent roots",
   },
 ];
 

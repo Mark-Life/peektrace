@@ -10,6 +10,7 @@ export {
   computeRoots,
   type SessionFileRef,
   type SessionLayout,
+  settingsPath,
   sourcesOf,
 } from "./services/agents";
 export {
@@ -104,6 +105,13 @@ export {
   type PeektraceSettings,
   parseSettings,
 } from "./services/settings";
+export {
+  type SettingsResult,
+  SettingsService,
+  SettingsServiceLive,
+  type SettingsServiceShape,
+  SettingsWriteError,
+} from "./services/settings-service";
 export {
   type Invalidation,
   type WatchScope,

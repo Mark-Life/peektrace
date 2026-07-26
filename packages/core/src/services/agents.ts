@@ -395,7 +395,7 @@ const requireClaudeLayout = (
     : Effect.fail(new AgentUnsupportedError({ agent, operation }));
 
 /** Path to the optional user settings file, under `PEEKTRACE_DIR` or `~/.peektrace`. */
-const settingsPath = (): string =>
+export const settingsPath = (): string =>
   join(
     process.env.PEEKTRACE_DIR ?? join(homedir(), ".peektrace"),
     "settings.json"

@@ -26,12 +26,15 @@ import {
   type MemoryValidationError as CoreMemoryValidationError,
   type PathOutsideRootError as CorePathOutsideRootError,
   type SessionNotFoundError as CoreSessionNotFoundError,
+  type SettingsWriteError as CoreSettingsWriteError,
   type TranscriptParseError as CoreTranscriptParseError,
   FsLive,
   MemoryService,
   MemoryServiceLive,
   SessionsService,
   SessionsServiceLive,
+  SettingsService,
+  SettingsServiceLive,
   WatchService,
   WatchServiceLive,
 } from "@workspace/core";
@@ -45,6 +48,7 @@ import {
   PathOutsideRootError,
   PeektraceRpcs,
   SessionNotFoundError,
+  SettingsWriteError,
   TranscriptParseError,
   type WireError,
 } from "./contract";
@@ -58,6 +62,7 @@ type CoreError =
   | CorePathOutsideRootError
   | CoreSessionNotFoundError
   | CoreTranscriptParseError
+  | CoreSettingsWriteError
   | AgentUnsupportedError
   | PlatformError;
 
@@ -100,6 +105,10 @@ const toWire = (error: CoreError): Effect.Effect<never, WireError> => {
     case "TranscriptParseError":
       return Effect.fail(
         new TranscriptParseError({ path: error.path, reason: error.reason })
+      );
+    case "SettingsWriteError":
+      return Effect.fail(
+        new SettingsWriteError({ path: error.path, reason: error.reason })
       );
     default:
       return Effect.die(error);
@@ -169,6 +178,7 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
       const memory = yield* MemoryService;
       const caps = yield* CapabilityRegistry;
       const watch = yield* WatchService;
+      const settings = yield* SettingsService;
 
       return withRootSpans(
         {
@@ -234,6 +244,21 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
             readOnly
               ? readOnlyRefusal()
               : wire(memory.delete({ project, name })),
+          "settings.get": () => settings.get,
+          "settings.update": ({ settings: next, expectedMtime }) =>
+            readOnly
+              ? Effect.fail(
+                  new SettingsWriteError({
+                    path: "settings.json",
+                    reason: "read-only mode is enabled; refusing to write",
+                  })
+                )
+              : wire(
+                  settings.update({
+                    settings: next,
+                    ...(expectedMtime === undefined ? {} : { expectedMtime }),
+                  })
+                ),
         },
         rootSpans
       );
@@ -273,7 +298,8 @@ const coreServicesLayer = (options?: HandlersLayerOptions) => {
     Layer.provide(agents),
     Layer.provide(fileSystem)
   );
-  return Layer.mergeAll(sessions, memory, caps, watch);
+  const settings = SettingsServiceLive.pipe(Layer.provide(fileSystem));
+  return Layer.mergeAll(sessions, memory, caps, watch, settings);
 };
 
 /**

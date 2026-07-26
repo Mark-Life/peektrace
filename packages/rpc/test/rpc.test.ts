@@ -129,11 +129,21 @@ const withClient = <A, E>(
     >
   );
 
+const prevPtDir = process.env.PEEKTRACE_DIR;
+
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "peektrace-rpc-"));
   seed(root);
+  // Isolate the settings file under the temp root (never touch ~/.peektrace).
+  process.env.PEEKTRACE_DIR = join(root, "pt");
+  mkdirSync(process.env.PEEKTRACE_DIR, { recursive: true });
 });
 afterAll(() => {
+  if (prevPtDir === undefined) {
+    delete process.env.PEEKTRACE_DIR;
+  } else {
+    process.env.PEEKTRACE_DIR = prevPtDir;
+  }
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -290,6 +300,49 @@ describe("memory", () => {
           name: "alpha",
         });
         expect(res.slug).toBe("alpha");
+      })
+    ));
+});
+
+describe("settings", () => {
+  test("get → update → get roundtrips the settings file over RPC", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const empty = yield* client.settings.get();
+        expect(empty.settings).toEqual({});
+        expect(empty.mtimeMs).toBe(0);
+
+        const written = yield* client.settings.update({
+          settings: {
+            roots: { claude: [{ path: "/work/.claude", label: "work" }] },
+          },
+          expectedMtime: empty.mtimeMs,
+        });
+        expect(written.mtimeMs).toBeGreaterThan(0);
+
+        const reread = yield* client.settings.get();
+        expect(reread.settings.roots?.claude).toEqual([
+          { path: "/work/.claude", label: "work" },
+        ]);
+      })
+    ));
+
+  test("a stale CAS update surfaces FileChangedError over RPC", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        yield* client.settings.update({
+          settings: { roots: { codex: [{ path: "/a" }] } },
+        });
+        const result = yield* Effect.either(
+          client.settings.update({
+            settings: { roots: { codex: [{ path: "/b" }] } },
+            expectedMtime: 1,
+          })
+        );
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("FileChangedError");
+        }
       })
     ));
 });

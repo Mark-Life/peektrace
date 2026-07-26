@@ -258,6 +258,11 @@ env/default root (deduped by resolved path), so every session shows up in one
 merged list. When an agent has more than one source, each session row is tagged
 with its source label and a **Source** filter appears in the inspector.
 
+You can also edit these roots from the inspector's **Settings** page (a per-agent
+list of path + label) instead of hand-editing the JSON. Saved changes are written
+to `settings.json` immediately, but the running server scans the roots it read at
+startup — restart `peektrace serve` for new roots to appear in the session list.
+
 ## Safety: point at a throwaway projects root
 
 The `PEEKTRACE_*` vars are internal test hooks and take precedence over the

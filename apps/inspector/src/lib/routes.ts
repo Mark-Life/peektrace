@@ -10,8 +10,13 @@
  */
 import { useSyncExternalStore } from "react";
 
-/** The three inspector sections, in nav order. */
-export const ROUTES = ["sessions", "memory", "capabilities"] as const;
+/** The inspector sections, in nav order. */
+export const ROUTES = [
+  "sessions",
+  "memory",
+  "capabilities",
+  "settings",
+] as const;
 
 /** A routable section id. */
 export type RouteId = (typeof ROUTES)[number];
