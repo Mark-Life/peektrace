@@ -94,12 +94,20 @@ const parseJson = (v: unknown): Json | undefined => {
 };
 
 /**
- * Resolve the OpenCode data dir: `PEEKTRACE_OPENCODE_DATA` when set, else the
- * XDG default `~/.local/share/opencode`.
+ * Resolve the OpenCode data dir. Precedence: the `PEEKTRACE_OPENCODE_DATA` test
+ * hook, then OpenCode's native `XDG_DATA_HOME` (→ `<XDG_DATA_HOME>/opencode`),
+ * then the XDG default `~/.local/share/opencode`.
  */
-export const resolveDataDir = (): string =>
-  process.env.PEEKTRACE_OPENCODE_DATA ??
-  join(homedir(), ".local", "share", "opencode");
+export const resolveDataDir = (
+  env: NodeJS.ProcessEnv = process.env
+): string => {
+  if (env.PEEKTRACE_OPENCODE_DATA) {
+    return env.PEEKTRACE_OPENCODE_DATA;
+  }
+  return env.XDG_DATA_HOME
+    ? join(env.XDG_DATA_HOME, "opencode")
+    : join(homedir(), ".local", "share", "opencode");
+};
 
 /** A raw `session` table row (only the columns this module reads). */
 interface SessionRow {

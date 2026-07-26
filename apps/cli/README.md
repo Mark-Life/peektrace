@@ -222,11 +222,26 @@ peektrace upgrade --version cli-v1.2.3
 that prints a one-line hint when a newer release exists — see the root README's
 Privacy posture (`PEEKTRACE_NO_UPDATE_CHECK=1` disables it).
 
+## Custom config directories
+
+Each agent's base resolves from its own native override env var, so peektrace
+finds sessions wherever the agent actually stores them:
+
+| Agent    | Env var             | Resolved root                     |
+| -------- | ------------------- | --------------------------------- |
+| Claude   | `CLAUDE_CONFIG_DIR` | `<dir>/projects`                  |
+| Codex    | `CODEX_HOME`        | `<dir>/sessions`                  |
+| OpenCode | `XDG_DATA_HOME`     | `<dir>/opencode`                  |
+
+Unset, each falls back to its default `~/.<agent>` location. A colon-separated
+`CLAUDE_CONFIG_DIR` (Claude Code's multi-dir form) resolves to its first entry.
+
 ## Safety: point at a throwaway projects root
 
-Resolution reads `~/.claude/projects` by default. Set `PEEKTRACE_CLAUDE_PROJECTS`
-to redirect every read/write at a temp dir — used by the automated tests so they
-never touch real memories:
+The `PEEKTRACE_*` vars are internal test hooks and take precedence over the
+native overrides above. Set `PEEKTRACE_CLAUDE_PROJECTS` to redirect every
+read/write at a temp dir — used by the automated tests so they never touch real
+memories:
 
 ```sh
 PEEKTRACE_CLAUDE_PROJECTS=/tmp/seed-projects \

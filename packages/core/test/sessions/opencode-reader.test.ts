@@ -161,6 +161,19 @@ describe("resolveDataDir", () => {
   test("honours PEEKTRACE_OPENCODE_DATA", () => {
     expect(resolveDataDir()).toBe(dataDir);
   });
+
+  test("PEEKTRACE_OPENCODE_DATA wins over XDG_DATA_HOME", () => {
+    expect(
+      resolveDataDir({
+        PEEKTRACE_OPENCODE_DATA: "/hook",
+        XDG_DATA_HOME: "/xdg",
+      })
+    ).toBe("/hook");
+  });
+
+  test("derives from XDG_DATA_HOME when no test hook is set", () => {
+    expect(resolveDataDir({ XDG_DATA_HOME: "/xdg" })).toBe("/xdg/opencode");
+  });
 });
 
 describe("listSessionRefs (union + dedup)", () => {

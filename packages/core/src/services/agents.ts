@@ -69,54 +69,75 @@ export class TranscriptReadError extends Data.TaggedError(
 export type TranscriptPayload = SessionText;
 
 /**
- * Build the declared roots for every agent. Computed lazily (and memoized) so
- * importing this module never touches Node's `os`/`path` or `process.env` — the
- * RPC contract pulls these schemas into the browser bundle, where those builtins
- * are stubbed and would throw at import time if invoked eagerly.
- *
- * Claude's projects root defaults to `~/.claude/projects` but may be overridden
- * via `PEEKTRACE_CLAUDE_PROJECTS` so tooling (and especially automated browser
- * tests) can point at a throwaway temp dir instead of the user's real memories.
+ * First non-empty entry of a `PATH`-style env var. Claude Code accepts a
+ * colon-separated list in `CLAUDE_CONFIG_DIR`; peektrace scans a single root, so
+ * we take the first and ignore the rest (see issue #21 open question).
  */
-const buildRoots = (): Record<AgentId, AgentRoots> => {
-  const HOME = homedir();
+const firstDir = (value: string | undefined): string | undefined =>
+  value
+    ?.split(":")
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+
+/**
+ * Compute the declared roots for every agent from an env + home pair. Pure and
+ * exported so tests can exercise the native-override resolution without touching
+ * the process env or the memoized cache.
+ *
+ * Each agent's base resolves from its own native override env var first
+ * (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` for OpenCode), falling back
+ * to the default `~/.<agent>` location. The `PEEKTRACE_*` vars remain internal
+ * test hooks and, where present, still win over everything for their projects
+ * root so automated tests can point at a throwaway temp dir.
+ */
+export const computeRoots = (
+  env: NodeJS.ProcessEnv,
+  home: string
+): Record<AgentId, AgentRoots> => {
+  const claudeHome = firstDir(env.CLAUDE_CONFIG_DIR) ?? join(home, ".claude");
+  const codexHome = env.CODEX_HOME ?? join(home, ".codex");
   return {
     claude: {
       id: "claude",
-      home: join(HOME, ".claude"),
+      home: claudeHome,
       layout: "claude-projects",
       projectsRoot:
-        process.env.PEEKTRACE_CLAUDE_PROJECTS ??
-        join(HOME, ".claude", "projects"),
+        env.PEEKTRACE_CLAUDE_PROJECTS ?? join(claudeHome, "projects"),
       supported: true,
     },
     codex: {
       id: "codex",
-      home: join(HOME, ".codex"),
+      home: codexHome,
       layout: "codex-datetree",
-      projectsRoot:
-        process.env.PEEKTRACE_CODEX_SESSIONS ??
-        join(HOME, ".codex", "sessions"),
+      projectsRoot: env.PEEKTRACE_CODEX_SESSIONS ?? join(codexHome, "sessions"),
       supported: true,
     },
     pi: {
       id: "pi",
-      home: join(HOME, ".pi"),
+      home: join(home, ".pi"),
       layout: "pi-cwd-slug",
       projectsRoot:
-        process.env.PEEKTRACE_PI_SESSIONS ??
-        join(HOME, ".pi", "agent", "sessions"),
+        env.PEEKTRACE_PI_SESSIONS ?? join(home, ".pi", "agent", "sessions"),
       supported: true,
     },
     opencode: {
       id: "opencode",
-      home: resolveDataDir(),
+      home: resolveDataDir(env),
       layout: "opencode-sqlite",
-      projectsRoot: resolveDataDir(),
+      projectsRoot: resolveDataDir(env),
       supported: true,
     },
   };
 };
+
+/**
+ * Build the declared roots for every agent. Computed lazily (and memoized) so
+ * importing this module never touches Node's `os`/`path` or `process.env` — the
+ * RPC contract pulls these schemas into the browser bundle, where those builtins
+ * are stubbed and would throw at import time if invoked eagerly.
+ */
+const buildRoots = (): Record<AgentId, AgentRoots> =>
+  computeRoots(process.env, homedir());
 
 let rootsCache: Record<AgentId, AgentRoots> | null = null;
 

@@ -5,6 +5,7 @@ import {
   AGENT_IDS,
   AgentRegistry,
   AgentRegistryLive,
+  computeRoots,
 } from "../src/services/agents";
 
 const layer = AgentRegistryLive.pipe(Layer.provide(BunFileSystem.layer));
@@ -47,6 +48,54 @@ describe("AgentRegistry slug encoding", () => {
         expect(glob.endsWith("/.claude/projects/**/*.jsonl")).toBe(true);
       })
     ));
+});
+
+describe("computeRoots native overrides", () => {
+  const HOME = "/home/u";
+
+  test("defaults to ~/.<agent> when no env is set", () => {
+    const roots = computeRoots({}, HOME);
+    expect(roots.claude.home).toBe("/home/u/.claude");
+    expect(roots.claude.projectsRoot).toBe("/home/u/.claude/projects");
+    expect(roots.codex.home).toBe("/home/u/.codex");
+    expect(roots.codex.projectsRoot).toBe("/home/u/.codex/sessions");
+    expect(roots.pi.projectsRoot).toBe("/home/u/.pi/agent/sessions");
+    // OpenCode's default falls back to the real homedir (XDG-injectable only).
+    expect(roots.opencode.projectsRoot.endsWith("/.local/share/opencode")).toBe(
+      true
+    );
+  });
+
+  test("honours CLAUDE_CONFIG_DIR for Claude base + projects", () => {
+    const roots = computeRoots({ CLAUDE_CONFIG_DIR: "/custom/claude" }, HOME);
+    expect(roots.claude.home).toBe("/custom/claude");
+    expect(roots.claude.projectsRoot).toBe("/custom/claude/projects");
+  });
+
+  test("takes the first entry of a colon-separated CLAUDE_CONFIG_DIR", () => {
+    const roots = computeRoots({ CLAUDE_CONFIG_DIR: "/a:/b" }, HOME);
+    expect(roots.claude.projectsRoot).toBe("/a/projects");
+  });
+
+  test("honours CODEX_HOME and XDG_DATA_HOME", () => {
+    const roots = computeRoots(
+      { CODEX_HOME: "/custom/codex", XDG_DATA_HOME: "/xdg" },
+      HOME
+    );
+    expect(roots.codex.projectsRoot).toBe("/custom/codex/sessions");
+    expect(roots.opencode.projectsRoot).toBe("/xdg/opencode");
+  });
+
+  test("PEEKTRACE_* test hook wins over the native override", () => {
+    const roots = computeRoots(
+      {
+        CLAUDE_CONFIG_DIR: "/custom/claude",
+        PEEKTRACE_CLAUDE_PROJECTS: "/tmp/seed",
+      },
+      HOME
+    );
+    expect(roots.claude.projectsRoot).toBe("/tmp/seed");
+  });
 });
 
 describe("AgentRegistry agent gating", () => {
