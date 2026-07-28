@@ -118,6 +118,43 @@ peektrace serve --no-open --port 4789
 If `apps/inspector/dist` is missing, `/` returns a 503 telling you to build the
 inspector first.
 
+### `tui` — terminal UI, with the web app served alongside
+
+Renders an [OpenTUI](https://github.com/sst/opentui) terminal UI **and** boots
+the same loopback web server as `serve` at the same time, both over one shared
+in-process backend (one filesystem watcher, one read model). Browse in the
+terminal, or open the printed URL in a browser — whichever you reach for. The
+HTTP surface is identical to `serve` (same `/rpc`, same static inspector, same
+DNS-rebinding + CSRF guards); it just mounts quietly so its logs never corrupt
+the terminal, and the bound URL shows in the footer.
+
+Four sections mirror the web inspector — **Sessions** (list + context-budget
+analysis), **Memory** (cross-project vault browser), **Capabilities** (support
+matrix), **Settings** (agent-roots editor). Memory is read-only in the terminal;
+edit memories in the web app.
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--port <n>` | `4321` | Port for the sibling web server (same auto-scan as `serve`) |
+| `--host <iface>` | `127.0.0.1` | Interface to bind the web server (loopback by default) |
+| `--open` / `--no-open` | `--open` | Also open the web app in a browser on start |
+
+```sh
+peektrace tui                        # terminal UI + web app on http://127.0.0.1:4321
+peektrace tui --no-open --port 4789
+```
+
+Keys: `1`–`4` switch section, `q` / `Ctrl+C` quit, `↑↓`/`jk` move, `Tab` switches
+pane focus. Per section: Sessions `/` filter · `a` agent · `r` reveal secrets;
+Memory `/` search · `t` type filter; Settings `e`/`Enter` edit · `a` add root ·
+`d` remove · `Ctrl+S` save (`r` reload / `o` overwrite on a disk conflict).
+
+Like `serve`, it needs a built inspector (`apps/inspector/dist`) only for the web
+half — the terminal UI works regardless. The `bun run` / source path is the
+supported way to launch it today; the compiled-binary path (`bun build
+--compile` auto-embeds OpenTUI's native assets, but cross-target release
+packaging isn't yet wired up for them) is not yet validated for the TUI.
+
 ### `sessions ls` — list Claude sessions
 
 Lightweight headers (lazy — bodies are not parsed). Columns: id, project, model,

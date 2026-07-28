@@ -122,11 +122,14 @@ export const useQuery = <A, E>(
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setState({
+          // Preserve the last good data (mirroring the loading path): a failed
+          // refetch — e.g. reading a transcript mid-write on a watch tick — shows
+          // a non-destructive error rather than blanking the whole screen.
+          setState((prev) => ({
             loading: false,
-            data: undefined,
+            data: prev.data,
             error: err instanceof Error ? err : new Error(String(err)),
-          });
+          }));
         }
       });
     return () => {

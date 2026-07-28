@@ -40,6 +40,43 @@ const TYPE_FILTERS = [
 ] as const;
 type TypeFilter = (typeof TYPE_FILTERS)[number];
 
+/** The next type filter in the cycle, wrapping past the last. */
+const nextTypeFilter = (current: TypeFilter): TypeFilter =>
+  TYPE_FILTERS[(TYPE_FILTERS.indexOf(current) + 1) % TYPE_FILTERS.length] ??
+  "all";
+
+/** Callbacks the memory keymap invokes; kept flat so the hook stays simple. */
+interface MemoryKeys {
+  readonly onCloseSearch: () => void;
+  readonly onCycleType: () => void;
+  readonly onOpenSearch: () => void;
+  readonly onToggleBody: () => void;
+  readonly searching: boolean;
+  readonly selectedIsEntry: boolean;
+}
+
+/** List keymap: `/` search, `t` type cycle, `Tab` body focus, `Esc` close. */
+const useMemoryKeys = (keys: MemoryKeys) => {
+  useKeyboard((key) => {
+    if (key.name === "escape") {
+      if (keys.searching) {
+        keys.onCloseSearch();
+      }
+      return;
+    }
+    if (keys.searching) {
+      return;
+    }
+    if (key.name === "/") {
+      keys.onOpenSearch();
+    } else if (key.name === "t") {
+      keys.onCycleType();
+    } else if (key.name === "tab" && keys.selectedIsEntry) {
+      keys.onToggleBody();
+    }
+  });
+};
+
 /** The write capability id looked up in the matrix; only Claude supports it. */
 const MEMORY_CRUD = "memory.crud";
 const WRITE_AGENT = "claude";
@@ -303,6 +340,50 @@ const EntryDetail = ({
   </Panel>
 );
 
+/** The windowed list of header + entry rows for the left pane. */
+const MemoryList = ({
+  rows,
+  win,
+  index,
+}: {
+  readonly rows: readonly Row[];
+  readonly win: { readonly start: number; readonly end: number };
+  readonly index: number;
+}) => (
+  <box style={{ flexDirection: "column" }}>
+    {rows.slice(win.start, win.end).map((row, i) => {
+      const abs = win.start + i;
+      return row.kind === "header" ? (
+        <HeaderRow
+          key={row.key}
+          matched={row.matched}
+          selected={abs === index}
+          vault={row.vault}
+        />
+      ) : (
+        <EntryRow entry={row.entry} key={row.key} selected={abs === index} />
+      );
+    })}
+  </box>
+);
+
+/** Right pane: the selected entry's detail, or the selected vault's summary. */
+const RightPane = ({
+  selected,
+  bodyFocused,
+}: {
+  readonly selected: Row | undefined;
+  readonly bodyFocused: boolean;
+}) => {
+  if (selected?.kind === "entry") {
+    return <EntryDetail bodyFocused={bodyFocused} entry={selected.entry} />;
+  }
+  if (selected?.kind === "header") {
+    return <VaultSummary vault={selected.vault} />;
+  }
+  return null;
+};
+
 /** The Memory screen. */
 export const MemoryScreen = () => {
   const watch = useWatch();
@@ -332,39 +413,22 @@ export const MemoryScreen = () => {
     setTyping(false);
   };
 
-  useKeyboard((key) => {
-    if (key.name === "escape") {
-      if (searching) {
-        closeSearch();
-      }
-      return;
-    }
-    if (searching) {
-      return;
-    }
-    switch (key.name) {
-      case "/":
-        setSearching(true);
-        setTyping(true);
-        setBodyFocused(false);
-        break;
-      case "t": {
-        const next =
-          TYPE_FILTERS[
-            (TYPE_FILTERS.indexOf(typeFilter) + 1) % TYPE_FILTERS.length
-          ];
-        if (next) {
-          setTypeFilter(next);
-          setIndex(0);
-        }
-        break;
-      }
-      case "tab":
-        setBodyFocused((b) => !b);
-        break;
-      default:
-        break;
-    }
+  // `Tab` only engages body focus for an entry row — a vault header shows a
+  // summary with no focusable scrollbox, so navigation stays with the list.
+  useMemoryKeys({
+    searching,
+    selectedIsEntry: selected?.kind === "entry",
+    onOpenSearch: () => {
+      setSearching(true);
+      setTyping(true);
+      setBodyFocused(false);
+    },
+    onCloseSearch: closeSearch,
+    onCycleType: () => {
+      setTypeFilter(nextTypeFilter(typeFilter));
+      setIndex(0);
+    },
+    onToggleBody: () => setBodyFocused((b) => !b),
   });
 
   const visible = Math.max(MIN_ROWS, height - CHROME_ROWS);
@@ -398,40 +462,17 @@ export const MemoryScreen = () => {
           focused={!bodyFocused}
           title={`Memory (${rows.length})`}
         >
-          {vaultsQ.loading ? <Loading /> : null}
+          {vaultsQ.loading && all === undefined ? <Loading /> : null}
           {vaultsQ.error ? <ErrorLine error={vaultsQ.error} /> : null}
           {noProjects ? <Empty label="No memories found." /> : null}
           {blocked && rows.length === 0 ? (
             <Empty label="No memories match the current filters." />
           ) : null}
           {rows.length > 0 ? (
-            <box style={{ flexDirection: "column" }}>
-              {rows.slice(win.start, win.end).map((row, i) => {
-                const abs = win.start + i;
-                return row.kind === "header" ? (
-                  <HeaderRow
-                    key={row.key}
-                    matched={row.matched}
-                    selected={abs === index}
-                    vault={row.vault}
-                  />
-                ) : (
-                  <EntryRow
-                    entry={row.entry}
-                    key={row.key}
-                    selected={abs === index}
-                  />
-                );
-              })}
-            </box>
+            <MemoryList index={index} rows={rows} win={win} />
           ) : null}
         </Panel>
-        {selected?.kind === "entry" ? (
-          <EntryDetail bodyFocused={bodyFocused} entry={selected.entry} />
-        ) : null}
-        {selected?.kind === "header" ? (
-          <VaultSummary vault={selected.vault} />
-        ) : null}
+        <RightPane bodyFocused={bodyFocused} selected={selected} />
       </box>
 
       <text fg={C.textFaint}>
