@@ -16,18 +16,24 @@
     "build": "bun run src/build.ts"
   },
   "dependencies": {
-    "effect": "latest",
     "@effect/cli": "latest",
     "@effect/platform": "latest",
     "@effect/platform-bun": "latest",
     "@effect/rpc": "latest",
+    "@opentui/core": "0.4.5",
+    "@opentui/react": "0.4.5",
     "@workspace/core": "workspace:*",
     "@workspace/rpc": "workspace:*",
-    "@workspace/telemetry": "workspace:*"
+    "@workspace/telemetry": "workspace:*",
+    "effect": "latest",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@workspace/typescript-config": "workspace:*",
     "@types/bun": "^1.3.14",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@workspace/typescript-config": "workspace:*",
     "typescript": "^6.0.3"
   }
 }

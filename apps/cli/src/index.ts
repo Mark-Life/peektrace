@@ -15,6 +15,7 @@ import { makeDoctor } from "./commands/doctor";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
+import { makeTui } from "./commands/tui";
 import { makeUpgrade } from "./commands/upgrade";
 import { formatCliError } from "./errors";
 import { otelEnabled, tracingLayer } from "./tracing";
@@ -99,6 +100,7 @@ const command = peektrace.pipe(
     sessions,
     memory,
     makeServe(globals),
+    makeTui(globals),
     makeDoctor(),
     makeUpgrade(),
   ])

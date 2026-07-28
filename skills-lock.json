@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "opentui": {
+      "source": "anomalyco/opentui",
+      "sourceType": "github",
+      "skillPath": "packages/web/src/content/SKILL.md",
+      "computedHash": "d970daa59da64a60f8bfbdce54d93bfd59ff90df948dcbd9ea9795ab9b4d19aa"
+    },
     "quality-code": {
       "source": "RhysSullivan/skills",
       "sourceType": "github",
