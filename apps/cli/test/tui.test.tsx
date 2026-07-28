@@ -65,3 +65,29 @@ test("shell renders and switches to the capabilities matrix", async () => {
     }
   });
 });
+
+/** Boot the shell, switch to `digit`, and assert a screen-internal signature. */
+const expectScreen = (digit: string, signature: string) =>
+  withRealBridge(async (bridge) => {
+    const setup = await testRender(
+      <App bridge={bridge} onQuit={() => undefined} />,
+      { width: 110, height: 34 }
+    );
+    try {
+      await setup.waitForFrame((v) => v.includes("Peektrace"));
+      await setup.mockInput.typeText(digit);
+      const frame = await setup.waitForFrame((v) => v.includes(signature));
+      expect(frame).toContain(signature);
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+
+test("sessions screen mounts its analysis pane", () =>
+  expectScreen("1", "Analysis"));
+
+test("memory screen mounts with its web-app editing note", () =>
+  expectScreen("2", "editing available in the web app"));
+
+test("settings screen mounts its agent-roots editor", () =>
+  expectScreen("4", "Agent roots"));
