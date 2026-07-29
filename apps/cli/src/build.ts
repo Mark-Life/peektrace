@@ -70,36 +70,82 @@ const resolveTarget = (): Bun.Build.CompileTarget => {
   return target;
 };
 
+/** Namespace for the generated stand-in module (see `excludeNativePackage`). */
+const STUB_NAMESPACE = "opentui-unused-native";
+
+/** Matches every path in `STUB_NAMESPACE` — the namespace does the filtering. */
+const ANY_PATH = /.*/;
+
+/** Architecture segment of a Bun compile target (`bun-linux-x64-musl` -> `x64`). */
+const archOf = (target: string) => (target.includes("arm64") ? "arm64" : "x64");
+
 /**
- * `@opentui/core-*` native packages each Bun compile target statically needs.
+ * The `@opentui/core-*` native package a compile target actually loads.
  *
  * `@opentui/core` picks its native Zig library through per-platform optional
  * dependencies, and `bun build --compile` folds `process.platform`/`process.arch`
- * to the TARGET's values — so a cross-compile keeps (and must resolve) the
- * target's imports, not the host's. Linux keeps both branches because the
- * glibc/musl choice is a runtime `OPENTUI_LIBC` check.
+ * to the TARGET's values — so a cross-compile resolves the target's import, not
+ * the host's.
  */
-const OPENTUI_NATIVE_PACKAGES: Record<string, readonly string[]> = {
-  "bun-darwin-arm64": ["@opentui/core-darwin-arm64"],
-  "bun-darwin-x64": ["@opentui/core-darwin-x64"],
-  "bun-linux-x64": ["@opentui/core-linux-x64", "@opentui/core-linux-x64-musl"],
-  "bun-linux-arm64": [
-    "@opentui/core-linux-arm64",
-    "@opentui/core-linux-arm64-musl",
-  ],
-  "bun-windows-x64": ["@opentui/core-win32-x64"],
-  "bun-windows-arm64": ["@opentui/core-win32-arm64"],
+const nativePackageFor = (target: string) => {
+  const arch = archOf(target);
+  if (target.includes("darwin")) {
+    return `@opentui/core-darwin-${arch}`;
+  }
+  if (target.includes("windows")) {
+    return `@opentui/core-win32-${arch}`;
+  }
+  if (target.includes("linux")) {
+    const libc = target.includes("musl") ? "-musl" : "";
+    return `@opentui/core-linux-${arch}${libc}`;
+  }
+  return;
 };
 
 /**
+ * The sibling libc variant a Linux target never loads.
+ *
+ * OpenTUI chooses between glibc and musl with a runtime `process.env.OPENTUI_LIBC`
+ * check, which the bundler cannot fold away — so without this both 13 MB `.so`
+ * files land in a Linux binary even though only one is reachable.
+ */
+const unusedNativePackageFor = (target: string) => {
+  if (!target.includes("linux")) {
+    return;
+  }
+  const arch = archOf(target);
+  return target.includes("musl")
+    ? `@opentui/core-linux-${arch}`
+    : `@opentui/core-linux-${arch}-musl`;
+};
+
+/**
+ * Replace `specifier` with a module that throws, so its native library is never
+ * embedded. Only reachable if `OPENTUI_LIBC` contradicts the build target, which
+ * a clear error explains better than a failed `dlopen` would.
+ */
+const excludeNativePackage = (specifier: string, target: string) => ({
+  name: "opentui-unused-native",
+  setup: (build: Bun.PluginBuilder) => {
+    build.onResolve({ filter: new RegExp(`^${specifier}$`) }, () => ({
+      namespace: STUB_NAMESPACE,
+      path: specifier,
+    }));
+    build.onLoad({ filter: ANY_PATH, namespace: STUB_NAMESPACE }, () => ({
+      contents: `throw new Error(${JSON.stringify(
+        `${specifier} is not bundled: this binary was built for ${target}.`
+      )});`,
+      loader: "js" as const,
+    }));
+  },
+});
+
+/**
  * Fail fast (before the slow inspector build) when the target's native OpenTUI
- * packages are missing — `bun install` only fetches the host's optional deps.
+ * package is missing — `bun install` only fetches the host's optional deps.
  */
 const assertNativeDepsInstalled = (target: Bun.Build.CompileTarget) => {
-  const key = Object.keys(OPENTUI_NATIVE_PACKAGES).find((t) =>
-    target.startsWith(t)
-  );
-  const required = key ? OPENTUI_NATIVE_PACKAGES[key] : undefined;
+  const required = nativePackageFor(target);
   if (!required) {
     return;
   }
@@ -107,17 +153,17 @@ const assertNativeDepsInstalled = (target: Bun.Build.CompileTarget) => {
     Bun.resolveSync("@opentui/core/package.json", CLI_ROOT),
     ".."
   );
-  const missing = required.filter((pkg) => {
+  const isMissing = () => {
     try {
       // `resolveSync` follows a dangling symlink, so stat the result too.
-      return !existsSync(Bun.resolveSync(pkg, coreDir));
+      return !existsSync(Bun.resolveSync(required, coreDir));
     } catch {
       return true;
     }
-  });
-  if (missing.length > 0) {
+  };
+  if (isMissing()) {
     throw new Error(
-      `Missing native package(s) for ${target}: ${missing.join(", ")}.\n` +
+      `Missing native package for ${target}: ${required}.\n` +
         "Cross-compiling needs every platform's optional deps. Run:\n" +
         "  bun install --frozen-lockfile --cpu='*' --os='*'"
     );
@@ -184,12 +230,14 @@ const compileBinary = async (
   version: string
 ) => {
   const outfile = join(CLI_ROOT, "dist", target, "peektrace");
+  const unused = unusedNativePackageFor(target);
   await Bun.build({
     entrypoints: [ENTRYPOINT],
     minify: true,
     // Bake the real version into the binary; `index.ts` reads `PEEKTRACE_VERSION`
     // (a bare undeclared global when run from source, guarded by `typeof`).
     define: { PEEKTRACE_VERSION: JSON.stringify(version) },
+    plugins: unused ? [excludeNativePackage(unused, target)] : [],
     compile: { target, outfile },
   });
   return outfile;
