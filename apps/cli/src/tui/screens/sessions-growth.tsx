@@ -27,6 +27,12 @@ const MAX_PLOT_H = 14;
 const HEADER_PREFIX_W = 15;
 /** Minimum plot width in columns. */
 const MIN_PLOT_W = 20;
+/** Chars of a legend entry's label before it is clipped. */
+const LEGEND_LABEL_W = 16;
+/** Trailing slack so the clipped header never touches the pane edge. */
+const HEADER_MARGIN_W = 3;
+/** Floor on the clipped header width, so a tiny terminal still shows something. */
+const MIN_HEADER_W = 10;
 /** Peak marker glyph. */
 const PEAK_GLYPH = "◆";
 /** Compaction marker glyph. */
@@ -164,7 +170,9 @@ const Legend = ({ chart }: { readonly chart: GrowthChart }) => (
     {chart.legend.map((entry) => (
       <box key={entry.key} style={{ flexDirection: "row" }}>
         <Swatch color={entry.color} />
-        <text fg={C.textDim}>{` ${clip(sanitize(entry.label), 16)}`}</text>
+        <text fg={C.textDim}>
+          {` ${clip(sanitize(entry.label), LEGEND_LABEL_W)}`}
+        </text>
       </box>
     ))}
   </box>
@@ -217,7 +225,10 @@ export const SessionGrowth = ({
             <text fg={C.textDim}>
               {clip(
                 `${chart.header} · ${chart.thresholdLabel}`,
-                Math.max(10, contentW - HEADER_PREFIX_W - 3)
+                Math.max(
+                  MIN_HEADER_W,
+                  contentW - HEADER_PREFIX_W - HEADER_MARGIN_W
+                )
               )}
             </text>
           </box>

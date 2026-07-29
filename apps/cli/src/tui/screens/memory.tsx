@@ -82,14 +82,32 @@ const MEMORY_CRUD = "memory.crud";
 const WRITE_AGENT = "claude";
 
 const DETAIL_W = 52;
+/** Border + padding the detail panel takes off `DETAIL_W`. */
+const PANEL_CHROME = 4;
+/** Width of one full-width text line inside the detail panel. */
+const TEXT_W = DETAIL_W - PANEL_CHROME;
+/** Prefix width of an indented list row (`    ` or `  ↗ `). */
+const ROW_INDENT = 4;
+/** Text width of an indented list row. */
+const ROW_W = TEXT_W - ROW_INDENT;
+/** Trailing ` :NN` line-number suffix on a dangling-link row. */
+const LINE_SUFFIX_W = 4;
+/** Text width of a dangling-link target, which carries a line-number suffix. */
+const DANGLING_W = ROW_W - LINE_SUFFIX_W;
 /** Gauge track width inside the detail panel. */
-const GAUGE_W = DETAIL_W - 8;
+const GAUGE_W = TEXT_W - ROW_INDENT;
+/** Field label column width in the detail panel. */
+const LABEL_W = 16;
+/** Text width of a field value, which sits right of the label column. */
+const VALUE_W = TEXT_W - LABEL_W;
 /** Chars of an entry title shown in a left-pane row. */
 const TITLE_W = 26;
 /** Chars of the body preview loaded into the scrollbox. */
 const BODY_MAX = 6000;
+/** Wrapped rows a description may fill. */
+const DESC_ROWS = 3;
 /** Description chars shown in the detail pane. */
-const DESC_MAX = (DETAIL_W - 4) * 3;
+const DESC_MAX = TEXT_W * DESC_ROWS;
 /** Links / diff rows listed before collapsing to a "+N more" tail. */
 const LIST_CAP = 6;
 /** Non-list terminal rows (header, control bar, footer, borders) reserved. */
@@ -230,8 +248,8 @@ const VaultSummary = ({ vault }: { readonly vault: MemoryVault }) => {
   const types = Object.entries(typeCounts);
   return (
     <Panel title="Vault" width={DETAIL_W}>
-      <text fg={C.text}>{clip(vault.project, DETAIL_W - 4)}</text>
-      <text fg={C.textDim}>{clip(vault.slug, DETAIL_W - 4)}</text>
+      <text fg={C.text}>{clip(vault.project, TEXT_W)}</text>
+      <text fg={C.textDim}>{clip(vault.slug, TEXT_W)}</text>
       <text> </text>
       <Field
         label="Index budget"
@@ -271,14 +289,14 @@ const VaultSummary = ({ vault }: { readonly vault: MemoryVault }) => {
             <text
               fg={C.textFaint}
               key={`o:${file}`}
-            >{`    ${clip(file, DETAIL_W - 8)}`}</text>
+            >{`    ${clip(file, ROW_W)}`}</text>
           ))}
           <text fg={C.bad}>{`  dangling ${diff.dangling.length}`}</text>
           {diff.dangling.slice(0, LIST_CAP).map((d) => (
             <text
               fg={C.textFaint}
               key={`d:${d.line}:${d.target}`}
-            >{`    ${clip(d.target, DETAIL_W - 12)} :${d.line}`}</text>
+            >{`    ${clip(d.target, DANGLING_W)} :${d.line}`}</text>
           ))}
         </box>
       )}
@@ -295,7 +313,7 @@ const EntryDetail = ({
   readonly bodyFocused: boolean;
 }) => (
   <Panel focused={bodyFocused} title="Entry" width={DETAIL_W}>
-    <text fg={C.text}>{clip(entry.name ?? entry.slug, DETAIL_W - 4)}</text>
+    <text fg={C.text}>{clip(entry.name ?? entry.slug, TEXT_W)}</text>
     <box style={{ flexDirection: "row", gap: 1 }}>
       {entry.type === undefined ? (
         <text fg={C.textFaint}>untyped</text>
@@ -316,7 +334,7 @@ const EntryDetail = ({
     />
     <Field label="Modified" value={fmtStarted(entry.mtime)} />
     <Field label="Frontmatter" value={entry.frontmatter.shape} />
-    <Field label="File" value={clip(entry.fileName, DETAIL_W - 20)} />
+    <Field label="File" value={clip(entry.fileName, VALUE_W)} />
     {entry.links.length > 0 ? (
       <box style={{ flexDirection: "column" }}>
         <text fg={C.textDim}>{`Links (${entry.links.length})`}</text>
@@ -324,7 +342,7 @@ const EntryDetail = ({
           <text
             fg={C.info}
             key={`${link.line}:${link.rawTarget}`}
-          >{`  ↗ ${clip(link.rawTarget, DETAIL_W - 8)}`}</text>
+          >{`  ↗ ${clip(link.rawTarget, ROW_W)}`}</text>
         ))}
         {entry.links.length > LIST_CAP ? (
           <text

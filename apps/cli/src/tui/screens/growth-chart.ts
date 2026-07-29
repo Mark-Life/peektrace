@@ -73,8 +73,14 @@ export interface GrowthChart {
 /** Fallback cell tint for a category with no budget-provided color. */
 const DIM = C.textFaint;
 
+/** Y-axis gridlines drawn, counting both the full and the empty end. */
+const GRID_LINES = 5;
+
 /** Y-axis gridline fractions of the window, top (full) -> bottom (empty). */
-const GRID_FRACTIONS = [1, 0.75, 0.5, 0.25, 0] as const;
+const GRID_FRACTIONS = Array.from(
+  { length: GRID_LINES },
+  (_, i) => 1 - i / (GRID_LINES - 1)
+);
 
 /** Cap on x-axis ticks so labels never crowd. */
 const MAX_X_TICKS = 10;

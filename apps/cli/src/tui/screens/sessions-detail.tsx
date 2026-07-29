@@ -52,6 +52,20 @@ const BAR_MAX = 56;
 const PANE_CHROME = 51;
 /** The summary card's own border + padding. */
 const CARD_CHROME = 4;
+/** Narrowest the analysis pane goes before it stops shrinking. */
+const MIN_PANE_W = 34;
+/** Floor on any clipped label width, so a tiny terminal still shows something. */
+const MIN_LABEL_W = 10;
+/** Chars the `  ● ` marker and its gap claim right of the title. */
+const VERDICT_MARKER_W = 6;
+/** Leading chars of a session id shown as its short form. */
+const SHORT_ID_LEN = 8;
+/** Right-aligned token column width in a slice row. */
+const TOKENS_COL_W = 9;
+/** Cells a slice row's swatch, token column, and percent claim. */
+const SLICE_META_W = 26;
+/** Cells the verdict and peak/turns metadata claim in the compact summary. */
+const COMPACT_META_W = 40;
 
 /** Peak-context gauge + `peak … of window` caption, tinted by health zone. */
 const PeakGauge = ({
@@ -106,13 +120,16 @@ const VerdictHeader = ({
     <box style={{ flexDirection: "column", flexShrink: 0 }}>
       <box style={{ flexDirection: "row" }}>
         <text attributes={1} fg={C.text}>
-          {clip(sanitize(title), Math.max(10, w - verdict.label.length - 6))}
+          {clip(
+            sanitize(title),
+            Math.max(MIN_LABEL_W, w - verdict.label.length - VERDICT_MARKER_W)
+          )}
         </text>
         <text fg={verdict.color}>{`  ● ${verdict.label}`}</text>
       </box>
       <text fg={C.textFaint}>
         {clip(
-          `${s.sessionId.slice(0, 8)} · ${s.models.join(", ") || "—"} · ${
+          `${s.sessionId.slice(0, SHORT_ID_LEN)} · ${s.models.join(", ") || "—"} · ${
             s.cwd ?? "—"
           }`,
           w
@@ -156,7 +173,7 @@ const SliceRow = ({
     <Swatch color={slice.color} />
     <text fg={C.text}>{` ${clip(slice.label, labelW).padEnd(labelW)}`}</text>
     <box style={{ flexGrow: 1 }} />
-    <text fg={C.textDim}>{fmt(slice.tokens).padStart(9)}</text>
+    <text fg={C.textDim}>{fmt(slice.tokens).padStart(TOKENS_COL_W)}</text>
     <text fg={C.textFaint}>
       {window > 0 ? `  ${fmtPct(slice.tokens / window)}` : ""}
     </text>
@@ -187,7 +204,7 @@ const BudgetBar = ({
       {top.map((slice) => (
         <SliceRow
           key={slice.key}
-          labelW={Math.max(10, w - 26)}
+          labelW={Math.max(MIN_LABEL_W, w - SLICE_META_W)}
           slice={slice}
           window={s.contextWindow}
         />
@@ -211,7 +228,7 @@ const CompactSummary = ({
   return (
     <box style={{ flexDirection: "row", flexShrink: 0 }}>
       <text attributes={1} fg={C.text}>
-        {clip(sanitize(title), Math.max(10, w - 40))}
+        {clip(sanitize(title), Math.max(MIN_LABEL_W, w - COMPACT_META_W))}
       </text>
       <text fg={verdict.color}>{`  ● ${verdict.label}`}</text>
       <text fg={C.textDim}>
@@ -264,7 +281,7 @@ export const SessionDetail = ({
     [id, redact]
   );
   const { width } = useTerminalDimensions();
-  const paneW = Math.max(34, width - PANE_CHROME);
+  const paneW = Math.max(MIN_PANE_W, width - PANE_CHROME);
   const innerW = Math.max(24, paneW - CARD_CHROME);
   const barW = Math.min(innerW - 2, BAR_MAX);
   const [view, setView] = useState<DetailView>("history");

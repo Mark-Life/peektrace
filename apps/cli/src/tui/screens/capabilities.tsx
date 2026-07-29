@@ -31,10 +31,18 @@ const LEVELS = ["supported", "partial", "planned", "unsupported"] as const;
 const NAME_W = 30;
 const COL_W = 9;
 const DETAIL_W = 42;
+/** Border + padding the detail panel takes off `DETAIL_W`. */
+const PANEL_CHROME = 4;
+/** Width of one text line inside the detail panel. */
+const TEXT_W = DETAIL_W - PANEL_CHROME;
+/** Wrapped rows a description may fill. */
+const DESC_ROWS = 2;
 /** Chars of description shown in the detail pane (two wrapped rows). */
-const DESC_MAX = (DETAIL_W - 4) * 2;
+const DESC_MAX = TEXT_W * DESC_ROWS;
+/** Indent of a per-agent note under its agent line. */
+const NOTE_INDENT = 2;
 /** Chars of a per-agent note shown under each agent in the detail pane. */
-const NOTE_MAX = DETAIL_W - 6;
+const NOTE_MAX = TEXT_W - NOTE_INDENT;
 /** Non-list terminal rows (header, footer, borders, legend) to reserve. */
 const CHROME_ROWS = 10;
 /** Minimum visible list rows regardless of terminal height. */
