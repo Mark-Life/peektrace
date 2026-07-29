@@ -1,7 +1,11 @@
 {
   "extends": "@workspace/typescript-config/effect-library.json",
   "compilerOptions": {
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@opentui/react",
+    "declaration": false,
+    "declarationMap": false
   },
   "include": ["src", "scripts"],
   "exclude": ["node_modules"]

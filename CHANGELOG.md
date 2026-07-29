@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`peektrace tui`** — a terminal UI that runs *alongside* the web app. Boots
+  the same loopback web server as `serve` and renders an
+  [OpenTUI](https://github.com/sst/opentui) React interface over the **same**
+  in-process backend (one filesystem watcher, one read model), so both surfaces
+  are live at once. Four sections mirror the inspector: Sessions (list +
+  context-budget analysis), Memory (cross-project vault browser, read-only in
+  the terminal), Capabilities (support matrix), and Settings (agent-roots
+  editor). The shared HTTP surface — routing, static assets, DNS-rebinding +
+  CSRF guards, port scan — was extracted to `serve-core` so `serve` and `tui`
+  can't drift.
+
 ## cli-v0.2.0 — 2026-07-16
 
 ### Added
