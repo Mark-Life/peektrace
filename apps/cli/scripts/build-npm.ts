@@ -31,6 +31,11 @@
  * The in-monorepo dev workflow is untouched: `apps/cli/package.json` stays private
  * with `bin -> ./src/index.ts`; the shipped wrapper is these generated dirs, never
  * `apps/cli` itself.
+ *
+ * PREREQUISITE: install with `bun install --frozen-lockfile --cpu='*' --os='*'`.
+ * A plain install only fetches the host's optional dependencies, and every
+ * non-host target then fails to resolve its `@opentui/core-<platform>-<arch>`
+ * native package (src/build.ts checks this up front).
  */
 import { spawnSync } from "node:child_process";
 import {
