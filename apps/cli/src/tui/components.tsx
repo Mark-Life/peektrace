@@ -175,7 +175,6 @@ export const Card = ({
   readonly children?: ReactNode;
   readonly title?: string;
 }) => (
-  // biome-ignore lint/a11y/noStaticElementInteractions: OpenTUI box is the click target; no DOM roles apply
   <box
     {...(title === undefined ? {} : { title })}
     {...(onSelect === undefined ? {} : { onMouseDown: onSelect })}

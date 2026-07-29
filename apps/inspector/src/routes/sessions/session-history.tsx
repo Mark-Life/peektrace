@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { Switch } from "@workspace/ui/components/switch";
+import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import {
@@ -74,8 +75,8 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
-/** Languages we highlight transcript bodies as (subset of shiki bundled langs). */
-type BodyLang = "typescript" | "bash" | "json" | "markdown";
+/** Languages we highlight transcript bodies as. */
+type BodyLang = Exclude<CodeBlockLanguage, "text">;
 
 const parseJson = (s: string): unknown => {
   try {

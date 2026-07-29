@@ -44,6 +44,8 @@ const LIST_W = 46;
 const CARD_CONTENT_W = LIST_W - 10;
 /** Shortest title kept after the agent badge claims its share of the line. */
 const MIN_TITLE_W = 6;
+/** Leading chars of a session id shown when it has no model label. */
+const SHORT_ID_LEN = 8;
 
 /** Display title for a header, falling back to an agent-labelled generic. */
 const titleOf = (h: SessionHeader): string =>
@@ -78,7 +80,7 @@ const SessionCard = ({
   readonly selected: boolean;
   readonly onSelect: () => void;
 }) => {
-  const model = h.model ?? h.id.slice(0, 8);
+  const model = h.model ?? h.id.slice(0, SHORT_ID_LEN);
   const sub = `${model} · ${fmtStarted(h.startedAt)} · ${fmtBytes(
     h.sizeBytes
   )} · ${h.messageCount} msgs`;

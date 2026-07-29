@@ -48,6 +48,8 @@ const BODY_MAX_LINES = 120;
 const PANE_CHROME = 52;
 /** Cells a history row spends on badges + the token estimate (before preview). */
 const ROW_FIXED = 30;
+/** Floor on the body preview width, so a tiny terminal still shows something. */
+const MIN_PREVIEW_W = 16;
 
 /** Expanded body: the dim thinking note when present, else the highlighted code. */
 const ItemBody = ({ decoded }: { readonly decoded: DecodedBody }) => {
@@ -127,7 +129,7 @@ export const SessionHistory = ({
   const visible = useMemo(() => visibleEvents(s), [s]);
   const tags = useMemo(() => turnTags(s), [s]);
   const { width } = useTerminalDimensions();
-  const previewMax = Math.max(16, width - PANE_CHROME - ROW_FIXED);
+  const previewMax = Math.max(MIN_PREVIEW_W, width - PANE_CHROME - ROW_FIXED);
   const [index, setIndex] = useListSelection(visible.length, focused);
   const [openSet, setOpenSet] = useState<Set<number>>(() => new Set());
   const [expandAll, setExpandAll] = useState(false);
