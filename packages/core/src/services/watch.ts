@@ -23,7 +23,7 @@ import {
   Ref,
   Stream,
 } from "effect";
-import { AgentRegistry } from "./agents";
+import { AgentRegistry, sourcesOf } from "./agents";
 
 /** Coarse refresh scopes the UI subscribes to. */
 export type WatchScope = "memory" | "sessions";
@@ -113,21 +113,22 @@ export const WatchServiceLive = Layer.scoped(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const agents = yield* AgentRegistry;
-    const root = yield* agents
-      .projectsRoot("claude")
-      .pipe(Effect.orElseSucceed(() => ""));
+    // Watch every configured Claude source root (personal + any extra accounts).
+    const roots = sourcesOf(agents.roots("claude")).map((s) => s.projectsRoot);
     const versionsRef = yield* Ref.make<WatchVersionsShape>({
       memory: 0,
       sessions: 0,
     });
     const hub = yield* PubSub.unbounded<Invalidation>();
 
-    const present =
-      root === ""
-        ? false
-        : yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
+    const presentRoots = yield* Effect.forEach(roots, (root) =>
+      (root === ""
+        ? Effect.succeed(false)
+        : fs.exists(root).pipe(Effect.orElseSucceed(() => false))
+      ).pipe(Effect.map((present) => (present ? root : null)))
+    ).pipe(Effect.map((rs) => rs.filter((r): r is string => r !== null)));
 
-    if (present) {
+    if (presentRoots.length > 0) {
       const flush = (batch: readonly Invalidation[]) =>
         Effect.gen(function* () {
           const distinct = dedupe(batch);
@@ -154,23 +155,26 @@ export const WatchServiceLive = Layer.scoped(
           })
         );
 
-      const pump = fs.watch(root, { recursive: true }).pipe(
-        Stream.map((event) => classify({ path: event.path, root })),
-        Stream.filter((inv): inv is Invalidation => inv !== null),
-        Stream.groupedWithin(MAX_BATCH, DEBOUNCE),
-        Stream.mapEffect((chunk) => flush([...chunk])),
-        Stream.runDrain,
-        // The watcher is a `forkScoped` daemon: it only ever ends when the scope
-        // closes (fiber interruption), so we must not wrap it in a lifetime span
-        // — that span would always resolve `fail` on interrupt. Swallow the
-        // expected interruption; surface any genuine watch failure as a log.
-        Effect.catchAllCause((cause) =>
-          Cause.isInterruptedOnly(cause)
-            ? Effect.void
-            : Effect.logError("WatchService.pump failed", cause)
-        )
-      );
-      yield* Effect.forkScoped(pump);
+      const pumpFor = (root: string) =>
+        fs.watch(root, { recursive: true }).pipe(
+          Stream.map((event) => classify({ path: event.path, root })),
+          Stream.filter((inv): inv is Invalidation => inv !== null),
+          Stream.groupedWithin(MAX_BATCH, DEBOUNCE),
+          Stream.mapEffect((chunk) => flush([...chunk])),
+          Stream.runDrain,
+          // The watcher is a `forkScoped` daemon: it only ever ends when the scope
+          // closes (fiber interruption), so we must not wrap it in a lifetime span
+          // — that span would always resolve `fail` on interrupt. Swallow the
+          // expected interruption; surface any genuine watch failure as a log.
+          Effect.catchAllCause((cause) =>
+            Cause.isInterruptedOnly(cause)
+              ? Effect.void
+              : Effect.logError("WatchService.pump failed", cause)
+          )
+        );
+      for (const root of presentRoots) {
+        yield* Effect.forkScoped(pumpFor(root));
+      }
     }
 
     return {

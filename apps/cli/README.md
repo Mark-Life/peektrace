@@ -222,11 +222,53 @@ peektrace upgrade --version cli-v1.2.3
 that prints a one-line hint when a newer release exists — see the root README's
 Privacy posture (`PEEKTRACE_NO_UPDATE_CHECK=1` disables it).
 
+## Custom config directories
+
+Each agent's base resolves from its own native override env var, so peektrace
+finds sessions wherever the agent actually stores them:
+
+| Agent    | Env var             | Resolved root                     |
+| -------- | ------------------- | --------------------------------- |
+| Claude   | `CLAUDE_CONFIG_DIR` | `<dir>/projects`                  |
+| Codex    | `CODEX_HOME`        | `<dir>/sessions`                  |
+| OpenCode | `XDG_DATA_HOME`     | `<dir>/opencode`                  |
+
+Unset, each falls back to its default `~/.<agent>` location. A colon-separated
+`CLAUDE_CONFIG_DIR` (Claude Code's multi-dir form) resolves to its first entry.
+
+## Scanning several roots at once
+
+An env var only names one dir at a time. To scan **multiple** roots per agent in
+parallel — e.g. a personal and a separate work Claude account — declare the extra
+roots in `~/.peektrace/settings.json` (or `$PEEKTRACE_DIR/settings.json`):
+
+```json
+{
+  "roots": {
+    "claude": [{ "path": "~/work/.claude", "label": "work" }],
+    "codex": [{ "path": "~/work/.codex", "label": "work" }]
+  }
+}
+```
+
+`path` is the agent's config HOME dir (same thing the env vars point at); the
+transcript root is derived from it per layout. `label` is optional and defaults
+to the dir's basename. Each configured root is **unioned** with the agent's
+env/default root (deduped by resolved path), so every session shows up in one
+merged list. When an agent has more than one source, each session row is tagged
+with its source label and a **Source** filter appears in the inspector.
+
+You can also edit these roots from the inspector's **Settings** page (a per-agent
+list of path + label) instead of hand-editing the JSON. Saved changes are written
+to `settings.json` immediately, but the running server scans the roots it read at
+startup — restart `peektrace serve` for new roots to appear in the session list.
+
 ## Safety: point at a throwaway projects root
 
-Resolution reads `~/.claude/projects` by default. Set `PEEKTRACE_CLAUDE_PROJECTS`
-to redirect every read/write at a temp dir — used by the automated tests so they
-never touch real memories:
+The `PEEKTRACE_*` vars are internal test hooks and take precedence over the
+native overrides above. Set `PEEKTRACE_CLAUDE_PROJECTS` to redirect every
+read/write at a temp dir — used by the automated tests so they never touch real
+memories:
 
 ```sh
 PEEKTRACE_CLAUDE_PROJECTS=/tmp/seed-projects \

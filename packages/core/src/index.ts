@@ -5,9 +5,13 @@ export {
   AgentRegistryLive,
   type AgentRegistryShape,
   type AgentRoots,
+  type AgentSource,
   AgentUnsupportedError,
+  computeRoots,
   type SessionFileRef,
   type SessionLayout,
+  settingsPath,
+  sourcesOf,
 } from "./services/agents";
 export {
   type Capability,
@@ -96,6 +100,18 @@ export {
   SessionsServiceLive,
   type SessionsServiceShape,
 } from "./services/sessions/service";
+export {
+  loadSettings,
+  type PeektraceSettings,
+  parseSettings,
+} from "./services/settings";
+export {
+  type SettingsResult,
+  SettingsService,
+  SettingsServiceLive,
+  type SettingsServiceShape,
+  SettingsWriteError,
+} from "./services/settings-service";
 export {
   type Invalidation,
   type WatchScope,

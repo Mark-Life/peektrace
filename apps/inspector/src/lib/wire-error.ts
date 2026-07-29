@@ -17,6 +17,7 @@ const WIRE_TAGS = new Set<WireError["_tag"]>([
   "PathOutsideRootError",
   "SessionNotFoundError",
   "TranscriptParseError",
+  "SettingsWriteError",
 ]);
 
 /** Narrow an unknown failure value to a typed `WireError`, if it is one. */
@@ -63,6 +64,8 @@ export const wireErrorMessage = (error: WireError): string => {
       return `Session "${error.id}" was not found.`;
     case "TranscriptParseError":
       return `That transcript could not be read (${error.reason}). The file may be locked or malformed.`;
+    case "SettingsWriteError":
+      return `Settings could not be saved (${error.reason}).`;
     default:
       return "The request failed.";
   }

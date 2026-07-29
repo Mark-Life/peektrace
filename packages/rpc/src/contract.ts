@@ -27,6 +27,7 @@ import {
   ParsedSession,
   SessionHeader,
 } from "@workspace/core/services/sessions/schema";
+import { PeektraceSettings } from "@workspace/core/services/settings";
 import { Schema } from "effect";
 
 // --- Wire error mirrors (Schema.TaggedError twins of the core Data errors) ---
@@ -94,6 +95,15 @@ export class TranscriptParseError extends Schema.TaggedError<TranscriptParseErro
   }
 ) {}
 
+/** Wire twin of core `SettingsWriteError` (settings file IO failure). */
+export class SettingsWriteError extends Schema.TaggedError<SettingsWriteError>()(
+  "SettingsWriteError",
+  {
+    path: Schema.String,
+    reason: Schema.String,
+  }
+) {}
+
 /** Union of every wire error a fallible procedure can surface. */
 export const WireError = Schema.Union(
   FileChangedError,
@@ -102,7 +112,8 @@ export const WireError = Schema.Union(
   MemoryValidationError,
   MemoryNotFoundError,
   SessionNotFoundError,
-  TranscriptParseError
+  TranscriptParseError,
+  SettingsWriteError
 );
 export type WireError = typeof WireError.Type;
 
@@ -204,6 +215,19 @@ export const MemoryDeletePayload = Schema.Struct({
   name: Schema.String,
 });
 
+/** `settings.get` / `settings.update` result: the file's contents + mtime. */
+export const SettingsResult = Schema.Struct({
+  settings: PeektraceSettings,
+  mtimeMs: Schema.Number,
+  path: Schema.String,
+});
+
+/** `settings.update` arguments (CAS on `expectedMtime`). */
+export const SettingsUpdatePayload = Schema.Struct({
+  settings: PeektraceSettings,
+  expectedMtime: Schema.optional(Schema.Number),
+});
+
 // --- The RPC group ---
 
 /**
@@ -261,6 +285,14 @@ export const PeektraceRpcs = RpcGroup.make(
   // is the source of truth; this just exposes its current versions.
   Rpc.make("watch.poll", {
     success: WatchVersions,
+  }),
+  Rpc.make("settings.get", {
+    success: SettingsResult,
+  }),
+  Rpc.make("settings.update", {
+    payload: SettingsUpdatePayload,
+    success: SettingsResult,
+    error: WireError,
   })
 );
 

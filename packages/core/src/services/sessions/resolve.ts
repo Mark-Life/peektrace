@@ -1,7 +1,7 @@
 /** Locate a transcript by id and gather companion files via the platform FS. */
 import type { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
-import type { AgentRegistryShape } from "../agents";
+import { type AgentRegistryShape, sourcesOf } from "../agents";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
 import { estTokens } from "./tokens";
@@ -81,6 +81,53 @@ const findByPrefix = (args: {
   });
 };
 
+/** First source projects-root under which `<slug>/<id>.jsonl` exists, else null. */
+const findExactAcrossSources = (args: {
+  readonly fs: FileSystem.FileSystem;
+  readonly sources: readonly { readonly projectsRoot: string }[];
+  readonly slugs: readonly string[];
+  readonly id: string;
+}): Effect.Effect<string | null> => {
+  const { fs, sources, slugs, id } = args;
+  return Effect.gen(function* () {
+    for (const source of sources) {
+      for (const slug of slugs) {
+        const projectDir = join(source.projectsRoot, slug);
+        const found = yield* fs
+          .exists(join(projectDir, `${id}.jsonl`))
+          .pipe(Effect.orElseSucceed(() => false));
+        if (found) {
+          return projectDir;
+        }
+      }
+    }
+    return null;
+  });
+};
+
+/** Prefix matches gathered across every source root (for global uniqueness). */
+const findPrefixAcrossSources = (args: {
+  readonly fs: FileSystem.FileSystem;
+  readonly sources: readonly { readonly projectsRoot: string }[];
+  readonly slugs: readonly string[];
+  readonly prefix: string;
+}): Effect.Effect<PrefixMatch[]> => {
+  const { fs, sources, slugs, prefix } = args;
+  return Effect.gen(function* () {
+    const all: PrefixMatch[] = [];
+    for (const source of sources) {
+      const matches = yield* findByPrefix({
+        fs,
+        projectsRoot: source.projectsRoot,
+        slugs,
+        prefix,
+      });
+      all.push(...matches);
+    }
+    return all;
+  });
+};
+
 /** Resolve a Claude session id (or direct .jsonl path) to its transcript. */
 export const resolveClaudeSession = (args: {
   readonly fs: FileSystem.FileSystem;
@@ -89,7 +136,8 @@ export const resolveClaudeSession = (args: {
 }): Effect.Effect<ResolvedSession, SessionNotFoundError> => {
   const { fs, agents, idOrPath } = args;
   return Effect.gen(function* () {
-    const projectsRoot = agents.roots("claude").projectsRoot;
+    const sources = sourcesOf(agents.roots("claude"));
+    const projectsRoot = sources[0]?.projectsRoot ?? "";
 
     const withSubagentDir = (sessionId: string, projectDir: string) =>
       Effect.gen(function* () {
@@ -129,27 +177,25 @@ export const resolveClaudeSession = (args: {
     const slugs = yield* agents
       .listProjectSlugs("claude")
       .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-    for (const slug of slugs) {
-      const projectDir = join(projectsRoot, slug);
-      const candidate = join(projectDir, `${id}.jsonl`);
-      const found = yield* fs
-        .exists(candidate)
-        .pipe(Effect.orElseSucceed(() => false));
-      if (found) {
-        return yield* withSubagentDir(id, projectDir);
-      }
+    // A slug only exists under its own root, so probing the union of slugs
+    // against every source root is filtered by `exists`.
+    const exactDir = yield* findExactAcrossSources({ fs, sources, slugs, id });
+    if (exactDir) {
+      return yield* withSubagentDir(id, exactDir);
     }
 
     // Fallback: treat `id` as a short prefix (as printed by `sessions ls`) and
-    // resolve it when it uniquely identifies one transcript across all projects.
-    const prefixMatches = yield* findByPrefix({
+    // resolve it only when it uniquely identifies one transcript across ALL
+    // roots, so a prefix that is ambiguous across accounts is reported not-found
+    // rather than silently picking whichever source is scanned first.
+    const allMatches = yield* findPrefixAcrossSources({
       fs,
-      projectsRoot,
+      sources,
       slugs,
       prefix: id,
     });
-    const [match] = prefixMatches;
-    if (prefixMatches.length === 1 && match) {
+    const [match] = allMatches;
+    if (allMatches.length === 1 && match) {
       return yield* withSubagentDir(match.sessionId, match.projectDir);
     }
 
@@ -283,6 +329,22 @@ const sumMemoryDir = (args: {
   return walk(dir);
 };
 
+/** Resolve the home + projectsRoot of the Claude source owning a session id. */
+const claudeSourcePaths = (
+  agents: AgentRegistryShape,
+  source?: string
+): { readonly home: string; readonly projectsRoot: string } => {
+  const claudeSources = sourcesOf(agents.roots("claude"));
+  const owning =
+    (source ? claudeSources.find((s) => s.id === source) : undefined) ??
+    claudeSources[0];
+  const fallback = agents.roots("claude");
+  return {
+    home: owning?.home ?? fallback.home,
+    projectsRoot: owning?.projectsRoot ?? fallback.projectsRoot,
+  };
+};
+
 /**
  * Gather the CLAUDE.md / AGENTS.md / memory files that would be injected into
  * the system prompt for `cwd`, used to attribute the system+tools residual.
@@ -291,10 +353,14 @@ export const gatherOnDiskContextFiles = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly agents: AgentRegistryShape;
   readonly cwd?: string;
+  /** The session's resolved source id, so context is read from the account that
+   * actually owns it rather than always the default. */
+  readonly source?: string;
 }): Effect.Effect<OnDiskContextFile[]> => {
-  const { fs, agents, cwd } = args;
+  const { fs, agents, cwd, source } = args;
   return Effect.gen(function* () {
-    const home = agents.roots("claude").home;
+    // Read from the account that actually owns the session (falls back to default).
+    const { home, projectsRoot } = claudeSourcePaths(agents, source);
     const files: OnDiskContextFile[] = [];
     const push = (f: OnDiskContextFile | null) => {
       if (f) {
@@ -321,11 +387,7 @@ export const gatherOnDiskContextFiles = (args: {
         push(yield* readContextFile({ fs, path, label, scope: "project" }));
       }
 
-      const memDir = join(
-        agents.roots("claude").projectsRoot,
-        agents.encodeSlug(cwd),
-        "memory"
-      );
+      const memDir = join(projectsRoot, agents.encodeSlug(cwd), "memory");
       const present = yield* fs
         .exists(memDir)
         .pipe(Effect.orElseSucceed(() => false));

@@ -304,5 +304,9 @@ export const SessionHeader = Schema.Struct({
   updatedAt: Schema.optional(Schema.String),
   messageCount: Schema.Number,
   sizeBytes: Schema.Number,
+  /** Stable source id when the owning agent has >1 configured root. */
+  source: Schema.optional(Schema.String),
+  /** Human label for that source (e.g. "work"), shown as a badge. */
+  sourceLabel: Schema.optional(Schema.String),
 });
 export type SessionHeader = typeof SessionHeader.Type;

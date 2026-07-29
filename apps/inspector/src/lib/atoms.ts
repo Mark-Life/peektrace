@@ -21,3 +21,6 @@ export const allVaultsAtom = PeektraceClient.query(
 
 /** Lightweight session headers (`sessions.list`) — used by the Sessions UI. */
 export const sessionsListAtom = PeektraceClient.query("sessions.list", {});
+
+/** Current user settings file (`settings.get`) — used by the Settings UI. */
+export const settingsAtom = PeektraceClient.query("settings.get", undefined);

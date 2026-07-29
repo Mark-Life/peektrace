@@ -7,6 +7,7 @@ import { useWatchRefresh } from "./lib/watch-atoms";
 import { CapabilitiesRoute } from "./routes/capabilities-route";
 import { MemoryRoute } from "./routes/memory-route";
 import { SessionsRoute } from "./routes/sessions-route";
+import { SettingsRoute } from "./routes/settings-route";
 
 /** Resolve the active section to its screen. */
 const Screen = () => {
@@ -16,6 +17,9 @@ const Screen = () => {
   }
   if (route === "sessions") {
     return <SessionsRoute />;
+  }
+  if (route === "settings") {
+    return <SettingsRoute />;
   }
   return <MemoryRoute />;
 };

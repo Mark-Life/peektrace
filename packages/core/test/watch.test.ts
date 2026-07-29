@@ -37,18 +37,20 @@ afterAll(() => {
   rmSync(base, { recursive: true, force: true });
 });
 
-/** AgentRegistry stub pointing Claude resolution at the temp projects root. */
+/** AgentRegistry stub pointing Claude resolution at the temp projects root.
+ * `base` is assigned in `beforeAll`, after this stub is constructed, so every
+ * accessor must read it lazily rather than capture it eagerly. */
 const makeAgents = (): AgentRegistryShape => {
-  const roots: AgentRoots = {
+  const roots = (): AgentRoots => ({
     id: "claude",
     home: base,
     projectsRoot: base,
     supported: true,
-  };
+  });
   return {
     encodeSlug: (p) => p.replace(/[/.]/g, "-"),
     allowedRoots: [base],
-    roots: () => roots,
+    roots,
     gitRoot: (cwd) => Effect.succeed(cwd),
     projectsRoot: () => Effect.succeed(base),
     sessionsGlob: () => Effect.succeed(join(base, "**", "*.jsonl")),

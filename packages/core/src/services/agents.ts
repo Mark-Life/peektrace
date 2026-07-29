@@ -10,6 +10,11 @@ import {
   resolveDataDir,
   type SessionText,
 } from "./sessions/opencode/reader";
+import {
+  loadSettings,
+  type PeektraceSettings,
+  type RootEntry,
+} from "./settings";
 
 export { AGENT_IDS, AgentId } from "./agent-id";
 
@@ -26,18 +31,53 @@ export type SessionLayout =
   /** No parseable session layout yet. */
   | "none";
 
+/** One on-disk source (config dir) an agent's transcripts are read from. */
+export interface AgentSource {
+  /** This source's config/home dir. */
+  readonly home: string;
+  /** Stable id: the agent id for the default, `<agent>:<label>` for extras. */
+  readonly id: string;
+  /** True for the env/default-resolved source (there is exactly one). */
+  readonly isDefault: boolean;
+  /** Human label shown in the UI badge/facet. */
+  readonly label: string;
+  /** This source's session-transcript root. */
+  readonly projectsRoot: string;
+}
+
 /** On-disk roots declared for an agent. */
 export interface AgentRoots {
-  /** Base config dir, e.g. ~/.claude. */
+  /** Base config dir of the default source, e.g. ~/.claude. */
   readonly home: string;
   readonly id: AgentId;
   /** On-disk transcript layout; selects the `listSessionFiles` walker. */
   readonly layout: SessionLayout;
-  /** Session-transcript root, e.g. ~/.claude/projects or ~/.codex/sessions. */
+  /** Transcript root of the default source, e.g. ~/.claude/projects. */
   readonly projectsRoot: string;
+  /**
+   * Every source scanned for this agent (default first, then any declared in
+   * the user config). Optional so lightweight test stubs may omit it; read it
+   * through `sourcesOf`, which falls back to the single default root.
+   */
+  readonly sources?: readonly AgentSource[];
   /** True for agents whose transcripts can be listed + parsed (claude/codex/pi). */
   readonly supported: boolean;
 }
+
+/**
+ * The sources to scan for an agent: its declared `sources`, or a single default
+ * synthesized from the scalar `home`/`projectsRoot` when a stub omits them.
+ */
+export const sourcesOf = (roots: AgentRoots): readonly AgentSource[] =>
+  roots.sources ?? [
+    {
+      id: roots.id,
+      label: "default",
+      home: roots.home,
+      projectsRoot: roots.projectsRoot,
+      isDefault: true,
+    },
+  ];
 
 /** One transcript located on disk, before its body is parsed. */
 export interface SessionFileRef {
@@ -47,6 +87,8 @@ export interface SessionFileRef {
   readonly path: string;
   /** Owning project slug, or `""` when the layout has none (Codex date tree). */
   readonly slug: string;
+  /** Owning source (id + label), set only when the agent has >1 source. */
+  readonly source?: { readonly id: string; readonly label: string };
 }
 
 /** Raised when a resolver is invoked for an agent that is declared but unimplemented. */
@@ -69,54 +111,163 @@ export class TranscriptReadError extends Data.TaggedError(
 export type TranscriptPayload = SessionText;
 
 /**
- * Build the declared roots for every agent. Computed lazily (and memoized) so
- * importing this module never touches Node's `os`/`path` or `process.env` — the
- * RPC contract pulls these schemas into the browser bundle, where those builtins
- * are stubbed and would throw at import time if invoked eagerly.
- *
- * Claude's projects root defaults to `~/.claude/projects` but may be overridden
- * via `PEEKTRACE_CLAUDE_PROJECTS` so tooling (and especially automated browser
- * tests) can point at a throwaway temp dir instead of the user's real memories.
+ * First non-empty entry of a `PATH`-style env var. Claude Code accepts a
+ * colon-separated list in `CLAUDE_CONFIG_DIR`; peektrace scans a single root, so
+ * we take the first and ignore the rest (see issue #21 open question).
  */
-const buildRoots = (): Record<AgentId, AgentRoots> => {
-  const HOME = homedir();
-  return {
+const firstDir = (value: string | undefined): string | undefined =>
+  value
+    ?.split(":")
+    .map((part) => part.trim())
+    .find((part) => part.length > 0);
+
+/** Expand a leading `~` / `~/` in a user-configured path to the home dir. */
+const expandHome = (path: string, home: string): string => {
+  if (path === "~") {
+    return home;
+  }
+  return path.startsWith("~/") ? join(home, path.slice(2)) : path;
+};
+
+/** Derive an agent's transcript root from a config HOME dir, per layout. */
+const deriveProjectsRoot = (layout: SessionLayout, home: string): string => {
+  switch (layout) {
+    case "claude-projects":
+      return join(home, "projects");
+    case "codex-datetree":
+      return join(home, "sessions");
+    case "pi-cwd-slug":
+      return join(home, "agent", "sessions");
+    default:
+      // opencode-sqlite (home === dataDir) and "none".
+      return home;
+  }
+};
+
+/**
+ * Build the full source list for an agent: its env/default source first, then
+ * any user-configured extras, deduped by resolved transcript root (default wins)
+ * with stable, unique ids.
+ */
+const buildSources = (
+  roots: AgentRoots,
+  configured: readonly RootEntry[],
+  home: string
+): readonly AgentSource[] => {
+  const sources: AgentSource[] = [
+    {
+      id: roots.id,
+      label: "default",
+      home: roots.home,
+      projectsRoot: roots.projectsRoot,
+      isDefault: true,
+    },
+  ];
+  const seenPaths = new Set<string>([roots.projectsRoot]);
+  // Labels must be unique: the UI keys the source badge/facet on the label, so
+  // two roots sharing one (or colliding with "default") would otherwise merge.
+  const usedLabels = new Set<string>(["default"]);
+  for (const entry of configured) {
+    const srcHome = expandHome(entry.path.trim(), home);
+    if (srcHome === "") {
+      continue;
+    }
+    const projectsRoot = deriveProjectsRoot(roots.layout, srcHome);
+    if (seenPaths.has(projectsRoot)) {
+      continue;
+    }
+    seenPaths.add(projectsRoot);
+    const base = entry.label?.trim() || basename(srcHome) || "source";
+    let label = base;
+    for (let n = 2; usedLabels.has(label); n++) {
+      label = `${base}-${n}`;
+    }
+    usedLabels.add(label);
+    sources.push({
+      id: `${roots.id}:${label}`,
+      label,
+      home: srcHome,
+      projectsRoot,
+      isDefault: false,
+    });
+  }
+  return sources;
+};
+
+/**
+ * Compute the declared roots for every agent from an env + home pair (plus the
+ * optional user config). Pure and exported so tests can exercise the resolution
+ * without touching the process env or the memoized cache.
+ *
+ * Each agent's default source resolves from its own native override env var
+ * (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `XDG_DATA_HOME` for OpenCode), falling back
+ * to the default `~/.<agent>` location. The `PEEKTRACE_*` vars remain internal
+ * test hooks and, where present, still win over everything for the default
+ * source's projects root. Extra roots declared in `settings.roots` are appended
+ * as additional sources so a user can scan several config dirs (e.g. a separate
+ * work account) in parallel; `sources` is set only when more than one exists.
+ */
+export const computeRoots = (
+  env: NodeJS.ProcessEnv,
+  home: string,
+  settings: PeektraceSettings = {}
+): Record<AgentId, AgentRoots> => {
+  const claudeHome = firstDir(env.CLAUDE_CONFIG_DIR) ?? join(home, ".claude");
+  const codexHome = env.CODEX_HOME ?? join(home, ".codex");
+  const base: Record<AgentId, AgentRoots> = {
     claude: {
       id: "claude",
-      home: join(HOME, ".claude"),
+      home: claudeHome,
       layout: "claude-projects",
       projectsRoot:
-        process.env.PEEKTRACE_CLAUDE_PROJECTS ??
-        join(HOME, ".claude", "projects"),
+        env.PEEKTRACE_CLAUDE_PROJECTS ?? join(claudeHome, "projects"),
       supported: true,
     },
     codex: {
       id: "codex",
-      home: join(HOME, ".codex"),
+      home: codexHome,
       layout: "codex-datetree",
-      projectsRoot:
-        process.env.PEEKTRACE_CODEX_SESSIONS ??
-        join(HOME, ".codex", "sessions"),
+      projectsRoot: env.PEEKTRACE_CODEX_SESSIONS ?? join(codexHome, "sessions"),
       supported: true,
     },
     pi: {
       id: "pi",
-      home: join(HOME, ".pi"),
+      home: join(home, ".pi"),
       layout: "pi-cwd-slug",
       projectsRoot:
-        process.env.PEEKTRACE_PI_SESSIONS ??
-        join(HOME, ".pi", "agent", "sessions"),
+        env.PEEKTRACE_PI_SESSIONS ?? join(home, ".pi", "agent", "sessions"),
       supported: true,
     },
     opencode: {
       id: "opencode",
-      home: resolveDataDir(),
+      home: resolveDataDir(env),
       layout: "opencode-sqlite",
-      projectsRoot: resolveDataDir(),
+      projectsRoot: resolveDataDir(env),
       supported: true,
     },
   };
+  const withSources = (roots: AgentRoots): AgentRoots => {
+    const sources = buildSources(roots, settings.roots?.[roots.id] ?? [], home);
+    return sources.length > 1 ? { ...roots, sources } : roots;
+  };
+  return {
+    claude: withSources(base.claude),
+    codex: withSources(base.codex),
+    pi: withSources(base.pi),
+    opencode: withSources(base.opencode),
+  };
 };
+
+/**
+ * Build the declared roots for every agent. Computed lazily (and memoized) so
+ * importing this module never touches Node's `os`/`path` or `process.env` — the
+ * RPC contract pulls these schemas into the browser bundle, where those builtins
+ * are stubbed and would throw at import time if invoked eagerly. This config-less
+ * variant backs the pure `supported`/`layout` gates; the live layer rebuilds the
+ * roots with the user config folded in.
+ */
+const buildRoots = (): Record<AgentId, AgentRoots> =>
+  computeRoots(process.env, homedir());
 
 let rootsCache: Record<AgentId, AgentRoots> | null = null;
 
@@ -243,16 +394,28 @@ const requireClaudeLayout = (
     ? Effect.void
     : Effect.fail(new AgentUnsupportedError({ agent, operation }));
 
-/** Live layer: resolves Claude paths via the platform FileSystem. */
+/** Path to the optional user settings file, under `PEEKTRACE_DIR` or `~/.peektrace`. */
+export const settingsPath = (): string =>
+  join(
+    process.env.PEEKTRACE_DIR ?? join(homedir(), ".peektrace"),
+    "settings.json"
+  );
+
+/** Live layer: resolves agent paths via the platform FileSystem, folding in the
+ * user settings so extra roots (e.g. a second Claude account) are scanned too. */
 export const AgentRegistryLive = Layer.effect(
   AgentRegistry,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    // Settings-aware roots, built once at layer construction. Node IO happens
+    // here (server-side), never at import — the browser only pulls the schemas.
+    const settings = yield* loadSettings(fs, settingsPath());
+    const roots = computeRoots(process.env, homedir(), settings);
+    const rootOf = (agent: AgentId): AgentRoots => roots[agent];
 
-    const allowedRoots = AGENT_IDS.flatMap((id) => [
-      ROOTS()[id].home,
-      ROOTS()[id].projectsRoot,
-    ]);
+    const allowedRoots = AGENT_IDS.flatMap((id) =>
+      sourcesOf(rootOf(id)).flatMap((s) => [s.home, s.projectsRoot])
+    );
 
     const gitRoot = (cwd: string) =>
       Effect.try({
@@ -271,14 +434,16 @@ export const AgentRegistryLive = Layer.effect(
 
     const projectsRoot = (agent: AgentId) =>
       requireSupported(agent, "projectsRoot").pipe(
-        Effect.as(ROOTS()[agent].projectsRoot)
+        Effect.as(rootOf(agent).projectsRoot)
       );
 
     const sessionsGlob = (agent: AgentId) =>
       requireSupported(agent, "sessionsGlob").pipe(
-        Effect.as(join(ROOTS()[agent].projectsRoot, "**", "*.jsonl"))
+        Effect.as(join(rootOf(agent).projectsRoot, "**", "*.jsonl"))
       );
 
+    /** The memory dir for a slug: the source whose projects root actually holds
+     * it (so a second account's slug resolves correctly), else the default. */
     const memoryDir = ({
       agent,
       slug,
@@ -287,12 +452,34 @@ export const AgentRegistryLive = Layer.effect(
       readonly slug: string;
     }) =>
       requireClaudeLayout(agent, "memoryDir").pipe(
-        Effect.as(join(ROOTS()[agent].projectsRoot, slug, "memory"))
+        Effect.flatMap(() =>
+          Effect.reduce(
+            sourcesOf(rootOf(agent)),
+            null as string | null,
+            (found, source) =>
+              found
+                ? Effect.succeed(found)
+                : fs.exists(join(source.projectsRoot, slug)).pipe(
+                    Effect.orElseSucceed(() => false),
+                    Effect.map((present) =>
+                      present ? source.projectsRoot : null
+                    )
+                  )
+          )
+        ),
+        Effect.map((root) =>
+          join(root ?? rootOf(agent).projectsRoot, slug, "memory")
+        )
       );
 
     const listProjectSlugs = (agent: AgentId) =>
       requireClaudeLayout(agent, "listProjectSlugs").pipe(
-        Effect.flatMap(() => listSlugDirs(fs, ROOTS()[agent].projectsRoot)),
+        Effect.flatMap(() =>
+          Effect.forEach(sourcesOf(rootOf(agent)), (source) =>
+            listSlugDirs(fs, source.projectsRoot)
+          )
+        ),
+        Effect.map((groups) => [...new Set(groups.flat())]),
         Effect.withSpan("AgentRegistry.listProjectSlugs", {
           attributes: { agent },
         })
@@ -364,8 +551,14 @@ export const AgentRegistryLive = Layer.effect(
       );
 
     const listSessionFiles = (agent: AgentId) => {
-      const { layout, projectsRoot: root } = ROOTS()[agent];
-      const build = (): Effect.Effect<readonly SessionFileRef[]> => {
+      const { layout } = rootOf(agent);
+      const sources = sourcesOf(rootOf(agent));
+      // Only stamp a source when there's more than one — single-account users
+      // get no badge/facet noise.
+      const stamp = sources.length > 1;
+      const buildFor = (
+        root: string
+      ): Effect.Effect<readonly SessionFileRef[]> => {
         switch (layout) {
           case "claude-projects":
             return listSlugLayout(root, (name) => name.replace(JSONL, ""));
@@ -399,7 +592,31 @@ export const AgentRegistryLive = Layer.effect(
             return Effect.succeed([] as readonly SessionFileRef[]);
         }
       };
-      return build().pipe(
+      return Effect.forEach(sources, (source) =>
+        buildFor(source.projectsRoot).pipe(
+          Effect.map((refs) =>
+            stamp
+              ? refs.map((ref) => ({
+                  ...ref,
+                  source: { id: source.id, label: source.label },
+                }))
+              : refs
+          ),
+          Effect.orElseSucceed(() => [] as readonly SessionFileRef[])
+        )
+      ).pipe(
+        // Dedup by transcript path so overlapping roots never double-count.
+        Effect.map((groups) => {
+          const seen = new Set<string>();
+          const out: SessionFileRef[] = [];
+          for (const ref of groups.flat()) {
+            if (!seen.has(ref.path)) {
+              seen.add(ref.path);
+              out.push(ref);
+            }
+          }
+          return out as readonly SessionFileRef[];
+        }),
         Effect.orElseSucceed(() => [] as readonly SessionFileRef[]),
         Effect.withSpan("AgentRegistry.listSessionFiles", {
           attributes: { agent },
@@ -415,7 +632,9 @@ export const AgentRegistryLive = Layer.effect(
           // contain `#`, so lastIndexOf lands on the `<dataDir>#<id>` delimiter.
           const hash = ref.path.lastIndexOf("#");
           const dataDir =
-            hash >= 0 ? ref.path.slice(0, hash) : ROOTS().opencode.projectsRoot;
+            hash >= 0
+              ? ref.path.slice(0, hash)
+              : rootOf("opencode").projectsRoot;
           const sessionId = hash >= 0 ? ref.path.slice(hash + 1) : ref.id;
           return loadSessionText(
             dataDir,
@@ -453,7 +672,7 @@ export const AgentRegistryLive = Layer.effect(
       readonly agent: AgentId;
       readonly ref: SessionFileRef;
     }) =>
-      (ROOTS()[agent].layout === "opencode-sqlite"
+      (rootOf(agent).layout === "opencode-sqlite"
         ? loadOpencodeTranscript(ref)
         : loadFileTranscript(ref)
       ).pipe(
@@ -464,7 +683,7 @@ export const AgentRegistryLive = Layer.effect(
 
     return {
       encodeSlug,
-      roots: (agent) => ROOTS()[agent],
+      roots: rootOf,
       allowedRoots,
       gitRoot,
       projectsRoot,
