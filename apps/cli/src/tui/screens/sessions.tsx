@@ -1,16 +1,24 @@
 /** Sessions screen — master-detail context-debug view.
  *
- * Left: a filterable, keyboard-navigable list of transcript sessions from
- * `sessions.list`, live-refreshed off the filesystem watch. Right: the selected
- * session's forensic analysis (`SessionDetail`). Focus moves between the list
- * and the history scroll with Tab; `/` opens the free-text filter, `a` cycles
- * the agent facet, `r` toggles secret redaction. Mirrors the web inspector's
- * sessions route, retuned for a narrow terminal.
+ * Left: a filterable, mouse- and keyboard-navigable rail of transcript sessions
+ * from `sessions.list`, live-refreshed off the filesystem watch, rendered as
+ * clickable cards. Right: the selected session's forensic analysis
+ * (`SessionDetail`). Focus moves between the list and the history scroll with
+ * Tab (or Enter/→ into detail, ←/Esc back); `/` opens the free-text filter, `a`
+ * cycles the agent facet, `r` toggles secret redaction. Mirrors the web
+ * inspector's sessions route, retuned for a narrow terminal.
  */
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { useEffect, useMemo, useState } from "react";
-import { Empty, ErrorLine, KeyHints, Loading, Panel } from "../components";
+import {
+  Card,
+  Empty,
+  ErrorLine,
+  KeyHints,
+  Loading,
+  Panel,
+} from "../components";
 import { useQuery, useWatch } from "../runtime";
 import {
   AGENT_COLOR,
@@ -19,19 +27,24 @@ import {
   clip,
   fmtBytes,
   fmtStarted,
+  sanitize,
 } from "../theme";
 import { useTyping } from "../typing";
 import { useListSelection, windowSlice } from "../use-list";
 import { SessionDetail } from "./sessions-detail";
 
-/** Fixed width (cells) of the left session-list rail. */
-const LIST_W = 42;
-/** Terminal rows reserved for chrome (header, filter, borders, hints). */
-const CHROME_ROWS = 9;
-/** Minimum visible session rows regardless of terminal height. */
-const MIN_ROWS = 3;
-/** Terminal lines each session row occupies (title + footer). */
-const ROW_LINES = 2;
+/** Fixed width (cells) of the left session-card rail. */
+const LIST_W = 46;
+/** Content width inside a card (rail minus border + horizontal padding). */
+const CARD_CONTENT_W = LIST_W - 4;
+/** Chars reserved for the leading agent badge on a card's title line. */
+const BADGE_W = 12;
+/** Terminal rows one card spans: 2 border + 2 content + 1 inter-card gap. */
+const CARD_ROWS = 5;
+/** Non-card terminal rows (header, filter, agent line, footer) to reserve. */
+const CHROME_ROWS = 11;
+/** Minimum visible cards regardless of terminal height. */
+const MIN_CARDS = 2;
 
 /** Display title for a header, falling back to an agent-labelled generic. */
 const titleOf = (h: SessionHeader): string =>
@@ -53,35 +66,35 @@ const byStartedDesc = (a: SessionHeader, b: SessionHeader): number => {
   return sb.localeCompare(sa);
 };
 
-/** One two-line session row: agent badge + title, then a metadata footer. */
-const SessionRow = ({
+/**
+ * One session card: a clickable bordered box with an agent badge + title line
+ * and a dim metadata subline. Clicking selects it via `onSelect`.
+ */
+const SessionCard = ({
   h,
   selected,
+  onSelect,
 }: {
   readonly h: SessionHeader;
   readonly selected: boolean;
+  readonly onSelect: () => void;
 }) => {
   const model = h.model ?? h.id.slice(0, 8);
-  const footer = `${model} · ${fmtStarted(h.startedAt)} · ${fmtBytes(
+  const sub = `${model} · ${fmtStarted(h.startedAt)} · ${fmtBytes(
     h.sizeBytes
   )} · ${h.messageCount} msgs`;
   return (
-    <box
-      style={{
-        flexDirection: "column",
-        ...(selected ? { backgroundColor: C.panelSel } : {}),
-      }}
-    >
+    <Card onSelect={onSelect} selected={selected}>
       <box style={{ flexDirection: "row" }}>
         <text fg={AGENT_COLOR[h.agent] ?? C.textDim}>
-          {`${selected ? "› " : "  "}[${AGENT_LABEL[h.agent] ?? h.agent}] `}
+          {`[${AGENT_LABEL[h.agent] ?? h.agent}] `}
         </text>
         <text fg={selected ? C.primary : C.text}>
-          {clip(titleOf(h), LIST_W - 12)}
+          {clip(sanitize(titleOf(h)), CARD_CONTENT_W - BADGE_W)}
         </text>
       </box>
-      <text fg={C.textFaint}>{`  ${clip(footer, LIST_W - 4)}`}</text>
-    </box>
+      <text fg={C.textFaint}>{clip(sub, CARD_CONTENT_W)}</text>
+    </Card>
   );
 };
 
@@ -128,12 +141,17 @@ export const SessionsScreen = () => {
 
   const { height } = useTerminalDimensions();
   const visible = Math.max(
-    MIN_ROWS,
-    Math.floor((height - CHROME_ROWS) / ROW_LINES)
+    MIN_CARDS,
+    Math.floor((height - CHROME_ROWS) / CARD_ROWS)
   );
   const win = windowSlice(index, filtered.length, visible);
 
   useKeyboard((key) => {
+    // Tab toggles focus in either direction, ungated (handled only here).
+    if (key.name === "tab") {
+      setFocus((f) => (f === "list" ? "detail" : "list"));
+      return;
+    }
     if (filterFocused) {
       if (key.name === "escape") {
         setFilterFocused(false);
@@ -144,9 +162,13 @@ export const SessionsScreen = () => {
       setFilterFocused(true);
       return;
     }
+    if (!listActive) {
+      return;
+    }
     switch (key.name) {
-      case "tab":
-        setFocus((f) => (f === "list" ? "detail" : "list"));
+      case "return":
+      case "right":
+        setFocus("detail");
         break;
       case "r":
         setRedact((r) => !r);
@@ -196,16 +218,25 @@ export const SessionsScreen = () => {
           {headers.length > 0 && filtered.length === 0 ? (
             <Empty label="No sessions match the filter." />
           ) : null}
-          <box style={{ flexDirection: "column" }}>
-            {filtered.slice(win.start, win.end).map((h, i) => (
-              <SessionRow h={h} key={h.id} selected={win.start + i === index} />
-            ))}
+          <box style={{ flexDirection: "column", gap: 1, paddingTop: 1 }}>
+            {filtered.slice(win.start, win.end).map((h, i) => {
+              const abs = win.start + i;
+              return (
+                <SessionCard
+                  h={h}
+                  key={h.id}
+                  onSelect={() => setIndex(abs)}
+                  selected={abs === index}
+                />
+              );
+            })}
           </box>
         </Panel>
         {selected ? (
           <SessionDetail
             focused={focus === "detail"}
             id={selected.id}
+            onBack={() => setFocus("list")}
             redact={redact}
           />
         ) : (
@@ -217,11 +248,12 @@ export const SessionsScreen = () => {
       <KeyHints
         hints={[
           ["↑↓/jk", "move"],
-          ["tab", focus === "list" ? "history" : "list"],
+          ["enter/→", "open"],
+          ["tab", "switch"],
           ["/", "filter"],
           ["a", "agent"],
           ["r", redact ? "reveal" : "hide"],
-          ["1-4", "section"],
+          ["click", "select"],
           ["q", "quit"],
         ]}
       />

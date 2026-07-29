@@ -142,9 +142,39 @@ export const fmtStarted = (iso: string | undefined): string => {
   return `${month} ${Number(m[3])}, ${m[4]}`;
 };
 
-/** First line of a string, trimmed to `max` chars with an ellipsis. */
+// Terminal-corrupting byte strippers. Tool output routinely carries raw ANSI
+// color codes and other C0 control bytes; OpenTUI's text buffer renders those as
+// "ghost" glyphs, so every server-authored string is run through `sanitize`
+// before display. Built via `RegExp` from unicode escapes so no literal control
+// character appears in source.
+// Patterns are built through this indirection (not literals) so the control
+// bytes stay as `\u` escapes — avoiding both a literal-control-char regex and
+// the "prefer a regex literal" lint, which would otherwise conflict here.
+const re = (pattern: string) => new RegExp(pattern, "g");
+const ANSI_CSI = re("\\u001b\\[[0-9;?]*[ -/]*[@-~]");
+const ANSI_OSC = re("\\u001b\\][^\\u0007\\u001b]*(?:\\u0007|\\u001b\\\\)");
+const ANSI_ESC = re("\\u001b[@-Z\\\\-_]");
+const C0_CONTROL = re("[\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]");
+const CR = re("\\r\\n?");
+const TAB = re("\\t");
+
+/**
+ * Strip terminal escape sequences and control bytes from server text: ANSI
+ * CSI/OSC/other escapes, C0 controls (keeping newlines), CR→LF, tabs→spaces.
+ * Everything shown in the terminal passes through here first.
+ */
+export const sanitize = (text: string): string =>
+  text
+    .replace(ANSI_OSC, "")
+    .replace(ANSI_CSI, "")
+    .replace(ANSI_ESC, "")
+    .replace(CR, "\n")
+    .replace(TAB, "  ")
+    .replace(C0_CONTROL, "");
+
+/** First line of a string, sanitized, trimmed to `max` chars with an ellipsis. */
 export const firstLine = (text: string, max = 120): string => {
-  const line = (text.split("\n")[0] ?? "").trim();
+  const line = (sanitize(text).split("\n")[0] ?? "").trim();
   return line.length > max ? `${line.slice(0, max - 1)}…` : line;
 };
 

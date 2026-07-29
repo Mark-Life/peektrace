@@ -145,9 +145,12 @@ peektrace tui --no-open --port 4789
 ```
 
 Keys: `1`–`4` switch section, `q` / `Ctrl+C` quit, `↑↓`/`jk` move, `Tab` switches
-pane focus. Per section: Sessions `/` filter · `a` agent · `r` reveal secrets;
-Memory `/` search · `t` type filter; Settings `e`/`Enter` edit · `a` add root ·
-`d` remove · `Ctrl+S` save (`r` reload / `o` overwrite on a disk conflict).
+pane focus, and the **mouse works** — click a session card, a history row, or the
+Expand/Collapse buttons. Per section: Sessions — `Enter`/`→` open the analysis,
+`←`/`Esc` back, `Enter` expands a history row (syntax-highlighted bodies),
+`Shift+E`/`Shift+C` expand/collapse all, `/` filter · `a` agent · `r` reveal
+secrets; Memory `/` search · `t` type filter; Settings `e`/`Enter` edit · `a`
+add root · `d` remove · `Ctrl+S` save (`r` reload / `o` overwrite on a conflict).
 
 Like `serve`, it needs a built inspector (`apps/inspector/dist`) only for the web
 half — the terminal UI works regardless. The `bun run` / source path is the

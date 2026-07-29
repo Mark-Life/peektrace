@@ -158,3 +158,58 @@ export const KeyHints = ({
     ))}
   </box>
 );
+
+/**
+ * A clickable bordered container. The whole card is a mouse target (`onSelect`
+ * fires on click) and brightens its border when `selected`. Screens compose the
+ * inner rows as children.
+ */
+export const Card = ({
+  selected = false,
+  onSelect,
+  children,
+  title,
+}: {
+  readonly selected?: boolean;
+  readonly onSelect?: () => void;
+  readonly children?: ReactNode;
+  readonly title?: string;
+}) => (
+  // biome-ignore lint/a11y/noStaticElementInteractions: OpenTUI box is the click target; no DOM roles apply
+  <box
+    {...(title === undefined ? {} : { title })}
+    {...(onSelect === undefined ? {} : { onMouseDown: onSelect })}
+    borderColor={selected ? C.borderActive : C.border}
+    borderStyle="rounded"
+    style={{
+      flexDirection: "column",
+      paddingLeft: 1,
+      paddingRight: 1,
+      ...(selected ? { backgroundColor: C.panelSel } : {}),
+    }}
+    titleColor={selected ? C.primary : C.textDim}
+  >
+    {children}
+  </box>
+);
+
+/** A clickable inline label — a poor-man's button for toolbars. */
+export const TextButton = ({
+  label,
+  onPress,
+  active = false,
+}: {
+  readonly label: string;
+  readonly onPress: () => void;
+  readonly active?: boolean;
+}) => (
+  // biome-ignore lint/a11y/noStaticElementInteractions: OpenTUI box is the click target; no DOM roles apply
+  <box onMouseDown={onPress} style={{ flexDirection: "row" }}>
+    <text
+      bg={active ? C.primary : C.panelSel}
+      fg={active ? C.onPrimary : C.accent}
+    >
+      {` ${label} `}
+    </text>
+  </box>
+);
