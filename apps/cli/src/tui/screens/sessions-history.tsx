@@ -8,7 +8,7 @@
  * the parent screen and deliberately not handled here.
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
-import { useKeyboard } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import type {
   AnalyzedSession,
   EventKind,
@@ -40,12 +40,14 @@ const KIND_COLOR: Record<EventKind, string> = {
   meta: C.textFaint,
 };
 
-/** Chars of the collapsed one-line preview. */
-const PREVIEW_MAX = 80;
 /** Chars of the kind/tool badge label. */
-const BADGE_MAX = 22;
+const BADGE_MAX = 20;
 /** Line budget for an expanded body before elision. */
 const BODY_MAX_LINES = 120;
+/** Cells the left rail + gaps + this pane's chrome claim, for preview sizing. */
+const PANE_CHROME = 52;
+/** Cells a history row spends on badges + the token estimate (before preview). */
+const ROW_FIXED = 30;
 
 /** Expanded body: the dim thinking note when present, else the highlighted code. */
 const ItemBody = ({ decoded }: { readonly decoded: DecodedBody }) => {
@@ -74,6 +76,7 @@ const HistoryItem = ({
   turn,
   selected,
   open,
+  previewMax,
   onSelect,
 }: {
   readonly e: TimelineEvent;
@@ -81,6 +84,7 @@ const HistoryItem = ({
   readonly turn: number;
   readonly selected: boolean;
   readonly open: boolean;
+  readonly previewMax: number;
   readonly onSelect: () => void;
 }) => (
   <box id={`hist:${pos}`} style={{ flexDirection: "column" }}>
@@ -99,10 +103,10 @@ const HistoryItem = ({
         label={clip(e.toolName ?? e.kind, BADGE_MAX)}
       />
       <text fg={selected ? C.primary : C.text}>
-        {` ${firstLine(e.preview, PREVIEW_MAX)}`}
+        {` ${firstLine(e.preview, previewMax)}`}
       </text>
       <box style={{ flexGrow: 1 }} />
-      <text fg={C.textFaint}>{`~${fmt(e.tokensEst)}`}</text>
+      <text fg={C.textFaint}>{` ~${fmt(e.tokensEst)}`}</text>
     </box>
     {open ? <ItemBody decoded={decodeBody(e)} /> : null}
   </box>
@@ -122,6 +126,8 @@ export const SessionHistory = ({
 }) => {
   const visible = useMemo(() => visibleEvents(s), [s]);
   const tags = useMemo(() => turnTags(s), [s]);
+  const { width } = useTerminalDimensions();
+  const previewMax = Math.max(16, width - PANE_CHROME - ROW_FIXED);
   const [index, setIndex] = useListSelection(visible.length, focused);
   const [openSet, setOpenSet] = useState<Set<number>>(() => new Set());
   const [expandAll, setExpandAll] = useState(false);
@@ -180,26 +186,34 @@ export const SessionHistory = ({
 
   return (
     <box style={{ flexDirection: "column", flexGrow: 1, minHeight: 0, gap: 0 }}>
-      <box style={{ flexDirection: "row", gap: 2 }}>
-        <text fg={C.textDim}>
-          {`${visible.length} events · ${s.dumbZoneTurns}/${s.turnCount} in dumb zone`}
-        </text>
-        <box style={{ flexGrow: 1 }} />
-        {redact ? (
-          <text fg={C.textFaint}>redacted · r to reveal</text>
-        ) : (
-          <text fg={C.bad}>⚠ Redaction OFF</text>
-        )}
-        <TextButton
-          active={expandAll}
-          label="Expand all"
-          onPress={() => setExpandAll(true)}
-        />
-        <TextButton
-          active={!expandAll && openSet.size === 0}
-          label="Collapse all"
-          onPress={collapseAll}
-        />
+      <box style={{ flexDirection: "column", flexShrink: 0 }}>
+        {/* Header line: title + counts + redaction state. */}
+        <box style={{ flexDirection: "row", gap: 2 }}>
+          <text fg={C.accent}>Full history</text>
+          <text fg={C.textDim}>
+            {`${visible.length} events · ${s.dumbZoneTurns}/${s.turnCount} in dumb zone`}
+          </text>
+          <box style={{ flexGrow: 1 }} />
+          {redact ? (
+            <text fg={C.textFaint}>redacted · r to reveal</text>
+          ) : (
+            <text fg={C.bad}>⚠ Redaction OFF</text>
+          )}
+        </box>
+        {/* Toolbar on its own line so it never collides with the first row. */}
+        <box style={{ flexDirection: "row", gap: 1 }}>
+          <TextButton
+            active={expandAll}
+            label="Expand all"
+            onPress={() => setExpandAll(true)}
+          />
+          <TextButton
+            active={!expandAll && openSet.size === 0}
+            label="Collapse all"
+            onPress={collapseAll}
+          />
+          <text fg={C.textFaint}> enter toggle · shift+E/C all</text>
+        </box>
       </box>
       {visible.length === 0 ? (
         <Empty label="No timeline events." />
@@ -207,22 +221,25 @@ export const SessionHistory = ({
         <scrollbox
           focused={focused}
           ref={boxRef}
-          style={{ flexGrow: 1, minHeight: 0 }}
+          style={{ flexGrow: 1, minHeight: 0, paddingTop: 1 }}
         >
-          {visible.map((e, pos) => (
-            <HistoryItem
-              e={e}
-              key={`hist:${e.index}`}
-              onSelect={() => {
-                setIndex(pos);
-                toggle(pos);
-              }}
-              open={expandAll || openSet.has(pos)}
-              pos={pos}
-              selected={pos === index}
-              turn={tags.get(e.index) ?? 0}
-            />
-          ))}
+          <box style={{ flexDirection: "column", gap: 1 }}>
+            {visible.map((e, pos) => (
+              <HistoryItem
+                e={e}
+                key={`hist:${e.index}`}
+                onSelect={() => {
+                  setIndex(pos);
+                  toggle(pos);
+                }}
+                open={expandAll || openSet.has(pos)}
+                pos={pos}
+                previewMax={previewMax}
+                selected={pos === index}
+                turn={tags.get(e.index) ?? 0}
+              />
+            ))}
+          </box>
         </scrollbox>
       )}
     </box>

@@ -172,6 +172,10 @@ test("session cards render and keyboard selection drives the detail", async () =
     expect(first).toContain("Alpha");
     expect(first).toContain("Beta");
     expect(first).toContain("Analyzed-a");
+    // Header rows stay intact (regression: fixed rows must not collapse and
+    // overlap when the card scrollbox grows).
+    expect(first).toContain("filter (press /)");
+    expect(first).toContain("agent: all · a to cycle");
     // Arrow-down selects Beta → the detail re-analyzes the new id.
     setup.mockInput.pressArrow("down");
     const second = await settleFor(setup, "Analyzed-b");

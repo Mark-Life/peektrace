@@ -1,10 +1,13 @@
 /** Sessions detail pane — the forensic analysis view for one session.
  *
  * Fetches `sessions.analyze` for the selected id (re-fetching when redaction is
- * toggled) and stacks a compact verdict header + budget-at-peak over the
- * scrollable, expandable `SessionHistory`. Focus flows in from the screen; the
- * history calls `onBack` (Left / Esc) to return focus to the session list.
+ * toggled) and lays it out as a bordered summary card (verdict header + budget
+ * at peak) over the scrollable, expandable `SessionHistory`, with vertical
+ * breathing room between the blocks. Text is clipped to the pane's real width so
+ * nothing is truncated while horizontal space sits unused. Focus flows in from
+ * the screen; the history calls `onBack` (Left / Esc) to return to the list.
  */
+import { useTerminalDimensions } from "@opentui/react";
 import type {
   AnalyzedSession,
   BudgetSlice,
@@ -32,17 +35,25 @@ import {
 } from "../theme";
 import { SessionHistory } from "./sessions-history";
 
-/** Width (cells) of the inline gauge / budget bars in the detail pane. */
-const BAR_W = 40;
 /** Field label column width. */
 const LABEL_W = 15;
 /** Top budget slices listed under the stacked bar. */
-const TOP_SLICES = 4;
-/** Chars of the ident subline. */
-const SUBLINE_MAX = 48;
+const TOP_SLICES = 5;
+/** Upper bound on the gauge/budget bar width. */
+const BAR_MAX = 56;
+/** Cells the left rail + gaps + this pane's border/padding claim. */
+const PANE_CHROME = 51;
+/** The summary card's own border + padding. */
+const CARD_CHROME = 4;
 
 /** Peak-context gauge + `peak … of window` caption, tinted by health zone. */
-const PeakGauge = ({ s }: { readonly s: AnalyzedSession }) => {
+const PeakGauge = ({
+  s,
+  barW,
+}: {
+  readonly s: AnalyzedSession;
+  readonly barW: number;
+}) => {
   const frac = s.contextWindow > 0 ? s.peakContextTokens / s.contextWindow : 0;
   const color = ZONE_VERDICT[zoneOf(s)].color;
   return (
@@ -55,7 +66,7 @@ const PeakGauge = ({ s }: { readonly s: AnalyzedSession }) => {
             color: C.border,
           },
         ]}
-        width={BAR_W}
+        width={barW}
       />
       <text fg={C.textDim}>
         {`peak ${fmt(s.peakContextTokens)} · ${fmtPct(frac)} of ${fmt(
@@ -67,7 +78,15 @@ const PeakGauge = ({ s }: { readonly s: AnalyzedSession }) => {
 };
 
 /** Verdict header: title, ident subline, health word + gauge, metadata grid. */
-const VerdictHeader = ({ s }: { readonly s: AnalyzedSession }) => {
+const VerdictHeader = ({
+  s,
+  w,
+  barW,
+}: {
+  readonly s: AnalyzedSession;
+  readonly w: number;
+  readonly barW: number;
+}) => {
   const title =
     s.title ?? `${PROVIDER_LABEL[s.provider] ?? s.provider} session`;
   const verdict = ZONE_VERDICT[zoneOf(s)];
@@ -80,7 +99,7 @@ const VerdictHeader = ({ s }: { readonly s: AnalyzedSession }) => {
     <box style={{ flexDirection: "column", flexShrink: 0 }}>
       <box style={{ flexDirection: "row" }}>
         <text attributes={1} fg={C.text}>
-          {clip(sanitize(title), BAR_W)}
+          {clip(sanitize(title), Math.max(10, w - verdict.label.length - 6))}
         </text>
         <text fg={verdict.color}>{`  ● ${verdict.label}`}</text>
       </box>
@@ -89,16 +108,23 @@ const VerdictHeader = ({ s }: { readonly s: AnalyzedSession }) => {
           `${s.sessionId.slice(0, 8)} · ${s.models.join(", ") || "—"} · ${
             s.cwd ?? "—"
           }`,
-          SUBLINE_MAX
+          w
         )}
       </text>
-      <PeakGauge s={s} />
+      <text> </text>
+      <PeakGauge barW={barW} s={s} />
+      <text> </text>
       <Field
         label="Turns"
         labelWidth={LABEL_W}
         value={`${s.turnCount} · ${s.toolCallCount} tools · ${fmt(
           s.totalOutputTokens
         )} out`}
+      />
+      <Field
+        label="System + tools"
+        labelWidth={LABEL_W}
+        value={fmt(s.systemOverheadTokens)}
       />
       <Field
         label="Cache / window"
@@ -113,13 +139,15 @@ const VerdictHeader = ({ s }: { readonly s: AnalyzedSession }) => {
 const SliceRow = ({
   slice,
   window,
+  labelW,
 }: {
   readonly slice: BudgetSlice;
   readonly window: number;
+  readonly labelW: number;
 }) => (
   <box style={{ flexDirection: "row" }}>
     <Swatch color={slice.color} />
-    <text fg={C.text}>{` ${clip(slice.label, 18).padEnd(18)}`}</text>
+    <text fg={C.text}>{` ${clip(slice.label, labelW).padEnd(labelW)}`}</text>
     <box style={{ flexGrow: 1 }} />
     <text fg={C.textDim}>{fmt(slice.tokens).padStart(9)}</text>
     <text fg={C.textFaint}>
@@ -128,20 +156,34 @@ const SliceRow = ({
   </box>
 );
 
-/** Context budget at peak: a stacked bar + the largest slices. */
-const BudgetBar = ({ s }: { readonly s: AnalyzedSession }) => {
+/** Context budget at peak: a labelled stacked bar + the largest slices. */
+const BudgetBar = ({
+  s,
+  w,
+  barW,
+}: {
+  readonly s: AnalyzedSession;
+  readonly w: number;
+  readonly barW: number;
+}) => {
   const slices = s.budget.filter((b) => b.tokens > 0);
   const top = [...slices]
     .sort((a, b) => b.tokens - a.tokens)
     .slice(0, TOP_SLICES);
   return (
     <box style={{ flexDirection: "column", flexShrink: 0 }}>
+      <text fg={C.accent}>Budget at peak</text>
       <StackedBar
         segments={slices.map((b) => ({ weight: b.tokens, color: b.color }))}
-        width={BAR_W}
+        width={barW}
       />
       {top.map((slice) => (
-        <SliceRow key={slice.key} slice={slice} window={s.contextWindow} />
+        <SliceRow
+          key={slice.key}
+          labelW={Math.max(10, w - 26)}
+          slice={slice}
+          window={s.contextWindow}
+        />
       ))}
     </box>
   );
@@ -163,6 +205,10 @@ export const SessionDetail = ({
     (c) => c.sessions.analyze(redact ? { id } : { id, redact: false }),
     [id, redact]
   );
+  const { width } = useTerminalDimensions();
+  const paneW = Math.max(34, width - PANE_CHROME);
+  const innerW = Math.max(24, paneW - CARD_CHROME);
+  const barW = Math.min(innerW - 2, BAR_MAX);
   const s = q.data;
   return (
     <Panel flexGrow={1} focused={focused} title="Analysis">
@@ -170,10 +216,22 @@ export const SessionDetail = ({
       {q.error ? <ErrorLine error={q.error} /> : null}
       {s ? (
         <box
-          style={{ flexDirection: "column", flexGrow: 1, minHeight: 0, gap: 0 }}
+          style={{ flexDirection: "column", flexGrow: 1, minHeight: 0, gap: 1 }}
         >
-          <VerdictHeader s={s} />
-          <BudgetBar s={s} />
+          <box
+            borderColor={C.border}
+            borderStyle="rounded"
+            style={{
+              flexDirection: "column",
+              flexShrink: 0,
+              gap: 1,
+              paddingLeft: 1,
+              paddingRight: 1,
+            }}
+          >
+            <VerdictHeader barW={barW} s={s} w={innerW} />
+            <BudgetBar barW={barW} s={s} w={innerW} />
+          </box>
           <SessionHistory
             focused={focused}
             onBack={onBack}

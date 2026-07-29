@@ -8,9 +8,10 @@
  * cycles the agent facet, `r` toggles secret redaction. Mirrors the web
  * inspector's sessions route, retuned for a narrow terminal.
  */
-import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import type { ScrollBoxRenderable } from "@opentui/core";
+import { useKeyboard } from "@opentui/react";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Card,
   Empty,
@@ -30,21 +31,19 @@ import {
   sanitize,
 } from "../theme";
 import { useTyping } from "../typing";
-import { useListSelection, windowSlice } from "../use-list";
+import { useListSelection } from "../use-list";
 import { SessionDetail } from "./sessions-detail";
 
 /** Fixed width (cells) of the left session-card rail. */
 const LIST_W = 46;
-/** Content width inside a card (rail minus border + horizontal padding). */
-const CARD_CONTENT_W = LIST_W - 4;
-/** Chars reserved for the leading agent badge on a card's title line. */
-const BADGE_W = 12;
-/** Terminal rows one card spans: 2 border + 2 content + 1 inter-card gap. */
-const CARD_ROWS = 5;
-/** Non-card terminal rows (header, filter, agent line, footer) to reserve. */
-const CHROME_ROWS = 11;
-/** Minimum visible cards regardless of terminal height. */
-const MIN_CARDS = 2;
+/**
+ * Content width inside a card. The rail loses cells to the Panel border+padding
+ * (4), the scrollbox scrollbar (~1), and the card's own border+padding (4);
+ * text is clipped to this so a card line never wraps outside its border.
+ */
+const CARD_CONTENT_W = LIST_W - 10;
+/** Shortest title kept after the agent badge claims its share of the line. */
+const MIN_TITLE_W = 6;
 
 /** Display title for a header, falling back to an agent-labelled generic. */
 const titleOf = (h: SessionHeader): string =>
@@ -83,17 +82,17 @@ const SessionCard = ({
   const sub = `${model} · ${fmtStarted(h.startedAt)} · ${fmtBytes(
     h.sizeBytes
   )} · ${h.messageCount} msgs`;
+  const badge = `[${AGENT_LABEL[h.agent] ?? h.agent}] `;
+  const titleW = Math.max(MIN_TITLE_W, CARD_CONTENT_W - badge.length);
   return (
     <Card onSelect={onSelect} selected={selected}>
       <box style={{ flexDirection: "row" }}>
-        <text fg={AGENT_COLOR[h.agent] ?? C.textDim}>
-          {`[${AGENT_LABEL[h.agent] ?? h.agent}] `}
-        </text>
+        <text fg={AGENT_COLOR[h.agent] ?? C.textDim}>{badge}</text>
         <text fg={selected ? C.primary : C.text}>
-          {clip(sanitize(titleOf(h)), CARD_CONTENT_W - BADGE_W)}
+          {clip(sanitize(titleOf(h)), titleW)}
         </text>
       </box>
-      <text fg={C.textFaint}>{clip(sub, CARD_CONTENT_W)}</text>
+      <text fg={C.textFaint}>{clip(sanitize(sub), CARD_CONTENT_W)}</text>
     </Card>
   );
 };
@@ -138,13 +137,13 @@ export const SessionsScreen = () => {
   const listActive = focus === "list" && !filterFocused;
   const [index, setIndex] = useListSelection(filtered.length, listActive);
   const selected = filtered[index];
+  const railRef = useRef<ScrollBoxRenderable>(null);
 
-  const { height } = useTerminalDimensions();
-  const visible = Math.max(
-    MIN_CARDS,
-    Math.floor((height - CHROME_ROWS) / CARD_ROWS)
-  );
-  const win = windowSlice(index, filtered.length, visible);
+  // Scroll the rail only far enough to keep the selection visible — clicking a
+  // card that's already on screen never reflows the list.
+  useEffect(() => {
+    railRef.current?.scrollChildIntoView(`sess:${index}`);
+  }, [index]);
 
   useKeyboard((key) => {
     // Tab toggles focus in either direction, ungated (handled only here).
@@ -195,21 +194,29 @@ export const SessionsScreen = () => {
           title={`Sessions (${filtered.length}/${headers.length})`}
           width={LIST_W}
         >
-          <box style={{ flexDirection: "row" }}>
-            <text fg={filterFocused ? C.primary : C.textFaint}>/ </text>
-            <input
-              focused={filterFocused}
-              onInput={setQuery}
-              onSubmit={() => setFilterFocused(false)}
-              placeholder="filter title / id…"
-              style={{ flexGrow: 1 }}
-            />
+          <box style={{ flexDirection: "column", flexShrink: 0 }}>
+            <box style={{ flexDirection: "row" }}>
+              <text fg={filterFocused ? C.primary : C.textFaint}>/ </text>
+              {filterFocused ? (
+                <input
+                  focused
+                  onInput={setQuery}
+                  onSubmit={() => setFilterFocused(false)}
+                  placeholder="filter title / id…"
+                  style={{ flexGrow: 1 }}
+                />
+              ) : (
+                <text fg={query === "" ? C.textFaint : C.text}>
+                  {query === "" ? "filter (press /)" : query}
+                </text>
+              )}
+            </box>
+            <text fg={C.textFaint}>
+              {agent === undefined
+                ? "agent: all · a to cycle"
+                : `agent: ${AGENT_LABEL[agent] ?? agent} · a to cycle`}
+            </text>
           </box>
-          <text fg={C.textFaint}>
-            {agent === undefined
-              ? "agent: all · a to cycle"
-              : `agent: ${AGENT_LABEL[agent] ?? agent} · a to cycle`}
-          </text>
           {q.loading && headers.length === 0 ? <Loading /> : null}
           {q.error ? <ErrorLine error={q.error} /> : null}
           {!(q.loading || q.error) && headers.length === 0 ? (
@@ -218,19 +225,23 @@ export const SessionsScreen = () => {
           {headers.length > 0 && filtered.length === 0 ? (
             <Empty label="No sessions match the filter." />
           ) : null}
-          <box style={{ flexDirection: "column", gap: 1, paddingTop: 1 }}>
-            {filtered.slice(win.start, win.end).map((h, i) => {
-              const abs = win.start + i;
-              return (
-                <SessionCard
-                  h={h}
-                  key={h.id}
-                  onSelect={() => setIndex(abs)}
-                  selected={abs === index}
-                />
-              );
-            })}
-          </box>
+          <scrollbox
+            focused={listActive}
+            ref={railRef}
+            style={{ flexGrow: 1, minHeight: 0, paddingTop: 1 }}
+          >
+            <box style={{ flexDirection: "column", gap: 1 }}>
+              {filtered.map((h, i) => (
+                <box id={`sess:${i}`} key={h.id}>
+                  <SessionCard
+                    h={h}
+                    onSelect={() => setIndex(i)}
+                    selected={i === index}
+                  />
+                </box>
+              ))}
+            </box>
+          </scrollbox>
         </Panel>
         {selected ? (
           <SessionDetail
