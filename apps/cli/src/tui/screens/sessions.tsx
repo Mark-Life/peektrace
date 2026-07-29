@@ -230,7 +230,7 @@ export const SessionsScreen = () => {
             ref={railRef}
             style={{ flexGrow: 1, minHeight: 0, paddingTop: 1 }}
           >
-            <box style={{ flexDirection: "column", gap: 1 }}>
+            <box style={{ flexDirection: "column" }}>
               {filtered.map((h, i) => (
                 <box id={`sess:${i}`} key={h.id}>
                   <SessionCard
