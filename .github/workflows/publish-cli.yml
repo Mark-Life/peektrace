@@ -85,8 +85,17 @@ jobs:
           echo "TAG=$RAW_TAG" >> "$GITHUB_ENV"
           echo "Publishing peektrace@$VERSION ($RAW_TAG)"
 
+      # `--cpu='*' --os='*'` pulls EVERY optional platform dependency, not just
+      # the runner's. @opentui/core resolves its native Zig library through
+      # per-platform optional deps (`@opentui/core-<platform>-<arch>`), and
+      # `bun build --compile` folds `process.platform`/`process.arch` to the
+      # target's values, so a cross-compile statically imports the TARGET's
+      # native package. Without these flags the arm64 macOS runner only has
+      # `@opentui/core-darwin-arm64` installed and the other three targets fail
+      # with "Could not resolve: @opentui/core-linux-x64". The lockfile already
+      # records all variants, so `--frozen-lockfile` still holds.
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile --cpu='*' --os='*'
 
       # Stamp AFTER install so the frozen lockfile check sees the committed
       # version. Use `npm pkg set` rather than `npm version`: the latter resolves

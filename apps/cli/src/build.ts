@@ -16,6 +16,7 @@
  * No native/WASM staging — the UI is the only thing embedded.
  */
 import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
@@ -67,6 +68,60 @@ const resolveTarget = (): Bun.Build.CompileTarget => {
     throw new Error(`Unsupported host platform: ${key}`);
   }
   return target;
+};
+
+/**
+ * `@opentui/core-*` native packages each Bun compile target statically needs.
+ *
+ * `@opentui/core` picks its native Zig library through per-platform optional
+ * dependencies, and `bun build --compile` folds `process.platform`/`process.arch`
+ * to the TARGET's values — so a cross-compile keeps (and must resolve) the
+ * target's imports, not the host's. Linux keeps both branches because the
+ * glibc/musl choice is a runtime `OPENTUI_LIBC` check.
+ */
+const OPENTUI_NATIVE_PACKAGES: Record<string, readonly string[]> = {
+  "bun-darwin-arm64": ["@opentui/core-darwin-arm64"],
+  "bun-darwin-x64": ["@opentui/core-darwin-x64"],
+  "bun-linux-x64": ["@opentui/core-linux-x64", "@opentui/core-linux-x64-musl"],
+  "bun-linux-arm64": [
+    "@opentui/core-linux-arm64",
+    "@opentui/core-linux-arm64-musl",
+  ],
+  "bun-windows-x64": ["@opentui/core-win32-x64"],
+  "bun-windows-arm64": ["@opentui/core-win32-arm64"],
+};
+
+/**
+ * Fail fast (before the slow inspector build) when the target's native OpenTUI
+ * packages are missing — `bun install` only fetches the host's optional deps.
+ */
+const assertNativeDepsInstalled = (target: Bun.Build.CompileTarget) => {
+  const key = Object.keys(OPENTUI_NATIVE_PACKAGES).find((t) =>
+    target.startsWith(t)
+  );
+  const required = key ? OPENTUI_NATIVE_PACKAGES[key] : undefined;
+  if (!required) {
+    return;
+  }
+  const coreDir = resolve(
+    Bun.resolveSync("@opentui/core/package.json", CLI_ROOT),
+    ".."
+  );
+  const missing = required.filter((pkg) => {
+    try {
+      // `resolveSync` follows a dangling symlink, so stat the result too.
+      return !existsSync(Bun.resolveSync(pkg, coreDir));
+    } catch {
+      return true;
+    }
+  });
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing native package(s) for ${target}: ${missing.join(", ")}.\n` +
+        "Cross-compiling needs every platform's optional deps. Run:\n" +
+        "  bun install --frozen-lockfile --cpu='*' --os='*'"
+    );
+  }
 };
 
 /** Build the inspector UI into `apps/inspector/dist`; throws on failure. */
@@ -143,6 +198,7 @@ const compileBinary = async (
 const main = async () => {
   const target = resolveTarget();
   const version = await readVersion();
+  assertNativeDepsInstalled(target);
   buildInspector();
   try {
     const count = await generateEmbeddedManifest();

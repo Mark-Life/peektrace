@@ -264,6 +264,7 @@ export const SessionsScreen = () => {
           ["/", "filter"],
           ["a", "agent"],
           ["r", redact ? "reveal" : "hide"],
+          ["g", "chart"],
           ["click", "select"],
           ["q", "quit"],
         ]}
