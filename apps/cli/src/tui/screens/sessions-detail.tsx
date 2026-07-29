@@ -7,11 +7,12 @@
  * nothing is truncated while horizontal space sits unused. Focus flows in from
  * the screen; the history calls `onBack` (Left / Esc) to return to the list.
  */
-import { useTerminalDimensions } from "@opentui/react";
+import { useKeyboard, useTerminalDimensions } from "@opentui/react";
 import type {
   AnalyzedSession,
   BudgetSlice,
 } from "@workspace/core/services/sessions/schema";
+import { useState } from "react";
 import {
   Empty,
   ErrorLine,
@@ -20,6 +21,7 @@ import {
   Panel,
   StackedBar,
   Swatch,
+  TextButton,
 } from "../components";
 import { useQuery } from "../runtime";
 import {
@@ -33,7 +35,12 @@ import {
   ZONE_VERDICT,
   zoneOf,
 } from "../theme";
+import { useTyping } from "../typing";
+import { SessionGrowth } from "./sessions-growth";
 import { SessionHistory } from "./sessions-history";
+
+/** Which lower view the analysis pane shows. */
+type DetailView = "history" | "growth";
 
 /** Field label column width. */
 const LABEL_W = 15;
@@ -189,6 +196,57 @@ const BudgetBar = ({
   );
 };
 
+/** One-line session summary shown above the growth chart (which wants the room). */
+const CompactSummary = ({
+  s,
+  w,
+}: {
+  readonly s: AnalyzedSession;
+  readonly w: number;
+}) => {
+  const verdict = ZONE_VERDICT[zoneOf(s)];
+  const frac = s.contextWindow > 0 ? s.peakContextTokens / s.contextWindow : 0;
+  const title =
+    s.title ?? `${PROVIDER_LABEL[s.provider] ?? s.provider} session`;
+  return (
+    <box style={{ flexDirection: "row", flexShrink: 0 }}>
+      <text attributes={1} fg={C.text}>
+        {clip(sanitize(title), Math.max(10, w - 40))}
+      </text>
+      <text fg={verdict.color}>{`  ● ${verdict.label}`}</text>
+      <text fg={C.textDim}>
+        {`  peak ${fmtK(s.peakContextTokens)} ${fmtPct(frac)} · ${s.turnCount} turns`}
+      </text>
+    </box>
+  );
+};
+
+/** The bordered summary card: verdict header + budget-at-peak. */
+const SummaryCard = ({
+  s,
+  innerW,
+  barW,
+}: {
+  readonly s: AnalyzedSession;
+  readonly innerW: number;
+  readonly barW: number;
+}) => (
+  <box
+    borderColor={C.border}
+    borderStyle="rounded"
+    style={{
+      flexDirection: "column",
+      flexShrink: 0,
+      gap: 1,
+      paddingLeft: 1,
+      paddingRight: 1,
+    }}
+  >
+    <VerdictHeader barW={barW} s={s} w={innerW} />
+    <BudgetBar barW={barW} s={s} w={innerW} />
+  </box>
+);
+
 /** Right pane: analyze the selected session and render the stacked forensics. */
 export const SessionDetail = ({
   id,
@@ -209,7 +267,20 @@ export const SessionDetail = ({
   const paneW = Math.max(34, width - PANE_CHROME);
   const innerW = Math.max(24, paneW - CARD_CHROME);
   const barW = Math.min(innerW - 2, BAR_MAX);
+  const [view, setView] = useState<DetailView>("history");
+  const { typing } = useTyping();
   const s = q.data;
+
+  // `g` flips the lower section between the history and the growth chart —
+  // available whether the list or the detail has focus (so you can glance at
+  // the chart without leaving the list), but suppressed while typing a filter.
+  // Only one view is mounted, so there's no key clash with its internal nav.
+  useKeyboard((key) => {
+    if (!typing && key.name === "g") {
+      setView((v) => (v === "history" ? "growth" : "history"));
+    }
+  });
+
   return (
     <Panel flexGrow={1} focused={focused} title="Analysis">
       {q.loading && s === undefined ? <Loading label="Analyzing…" /> : null}
@@ -218,26 +289,34 @@ export const SessionDetail = ({
         <box
           style={{ flexDirection: "column", flexGrow: 1, minHeight: 0, gap: 1 }}
         >
-          <box
-            borderColor={C.border}
-            borderStyle="rounded"
-            style={{
-              flexDirection: "column",
-              flexShrink: 0,
-              gap: 1,
-              paddingLeft: 1,
-              paddingRight: 1,
-            }}
-          >
-            <VerdictHeader barW={barW} s={s} w={innerW} />
-            <BudgetBar barW={barW} s={s} w={innerW} />
+          {view === "history" ? (
+            <SummaryCard barW={barW} innerW={innerW} s={s} />
+          ) : (
+            <CompactSummary s={s} w={paneW} />
+          )}
+          <box style={{ flexDirection: "row", gap: 1, flexShrink: 0 }}>
+            <TextButton
+              active={view === "history"}
+              label="History"
+              onPress={() => setView("history")}
+            />
+            <TextButton
+              active={view === "growth"}
+              label="Growth"
+              onPress={() => setView("growth")}
+            />
+            <text fg={C.textFaint}> g toggle</text>
           </box>
-          <SessionHistory
-            focused={focused}
-            onBack={onBack}
-            redact={redact}
-            s={s}
-          />
+          {view === "history" ? (
+            <SessionHistory
+              focused={focused}
+              onBack={onBack}
+              redact={redact}
+              s={s}
+            />
+          ) : (
+            <SessionGrowth focused={focused} onBack={onBack} s={s} />
+          )}
         </box>
       ) : null}
       {q.loading || q.error || s ? null : (
