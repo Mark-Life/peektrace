@@ -256,6 +256,10 @@ export const resolveTargetTag = (
 export const assetUrl = (config: ReleaseConfig, tag: string, asset: string) =>
   `${config.baseUrl}/${tag}/${asset}`;
 
+/** URL of the gzipped release asset for `tag` — roughly a third of the raw size. */
+export const gzAssetUrl = (config: ReleaseConfig, tag: string, asset: string) =>
+  `${assetUrl(config, tag, asset)}.gz`;
+
 /** URL of the `SHA256SUMS` manifest for `tag`. */
 export const checksumsUrl = (config: ReleaseConfig, tag: string) =>
   `${config.baseUrl}/${tag}/SHA256SUMS`;
@@ -277,6 +281,16 @@ export const downloadBytes = (
         message: `Download failed (${url}): ${String(cause)}`,
       }),
   });
+
+/**
+ * Download `url` as raw bytes, resolving to `null` instead of failing when the
+ * asset is absent or unreachable. For optional assets whose caller has a
+ * working fallback — a release published before `.gz` assets existed, say.
+ */
+export const downloadOptionalBytes = (
+  url: string
+): Effect.Effect<Uint8Array | null> =>
+  downloadBytes(url).pipe(Effect.orElseSucceed(() => null));
 
 /** Fetch `url` as text, failing as a `CliUserError`. */
 export const fetchText = (url: string): Effect.Effect<string, CliUserError> =>

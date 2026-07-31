@@ -17,7 +17,8 @@
     $env:PEEKTRACE_BASE_URL     Release-download base (default: the GitHub releases URL).
     $env:PEEKTRACE_GITHUB_API   Repo API base (default: https://api.github.com/repos/Mark-Life/peektrace).
 
-  The download URL is always composed as: "$BaseUrl/$tag/$asset".
+  The download URL is always composed as: "$BaseUrl/$tag/$asset", with the
+  gzipped "$asset.gz" preferred when the release publishes one.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -79,6 +80,62 @@ function Resolve-Tag {
   return $tag
 }
 
+# --- download ----------------------------------------------------------------
+
+function Expand-Gzip {
+  param(
+    [string]$Source,
+    [string]$Destination
+  )
+
+  # Not $input: that name is an automatic variable (the pipeline enumerator).
+  $inStream = [System.IO.File]::OpenRead($Source)
+  try {
+    $gzip = New-Object System.IO.Compression.GZipStream($inStream, [System.IO.Compression.CompressionMode]::Decompress)
+    try {
+      $output = [System.IO.File]::Create($Destination)
+      try {
+        $gzip.CopyTo($output)
+      } finally {
+        $output.Dispose()
+      }
+    } finally {
+      $gzip.Dispose()
+    }
+  } finally {
+    $inStream.Dispose()
+  }
+}
+
+# Fetch the binary for $tag into $Destination, preferring the gzipped asset
+# (about a third of the raw size) and falling back to the uncompressed one. The
+# fallback also covers releases published before .gz assets existed, so pinning
+# an old version keeps working. $Destination always ends up holding the
+# UNCOMPRESSED binary, which is what SHA256SUMS records.
+function Get-Binary {
+  param(
+    [string]$Tag,
+    [string]$Destination
+  )
+
+  $gzTmp = "$Destination.gz"
+  try {
+    Invoke-WebRequest -Uri "$BaseUrl/$Tag/$Asset.gz" -OutFile $gzTmp -UseBasicParsing
+    Expand-Gzip -Source $gzTmp -Destination $Destination
+    return
+  } catch {
+    Write-Info 'Gzipped asset unavailable; downloading the full binary...'
+  } finally {
+    Remove-Item -LiteralPath $gzTmp -Force -ErrorAction SilentlyContinue
+  }
+
+  try {
+    Invoke-WebRequest -Uri "$BaseUrl/$Tag/$Asset" -OutFile $Destination -UseBasicParsing
+  } catch {
+    Fail "download failed: $_"
+  }
+}
+
 # --- checksum verification ---------------------------------------------------
 
 function Test-Checksum {
@@ -133,7 +190,6 @@ function Add-ToUserPath {
 # --- main --------------------------------------------------------------------
 
 $tag = Resolve-Tag
-$url = "$BaseUrl/$tag/$Asset"
 $sumsUrl = "$BaseUrl/$tag/SHA256SUMS"
 
 $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("peektrace-" + [System.Guid]::NewGuid().ToString('N'))
@@ -144,8 +200,8 @@ try {
   $sumsTmp = Join-Path $tmp 'SHA256SUMS'
 
   Write-Info "Downloading $Asset ($tag)..."
+  Get-Binary -Tag $tag -Destination $binTmp
   try {
-    Invoke-WebRequest -Uri $url -OutFile $binTmp -UseBasicParsing
     Invoke-WebRequest -Uri $sumsUrl -OutFile $sumsTmp -UseBasicParsing
   } catch {
     Fail "download failed: $_"

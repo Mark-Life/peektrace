@@ -32,6 +32,7 @@
         "@workspace/core": "workspace:*",
         "@workspace/rpc": "workspace:*",
         "@workspace/telemetry": "workspace:*",
+        "binpatch": "^0.3.2",
         "effect": "latest",
         "react": "19.2.8",
         "react-dom": "19.2.8",
@@ -989,6 +990,8 @@
     "baseline-browser-mapping": ["baseline-browser-mapping@2.10.24", "", { "bin": { "baseline-browser-mapping": "dist/cli.cjs" } }, "sha512-I2NkZOOrj2XuguvWCK6OVh9GavsNjZjK908Rq3mIBK25+GD8vPX5w2WdxVqnQ7xx3SrZJiCiZFu+/Oz50oSYSA=="],
 
     "basic-ftp": ["basic-ftp@5.3.1", "", {}, "sha512-bopVNp6ugyA150DDuZfPFdt1KZ5a94ZDiwX4hMgZDzF+GttD80lEy8kj98kbyhLXnPvhtIo93mdnLIjpCAeeOw=="],
+
+    "binpatch": ["binpatch@0.3.2", "", {}, "sha512-XJz74dJmzVgB9I5BEGAUiIWEy8LP3BF6W/hgqQ5Ka9mlzVnPqc+2Uj/aEWyPeRb3N0BH5E67915scdBv4ccPIA=="],
 
     "body-parser": ["body-parser@2.2.2", "", { "dependencies": { "bytes": "^3.1.2", "content-type": "^1.0.5", "debug": "^4.4.3", "http-errors": "^2.0.0", "iconv-lite": "^0.7.0", "on-finished": "^2.4.1", "qs": "^6.14.1", "raw-body": "^3.0.1", "type-is": "^2.0.1" } }, "sha512-oP5VkATKlNwcgvxi0vM0p/D3n2C3EReYVX+DNYs5TjZFn/oQt2j+4sVJtSMr18pdRr8wjTcBl6LoV+FUwzPmNA=="],
 

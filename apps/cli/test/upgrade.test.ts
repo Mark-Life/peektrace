@@ -16,11 +16,13 @@ import {
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { gzipSync } from "node:zlib";
 import { Command } from "@effect/cli";
 import { BunContext } from "@effect/platform-bun";
 import { Effect } from "effect";
 import { makeUpgrade } from "../src/commands/upgrade";
 import { performUpgrade, sha256Hex } from "../src/upgrade/install";
+import { filterCliReleases } from "../src/upgrade/patch";
 import {
   compareVersions,
   detectAsset,
@@ -44,8 +46,14 @@ const HOST_ASSET =
 /** When true, the server serves a deliberately wrong checksum for the asset. */
 let serveWrongChecksum = false;
 
+/** When false, `<asset>.gz` 404s — a release published before gz assets existed. */
+let serveGz = true;
+
 /** Count of requests the fake server has handled (reset per test as needed). */
 let requestCount = 0;
+
+/** Asset paths the fake server has served, newest last. */
+let servedPaths: string[] = [];
 
 let server: ReturnType<typeof Bun.serve>;
 const savedEnv = {
@@ -69,10 +77,19 @@ beforeAll(() => {
         ]);
       }
       if (pathname.endsWith("/SHA256SUMS")) {
+        // Only the UNCOMPRESSED digest is recorded, whichever route is taken.
         const hex = serveWrongChecksum ? WRONG_HEX : CORRECT_HEX;
         return new Response(`${hex}  ${HOST_ASSET}\n`);
       }
+      if (pathname.endsWith(`/${HOST_ASSET}.gz`)) {
+        if (!serveGz) {
+          return new Response("not found", { status: 404 });
+        }
+        servedPaths.push(pathname);
+        return new Response(gzipSync(PAYLOAD));
+      }
       if (pathname.endsWith(`/${HOST_ASSET}`)) {
+        servedPaths.push(pathname);
         return new Response(PAYLOAD);
       }
       return new Response("not found", { status: 404 });
@@ -169,6 +186,97 @@ describe("upgrade install", () => {
     );
 
     expect(new Uint8Array(readFileSync(target))).toEqual(PAYLOAD);
+  });
+
+  test("prefers the gzipped asset and installs the decompressed bytes", async () => {
+    serveGz = true;
+    servedPaths = [];
+    const dir = mkdtempSync(join(tmpdir(), "peektrace-upgrade-"));
+    const target = join(dir, "peektrace");
+    writeFileSync(target, new Uint8Array([9, 9, 9]));
+
+    const method = await Effect.runPromise(
+      performUpgrade({
+        config: resolveReleaseConfig(),
+        tag: LATEST_TAG,
+        asset: HOST_ASSET,
+        targetPath: target,
+      })
+    );
+
+    // The .gz was the only asset fetched, and what landed on disk is the
+    // decompressed binary that SHA256SUMS covers.
+    expect(servedPaths).toEqual([`/${LATEST_TAG}/${HOST_ASSET}.gz`]);
+    expect(new Uint8Array(readFileSync(target))).toEqual(PAYLOAD);
+    expect(method).toEqual({ _tag: "full", bytes: PAYLOAD.length });
+  });
+
+  test("falls back to the uncompressed asset when a release has no .gz", async () => {
+    serveGz = false;
+    servedPaths = [];
+    const dir = mkdtempSync(join(tmpdir(), "peektrace-upgrade-"));
+    const target = join(dir, "peektrace");
+    writeFileSync(target, new Uint8Array([9, 9, 9]));
+
+    try {
+      await Effect.runPromise(
+        performUpgrade({
+          config: resolveReleaseConfig(),
+          tag: LATEST_TAG,
+          asset: HOST_ASSET,
+          targetPath: target,
+        })
+      );
+    } finally {
+      serveGz = true;
+    }
+
+    expect(servedPaths).toEqual([`/${LATEST_TAG}/${HOST_ASSET}`]);
+    expect(new Uint8Array(readFileSync(target))).toEqual(PAYLOAD);
+  });
+
+  test("skips the delta path outside a compiled binary", async () => {
+    serveGz = true;
+    servedPaths = [];
+    const dir = mkdtempSync(join(tmpdir(), "peektrace-upgrade-"));
+    const target = join(dir, "peektrace");
+    writeFileSync(target, new Uint8Array([9, 9, 9]));
+
+    // `currentTag` is set, so a compiled binary would try to patch first. Under
+    // `bun test` it must fall straight through to the full download.
+    const method = await Effect.runPromise(
+      performUpgrade({
+        config: resolveReleaseConfig(),
+        tag: LATEST_TAG,
+        asset: HOST_ASSET,
+        currentTag: "cli-v0.0.1",
+        targetPath: target,
+      })
+    );
+
+    expect(method._tag).toBe("full");
+    expect(new Uint8Array(readFileSync(target))).toEqual(PAYLOAD);
+  });
+});
+
+describe("filterCliReleases", () => {
+  test("drops the tags that would look like a broken patch chain", () => {
+    expect(
+      filterCliReleases([
+        { tag_name: "cli-v0.4.0" },
+        { tag_name: "desktop-v0.2.0" },
+        { tag_name: "cli-v0.3.0" },
+        { tag_name: "v1.0.0" },
+        { notATag: true },
+      ])
+    ).toEqual([{ tag_name: "cli-v0.4.0" }, { tag_name: "cli-v0.3.0" }]);
+  });
+
+  test("passes a non-array payload through untouched", () => {
+    // e.g. a rate-limit object — the source decides what to do with it.
+    expect(filterCliReleases({ message: "rate limited" })).toEqual({
+      message: "rate limited",
+    });
   });
 });
 

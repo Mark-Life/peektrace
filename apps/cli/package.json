@@ -25,6 +25,7 @@
     "@workspace/core": "workspace:*",
     "@workspace/rpc": "workspace:*",
     "@workspace/telemetry": "workspace:*",
+    "binpatch": "^0.3.2",
     "effect": "latest",
     "react": "19.2.8",
     "react-dom": "19.2.8"

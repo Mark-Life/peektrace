@@ -13,7 +13,12 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # binaries are published as raw assets on the GitHub Release for the tag
 # (peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
 # peektrace-windows-x64.exe + a SHA256SUMS), which the curl|sh / irm|iex
-# installers (scripts/install.sh, scripts/install.ps1) download. The job runs on
+# installers (scripts/install.sh, scripts/install.ps1) download. Each binary
+# also ships a gzipped copy (<asset>.gz, what everything downloads by default)
+# and, when it is small enough to be worth it, a delta patch from the previous
+# cli-v* release (<asset>.patch) that `peektrace upgrade` applies in place.
+# SHA256SUMS records the UNCOMPRESSED digest, which stays the trust anchor for
+# every route. The job runs on
 # macOS so both darwin binaries can be ad-hoc codesigned (free, no Apple
 # account) — without a signature a cross-compiled arm64 binary is 'killed: 9' by
 # the kernel on first launch.
@@ -186,7 +191,101 @@ jobs:
             codesign --verify --verbose "$bin"
           done
 
-      # Checksums the installers verify. Lines: "<sha256>  <asset>".
+      # Gzipped copies of every binary. These are what the installers and
+      # `peektrace upgrade` download by default — roughly a third of the raw
+      # size — with the uncompressed asset kept as the fallback (and as the
+      # integrity anchor: SHA256SUMS records the UNCOMPRESSED digest, so both
+      # routes verify against the same line).
+      - name: Compress release binaries
+        working-directory: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          for bin in peektrace-*; do
+            gzip -9 -c "$bin" > "$bin.gz"
+            printf '%s: %s -> %s bytes\n' "$bin" "$(wc -c < "$bin")" "$(wc -c < "$bin.gz")"
+          done
+
+      # Delta patches. `peektrace upgrade` reads <asset>.patch off the release
+      # to walk an installed binary forward one release at a time instead of
+      # re-downloading ~110 MB; binpatch's githubReleaseSource expects exactly
+      # this asset naming plus the .gz above (whose size it uses as the budget).
+      #
+      # The wire format is TRDIFF10 (bsdiff + zstd) from zig-bsdiff — the same
+      # generator binpatch's own composite action installs. That action is not
+      # used directly because its previous-release lookup takes the newest
+      # release outright, and this repo interleaves desktop-v* tags.
+      - name: Install zig-bsdiff
+        shell: bash
+        env:
+          BSDIFF_VERSION: "0.1.19"
+          BSDIFF_SHA256: e4ae17e632774de5b5c61fa32cb2d79fa9aa5b1fff3d174f2c54f7f0f666dab0
+        run: |
+          set -euo pipefail
+          TARBALL="zig-bsdiff-darwin-arm64.tar.gz"
+          curl --retry 3 --retry-delay 5 --retry-all-errors -sfLo "$TARBALL" \
+            "https://github.com/blackboardsh/zig-bsdiff/releases/download/v${BSDIFF_VERSION}/${TARBALL}"
+          echo "${BSDIFF_SHA256}  ${TARBALL}" | shasum -a 256 -c -
+          sudo tar -xz -C /usr/local/bin < "$TARBALL"
+          rm "$TARBALL"
+
+      # Diff against the previous cli-v* release. Patches are generated from the
+      # SIGNED darwin binaries (this runs after the codesign step) so a patched
+      # binary is byte-identical to the released one and keeps its signature.
+      #
+      # Best-effort: no previous release, a missing asset, or a patch too large
+      # to be worth downloading just means that platform ships without a patch
+      # this release and clients fall back to the full download.
+      - name: Generate delta patches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Gate well under binpatch's client-side 60%-of-gzip ceiling. A
+          # release that moves Bun's own runtime bytes lands far above this.
+          MAX_RATIO: "50"
+        run: |
+          set -euo pipefail
+          PREV_TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq "[.[] | select(.draft == false and (.tag_name | startswith(\"cli-v\")) and .tag_name != \"$TAG\")] | .[0].tag_name // empty")"
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous cli-v* release; publishing without patches."
+            exit 0
+          fi
+          echo "Diffing against $PREV_TAG"
+
+          mkdir -p old
+          for bin in release/peektrace-*; do
+            name="$(basename "$bin")"
+            case "$name" in *.gz | *.patch) continue ;; esac
+
+            # Prefer the previous release's .gz; releases predating it only
+            # carry the raw asset.
+            if gh release download "$PREV_TAG" --repo "$GITHUB_REPOSITORY" \
+                 --pattern "$name.gz" --dir old 2>/dev/null; then
+              gunzip -f "old/$name.gz"
+            elif ! gh release download "$PREV_TAG" --repo "$GITHUB_REPOSITORY" \
+                   --pattern "$name" --dir old 2>/dev/null; then
+              echo "::warning::$PREV_TAG has no $name; skipping its patch."
+              continue
+            fi
+
+            bsdiff "old/$name" "$bin" "release/$name.patch" --use-zstd
+
+            patch_size="$(wc -c < "release/$name.patch")"
+            gz_size="$(wc -c < "release/$name.gz")"
+            ratio="$(awk "BEGIN { printf \"%.0f\", ($patch_size / $gz_size) * 100 }")"
+            if [ "$ratio" -gt "$MAX_RATIO" ]; then
+              echo "::warning::$name.patch is ${ratio}% of the gzipped binary (limit ${MAX_RATIO}%); dropping it."
+              rm "release/$name.patch"
+            else
+              echo "$name.patch: $patch_size bytes (${ratio}% of gzipped)"
+            fi
+            rm -f "old/$name"
+          done
+
+      # Checksums the installers verify. Lines: "<sha256>  <asset>". Covers the
+      # binaries, their .gz copies and the patches.
       - name: Generate SHA256SUMS
         working-directory: release
         run: shasum -a 256 peektrace-* > SHA256SUMS
@@ -205,10 +304,9 @@ jobs:
               --generate-notes \
               --verify-tag
           fi
+          # Globbed rather than listed: the binaries, their .gz copies and
+          # whichever .patch files survived the size gate.
           gh release upload "$TAG" \
-            release/peektrace-darwin-arm64 \
-            release/peektrace-darwin-x64 \
-            release/peektrace-linux-x64 \
-            release/peektrace-windows-x64.exe \
+            release/peektrace-* \
             release/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --clobber
