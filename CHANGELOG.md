@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## cli-v0.4.0 — 2026-07-31
+
+### Added
+
+- **Delta upgrades** (#26). `peektrace upgrade` now patches the installed
+  binary in place instead of re-downloading it. Each release publishes
+  `<asset>.patch` — a bsdiff + zstd delta from the previous `cli-v*` release —
+  which [binpatch](https://github.com/BYK/binpatch) applies as a chain, walking
+  one release at a time and verifying the result against the target's sha256.
+  Measured on the releases already shipped, a typical hop is 29–92 KB against a
+  110 MB binary. A release that moves Bun's own runtime bytes produces a patch
+  too large to be worth downloading (0.2.0 → 0.3.0 came to 52.8% of the gzipped
+  binary), and CI drops it — those upgrades fall back to a full download, as
+  does anything else that misses.
+
+### Changed
+
+- **Gzipped release assets** (#26). Every binary now ships a `.gz` copy, and
+  the installers and `peektrace upgrade` prefer it: a full download of
+  `linux-x64` drops from 116 MB to 41 MB. `SHA256SUMS` still records the
+  *uncompressed* digest, so the compressed, uncompressed and patched routes all
+  verify against one anchor. Releases published before this change carry no
+  `.gz`, and pinning one still works — every consumer falls back to the raw
+  asset.
+
+### Upgrading
+
+```sh
+peektrace upgrade
+```
+
+This release is reached with a full download; the delta path needs the new code
+on both ends, so it starts working from the next release.
+
 ## cli-v0.3.0 — 2026-07-29
 
 ### Added
