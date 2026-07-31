@@ -9,6 +9,10 @@
       "packages/**/*.tsx",
       "!node_modules/**/*",
       "!dist/**/*",
+      // Vendored agent instructions, not source. Biome pulls the markdown in
+      // through the `extends` merge and then errors on it.
+      "!.agents/**/*",
+      "!.claude/**/*",
       "!apps/cli/scripts/npm",
       "!packages/ui/src/components/**/*",
       "!packages/ui/src/hooks/**/*",
