@@ -1,15 +1,17 @@
 /** `peektrace upgrade` — self-update the installed CLI to the latest release.
  *
  * Mirrors `scripts/install.sh`: resolve the target `cli-v*` tag (pinned via
- * `--version`/`PEEKTRACE_VERSION` or the newest from the GitHub API), download the
- * host asset + `SHA256SUMS`, verify the sha256, then atomically replace the
- * running binary. `--check` reports availability and writes nothing. Windows
- * cannot replace a running `.exe` in place, so it punts to the PowerShell
- * installer with a clear message.
+ * `--version`/`PEEKTRACE_VERSION` or the newest from the GitHub API), fetch the
+ * new binary, verify the sha256, then atomically replace the running binary.
+ * Most upgrades arrive as a small binary patch rather than a ~110 MB download;
+ * `performUpgrade` reports which route it took. `--check` reports availability
+ * and writes nothing. Windows cannot replace a running `.exe` in place, so it
+ * punts to the PowerShell installer with a clear message.
  */
 import { Command, Options } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
 import { CliUserError } from "../errors";
+import { bytes } from "../render";
 import { performUpgrade } from "../upgrade/install";
 import {
   compareVersions,
@@ -83,14 +85,19 @@ export const makeUpgrade = () =>
           return;
         }
 
-        yield* Console.log(`Downloading ${detection.asset} (${targetTag})...`);
-        yield* performUpgrade({
+        yield* Console.log(`Fetching ${detection.asset} (${targetTag})...`);
+        const method = yield* performUpgrade({
           config,
           tag: targetTag,
           asset: detection.asset,
+          currentTag: normalizeCliTag(APP_VERSION),
         });
+        const how =
+          method._tag === "delta"
+            ? `patched, ${bytes(method.patchBytes)} downloaded`
+            : `downloaded ${bytes(method.bytes)}`;
         yield* Console.log(
-          `Upgraded to ${targetTag}. It takes effect on the next launch.`
+          `Upgraded to ${targetTag} (${how}). It takes effect on the next launch.`
         );
       })
   );

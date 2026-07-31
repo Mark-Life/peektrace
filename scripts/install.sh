@@ -14,7 +14,8 @@
 #   PEEKTRACE_BASE_URL     Release-download base (default: the GitHub releases URL).
 #   PEEKTRACE_GITHUB_API   Repo API base (default: https://api.github.com/repos/Mark-Life/peektrace).
 #
-# The download URL is always composed as: "$PEEKTRACE_BASE_URL/$tag/$asset".
+# The download URL is always composed as: "$PEEKTRACE_BASE_URL/$tag/$asset",
+# with the gzipped "$asset.gz" preferred when it exists and gunzip is available.
 # Because the base is a variable, the script is fully testable against a local
 # HTTP server by pointing PEEKTRACE_BASE_URL at it and pinning PEEKTRACE_VERSION.
 
@@ -129,6 +130,33 @@ resolve_tag() {
   info "Latest version: $TAG"
 }
 
+# --- download ----------------------------------------------------------------
+
+# Fetch the binary for $TAG into $1, preferring the gzipped asset (about a third
+# of the raw size) and falling back to the uncompressed one. The fallback also
+# covers releases published before .gz assets existed, so pinning an old version
+# keeps working. Either way $1 ends up holding the UNCOMPRESSED binary, which is
+# what SHA256SUMS records.
+# NOTE: `download` reuses the names `_url`/`_dest`, and POSIX sh has no locals,
+# so this function must not use either — hence `_out`/`_gz`.
+download_binary() {
+  _out="$1"
+  _gz="$_out.gz"
+
+  if command -v gunzip >/dev/null 2>&1 &&
+    download "$BASE_URL/$TAG/$ASSET.gz" "$_gz" 2>/dev/null; then
+    if gunzip -c "$_gz" >"$_out" 2>/dev/null; then
+      rm -f "$_gz"
+      return 0
+    fi
+    warn "note: could not decompress $ASSET.gz; falling back to the full binary."
+    rm -f "$_gz" "$_out"
+  fi
+
+  download "$BASE_URL/$TAG/$ASSET" "$_out" ||
+    err "download failed: $BASE_URL/$TAG/$ASSET"
+}
+
 # --- checksum verification ---------------------------------------------------
 
 # Verify that $1 (downloaded file) matches its entry for $ASSET in $2 (SHA256SUMS).
@@ -222,7 +250,6 @@ main() {
   detect_asset
   resolve_tag
 
-  _url="$BASE_URL/$TAG/$ASSET"
   _sums_url="$BASE_URL/$TAG/SHA256SUMS"
 
   # Temp workspace, cleaned up on any exit.
@@ -233,8 +260,7 @@ main() {
   _sums_tmp="$TMPDIR_PEEK/SHA256SUMS"
 
   info "Downloading $ASSET ($TAG)..."
-  download "$_url" "$_bin_tmp" ||
-    err "download failed: $_url"
+  download_binary "$_bin_tmp"
   download "$_sums_url" "$_sums_tmp" ||
     err "download failed: $_sums_url"
 
