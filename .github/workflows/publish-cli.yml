@@ -6,14 +6,17 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # an automatic release; workflow_dispatch stays available for repair runs. The
 # tag is the source of truth for the version: the workflow strips `cli-v`,
 # stamps the bare semver into apps/cli/package.json, then build:npm
-# cross-compiles all four platform binaries on this one host and stages them
+# cross-compiles all five platform binaries on this one host and stages them
 # under dist-npm/.
 #
 # Native installers are the ONLY distribution channel right now. The staged
 # binaries are published as raw assets on the GitHub Release for the tag
 # (peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
-# peektrace-windows-x64.exe + a SHA256SUMS), which the curl|sh / irm|iex
-# installers (scripts/install.sh, scripts/install.ps1) download. Each binary
+# peektrace-linux-arm64, peektrace-windows-x64.exe + a SHA256SUMS), which the
+# curl|sh / irm|iex installers (scripts/install.sh, scripts/install.ps1)
+# download. Both Linux binaries are glibc-only; musl (Alpine) is not shipped.
+#
+# Each binary
 # also ships a gzipped copy (<asset>.gz, what everything downloads by default)
 # and, when it is small enough to be worth it, a delta patch from the previous
 # cli-v* release (<asset>.patch) that `peektrace upgrade` applies in place.
@@ -25,10 +28,10 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 #
 # npm publishing is DISABLED (see the commented step below) pending registry
 # name registration. The npm staging build still runs: build-npm.ts is what
-# produces and lays out the four compiled binaries this workflow releases.
+# produces and lays out the five compiled binaries this workflow releases.
 #
 # npm layout, for whenever it is re-enabled (see apps/cli/scripts/build-npm.ts):
-# four unscoped per-platform packages `peektrace-<platform>-<arch>` (each
+# five unscoped per-platform packages `peektrace-<platform>-<arch>` (each
 # os/cpu-filtered) plus the `peektrace` wrapper whose optionalDependencies pin
 # those variants at the exact version. The variants MUST publish before the
 # wrapper so its optional deps resolve.
@@ -54,9 +57,13 @@ concurrency:
 jobs:
   publish:
     # macOS runner so both darwin binaries can be ad-hoc codesigned before
-    # release (see header). Bun cross-compiles all four targets from here.
+    # release (see header). Bun cross-compiles all five targets from here.
     runs-on: macos-latest
     timeout-minutes: 30
+
+    # Consumed by smoke-linux, which pins the installer to this exact tag.
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
 
     steps:
       - name: Checkout
@@ -76,6 +83,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Derive version from tag
+        id: version
         env:
           RAW_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         shell: bash
@@ -88,6 +96,7 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TAG=$RAW_TAG" >> "$GITHUB_ENV"
+          echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
           echo "Publishing peektrace@$VERSION ($RAW_TAG)"
 
       # `--cpu='*' --os='*'` pulls EVERY optional platform dependency, not just
@@ -96,7 +105,7 @@ jobs:
       # `bun build --compile` folds `process.platform`/`process.arch` to the
       # target's values, so a cross-compile statically imports the TARGET's
       # native package. Without these flags the arm64 macOS runner only has
-      # `@opentui/core-darwin-arm64` installed and the other three targets fail
+      # `@opentui/core-darwin-arm64` installed and the other four targets fail
       # with "Could not resolve: @opentui/core-linux-x64". The lockfile already
       # records all variants, so `--frozen-lockfile` still holds.
       - name: Install dependencies
@@ -163,7 +172,7 @@ jobs:
       #     done
       #     publish_dir "apps/cli/dist-npm/peektrace"
 
-      # Collect the four already-compiled binaries from the staged npm packages
+      # Collect the five already-compiled binaries from the staged npm packages
       # and rename them to the SHARED-CONTRACT release-asset names the installers
       # (scripts/install.sh / scripts/install.ps1) download.
       - name: Collect release binaries
@@ -175,8 +184,10 @@ jobs:
           cp "$DIST/peektrace-darwin-arm64/bin/peektrace"    release/peektrace-darwin-arm64
           cp "$DIST/peektrace-darwin-x64/bin/peektrace"      release/peektrace-darwin-x64
           cp "$DIST/peektrace-linux-x64/bin/peektrace"       release/peektrace-linux-x64
+          cp "$DIST/peektrace-linux-arm64/bin/peektrace"     release/peektrace-linux-arm64
           cp "$DIST/peektrace-win32-x64/bin/peektrace.exe"   release/peektrace-windows-x64.exe
-          chmod +x release/peektrace-darwin-arm64 release/peektrace-darwin-x64 release/peektrace-linux-x64
+          chmod +x release/peektrace-darwin-arm64 release/peektrace-darwin-x64 \
+                   release/peektrace-linux-x64 release/peektrace-linux-arm64
           ls -l release
 
       # Ad-hoc sign BOTH darwin binaries (free, no Apple account). A
@@ -310,3 +321,67 @@ jobs:
             release/peektrace-* \
             release/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --clobber
+
+  # End-to-end check of the published release on real Linux hardware, one job per
+  # arch. The publish job builds every target on macOS and can execute none of
+  # them, so this is the only place a cross-compiled Linux binary actually runs.
+  # It drives the real scripts/install.sh, which also covers uname-based arch
+  # detection, asset naming and checksum verification.
+  #
+  # Runs AFTER publish because it installs from the release, so it cannot gate
+  # one — a failure flags a release to repair via workflow_dispatch. `ubuntu-*-arm`
+  # runners are free for public repos.
+  smoke-linux:
+    needs: publish
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Pinned to the tag just published, so this never races the "newest
+      # cli-v*" API lookup.
+      - name: Install from the published release
+        env:
+          PEEKTRACE_VERSION: ${{ needs.publish.outputs.tag }}
+          PEEKTRACE_INSTALL_DIR: ${{ runner.temp }}/peektrace-bin
+        run: sh scripts/install.sh
+
+      # `serve` is the headless path a VPS actually uses: it boots the server and
+      # serves the embedded inspector UI, which proves the assets survived the
+      # cross-compile. The TUI needs a TTY and is not exercised here. `--no-open`
+      # because a runner has no `xdg-open` to spawn.
+      - name: Run the installed binary
+        env:
+          BIN: ${{ runner.temp }}/peektrace-bin/peektrace
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BIN" --version
+          "$BIN" --help > /dev/null
+
+          "$BIN" serve --port 47321 --no-open &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+
+          for _ in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:47321/; then
+              echo "serve responded on ${{ matrix.arch }}"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::serve never responded on ${{ matrix.arch }}" >&2
+          exit 1

@@ -387,6 +387,12 @@ describe("pure helpers", () => {
     expect(detectAsset("linux", "x64")).toMatchObject({
       asset: "peektrace-linux-x64",
     });
+    // uname spelling too: the startup check reads process.arch, but the same
+    // helper backs anything mirroring install.sh.
+    expect(detectAsset("Linux", "aarch64")).toMatchObject({
+      _tag: "supported",
+      asset: "peektrace-linux-arm64",
+    });
     expect(detectAsset("win32", "x64")).toMatchObject({
       asset: "peektrace-windows-x64.exe",
       os: "windows",

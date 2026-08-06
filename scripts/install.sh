@@ -42,8 +42,22 @@ fail_unsupported() {
   warn "error: $1"
   warn ""
   warn "peektrace has no prebuilt binary for your platform."
-  warn "Supported: macOS (arm64, x64), Linux (x64), Windows (x64)."
+  warn "Supported: macOS (arm64, x64), Linux (x64, arm64 — glibc), Windows (x64)."
   exit 1
+}
+
+# Both Linux binaries are compiled against glibc, so on a musl system (Alpine)
+# the download succeeds and the binary then fails to exec with an opaque error.
+# Warn early rather than let that happen silently. Non-fatal: musl detection is
+# best-effort, and being wrong should not block an otherwise fine install.
+warn_if_musl() {
+  if [ -n "$(ls /lib/ld-musl-* 2>/dev/null)" ] ||
+    (command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl); then
+    warn "warning: this looks like a musl system (e.g. Alpine)."
+    warn "The Linux binaries are built against glibc and will not run here."
+    warn "Build from source instead: bun run --cwd apps/cli build"
+    warn ""
+  fi
 }
 
 # Download URL ($1) to file ($2) using curl, falling back to wget.
@@ -87,8 +101,10 @@ detect_asset() {
     Linux)
       case "$_arch" in
         x86_64 | amd64) ASSET="peektrace-linux-x64" ;;
-        *) fail_unsupported "unsupported Linux architecture: $_arch (only linux-x64 has a prebuilt binary)" ;;
+        aarch64 | arm64) ASSET="peektrace-linux-arm64" ;;
+        *) fail_unsupported "unsupported Linux architecture: $_arch (prebuilt binaries exist for x86_64 and aarch64)" ;;
       esac
+      warn_if_musl
       ;;
     *)
       fail_unsupported "unsupported operating system: $_os"

@@ -17,6 +17,7 @@
  *       bin/peektrace                   os/cpu so npm installs only the host's variant
  *     peektrace-darwin-x64/ ...
  *     peektrace-linux-x64/ ...
+ *     peektrace-linux-arm64/ ...
  *     peektrace-win32-x64/ ...
  *
  * Nothing here is published or logged into: this only builds + stages. `npm publish`
@@ -74,6 +75,7 @@ const TARGETS = [
   { platform: "darwin", arch: "arm64", bunTarget: "bun-darwin-arm64" },
   { platform: "darwin", arch: "x64", bunTarget: "bun-darwin-x64" },
   { platform: "linux", arch: "x64", bunTarget: "bun-linux-x64" },
+  { platform: "linux", arch: "arm64", bunTarget: "bun-linux-arm64" },
   { platform: "win32", arch: "x64", bunTarget: "bun-windows-x64" },
 ] as const satisfies readonly Target[];
 

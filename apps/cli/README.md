@@ -44,7 +44,7 @@ on npm comes from this project.
 The staged layout, for whenever it is re-enabled: a single unscoped `peektrace`
 package shipping prebuilt binaries via `os`/`cpu`-filtered optional dependencies
 — one per platform, named `peektrace-<platform>-<arch>` (`darwin-arm64`,
-`darwin-x64`, `linux-x64`, `win32-x64`). Installing pulls only the host's binary;
+`darwin-x64`, `linux-x64`, `linux-arm64`, `win32-x64`). Installing pulls only the host's binary;
 a tiny Node shim (`peektrace.js`) resolves it and forwards argv. Publish each
 `peektrace-*` variant first, then the `peektrace` wrapper (so its
 optionalDependencies resolve). The scoped `@peektrace/*` naming is a documented
@@ -52,7 +52,10 @@ alternative (needs an npm org) — see the header of `scripts/build-npm.ts`.
 
 ### Running on a VPS / headless server
 
-The Linux binary runs headless. `peektrace serve` binds loopback (`127.0.0.1`)
+Both Linux binaries (x64 and arm64) run headless and are built against glibc;
+`scripts/install.sh` picks the right one from `uname -m`.
+
+`peektrace serve` binds loopback (`127.0.0.1`)
 only by default — nothing is exposed off-box and there is **no auth**. Reach it
 over an SSH tunnel:
 
@@ -68,6 +71,11 @@ peektrace serve --host 0.0.0.0                # no auth — firewall yourself
 
 Only expose it behind a trusted firewall/private network; consider pairing with
 `--read-only`. The default stays loopback-only.
+
+If `peektrace tui` fails with `Failed to open library ... failed to map segment
+from shared object`, `/tmp` is mounted `noexec` — the TUI extracts OpenTUI's
+native library there before loading it. Point `TMPDIR` at an exec-capable
+directory (`TMPDIR=~/.cache/peektrace peektrace tui`). `serve` is unaffected.
 
 ## Execution modes
 
