@@ -23,7 +23,7 @@ const DECIMAL_RADIX = 10;
 
 /** Human summary of the platforms with a prebuilt binary (kept in sync with the installers). */
 export const SUPPORTED_PLATFORMS =
-  "macOS (arm64, x64), Linux (x64), Windows (x64)";
+  "macOS (arm64, x64), Linux (x64, arm64 — glibc), Windows (x64)";
 
 /** Resolved release endpoints + optional pinned tag, from env with install.sh defaults. */
 export interface ReleaseConfig {
@@ -95,9 +95,12 @@ export const detectAsset = (platform: string, arch: string): AssetDetection => {
     if (a === "x64") {
       return { _tag: "supported", asset: "peektrace-linux-x64", os: "linux" };
     }
+    if (a === "arm64") {
+      return { _tag: "supported", asset: "peektrace-linux-arm64", os: "linux" };
+    }
     return {
       _tag: "unsupported",
-      reason: `unsupported Linux architecture: ${arch} (only linux-x64 has a prebuilt binary)`,
+      reason: `unsupported Linux architecture: ${arch} (prebuilt binaries exist for x64 and arm64)`,
     };
   }
   if (platform === "win32" || platform === "windows") {

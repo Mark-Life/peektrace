@@ -71,8 +71,9 @@ Installs to `~/.local/bin` (macOS/Linux) or `%LOCALAPPDATA%\peektrace\bin`
 `PEEKTRACE_VERSION=cli-v1.2.3` (env var on unix, `$env:PEEKTRACE_VERSION` on
 Windows); `PEEKTRACE_INSTALL_DIR` overrides the target directory.
 
-Supported arches are x64 everywhere plus Apple Silicon. On anything else (e.g.
-Linux arm64), build from source with `bun run --cwd apps/cli build`.
+Prebuilt binaries cover macOS (arm64, x64), Linux (x64, arm64) and Windows
+(x64). The Linux binaries are built against glibc — on musl (Alpine) or any
+other platform, build from source with `bun run --cwd apps/cli build`.
 
 Then:
 
