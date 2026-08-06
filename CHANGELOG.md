@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+## cli-v0.5.0 — 2026-08-06
+
+### Added
+
+- **Linux arm64 binary** (#29). `peektrace-linux-arm64` is now built and
+  released, so Ampere and Graviton VPSes and Raspberry Pis install like any
+  other platform. Before this, `install.sh` on an aarch64 box failed outright
+  with `unsupported Linux architecture` — no asset existed to download.
+  `peektrace upgrade` resolves the same asset.
+- **Linux smoke test after publish** (#29). The publish job cross-compiles
+  every target on macOS and can execute none of them, so a new `smoke-linux`
+  job installs the freshly published release on `ubuntu-latest` and
+  `ubuntu-24.04-arm` through the real `install.sh` — covering arch detection,
+  asset naming and checksum verification — then runs `--version` and boots
+  `serve` against the embedded UI. It runs after publish, so it flags a bad
+  release rather than gating one; repair with `workflow_dispatch`.
+
+### Changed
+
+- **musl is called out, not silently broken** (#29). Both Linux binaries are
+  glibc-only. On Alpine the install used to "succeed" and then fail to exec
+  with an opaque error; `install.sh` now detects a musl loader and points at a
+  source build instead.
+
+### Upgrading
+
+```sh
+peektrace upgrade
+```
+
+arm64 Linux has no prior release to patch from, so its first upgrade is a full
+download; deltas resume next release.
+
 ## cli-v0.4.0 — 2026-07-31
 
 ### Added
