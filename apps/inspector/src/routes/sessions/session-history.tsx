@@ -6,6 +6,11 @@
  * drill down as their own cards. The transcript is REDACTED BY DEFAULT behind a
  * persistent "review before sharing" banner; the reveal toggle re-fetches with
  * `redact:false` (handled by the parent atom).
+ *
+ * Tool calls and results render through the vendored AI Elements `Tool`
+ * primitives; every other kind stays a plain disclosure row. One row per event
+ * either way — pairing a call with its result into a single card would reorder
+ * the transcript and merge two token figures, and this is a forensics view.
  */
 import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
 import type {
@@ -13,9 +18,13 @@ import type {
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
 import {
-  CodeBlock,
-  CodeBlockCopyButton,
-} from "@workspace/ui/components/ai-elements/code-block";
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+  type ToolState,
+} from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -32,13 +41,13 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { Switch } from "@workspace/ui/components/switch";
-import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import {
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  CornerDownLeftIcon,
   ShieldAlertIcon,
 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
@@ -48,6 +57,15 @@ import {
   type SessionView,
   subagentCollapseId,
 } from "../../lib/session-view";
+import {
+  callView,
+  EMPTY_BODY,
+  indexTools,
+  isToolEvent,
+  resultPane,
+  toolNameOf,
+  toolState,
+} from "../../lib/tool-event";
 import { sameEvent } from "../../lib/transcript-row";
 
 /** Event-kind options for the history type filter. */
@@ -77,68 +95,19 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
-/** Languages we highlight transcript bodies as. */
-type BodyLang = Exclude<CodeBlockLanguage, "text">;
+/** Turn-number gutter, shared by every transcript row. */
+const TurnGutter = ({ turn }: { readonly turn: number }) => (
+  <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
+    t{turn}
+  </span>
+);
 
-const parseJson = (s: string): unknown => {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return;
-  }
-};
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
-/** Join `{ type: "text", text }` blocks (standard tool_result content). */
-const textFromBlocks = (v: unknown): string | null => {
-  if (!Array.isArray(v)) {
-    return null;
-  }
-  const texts = v
-    .filter(
-      (b): b is { text: string } =>
-        isRecord(b) && b.type === "text" && typeof b.text === "string"
-    )
-    .map((b) => b.text);
-  return texts.length > 0 ? texts.join("\n\n") : null;
-};
-
-/**
- * Turn a raw event body into a syntax-highlightable block, unwrapping
- * JSON-encoded tool payloads so escaped newlines render as real lines
- * (e.g. an executor `code` arg or a JSON result string). Returns null to
- * fall back to plain <pre> for prose, thinking, and non-JSON errors.
- */
-const displayBody = (
-  e: TimelineEvent
-): { code: string; language: BodyLang } | null => {
-  if (e.kind === "tool-call") {
-    const input = parseJson(e.body);
-    if (isRecord(input)) {
-      if (typeof input.code === "string") {
-        return { code: input.code, language: "typescript" };
-      }
-      if (typeof input.command === "string") {
-        return { code: input.command, language: "bash" };
-      }
-    }
-    return { code: e.body, language: "json" };
-  }
-  if (e.kind === "tool-result") {
-    const parsed = parseJson(e.body);
-    if (parsed === undefined) {
-      return null;
-    }
-    const text = textFromBlocks(parsed);
-    if (text !== null) {
-      return { code: text, language: "markdown" };
-    }
-    return { code: JSON.stringify(parsed, null, 2), language: "json" };
-  }
-  return null;
-};
+/** Per-event token estimate, right-aligned. */
+const TokenCount = ({ tokens }: { readonly tokens: number }) => (
+  <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
+    {tokens ? `~${fmt(tokens)}` : ""}
+  </span>
+);
 
 /** What one transcript row needs; `onToggle` must be stable (see `EventRow`). */
 interface EventRowProps {
@@ -149,7 +118,99 @@ interface EventRowProps {
   readonly turn: number;
 }
 
-/** One collapsible transcript event; open state is controlled by the parent. */
+/** Two renders of the same row: same state, same rendered event fields. */
+const sameRow = (prev: EventRowProps, next: EventRowProps) =>
+  prev.open === next.open &&
+  prev.turn === next.turn &&
+  prev.collapseId === next.collapseId &&
+  prev.onToggle === next.onToggle &&
+  sameEvent(prev.e, next.e);
+
+/** A tool row also needs its name and outcome, which come from the paired event.
+ *  The parent resolves both so the row compares two strings instead of the whole
+ *  tool index — the index is rebuilt on every re-analysis of a live session. */
+interface ToolRowProps extends EventRowProps {
+  readonly name: string;
+  readonly state: ToolState;
+}
+
+const sameToolRow = (prev: ToolRowProps, next: ToolRowProps) =>
+  prev.name === next.name && prev.state === next.state && sameRow(prev, next);
+
+/**
+ * A tool call or its result, rendered with the AI Elements `Tool` primitives at
+ * transcript density: the header keeps the turn, outcome, summary and token
+ * figures a forensics read needs; the content labels each payload pane.
+ */
+const ToolEventRowBody = ({
+  collapseId,
+  e,
+  name,
+  onToggle,
+  open,
+  state,
+  turn,
+}: ToolRowProps) => {
+  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
+  const view = e.kind === "tool-call" ? callView(e) : null;
+  const result = view ? null : resultPane(e);
+  return (
+    <Tool
+      className="rounded-none border-0 border-b"
+      data-kind={e.kind}
+      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-testid="history-event"
+      onOpenChange={onOpenChange}
+      open={open}
+    >
+      <ToolHeader
+        className="px-2 py-1.5 text-sm hover:bg-muted/40"
+        icon={
+          view ? undefined : (
+            <CornerDownLeftIcon className="size-3.5 shrink-0 text-muted-foreground" />
+          )
+        }
+        lead={<TurnGutter turn={turn} />}
+        name={name}
+        state={state}
+      >
+        {e.isSidechain ? (
+          <Badge className="shrink-0" variant="secondary">
+            sidechain
+          </Badge>
+        ) : null}
+        <span className="truncate text-muted-foreground text-xs">
+          {(view ? view.summary : e.preview) || "(empty)"}
+        </span>
+        <TokenCount tokens={e.tokensEst} />
+      </ToolHeader>
+      <ToolContent className="max-h-96 overflow-auto">
+        {view
+          ? view.panes.map((p) => (
+              <ToolInput
+                code={p.code}
+                key={p.label}
+                label={p.label}
+                language={p.language}
+              />
+            ))
+          : null}
+        {result ? (
+          <ToolOutput
+            code={result.code}
+            isError={e.isError === true}
+            language={result.language}
+          />
+        ) : null}
+      </ToolContent>
+    </Tool>
+  );
+};
+
+/** One tool row, re-rendered only when its own content or state changes. */
+const ToolEventRow = memo(ToolEventRowBody, sameToolRow);
+
+/** One collapsible non-tool event; open state is controlled by the parent. */
 const EventRowBody = ({
   e,
   turn,
@@ -159,11 +220,10 @@ const EventRowBody = ({
 }: EventRowProps) => {
   const onOpenChange = (next: boolean) => onToggle(collapseId, next);
   const hasBody = e.body.trim().length > 0;
-  const view = hasBody ? displayBody(e) : null;
   const emptyText =
     e.kind === "assistant-thinking"
       ? "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band."
-      : "(no content)";
+      : EMPTY_BODY;
   return (
     <Collapsible
       className="border-border border-b"
@@ -175,9 +235,7 @@ const EventRowBody = ({
     >
       <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
         <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
-        <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
-          t{turn}
-        </span>
+        <TurnGutter turn={turn} />
         <Badge className="shrink-0" variant="outline">
           {eventBadgeLabel(e)}
         </Badge>
@@ -189,38 +247,16 @@ const EventRowBody = ({
         <span className="truncate text-muted-foreground text-xs">
           {e.preview || "(empty)"}
         </span>
-        <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
-          {e.tokensEst ? `~${fmt(e.tokensEst)}` : ""}
-        </span>
+        <TokenCount tokens={e.tokensEst} />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        {view ? (
-          <div className="max-h-96 overflow-auto">
-            <CodeBlock
-              className="[&_pre]:whitespace-pre-wrap! [&_pre]:wrap-break-word! rounded-none border-0 border-t [&_code]:text-[11px]! [&_pre]:p-3! [&_pre]:text-[9px]! [&_pre]:leading-relaxed!"
-              code={view.code}
-              language={view.language}
-            >
-              <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
-            </CodeBlock>
-          </div>
-        ) : (
-          <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
-            {hasBody ? e.body : emptyText}
-          </pre>
-        )}
+        <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
+          {hasBody ? e.body : emptyText}
+        </pre>
       </CollapsibleContent>
     </Collapsible>
   );
 };
-
-/** Two renders of the same row: same state, same rendered event fields. */
-const sameRow = (prev: EventRowProps, next: EventRowProps) =>
-  prev.open === next.open &&
-  prev.turn === next.turn &&
-  prev.collapseId === next.collapseId &&
-  prev.onToggle === next.onToggle &&
-  sameEvent(prev.e, next.e);
 
 /** One transcript row, re-rendered only when its own content or state changes. */
 const EventRow = memo(EventRowBody, sameRow);
@@ -290,6 +326,7 @@ export const SessionHistory = ({
 }) => {
   const { query, kind, redacted } = view.state;
   const turns = useMemo(() => turnNumbers(a), [a]);
+  const tools = useMemo(() => indexTools(a), [a]);
 
   const crossEvtIdx =
     a.dumbZoneCrossTurn >= 0
@@ -459,13 +496,25 @@ export const SessionHistory = ({
                 turn {a.dumbZoneCrossTurn + 1}
               </div>
             ) : null}
-            <EventRow
-              collapseId={eventCollapseId(pos)}
-              e={e}
-              onToggle={onToggle}
-              open={isOpen(eventCollapseId(pos))}
-              turn={turns[pos] ?? 0}
-            />
+            {isToolEvent(e) ? (
+              <ToolEventRow
+                collapseId={eventCollapseId(pos)}
+                e={e}
+                name={toolNameOf(e, tools)}
+                onToggle={onToggle}
+                open={isOpen(eventCollapseId(pos))}
+                state={toolState(e, tools)}
+                turn={turns[pos] ?? 0}
+              />
+            ) : (
+              <EventRow
+                collapseId={eventCollapseId(pos)}
+                e={e}
+                onToggle={onToggle}
+                open={isOpen(eventCollapseId(pos))}
+                turn={turns[pos] ?? 0}
+              />
+            )}
           </div>
         ))}
         {visible.length === 0 ? (
