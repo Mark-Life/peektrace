@@ -4,6 +4,8 @@
 
 **Recommendation: adopt for one chart now (`type-donut`), wait on the rest.** Details and the trigger conditions are at the end.
 
+**Status: done.** `type-donut` now ships on TanStack Charts, Recharts and `packages/ui/src/components/chart.tsx` are deleted, and the measured result is in [Outcome](#outcome) at the bottom. `growth-timeline` and `link-graph` are unchanged; their ports live in `packages/viz/spike/` and ship to nobody.
+
 ---
 
 ## First, a correction to the premise
@@ -218,22 +220,68 @@ Two changes would move the answer *sooner*:
 
 Two things would move it *later*: any removed export before 1.0, or a breaking change to the polar entry.
 
+## Outcome
+
+The donut port landed. What follows is measured on the real app, not on per-chart
+entry points, and corrects two things the spike got wrong.
+
+### Bundle
+
+Whole `apps/inspector` production build, every asset in `dist/assets`, `gzip -9`:
+
+| Chunk | Before | After | Δ |
+|---|---:|---:|---:|
+| `vendor` (Recharts lived here) | 163.78 KiB | 104.23 KiB | **−59.6 KiB** |
+| `index` (app) | 37.30 KiB | 36.03 KiB | −1.3 KiB |
+| `index.css` | 25.19 KiB | 24.60 KiB | −0.6 KiB |
+| `vendor-radix` | 19.87 KiB | 19.71 KiB | −0.2 KiB |
+| **Total dist** | **388.3 KiB** | **328.9 KiB** | **−59.3 KiB (−15.2%)** |
+
+Modules transformed dropped 1742 → 1305. The >500 KB chunk warning no longer
+fires. The CSS shrank because `chart.tsx`'s `[&_.recharts-*]` selector wall went
+with it.
+
+The spike predicted −68.1 KiB from per-chart trees. The real figure is −59.3 KiB,
+because TanStack shares `d3-*` and `es-toolkit` with code the inspector already
+loads, so its 30.4 KiB does not land whole.
+
+### The donut itself
+
+Before, the three slices were one flat ring: `--chart-1..5` are five lightness
+steps of a single cyan hue, and Recharts drew them edge to edge. A `gapAngle`
+seam now separates them, which is the only deliberate visual change. The ring
+also fills its 140px box, because `ResponsiveContainer` was insetting it.
+
+Verified in a browser in both themes, which the spike could not do — this closes
+its "Unverified" list for the donut. Hover tooltip, keyboard focus and arrow
+traversal all work; the emitted SVG carries `role="img"`, `aria-label` and
+`aria-roledescription="chart"`.
+
+### Correction: SSR was not the reason
+
+The spike argued the served inspector gains a donut that server-renders. It does
+not. `peektrace serve` hosts a static Vite `dist/`; the inspector is a SPA with
+no server render at any point, and the donut is inspector-only — `apps/web` never
+imported it. The SSR table stands as a property of the libraries and is why the
+harness is kept, but it did not apply to this migration. The real wins were
+bundle size and the flat-ring rendering.
+
 ## Reproducing
 
 ```sh
 bun run packages/viz/spike/ssr-report.tsx   # SSR comparison table
-cd packages/viz && bun run typecheck        # all three ports, no casts
+cd packages/viz && bun run typecheck        # shipping donut + both ports, no casts
+bun run --filter=inspector build            # bundle figures in the Outcome table
 ```
 
-Bundle figures: `bun build packages/viz/<entry>.tsx --target=browser --minify --external react --external react-dom --external '@workspace/*'`, then `gzip -9`.
+Per-chart bundle figures in the earlier tables: `bun build packages/viz/<entry>.tsx --target=browser --minify --external react --external react-dom --external '@workspace/*'`, then `gzip -9`.
 
-## Unverified
+## Still unverified
 
-Stated plainly, because this environment has no browser:
+The donut was rendered and checked in both themes before it shipped, so the
+original caveats no longer apply to it. They still apply to the two unported
+candidates in `packages/viz/spike/`:
 
-- No port was rendered visually. Geometry correctness is inferred from the SSR SVG output (element counts, path data, scaled coordinates), not from looking at it.
-- The hatch pattern's cross-SVG `url(#…)` reference is emitted correctly but was never painted.
-- Light/dark was assessed by reading which colour sources each implementation uses, not by toggling a theme.
-- No screen-reader or keyboard testing against a live DOM; the accessibility table reflects emitted markup and documented behaviour.
-
-Anyone acting on the donut recommendation should render it once in both themes first. That is a five-minute check and it is the only gap between this write-up and a decision.
+- Neither was rendered visually. Geometry is inferred from SSR SVG output, not from looking at it.
+- The timeline's hatch pattern emits its cross-SVG `url(#…)` reference correctly but was never painted.
+- No screen-reader testing against a live DOM for either.

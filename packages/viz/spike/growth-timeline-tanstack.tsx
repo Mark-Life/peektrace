@@ -44,7 +44,12 @@ import type {
 } from "@workspace/core/services/sessions/schema";
 import { cn } from "@workspace/ui/lib/utils";
 import { useId, useMemo } from "react";
-import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
+import {
+  CAT_META,
+  fmtK,
+  PERCENT,
+  STACK_ORDER,
+} from "../src/lib/session-format";
 
 /** Slices core infers rather than measures; drawn with a hatch overlay. */
 const HATCHED = new Set<BudgetKey>(["system_tools", "unattributed"]);

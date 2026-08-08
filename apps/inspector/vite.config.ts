@@ -56,7 +56,7 @@ export default defineConfig({
           if (id.includes("node_modules/lucide-react/")) {
             return "vendor-icons";
           }
-          // Everything else third-party (tailwind-merge, recharts, etc.).
+          // Everything else third-party (tailwind-merge, @tanstack/charts, …).
           return "vendor";
         },
       },

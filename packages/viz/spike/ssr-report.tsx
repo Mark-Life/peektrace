@@ -1,19 +1,19 @@
 /** SPIKE scratch — SSR comparison harness. Not part of the package build.
  *
- * Server-renders the hand-rolled, Recharts and TanStack Charts components with
- * `react-dom/server` and reports what actually reaches the HTML. Run with:
+ * Server-renders the shipping components and the two unported TanStack Charts
+ * candidates with `react-dom/server`, and reports what actually reaches the
+ * HTML. Run with:
  *   bun run packages/viz/spike/ssr-report.tsx
  */
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { GrowthTimeline } from "../src/components/growth-timeline";
-import { GrowthTimelineTanstack } from "../src/components/growth-timeline-tanstack";
 import { LinkGraph } from "../src/components/link-graph";
-import { LinkGraphTanstack } from "../src/components/link-graph-tanstack";
 import { TypeDonut } from "../src/components/type-donut";
-import { TypeDonutTanstack } from "../src/components/type-donut-tanstack";
 import { MOCK_GRAPH, MOCK_TYPE_COUNTS } from "../src/mock/memory";
 import { MOCK_SESSION } from "../src/mock/session";
+import { GrowthTimelineTanstack } from "./growth-timeline-tanstack";
+import { LinkGraphTanstack } from "./link-graph-tanstack";
 
 const report = (name: string, html: string) => {
   const count = (re: RegExp) => html.match(re)?.length ?? 0;
@@ -51,8 +51,7 @@ run(
 );
 run("link-graph (hand-rolled SVG)", <LinkGraph graph={MOCK_GRAPH} />);
 run("link-graph (TanStack Charts)", <LinkGraphTanstack graph={MOCK_GRAPH} />);
-run("type-donut (Recharts)", <TypeDonut typeCounts={MOCK_TYPE_COUNTS} />);
 run(
   "type-donut (TanStack Charts)",
-  <TypeDonutTanstack typeCounts={MOCK_TYPE_COUNTS} />
+  <TypeDonut typeCounts={MOCK_TYPE_COUNTS} />
 );
