@@ -12,6 +12,9 @@
     "./mock/*": "./src/mock/*.ts"
   },
   "dependencies": {
+    "@tanstack/charts": "0.7.2",
+    "@tanstack/charts-scales": "0.7.2",
+    "@tanstack/react-charts": "0.7.2",
     "@workspace/core": "workspace:*",
     "@workspace/ui": "workspace:*",
     "effect": "latest",
