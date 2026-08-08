@@ -46,3 +46,6 @@ npm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# Wire-capture spike output (raw request bodies — never commit these)
+.wire-capture/
