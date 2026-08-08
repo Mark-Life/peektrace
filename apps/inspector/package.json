@@ -10,8 +10,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "effect": "latest",
     "@effect/rpc": "latest",
     "@effect/platform": "latest",
