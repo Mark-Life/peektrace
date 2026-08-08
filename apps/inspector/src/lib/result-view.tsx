@@ -3,7 +3,8 @@
  * `Result` is the loading/success/failure union the RPC query atoms produce.
  * This collapses the three branches into a single declarative surface so screens
  * never juggle `isLoading` / `error` flag bags. `waiting` (a refetch over stale
- * data) re-uses the success renderer with a subtle pulse rather than blanking.
+ * data) renders the stale value untouched — freshness is signalled once, quietly,
+ * by `WatchStatus` in the shell header, never by animating the content.
  */
 import { Result } from "@effect-atom/atom-react";
 import {
@@ -67,11 +68,11 @@ export const ResultView = <A, E>({
     return <FailureView cause={result.cause} />;
   }
   if (Result.isSuccess(result)) {
-    return (
-      <div className={result.waiting ? "animate-pulse" : undefined}>
-        {children(result.value)}
-      </div>
-    );
+    // A refetch over data already on screen renders that data and nothing else:
+    // no wrapper, no pulse, no remount. `result.waiting` is reported by the
+    // `WatchStatus` dot in the shell header instead — dimming a live transcript
+    // once per agent write is what made it unreadable.
+    return <>{children(result.value)}</>;
   }
   return <>{pending ?? <DefaultPending />}</>;
 };

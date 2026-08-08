@@ -31,6 +31,7 @@ import type { ComponentType, CSSProperties, ReactNode } from "react";
 import { hasInsetTitlebar } from "../lib/host";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
 import { ThemeToggle } from "../lib/theme";
+import { WatchStatus } from "./watch-status";
 
 /** Nav entry: section id, label, and its icon. */
 interface NavItem {
@@ -98,12 +99,13 @@ const TitlebarDragRegion = () => {
   );
 };
 
-/** Content header: section title, plus the sidebar toggle. */
+/** Content header: section title, the sidebar toggle, and the sync dot. */
 const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
   <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
     <SidebarTrigger className="-ml-1" />
     <span className="font-medium text-sm">{active?.label}</span>
     <span className="text-muted-foreground text-xs">{active?.hint}</span>
+    <WatchStatus />
   </header>
 );
 
