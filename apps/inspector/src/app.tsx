@@ -3,7 +3,6 @@ import { Toaster } from "@workspace/ui/components/sonner";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { AppShell } from "./components/app-shell";
 import { useRoute } from "./lib/routes";
-import { useWatchRefresh } from "./lib/watch-atoms";
 import { CapabilitiesRoute } from "./routes/capabilities-route";
 import { MemoryRoute } from "./routes/memory-route";
 import { SessionsRoute } from "./routes/sessions-route";
@@ -24,15 +23,16 @@ const Screen = () => {
   return <MemoryRoute />;
 };
 
-/** The inspector application root. */
-export const App = () => {
-  useWatchRefresh();
-  return (
-    <TooltipProvider delayDuration={150}>
-      <AppShell>
-        <Screen />
-      </AppShell>
-      <Toaster position="bottom-right" richColors />
-    </TooltipProvider>
-  );
-};
+/** The inspector application root.
+ *
+ * Deliberately subscribes to nothing: the filesystem watch poll lives in the
+ * `WatchStatus` leaf inside the shell, so a disk change never re-renders the
+ * whole tree. */
+export const App = () => (
+  <TooltipProvider delayDuration={150}>
+    <AppShell>
+      <Screen />
+    </AppShell>
+    <Toaster position="bottom-right" richColors />
+  </TooltipProvider>
+);

@@ -40,13 +40,14 @@ import {
   ChevronsUpDownIcon,
   ShieldAlertIcon,
 } from "lucide-react";
-import { useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import {
   eventCollapseId,
   type SessionView,
   subagentCollapseId,
 } from "../../lib/session-view";
+import { sameEvent } from "../../lib/transcript-row";
 
 /** Event-kind options for the history type filter. */
 const KIND_OPTIONS = [
@@ -138,18 +139,24 @@ const displayBody = (
   return null;
 };
 
+/** What one transcript row needs; `onToggle` must be stable (see `EventRow`). */
+interface EventRowProps {
+  readonly collapseId: string;
+  readonly e: TimelineEvent;
+  readonly onToggle: (id: string, open: boolean) => void;
+  readonly open: boolean;
+  readonly turn: number;
+}
+
 /** One collapsible transcript event; open state is controlled by the parent. */
-const EventRow = ({
+const EventRowBody = ({
   e,
   turn,
   open,
-  onOpenChange,
-}: {
-  readonly e: TimelineEvent;
-  readonly turn: number;
-  readonly open: boolean;
-  readonly onOpenChange: (open: boolean) => void;
-}) => {
+  collapseId,
+  onToggle,
+}: EventRowProps) => {
+  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
   const hasBody = e.body.trim().length > 0;
   const view = hasBody ? displayBody(e) : null;
   const emptyText =
@@ -205,6 +212,17 @@ const EventRow = ({
     </Collapsible>
   );
 };
+
+/** Two renders of the same row: same state, same rendered event fields. */
+const sameRow = (prev: EventRowProps, next: EventRowProps) =>
+  prev.open === next.open &&
+  prev.turn === next.turn &&
+  prev.collapseId === next.collapseId &&
+  prev.onToggle === next.onToggle &&
+  sameEvent(prev.e, next.e);
+
+/** One transcript row, re-rendered only when its own content or state changes. */
+const EventRow = memo(EventRowBody, sameRow);
 
 /** Subagent (sidechain) transcript cards — each runs in its own window. */
 const Subagents = ({
@@ -307,18 +325,31 @@ export const SessionHistory = ({
   );
 
   const isOpen = (id: string) => expandAll || view.isExpanded(id);
-  const onToggle = (id: string, open: boolean) => {
-    if (expandAll) {
-      if (open) {
+
+  // `allIds` changes whenever a live session grows, but the toggle handler must
+  // not: every row is memoized on it, and a new handler would re-render the whole
+  // transcript on each append. Read the current ids through a ref instead — the
+  // handler only ever reads them on click.
+  const allIdsRef = useRef(allIds);
+  useEffect(() => {
+    allIdsRef.current = allIds;
+  }, [allIds]);
+
+  const onToggle = useCallback(
+    (id: string, open: boolean) => {
+      if (expandAll) {
+        if (open) {
+          return;
+        }
+        // Collapsing one while all-open: materialize the rest, drop the flag.
+        view.setExpanded(allIdsRef.current.filter((x) => x !== id));
+        setHashParam("expand", null);
         return;
       }
-      // Collapsing one while all-open: materialize the rest, drop the flag.
-      view.setExpanded(allIds.filter((x) => x !== id));
-      setHashParam("expand", null);
-      return;
-    }
-    view.toggleExpanded(id, open);
-  };
+      view.toggleExpanded(id, open);
+    },
+    [expandAll, view.setExpanded, view.toggleExpanded]
+  );
 
   const allOpen =
     expandAll ||
@@ -428,8 +459,9 @@ export const SessionHistory = ({
               </div>
             ) : null}
             <EventRow
+              collapseId={eventCollapseId(pos)}
               e={e}
-              onOpenChange={(o) => onToggle(eventCollapseId(pos), o)}
+              onToggle={onToggle}
               open={isOpen(eventCollapseId(pos))}
               turn={turns[pos] ?? 0}
             />
