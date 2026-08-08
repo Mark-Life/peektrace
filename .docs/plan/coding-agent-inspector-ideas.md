@@ -199,6 +199,10 @@ Tags: **[value]** high / med / low · **[effort]** S/M/L · **[risk]** read-only
 - **`session-report` skill duplicated in 3 agents** → drift detector is demoable on day one.
 - **Codex memory is auto-generated SQLite, not editable text** → memory editing must be agent-aware; don't assume markdown.
 - **MCP scattered across 3 formats** → unified MCP view is an obvious unmet need.
+- **The transcript never records tool definitions** → 77–94% of a real context
+  window is tool-schema JSON that exists only on the wire. Measured in
+  [`.docs/spike/wire-capture.md`](../spike/wire-capture.md), which also shows a
+  local capture proxy needs no CA install.
 
 ---
 
