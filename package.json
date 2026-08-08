@@ -1,5 +1,7 @@
 {
   "overrides": {
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "effect": "3.21.4",
     "@effect/cli": "0.75.2",
     "@effect/platform": "0.96.2",

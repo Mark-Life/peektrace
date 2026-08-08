@@ -20,6 +20,12 @@ const REACT_RE = /node_modules\/(react|react-dom|scheduler)\//;
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    // Workspace packages carry their own `react` dependency, so a version drift
+    // between them and this app resolves to two React copies. The second one
+    // has a null dispatcher and every hook call throws at render time.
+    dedupe: ["react", "react-dom"],
+  },
   server: {
     proxy: {
       "/rpc": {
@@ -50,7 +56,7 @@ export default defineConfig({
           if (id.includes("node_modules/lucide-react/")) {
             return "vendor-icons";
           }
-          // Everything else third-party (tailwind-merge, recharts, etc.).
+          // Everything else third-party (tailwind-merge, @tanstack/charts, …).
           return "vendor";
         },
       },
