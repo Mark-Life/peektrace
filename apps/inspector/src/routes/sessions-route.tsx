@@ -17,13 +17,34 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty";
+import { Skeleton } from "@workspace/ui/components/skeleton";
 import { cn } from "@workspace/ui/lib/utils";
 import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
+import { lazy, Suspense } from "react";
 import { sessionsListAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
 import { closeSession, openSession, useSelectedSessionId } from "../lib/routes";
-import { SessionDetail } from "./sessions/session-detail";
 import { SessionList } from "./sessions/session-list";
+
+/** The detail pane only mounts once a session is picked, and it owns the two
+ *  heaviest leaves on this route — the forensic charts and the `@tanstack/highlight`
+ *  tokenizer behind the transcript's code blocks. Splitting it keeps the rail,
+ *  which is what an empty hash actually paints, off both. */
+const SessionDetail = lazy(() =>
+  import("./sessions/session-detail").then((m) => ({
+    default: m.SessionDetail,
+  }))
+);
+
+/** Matches `ResultView`'s pending skeleton, which is what replaces it a beat
+ *  later while `sessions.analyze` is in flight. */
+const DetailFallback = () => (
+  <div className="flex flex-col gap-3" data-testid="session-detail-pending">
+    <Skeleton className="h-8 w-48" />
+    <Skeleton className="h-32 w-full" />
+    <Skeleton className="h-32 w-full" />
+  </div>
+);
 
 /** Detail-pane placeholder shown on `md+` when no session is selected. */
 const NoSelection = () => (
@@ -89,11 +110,13 @@ export const SessionsRoute = () => {
                 )}
               >
                 {selected ? (
-                  <SessionDetail
-                    id={selected}
-                    key={selected}
-                    onBack={closeSession}
-                  />
+                  <Suspense fallback={<DetailFallback />}>
+                    <SessionDetail
+                      id={selected}
+                      key={selected}
+                      onBack={closeSession}
+                    />
+                  </Suspense>
                 ) : (
                   <NoSelection />
                 )}

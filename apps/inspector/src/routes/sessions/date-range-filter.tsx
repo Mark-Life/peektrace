@@ -7,7 +7,6 @@
  * span the loaded headers actually cover.
  */
 import { Button } from "@workspace/ui/components/button";
-import { Calendar } from "@workspace/ui/components/calendar";
 import {
   Popover,
   PopoverContent,
@@ -15,7 +14,25 @@ import {
 } from "@workspace/ui/components/popover";
 import { cn } from "@workspace/ui/lib/utils";
 import { CalendarIcon, XIcon } from "lucide-react";
+import { lazy, Suspense } from "react";
 import type { DateRange } from "react-day-picker";
+
+/** `react-day-picker` and its `date-fns` dependency are ~66 KB, and the sessions
+ *  rail is the first thing the app paints. The popover only mounts its content
+ *  when opened, so the chunk is fetched the first time someone filters by date;
+ *  the type-only `DateRange` import above is erased and costs nothing. */
+const Calendar = lazy(() =>
+  import("@workspace/ui/components/calendar").then((m) => ({
+    default: m.Calendar,
+  }))
+);
+
+/** Reserves the calendar's footprint so the popover doesn't resize on load. */
+const CalendarFallback = () => (
+  <div aria-busy="true" className="size-64" role="status">
+    <span className="sr-only">Loading calendar…</span>
+  </div>
+);
 
 /** Zero-padded to two digits. */
 const pad = (n: number): string => String(n).padStart(2, "0");
@@ -91,20 +108,22 @@ export const DateRangeFilter = ({
         ) : null}
       </div>
       <PopoverContent align="start" className="w-auto p-0">
-        <Calendar
-          autoFocus
-          defaultMonth={range?.from ?? last}
-          disabled={
-            first && last
-              ? { before: first, after: last }
-              : { before: new Date(0) }
-          }
-          endMonth={last}
-          mode="range"
-          onSelect={onChange}
-          selected={range}
-          startMonth={first}
-        />
+        <Suspense fallback={<CalendarFallback />}>
+          <Calendar
+            autoFocus
+            defaultMonth={range?.from ?? last}
+            disabled={
+              first && last
+                ? { before: first, after: last }
+                : { before: new Date(0) }
+            }
+            endMonth={last}
+            mode="range"
+            onSelect={onChange}
+            selected={range}
+            startMonth={first}
+          />
+        </Suspense>
       </PopoverContent>
     </Popover>
   );
