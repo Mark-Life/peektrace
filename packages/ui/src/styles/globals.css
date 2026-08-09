@@ -1,8 +1,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-@source "../../../apps/**/*.{ts,tsx}";
-@source "../../../components/**/*.{ts,tsx}";
+/* `@source` is resolved against this file, i.e. `packages/ui/src/styles`. The
+ * consuming app's own files are picked up by Tailwind's automatic detection
+ * from its project root, so only the sibling workspace packages need naming —
+ * `../../../apps/**` and `../../../components/**` used to sit here and pointed
+ * at `packages/apps` and `packages/components`, neither of which exists. */
 @source "../**/*.{ts,tsx}";
 @source "../../../viz/src/**/*.{ts,tsx}";
 
