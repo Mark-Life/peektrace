@@ -9,6 +9,7 @@
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
 import type {
   AnalyzedSession,
   EventKind,
@@ -102,7 +103,7 @@ const HistoryItem = ({
       <text> </text>
       <Badge
         color={e.isError ? C.bad : KIND_COLOR[e.kind]}
-        label={clip(e.toolName ?? e.kind, BADGE_MAX)}
+        label={clip(eventBadgeLabel(e), BADGE_MAX)}
       />
       <text fg={selected ? C.primary : C.text}>
         {` ${firstLine(e.preview, previewMax)}`}
