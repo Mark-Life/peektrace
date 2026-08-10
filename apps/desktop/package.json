@@ -2,6 +2,7 @@
   "name": "@workspace/desktop",
   "version": "0.0.1",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "predev": "bun run --filter=inspector build",

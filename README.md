@@ -255,3 +255,17 @@ Then import from `@workspace/ui`:
 ```tsx
 import { Button } from "@workspace/ui/components/button"
 ```
+
+---
+
+## Author
+
+Written by **[Andrey Markin](https://andrey-markin.com)** ([@Mark-Life](https://github.com/Mark-Life)).
+
+## License
+
+[MIT](LICENSE) © Mark-Life Ltd and Andrey Markin.
+
+The licence lives at the repo root and covers the whole workspace — every
+package under `packages/` and `apps/`, and the standalone `peektrace` binary
+built from `apps/cli`.
