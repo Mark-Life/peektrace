@@ -2,6 +2,63 @@
 
 ## Unreleased
 
+## cli-v0.6.0 — 2026-08-10
+
+### Added
+
+- **Attachment rows say what they are** (#34). Every attachment in a transcript
+  badged as `attachment`, so a skill listing and a file opened in the IDE looked
+  identical until you expanded them. The badge now reads the attachment's own
+  type with underscores as spaces — `skill listing`, `opened file in ide` — from
+  one shared rule used by both the inspector and the TUI. The transform is
+  mechanical rather than a lookup table, so a type Claude starts writing
+  tomorrow reads as words the day it appears; a missing or empty type still
+  falls back to `attachment`. History search still matches the raw title
+  (`skill_listing`), so searching the humanised text finds nothing.
+
+### Changed
+
+- **Inspector first paint is 30% smaller** (#35). Nothing was code-split, so
+  `dist/` and the first paint were the same 332.6 KiB gzip — including a
+  charting library only the memory route draws, a date picker only a popover
+  opens, and a MessagePack codec the transport never uses. First paint is now
+  233.4 KiB gzip (−29.8%), with the memory/capabilities/settings routes, the
+  session detail pane, the calendar and the toaster split behind `lazy()`
+  boundaries. 66.8 KiB is genuinely gone; the rest is deferred. Method and
+  per-chunk numbers in [`docs/bundle-size.md`](docs/bundle-size.md).
+- **28 unimported shadcn components deleted** (#35). They cost no JavaScript but
+  `globals.css` scanned them, so each added utilities to both apps'
+  stylesheets: the inspector's CSS drops 162.8 → 115.0 KiB, the web app's
+  162.0 → 113.8, and eight dependencies reachable only through them go with it.
+  `shadcn add <name>` brings any of them back.
+- **Type donut moved off Recharts to TanStack Charts** (#30). One 140px ring
+  pulled in 98.5 KiB gzip of charting library and 373 lines of wrapper for its
+  single consumer; both are gone, for −59.3 KiB (−15.2%) over the whole build.
+  The slices now have a visible seam between them, the one deliberate visual
+  change. The other four charts stay hand-written SVG and CSS.
+- **The project is MIT licensed** (#36). There was no `LICENSE`, which made a
+  public repo with a clone-and-build quickstart all-rights-reserved by default.
+  Root `LICENSE` plus a `license` field on all 13 workspace packages, matching
+  the `MIT` that `build-npm.ts` already stamped onto every published artifact.
+
+### Fixed
+
+- **The live transcript stays still while an agent writes** (#33). An open
+  transcript dimmed and brightened on every write and never showed new
+  messages. Three causes: a refetch wrapped both panes in `animate-pulse`, the
+  watch poll re-rendered the whole tree twice a second, and nothing refreshed
+  the open session's analysis. Freshness now shows as a dot in the header,
+  the poll lives in that leaf and reads version numbers the registry drops when
+  unchanged, and the open session re-validates in place. Measured over 45s with
+  a write every 4s: 23 dim cycles → 0, 0 rows appended → 24, blocked main
+  thread 14.4s → 3.6s, no scroll drift either way.
+
+### Upgrading
+
+```sh
+peektrace upgrade
+```
+
 ## cli-v0.5.0 — 2026-08-06
 
 ### Added
