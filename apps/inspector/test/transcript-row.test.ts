@@ -45,6 +45,19 @@ describe("sameEvent", () => {
     expect(sameEvent(event, { ...event, title: "Other" })).toBe(true);
   });
 
+  test("an attachment that changes type re-renders its badge", () => {
+    const listing: TimelineEvent = {
+      ...event,
+      kind: "attachment",
+      toolName: undefined,
+      attachmentType: "skill_listing",
+    };
+    expect(sameEvent(listing, { ...listing, attachmentType: "todo" })).toBe(
+      false
+    );
+    expect(sameEvent(listing, structuredClone(listing))).toBe(true);
+  });
+
   test("an appended event is never mistaken for an existing one", () => {
     const appended: TimelineEvent = { ...event, index: 8, preview: "next" };
     expect(sameEvent(event, appended)).toBe(false);

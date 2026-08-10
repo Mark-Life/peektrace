@@ -95,6 +95,55 @@ test("history expands to a highlighted body and strips ANSI", async () => {
   }
 });
 
+/** Same shape, but the timeline is the two attachments a badge must tell apart. */
+const fakeAttachments = (): AnalyzedSession => {
+  const base = fakeAnalyzed("attachments");
+  const attachment = (index: number, attachmentType: string, preview: string) =>
+    ({
+      index,
+      kind: "attachment",
+      requestId: "r1",
+      title: attachmentType,
+      preview,
+      body: preview,
+      tokensEst: 8,
+      ...(attachmentType === "" ? {} : { attachmentType }),
+    }) as AnalyzedSession["events"][number];
+  return {
+    ...base,
+    events: [
+      attachment(0, "skill_listing", "- agent-to-human: Use when …"),
+      attachment(1, "opened_file_in_ide", "drawer.tsx"),
+      attachment(2, "", "no type at all"),
+    ],
+  };
+};
+
+test("attachment rows badge their type, not the bare kind", async () => {
+  const setup = await testRender(
+    <BridgeProvider
+      bridge={{ serverUrl: "http://x", run: () => Promise.resolve(null) }}
+    >
+      <SessionHistory
+        focused
+        onBack={() => undefined}
+        redact
+        s={fakeAttachments()}
+      />
+    </BridgeProvider>,
+    { width: 100, height: 24 }
+  );
+  try {
+    const frame = await setup.waitForFrame((v) => v.includes("skill listing"));
+    // `BADGE_MAX` is 20, so the longest known type renders whole.
+    expect(frame).toContain("opened file in ide");
+    // Typeless attachments keep the old fallback.
+    expect(frame).toContain("attachment");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
 /** Fake bridge: list → two headers, analyze → title-per-id, watch → zeros. */
 const fakeBridge: TuiBridge = {
   serverUrl: "http://127.0.0.1:4321",

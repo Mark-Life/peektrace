@@ -7,6 +7,7 @@
  * persistent "review before sharing" banner; the reveal toggle re-fetches with
  * `redact:false` (handled by the parent atom).
  */
+import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
 import type {
   AnalyzedSession,
   TimelineEvent,
@@ -178,7 +179,7 @@ const EventRowBody = ({
           t{turn}
         </span>
         <Badge className="shrink-0" variant="outline">
-          {e.toolName ?? e.kind}
+          {eventBadgeLabel(e)}
         </Badge>
         {e.isSidechain ? (
           <Badge className="shrink-0" variant="secondary">

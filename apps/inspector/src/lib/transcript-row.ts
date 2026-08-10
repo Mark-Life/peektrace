@@ -16,6 +16,7 @@ export const ROW_FIELDS = [
   "index",
   "kind",
   "toolName",
+  "attachmentType",
   "isSidechain",
   "preview",
   "tokensEst",
