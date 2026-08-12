@@ -32,7 +32,6 @@ import type {
 } from "@workspace/ui/lib/highlighter";
 import { cn } from "@workspace/ui/lib/utils";
 import {
-  CheckCircleIcon,
   ChevronRightIcon,
   CircleDashedIcon,
   WrenchIcon,
@@ -60,14 +59,15 @@ export const Tool = ({ className, ...props }: ToolProps) => (
   />
 );
 
-const STATUS_LABELS: Record<ToolState, string> = {
-  completed: "completed",
+/** Only the outcomes that are worth a badge — see `ToolStatusBadge`. */
+type NotableState = Exclude<ToolState, "completed">;
+
+const STATUS_LABELS: Record<NotableState, string> = {
   error: "error",
   unanswered: "no result",
 };
 
-const STATUS_ICONS: Record<ToolState, ReactNode> = {
-  completed: <CheckCircleIcon className="size-3 text-emerald-500" />,
+const STATUS_ICONS: Record<NotableState, ReactNode> = {
   error: <XCircleIcon className="size-3" />,
   unanswered: <CircleDashedIcon className="size-3" />,
 };
@@ -79,21 +79,26 @@ export type ToolStatusBadgeProps = Omit<
   readonly state: ToolState;
 };
 
-/** Icon + label for a call's outcome; errors take the destructive variant. */
+/** Icon + label for a call's outcome; errors take the destructive variant.
+ *  A completed call renders nothing: it is the overwhelming majority of a
+ *  transcript, so the badge marks every row without distinguishing any. Only
+ *  the outcomes worth stopping on — an error, a call that never came back —
+ *  earn the space. */
 export const ToolStatusBadge = ({
   className,
   state,
   ...props
-}: ToolStatusBadgeProps) => (
-  <Badge
-    className={cn("shrink-0 gap-1 rounded-full text-xs", className)}
-    variant={state === "error" ? "destructive" : "secondary"}
-    {...props}
-  >
-    {STATUS_ICONS[state]}
-    {STATUS_LABELS[state]}
-  </Badge>
-);
+}: ToolStatusBadgeProps) =>
+  state === "completed" ? null : (
+    <Badge
+      className={cn("shrink-0 gap-1 rounded-full", className)}
+      variant={state === "error" ? "destructive" : "secondary"}
+      {...props}
+    >
+      {STATUS_ICONS[state]}
+      {STATUS_LABELS[state]}
+    </Badge>
+  );
 
 export type ToolHeaderProps = ComponentProps<typeof CollapsibleTrigger> & {
   /** Replaces the wrench, e.g. to tell an invocation from what it returned. */
@@ -120,7 +125,7 @@ export const ToolHeader = ({
     <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
     {lead}
     {icon ?? <WrenchIcon className="size-3.5 shrink-0 text-muted-foreground" />}
-    <span className="shrink-0 font-medium font-mono text-sm">{name}</span>
+    <span className="shrink-0 font-medium font-mono text-xs">{name}</span>
     <ToolStatusBadge state={state} />
     {children}
   </CollapsibleTrigger>
