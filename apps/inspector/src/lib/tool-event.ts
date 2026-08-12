@@ -104,6 +104,11 @@ const isPayload = ([key, value]: readonly [string, unknown]) =>
 const filePathOf = (input: Record<string, unknown>) =>
   typeof input.file_path === "string" ? input.file_path : "";
 
+/** Guess a highlight language from a file path, so a chat attachment chip opens
+ *  a `.md` as markdown and a `.ts` as TypeScript instead of everything as text. */
+export const languageOfPath = (path: string): CodeBlockLanguage =>
+  BY_EXTENSION.find(([ext]) => ext.test(path))?.[1] ?? "text";
+
 const languageOf = (
   key: string,
   input: Record<string, unknown>
@@ -112,8 +117,7 @@ const languageOf = (
   if (named) {
     return named[1];
   }
-  const path = filePathOf(input);
-  return BY_EXTENSION.find(([ext]) => ext.test(path))?.[1] ?? "text";
+  return languageOfPath(filePathOf(input));
 };
 
 /** The args an edit tool carries its replacement in — `Edit` and its batch form. */

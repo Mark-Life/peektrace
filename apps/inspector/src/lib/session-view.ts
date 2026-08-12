@@ -41,6 +41,11 @@ export const sessionViewKey = (id: string) => `peektrace:sessionView:${id}`;
  *  filter and redaction changes — same event order/count, only bodies differ). */
 export const eventCollapseId = (pos: number) => `event:${pos}`;
 
+/** Collapse id for a chat-layout node. Namespaced against `event:` because one
+ *  chat card can cover two table rows: a shared id would half-open the pair and
+ *  need two clicks. It also lets each layout keep its own reading position. */
+export const chatCollapseId = (pos: number) => `chat:${pos}`;
+
 /** Stable Collapsible id for a subagent card. */
 export const subagentCollapseId = (id: string) => `subagent:${id}`;
 

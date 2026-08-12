@@ -7,7 +7,12 @@
 
 import { describe, expect, test } from "bun:test";
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import { ROW_FIELDS, sameEvent } from "../src/lib/transcript-row";
+import {
+  CHAT_ROW_FIELDS,
+  ROW_FIELDS,
+  sameChatEvent,
+  sameEvent,
+} from "../src/lib/transcript-row";
 
 const event: TimelineEvent = {
   index: 7,
@@ -61,5 +66,27 @@ describe("sameEvent", () => {
   test("an appended event is never mistaken for an existing one", () => {
     const appended: TimelineEvent = { ...event, index: 8, preview: "next" };
     expect(sameEvent(event, appended)).toBe(false);
+  });
+});
+
+describe("sameChatEvent", () => {
+  test("every field a chat leaf renders forces a re-render when it changes", () => {
+    for (const field of CHAT_ROW_FIELDS) {
+      const changed = { ...event, [field]: `${event[field]}-changed` };
+      expect(sameChatEvent(event, changed)).toBe(false);
+    }
+  });
+
+  test("a chip label and its icon are chat-only fields", () => {
+    const relabelled = { ...event, title: "Other" };
+    expect(sameEvent(event, relabelled)).toBe(true);
+    expect(sameChatEvent(event, relabelled)).toBe(false);
+  });
+
+  test("fields no leaf renders still do not force a re-render", () => {
+    expect(
+      sameChatEvent(event, { ...event, ts: "2026-01-01T00:00:00.000Z" })
+    ).toBe(true);
+    expect(sameChatEvent(event, { ...event, requestId: "req_2" })).toBe(true);
   });
 });
