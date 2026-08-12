@@ -25,7 +25,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible";
-import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
+import type { DiffRow, DiffRowKind, LineDiff } from "@workspace/core/diff";
+import type {
+  CodeBlockLanguage,
+  CodeLine,
+} from "@workspace/ui/lib/highlighter";
 import { cn } from "@workspace/ui/lib/utils";
 import {
   CheckCircleIcon,
@@ -35,7 +39,14 @@ import {
   XCircleIcon,
 } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { CodeBlock, CodeBlockCopyButton } from "./code-block";
+import { useMemo } from "react";
+import {
+  CodeBlock,
+  CodeBlockCopyButton,
+  CODE_SURFACE,
+  CodeTokens,
+  highlightCode,
+} from "./code-block";
 
 /** What a recorded tool call ended up doing. */
 export type ToolState = "completed" | "error" | "unanswered";
@@ -182,6 +193,122 @@ export const ToolInput = ({
     <ToolPayload code={code} language={language} />
   </div>
 );
+
+const ROW_STYLES: Record<DiffRowKind, string> = {
+  add: "bg-emerald-500/10",
+  ctx: "",
+  del: "bg-red-500/10",
+  gap: "",
+};
+
+const ROW_SIGNS: Record<DiffRowKind, string> = {
+  add: "+",
+  ctx: " ",
+  del: "-",
+  gap: "",
+};
+
+/** Gutter cell: the line's number on one side, blank on the side it is absent. */
+const DiffNo = ({ no }: { readonly no: number | undefined }) => (
+  <span className="w-8 shrink-0 select-none pr-2 text-right text-muted-foreground/50">
+    {no ?? ""}
+  </span>
+);
+
+const DiffLineRow = ({
+  line,
+  row,
+}: {
+  readonly line: CodeLine | undefined;
+  readonly row: DiffRow;
+}) => (
+  <div className={cn("flex items-start", ROW_STYLES[row.kind])}>
+    <DiffNo no={row.oldNo} />
+    <DiffNo no={row.newNo} />
+    <span
+      className={cn(
+        "w-4 shrink-0 select-none text-center",
+        row.kind === "add" && "text-emerald-500",
+        row.kind === "del" && "text-red-400"
+      )}
+    >
+      {ROW_SIGNS[row.kind]}
+    </span>
+    <span className="wrap-break-word min-w-0 flex-1 whitespace-pre-wrap pr-3">
+      <CodeTokens line={line} />
+    </span>
+  </div>
+);
+
+export type ToolDiffProps = ComponentProps<"div"> & {
+  readonly diff: LineDiff;
+  readonly label?: string;
+  readonly language: CodeBlockLanguage;
+  readonly newCode: string;
+  readonly oldCode: string;
+};
+
+/**
+ * An edit rendered the way a review tool renders one: both sides of every
+ * changed line in a single block, unchanged lines for context, longer
+ * unchanged stretches collapsed to a count. Each side is highlighted whole, so
+ * a token that spans lines is coloured by the file it came from rather than by
+ * the fragment a row happens to hold.
+ */
+export const ToolDiff = ({
+  className,
+  diff,
+  label = "Diff",
+  language,
+  newCode,
+  oldCode,
+  ...props
+}: ToolDiffProps) => {
+  const before = useMemo(
+    () => highlightCode(oldCode, language),
+    [oldCode, language]
+  );
+  const after = useMemo(
+    () => highlightCode(newCode, language),
+    [newCode, language]
+  );
+  return (
+    <div className={cn("overflow-hidden", className)} {...props}>
+      <ToolSectionLabel>
+        {label}
+        <span className="ml-2 font-normal text-emerald-500">
+          +{diff.added}
+        </span>
+        <span className="ml-1 font-normal text-red-400">−{diff.removed}</span>
+      </ToolSectionLabel>
+      <div
+        className="overflow-auto border-t py-1 font-mono text-[11px] leading-relaxed"
+        style={CODE_SURFACE}
+      >
+        {diff.rows.map((row, i) =>
+          row.kind === "gap" ? (
+            <div
+              className="select-none px-3 py-1 text-muted-foreground/60"
+              key={`gap-${i}-${row.count}`}
+            >
+              ⋯ {row.count} unchanged {row.count === 1 ? "line" : "lines"}
+            </div>
+          ) : (
+            <DiffLineRow
+              key={`${row.kind}-${row.oldNo ?? ""}-${row.newNo ?? ""}`}
+              line={
+                row.kind === "del"
+                  ? before[(row.oldNo ?? 1) - 1]
+                  : after[(row.newNo ?? 1) - 1]
+              }
+              row={row}
+            />
+          )
+        )}
+      </div>
+    </div>
+  );
+};
 
 export type ToolOutputProps = ComponentProps<"div"> & {
   readonly code: string;

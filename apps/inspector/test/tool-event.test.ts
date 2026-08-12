@@ -25,6 +25,7 @@ import {
   indexTools,
   isToolEvent,
   resultPane,
+  type ToolPane,
   toolNameOf,
   toolState,
 } from "../src/lib/tool-event";
@@ -81,6 +82,29 @@ const OUTCOMES = [
           id: "call-open",
           name: "Write",
           input: { file_path: "/a.ts" },
+        },
+        {
+          type: "tool_use",
+          id: "call-edit",
+          name: "Edit",
+          input: {
+            file_path: "/src/a.ts",
+            old_string: "const a = 1;\nconst b = 2;",
+            new_string: "const a = 1;\nconst b = 3;",
+            replace_all: false,
+          },
+        },
+        {
+          type: "tool_use",
+          id: "call-multi",
+          name: "MultiEdit",
+          input: {
+            file_path: "/docs/b.md",
+            edits: [
+              { old_string: "# One", new_string: "# Uno" },
+              { old_string: "# Two", new_string: "# Dos" },
+            ],
+          },
         },
       ],
     },
@@ -156,12 +180,19 @@ describe("shaping a call's arguments", () => {
   const bashCall = () =>
     eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-ok", "tool-call");
 
+  /** The first pane's code, for the panes a test expects to be a code pane. */
+  const codeAt = (panes: readonly ToolPane[], i: number) => {
+    const pane = panes[i];
+    return pane?.type === "code" ? pane.code : "";
+  };
+
   test("unwraps the payload arg so its newlines survive", () => {
     const { panes } = callView(bashCall());
     expect(panes[0]).toEqual({
       code: "bun test\necho done",
       label: "command",
       language: "bash",
+      type: "code",
     });
   });
 
@@ -169,7 +200,7 @@ describe("shaping a call's arguments", () => {
     const { panes } = callView(bashCall());
     expect(panes).toHaveLength(2);
     expect(panes[1]?.label).toBe("Other parameters");
-    expect(JSON.parse(panes[1]?.code ?? "")).toEqual({
+    expect(JSON.parse(codeAt(panes, 1))).toEqual({
       description: "Run the suite",
       timeout: 120_000,
     });
@@ -179,12 +210,55 @@ describe("shaping a call's arguments", () => {
     expect(callView(bashCall()).summary).toBe("bun test echo done");
   });
 
+  const editCall = () =>
+    eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-edit", "tool-call");
+
+  test("an edit becomes a diff, not two blocks to compare by eye", () => {
+    const { panes } = callView(editCall());
+    expect(panes.map((p) => p.label)).toEqual(["Edit", "Other parameters"]);
+    const [edit] = panes;
+    expect(edit?.type).toBe("diff");
+    expect(edit?.type === "diff" && edit.diff.rows.map((r) => r.kind)).toEqual([
+      "ctx",
+      "del",
+      "add",
+    ]);
+  });
+
+  test("the collapsed row says which file changed and by how much", () => {
+    expect(callView(editCall()).summary).toBe("a.ts +1 −1");
+  });
+
+  test("an edited file names the language its payloads are written in", () => {
+    expect(callView(editCall()).panes[0]?.language).toBe("typescript");
+  });
+
+  test("the args that were not part of the edit stay visible", () => {
+    const { panes } = callView(editCall());
+    expect(JSON.parse(codeAt(panes, 1))).toEqual({
+      file_path: "/src/a.ts",
+      replace_all: false,
+    });
+  });
+
+  test("a batch of edits gets a numbered diff each", () => {
+    const { panes, summary } = callView(
+      eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-multi", "tool-call")
+    );
+    expect(panes.map((p) => p.label)).toEqual([
+      "Edit 1",
+      "Edit 2",
+      "Other parameters",
+    ]);
+    expect(summary).toBe("b.md +2 −2");
+  });
+
   test("a call with no payload arg falls back to the whole argument object", () => {
     const a = sessionFrom(OUTCOMES, "outcomes");
     const { panes, summary } = callView(eventAt(a, "call-bad", "tool-call"));
     expect(panes).toHaveLength(1);
     expect(panes[0]?.label).toBe("Parameters");
-    expect(JSON.parse(panes[0]?.code ?? "")).toEqual({ pattern: "TODO" });
+    expect(JSON.parse(codeAt(panes, 0))).toEqual({ pattern: "TODO" });
     expect(summary).toContain("TODO");
   });
 });
@@ -213,13 +287,19 @@ describe("shaping a result", () => {
 describe("redaction reaches every pane", () => {
   const SECRET = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
 
+  /** Every string a pane puts on screen, whichever kind of pane it is. */
+  const paneText = (p: ToolPane) =>
+    p.type === "code"
+      ? [p.code]
+      : [p.oldCode, p.newCode, ...p.diff.rows.map((r) => r.text)];
+
   /** Every string this module would put on screen for a session. */
   const rendered = (a: AnalyzedSession): string =>
     a.events
       .filter(isToolEvent)
       .flatMap((e) =>
         e.kind === "tool-call"
-          ? [callView(e).summary, ...callView(e).panes.map((p) => p.code)]
+          ? [callView(e).summary, ...callView(e).panes.flatMap(paneText)]
           : [e.preview, resultPane(e).code]
       )
       .join("\n");

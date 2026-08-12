@@ -93,10 +93,23 @@ export const highlightCode = (
     ? tokenizeLines(code, language)
     : plainLines(code);
 
-const PRE_STYLE = {
+/** The tokenizer's own background and body colour, for any block that hosts
+ *  highlighted lines — a code block, or a diff built out of them. */
+export const CODE_SURFACE = {
   backgroundColor: "var(--th-background)",
   color: "var(--th-token)",
 };
+
+const PRE_STYLE = CODE_SURFACE;
+
+/** One highlighted line's tokens, for callers that lay out their own lines. */
+export const CodeTokens = ({ line }: { line: CodeLine | undefined }) => (
+  <>
+    {line?.tokens.map((token) => (
+      <TokenSpan key={token.key} token={token} />
+    ))}
+  </>
+);
 
 /** The `pre`/`code` pair, memoized so re-renders skip long token lists. */
 const CodeBlockBody = memo(

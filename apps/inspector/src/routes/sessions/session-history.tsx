@@ -20,6 +20,7 @@ import type {
 import {
   Tool,
   ToolContent,
+  ToolDiff,
   ToolHeader,
   ToolInput,
   ToolOutput,
@@ -186,14 +187,25 @@ const ToolEventRowBody = ({
       </ToolHeader>
       <ToolContent className="max-h-96 overflow-auto">
         {view
-          ? view.panes.map((p) => (
-              <ToolInput
-                code={p.code}
-                key={p.label}
-                label={p.label}
-                language={p.language}
-              />
-            ))
+          ? view.panes.map((p) =>
+              p.type === "diff" ? (
+                <ToolDiff
+                  diff={p.diff}
+                  key={p.label}
+                  label={p.label}
+                  language={p.language}
+                  newCode={p.newCode}
+                  oldCode={p.oldCode}
+                />
+              ) : (
+                <ToolInput
+                  code={p.code}
+                  key={p.label}
+                  label={p.label}
+                  language={p.language}
+                />
+              )
+            )
           : null}
         {result ? (
           <ToolOutput
