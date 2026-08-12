@@ -8,6 +8,9 @@
 import { useCallback, useMemo } from "react";
 import { useLocalStorage } from "./use-local-storage";
 
+/** History row order: transcript order, or largest events first. */
+export type HistorySort = "order" | "size";
+
 /** Persisted, per-session inspector view state. */
 export interface SessionViewState {
   /** Open Collapsible ids (transcript events + subagent cards). */
@@ -18,14 +21,17 @@ export interface SessionViewState {
   readonly query: string;
   /** Redaction toggle (`true` = redacted). */
   readonly redacted: boolean;
+  /** History row order. */
+  readonly sort: HistorySort;
 }
 
-/** Fresh view: nothing expanded, no filters, redacted on. */
+/** Fresh view: nothing expanded, no filters, redacted on, transcript order. */
 export const DEFAULT_SESSION_VIEW: SessionViewState = {
   expanded: [],
   query: "",
   kind: "all",
   redacted: true,
+  sort: "order",
 };
 
 /** `localStorage` key for one session's view state. */
@@ -57,6 +63,7 @@ const normalizeView = (parsed: unknown): SessionViewState => {
       typeof raw.redacted === "boolean"
         ? raw.redacted
         : DEFAULT_SESSION_VIEW.redacted,
+    sort: raw.sort === "size" ? "size" : DEFAULT_SESSION_VIEW.sort,
   };
 };
 
@@ -67,6 +74,7 @@ export interface SessionView {
   readonly setKind: (k: string) => void;
   readonly setQuery: (q: string) => void;
   readonly setRedacted: (r: boolean) => void;
+  readonly setSort: (s: HistorySort) => void;
   readonly state: SessionViewState;
   readonly toggleExpanded: (id: string, open: boolean) => void;
 }
@@ -89,6 +97,10 @@ export const useSessionView = (id: string): SessionView => {
   );
   const setRedacted = useCallback(
     (redacted: boolean) => setState((prev) => ({ ...prev, redacted })),
+    [setState]
+  );
+  const setSort = useCallback(
+    (sort: HistorySort) => setState((prev) => ({ ...prev, sort })),
     [setState]
   );
 
@@ -124,6 +136,7 @@ export const useSessionView = (id: string): SessionView => {
     setQuery,
     setKind,
     setRedacted,
+    setSort,
     isExpanded,
     setExpanded,
     toggleExpanded,

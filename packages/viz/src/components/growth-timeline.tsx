@@ -148,10 +148,6 @@ export const GrowthTimeline = ({
     >
       <div>
         <h2 className="font-semibold text-base">Context growth timeline</h2>
-        <p className="text-muted-foreground text-sm">
-          Real context per turn, attributed to categories. The red band is the
-          dumb zone (&gt;{Math.round(a.dumbZoneFraction * PERCENT)}% of window).
-        </p>
       </div>
       <div className="overflow-x-auto">
         <svg

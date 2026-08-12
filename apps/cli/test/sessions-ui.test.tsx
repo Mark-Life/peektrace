@@ -50,7 +50,6 @@ const fakeAnalyzed = (title: string): AnalyzedSession =>
     budget: [],
     snapshots: [],
     onDiskContextFiles: [],
-    biggestItems: [],
     contextWindow: 200_000,
     contextWindowInferred: false,
     peakContextTokens: 50_000,
@@ -90,6 +89,50 @@ test("history expands to a highlighted body and strips ANSI", async () => {
     setup.mockInput.pressEnter();
     const expanded = await setup.waitForFrame((v) => v.includes("ls -la /tmp"));
     expect(expanded).toContain("ls -la /tmp");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+/** Same shape, but the last event is the biggest — so size order flips the rows. */
+const fakeHeavyTail = (): AnalyzedSession => {
+  const base = fakeAnalyzed("heavy tail");
+  return {
+    ...base,
+    events: [base.events[0], { ...base.events[1], tokensEst: 500 }],
+  } as unknown as AnalyzedSession;
+};
+
+test("s sorts the history biggest first and keeps open rows open", async () => {
+  const setup = await testRender(
+    <BridgeProvider
+      bridge={{ serverUrl: "http://x", run: () => Promise.resolve(null) }}
+    >
+      <SessionHistory
+        focused
+        onBack={() => undefined}
+        redact
+        s={fakeHeavyTail()}
+      />
+    </BridgeProvider>,
+    { width: 80, height: 24 }
+  );
+  try {
+    const ordered = await setup.waitForFrame((v) => v.includes("Bash tool"));
+    expect(ordered.indexOf("Bash tool")).toBeLessThan(
+      ordered.indexOf("total 8")
+    );
+    // Expand the heavy result row (arrow needs a tick to land before enter).
+    setup.mockInput.pressArrow("down");
+    await new Promise((r) => setTimeout(r, 20));
+    await setup.renderOnce();
+    setup.mockInput.pressEnter();
+    await setup.waitForFrame((v) => v.includes("file.txt"));
+    // Size order lifts it above the smaller call, still open, with its share.
+    await setup.mockInput.typeText("s");
+    const sorted = await setup.waitForFrame((v) => v.includes("~500   0.3%"));
+    expect(sorted.indexOf("total 8")).toBeLessThan(sorted.indexOf("Bash tool"));
+    expect(sorted).toContain("file.txt");
   } finally {
     setup.renderer.destroy();
   }

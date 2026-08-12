@@ -2,7 +2,9 @@
  *
  * Every transcript event in order (tool calls, results, attachments, assistant
  * text) collapsed by default, with search + type filter and the dumb-zone
- * divider rendered inline at the first crossing. Subagent (sidechain) transcripts
+ * divider rendered inline at the first crossing. Sorting "Biggest first" ranks
+ * every event by size — that is where the most expensive single items surface,
+ * so there is no separate biggest-items table. Subagent (sidechain) transcripts
  * drill down as their own cards. The transcript is REDACTED BY DEFAULT behind a
  * persistent "review before sharing" banner; the reveal toggle re-fetches with
  * `redact:false` (handled by the parent atom).
@@ -55,6 +57,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import {
   eventCollapseId,
+  type HistorySort,
   type SessionView,
   subagentCollapseId,
 } from "../../lib/session-view";
@@ -80,6 +83,15 @@ const KIND_OPTIONS = [
   { value: "attachment", label: "Attachments" },
 ] as const;
 
+/** Row-order options; sorting by size replaces a separate "biggest items" list. */
+const SORT_OPTIONS: readonly { value: HistorySort; label: string }[] = [
+  { value: "order", label: "Transcript order" },
+  { value: "size", label: "Biggest first" },
+];
+
+/** Decimal places for the per-event window-share percent (size order only). */
+const PCT_DECIMALS = 2;
+
 /** Map every event to the 1-based turn it belongs to (for grouping). */
 const turnNumbers = (a: AnalyzedSession): number[] => {
   const reqToTurn = new Map(
@@ -103,10 +115,19 @@ const TurnGutter = ({ turn }: { readonly turn: number }) => (
   </span>
 );
 
-/** Per-event token estimate, right-aligned. */
-const TokenCount = ({ tokens }: { readonly tokens: number }) => (
+/** Per-event token estimate, right-aligned; `share` is its window fraction. */
+const TokenCount = ({
+  tokens,
+  share,
+}: {
+  readonly tokens: number;
+  readonly share?: number | undefined;
+}) => (
   <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
     {tokens ? `~${fmt(tokens)}` : ""}
+    {tokens && share !== undefined
+      ? ` · ${(share * PERCENT).toFixed(PCT_DECIMALS)}%`
+      : ""}
   </span>
 );
 
@@ -116,6 +137,8 @@ interface EventRowProps {
   readonly e: TimelineEvent;
   readonly onToggle: (id: string, open: boolean) => void;
   readonly open: boolean;
+  /** Share of the context window, shown only when rows are sorted by size. */
+  readonly share?: number;
   readonly turn: number;
 }
 
@@ -123,6 +146,7 @@ interface EventRowProps {
 const sameRow = (prev: EventRowProps, next: EventRowProps) =>
   prev.open === next.open &&
   prev.turn === next.turn &&
+  prev.share === next.share &&
   prev.collapseId === next.collapseId &&
   prev.onToggle === next.onToggle &&
   sameEvent(prev.e, next.e);
@@ -149,6 +173,7 @@ const ToolEventRowBody = ({
   name,
   onToggle,
   open,
+  share,
   state,
   turn,
 }: ToolRowProps) => {
@@ -183,7 +208,7 @@ const ToolEventRowBody = ({
         <span className="truncate text-muted-foreground text-xs">
           {(view ? view.summary : e.preview) || "(empty)"}
         </span>
-        <TokenCount tokens={e.tokensEst} />
+        <TokenCount share={share} tokens={e.tokensEst} />
       </ToolHeader>
       <ToolContent className="max-h-96 overflow-auto">
         {view
@@ -229,6 +254,7 @@ const EventRowBody = ({
   open,
   collapseId,
   onToggle,
+  share,
 }: EventRowProps) => {
   const onOpenChange = (next: boolean) => onToggle(collapseId, next);
   const hasBody = e.body.trim().length > 0;
@@ -259,7 +285,7 @@ const EventRowBody = ({
         <span className="truncate text-muted-foreground text-xs">
           {e.preview || "(empty)"}
         </span>
-        <TokenCount tokens={e.tokensEst} />
+        <TokenCount share={share} tokens={e.tokensEst} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
@@ -336,9 +362,16 @@ export const SessionHistory = ({
   readonly a: AnalyzedSession;
   readonly view: SessionView;
 }) => {
-  const { query, kind, redacted } = view.state;
+  const { query, kind, redacted, sort } = view.state;
   const turns = useMemo(() => turnNumbers(a), [a]);
   const tools = useMemo(() => indexTools(a), [a]);
+
+  // The window share answers "how much did this one event cost me", which only
+  // matters while ranking by size — in transcript order it is just noise.
+  const shareOf = (e: TimelineEvent) =>
+    sort === "size" && a.contextWindow > 0
+      ? e.tokensEst / a.contextWindow
+      : undefined;
 
   const crossEvtIdx =
     a.dumbZoneCrossTurn >= 0
@@ -347,21 +380,24 @@ export const SessionHistory = ({
         )
       : -1;
 
-  const visible = useMemo(
-    () =>
-      a.events
-        .map((e, pos) => ({ e, pos }))
-        .filter(({ e }) => e.kind !== "system")
-        .filter(({ e }) => kind === "all" || e.kind === kind)
-        .filter(({ e }) => {
-          if (query.length === 0) {
-            return true;
-          }
-          const hay = `${e.title} ${e.preview}`.toLowerCase();
-          return hay.includes(query.toLowerCase());
-        }),
-    [a.events, kind, query]
-  );
+  const visible = useMemo(() => {
+    const rows = a.events
+      .map((e, pos) => ({ e, pos }))
+      .filter(({ e }) => e.kind !== "system")
+      .filter(({ e }) => kind === "all" || e.kind === kind)
+      .filter(({ e }) => {
+        if (query.length === 0) {
+          return true;
+        }
+        const hay = `${e.title} ${e.preview}`.toLowerCase();
+        return hay.includes(query.toLowerCase());
+      });
+    // Size order keeps each row's original position, so open rows, the turn
+    // gutter and deep links all survive the re-sort.
+    return sort === "size"
+      ? rows.sort((x, y) => y.e.tokensEst - x.e.tokensEst)
+      : rows;
+  }, [a.events, kind, query, sort]);
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
   // shareable link; individual rows persist in the per-session set instead.
@@ -473,6 +509,21 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
+        <Select
+          onValueChange={(v) => view.setSort(v as HistorySort)}
+          value={sort}
+        >
+          <SelectTrigger className="w-44" data-testid="history-sort">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className="text-muted-foreground text-xs">
           {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
           dumb zone
@@ -498,7 +549,7 @@ export const SessionHistory = ({
       <div className="rounded-md border border-border">
         {visible.map(({ e, pos }) => (
           <div key={`${e.index}-${pos}`}>
-            {pos === crossEvtIdx ? (
+            {sort === "order" && pos === crossEvtIdx ? (
               <div
                 className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
                 data-testid="dumbzone-divider"
@@ -515,6 +566,7 @@ export const SessionHistory = ({
                 name={toolNameOf(e, tools)}
                 onToggle={onToggle}
                 open={isOpen(eventCollapseId(pos))}
+                share={shareOf(e)}
                 state={toolState(e, tools)}
                 turn={turns[pos] ?? 0}
               />
@@ -524,6 +576,7 @@ export const SessionHistory = ({
                 e={e}
                 onToggle={onToggle}
                 open={isOpen(eventCollapseId(pos))}
+                share={shareOf(e)}
                 turn={turns[pos] ?? 0}
               />
             )}

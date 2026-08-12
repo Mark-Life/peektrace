@@ -281,7 +281,6 @@ export const AnalyzedSession = Schema.Struct({
   dumbZoneFraction: Schema.Number,
   dumbZoneTurns: Schema.Number,
   compactionTurns: Schema.Array(Schema.Number),
-  biggestItems: Schema.Array(TimelineEvent),
   turnCount: Schema.Number,
   userMessageCount: Schema.Number,
   toolCallCount: Schema.Number,

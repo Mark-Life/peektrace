@@ -14,13 +14,11 @@ import type {
   BudgetSlices,
   OnDiskContextFile,
   ParsedSession,
-  TimelineEvent,
   TurnSnapshot,
 } from "./schema";
 
 const DEFAULT_WINDOW = 1_000_000;
 const DEFAULT_DUMB_ZONE = 0.4;
-const BIGGEST_ITEMS_LIMIT = 40;
 
 export interface AnalyzeOptions {
   /** degradation threshold as a fraction of the window (default 0.40). */
@@ -409,11 +407,6 @@ export const analyze = (
     }
   });
 
-  const biggestItems: TimelineEvent[] = [...p.events]
-    .filter((e) => e.kind !== "system" && e.tokensEst > 0)
-    .sort((a, b) => b.tokensEst - a.tokensEst)
-    .slice(0, BIGGEST_ITEMS_LIMIT);
-
   const userMessageCount = p.events.filter(
     (e) => e.kind === "user-prompt"
   ).length;
@@ -439,7 +432,6 @@ export const analyze = (
     dumbZoneFraction,
     dumbZoneTurns,
     compactionTurns,
-    biggestItems,
     turnCount: turns.length,
     userMessageCount,
     toolCallCount,

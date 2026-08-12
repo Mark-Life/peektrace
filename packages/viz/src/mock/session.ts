@@ -28,8 +28,6 @@ const CWD = "/Users/dev/code/acme/ingest";
 /** Wall-clock spacing between turns, and the epoch the session starts from. */
 const TURN_INTERVAL_MS = 90_000;
 const SESSION_START_MS = Date.parse("2026-03-11T09:02:14.000Z");
-/** Top-N largest events surfaced as `biggestItems`, matching core's analysis. */
-const BIGGEST_ITEMS_LIMIT = 40;
 
 /**
  * Category attribution at the peak turn. These ten values are the session's
@@ -443,11 +441,6 @@ const BUDGET = BUDGET_KEYS.map((key) => ({
   tokens: PEAK_SLICES[key],
 })).filter((slice) => slice.tokens > 0);
 
-const BIGGEST_ITEMS = [...EVENTS]
-  .filter((e) => e.kind !== "system" && e.tokensEst > 0)
-  .sort((a, b) => b.tokensEst - a.tokensEst)
-  .slice(0, BIGGEST_ITEMS_LIMIT);
-
 /** First turn at or above the dumb-zone line, and how long the session stays there. */
 const DUMB_ZONE_TOKENS = DUMB_ZONE_FRACTION * CONTEXT_WINDOW;
 const DUMB_ZONE_CROSS_TURN = CTX_BY_TURN.findIndex(
@@ -552,7 +545,6 @@ export const MOCK_SESSION: typeof AnalyzedSession.Type = {
   dumbZoneFraction: DUMB_ZONE_FRACTION,
   dumbZoneTurns: DUMB_ZONE_TURNS,
   compactionTurns: COMPACTION_TURNS,
-  biggestItems: BIGGEST_ITEMS,
   turnCount: TURN_COUNT,
   userMessageCount: EVENTS.filter((e) => e.kind === "user-prompt").length,
   toolCallCount: EVENTS.filter((e) => e.kind === "tool-call").length,
