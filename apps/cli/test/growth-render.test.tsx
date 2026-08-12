@@ -53,7 +53,6 @@ const analyzed = (): AnalyzedSession =>
     budget,
     snapshots: CTXS.map((c, i) => snap(i, c)),
     onDiskContextFiles: [],
-    biggestItems: [],
     contextWindow: 200_000,
     contextWindowInferred: false,
     peakContextTokens: 190_000,

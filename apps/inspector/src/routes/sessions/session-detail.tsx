@@ -2,8 +2,8 @@
  *
  * Fetches `sessions.analyze` for the selected id (redaction on by default) and
  * lays out the forensic surface: verdict header + peak gauge, budget-at-peak,
- * growth timeline, loaded artifacts + biggest items, then the full redacted
- * history with subagent drill-down. The redaction toggle flips the atom's
+ * growth timeline, loaded artifacts, then the full redacted history (sortable by
+ * size) with subagent drill-down. The redaction toggle flips the atom's
  * `redact` flag, which re-fetches the analysis with raw bodies.
  */
 import { useAtomValue } from "@effect-atom/atom-react";

@@ -40,11 +40,6 @@ export const BudgetBar = ({ a }: { readonly a: AnalyzedSession }) => {
     >
       <div>
         <h2 className="font-semibold text-base">Context budget at peak</h2>
-        <p className="text-muted-foreground text-sm">
-          Where the {fmt(a.peakContextTokens)}-token peak went. Thinking is
-          recovered from <code>output_tokens</code>; hatched slices
-          (system+tools, overhead) are inferred.
-        </p>
       </div>
 
       <div className="flex h-7 w-full overflow-hidden rounded-md border border-border">

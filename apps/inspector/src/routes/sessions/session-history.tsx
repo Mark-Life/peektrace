@@ -1,28 +1,16 @@
-/** Full collapsible history + subagents (Phase 8.3).
+/** Full history: one filtered event list, two readings of it.
  *
- * Every transcript event in order (tool calls, results, attachments, assistant
- * text) collapsed by default, with search + type filter and the dumb-zone
- * divider rendered inline at the first crossing. Subagent (sidechain) transcripts
- * drill down as their own cards. The transcript is REDACTED BY DEFAULT behind a
- * persistent "review before sharing" banner; the reveal toggle re-fetches with
- * `redact:false` (handled by the parent atom).
+ * The shell owns everything shared — search, the type filter, the redaction
+ * toggle and its banner, expand-all, and the single `visible` array — then hands
+ * the identical rows to either renderer. The dense table stays the default and
+ * the forensic answer ("what did this cost, in what order"); the chat layout is
+ * the readable pass over the same events. Keeping the filtering here is what
+ * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
+ * behind a persistent "review before sharing" banner; the reveal toggle
+ * re-fetches with `redact:false` (handled by the parent atom).
  */
-import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
-import type {
-  AnalyzedSession,
-  TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
-import {
-  CodeBlock,
-  CodeBlockCopyButton,
-} from "@workspace/ui/components/ai-elements/code-block";
-import { Badge } from "@workspace/ui/components/badge";
+import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@workspace/ui/components/collapsible";
 import { Input } from "@workspace/ui/components/input";
 import {
   Select,
@@ -32,23 +20,31 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { Switch } from "@workspace/ui/components/switch";
-import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
 import { cn } from "@workspace/ui/lib/utils";
-import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import {
-  ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  MessagesSquareIcon,
   ShieldAlertIcon,
+  TableIcon,
 } from "lucide-react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { chatIdsOf } from "../../lib/chat-lane";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import {
   eventCollapseId,
+  type HistorySort,
   type SessionView,
   subagentCollapseId,
 } from "../../lib/session-view";
-import { sameEvent } from "../../lib/transcript-row";
+import { indexTools } from "../../lib/tool-event";
+import {
+  setTranscriptMode,
+  useTranscriptMode,
+} from "../../lib/transcript-mode";
+import { Subagents } from "./subagents";
+import { TranscriptChat } from "./transcript-chat";
+import { TranscriptTable } from "./transcript-table";
 
 /** Event-kind options for the history type filter. */
 const KIND_OPTIONS = [
@@ -60,6 +56,12 @@ const KIND_OPTIONS = [
   { value: "assistant-thinking", label: "Thinking" },
   { value: "attachment", label: "Attachments" },
 ] as const;
+
+/** Row-order options; sorting by size replaces a separate "biggest items" list. */
+const SORT_OPTIONS: readonly { value: HistorySort; label: string }[] = [
+  { value: "order", label: "Transcript order" },
+  { value: "size", label: "Biggest first" },
+];
 
 /** Map every event to the 1-based turn it belongs to (for grouping). */
 const turnNumbers = (a: AnalyzedSession): number[] => {
@@ -77,209 +79,6 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
-/** Languages we highlight transcript bodies as. */
-type BodyLang = Exclude<CodeBlockLanguage, "text">;
-
-const parseJson = (s: string): unknown => {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return;
-  }
-};
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
-
-/** Join `{ type: "text", text }` blocks (standard tool_result content). */
-const textFromBlocks = (v: unknown): string | null => {
-  if (!Array.isArray(v)) {
-    return null;
-  }
-  const texts = v
-    .filter(
-      (b): b is { text: string } =>
-        isRecord(b) && b.type === "text" && typeof b.text === "string"
-    )
-    .map((b) => b.text);
-  return texts.length > 0 ? texts.join("\n\n") : null;
-};
-
-/**
- * Turn a raw event body into a syntax-highlightable block, unwrapping
- * JSON-encoded tool payloads so escaped newlines render as real lines
- * (e.g. an executor `code` arg or a JSON result string). Returns null to
- * fall back to plain <pre> for prose, thinking, and non-JSON errors.
- */
-const displayBody = (
-  e: TimelineEvent
-): { code: string; language: BodyLang } | null => {
-  if (e.kind === "tool-call") {
-    const input = parseJson(e.body);
-    if (isRecord(input)) {
-      if (typeof input.code === "string") {
-        return { code: input.code, language: "typescript" };
-      }
-      if (typeof input.command === "string") {
-        return { code: input.command, language: "bash" };
-      }
-    }
-    return { code: e.body, language: "json" };
-  }
-  if (e.kind === "tool-result") {
-    const parsed = parseJson(e.body);
-    if (parsed === undefined) {
-      return null;
-    }
-    const text = textFromBlocks(parsed);
-    if (text !== null) {
-      return { code: text, language: "markdown" };
-    }
-    return { code: JSON.stringify(parsed, null, 2), language: "json" };
-  }
-  return null;
-};
-
-/** What one transcript row needs; `onToggle` must be stable (see `EventRow`). */
-interface EventRowProps {
-  readonly collapseId: string;
-  readonly e: TimelineEvent;
-  readonly onToggle: (id: string, open: boolean) => void;
-  readonly open: boolean;
-  readonly turn: number;
-}
-
-/** One collapsible transcript event; open state is controlled by the parent. */
-const EventRowBody = ({
-  e,
-  turn,
-  open,
-  collapseId,
-  onToggle,
-}: EventRowProps) => {
-  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
-  const hasBody = e.body.trim().length > 0;
-  const view = hasBody ? displayBody(e) : null;
-  const emptyText =
-    e.kind === "assistant-thinking"
-      ? "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band."
-      : "(no content)";
-  return (
-    <Collapsible
-      className="border-border border-b"
-      data-kind={e.kind}
-      data-sidechain={e.isSidechain ? "true" : "false"}
-      data-testid="history-event"
-      onOpenChange={onOpenChange}
-      open={open}
-    >
-      <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
-        <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
-        <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
-          t{turn}
-        </span>
-        <Badge className="shrink-0" variant="outline">
-          {eventBadgeLabel(e)}
-        </Badge>
-        {e.isSidechain ? (
-          <Badge className="shrink-0" variant="secondary">
-            sidechain
-          </Badge>
-        ) : null}
-        <span className="truncate text-muted-foreground text-xs">
-          {e.preview || "(empty)"}
-        </span>
-        <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
-          {e.tokensEst ? `~${fmt(e.tokensEst)}` : ""}
-        </span>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        {view ? (
-          <div className="max-h-96 overflow-auto">
-            <CodeBlock
-              className="[&_pre]:whitespace-pre-wrap! [&_pre]:wrap-break-word! rounded-none border-0 border-t [&_code]:text-[11px]! [&_pre]:p-3! [&_pre]:text-[9px]! [&_pre]:leading-relaxed!"
-              code={view.code}
-              language={view.language}
-            >
-              <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
-            </CodeBlock>
-          </div>
-        ) : (
-          <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
-            {hasBody ? e.body : emptyText}
-          </pre>
-        )}
-      </CollapsibleContent>
-    </Collapsible>
-  );
-};
-
-/** Two renders of the same row: same state, same rendered event fields. */
-const sameRow = (prev: EventRowProps, next: EventRowProps) =>
-  prev.open === next.open &&
-  prev.turn === next.turn &&
-  prev.collapseId === next.collapseId &&
-  prev.onToggle === next.onToggle &&
-  sameEvent(prev.e, next.e);
-
-/** One transcript row, re-rendered only when its own content or state changes. */
-const EventRow = memo(EventRowBody, sameRow);
-
-/** Subagent (sidechain) transcript cards — each runs in its own window. */
-const Subagents = ({
-  a,
-  isOpen,
-  onToggle,
-}: {
-  readonly a: AnalyzedSession;
-  readonly isOpen: (id: string) => boolean;
-  readonly onToggle: (id: string, open: boolean) => void;
-}) => {
-  if (a.subagents.length === 0) {
-    return null;
-  }
-  return (
-    <div className="flex flex-col gap-2" data-testid="subagents">
-      <h3 className="font-medium text-sm">Subagents ({a.subagents.length})</h3>
-      <p className="text-muted-foreground text-xs">
-        Each runs in its own context window — these tokens do not count against
-        the main session.
-      </p>
-      {a.subagents.map((s) => (
-        <Collapsible
-          className="rounded-md border border-border"
-          data-testid="subagent-card"
-          key={s.id}
-          onOpenChange={(o) => onToggle(subagentCollapseId(s.id), o)}
-          open={isOpen(subagentCollapseId(s.id))}
-        >
-          <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
-            <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
-            <Badge variant="secondary">{s.agentType ?? "agent"}</Badge>
-            <span className="font-mono text-xs">{s.id}</span>
-            <span className="truncate text-muted-foreground text-xs">
-              {s.description ?? "subagent"} · {s.turns} turns
-            </span>
-            <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
-              peak {fmtK(s.peakContextTokens)}
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <pre className="whitespace-pre-wrap break-words bg-muted/30 px-3 py-2 text-xs">
-              {`agentType: ${s.agentType ?? "—"}
-description: ${s.description ?? "—"}
-toolUseId: ${s.toolUseId ?? "—"}
-turns: ${s.turns}
-peak context: ${fmt(s.peakContextTokens)}
-path: ${s.path}`}
-            </pre>
-          </CollapsibleContent>
-        </Collapsible>
-      ))}
-    </div>
-  );
-};
-
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
   a,
@@ -288,8 +87,14 @@ export const SessionHistory = ({
   readonly a: AnalyzedSession;
   readonly view: SessionView;
 }) => {
-  const { query, kind, redacted } = view.state;
+  const { query, kind, redacted, sort } = view.state;
+  const mode = useTranscriptMode();
   const turns = useMemo(() => turnNumbers(a), [a]);
+  const tools = useMemo(() => indexTools(a), [a]);
+
+  // A conversation has one order — its own. The persisted sort is left alone, so
+  // switching back to the table restores "Biggest first" if that is how it was.
+  const effectiveSort = mode === "chat" ? "order" : sort;
 
   const crossEvtIdx =
     a.dumbZoneCrossTurn >= 0
@@ -298,31 +103,36 @@ export const SessionHistory = ({
         )
       : -1;
 
-  const visible = useMemo(
-    () =>
-      a.events
-        .map((e, pos) => ({ e, pos }))
-        .filter(({ e }) => e.kind !== "system")
-        .filter(({ e }) => kind === "all" || e.kind === kind)
-        .filter(({ e }) => {
-          if (query.length === 0) {
-            return true;
-          }
-          const hay = `${e.title} ${e.preview}`.toLowerCase();
-          return hay.includes(query.toLowerCase());
-        }),
-    [a.events, kind, query]
-  );
+  const visible = useMemo(() => {
+    const rows = a.events
+      .map((e, pos) => ({ e, pos }))
+      .filter(({ e }) => e.kind !== "system")
+      .filter(({ e }) => kind === "all" || e.kind === kind)
+      .filter(({ e }) => {
+        if (query.length === 0) {
+          return true;
+        }
+        const hay = `${e.title} ${e.preview}`.toLowerCase();
+        return hay.includes(query.toLowerCase());
+      });
+    // Size order keeps each row's original position, so open rows, the turn
+    // gutter and deep links all survive the re-sort.
+    return effectiveSort === "size"
+      ? rows.sort((x, y) => y.e.tokensEst - x.e.tokensEst)
+      : rows;
+  }, [a.events, kind, query, effectiveSort]);
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
   // shareable link; individual rows persist in the per-session set instead.
   const expandAll = useHashParam("expand") === "all";
   const allIds = useMemo(
     () => [
-      ...visible.map(({ pos }) => eventCollapseId(pos)),
+      ...(mode === "chat"
+        ? chatIdsOf(visible)
+        : visible.map(({ pos }) => eventCollapseId(pos))),
       ...a.subagents.map((s) => subagentCollapseId(s.id)),
     ],
-    [visible, a.subagents]
+    [mode, visible, a.subagents]
   );
 
   const isOpen = (id: string) => expandAll || view.isExpanded(id);
@@ -424,13 +234,53 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
+        {mode === "table" ? (
+          <Select
+            onValueChange={(v) => view.setSort(v as HistorySort)}
+            value={sort}
+          >
+            <SelectTrigger className="w-44" data-testid="history-sort">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
         <span className="text-muted-foreground text-xs">
           {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
           dumb zone
         </span>
+        <fieldset
+          aria-label="Transcript layout"
+          className="ml-auto flex items-center gap-0.5 rounded-md border border-border p-0.5"
+          data-testid="history-layout-toggle"
+        >
+          <Button
+            data-testid="history-layout-table"
+            onClick={() => setTranscriptMode("table")}
+            size="sm"
+            variant={mode === "table" ? "secondary" : "ghost"}
+          >
+            <TableIcon className="size-3.5" />
+            Table
+          </Button>
+          <Button
+            data-testid="history-layout-chat"
+            onClick={() => setTranscriptMode("chat")}
+            size="sm"
+            variant={mode === "chat" ? "secondary" : "ghost"}
+          >
+            <MessagesSquareIcon className="size-3.5" />
+            Chat
+          </Button>
+        </fieldset>
         {allIds.length > 0 ? (
           <Button
-            className="ml-auto"
             data-testid="history-expand-all"
             onClick={toggleAll}
             size="sm"
@@ -446,34 +296,30 @@ export const SessionHistory = ({
         ) : null}
       </div>
 
-      <div className="rounded-md border border-border">
-        {visible.map(({ e, pos }) => (
-          <div key={`${e.index}-${pos}`}>
-            {pos === crossEvtIdx ? (
-              <div
-                className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
-                data-testid="dumbzone-divider"
-              >
-                entered dumb zone — {Math.round(a.dumbZoneFraction * PERCENT)}%
-                ({fmt(a.dumbZoneFraction * a.contextWindow)} tok) crossed at
-                turn {a.dumbZoneCrossTurn + 1}
-              </div>
-            ) : null}
-            <EventRow
-              collapseId={eventCollapseId(pos)}
-              e={e}
-              onToggle={onToggle}
-              open={isOpen(eventCollapseId(pos))}
-              turn={turns[pos] ?? 0}
-            />
-          </div>
-        ))}
-        {visible.length === 0 ? (
-          <p className="px-3 py-6 text-center text-muted-foreground text-sm">
-            No events match the filters.
-          </p>
-        ) : null}
-      </div>
+      {mode === "chat" ? (
+        <TranscriptChat
+          a={a}
+          allOpen={allOpen}
+          crossEvtIdx={crossEvtIdx}
+          isOpen={isOpen}
+          onToggle={onToggle}
+          queryActive={query.length > 0}
+          rows={visible}
+          tools={tools}
+          turns={turns}
+        />
+      ) : (
+        <TranscriptTable
+          a={a}
+          crossEvtIdx={crossEvtIdx}
+          isOpen={isOpen}
+          onToggle={onToggle}
+          rows={visible}
+          showShare={effectiveSort === "size"}
+          tools={tools}
+          turns={turns}
+        />
+      )}
 
       <Subagents a={a} isOpen={isOpen} onToggle={onToggle} />
     </section>

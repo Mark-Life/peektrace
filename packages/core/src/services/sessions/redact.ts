@@ -248,6 +248,5 @@ export const redactSession = (a: AnalyzedSession): AnalyzedSession => ({
   ...a,
   ...(a.title ? { title: redactText(a.title) } : {}),
   events: a.events.map(redactEvent),
-  biggestItems: a.biggestItems.map(redactEvent),
   subagents: redactSubagents(a.subagents),
 });
