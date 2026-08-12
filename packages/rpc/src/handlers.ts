@@ -15,6 +15,7 @@ import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { BunFileSystem } from "@effect/platform-bun";
 import {
+  type AgentId,
   type AgentRegistry,
   AgentRegistryLive,
   type AgentUnsupportedError,
@@ -27,6 +28,8 @@ import {
   type PathOutsideRootError as CorePathOutsideRootError,
   type SessionNotFoundError as CoreSessionNotFoundError,
   type SettingsWriteError as CoreSettingsWriteError,
+  type StatsRowNotFoundError as CoreStatsRowNotFoundError,
+  type StatsScanError as CoreStatsScanError,
   type TranscriptParseError as CoreTranscriptParseError,
   FsLive,
   MemoryService,
@@ -35,6 +38,9 @@ import {
   SessionsServiceLive,
   SettingsService,
   SettingsServiceLive,
+  StatsCacheLive,
+  StatsService,
+  StatsServiceLive,
   WatchService,
   WatchServiceLive,
 } from "@workspace/core";
@@ -49,6 +55,8 @@ import {
   PeektraceRpcs,
   SessionNotFoundError,
   SettingsWriteError,
+  StatsRowNotFoundError,
+  StatsScanError,
   TranscriptParseError,
   type WireError,
 } from "./contract";
@@ -63,6 +71,8 @@ type CoreError =
   | CoreSessionNotFoundError
   | CoreTranscriptParseError
   | CoreSettingsWriteError
+  | CoreStatsScanError
+  | CoreStatsRowNotFoundError
   | AgentUnsupportedError
   | PlatformError;
 
@@ -110,6 +120,17 @@ const toWire = (error: CoreError): Effect.Effect<never, WireError> => {
       return Effect.fail(
         new SettingsWriteError({ path: error.path, reason: error.reason })
       );
+    case "StatsScanError":
+      return Effect.fail(
+        new StatsScanError({
+          reason: error.reason,
+          ...(error.path === undefined ? {} : { path: error.path }),
+        })
+      );
+    case "StatsRowNotFoundError":
+      return Effect.fail(
+        new StatsRowNotFoundError({ key: error.key, table: error.table })
+      );
     default:
       return Effect.die(error);
   }
@@ -134,6 +155,29 @@ const buildMemoryPatch = (
     ...(frontmatter.type === undefined ? {} : { type: frontmatter.type }),
   };
 };
+
+/** Drop the undefined fields of a stats payload: core requests are exact. */
+const statsScope = (payload: {
+  readonly agents?: readonly AgentId[] | undefined;
+  readonly force?: boolean | undefined;
+}) => ({
+  ...(payload.agents === undefined ? {} : { agents: payload.agents }),
+  ...(payload.force === undefined ? {} : { force: payload.force }),
+});
+
+/** The window/limit/redaction half of a `stats.report` or `stats.drill` call. */
+const statsReport = (payload: {
+  readonly agents?: readonly AgentId[] | undefined;
+  readonly days?: number | undefined;
+  readonly force?: boolean | undefined;
+  readonly limit?: number | undefined;
+  readonly redact?: boolean | undefined;
+}) => ({
+  ...statsScope(payload),
+  ...(payload.days === undefined ? {} : { days: payload.days }),
+  ...(payload.limit === undefined ? {} : { limit: payload.limit }),
+  ...(payload.redact === undefined ? {} : { redact: payload.redact }),
+});
 
 /**
  * Wrap every handler in a root span so a tracer can assemble one wide event per
@@ -179,6 +223,7 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
       const caps = yield* CapabilityRegistry;
       const watch = yield* WatchService;
       const settings = yield* SettingsService;
+      const stats = yield* StatsService;
 
       return withRootSpans(
         {
@@ -244,6 +289,23 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
             readOnly
               ? readOnlyRefusal()
               : wire(memory.delete({ project, name })),
+          // The stats cache is derived data under `PEEKTRACE_DIR`, never user
+          // content, so read-only mode does not gate these.
+          "stats.report": (payload) => wire(stats.report(statsReport(payload))),
+          "stats.drill": ({ key, offset, pageSize, table, ...rest }) =>
+            wire(
+              stats.drill({
+                ...statsReport(rest),
+                ...(offset === undefined ? {} : { offset }),
+                ...(pageSize === undefined ? {} : { pageSize }),
+                key,
+                table,
+              })
+            ),
+          "stats.markers": ({ sid, ...rest }) =>
+            wire(stats.markers({ ...statsScope(rest), sid })),
+          "stats.refresh": (payload) =>
+            wire(stats.refresh(statsScope(payload))),
           "settings.get": () => settings.get,
           "settings.update": ({ settings: next, expectedMtime }) =>
             readOnly
@@ -299,7 +361,12 @@ const coreServicesLayer = (options?: HandlersLayerOptions) => {
     Layer.provide(fileSystem)
   );
   const settings = SettingsServiceLive.pipe(Layer.provide(fileSystem));
-  return Layer.mergeAll(sessions, memory, caps, watch, settings);
+  const stats = StatsServiceLive.pipe(
+    Layer.provide(StatsCacheLive.pipe(Layer.provide(fileSystem))),
+    Layer.provide(agents),
+    Layer.provide(fileSystem)
+  );
+  return Layer.mergeAll(sessions, memory, caps, watch, settings, stats);
 };
 
 /**

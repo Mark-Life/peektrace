@@ -31,6 +31,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
 import { setHashParam, useHashParam } from "../../lib/routes";
+import { useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
   type HistorySort,
@@ -82,15 +83,22 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
   a,
+  sid,
   view,
 }: {
   readonly a: AnalyzedSession;
+  /** The session id, for the marker query — `AnalyzedSession` carries none. */
+  readonly sid: string;
   readonly view: SessionView;
 }) => {
   const { query, kind, redacted, sort } = view.state;
   const mode = useTranscriptMode();
   const turns = useMemo(() => turnNumbers(a), [a]);
   const tools = useMemo(() => indexTools(a), [a]);
+  // Stats marks are an annotation on the same calls the tables counted; a
+  // failed or pending marker query leaves the transcript exactly as it was.
+  const marks = useToolMarks(sid);
+  const activeMark = useHashParam("mark");
 
   // A conversation has one order — its own. The persisted sort is left alone, so
   // switching back to the table restores "Biggest first" if that is how it was.
@@ -299,9 +307,11 @@ export const SessionHistory = ({
       {mode === "chat" ? (
         <TranscriptChat
           a={a}
+          activeMark={activeMark}
           allOpen={allOpen}
           crossEvtIdx={crossEvtIdx}
           isOpen={isOpen}
+          marks={marks}
           onToggle={onToggle}
           queryActive={query.length > 0}
           rows={visible}

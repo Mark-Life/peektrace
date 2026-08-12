@@ -23,6 +23,9 @@ const MemoryRoute = lazy(() =>
 const SettingsRoute = lazy(() =>
   import("./routes/settings-route").then((m) => ({ default: m.SettingsRoute }))
 );
+const StatsRoute = lazy(() =>
+  import("./routes/stats-route").then((m) => ({ default: m.StatsRoute }))
+);
 
 /** Toasts are a response to a mutation, never part of the first paint, and
  *  `sonner` is ~32 KB — so the host mounts itself once the entry has run. */
@@ -50,6 +53,9 @@ const Screen = () => {
   }
   if (route === "settings") {
     return <SettingsRoute />;
+  }
+  if (route === "stats") {
+    return <StatsRoute />;
   }
   return <MemoryRoute />;
 };

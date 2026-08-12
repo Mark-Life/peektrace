@@ -113,6 +113,45 @@ export {
   SettingsWriteError,
 } from "./services/settings-service";
 export {
+  StatsCache,
+  StatsCacheLive,
+  type StatsCacheShape,
+  statsCacheRoot,
+} from "./services/stats/cache";
+export {
+  StatsCacheError,
+  StatsRowNotFoundError,
+  StatsScanError,
+} from "./services/stats/errors";
+export {
+  CorpusSummary,
+  DETECTOR_VERSION,
+  DrillResult,
+  DrillTable,
+  FailRow,
+  RefreshSummary,
+  SessionMarker,
+  SessionMarkers,
+  STATS_SCHEMA_VERSION,
+  StatsReport,
+  TimeRow,
+  WaitPanel,
+} from "./services/stats/schema";
+export {
+  type DrillRequest,
+  type MarkersRequest,
+  type RefreshRequest,
+  type ReportRequest,
+  StatsService,
+  StatsServiceLive,
+  type StatsServiceShape,
+} from "./services/stats/service";
+export {
+  listCorpus,
+  listTranscripts,
+  type TranscriptRef,
+} from "./services/stats/walk";
+export {
   type Invalidation,
   type WatchScope,
   WatchService,

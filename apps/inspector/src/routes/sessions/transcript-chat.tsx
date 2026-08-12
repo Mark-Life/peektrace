@@ -8,6 +8,7 @@
  * instead of the whole tool index, which is rebuilt on every re-analysis.
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon } from "lucide-react";
 import { useMemo } from "react";
@@ -17,6 +18,7 @@ import {
   laneOf,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
+import type { ToolMarks } from "../../lib/session-markers";
 import { chatCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import { toolNameOf, toolState } from "../../lib/tool-event";
@@ -97,19 +99,26 @@ const Band = ({
   );
 };
 
+/** No marks on this call: one shared empty array keeps the card memo stable. */
+const NO_MARKS: readonly SessionMarker[] = [];
+
 /** One node of the plan. Split out of the map so the switch stays readable. */
 const renderNode = ({
   a,
+  activeMark,
   allOpen,
   isOpen,
+  marks,
   n,
   onToggle,
   queryActive,
   tools,
 }: {
   readonly a: AnalyzedSession;
+  readonly activeMark: string | null;
   readonly allOpen: boolean;
   readonly isOpen: (id: string) => boolean;
+  readonly marks: ToolMarks;
   readonly n: ChatNode;
   readonly onToggle: (id: string, open: boolean) => void;
   readonly queryActive: boolean;
@@ -167,10 +176,13 @@ const renderNode = ({
       return null;
     }
     const id = chatCollapseId(anchor.pos);
+    const toolUseId = anchor.e.toolUseId;
     return (
       <ChatToolCard
+        activeMark={activeMark}
         call={n.call?.e ?? null}
         collapseId={id}
+        marks={(toolUseId ? marks.get(toolUseId) : null) ?? NO_MARKS}
         name={toolNameOf(anchor.e, tools)}
         onToggle={onToggle}
         open={isOpen(id)}
@@ -207,9 +219,11 @@ const renderNode = ({
 /** The transcript as a conversation. */
 export const TranscriptChat = ({
   a,
+  activeMark,
   allOpen,
   crossEvtIdx,
   isOpen,
+  marks,
   onToggle,
   queryActive,
   rows,
@@ -217,9 +231,13 @@ export const TranscriptChat = ({
   turns,
 }: {
   readonly a: AnalyzedSession;
+  /** The detector id the reader arrived with, highlighted where it applies. */
+  readonly activeMark: string | null;
   readonly allOpen: boolean;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** Stats marks for this session, keyed by tool-use id. */
+  readonly marks: ToolMarks;
   readonly onToggle: (id: string, open: boolean) => void;
   /** A search is running: chip clusters must not fold a match out of sight. */
   readonly queryActive: boolean;
@@ -247,7 +265,17 @@ export const TranscriptChat = ({
     >
       {plan.map((n, i) => (
         <div className={NODE} key={keyOf(n, i)}>
-          {renderNode({ a, allOpen, isOpen, n, onToggle, queryActive, tools })}
+          {renderNode({
+            a,
+            activeMark,
+            allOpen,
+            isOpen,
+            marks,
+            n,
+            onToggle,
+            queryActive,
+            tools,
+          })}
         </div>
       ))}
     </div>

@@ -28,6 +28,13 @@ import {
   SessionHeader,
 } from "@workspace/core/services/sessions/schema";
 import { PeektraceSettings } from "@workspace/core/services/settings";
+import {
+  DrillResult,
+  DrillTable,
+  RefreshSummary,
+  SessionMarkers,
+  StatsReport,
+} from "@workspace/core/services/stats/schema";
 import { Schema } from "effect";
 
 // --- Wire error mirrors (Schema.TaggedError twins of the core Data errors) ---
@@ -104,6 +111,24 @@ export class SettingsWriteError extends Schema.TaggedError<SettingsWriteError>()
   }
 ) {}
 
+/** Wire twin of core `StatsScanError` (the corpus walk could not complete). */
+export class StatsScanError extends Schema.TaggedError<StatsScanError>()(
+  "StatsScanError",
+  {
+    reason: Schema.String,
+    path: Schema.optional(Schema.String),
+  }
+) {}
+
+/** Wire twin of core `StatsRowNotFoundError` (a drill key names no row). */
+export class StatsRowNotFoundError extends Schema.TaggedError<StatsRowNotFoundError>()(
+  "StatsRowNotFoundError",
+  {
+    key: Schema.String,
+    table: Schema.String,
+  }
+) {}
+
 /** Union of every wire error a fallible procedure can surface. */
 export const WireError = Schema.Union(
   FileChangedError,
@@ -113,7 +138,9 @@ export const WireError = Schema.Union(
   MemoryNotFoundError,
   SessionNotFoundError,
   TranscriptParseError,
-  SettingsWriteError
+  SettingsWriteError,
+  StatsScanError,
+  StatsRowNotFoundError
 );
 export type WireError = typeof WireError.Type;
 
@@ -222,6 +249,45 @@ export const SettingsResult = Schema.Struct({
   path: Schema.String,
 });
 
+/** What every stats pass accepts: scope, window and cache posture. */
+const statsScopeFields = {
+  /** Agents to scan. Default: every agent with a parser. */
+  agents: Schema.optional(Schema.Array(AgentId)),
+  /** Ignore cached shards and re-extract every transcript. */
+  force: Schema.optional(Schema.Boolean),
+};
+
+/** `stats.report` arguments. */
+export const StatsReportPayload = Schema.Struct({
+  ...statsScopeFields,
+  /** History window in days. Default 60. */
+  days: Schema.optional(Schema.Number),
+  /** Rows kept per table. */
+  limit: Schema.optional(Schema.Number),
+  /** Redact derived strings. Default true; false also bypasses the cache. */
+  redact: Schema.optional(Schema.Boolean),
+});
+
+/** `stats.drill` arguments: one page of one aggregate key of one table. */
+export const StatsDrillPayload = Schema.Struct({
+  ...StatsReportPayload.fields,
+  key: Schema.String,
+  /** First hit to return, counted from the whole match set. Default 0. */
+  offset: Schema.optional(Schema.Number),
+  /** Hits in the page. Default 200. */
+  pageSize: Schema.optional(Schema.Number),
+  table: DrillTable,
+});
+
+/** `stats.markers` selector: one session id. */
+export const StatsMarkersPayload = Schema.Struct({
+  ...statsScopeFields,
+  sid: Schema.String,
+});
+
+/** `stats.refresh` arguments (cache only; computes no rows). */
+export const StatsRefreshPayload = Schema.Struct(statsScopeFields);
+
 /** `settings.update` arguments (CAS on `expectedMtime`). */
 export const SettingsUpdatePayload = Schema.Struct({
   settings: PeektraceSettings,
@@ -285,6 +351,30 @@ export const PeektraceRpcs = RpcGroup.make(
   // is the source of truth; this just exposes its current versions.
   Rpc.make("watch.poll", {
     success: WatchVersions,
+  }),
+  // Stats are read-mostly and expensive to compute, so the report is the whole
+  // versioned artifact: an agent decodes `schemaVersion` and acts on the rows.
+  // `markers` returns the same `detector` ids for one session, keyed on the
+  // transcript's own tool-use id, so a reader view and the tables agree.
+  Rpc.make("stats.report", {
+    payload: StatsReportPayload,
+    success: StatsReport,
+    error: WireError,
+  }),
+  Rpc.make("stats.drill", {
+    payload: StatsDrillPayload,
+    success: DrillResult,
+    error: WireError,
+  }),
+  Rpc.make("stats.markers", {
+    payload: StatsMarkersPayload,
+    success: SessionMarkers,
+    error: WireError,
+  }),
+  Rpc.make("stats.refresh", {
+    payload: StatsRefreshPayload,
+    success: RefreshSummary,
+    error: WireError,
   }),
   Rpc.make("settings.get", {
     success: SettingsResult,

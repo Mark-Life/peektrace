@@ -48,7 +48,7 @@ export const SessionDetail = ({
             <BudgetBar a={a} />
             <GrowthTimeline a={a} />
             <LoadedArtifacts a={a} />
-            <SessionHistory a={a} view={view} />
+            <SessionHistory a={a} sid={id} view={view} />
           </div>
         )}
       </ResultView>

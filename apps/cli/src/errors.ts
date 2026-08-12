@@ -52,6 +52,10 @@ export const formatCliError = (error: unknown): string => {
       return `Unsupported for agent "${String(e.agentId)}": ${String(e.capabilityId)}`;
     case "TranscriptParseError":
       return `Failed to parse transcript ${String(e.path)}: ${String(e.reason)}`;
+    case "StatsScanError":
+      return `Could not scan the corpus: ${String(e.reason)}`;
+    case "StatsRowNotFoundError":
+      return `No ${String(e.table)} row with key "${String(e.key)}". Run \`peektrace stats\` and copy a DRILL cell.`;
     default:
       return typeof e.message === "string" ? e.message : `Error: ${e._tag}`;
   }
