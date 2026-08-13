@@ -6,6 +6,7 @@
  * transcript never recorded.
  */
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
+import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import {
   Tool,
   ToolContent,
@@ -25,14 +26,52 @@ import { sameToolPair } from "../../lib/transcript-row";
 import { ChatRow, RawToggle } from "./chat-message";
 
 interface ChatToolCardProps {
+  /** The detector id the reader arrived with, from `#/sessions?…&mark=`. */
+  readonly activeMark: string | null;
   readonly call: TimelineEvent | null;
   readonly collapseId: string;
+  /** Stats marks on this call, carrying the same detector ids the tables use. */
+  readonly marks: readonly SessionMarker[];
   readonly name: string;
   readonly onToggle: (id: string, open: boolean) => void;
   readonly open: boolean;
   readonly result: TimelineEvent | null;
   readonly state: ToolState;
 }
+
+/** Short glyph text per detector. The badge says what was printed, never that
+ *  something broke — a silent failure is a failure the exit code did not
+ *  report, which is not the same claim. */
+const MARK_TEXT: Record<string, string> = {
+  "zsh-equals-abort": "rule",
+  "piped-exit-code": "silent fail",
+  "silent-fail": "silent fail",
+  capped: "capped",
+  repeat: "repeat",
+};
+
+/** One stats marker, tinted amber and never red: a marked call is not an error
+ *  the agent reported, and the error tint already means that. */
+const MarkBadge = ({
+  active,
+  mark,
+}: {
+  readonly active: boolean;
+  readonly mark: SessionMarker;
+}) => (
+  <Badge
+    className={cn(
+      "shrink-0 border-amber-500/40 bg-amber-500/10 text-amber-400",
+      active && "ring-1 ring-amber-400"
+    )}
+    data-detector={mark.detector}
+    data-testid="stats-marker"
+    title={mark.label}
+    variant="outline"
+  >
+    {MARK_TEXT[mark.detector] ?? mark.detector}
+  </Badge>
+);
 
 /** `~1.2K → ~8K`, or a dash for whichever half the transcript does not have. */
 const costPair = (
@@ -57,8 +96,10 @@ const rawBoth = (call: TimelineEvent | null, result: TimelineEvent | null) =>
     .join("\n\n");
 
 const ChatToolCardBody = ({
+  activeMark,
   call,
   collapseId,
+  marks,
   name,
   onToggle,
   open,
@@ -105,6 +146,13 @@ const ChatToolCardBody = ({
               sidechain
             </Badge>
           ) : null}
+          {marks.map((mark) => (
+            <MarkBadge
+              active={activeMark === mark.detector}
+              key={`${mark.detector}:${mark.seq}`}
+              mark={mark}
+            />
+          ))}
           <span className="truncate text-muted-foreground text-xs">
             {(view ? view.summary : result?.preview) || "(empty)"}
           </span>

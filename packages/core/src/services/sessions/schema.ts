@@ -135,6 +135,8 @@ export const TimelineEvent = Schema.Struct({
   ts: Schema.optional(Schema.String),
   requestId: Schema.optional(Schema.String),
   isSidechain: Schema.optional(Schema.Boolean),
+  /** The harness wrote this line, not the person at the keyboard. */
+  isMeta: Schema.optional(Schema.Boolean),
   title: Schema.String,
   preview: Schema.String,
   body: Schema.String,

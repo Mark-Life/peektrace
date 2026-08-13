@@ -1,9 +1,9 @@
 /** Root of the terminal UI: top nav + active screen + footer status bar.
  *
- * Mirrors the web inspector's shell — the same four sections (Sessions, Memory,
- * Capabilities, Settings), a dark dense frame, and a footer that surfaces the
- * sibling web server URL (both surfaces are live at once). Section switching is
- * `1`–`4`; `q` / `Ctrl+C` quit. Each screen owns its own internal navigation.
+ * Mirrors the web inspector's shell — the same sections (Sessions, Memory,
+ * Capabilities, Settings, Stats), a dark dense frame, and a footer that surfaces
+ * the sibling web server URL (both surfaces are live at once). Section switching
+ * is `1`–`5`; `q` / `Ctrl+C` quit. Each screen owns its own internal navigation.
  */
 import { useKeyboard } from "@opentui/react";
 import { useState } from "react";
@@ -13,10 +13,11 @@ import { CapabilitiesScreen } from "./screens/capabilities";
 import { MemoryScreen } from "./screens/memory";
 import { SessionsScreen } from "./screens/sessions";
 import { SettingsScreen } from "./screens/settings";
+import { StatsScreen } from "./screens/stats";
 import { C } from "./theme";
 import { TypingProvider, useTyping } from "./typing";
 
-type SectionId = "sessions" | "memory" | "capabilities" | "settings";
+type SectionId = "sessions" | "memory" | "capabilities" | "settings" | "stats";
 
 interface Section {
   readonly hint: string;
@@ -29,6 +30,7 @@ const SECTIONS: readonly Section[] = [
   { id: "memory", label: "Memory", hint: "All projects" },
   { id: "capabilities", label: "Capabilities", hint: "Support matrix" },
   { id: "settings", label: "Settings", hint: "Agent roots" },
+  { id: "stats", label: "Stats", hint: "What fails, what costs time" },
 ];
 
 /** Top brand + section tabs, active tab tinted and numbered. */
@@ -82,7 +84,7 @@ const Footer = ({ serverUrl }: { readonly serverUrl: string }) => (
     </box>
     <KeyHints
       hints={[
-        ["1-4", "section"],
+        ["1-5", "section"],
         ["q", "quit"],
       ]}
     />
@@ -100,6 +102,8 @@ const Screen = ({ active }: { readonly active: SectionId }) => {
       return <CapabilitiesScreen />;
     case "settings":
       return <SettingsScreen />;
+    case "stats":
+      return <StatsScreen />;
     default:
       return null;
   }

@@ -22,6 +22,7 @@ import {
 } from "@workspace/ui/components/sidebar";
 import { cn } from "@workspace/ui/lib/utils";
 import {
+  ActivityIcon,
   DatabaseIcon,
   LayoutGridIcon,
   MessagesSquareIcon,
@@ -41,13 +42,19 @@ interface NavItem {
   readonly label: string;
 }
 
-/** The three sections, in display order. */
+/** The sections, in display order. */
 const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "sessions",
     label: "Sessions",
     icon: MessagesSquareIcon,
     hint: "Context debug",
+  },
+  {
+    id: "stats",
+    label: "Stats",
+    icon: ActivityIcon,
+    hint: "What fails, what costs time",
   },
   { id: "memory", label: "Memory", icon: DatabaseIcon, hint: "All projects" },
   {

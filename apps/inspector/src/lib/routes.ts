@@ -13,6 +13,7 @@ import { useSyncExternalStore } from "react";
 /** The inspector sections, in nav order. */
 export const ROUTES = [
   "sessions",
+  "stats",
   "memory",
   "capabilities",
   "settings",
@@ -90,6 +91,17 @@ export const navigate = (section: RouteId) => {
 /** Open a session in the sessions section — pushes a shareable history entry. */
 export const openSession = (id: string) => {
   window.location.hash = buildHash("sessions", new URLSearchParams({ id }));
+};
+
+/**
+ * Open a session from a stats row, carrying the detector id that sent you there
+ * so the transcript can highlight the calls behind the number.
+ */
+export const openSessionMarked = (id: string, mark: string) => {
+  window.location.hash = buildHash(
+    "sessions",
+    new URLSearchParams({ id, mark })
+  );
 };
 
 /** Clear the selected session without adding a history entry (in-app Back). */

@@ -274,7 +274,7 @@ export const SettingsScreen = () => {
           ["a", "add"],
           ["d", "remove"],
           ["^s", "save"],
-          ["1-4", "section"],
+          ["1-5", "section"],
           ["q", "quit"],
         ]}
       />

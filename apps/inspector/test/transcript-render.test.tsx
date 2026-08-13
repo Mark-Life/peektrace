@@ -13,6 +13,7 @@ import type {
   Turn,
 } from "@workspace/core/services/sessions/schema";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ToolMarks } from "../src/lib/session-markers";
 import { indexTools } from "../src/lib/tool-event";
 import { TranscriptChat } from "../src/routes/sessions/transcript-chat";
 import { TranscriptTable } from "../src/routes/sessions/transcript-table";
@@ -141,6 +142,9 @@ const TURNS = EVENTS.map((e) => {
   return e.requestId === "r2" ? 2 : 0;
 });
 
+/** No stats markers: the transcript renders the same with or without them. */
+const NO_MARKS: ToolMarks = new Map();
+
 const noop = () => {
   // collapse state is not exercised by a static render
 };
@@ -151,9 +155,11 @@ test("chat renders every event kind", () => {
   const html = renderToStaticMarkup(
     <TranscriptChat
       a={SESSION}
+      activeMark={null}
       allOpen={false}
       crossEvtIdx={9}
       isOpen={() => false}
+      marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
       rows={ROWS}
@@ -178,9 +184,11 @@ test("chat renders expanded without throwing", () => {
   const html = renderToStaticMarkup(
     <TranscriptChat
       a={SESSION}
+      activeMark={null}
       allOpen={true}
       crossEvtIdx={9}
       isOpen={() => true}
+      marks={NO_MARKS}
       onToggle={noop}
       queryActive={true}
       rows={ROWS}
@@ -220,11 +228,51 @@ test("empty filters read the same in both layouts", () => {
     turns: TURNS,
   };
   const chat = renderToStaticMarkup(
-    <TranscriptChat {...props} allOpen={false} queryActive={false} />
+    <TranscriptChat
+      {...props}
+      activeMark={null}
+      allOpen={false}
+      marks={NO_MARKS}
+      queryActive={false}
+    />
   );
   const table = renderToStaticMarkup(
     <TranscriptTable {...props} showShare={false} />
   );
   expect(chat).toContain("No events match the filters.");
   expect(table).toContain("No events match the filters.");
+});
+
+test("a stats marker lands on the card its detector counted", () => {
+  const marks: ToolMarks = new Map([
+    [
+      "t1",
+      [
+        {
+          detector: "piped-exit-code",
+          label: "printed a failure (tsc) and exited 0",
+          seq: 4,
+          toolUseId: "t1",
+        },
+      ],
+    ],
+  ]);
+  const html = renderToStaticMarkup(
+    <TranscriptChat
+      a={SESSION}
+      activeMark="piped-exit-code"
+      allOpen={false}
+      crossEvtIdx={9}
+      isOpen={() => false}
+      marks={marks}
+      onToggle={noop}
+      queryActive={false}
+      rows={ROWS}
+      tools={indexTools(SESSION)}
+      turns={TURNS}
+    />
+  );
+  expect(countOf(html, 'data-testid="stats-marker"')).toBe(1);
+  expect(html).toContain('data-detector="piped-exit-code"');
+  expect(html).toContain("silent fail");
 });

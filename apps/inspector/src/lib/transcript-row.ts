@@ -61,16 +61,35 @@ export const sameChatRow = (prev: ChatLeafState, next: ChatLeafState) =>
   prev.onToggle === next.onToggle &&
   sameChatEvent(prev.e, next.e);
 
+/** A stats marker as a card compares it: two strings and nothing else. */
+interface MarkLike {
+  readonly detector: string;
+  readonly label: string;
+}
+
 /** The state a memoized chat tool card compares; either half may be absent. */
 interface ChatPairState {
+  /** The detector id the reader arrived with, highlighted on its own marks. */
+  readonly activeMark: string | null;
   readonly call: TimelineEvent | null;
   readonly collapseId: string;
+  readonly marks: readonly MarkLike[];
   readonly name: string;
   readonly onToggle: (id: string, open: boolean) => void;
   readonly open: boolean;
   readonly result: TimelineEvent | null;
   readonly state: string;
 }
+
+/** True when two marker lists would draw the same badges. */
+export const sameMarks = (
+  a: readonly MarkLike[],
+  b: readonly MarkLike[]
+): boolean =>
+  a.length === b.length &&
+  a.every(
+    (mark, i) => mark.detector === b[i]?.detector && mark.label === b[i]?.label
+  );
 
 const bothNullOrSame = (a: TimelineEvent | null, b: TimelineEvent | null) =>
   a === null || b === null ? a === b : sameChatEvent(a, b);
@@ -82,5 +101,7 @@ export const sameToolPair = (prev: ChatPairState, next: ChatPairState) =>
   prev.name === next.name &&
   prev.state === next.state &&
   prev.onToggle === next.onToggle &&
+  prev.activeMark === next.activeMark &&
+  sameMarks(prev.marks, next.marks) &&
   bothNullOrSame(prev.call, next.call) &&
   bothNullOrSame(prev.result, next.result);

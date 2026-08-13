@@ -173,7 +173,7 @@ export const CapabilitiesScreen = () => {
       <KeyHints
         hints={[
           ["↑↓/jk", "move"],
-          ["1-4", "section"],
+          ["1-5", "section"],
           ["q", "quit"],
         ]}
       />

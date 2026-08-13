@@ -136,10 +136,11 @@ HTTP surface is identical to `serve` (same `/rpc`, same static inspector, same
 DNS-rebinding + CSRF guards); it just mounts quietly so its logs never corrupt
 the terminal, and the bound URL shows in the footer.
 
-Four sections mirror the web inspector — **Sessions** (list + context-budget
+Five sections mirror the web inspector — **Sessions** (list + context-budget
 analysis), **Memory** (cross-project vault browser), **Capabilities** (support
-matrix), **Settings** (agent-roots editor). Memory is read-only in the terminal;
-edit memories in the web app.
+matrix), **Settings** (agent-roots editor), **Stats** (what fails, what costs
+time, across every session). Memory is read-only in the terminal; edit memories
+in the web app.
 
 | Flag | Default | Effect |
 | --- | --- | --- |
@@ -152,13 +153,16 @@ peektrace tui                        # terminal UI + web app on http://127.0.0.1
 peektrace tui --no-open --port 4789
 ```
 
-Keys: `1`–`4` switch section, `q` / `Ctrl+C` quit, `↑↓`/`jk` move, `Tab` switches
+Keys: `1`–`5` switch section, `q` / `Ctrl+C` quit, `↑↓`/`jk` move, `Tab` switches
 pane focus, and the **mouse works** — click a session card, a history row, or the
 Expand/Collapse buttons. Per section: Sessions — `Enter`/`→` open the analysis,
 `←`/`Esc` back, `Enter` expands a history row (syntax-highlighted bodies),
 `Shift+E`/`Shift+C` expand/collapse all, `/` filter · `a` agent · `r` reveal
 secrets; Memory `/` search · `t` type filter; Settings `e`/`Enter` edit · `a`
-add root · `d` remove · `Ctrl+S` save (`r` reload / `o` overwrite on a conflict).
+add root · `d` remove · `Ctrl+S` save (`r` reload / `o` overwrite on a conflict);
+Stats `Tab` pane · `Enter` drill · `d` window · `a` agent · `c` caveats · `f`
+findings · `R` re-read · `F` re-extract. Stats never rescans on a file change:
+the header marks the report stale and `R` re-reads it.
 
 Like `serve`, it needs a built inspector (`apps/inspector/dist`) only for the web
 half — the terminal UI works regardless. The `bun run` / source path is the

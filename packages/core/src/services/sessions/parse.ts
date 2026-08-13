@@ -179,8 +179,9 @@ const userBlockEvent = (args: {
   readonly index: number;
   readonly ts: string | undefined;
   readonly isSidechain: boolean;
+  readonly isMeta: boolean;
 }): TimelineEvent | null => {
-  const { block, index, ts, isSidechain } = args;
+  const { block, index, ts, isSidechain, isMeta } = args;
   if (block?.type === "tool_result") {
     const raw = block.content;
     const text = typeof raw === "string" ? raw : str(raw);
@@ -211,6 +212,7 @@ const userBlockEvent = (args: {
       body: text,
       tokensEst: estTokens(text),
       ...opt("ts", ts),
+      ...opt("isMeta", isMeta ? true : undefined),
     };
   }
   return null;
@@ -270,6 +272,7 @@ const handleUser = (ctx: LineCtx) => {
   const msg = (o.message ?? {}) as Record<string, unknown>;
   const content = msg.content;
   const isCompact = o.isCompactSummary === true;
+  const isMeta = o.isMeta === true;
   if (isCompact) {
     state.compactionIndexes.push(index);
   }
@@ -283,12 +286,13 @@ const handleUser = (ctx: LineCtx) => {
       body: content,
       tokensEst: estTokens(content),
       ...opt("ts", ts),
+      ...opt("isMeta", isMeta ? true : undefined),
     });
     return;
   }
   if (Array.isArray(content)) {
     for (const block of content as Record<string, unknown>[]) {
-      const ev = userBlockEvent({ block, index, ts, isSidechain });
+      const ev = userBlockEvent({ block, index, ts, isSidechain, isMeta });
       if (ev) {
         state.events.push(ev);
       }

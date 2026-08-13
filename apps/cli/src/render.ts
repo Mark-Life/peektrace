@@ -77,6 +77,25 @@ export const bytes = (n: number): string => {
 export const tokens = (n: number): string =>
   n < THOUSAND ? String(n) : `${(n / THOUSAND).toFixed(DECIMALS)}k`;
 
+const SEC_PER_MIN = 60;
+const SEC_PER_HOUR = 3600;
+const PAD = 2;
+
+/** Duration as `1h04m`, `4m05s` or `2.3s`. Approximate by construction. */
+export const hms = (seconds: number): string => {
+  const total = Math.max(0, Math.round(seconds));
+  if (total < SEC_PER_MIN) {
+    return `${seconds < SEC_PER_MIN ? seconds.toFixed(DECIMALS) : String(total)}s`;
+  }
+  const pad = (n: number) => String(n).padStart(PAD, "0");
+  if (total < SEC_PER_HOUR) {
+    return `${Math.floor(total / SEC_PER_MIN)}m${pad(total % SEC_PER_MIN)}s`;
+  }
+  return `${Math.floor(total / SEC_PER_HOUR)}h${pad(
+    Math.floor((total % SEC_PER_HOUR) / SEC_PER_MIN)
+  )}m`;
+};
+
 /** Percentage string from a 0..1 fraction. */
 export const percent = (fraction: number): string =>
   `${(fraction * PERCENT).toFixed(DECIMALS)}%`;
