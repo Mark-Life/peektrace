@@ -5,11 +5,20 @@
  * Durations and shares come from the CLI's own `render` helpers so `peektrace
  * stats` and this screen print byte-identical numbers.
  *
- * The findings order is repeated from the web inspector rather than promoted
- * into core, because the report is a wire contract and carries no presentation
- * types. `stats-format.test.ts` pins the tier order so the two cannot drift.
+ * Which rows lead a cold start, and what each one says, is core's answer
+ * (`services/stats/findings`); this file binds it to the CLI's own number
+ * formatting so the screen, `peektrace stats` and the web inspector cannot drift
+ * from one another by editing a sentence.
  */
 import type { AgentId } from "@workspace/core";
+import {
+  failSpread as coreFailSpread,
+  findingsOf as coreFindingsOf,
+  timeNote as coreTimeNote,
+  timeSpread as coreTimeSpread,
+  type Finding,
+  type FindingFormat,
+} from "@workspace/core/services/stats/findings";
 import type {
   DrillTable,
   FailRow,
@@ -285,92 +294,25 @@ export const refsOf = (samples: readonly SampleRef[]): string => {
 
 // --- Findings ---
 
-/** One flagged finding: a row that names a change, plus the route back. */
-export interface Finding {
-  readonly detector: string | null;
-  /** What it costs, in the unit its own table ranks by. */
-  readonly impact: string;
-  readonly key: string;
-  readonly note: string;
-  readonly samples: readonly SampleRef[];
-  /** How wide it reaches: the second number, in that table's own columns. */
-  readonly spread: string;
-  readonly table: "fail" | "time";
-  readonly title: string;
-}
+/** How this surface spells a number, for the sentences core composes. */
+const FORMAT: FindingFormat = { count: fmt, hms, pct: percent };
+
+export type { Finding } from "@workspace/core/services/stats/findings";
 
 /** The spread line of a fail row, shared by the band and the note strip. */
-export const failSpread = (row: FailRow): string =>
-  `${fmt(row.rows)} calls · ${fmt(row.projects)} projects · ${fmt(row.flagged)} flagged`;
+export const failSpread = (row: FailRow): string => coreFailSpread(row, FORMAT);
 
 /** The spread line of a time row. */
 export const timeSpread = (row: TimeRow, bashSec: number): string =>
-  `${shareCell(row.share, bashSec)} of shell time · ${fmt(row.runs)} runs`;
+  coreTimeSpread(row, bashSec, FORMAT);
 
-/**
- * What a time row can say for itself, from its own columns. `TimeRow` carries no
- * note — the fail table is where a detector writes one — so this states only what
- * was measured, never advice nobody observed.
- */
-export const timeNote = (row: TimeRow): string | null => {
-  if (row.cappedRuns > 0) {
-    return `${fmt(row.cappedRuns)} of ${fmt(row.runs)} runs returned at a harness ceiling (${hms(row.cappedSec)} of ${hms(row.totalSec)}): these seconds are a floor`;
-  }
-  if (row.bgRuns > 0) {
-    return `${fmt(row.bgRuns)} runs were backgrounded and charged only the seconds they took, which understates the wait they started`;
-  }
-  return null;
-};
+/** What a time row can say for itself, from its own columns. */
+export const timeNote = (row: TimeRow): string | null =>
+  coreTimeNote(row, FORMAT);
 
-const failFinding = (row: FailRow): Finding | null =>
-  row.note === null
-    ? null
-    : {
-        detector: row.detector,
-        impact: `${fmt(row.sessions)} sessions`,
-        key: row.key,
-        note: row.note,
-        samples: row.samples,
-        spread: failSpread(row),
-        table: "fail",
-        title: row.label,
-      };
-
-const timeFinding = (row: TimeRow, bashSec: number): Finding | null => {
-  const note = timeNote(row);
-  return note === null
-    ? null
-    : {
-        detector: null,
-        impact: hms(row.totalSec),
-        key: row.key,
-        note,
-        samples: row.samples,
-        spread: timeSpread(row, bashSec),
-        table: "time",
-        title: row.label,
-      };
-};
-
-/**
- * The cold-start list: rows that name a change, cheapest change first.
- *
- * Tier 1 is a fail row whose `detector` names the rule to change. Tier 2 is a
- * fail row with a measured note and no named rule. Tier 3 is a time row, which
- * can only say how its seconds were measured. Inside a tier the order is the
- * table's own, which core already applied. The two tables are never blended into
- * one score: sessions and seconds are different units.
- */
-export const findingsOf = (report: StatsReport): readonly Finding[] => {
-  const fails = report.fails.flatMap((row) => failFinding(row) ?? []);
-  return [
-    ...fails.filter((f) => f.detector !== null),
-    ...fails.filter((f) => f.detector === null),
-    ...report.time.flatMap(
-      (row) => timeFinding(row, report.corpus.bashSec) ?? []
-    ),
-  ];
-};
+/** The cold-start list: rows that name a change, cheapest change first. */
+export const findingsOf = (report: StatsReport): readonly Finding[] =>
+  coreFindingsOf(report, FORMAT);
 
 // --- The note strip ---
 

@@ -124,6 +124,14 @@ export {
   StatsScanError,
 } from "./services/stats/errors";
 export {
+  type Finding,
+  type FindingFormat,
+  failSpread,
+  findingsOf,
+  timeNote,
+  timeSpread,
+} from "./services/stats/findings";
+export {
   CorpusSummary,
   DETECTOR_VERSION,
   DrillResult,
