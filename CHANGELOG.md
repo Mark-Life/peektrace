@@ -2,6 +2,65 @@
 
 ## Unreleased
 
+## cli-v0.7.0 — 2026-08-13
+
+### Added
+
+- **`peektrace stats` reads the whole corpus, not one session** (#37). The
+  findings that matter live across sessions — the same failure in ten of them,
+  six hours of one command over a month — and nothing read more than the open
+  one. A corpus scanner now streams every transcript through the existing
+  parsers, so Codex, Pi and OpenCode come free: one file parsed, folded into
+  accumulators, dropped, with facts cached per file on mtime. Detectors were
+  measured on 3,265 local transcripts before they shipped, and the measurements
+  decided what stayed. 1,070 shell calls print a failure and still exit 0,
+  against 961 that set the agent's own error flag, and 1,002 of those are piped
+  into `head` or `tail`, which drops the exit code; a bare `echo ===` separator,
+  which zsh expands and dies on, sits in 169 errored rows across 91 sessions.
+  Failure detection reads output rather than the error flag alone. Each command
+  line is charged to exactly one job with `coPresentRuns` beside it, because
+  89.3% of lines are compound. Calls returned at a harness ceiling are marked,
+  so a suite that was cut off does not read as a slow suite. Retry loops,
+  compaction frequency, permission denials, time-to-first-edit and edit thrash
+  were measured and dropped, each under about 1.5% of its own denominator.
+  Three surfaces read the same numbers — `peektrace stats --days N --json`, an
+  inspector route, and a TUI screen beside sessions and memory — and which rows
+  qualify as findings lives in core, so no surface can drift from another.
+  Redaction is on by default wherever command text, cluster labels, error text
+  or user text is shown; cached shards are redacted at mint time, and the CLI
+  never turns it off.
+- **A session reads as a chat** (#31). The session view had one shape, a dense
+  disclosure row per event, which answers where the tokens went and not what
+  happened. Chat mode sits beside the table, chosen by a toggle and carried in
+  the hash (`?view=chat`), so a reading is a shareable link. Prompts sit right,
+  model work left, everything infrastructural centred. A call and its result
+  fold into one card showing `~in → ~out`, never summed. Turn boundaries become
+  a rule carrying context size and model, and attachments cluster into one line
+  of chips where they were injected, six before a `+N more`.
+
+### Changed
+
+- **Tool calls in the table say what they are** (#31). A result row used to read
+  `tool-result` and nothing more, because the transcript records only
+  `tool_use_id` on a result block. Calls now pair with results by `toolUseId`,
+  so a result names its tool, and rows render with AI Elements' `Tool` vendored
+  into `@workspace/ui`. Badges cover only what a finished transcript can
+  justify: `error`, or `unanswered` for a call whose result never arrived —
+  a completed call gets none. Every replacement an edit tool records renders as
+  a line diff with long unchanged stretches collapsed; the diff is pure in
+  `@workspace/core/diff` and falls back to a whole-block replace past a million
+  LCS cells.
+- **Sorting the full history by size replaces the top-25 table** (#31). Search
+  and type filters still apply, and the TUI gets the same order under `s`. The
+  dumb-zone divider marks a point in time, so it renders in transcript order
+  only and chat mode hides size order.
+
+### Upgrading
+
+```sh
+peektrace upgrade
+```
+
 ## cli-v0.6.0 — 2026-08-10
 
 ### Added
