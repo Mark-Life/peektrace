@@ -14,6 +14,9 @@ It runs on `127.0.0.1`, reads your files, and sends nothing anywhere.
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh
 peektrace serve
+
+# or, if you have Node
+npx peektrace serve
 ```
 
 ---
@@ -22,9 +25,9 @@ peektrace serve
 
 ## Install
 
-The native installer is the only distribution channel. It pulls a prebuilt
-standalone binary from GitHub Releases with the inspector embedded, verifies its
-SHA-256, and needs no Node and no build step:
+The native installer pulls a prebuilt standalone binary from GitHub Releases with
+the inspector embedded, verifies its SHA-256, and needs no Node and no build
+step:
 
 ```sh
 # macOS / Linux
@@ -46,8 +49,29 @@ reports whether a newer release exists.
 Binaries cover macOS (arm64, x64), Linux (x64, arm64) and Windows (x64). The
 Linux builds link glibc — on musl (Alpine) or anything else, build from source.
 
-Peektrace is not on npm, and there is no desktop download yet. Anything claiming
-otherwise under the name `peektrace` is not published by this project.
+## From npm
+
+With Node already installed, `npx` runs the same binary without installing
+anything:
+
+```sh
+npx peektrace serve
+```
+
+`npm install -g peektrace` puts it on your PATH instead. Either way you get the
+`peektrace` wrapper, which pulls only the prebuilt binary matching your platform
+and skips the other four.
+
+Update it with npm rather than `peektrace upgrade`. The upgrade command replaces
+the binary where it stands, which under npm means inside `node_modules`, and the
+next install undoes it.
+
+CI publishes these packages with npm trusted publishing, so each one carries a
+provenance attestation tying the tarball to the commit and workflow that built
+it. Check yours with `npm audit signatures`.
+
+There is no desktop download yet. Anything claiming otherwise under the name
+`peektrace` is not published by this project.
 
 ## Two front ends
 
@@ -267,8 +291,12 @@ bun run --filter=peektrace build:binary
 ```
 
 The result serves with zero external files. CI publishes it on `cli-v*` tags,
-feeding the installers in `scripts/`. The same binary is the sidecar inside the
-undistributed desktop app.
+feeding the installers in `scripts/` and the npm packages. The same binary is the
+sidecar inside the undistributed desktop app.
+
+npm gets six packages per release: the `peektrace` wrapper plus one
+`@peektrace/cli-<platform>-<arch>` per binary, published over OIDC with no stored
+token. See the header of `.github/workflows/publish-cli.yml`.
 
 ---
 
