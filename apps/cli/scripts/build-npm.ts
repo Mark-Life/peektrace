@@ -12,22 +12,26 @@
  *       peektrace.js                    optionalDependencies + a postinstall check
  *       postinstall.js
  *       README.md
- *     peektrace-darwin-arm64/    -> one per-platform binary package each, named
- *       package.json                   peektrace-<platform>-<arch> with matching
- *       bin/peektrace                   os/cpu so npm installs only the host's variant
- *     peektrace-darwin-x64/ ...
- *     peektrace-linux-x64/ ...
- *     peektrace-linux-arm64/ ...
- *     peektrace-win32-x64/ ...
+ *     @peektrace/
+ *       cli-darwin-arm64/        -> one per-platform binary package each, named
+ *         package.json                 @peektrace/cli-<platform>-<arch> with matching
+ *         bin/peektrace                os/cpu so npm installs only the host's variant
+ *       cli-darwin-x64/ ...
+ *       cli-linux-x64/ ...
+ *       cli-linux-arm64/ ...
+ *       cli-win32-x64/ ...
  *
  * Nothing here is published or logged into: this only builds + stages. `npm publish`
- * is a separate CI/manual step (publish each `peektrace-*` variant first, then the
- * `peektrace` wrapper, so its optionalDependencies resolve).
+ * is a separate CI/manual step (publish each `@peektrace/cli-*` variant first, then
+ * the `peektrace` wrapper, so its optionalDependencies resolve).
  *
- * Naming is UNSCOPED (`peektrace`, `peektrace-<platform>-<arch>`) to avoid needing
- * an npm org. The documented alternative is a scoped `@peektrace/*` family (main
- * `@peektrace/cli`, variants `@peektrace/cli-<platform>-<arch>`); switching would only
- * change the name strings below plus the shim's `packageName` and needs an npm org.
+ * Naming is HYBRID, matching esbuild: the wrapper is unscoped so `npx peektrace`
+ * works with the bare name, while the per-platform variants live under the
+ * `@peektrace` scope. Nobody types a variant name — the shim builds it from
+ * `os.platform()`/`os.arch()` — so scoping them costs nothing at the call site and
+ * reserves the whole `@peektrace/*` namespace for future packages (SDK, core).
+ * Publishing the variants unscoped would instead leave every adjacent name open.
+ * REQUIRES the `peektrace` npm org to exist before the first publish.
  *
  * The in-monorepo dev workflow is untouched: `apps/cli/package.json` stays private
  * with `bin -> ./src/index.ts`; the shipped wrapper is these generated dirs, never
@@ -80,7 +84,7 @@ const TARGETS = [
 ] as const satisfies readonly Target[];
 
 /** npm package name for a per-platform binary variant. */
-const variantName = (t: Target) => `peektrace-${t.platform}-${t.arch}`;
+const variantName = (t: Target) => `@peektrace/cli-${t.platform}-${t.arch}`;
 
 /** Binary filename inside a variant (`.exe` only on Windows). */
 const binaryName = (t: Target) =>
@@ -125,7 +129,7 @@ const compileTarget = (t: Target) => {
   return produced;
 };
 
-/** Stage `dist-npm/peektrace-<platform>-<arch>/` with its binary + package.json. */
+/** Stage `dist-npm/@peektrace/cli-<platform>-<arch>/` with its binary + package.json. */
 const stageVariant = (t: Target, version: string, producedBinary: string) => {
   const name = variantName(t);
   const pkgDir = join(DIST_NPM, name);
