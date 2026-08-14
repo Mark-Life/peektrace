@@ -46,3 +46,6 @@ npm-debug.log*
 
 # TypeScript
 *.tsbuildinfo
+
+# original (unoptimized) screenshots — optimized .webp are committed instead
+assets/.raw/
