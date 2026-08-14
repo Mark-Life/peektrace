@@ -29,8 +29,8 @@ const FAQ_ENTRIES: readonly FaqEntry[] = [
       <>
         Nowhere. The server binds <Chip>127.0.0.1</Chip> and reads your local{" "}
         <Chip>~/.claude</Chip>, <Chip>~/.codex</Chip>, and <Chip>~/.pi</Chip>{" "}
-        transcripts directly. Telemetry is a local SQLite file with no network
-        client anywhere in the codebase.
+        transcripts directly. The local run log is a SQLite file, and it makes
+        no network calls.
       </>
     ),
   },

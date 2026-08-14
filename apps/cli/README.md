@@ -6,7 +6,8 @@ headline `serve` command boots the browser UI, plus one-shot subcommands for
 scripting.
 
 All disk I/O lives in `@workspace/core`; the CLI only parses input and renders
-output. The server binds `127.0.0.1` only — nothing is ever exposed off-box.
+output. The server binds `127.0.0.1` only — nothing is ever exposed off-box. The
+local run log makes no network calls.
 
 ## Run it
 
@@ -99,7 +100,7 @@ Declared on the root command; apply to every subcommand:
 | `--read-only` | Safe mode — refuse any mutating command up-front (e.g. `memory rm`) before the write path is reached |
 | `--remote <url>` | Target a running `peektrace serve` over HTTP instead of in-process |
 | `--otel` | Log Effect spans to **stderr** as `[otel] <span> <ms> ok/fail {attrs}` (also enabled by the `PEEKTRACE_OTEL` env var). Off by default → no-op tracer, zero startup cost |
-| `--no-telemetry` | Disable local wide-event telemetry for this invocation (also via `PEEKTRACE_NO_TELEMETRY`). Telemetry is **on by default** and writes one event per run to local SQLite — see [Telemetry & privacy](#telemetry--privacy) |
+| `--no-telemetry` | Disable the local run log for this invocation (also via `PEEKTRACE_NO_TELEMETRY`). The local run log is **on by default** and writes one event per run to local SQLite — see [Local run log & privacy](#local-run-log--privacy) |
 
 Flags are declared on the root command, so place them **before** the subcommand
 (`peektrace --json memory ls`, `peektrace --read-only memory rm ...`).
@@ -229,7 +230,7 @@ peektrace --read-only memory rm -Users-me-myrepo my-note   # refused, no write
 
 ### `doctor` — write a redacted support bundle
 
-Reads recent local telemetry events (see [Telemetry & privacy](#telemetry--privacy)),
+Reads recent local run log events (see [Local run log & privacy](#local-run-log--privacy)),
 recursively redacts every string (provider-format secrets plus a high-entropy
 sweep on credential-ish keys), and writes a JSON bundle to `~/.peektrace` (or
 `PEEKTRACE_DIR`). It is a diagnostics export for support, **not** a system health
@@ -327,15 +328,15 @@ PEEKTRACE_CLAUDE_PROJECTS=/tmp/seed-projects \
   bun run apps/cli/src/index.ts memory ls
 ```
 
-## Telemetry & privacy
+## Local run log & privacy
 
-Telemetry is **on by default** and fully local. Every invocation persists one
-wide event (command, timing, span attributes) to a SQLite file at
-`~/.peektrace/telemetry.db` (or `PEEKTRACE_DIR`). **Nothing is transmitted
-off-box** — it exists only to power `peektrace doctor` when you need to file a
-report. Disable it per-invocation with `--no-telemetry`, or globally with
-`PEEKTRACE_NO_TELEMETRY=1`. When telemetry is off, `--otel` still drives the
-stderr span echo below.
+The local run log is **on by default** and fully local. Every invocation
+persists one wide event (command, timing, span attributes) to a SQLite file at
+`~/.peektrace/telemetry.db` (or `PEEKTRACE_DIR`). **The local run log makes no
+network calls** and exists only to power `peektrace doctor` when you need to file
+a report. Disable it per-invocation with `--no-telemetry`, or globally with
+`PEEKTRACE_NO_TELEMETRY=1`. When it is off, `--otel` still drives the stderr
+span echo below.
 
 ## Observability
 

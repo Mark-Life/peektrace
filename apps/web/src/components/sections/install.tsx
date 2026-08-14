@@ -45,7 +45,7 @@ const GLOBAL_FLAGS: RefEntry[] = [
     desc: "run against a running serve instead of in-process",
   },
   { name: "--otel", desc: "stream Effect spans to stderr" },
-  { name: "--no-telemetry", desc: "disable local telemetry for this run" },
+  { name: "--no-telemetry", desc: "disable the local run log for this run" },
   { name: "-v, --version", desc: "print version" },
 ];
 

@@ -6,7 +6,10 @@ pane. Scope is L1: a single machine, your own data, never the cloud and never
 fed back to a model.
 
 `peektrace serve` boots an Effect-TS core, serves a Vite/React UI + a typed
-Effect-RPC contract on `127.0.0.1`, and opens the browser. Three sections:
+Effect-RPC contract on `127.0.0.1`, and opens the browser. The local run log makes
+no network calls.
+
+Three sections:
 
 1. **Memory** — view / create / edit / delete Claude Code memories across **all
    projects** (cross-project explorer with per-project drill-in), plus the
@@ -124,7 +127,7 @@ peektrace --read-only memory rm <project> <name> # refused, no write performed
 peektrace doctor                                 # write a local support bundle
 ```
 
-`peektrace doctor` collects recent local telemetry events (see Privacy posture),
+`peektrace doctor` collects recent local run log events (see Privacy posture),
 recursively redacts them, and writes a JSON bundle to `~/.peektrace` (or
 `PEEKTRACE_DIR`) for you to email to support. It is a support/diagnostics
 export, not a system health check — nothing is uploaded.
@@ -142,9 +145,10 @@ transport.
 - **Safe writes.** Atomic temp-write + rename, compare-and-swap + per-file lock,
   and a compile-time read-only filesystem layer (`--read-only`). Memory edit is
   enabled only where the capability registry says the agent supports it (Claude).
-- **Local telemetry, on by default, never sent anywhere.** Each CLI invocation
+- **Local run log, on by default, never sent anywhere.** Each CLI invocation
   writes one wide event to a local SQLite file (`~/.peektrace/telemetry.db`, or
-  `PEEKTRACE_DIR`). It stays on your machine — nothing is transmitted off-box.
+  `PEEKTRACE_DIR`). The local run log makes no network calls and stays on your
+  machine.
   Opt out with `--no-telemetry` or `PEEKTRACE_NO_TELEMETRY=1`. `peektrace doctor`
   is the only way this data leaves your box, and only if you email the redacted
   bundle yourself.
