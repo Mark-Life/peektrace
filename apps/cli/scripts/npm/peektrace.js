@@ -9,8 +9,8 @@
  * only `child_process`/`fs`/`path`/`os`, so it runs under npm, bun and pnpm.
  *
  * Binary selection: the real compiled executable lives in a per-platform
- * optional dependency named `peektrace-<platform>-<arch>` (e.g.
- * `peektrace-darwin-arm64`). npm/bun install only the variant whose `os`/`cpu`
+ * optional dependency named `@peektrace/cli-<platform>-<arch>` (e.g.
+ * `@peektrace/cli-darwin-arm64`). npm/bun install only the variant whose `os`/`cpu`
  * match the host and skip the rest, so exactly one is present. We `require.resolve`
  * it and spawn `bin/peektrace` (or `bin/peektrace.exe` on Windows), forwarding argv,
  * inheriting stdio and propagating the exit code/signal.
@@ -82,7 +82,7 @@ function main() {
   const binary = process.platform === "win32" ? "peektrace.exe" : "peektrace";
   const platform = os.platform();
   const arch = os.arch();
-  const packageName = "peektrace-" + platform + "-" + arch;
+  const packageName = "@peektrace/cli-" + platform + "-" + arch;
 
   try {
     const pkgJson = require.resolve(packageName + "/package.json");
