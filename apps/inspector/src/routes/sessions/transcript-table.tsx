@@ -42,6 +42,7 @@ import {
   toolState,
 } from "../../lib/tool-event";
 import { sameEvent } from "../../lib/transcript-row";
+import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 
 /** Decimal places for the per-event window-share percent (size order only). */
 const PCT_DECIMALS = 2;
@@ -143,12 +144,14 @@ const ToolEventRowBody = ({
             sidechain
           </Badge>
         ) : null}
+        <ContextEditBadge e={e} />
         <span className="truncate text-muted-foreground text-xs">
           {(view ? view.summary : e.preview) || "(empty)"}
         </span>
         <TokenCount share={share} tokens={e.tokensEst} />
       </ToolHeader>
       <ToolContent className="max-h-96 overflow-auto">
+        <ContextEditNote e={e} />
         {view
           ? view.panes.map((p) =>
               p.type === "diff" ? (
@@ -220,12 +223,14 @@ const EventRowBody = ({
             sidechain
           </Badge>
         ) : null}
+        <ContextEditBadge e={e} />
         <span className="truncate text-muted-foreground text-xs">
           {e.preview || "(empty)"}
         </span>
         <TokenCount share={share} tokens={e.tokensEst} />
       </CollapsibleTrigger>
       <CollapsibleContent>
+        <ContextEditNote e={e} />
         <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
           {hasBody ? e.body : emptyText}
         </pre>

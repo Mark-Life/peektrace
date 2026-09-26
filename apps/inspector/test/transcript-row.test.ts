@@ -50,6 +50,26 @@ describe("sameEvent", () => {
     expect(sameEvent(event, { ...event, title: "Other" })).toBe(true);
   });
 
+  test("a context edit is compared by value", () => {
+    const edited: TimelineEvent = {
+      ...event,
+      contextEdit: {
+        status: "replaced",
+        atIndex: 9,
+        originalTokensEst: 10,
+        original: "old",
+      },
+    };
+    expect(sameEvent(edited, structuredClone(edited))).toBe(true);
+    expect(sameEvent(event, edited)).toBe(false);
+    expect(
+      sameChatEvent(edited, {
+        ...edited,
+        contextEdit: { status: "removed", atIndex: 9 },
+      })
+    ).toBe(false);
+  });
+
   test("an attachment that changes type re-renders its badge", () => {
     const listing: TimelineEvent = {
       ...event,

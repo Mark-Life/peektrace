@@ -3,6 +3,8 @@
  * summaries, extension-injected custom messages, and `!` bash executions.
  * Shapes follow pi-coding-agent's `session-manager` and `messages` types.
  */
+
+import { imageMarker, isImageBlock } from "../images";
 import type { TimelineEvent } from "../schema";
 import {
   type PromptSection,
@@ -47,6 +49,32 @@ export const piText = (content: unknown): string => {
     })
     .filter(Boolean)
     .join("\n");
+};
+
+/** Coerce an unknown value into a display string (JSON for non-strings). */
+export const str = (v: unknown): string => {
+  if (typeof v === "string") {
+    return v;
+  }
+  return v == null ? "" : JSON.stringify(v);
+};
+
+/** Join a tool result's `{type:"text", text}` blocks into one body. */
+export const piToolResultText = (content: unknown): string => {
+  if (typeof content === "string") {
+    return content;
+  }
+  if (!Array.isArray(content)) {
+    return str(content);
+  }
+  return (content as Raw[])
+    .map((b) => {
+      if (isImageBlock(b)) {
+        return imageMarker(b);
+      }
+      return typeof b?.text === "string" ? b.text : "";
+    })
+    .join("");
 };
 
 /** Sections of a Pi system message: `content`, named sections, tool changes. */

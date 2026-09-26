@@ -24,6 +24,7 @@ import { memo } from "react";
 import { callView, resultPane } from "../../lib/tool-event";
 import { sameToolPair } from "../../lib/transcript-row";
 import { ChatRow, RawToggle } from "./chat-message";
+import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 
 interface ChatToolCardProps {
   /** The detector id the reader arrived with, from `#/sessions?…&mark=`. */
@@ -146,6 +147,7 @@ const ChatToolCardBody = ({
               sidechain
             </Badge>
           ) : null}
+          <ContextEditBadge e={result?.contextEdit ? result : call} />
           {marks.map((mark) => (
             <MarkBadge
               active={activeMark === mark.detector}
@@ -164,6 +166,8 @@ const ChatToolCardBody = ({
           </span>
         </ToolHeader>
         <ToolContent className="max-h-96 overflow-auto">
+          <ContextEditNote e={call} />
+          <ContextEditNote e={result} />
           {view?.panes.map((p) =>
             p.type === "diff" ? (
               <ToolDiff

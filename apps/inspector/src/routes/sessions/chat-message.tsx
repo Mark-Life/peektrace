@@ -26,6 +26,7 @@ import { memo, type ReactNode, useState } from "react";
 import { type ChatLane, needsClamp } from "../../lib/chat-lane";
 import { EMPTY_BODY } from "../../lib/tool-event";
 import { sameChatRow } from "../../lib/transcript-row";
+import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 
 /** Thinking content is a signature only — the tokens are real, the text is not. */
 const NO_THINKING =
@@ -188,6 +189,7 @@ const ChatBubbleBody = ({
               sidechain
             </Badge>
           ) : null}
+          <ContextEditBadge className="h-4" e={e} />
           {clamps && !raw ? (
             <Button
               className={META_BUTTON}
@@ -201,6 +203,7 @@ const ChatBubbleBody = ({
           ) : null}
           <RawButton onClick={() => setRaw(!raw)} raw={raw} />
         </div>
+        <ContextEditNote e={e} />
         {raw ? (
           <CodeBlock
             className="max-h-[28rem] overflow-auto rounded-2xl"

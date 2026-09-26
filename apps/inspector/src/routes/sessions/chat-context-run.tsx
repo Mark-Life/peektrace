@@ -31,6 +31,7 @@ import { useState } from "react";
 import { chipLabel, type TranscriptRowRef } from "../../lib/chat-lane";
 import { chatCollapseId } from "../../lib/session-view";
 import { EMPTY_BODY, languageOfPath } from "../../lib/tool-event";
+import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 
 /** How many chips show before the rest fold behind a "+N more". */
 const CHIP_LIMIT = 6;
@@ -108,6 +109,7 @@ export const ChatContextRun = ({
               >
                 <Icon className="size-3 shrink-0" />
                 <span className="max-w-56 truncate">{chipLabel(e)}</span>
+                <ContextEditBadge className="h-4 px-1" e={e} />
                 {e.tokensEst >= TOKEN_CHIP_FLOOR ? (
                   <span className="text-muted-foreground">
                     ~{fmtK(e.tokensEst)}
@@ -140,6 +142,7 @@ export const ChatContextRun = ({
           <p className="px-1 font-mono text-[10px] text-muted-foreground">
             {chipLabel(e)}
           </p>
+          <ContextEditNote e={e} />
           <CodeBlock
             className="max-h-[28rem] overflow-auto"
             code={e.body || EMPTY_BODY}
