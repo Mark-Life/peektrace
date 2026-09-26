@@ -8,11 +8,11 @@ import type { TimelineEvent } from "./schema";
 export const tokensBefore = (e: TimelineEvent) =>
   e.contextEdit?.status === "replaced"
     ? e.contextEdit.originalTokensEst
-    : e.tokensEst;
+    : (e.tokensMeasured ?? e.tokensEst);
 
 /** Size the model sees after the edit (0 once removed). */
 export const tokensAfter = (e: TimelineEvent) =>
-  e.contextEdit?.status === "removed" ? 0 : e.tokensEst;
+  e.contextEdit?.status === "removed" ? 0 : (e.tokensMeasured ?? e.tokensEst);
 
 /** One point where an event's context size changes. */
 export interface SizeStep {

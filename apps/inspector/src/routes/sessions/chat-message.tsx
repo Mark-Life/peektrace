@@ -7,6 +7,7 @@
  * so no path here reaches around the redaction toggle.
  */
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
+import { tokenLabel } from "@workspace/core/services/sessions/tokens";
 import {
   CodeBlock,
   CodeBlockCopyButton,
@@ -183,7 +184,7 @@ const ChatBubbleBody = ({
       >
         <div className={cn(META, lane === "user" && "justify-end")}>
           <span>{e.kind === "user-prompt" ? "you" : "assistant"}</span>
-          {e.tokensEst ? <span>· ~{fmt(e.tokensEst)} tok</span> : null}
+          {e.tokensEst ? <span>· {tokenLabel(e, fmt)} tok</span> : null}
           {e.isSidechain ? (
             <Badge className="h-4" variant="secondary">
               sidechain
@@ -260,7 +261,7 @@ const ChatThinkingBody = ({
           className={cn("size-3 transition-transform", open && "rotate-90")}
         />
         <BrainIcon className="size-3" />
-        thinking{e.tokensEst ? ` · ~${fmtK(e.tokensEst)}` : ""}
+        thinking{e.tokensEst ? ` · ${tokenLabel(e, fmtK)}` : ""}
       </button>
       {open ? (
         <div className="flex flex-col gap-1">

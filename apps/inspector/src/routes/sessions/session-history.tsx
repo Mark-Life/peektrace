@@ -10,6 +10,7 @@
  * re-fetches with `redact:false` (handled by the parent atom).
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import { eventTokens } from "@workspace/core/services/sessions/tokens";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import {
@@ -127,7 +128,7 @@ export const SessionHistory = ({
     // Size order keeps each row's original position, so open rows, the turn
     // gutter and deep links all survive the re-sort.
     return effectiveSort === "size"
-      ? rows.sort((x, y) => y.e.tokensEst - x.e.tokensEst)
+      ? rows.sort((x, y) => eventTokens(y.e).tokens - eventTokens(x.e).tokens)
       : rows;
   }, [a.events, kind, query, effectiveSort]);
 
