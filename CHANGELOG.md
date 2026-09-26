@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## cli-v0.9.0 — 2026-09-26
+
+### Added
+
+- **History shows the system prompt** (#40). pi, Codex and newer Claude Code
+  transcripts store the prompt, and it now shows as its own folded entry, with
+  a "System prompt update" entry when it changes. Context the model saw but
+  history dropped or mislabelled now shows too: Codex AGENTS.md and
+  environment injections, pi compactions, branch summaries and `!` shell runs,
+  the exact text of Claude attachments, and user images.
+- **pi `context_edit` is applied** (#41). History shows the edited text, with
+  the original kept as a note. Removed entries leave the budget from the line
+  of the edit.
+- **Codex sessions get a context budget** (#42). Each model call is paired with
+  its `token_count`, so turns and budget views fill in: 43 of 47 local
+  rollouts, up from 0.
+
+### Changed
+
+- **Per-item tokens are measured, not guessed** (#43). The change in real usage
+  between two model calls is given to the items added between them, and
+  chars/4 is only a fallback. A 165K-char screenshot counts about 1.6K tokens
+  instead of 41K, and the "unattributed" slice falls from 4–36% to about 0% at
+  peak. Estimated numbers are marked in the UI.
+
 ## cli-v0.7.0 — 2026-08-13
 
 ### Added
