@@ -36,6 +36,7 @@ const KIND_COLOR: Record<EventKind, string> = {
   "tool-call": C.info,
   "tool-result": C.good,
   attachment: C.warn,
+  "system-prompt": C.info,
   system: C.textFaint,
   compaction: C.warn,
   summary: C.accent,
@@ -155,14 +156,24 @@ export const SessionHistory = ({
     [events, sort]
   );
   const tags = useMemo(() => turnTags(s), [s]);
+  // Several parts can share one line `index`, so rows are identified by their
+  // position in `s.events` instead.
+  const rowIds = useMemo(
+    () => new Map(s.events.map((e, i) => [e, i] as const)),
+    [s]
+  );
+  const rowId = useCallback(
+    (e: TimelineEvent) => rowIds.get(e) ?? -1,
+    [rowIds]
+  );
   const { width } = useTerminalDimensions();
   const previewMax = Math.max(
     MIN_PREVIEW_W,
     width - PANE_CHROME - ROW_FIXED - (sort === "size" ? SHARE_W : 0)
   );
   const [index, setIndex] = useListSelection(visible.length, focused);
-  // Open rows are keyed by the event's own index, so re-sorting keeps the same
-  // rows open instead of the same screen positions.
+  // Open rows are keyed by row id, so re-sorting keeps the same rows open
+  // instead of the same screen positions.
   const [openSet, setOpenSet] = useState<Set<number>>(() => new Set());
   const [expandAll, setExpandAll] = useState(false);
   const boxRef = useRef<ScrollBoxRenderable>(null);
@@ -173,27 +184,25 @@ export const SessionHistory = ({
   }, []);
 
   const toggle = useCallback(
-    (eventIndex: number) => {
+    (id: number) => {
       if (expandAll) {
         // Materialize every other row as open, drop the flag, close this one.
-        const rest = new Set(
-          visible.map((e) => e.index).filter((i) => i !== eventIndex)
-        );
+        const rest = new Set(visible.map(rowId).filter((i) => i !== id));
         setOpenSet(rest);
         setExpandAll(false);
         return;
       }
       setOpenSet((prev) => {
         const next = new Set(prev);
-        if (next.has(eventIndex)) {
-          next.delete(eventIndex);
+        if (next.has(id)) {
+          next.delete(id);
         } else {
-          next.add(eventIndex);
+          next.add(id);
         }
         return next;
       });
     },
-    [expandAll, visible]
+    [expandAll, visible, rowId]
   );
 
   useKeyboard((key) => {
@@ -205,7 +214,7 @@ export const SessionHistory = ({
     } else if (key.name === "return") {
       const e = visible[index];
       if (e) {
-        toggle(e.index);
+        toggle(rowId(e));
       }
     } else if (key.name === "s" || key.sequence === "s") {
       setSort((m) => (m === "order" ? "size" : "order"));
@@ -272,12 +281,12 @@ export const SessionHistory = ({
             {visible.map((e, pos) => (
               <HistoryItem
                 e={e}
-                key={`hist:${e.index}`}
+                key={`hist:${rowId(e)}`}
                 onSelect={() => {
                   setIndex(pos);
-                  toggle(e.index);
+                  toggle(rowId(e));
                 }}
-                open={expandAll || openSet.has(e.index)}
+                open={expandAll || openSet.has(rowId(e))}
                 pos={pos}
                 previewMax={previewMax}
                 selected={pos === index}

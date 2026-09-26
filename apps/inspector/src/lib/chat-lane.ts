@@ -132,7 +132,11 @@ const nodeForRow = (
   if (e.kind === "tool-result") {
     return { consumed: null, node: { type: "tool", call: null, result: row } };
   }
-  if (e.kind === "compaction" || e.kind === "summary") {
+  if (
+    e.kind === "compaction" ||
+    e.kind === "summary" ||
+    e.kind === "system-prompt"
+  ) {
     return { consumed: null, node: { type: "band", row } };
   }
   return { consumed: null, node: { type: "message", row } };

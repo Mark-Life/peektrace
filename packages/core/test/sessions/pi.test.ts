@@ -12,10 +12,8 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Schema } from "effect";
-import {
-  buildPiHeader,
-  parsePiSession,
-} from "../../src/services/sessions/parsers/pi";
+import { parsePiSession } from "../../src/services/sessions/parsers/pi";
+import { buildPiHeader } from "../../src/services/sessions/parsers/pi-header";
 import { ParsedSession } from "../../src/services/sessions/schema";
 
 const FIXTURE = join(

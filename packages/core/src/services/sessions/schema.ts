@@ -106,6 +106,7 @@ export const EventKind = Schema.Literal(
   "tool-call",
   "tool-result",
   "attachment",
+  "system-prompt",
   "system",
   "compaction",
   "summary",

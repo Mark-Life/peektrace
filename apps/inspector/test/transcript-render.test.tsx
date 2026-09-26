@@ -99,6 +99,13 @@ const EVENTS: readonly TimelineEvent[] = [
     requestId: "r2",
   }),
   evt({ body: "x".repeat(1200), index: 13, requestId: "r2" }),
+  evt({
+    body: "## preamble\n\nYou are a coding agent.",
+    index: 14,
+    kind: "system-prompt",
+    title: "System prompt",
+    tokensEst: 2000,
+  }),
 ];
 
 const SESSION = {
@@ -170,9 +177,12 @@ test("chat renders every event kind", () => {
   expect(html).toContain('data-testid="chat-transcript"');
   expect(html).toContain('data-testid="dumbzone-divider"');
   expect(html).toContain('data-testid="chat-turn-rule"');
-  // 13 non-system rows, minus the result folded into its call, minus the three
+  // 14 non-system rows, minus the result folded into its call, minus the three
   // context injections that render as chips (their testid is `chat-chip`).
-  expect(countOf(html, 'data-testid="history-event"')).toBe(9);
+  expect(countOf(html, 'data-testid="history-event"')).toBe(10);
+  expect(html).toContain('data-kind="system-prompt"');
+  expect(html).toContain("system prompt · ~2K");
+  expect(html).not.toContain("You are a coding agent.");
   expect(countOf(html, 'data-testid="chat-chip"')).toBe(3);
   expect(countOf(html, 'data-testid="chat-chip-run"')).toBe(2);
   expect(html).toContain('data-paired="true"');
@@ -198,6 +208,7 @@ test("chat renders expanded without throwing", () => {
   );
   expect(html).toContain("file contents");
   expect(html).toContain("running notes");
+  expect(html).toContain("You are a coding agent.");
 });
 
 test("table renders the same rows", () => {

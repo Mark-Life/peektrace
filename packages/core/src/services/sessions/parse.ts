@@ -1,10 +1,7 @@
 /** Parse a Claude Code JSONL transcript into a normalized ParsedSession. */
-import type {
-  LoadedCategory,
-  ParsedSession,
-  TimelineEvent,
-  Turn,
-} from "./schema";
+import { attachmentEvent, type PromptSeen } from "./claude-attachments";
+import { imageMarker, isImageBlock, omitImageData } from "./images";
+import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 
 /** A raw JSONL line, untyped. */
@@ -45,96 +42,12 @@ const str = (v: unknown): string => {
   return v == null ? "" : JSON.stringify(v);
 };
 
-/** Classify an attachment into the budget category it loads, if any. */
-const attachmentCategory = (a: Record<string, unknown>): LoadedCategory => {
-  const t = String(a.type ?? "");
-  switch (t) {
-    case "file": {
-      const fn = String(a.filename ?? "").toLowerCase();
-      return fn.endsWith("claude.md") || fn.endsWith("agents.md")
-        ? "claude-md"
-        : "file";
-    }
-    case "skill_listing":
-      return "skills";
-    case "agent_listing_delta":
-      return "agents";
-    case "deferred_tools_delta":
-      return "tools";
-    case "mcp_instructions_delta":
-      return "mcp";
-    case "opened_file_in_ide":
-    case "selected_lines_in_ide":
-    case "edited_text_file":
-      return "ide";
-    case "task_reminder":
-    case "hook_success":
-    case "date_change":
-    case "ultra_effort_enter":
-    case "workflow_keyword_request":
-      return "reminder";
-    default:
-      return "other";
-  }
-};
-
-/** Extract human-readable body text from an attachment for the expanded view. */
-const attachmentBody = (a: Record<string, unknown>): string => {
-  const t = String(a.type ?? "");
-  if (t === "file") {
-    const c = a.content as Record<string, unknown> | string | undefined;
-    if (typeof c === "string") {
-      return c;
-    }
-    const file = (c as Record<string, unknown>)?.file as
-      | Record<string, unknown>
-      | undefined;
-    if (file && typeof file.content === "string") {
-      return file.content;
-    }
-    return str(c);
-  }
-  if (t === "skill_listing") {
-    return str(a.content);
-  }
-  if (t === "agent_listing_delta") {
-    return (a.addedLines as string[] | undefined)?.join("\n") ?? "";
-  }
-  if (t === "deferred_tools_delta") {
-    return (a.addedNames as string[] | undefined)?.join(", ") ?? "";
-  }
-  if (t === "mcp_instructions_delta") {
-    return (a.addedBlocks as string[] | undefined)?.join("\n\n") ?? str(a);
-  }
-  if (t === "edited_text_file") {
-    return str(a.snippet);
-  }
-  if (t === "selected_lines_in_ide") {
-    return str(a.content);
-  }
-  if (t === "hook_success") {
-    return `$ ${str(a.command)}\n${str(a.stdout)}${str(a.stderr)}`;
-  }
-  return str(a.content ?? a);
-};
-
-/** Short title for an attachment row. */
-const attachmentTitle = (a: Record<string, unknown>): string => {
-  const t = String(a.type ?? "attachment");
-  if (t === "file" || t === "edited_text_file" || t === "opened_file_in_ide") {
-    const fn = String(a.filename ?? a.displayPath ?? "");
-    return `${t}: ${fn.split("/").pop() || fn}`;
-  }
-  if (t === "skill_listing") {
-    return `skill_listing (${a.skillCount ?? "?"} skills)`;
-  }
-  return t;
-};
-
 interface ParseState {
   readonly compactionIndexes: number[];
   readonly events: TimelineEvent[];
   readonly models: Set<string>;
+  /** Prompt parts already shown, per thread (main or one subagent). */
+  readonly promptSeen: Map<string, PromptSeen>;
   readonly turnsById: Map<string, MutTurn>;
 }
 
@@ -183,7 +96,7 @@ const userBlockEvent = (args: {
 }): TimelineEvent | null => {
   const { block, index, ts, isSidechain, isMeta } = args;
   if (block?.type === "tool_result") {
-    const raw = block.content;
+    const raw = omitImageData(block.content);
     const text = typeof raw === "string" ? raw : str(raw);
     return {
       index,
@@ -213,6 +126,21 @@ const userBlockEvent = (args: {
       tokensEst: estTokens(text),
       ...opt("ts", ts),
       ...opt("isMeta", isMeta ? true : undefined),
+    };
+  }
+  if (isImageBlock(block)) {
+    const text = imageMarker(block);
+    return {
+      index,
+      kind: "attachment",
+      isSidechain,
+      title: "image",
+      preview: text,
+      body: text,
+      tokensEst: estTokens(text),
+      attachmentType: "image",
+      loadedCategory: "file",
+      ...opt("ts", ts),
     };
   }
   return null;
@@ -380,23 +308,31 @@ const handleSummary = (ctx: LineCtx) => {
   });
 };
 
+/** The prompt seen-state for the line's thread, created on first use. */
+const promptSeenFor = (ctx: LineCtx) => {
+  const { o, isSidechain, state } = ctx;
+  const agentId = typeof o.agentId === "string" ? o.agentId : "sidechain";
+  const thread = isSidechain ? agentId : "main";
+  const found = state.promptSeen.get(thread);
+  if (found) {
+    return found;
+  }
+  const fresh: PromptSeen = {};
+  state.promptSeen.set(thread, fresh);
+  return fresh;
+};
+
 /** Handle one `attachment` line. */
 const handleAttachment = (ctx: LineCtx) => {
   const { o, index, ts, isSidechain, state } = ctx;
-  const a = (o.attachment ?? {}) as Record<string, unknown>;
-  const body = attachmentBody(a);
-  state.events.push({
-    index,
-    kind: "attachment",
-    isSidechain,
-    title: attachmentTitle(a),
-    preview: firstLine(body) || String(a.type ?? ""),
-    body,
-    tokensEst: estTokens(body),
-    attachmentType: String(a.type ?? ""),
-    loadedCategory: attachmentCategory(a),
-    ...opt("ts", ts),
+  const ev = attachmentEvent({
+    o,
+    base: { index, ts, isSidechain },
+    seen: promptSeenFor(ctx),
   });
+  if (ev) {
+    state.events.push(ev);
+  }
 };
 
 /** Handle one `system` line. */
@@ -434,6 +370,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     turnsById: new Map(),
     compactionIndexes: [],
     models: new Set(),
+    promptSeen: new Map(),
   };
   const meta: Meta = {};
 

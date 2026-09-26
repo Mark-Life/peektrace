@@ -88,6 +88,11 @@ describe("decodeBody — thinking / prose", () => {
     const d = decodeBody(evt({ kind: "assistant-text", body: "# hi" }));
     expect(d).toEqual({ lang: "plain", content: "# hi" });
   });
+
+  test("system-prompt → markdown body", () => {
+    const d = decodeBody(evt({ kind: "system-prompt", body: "## rules" }));
+    expect(d).toEqual({ lang: "markdown", content: "## rules" });
+  });
 });
 
 /** Minimal analyzed-session stub carrying only what the walkers read. */
@@ -107,6 +112,11 @@ describe("visibleEvents", () => {
       []
     );
     expect(visibleEvents(s).map((e) => e.index)).toEqual([0, 2]);
+  });
+
+  test("keeps the system prompt", () => {
+    const s = session([evt({ index: 0, kind: "system-prompt" })], []);
+    expect(visibleEvents(s).map((e) => e.kind)).toEqual(["system-prompt"]);
   });
 });
 
