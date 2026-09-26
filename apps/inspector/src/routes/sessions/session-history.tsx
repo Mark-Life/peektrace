@@ -50,6 +50,7 @@ import { TranscriptTable } from "./transcript-table";
 /** Event-kind options for the history type filter. */
 const KIND_OPTIONS = [
   { value: "all", label: "All types" },
+  { value: "system-prompt", label: "System prompt" },
   { value: "user-prompt", label: "User" },
   { value: "assistant-text", label: "Assistant" },
   { value: "tool-call", label: "Tool calls" },

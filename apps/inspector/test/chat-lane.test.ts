@@ -39,6 +39,7 @@ describe("laneOf", () => {
       "tool-call": "agent",
       "tool-result": "agent",
       attachment: "center",
+      "system-prompt": "center",
       system: "center",
       compaction: "center",
       summary: "center",
@@ -155,6 +156,14 @@ describe("buildChatPlan", () => {
       evt({ kind: "attachment" }),
     ]);
     expect(nodes.map((n) => n.type)).toEqual(["run", "band", "run"]);
+  });
+
+  test("a system prompt is a folded band, not a chip or bubble", () => {
+    const nodes = plan([
+      evt({ kind: "system-prompt" }),
+      evt({ kind: "attachment" }),
+    ]);
+    expect(nodes.map((n) => n.type)).toEqual(["band", "run"]);
   });
 
   test("turn rules mark changes only, and never turn 0", () => {

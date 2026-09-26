@@ -298,6 +298,10 @@ const foldNonTurnEvent = (
     ws.cat.files = 0;
     ws.cat.other = 0;
   }
+  // The measured system floor already covers the prompt.
+  if (e.kind === "system-prompt") {
+    return;
+  }
   foldContent({
     cat: ws.cat,
     loadedCategory: e.loadedCategory,
@@ -360,7 +364,11 @@ const computeSystemOverhead = (p: ParsedSession): number => {
   }
   let visibleAtStart = 0;
   for (let i = 0; i < firstTurnPos; i++) {
-    visibleAtStart += p.events[i]?.tokensEst ?? 0;
+    const e = p.events[i];
+    // The prompt is part of the floor, so it stays in the residual.
+    if (e && e.kind !== "system-prompt") {
+      visibleAtStart += e.tokensEst;
+    }
   }
   return Math.max(0, (p.turns[0]?.contextTokens ?? 0) - visibleAtStart);
 };

@@ -10,7 +10,7 @@
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
-import { FileTextIcon, ScissorsIcon } from "lucide-react";
+import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
 import { useMemo } from "react";
 import {
   buildChatPlan,
@@ -49,7 +49,22 @@ const keyOf = (n: ChatNode, i: number) => {
   return `${n.type}${i}`;
 };
 
-/** A compaction replaced everything above it; a summary only adds to it. */
+/** What a band says about its event: compaction and summary are fixed notices,
+ *  a system prompt reads its own title (first prompt vs. a later update). */
+const bandLabel = (e: TranscriptRowRef["e"]) => {
+  if (e.kind === "compaction") {
+    return "context compacted — everything above was replaced by this summary";
+  }
+  return e.kind === "summary" ? "rolling summary" : e.title.toLowerCase();
+};
+
+const BAND_ICON = {
+  compaction: ScissorsIcon,
+  "system-prompt": SettingsIcon,
+} as const;
+
+/** A compaction replaced everything above it; a summary only adds to it; a
+ *  system prompt sits under everything and stays folded until asked for. */
 const Band = ({
   onToggle,
   open,
@@ -62,7 +77,10 @@ const Band = ({
   const { e, pos } = row;
   const id = chatCollapseId(pos);
   const compaction = e.kind === "compaction";
-  const Icon = compaction ? ScissorsIcon : FileTextIcon;
+  const Icon =
+    e.kind === "compaction" || e.kind === "system-prompt"
+      ? BAND_ICON[e.kind]
+      : FileTextIcon;
   return (
     <ChatBand tone={compaction ? "warn" : "muted"}>
       <div
@@ -79,10 +97,7 @@ const Band = ({
         >
           <Icon className="size-3.5 shrink-0" />
           <span>
-            {compaction
-              ? "context compacted — everything above was replaced by this summary"
-              : "rolling summary"}{" "}
-            · ~{fmtK(e.tokensEst)}
+            {bandLabel(e)} · ~{fmtK(e.tokensEst)}
           </span>
         </button>
         <p className="truncate text-muted-foreground text-xs">{e.preview}</p>

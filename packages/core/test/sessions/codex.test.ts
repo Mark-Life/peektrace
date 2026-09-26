@@ -90,26 +90,33 @@ describe("parseCodexSession (turns)", () => {
 });
 
 describe("parseCodexSession (events)", () => {
-  test("timeline is built from response_item only", () => {
+  test("timeline is built from response_item when session_meta has no prompt", () => {
     const kinds = parse().events.map((e) => e.kind);
     expect(kinds).toEqual([
       "user-prompt",
-      "system",
+      "attachment",
       "assistant-thinking",
       "assistant-text",
       "tool-call",
       "tool-result",
-      "system",
+      "attachment",
       "assistant-text",
       "tool-call",
       "tool-result",
     ]);
   });
 
-  test("injected <environment_context> user message becomes a system event", () => {
+  test("injected <environment_context> user message becomes a context attachment", () => {
     const sys = parse().events[1];
-    expect(sys.kind).toBe("system");
+    expect(sys.kind).toBe("attachment");
     expect(sys.attachmentType).toBe("environment_context");
+    expect(sys.loadedCategory).toBe("other");
+  });
+
+  test("a tagged developer message is labelled by its tag", () => {
+    const dev = parse().events[6];
+    expect(dev.kind).toBe("attachment");
+    expect(dev.attachmentType).toBe("collaboration_mode");
   });
 
   test("assistant-thinking has empty body + encrypted placeholder + 0 tokens", () => {

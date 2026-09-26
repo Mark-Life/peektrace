@@ -1,23 +1,30 @@
 /** Pi (pi.dev) session parser — normalizes `~/.pi/agent/sessions` JSONL.
  *
- * Pi transcripts are JSONL with four top-level `.type`s: `session` (header),
- * `model_change` / `thinking_level_change` (control/meta), and `message`
- * (the conversation payload). Conversation lines discriminate on
- * `.message.role` (`user` | `assistant` | `toolResult`) — there is no
- * `.message.type`. Token usage is ground-truth from `.message.usage`; body
+ * Top-level `.type`s: `session` (header), `model_change` /
+ * `thinking_level_change` (control), `session_info` (title), `message` (the
+ * conversation), and the context entries `compaction`, `branch_summary`,
+ * `custom_message`. Conversation lines discriminate on `.message.role`
+ * (`system` | `user` | `assistant` | `toolResult` plus Pi's custom roles) —
+ * there is no `.message.type`. Token usage is ground-truth from `.message.usage`; body
  * sizes are chars/4 via `estTokens`. Mirrors the Claude parser's tolerant,
  * per-block, exactOptional-safe style.
  */
+
+import { imageMarker, isImageBlock } from "../images";
 import { parseJsonl } from "../parse";
-import type {
-  ParsedSession,
-  SessionHeader,
-  TimelineEvent,
-  Turn,
-} from "../schema";
+import type { ParsedSession, TimelineEvent, Turn } from "../schema";
 import { estTokens, firstLine } from "../tokens";
 import { windowForModel } from "./model-windows";
-import type { BuildHeaderArgs, ParseSessionArgs, SessionParser } from "./types";
+import {
+  type PiBase,
+  piBashEvent,
+  piBranchSummaryEvent,
+  piCompactionEvent,
+  piCustomEvent,
+  piSystemEvent,
+} from "./pi-context";
+import { buildPiHeader } from "./pi-header";
+import type { ParseSessionArgs, SessionParser } from "./types";
 
 /** A raw JSONL line, untyped. */
 type RawLine = Record<string, unknown>;
@@ -51,11 +58,17 @@ const joinTextBlocks = (content: unknown): string => {
     return str(content);
   }
   return (content as RawLine[])
-    .map((b) => (typeof b?.text === "string" ? b.text : ""))
+    .map((b) => {
+      if (isImageBlock(b)) {
+        return imageMarker(b);
+      }
+      return typeof b?.text === "string" ? b.text : "";
+    })
     .join("");
 };
 
 interface ParseState {
+  readonly compactionIndexes: number[];
   readonly events: TimelineEvent[];
   readonly models: Set<string>;
   readonly turnsById: Map<string, MutTurn>;
@@ -68,6 +81,9 @@ interface Meta {
   lastModel?: string;
   sessionId?: string;
   startedAt?: string;
+  /** A system message was already shown; later ones are patches. */
+  systemSeen?: boolean;
+  title?: string;
   version?: string;
 }
 
@@ -78,6 +94,20 @@ const userBlockEvent = (args: {
   readonly ts: string | undefined;
 }): TimelineEvent | null => {
   const { block, index, ts } = args;
+  if (isImageBlock(block)) {
+    const text = imageMarker(block);
+    return {
+      index,
+      kind: "attachment",
+      title: "image",
+      preview: text,
+      body: text,
+      tokensEst: estTokens(text),
+      attachmentType: "image",
+      loadedCategory: "file",
+      ...opt("ts", ts),
+    };
+  }
   if (block?.type !== "text") {
     return null;
   }
@@ -148,7 +178,10 @@ const handleUser = (args: {
   readonly state: ParseState;
 }) => {
   const { msg, index, ts, state } = args;
-  const content = msg.content;
+  const content =
+    typeof msg.content === "string"
+      ? [{ type: "text", text: msg.content }]
+      : msg.content;
   if (!Array.isArray(content)) {
     return;
   }
@@ -250,6 +283,64 @@ const handleToolResult = (args: {
   });
 };
 
+/** Push an optional event. */
+const pushEvent = (state: ParseState, ev: TimelineEvent | null) => {
+  if (ev) {
+    state.events.push(ev);
+  }
+};
+
+/** Push a compaction event and remember its line. */
+const pushCompaction = (state: ParseState, base: PiBase, summary: unknown) => {
+  state.compactionIndexes.push(base.index);
+  state.events.push(piCompactionEvent(base, summary));
+};
+
+/** Push a system message event; the first one is the prompt, the rest patch it. */
+const pushSystem = (args: {
+  readonly state: ParseState;
+  readonly meta: Meta;
+  readonly msg: RawLine;
+  readonly base: PiBase;
+}) => {
+  const { state, meta, msg, base } = args;
+  const ev = piSystemEvent({ msg, base, first: meta.systemSeen !== true });
+  if (ev) {
+    meta.systemSeen = true;
+    state.events.push(ev);
+  }
+};
+
+/** Fold a message with one of Pi's non-standard roles into events. */
+const handleExtraRole = (args: {
+  readonly role: string;
+  readonly msg: RawLine;
+  readonly base: PiBase;
+  readonly state: ParseState;
+  readonly meta: Meta;
+}) => {
+  const { role, msg, base, state, meta } = args;
+  switch (role) {
+    case "system":
+      pushSystem({ state, meta, msg, base });
+      return;
+    case "custom":
+      pushEvent(state, piCustomEvent(base, msg));
+      return;
+    case "bashExecution":
+      pushEvent(state, piBashEvent(base, msg));
+      return;
+    case "branchSummary":
+      state.events.push(piBranchSummaryEvent(base, msg.summary));
+      return;
+    case "compactionSummary":
+      pushCompaction(state, base, msg.summary);
+      return;
+    default:
+      return;
+  }
+};
+
 /** Fold one `message` line's payload into events + turns. */
 const handleMessage = (args: {
   readonly line: RawLine;
@@ -274,6 +365,44 @@ const handleMessage = (args: {
   }
   if (role === "toolResult") {
     handleToolResult({ msg, index, ts, state });
+    return;
+  }
+  handleExtraRole({ role, msg, base: { index, ts }, state, meta });
+};
+
+/** Fold a top-level context entry (`compaction`, `branch_summary`, `custom_message`). */
+const handleContextEntry = (args: {
+  readonly type: string;
+  readonly line: RawLine;
+  readonly base: PiBase;
+  readonly state: ParseState;
+  readonly meta: Meta;
+}) => {
+  const { type, line, base, state, meta } = args;
+  if (type === "compaction") {
+    // The new system message applies after the compaction, so it goes below it.
+    pushCompaction(state, base, line.summary);
+    const sys = line.systemMessage;
+    if (sys && typeof sys === "object") {
+      pushSystem({ state, meta, msg: sys as RawLine, base });
+    }
+  } else if (type === "branch_summary") {
+    state.events.push(piBranchSummaryEvent(base, line.summary));
+  } else if (type === "custom_message") {
+    pushEvent(state, piCustomEvent(base, line));
+  }
+};
+
+/** Read id, cwd and version from the `session` header line. */
+const applySessionLine = (meta: Meta, line: RawLine) => {
+  if (typeof line.id === "string") {
+    meta.sessionId = line.id;
+  }
+  if (typeof line.cwd === "string") {
+    meta.cwd = line.cwd;
+  }
+  if (line.version != null) {
+    meta.version = String(line.version);
   }
 };
 
@@ -284,6 +413,7 @@ const handleMessage = (args: {
 export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   const { text, path, sessionId } = args;
   const state: ParseState = {
+    compactionIndexes: [],
     events: [],
     turnsById: new Map(),
     models: new Set(),
@@ -298,18 +428,9 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
       meta.endedAt = ts;
     }
     switch (type) {
-      case "session": {
-        if (typeof line.id === "string") {
-          meta.sessionId = line.id;
-        }
-        if (typeof line.cwd === "string") {
-          meta.cwd = line.cwd;
-        }
-        if (line.version != null) {
-          meta.version = String(line.version);
-        }
+      case "session":
+        applySessionLine(meta, line);
         break;
-      }
       case "model_change": {
         if (typeof line.modelId === "string") {
           state.models.add(line.modelId);
@@ -317,10 +438,16 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
         }
         break;
       }
+      case "session_info":
+        if (typeof line.name === "string" && line.name.trim() !== "") {
+          meta.title = line.name;
+        }
+        break;
       case "message":
         handleMessage({ line, index, ts, state, meta });
         break;
       default:
+        handleContextEntry({ type, line, base: { index, ts }, state, meta });
         break;
     }
   });
@@ -333,81 +460,14 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
     models: [...state.models],
     events: state.events,
     turns: [...state.turnsById.values()],
-    compactionIndexes: [],
+    compactionIndexes: state.compactionIndexes,
     subagents: [],
     ...opt("cwd", meta.cwd),
+    ...opt("title", meta.title),
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", nativeContextWindow),
-  };
-};
-
-/** Mutable header fields gathered while scanning Pi lines. */
-interface HeaderAcc {
-  cwd?: string;
-  model?: string;
-  startedAt?: string;
-  updatedAt?: string;
-}
-
-/** Fold one raw Pi line's header-relevant fields into the accumulator. */
-const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
-  const ts = typeof line.timestamp === "string" ? line.timestamp : undefined;
-  if (ts) {
-    acc.startedAt ??= ts;
-    acc.updatedAt = ts;
-  }
-  const type = String(line.type ?? "");
-  if (type === "session" && typeof line.cwd === "string") {
-    acc.cwd = line.cwd;
-  }
-  if (
-    !acc.model &&
-    type === "model_change" &&
-    typeof line.modelId === "string"
-  ) {
-    acc.model = line.modelId;
-  }
-  if (!acc.model && type === "message") {
-    const msg = (line.message ?? {}) as RawLine;
-    if (msg.role === "assistant" && typeof msg.model === "string") {
-      acc.model = msg.model;
-    }
-  }
-};
-
-/**
- * Build a lightweight Pi header from raw transcript text. Scans lines for the
- * cwd, first model, and timestamps; never constructs timeline events.
- */
-export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
-  const { text, id, slug, path, sizeBytes, mtimeMs } = args;
-  const acc: HeaderAcc = {};
-  let messageCount = 0;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim()) {
-      continue;
-    }
-    messageCount += 1;
-    try {
-      applyHeaderLine(acc, JSON.parse(raw) as RawLine);
-    } catch {
-      /* tolerate a partial last line of a live session */
-    }
-  }
-
-  return {
-    id,
-    agent: "pi",
-    path,
-    project: slug,
-    messageCount,
-    sizeBytes,
-    updatedAt: acc.updatedAt ?? new Date(mtimeMs).toISOString(),
-    ...opt("cwd", acc.cwd),
-    ...opt("model", acc.model),
-    ...opt("startedAt", acc.startedAt),
   };
 };
 

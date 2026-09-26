@@ -3,8 +3,9 @@
  *
  * Codex logs a rollout envelope per line — `{timestamp, type, payload}` where
  * `type` ∈ session_meta | response_item | turn_context | event_msg. The timeline
- * is built from `response_item` lines ONLY; `event_msg` is a UI/telemetry mirror
- * consumed solely for turns/usage/context-window. See the format spec.
+ * is built from `response_item` lines plus the system prompt on `session_meta`;
+ * `event_msg` is a UI/telemetry mirror consumed solely for turns/usage/
+ * context-window. See the format spec.
  */
 
 import { parseJsonl } from "../parse";
@@ -15,6 +16,12 @@ import type {
   Turn,
 } from "../schema";
 import { estTokens, firstLine } from "../tokens";
+import {
+  agentMessageEvent,
+  type CodexBase,
+  messageEvents,
+  sessionMetaEvent,
+} from "./codex-context";
 import type { BuildHeaderArgs, ParseSessionArgs, SessionParser } from "./types";
 
 /** A raw JSONL line, untyped. */
@@ -65,25 +72,8 @@ const prettyJson = (s: string): string => {
   }
 };
 
-/** Concatenate the `text` parts of a `message.content` array. */
-const contentText = (content: unknown): string => {
-  if (!Array.isArray(content)) {
-    return "";
-  }
-  return content
-    .map((part) => {
-      const o = asObj(part);
-      return o && typeof o.text === "string" ? o.text : "";
-    })
-    .filter(Boolean)
-    .join("\n");
-};
-
 /** Fields shared by every timeline event built here. */
-interface EvBase {
-  readonly index: number;
-  readonly ts?: string;
-}
+type EvBase = CodexBase;
 
 /** Build a tool-call event from a response_item tool payload. */
 const toolCall = (
@@ -128,54 +118,8 @@ const responseEvent = (
 ): TimelineEvent | null => {
   const ptype = str(payload.type);
   switch (ptype) {
-    case "message": {
-      const role = str(payload.role);
-      const body = contentText(payload.content);
-      if (role === "assistant") {
-        return {
-          ...base,
-          kind: "assistant-text",
-          title: "Assistant",
-          preview: firstLine(body),
-          body,
-          tokensEst: estTokens(body),
-        };
-      }
-      if (role === "developer") {
-        return {
-          ...base,
-          kind: "system",
-          title: "developer instructions",
-          attachmentType: "developer_instructions",
-          preview: firstLine(body),
-          body,
-          tokensEst: estTokens(body),
-        };
-      }
-      const trimmed = body.trimStart();
-      const injected =
-        trimmed.startsWith("<environment_context>") ||
-        trimmed.startsWith("<user_instructions>");
-      if (injected) {
-        return {
-          ...base,
-          kind: "system",
-          title: "environment_context",
-          attachmentType: "environment_context",
-          preview: firstLine(body),
-          body,
-          tokensEst: estTokens(body),
-        };
-      }
-      return {
-        ...base,
-        kind: "user-prompt",
-        title: "User prompt",
-        preview: firstLine(body),
-        body,
-        tokensEst: estTokens(body),
-      };
-    }
+    case "agent_message":
+      return agentMessageEvent(payload, base);
     case "reasoning": {
       const summary = Array.isArray(payload.summary) ? payload.summary : [];
       const text = summary
@@ -381,21 +325,30 @@ const applyLine = (args: {
     meta.endedAt = ts;
   }
   const payload = asObj(line.payload) ?? {};
+  const base = { index, ...opt("ts", ts) };
+  const push = (ev: TimelineEvent | null) => {
+    if (ev) {
+      events.push(ev);
+      cursor.pending.push(events.length - 1);
+    }
+  };
   switch (type) {
     case "session_meta":
       applySessionMeta(meta, payload);
+      push(sessionMetaEvent(payload, base));
       break;
     case "turn_context":
       applyTurnContext({ payload, cursor, models, meta });
       break;
-    case "response_item": {
-      const ev = responseEvent(payload, { index, ...opt("ts", ts) });
-      if (ev) {
-        events.push(ev);
-        cursor.pending.push(events.length - 1);
+    case "response_item":
+      if (payload.type === "message") {
+        for (const ev of messageEvents(payload, base)) {
+          push(ev);
+        }
+      } else {
+        push(responseEvent(payload, base));
       }
       break;
-    }
     case "event_msg":
       applyEventMsg({ payload, cursor, counters, turns, index, ts });
       break;

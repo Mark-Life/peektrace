@@ -82,6 +82,8 @@ export const decodeBody = (e: TimelineEvent): DecodedBody => {
       }
       return { lang: "json", content: JSON.stringify(parsed, null, 2) };
     }
+    case "system-prompt":
+      return { lang: "markdown", content: e.body };
     case "assistant-thinking":
       return e.body.trim() === ""
         ? { lang: "plain", content: "", note: THINKING_NOTE }
