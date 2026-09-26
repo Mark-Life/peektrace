@@ -20,6 +20,10 @@ import type {
   EventKind,
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
+import {
+  eventTokens,
+  tokenLabel,
+} from "@workspace/core/services/sessions/tokens";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Empty, TextButton } from "../components";
 import { Highlighted } from "../syntax";
@@ -150,7 +154,7 @@ const HistoryItem = ({
         {` ${firstLine(rowPreview(e), previewMax)}`}
       </text>
       <box style={{ flexGrow: 1 }} />
-      <text fg={C.textFaint}>{` ~${fmt(e.tokensEst)}`}</text>
+      <text fg={C.textFaint}>{` ${tokenLabel(e, fmt)}`}</text>
       {share === undefined ? null : (
         <text fg={C.textFaint}>
           {` ${(share * PERCENT).toFixed(SHARE_DECIMALS)}%`.padStart(SHARE_W)}
@@ -178,7 +182,9 @@ export const SessionHistory = ({
   const visible = useMemo(
     () =>
       sort === "size"
-        ? [...events].sort((a, b) => b.tokensEst - a.tokensEst)
+        ? [...events].sort(
+            (a, b) => eventTokens(b).tokens - eventTokens(a).tokens
+          )
         : events,
     [events, sort]
   );
@@ -319,7 +325,7 @@ export const SessionHistory = ({
                 selected={pos === index}
                 share={
                   sort === "size" && s.contextWindow > 0
-                    ? e.tokensEst / s.contextWindow
+                    ? eventTokens(e).tokens / s.contextWindow
                     : undefined
                 }
                 turn={tags.get(e.index) ?? 0}

@@ -7,7 +7,7 @@
  * `event_msg` is a UI/telemetry mirror consumed solely for turns/usage/
  * context-window. See the format spec.
  */
-
+import { measureTokens } from "../measure";
 import { parseJsonl } from "../parse";
 import type { ParsedSession, TimelineEvent, Turn } from "../schema";
 import { estTokens, firstLine } from "../tokens";
@@ -424,7 +424,7 @@ export const parseCodexSession = ({
   });
   const { events, turns, models, meta, cursor } = state;
 
-  return {
+  return measureTokens({
     provider: "codex",
     sessionId: meta.sessionId ?? sessionId,
     path,
@@ -439,7 +439,7 @@ export const parseCodexSession = ({
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", cursor.nativeWindow),
-  };
+  });
 };
 
 /** The Codex `SessionParser`. */

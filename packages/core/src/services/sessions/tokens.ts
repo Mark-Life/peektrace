@@ -1,4 +1,5 @@
 /** Token estimation and string helpers used by the transcript parser. */
+import type { TimelineEvent } from "./schema";
 
 const CHARS_PER_TOKEN = 4;
 const DEFAULT_LINE_CAP = 200;
@@ -19,4 +20,21 @@ export const firstLine = (s: string, lineCap = DEFAULT_LINE_CAP): string => {
   const line = (s || "").split("\n").find((l) => l.trim().length > 0) ?? "";
   const trimmed = line.trim();
   return trimmed.length > lineCap ? `${trimmed.slice(0, lineCap)}…` : trimmed;
+};
+
+/** An event's best known size: measured when usage pins it down, else estimated. */
+export const eventTokens = (
+  e: Pick<TimelineEvent, "tokensEst" | "tokensMeasured">
+) => ({
+  tokens: e.tokensMeasured ?? e.tokensEst,
+  measured: e.tokensMeasured !== undefined,
+});
+
+/** Size label for an event: `~` marks a chars/4 estimate, none a measured size. */
+export const tokenLabel = (
+  e: Pick<TimelineEvent, "tokensEst" | "tokensMeasured">,
+  format: (n: number) => string
+) => {
+  const { tokens, measured } = eventTokens(e);
+  return `${measured ? "" : "~"}${format(tokens)}`;
 };

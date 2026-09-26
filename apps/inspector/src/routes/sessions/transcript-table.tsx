@@ -13,6 +13,10 @@ import type {
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
 import {
+  eventTokens,
+  tokenLabel,
+} from "@workspace/core/services/sessions/tokens";
+import {
   Tool,
   ToolContent,
   ToolDiff,
@@ -56,19 +60,25 @@ const TurnGutter = ({ turn }: { readonly turn: number }) => (
 
 /** Per-event token estimate, right-aligned; `share` is its window fraction. */
 const TokenCount = ({
-  tokens,
+  e,
   share,
 }: {
-  readonly tokens: number;
+  readonly e: TimelineEvent;
   readonly share?: number | undefined;
-}) => (
-  <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
-    {tokens ? `~${fmt(tokens)}` : ""}
-    {tokens && share !== undefined
-      ? ` · ${(share * PERCENT).toFixed(PCT_DECIMALS)}%`
-      : ""}
-  </span>
-);
+}) => {
+  const { tokens, measured } = eventTokens(e);
+  return (
+    <span
+      className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
+      title={measured ? "measured from usage" : "estimated (chars/4)"}
+    >
+      {tokens ? tokenLabel(e, fmt) : ""}
+      {tokens && share !== undefined
+        ? ` · ${(share * PERCENT).toFixed(PCT_DECIMALS)}%`
+        : ""}
+    </span>
+  );
+};
 
 /** What one transcript row needs; `onToggle` must be stable (see `EventRow`). */
 interface EventRowProps {
@@ -148,7 +158,7 @@ const ToolEventRowBody = ({
         <span className="truncate text-muted-foreground text-xs">
           {(view ? view.summary : e.preview) || "(empty)"}
         </span>
-        <TokenCount share={share} tokens={e.tokensEst} />
+        <TokenCount e={e} share={share} />
       </ToolHeader>
       <ToolContent className="max-h-96 overflow-auto">
         <ContextEditNote e={e} />
@@ -227,7 +237,7 @@ const EventRowBody = ({
         <span className="truncate text-muted-foreground text-xs">
           {e.preview || "(empty)"}
         </span>
-        <TokenCount share={share} tokens={e.tokensEst} />
+        <TokenCount e={e} share={share} />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ContextEditNote e={e} />
@@ -267,7 +277,7 @@ export const TranscriptTable = ({
   // matters while ranking by size — in transcript order it is just noise.
   const shareOf = (e: TimelineEvent) =>
     showShare && a.contextWindow > 0
-      ? e.tokensEst / a.contextWindow
+      ? eventTokens(e).tokens / a.contextWindow
       : undefined;
 
   return (

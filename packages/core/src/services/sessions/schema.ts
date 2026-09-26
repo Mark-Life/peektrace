@@ -177,6 +177,11 @@ export const TimelineEvent = Schema.Struct({
   preview: Schema.String,
   body: Schema.String,
   tokensEst: Schema.Number,
+  /**
+   * Real size from usage data: the growth in prompt size between the model
+   * calls around this event. Absent where only the chars/4 estimate exists.
+   */
+  tokensMeasured: Schema.optional(Schema.Number),
   isError: Schema.optional(Schema.Boolean),
   toolName: Schema.optional(Schema.String),
   toolUseId: Schema.optional(Schema.String),

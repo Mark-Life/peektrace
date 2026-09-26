@@ -15,6 +15,7 @@
  * context window is left unset — `analyze` infers it from the model, exactly
  * like Pi.
  */
+import { measureTokens } from "../measure";
 import { parseJsonl } from "../parse";
 import type {
   ParsedSession,
@@ -451,7 +452,7 @@ export const parseOpencodeSession = ({
     }
   });
 
-  return {
+  return measureTokens({
     provider: "opencode",
     sessionId: meta.sessionId ?? sessionId,
     path,
@@ -465,7 +466,7 @@ export const parseOpencodeSession = ({
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.sessionEndedAt ?? meta.lastMessageAt),
-  };
+  });
 };
 
 /** Mutable header fields gathered from the leading `session` line. */

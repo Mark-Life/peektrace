@@ -1,6 +1,7 @@
 /** Parse a Claude Code JSONL transcript into a normalized ParsedSession. */
 import { attachmentEvent, type PromptSeen } from "./claude-attachments";
 import { imageMarker, isImageBlock, omitImageData } from "./images";
+import { measureTokens } from "./measure";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 
@@ -411,7 +412,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     }
   });
 
-  return {
+  return measureTokens({
     provider: "claude-code",
     sessionId,
     path,
@@ -426,5 +427,5 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
-  };
+  });
 };

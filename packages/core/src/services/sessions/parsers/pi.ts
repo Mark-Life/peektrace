@@ -9,8 +9,8 @@
  * sizes are chars/4 via `estTokens`. Mirrors the Claude parser's tolerant,
  * per-block, exactOptional-safe style.
  */
-
 import { imageMarker, isImageBlock } from "../images";
+import { measureTokens } from "../measure";
 import { parseJsonl } from "../parse";
 import type { ParsedSession, TimelineEvent, Turn } from "../schema";
 import { estTokens, firstLine } from "../tokens";
@@ -454,7 +454,7 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   });
 
   const nativeContextWindow = windowForModel(meta.lastModel);
-  return {
+  return measureTokens({
     provider: "pi",
     sessionId: meta.sessionId ?? sessionId,
     path,
@@ -469,7 +469,7 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", nativeContextWindow),
-  };
+  });
 };
 
 /** The Pi `SessionParser`. */

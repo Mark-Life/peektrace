@@ -6,6 +6,7 @@
  * transcript never recorded.
  */
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
+import { tokenLabel } from "@workspace/core/services/sessions/tokens";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import {
   Tool,
@@ -79,12 +80,12 @@ const costPair = (
   call: TimelineEvent | null,
   result: TimelineEvent | null
 ) => ({
-  short: `${call ? `~${fmtK(call.tokensEst)}` : "—"} → ${
-    result ? `~${fmtK(result.tokensEst)}` : "—"
+  short: `${call ? tokenLabel(call, fmtK) : "—"} → ${
+    result ? tokenLabel(result, fmtK) : "—"
   }`,
-  title: `call ${call ? `~${fmt(call.tokensEst)}` : "—"} tok → result ${
-    result ? `~${fmt(result.tokensEst)}` : "—"
-  } tok (never summed)`,
+  title: `call ${call ? tokenLabel(call, fmt) : "—"} tok → result ${
+    result ? tokenLabel(result, fmt) : "—"
+  } tok (never summed; ~ = estimate)`,
 });
 
 /** The raw bytes of both halves, so the panes' JSON parsing stays reversible. */

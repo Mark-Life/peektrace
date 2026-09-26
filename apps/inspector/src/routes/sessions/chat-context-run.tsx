@@ -7,6 +7,10 @@
  */
 import type { LoadedCategory } from "@workspace/core/services/sessions/schema";
 import {
+  eventTokens,
+  tokenLabel,
+} from "@workspace/core/services/sessions/tokens";
+import {
   CodeBlock,
   CodeBlockCopyButton,
 } from "@workspace/ui/components/ai-elements/code-block";
@@ -79,13 +83,15 @@ export const ChatContextRun = ({
   const expanded = showAll || allOpen || forceExpand;
   const shown = expanded ? items : items.slice(0, CHIP_LIMIT);
   const hidden = items.length - shown.length;
-  const tokens = items.reduce((n, { e }) => n + e.tokensEst, 0);
+  const tokens = items.reduce((n, { e }) => n + eventTokens(e).tokens, 0);
   const opened = items.filter(({ pos }) => isOpen(chatCollapseId(pos)));
 
   return (
     <div className="flex w-full flex-col gap-1.5" data-testid="chat-chip-run">
       <p className="text-center text-[10px] text-muted-foreground">
-        +{items.length} items loaded · ~{fmtK(tokens)} tok
+        +{items.length} items loaded ·{" "}
+        {items.every(({ e }) => eventTokens(e).measured) ? "" : "~"}
+        {fmtK(tokens)} tok
       </p>
       <div className="flex flex-wrap items-center justify-center gap-1.5">
         {shown.map(({ e, pos }) => {
@@ -110,9 +116,9 @@ export const ChatContextRun = ({
                 <Icon className="size-3 shrink-0" />
                 <span className="max-w-56 truncate">{chipLabel(e)}</span>
                 <ContextEditBadge className="h-4 px-1" e={e} />
-                {e.tokensEst >= TOKEN_CHIP_FLOOR ? (
+                {eventTokens(e).tokens >= TOKEN_CHIP_FLOOR ? (
                   <span className="text-muted-foreground">
-                    ~{fmtK(e.tokensEst)}
+                    {tokenLabel(e, fmtK)}
                   </span>
                 ) : null}
                 <ChevronRightIcon

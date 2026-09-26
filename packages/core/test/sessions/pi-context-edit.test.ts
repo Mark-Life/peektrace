@@ -143,9 +143,11 @@ describe("pi context edits over several steps", () => {
     expect(s?.assistant_text).toBe(call + estTokens("ok"));
   });
 
-  test("turns before the first edit count the original", () => {
+  test("turns before the first edit count the original, as measured", () => {
     const s = snaps()[1]?.slices;
-    expect(s?.tool_results).toBe(1000);
+    // ctx 2200 - ctx 1000 - output 20: the tool result's real size.
+    expect(p().events.find((e) => e.index === 4)?.tokensMeasured).toBe(1180);
+    expect(s?.tool_results).toBe(1180);
   });
 
   test("the note names every edit line", () => {

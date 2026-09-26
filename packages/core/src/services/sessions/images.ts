@@ -12,8 +12,12 @@ const mediaType = (block: Raw): string => {
   return typeof t === "string" ? t : "image";
 };
 
+/** Leading text of every image marker. */
+export const IMAGE_MARKER = "[image: ";
+
 /** Marker text for an image block, e.g. `[image: image/png]`. */
-export const imageMarker = (block: Raw) => `[image: ${mediaType(block)}]`;
+export const imageMarker = (block: Raw) =>
+  `${IMAGE_MARKER}${mediaType(block)}]`;
 
 /** Whether a content block is an image. */
 export const isImageBlock = (block: unknown) =>

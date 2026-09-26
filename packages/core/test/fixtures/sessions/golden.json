@@ -59,7 +59,7 @@
     },
     {
       "key": "tool_results",
-      "tokens": 36
+      "tokens": 350
     },
     {
       "key": "assistant_text",
@@ -68,10 +68,6 @@
     {
       "key": "thinking",
       "tokens": 469
-    },
-    {
-      "key": "unattributed",
-      "tokens": 314
     }
   ],
   "snapshots": [
@@ -98,13 +94,13 @@
         "system_tools": 258,
         "thinking": 469,
         "assistant_text": 31,
-        "tool_results": 36,
+        "tool_results": 350,
         "prompts": 13,
         "memory": 17,
         "listings": 12,
         "files": 0,
         "other": 0,
-        "unattributed": 314
+        "unattributed": 0
       }
     },
     {
@@ -112,12 +108,12 @@
       "ctx": 970,
       "slices": {
         "system_tools": 258,
-        "thinking": 639.6193222782985,
-        "assistant_text": 27.72025955299207,
-        "tool_results": 18.480173035328043,
-        "prompts": 11.293439077144917,
-        "memory": 8.726748377793799,
-        "listings": 6.160057678442682,
+        "thinking": 521.5473251028807,
+        "assistant_text": 22.603174603174605,
+        "tool_results": 146.50205761316872,
+        "prompts": 9.20870076425632,
+        "memory": 7.115814226925338,
+        "listings": 5.022927689594356,
         "files": 0,
         "other": 0,
         "unattributed": 0

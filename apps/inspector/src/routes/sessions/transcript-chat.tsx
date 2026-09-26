@@ -8,6 +8,7 @@
  * instead of the whole tool index, which is rebuilt on every re-analysis.
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import { tokenLabel } from "@workspace/core/services/sessions/tokens";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
@@ -97,7 +98,7 @@ const Band = ({
         >
           <Icon className="size-3.5 shrink-0" />
           <span>
-            {bandLabel(e)} · ~{fmtK(e.tokensEst)}
+            {bandLabel(e)} · {tokenLabel(e, fmtK)}
           </span>
         </button>
         <p className="truncate text-muted-foreground text-xs">{e.preview}</p>

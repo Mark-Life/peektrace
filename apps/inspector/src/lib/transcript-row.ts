@@ -20,6 +20,7 @@ export const ROW_FIELDS = [
   "isSidechain",
   "preview",
   "tokensEst",
+  "tokensMeasured",
   "body",
 ] as const satisfies readonly (keyof TimelineEvent)[];
 
