@@ -10,10 +10,10 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
-  buildCodexHeader,
   codexParser,
   parseCodexSession,
 } from "../../src/services/sessions/parsers/codex";
+import { buildCodexHeader } from "../../src/services/sessions/parsers/codex-header";
 
 const FIXTURE = join(
   import.meta.dir,
@@ -75,17 +75,17 @@ describe("parseCodexSession (turns)", () => {
     expect(t.inputTokens + t.cacheReadTokens + t.cacheCreationTokens).toBe(
       t.contextTokens
     );
-    // response_item events produced before this token_count.
-    expect(t.eventIndexes).toEqual([0, 1, 2, 3, 4]);
+    // Only the call's own output (reasoning, text, tool call), not its inputs.
+    expect(t.eventIndexes).toEqual([2, 3, 4]);
   });
 
-  test("turn[1] carries its own delta and the events since the prior turn", () => {
+  test("turn[1] carries its own delta and its own output events", () => {
     const t = parse().turns[1];
     expect(t.contextTokens).toBe(15_200);
     expect(t.cacheReadTokens).toBe(13_000);
     expect(t.inputTokens).toBe(2200);
     expect(t.outputTokens).toBe(300);
-    expect(t.eventIndexes).toEqual([5, 6, 7]);
+    expect(t.eventIndexes).toEqual([7]);
   });
 });
 

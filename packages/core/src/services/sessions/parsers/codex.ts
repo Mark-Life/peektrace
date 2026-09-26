@@ -9,12 +9,7 @@
  */
 
 import { parseJsonl } from "../parse";
-import type {
-  ParsedSession,
-  SessionHeader,
-  TimelineEvent,
-  Turn,
-} from "../schema";
+import type { ParsedSession, TimelineEvent, Turn } from "../schema";
 import { estTokens, firstLine } from "../tokens";
 import {
   agentMessageEvent,
@@ -22,7 +17,8 @@ import {
   messageEvents,
   sessionMetaEvent,
 } from "./codex-context";
-import type { BuildHeaderArgs, ParseSessionArgs, SessionParser } from "./types";
+import { buildCodexHeader } from "./codex-header";
+import type { ParseSessionArgs, SessionParser } from "./types";
 
 /** A raw JSONL line, untyped. */
 type RawLine = Record<string, unknown>;
@@ -58,10 +54,6 @@ const str = (v: unknown): string => {
 
 /** Read a numeric field, defaulting to 0 when absent/non-numeric. */
 const num = (v: unknown): number => (typeof v === "number" ? v : 0);
-
-/** Basename of a POSIX path (last non-empty segment), or "". */
-const basename = (p: string | undefined): string =>
-  p ? (p.split("/").filter(Boolean).pop() ?? "") : "";
 
 /** Pretty-print a JSON string if it parses, else return it verbatim. */
 const prettyJson = (s: string): string => {
@@ -196,14 +188,45 @@ interface Meta {
 
 /** Mutable scan cursor for turn attribution across the rollout. */
 interface Cursor {
+  /** Indexes of model output events not yet paired with a token_count. */
+  callEvents: number[];
   currentModel: string;
   currentTurnId?: string;
+  /** Forked rollout still replaying the parent's history (no own output yet). */
+  inherited: boolean;
+  /** Last cumulative usage seen, to skip re-emitted token_counts. */
+  lastTotal?: string;
   nativeWindow?: number;
-  pending: number[];
 }
 
+/** Everything folded while scanning one rollout. */
+interface ScanState {
+  readonly counters: Map<string, number>;
+  readonly cursor: Cursor;
+  readonly events: TimelineEvent[];
+  readonly meta: Meta;
+  readonly models: Set<string>;
+  readonly turns: MutTurn[];
+}
+
+/** Events the model produces in a call (as opposed to inputs fed to it). */
+const isModelOutput = (ev: TimelineEvent) =>
+  ev.kind === "assistant-text" ||
+  ev.kind === "assistant-thinking" ||
+  ev.kind === "tool-call";
+
 /** Apply a `session_meta` payload to session metadata. */
-const applySessionMeta = (meta: Meta, payload: Record<string, unknown>) => {
+const applySessionMeta = (
+  meta: Meta,
+  cursor: Cursor,
+  payload: Record<string, unknown>
+) => {
+  if (
+    meta.sessionId === undefined &&
+    typeof payload.forked_from_id === "string"
+  ) {
+    cursor.inherited = true;
+  }
   const id = str(payload.id);
   if (id) {
     meta.sessionId = id;
@@ -220,42 +243,68 @@ const applySessionMeta = (meta: Meta, payload: Record<string, unknown>) => {
   }
 };
 
-/** Register one Turn from a token_count `info` block; reset the pending window. */
+/**
+ * Register one Turn per model call from a token_count `info` block and tag the
+ * call's output events with its request id. Codex re-emits token_count with an
+ * unchanged cumulative total (e.g. on rate-limit updates); those are skipped.
+ */
 const applyTokenCount = (args: {
+  readonly state: ScanState;
   readonly info: Record<string, unknown>;
-  readonly cursor: Cursor;
-  readonly counters: Map<string, number>;
-  readonly turns: MutTurn[];
   readonly index: number;
   readonly ts: string | undefined;
 }) => {
-  const { info, cursor, counters, turns, index, ts } = args;
+  const { state, info, index, ts } = args;
+  const { cursor, counters, events, turns } = state;
   const window = info.model_context_window;
   if (typeof window === "number") {
     cursor.nativeWindow = window;
   }
   const last = asObj(info.last_token_usage);
-  if (last) {
-    const turnId = cursor.currentTurnId ?? `tc-${index}`;
-    const n = (counters.get(turnId) ?? 0) + 1;
-    counters.set(turnId, n);
-    const contextTokens = num(last.input_tokens);
-    const cacheReadTokens = num(last.cached_input_tokens);
-    if (contextTokens > 0) {
-      turns.push({
-        requestId: `${turnId}#${n}`,
-        model: cursor.currentModel,
-        contextTokens,
-        inputTokens: contextTokens - cacheReadTokens,
-        cacheReadTokens,
-        cacheCreationTokens: 0,
-        outputTokens: num(last.output_tokens),
-        eventIndexes: cursor.pending.slice(),
-        ...opt("ts", ts),
-      });
+  const total =
+    info.total_token_usage === undefined
+      ? undefined
+      : JSON.stringify(info.total_token_usage);
+  if (!last || (total !== undefined && total === cursor.lastTotal)) {
+    return;
+  }
+  if (total !== undefined) {
+    cursor.lastTotal = total;
+  }
+  // A fork replays the parent's last token_count before its own first call.
+  if (cursor.inherited) {
+    return;
+  }
+  // `input_tokens` is the whole prompt; `cached_input_tokens` is a subset of it
+  // and `reasoning_output_tokens` a subset of `output_tokens`.
+  const contextTokens = num(last.input_tokens);
+  const cacheReadTokens = num(last.cached_input_tokens);
+  const callEvents = cursor.callEvents;
+  cursor.callEvents = [];
+  if (contextTokens <= 0) {
+    return;
+  }
+  const turnId = cursor.currentTurnId ?? `tc-${index}`;
+  const n = (counters.get(turnId) ?? 0) + 1;
+  counters.set(turnId, n);
+  const requestId = `${turnId}#${n}`;
+  for (const i of callEvents) {
+    const ev = events[i];
+    if (ev) {
+      events[i] = { ...ev, requestId };
     }
   }
-  cursor.pending = [];
+  turns.push({
+    requestId,
+    model: cursor.currentModel,
+    contextTokens,
+    inputTokens: contextTokens - cacheReadTokens,
+    cacheReadTokens,
+    cacheCreationTokens: 0,
+    outputTokens: num(last.output_tokens),
+    eventIndexes: callEvents,
+    ...opt("ts", ts),
+  });
 };
 
 /** Apply a `turn_context` payload: track current model + turn id + cwd. */
@@ -280,16 +329,17 @@ const applyTurnContext = (args: {
 
 /** Apply an `event_msg` payload: turn boundaries + token_count-driven Turns. */
 const applyEventMsg = (args: {
+  readonly state: ScanState;
   readonly payload: Record<string, unknown>;
-  readonly cursor: Cursor;
-  readonly counters: Map<string, number>;
-  readonly turns: MutTurn[];
   readonly index: number;
   readonly ts: string | undefined;
 }) => {
-  const { payload, cursor, counters, turns, index, ts } = args;
+  const { state, payload, index, ts } = args;
+  const { cursor } = state;
   const ptype = str(payload.type);
   if (ptype === "task_started") {
+    // Output of an aborted call never gets a token_count; don't pair it later.
+    cursor.callEvents = [];
     if (typeof payload.turn_id === "string") {
       cursor.currentTurnId = payload.turn_id;
     }
@@ -301,23 +351,14 @@ const applyEventMsg = (args: {
   if (ptype === "token_count") {
     const info = asObj(payload.info);
     if (info) {
-      applyTokenCount({ info, cursor, counters, turns, index, ts });
+      applyTokenCount({ state, info, index, ts });
     }
   }
 };
 
 /** Fold one rollout line into the running parse state. */
-const applyLine = (args: {
-  readonly line: RawLine;
-  readonly index: number;
-  readonly events: TimelineEvent[];
-  readonly turns: MutTurn[];
-  readonly models: Set<string>;
-  readonly counters: Map<string, number>;
-  readonly meta: Meta;
-  readonly cursor: Cursor;
-}) => {
-  const { line, index, events, turns, models, counters, meta, cursor } = args;
+const applyLine = (state: ScanState, line: RawLine, index: number) => {
+  const { events, models, meta, cursor } = state;
   const type = str(line.type);
   const ts = typeof line.timestamp === "string" ? line.timestamp : undefined;
   if (ts) {
@@ -329,12 +370,15 @@ const applyLine = (args: {
   const push = (ev: TimelineEvent | null) => {
     if (ev) {
       events.push(ev);
-      cursor.pending.push(events.length - 1);
+      if (isModelOutput(ev)) {
+        cursor.inherited = false;
+        cursor.callEvents.push(events.length - 1);
+      }
     }
   };
   switch (type) {
     case "session_meta":
-      applySessionMeta(meta, payload);
+      applySessionMeta(meta, cursor, payload);
       push(sessionMetaEvent(payload, base));
       break;
     case "turn_context":
@@ -350,7 +394,7 @@ const applyLine = (args: {
       }
       break;
     case "event_msg":
-      applyEventMsg({ payload, cursor, counters, turns, index, ts });
+      applyEventMsg({ state, payload, index, ts });
       break;
     default:
       break;
@@ -367,16 +411,18 @@ export const parseCodexSession = ({
   path,
   sessionId,
 }: ParseSessionArgs): ParsedSession => {
-  const events: TimelineEvent[] = [];
-  const turns: MutTurn[] = [];
-  const models = new Set<string>();
-  const counters = new Map<string, number>();
-  const meta: Meta = {};
-  const cursor: Cursor = { currentModel: "unknown", pending: [] };
-
+  const state: ScanState = {
+    events: [],
+    turns: [],
+    models: new Set(),
+    counters: new Map(),
+    meta: {},
+    cursor: { currentModel: "unknown", callEvents: [], inherited: false },
+  };
   parseJsonl(text).forEach((line, index) => {
-    applyLine({ line, index, events, turns, models, counters, meta, cursor });
+    applyLine(state, line, index);
   });
+  const { events, turns, models, meta, cursor } = state;
 
   return {
     provider: "codex",
@@ -393,88 +439,6 @@ export const parseCodexSession = ({
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", cursor.nativeWindow),
-  };
-};
-
-/** Mutable header fields gathered while lazily scanning lines. */
-interface HeaderAcc {
-  cwd?: string;
-  gitBranch?: string;
-  model?: string;
-  startedAt?: string;
-  updatedAt?: string;
-}
-
-/** Fold one raw rollout line's header-relevant fields into the accumulator. */
-const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
-  const ts = typeof line.timestamp === "string" ? line.timestamp : undefined;
-  if (ts) {
-    acc.startedAt ??= ts;
-    acc.updatedAt = ts;
-  }
-  const type = str(line.type);
-  const payload = asObj(line.payload);
-  if (!payload) {
-    return;
-  }
-  if (type === "session_meta") {
-    if (typeof payload.cwd === "string") {
-      acc.cwd ??= payload.cwd;
-    }
-    const git = asObj(payload.git);
-    if (git && typeof git.branch === "string") {
-      acc.gitBranch ??= git.branch;
-    }
-  }
-  if (type === "turn_context") {
-    if (typeof payload.cwd === "string") {
-      acc.cwd ??= payload.cwd;
-    }
-    if (!acc.model && typeof payload.model === "string") {
-      acc.model = payload.model;
-    }
-  }
-};
-
-/**
- * Build a lightweight Codex list header from raw rollout text. Scans lines for
- * cwd/branch/model/timestamps without constructing a timeline; the project name
- * is the cwd basename (Codex has no per-project slug dir).
- */
-export const buildCodexHeader = ({
-  text,
-  id,
-  slug,
-  path,
-  sizeBytes,
-  mtimeMs,
-}: BuildHeaderArgs): SessionHeader => {
-  const acc: HeaderAcc = {};
-  let messageCount = 0;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim()) {
-      continue;
-    }
-    messageCount += 1;
-    try {
-      applyHeaderLine(acc, JSON.parse(raw) as RawLine);
-    } catch {
-      /* tolerate a partial last line of a live rollout */
-    }
-  }
-
-  return {
-    id,
-    agent: "codex",
-    path,
-    project: basename(acc.cwd) || slug || id,
-    messageCount,
-    sizeBytes,
-    updatedAt: acc.updatedAt ?? new Date(mtimeMs).toISOString(),
-    ...opt("cwd", acc.cwd),
-    ...opt("gitBranch", acc.gitBranch),
-    ...opt("model", acc.model),
-    ...opt("startedAt", acc.startedAt),
   };
 };
 

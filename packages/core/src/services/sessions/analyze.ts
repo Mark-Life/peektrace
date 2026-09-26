@@ -430,7 +430,10 @@ export const analyze = (
   const systemOverheadTokens = computeSystemOverhead(p);
   const { snapshots, compactionTurns } = walkTurns({ p, systemOverheadTokens });
 
-  const peakSnap = snapshots[peak.peakTurnIndex] ?? snapshots.at(-1);
+  // Turns without events get no snapshot, so match on turn index, not position.
+  const peakSnap =
+    snapshots.find((s) => s.turnIndex === peak.peakTurnIndex) ??
+    snapshots.at(-1);
   const budget: BudgetSlice[] = (Object.keys(CAT_META) as BudgetKey[])
     .map((key) => ({
       key,
