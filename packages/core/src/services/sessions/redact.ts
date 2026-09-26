@@ -221,6 +221,14 @@ const redactEvent = (e: TimelineEvent): TimelineEvent => ({
   title: e.title ? redactText(e.title) : e.title,
   preview: e.preview ? redactText(e.preview) : e.preview,
   body: e.body ? redactText(e.body) : e.body,
+  ...(e.contextEdit?.status === "replaced" && e.contextEdit.original
+    ? {
+        contextEdit: {
+          ...e.contextEdit,
+          original: redactText(e.contextEdit.original),
+        },
+      }
+    : {}),
 });
 
 /** Redact every transcript-derived subagent description. */

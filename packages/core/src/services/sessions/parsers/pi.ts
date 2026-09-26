@@ -3,7 +3,7 @@
  * Top-level `.type`s: `session` (header), `model_change` /
  * `thinking_level_change` (control), `session_info` (title), `message` (the
  * conversation), and the context entries `compaction`, `branch_summary`,
- * `custom_message`. Conversation lines discriminate on `.message.role`
+ * `custom_message`, and `context_edit` (see `pi-edits.ts`). Conversation lines discriminate on `.message.role`
  * (`system` | `user` | `assistant` | `toolResult` plus Pi's custom roles) —
  * there is no `.message.type`. Token usage is ground-truth from `.message.usage`; body
  * sizes are chars/4 via `estTokens`. Mirrors the Claude parser's tolerant,
@@ -22,7 +22,10 @@ import {
   piCompactionEvent,
   piCustomEvent,
   piSystemEvent,
+  piToolResultText,
+  str,
 } from "./pi-context";
+import { collectPiEdits, foldWithEdit, isEditable } from "./pi-edits";
 import { buildPiHeader } from "./pi-header";
 import type { ParseSessionArgs, SessionParser } from "./types";
 
@@ -40,32 +43,6 @@ const opt = <K extends string, V>(
   value: V | undefined
 ): Partial<Record<K, V>> =>
   value === undefined ? {} : ({ [key]: value } as Record<K, V>);
-
-/** Coerce an unknown value into a display string (JSON for non-strings). */
-const str = (v: unknown): string => {
-  if (typeof v === "string") {
-    return v;
-  }
-  return v == null ? "" : JSON.stringify(v);
-};
-
-/** Join a Pi content array of `{type:"text", text}` blocks into one body. */
-const joinTextBlocks = (content: unknown): string => {
-  if (typeof content === "string") {
-    return content;
-  }
-  if (!Array.isArray(content)) {
-    return str(content);
-  }
-  return (content as RawLine[])
-    .map((b) => {
-      if (isImageBlock(b)) {
-        return imageMarker(b);
-      }
-      return typeof b?.text === "string" ? b.text : "";
-    })
-    .join("");
-};
 
 interface ParseState {
   readonly compactionIndexes: number[];
@@ -261,7 +238,7 @@ const handleToolResult = (args: {
   readonly state: ParseState;
 }) => {
   const { msg, index, ts, state } = args;
-  const text = joinTextBlocks(msg.content);
+  const text = piToolResultText(msg.content);
   const isError = msg.isError === true;
   state.events.push({
     index,
@@ -420,7 +397,14 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   };
   const meta: Meta = {};
 
-  parseJsonl(text).forEach((line, index) => {
+  const lines = parseJsonl(text);
+  const edits = collectPiEdits(lines);
+  const editFor = (line: RawLine) =>
+    typeof line.id === "string" && isEditable(line)
+      ? edits.get(line.id)
+      : undefined;
+
+  lines.forEach((line, index) => {
     const type = String(line.type ?? "");
     const ts = typeof line.timestamp === "string" ? line.timestamp : undefined;
     if (ts) {
@@ -444,10 +428,27 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
         }
         break;
       case "message":
-        handleMessage({ line, index, ts, state, meta });
+        foldWithEdit({
+          state,
+          line,
+          edits: editFor(line),
+          run: (l) => handleMessage({ line: l, index, ts, state, meta }),
+        });
         break;
       default:
-        handleContextEntry({ type, line, base: { index, ts }, state, meta });
+        foldWithEdit({
+          state,
+          line,
+          edits: editFor(line),
+          run: (l) =>
+            handleContextEntry({
+              type,
+              line: l,
+              base: { index, ts },
+              state,
+              meta,
+            }),
+        });
         break;
     }
   });

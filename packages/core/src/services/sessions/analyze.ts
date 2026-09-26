@@ -7,6 +7,13 @@
  * strings. We recover it from ground-truth `output_tokens` minus visible
  * text/tool_use, attributing ~90% of context in heavy-reasoning sessions.
  */
+import {
+  type RequestSize,
+  requestSizes,
+  sizeSteps,
+  tokensAt,
+  tokensBefore,
+} from "./context-edits";
 import type {
   AnalyzedSession,
   BudgetKey,
@@ -226,28 +233,31 @@ interface WalkResult {
   readonly snapshots: TurnSnapshot[];
 }
 
+/** A later context edit's effect, applied once the walk passes its line. */
+interface PendingEdit {
+  readonly apply: (ws: WalkState) => void;
+  readonly atIndex: number;
+}
+
 /** Mutable accumulator threaded through the single ordered event walk. */
 interface WalkState {
   cat: MutSlices;
+  edits: PendingEdit[];
   lastSnapReq: string | undefined;
   pendingCompaction: boolean;
   retainedThinking: number;
 }
 
-/** Map each request id of a visible text/tool_use event to its token estimate. */
-const visibleByRequest = (
-  events: ParsedSession["events"]
-): Map<string, number> => {
-  const ttByReq = new Map<string, number>();
-  for (const e of events) {
-    if (
-      e.requestId &&
-      (e.kind === "assistant-text" || e.kind === "tool-call")
-    ) {
-      ttByReq.set(e.requestId, (ttByReq.get(e.requestId) ?? 0) + e.tokensEst);
-    }
+/** Apply edits whose line comes before `lineIndex`. */
+const applyEdits = (ws: WalkState, lineIndex: number) => {
+  const due = ws.edits.filter((d) => d.atIndex < lineIndex);
+  if (due.length === 0) {
+    return;
   }
-  return ttByReq;
+  ws.edits = ws.edits.filter((d) => d.atIndex >= lineIndex);
+  for (const d of due) {
+    d.apply(ws);
+  }
 };
 
 /** Snapshot one turn and advance retained-content accumulators. */
@@ -256,11 +266,11 @@ const snapshotTurn = (args: {
   readonly turn: ParsedSession["turns"][number];
   readonly ti: number;
   readonly requestId: string;
-  readonly ttByReq: Map<string, number>;
+  readonly sizes: ReadonlyMap<string, RequestSize>;
   readonly snapshots: TurnSnapshot[];
   readonly compactionTurns: number[];
 }) => {
-  const { ws, turn, ti, requestId, ttByReq, snapshots, compactionTurns } = args;
+  const { ws, turn, ti, requestId, sizes, snapshots, compactionTurns } = args;
   snapshots.push({
     turnIndex: ti,
     model: turn.model,
@@ -279,9 +289,23 @@ const snapshotTurn = (args: {
     ws.pendingCompaction = false;
   }
   ws.lastSnapReq = requestId;
-  const tt = ttByReq.get(requestId) ?? 0;
+  const size = sizes.get(requestId);
+  const tt = size?.visible ?? 0;
+  const thinking = Math.max(0, turn.outputTokens - tt);
   ws.cat.assistant_text += tt;
-  ws.retainedThinking += Math.max(0, turn.outputTokens - tt);
+  ws.retainedThinking += thinking;
+  let prev = { visible: tt, thinking };
+  for (const step of size?.steps ?? []) {
+    const from = prev;
+    ws.edits.push({
+      atIndex: step.atIndex,
+      apply: (s) => {
+        s.cat.assistant_text += step.visible - from.visible;
+        s.retainedThinking += step.thinking - from.thinking;
+      },
+    });
+    prev = step;
+  }
 };
 
 /** Evict growable content on a compaction, then fold the event's tokens. */
@@ -297,17 +321,26 @@ const foldNonTurnEvent = (
     ws.cat.prompts = 0;
     ws.cat.files = 0;
     ws.cat.other = 0;
+    ws.edits = [];
   }
   // The measured system floor already covers the prompt.
   if (e.kind === "system-prompt") {
     return;
   }
-  foldContent({
-    cat: ws.cat,
-    loadedCategory: e.loadedCategory,
-    kind: e.kind,
-    tokens: e.tokensEst,
-  });
+  const fold = (cat: MutSlices, tokens: number) =>
+    foldContent({
+      cat,
+      loadedCategory: e.loadedCategory,
+      kind: e.kind,
+      tokens,
+    });
+  let prev = tokensBefore(e);
+  fold(ws.cat, prev);
+  for (const step of sizeSteps(e)) {
+    const delta = step.tokensEst - prev;
+    ws.edits.push({ atIndex: step.atIndex, apply: (s) => fold(s.cat, delta) });
+    prev = step.tokensEst;
+  }
 };
 
 /** Single ordered walk: accumulate retained content, snapshot each turn. */
@@ -320,7 +353,7 @@ const walkTurns = (args: {
   const turnIndexByReq = new Map(
     turns.map((t, i) => [t.requestId, i] as const)
   );
-  const ttByReq = visibleByRequest(p.events);
+  const sizes = requestSizes(p.events);
 
   const cat = zeroSlices();
   cat.system_tools = systemOverheadTokens;
@@ -329,11 +362,13 @@ const walkTurns = (args: {
     retainedThinking: 0,
     pendingCompaction: false,
     lastSnapReq: undefined,
+    edits: [],
   };
   const snapshots: TurnSnapshot[] = [];
   const compactionTurns: number[] = [];
 
   for (const e of p.events) {
+    applyEdits(ws, e.index);
     const ti = e.requestId ? turnIndexByReq.get(e.requestId) : undefined;
     if (ti !== undefined) {
       const turn = turns[ti];
@@ -343,7 +378,7 @@ const walkTurns = (args: {
           turn,
           ti,
           requestId: e.requestId as string,
-          ttByReq,
+          sizes,
           snapshots,
           compactionTurns,
         });
@@ -362,12 +397,13 @@ const computeSystemOverhead = (p: ParsedSession): number => {
   if (firstTurnPos < 0) {
     firstTurnPos = p.events.length;
   }
+  const firstLine = p.events[firstTurnPos]?.index ?? Number.POSITIVE_INFINITY;
   let visibleAtStart = 0;
   for (let i = 0; i < firstTurnPos; i++) {
     const e = p.events[i];
     // The prompt is part of the floor, so it stays in the residual.
     if (e && e.kind !== "system-prompt") {
-      visibleAtStart += e.tokensEst;
+      visibleAtStart += tokensAt(e, firstLine);
     }
   }
   return Math.max(0, (p.turns[0]?.contextTokens ?? 0) - visibleAtStart);

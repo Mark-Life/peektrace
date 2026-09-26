@@ -129,6 +129,41 @@ export const LoadedCategory = Schema.Literal(
 );
 export type LoadedCategory = typeof LoadedCategory.Type;
 
+/**
+ * One earlier edit of an entry edited more than once: from line `atIndex` the
+ * model saw `tokensEst` visible and `thinkingEst` thinking tokens. The first
+ * event of the entry carries the entry's sizes; its other events carry zeros.
+ */
+export const ContextEditStep = Schema.Struct({
+  atIndex: Schema.Number,
+  tokensEst: Schema.Number,
+  thinkingEst: Schema.Number,
+});
+export type ContextEditStep = typeof ContextEditStep.Type;
+
+/**
+ * A later transcript entry (at line `atIndex`) changed this event's share of the
+ * model context. `removed`: dropped from context from then on. `replaced`: the
+ * event shows the new content; the first event of the edited entry carries the
+ * entry's original text and size. `steps` lists earlier edits of the same entry,
+ * oldest first, when the entry was edited more than once.
+ */
+export const ContextEdit = Schema.Union(
+  Schema.Struct({
+    status: Schema.Literal("removed"),
+    atIndex: Schema.Number,
+    steps: Schema.optional(Schema.Array(ContextEditStep)),
+  }),
+  Schema.Struct({
+    status: Schema.Literal("replaced"),
+    atIndex: Schema.Number,
+    originalTokensEst: Schema.Number,
+    original: Schema.optional(Schema.String),
+    steps: Schema.optional(Schema.Array(ContextEditStep)),
+  })
+);
+export type ContextEdit = typeof ContextEdit.Type;
+
 /** One ordered entry in the reconstructed session timeline. */
 export const TimelineEvent = Schema.Struct({
   index: Schema.Number,
@@ -147,6 +182,7 @@ export const TimelineEvent = Schema.Struct({
   toolUseId: Schema.optional(Schema.String),
   attachmentType: Schema.optional(Schema.String),
   loadedCategory: Schema.optional(LoadedCategory),
+  contextEdit: Schema.optional(ContextEdit),
 });
 export type TimelineEvent = typeof TimelineEvent.Type;
 

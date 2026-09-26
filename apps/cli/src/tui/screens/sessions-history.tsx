@@ -10,7 +10,11 @@
  */
 import type { ScrollBoxRenderable } from "@opentui/core";
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
-import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
+import {
+  contextEditNote,
+  contextEditTag,
+  eventBadgeLabel,
+} from "@workspace/core/services/sessions/labels";
 import type {
   AnalyzedSession,
   EventKind,
@@ -56,6 +60,8 @@ const PANE_CHROME = 52;
 const ROW_FIXED = 30;
 /** Floor on the body preview width, so a tiny terminal still shows something. */
 const MIN_PREVIEW_W = 16;
+/** Cap on the context-edit note, which may quote a long original. */
+const EDIT_NOTE_MAX = 600;
 /** Extra cells the window-share column claims in size order. */
 const SHARE_W = 7;
 /** Percent scale for the window share. */
@@ -64,7 +70,7 @@ const PERCENT = 100;
 const SHARE_DECIMALS = 1;
 
 /** Expanded body: the dim thinking note when present, else the highlighted code. */
-const ItemBody = ({ decoded }: { readonly decoded: DecodedBody }) => {
+const DecodedView = ({ decoded }: { readonly decoded: DecodedBody }) => {
   if (decoded.note !== undefined) {
     return (
       <box style={{ paddingLeft: 2 }}>
@@ -81,6 +87,27 @@ const ItemBody = ({ decoded }: { readonly decoded: DecodedBody }) => {
       />
     </box>
   );
+};
+
+/** Expanded body, under a dim note when a context edit changed the event. */
+const ItemBody = ({ e }: { readonly e: TimelineEvent }) => {
+  const note = contextEditNote(e);
+  return (
+    <box style={{ flexDirection: "column" }}>
+      {note === undefined ? null : (
+        <box style={{ paddingLeft: 2 }}>
+          <text fg={C.warn}>{clip(note, EDIT_NOTE_MAX)}</text>
+        </box>
+      )}
+      <DecodedView decoded={decodeBody(e)} />
+    </box>
+  );
+};
+
+/** Row preview, led by the context-edit tag when there is one. */
+const rowPreview = (e: TimelineEvent) => {
+  const tag = contextEditTag(e);
+  return tag === undefined ? e.preview : `[${tag}] ${e.preview}`;
 };
 
 /** One timeline row: clickable header + (when open) the decoded body below it. */
@@ -120,7 +147,7 @@ const HistoryItem = ({
         label={clip(eventBadgeLabel(e), BADGE_MAX)}
       />
       <text fg={selected ? C.primary : C.text}>
-        {` ${firstLine(e.preview, previewMax)}`}
+        {` ${firstLine(rowPreview(e), previewMax)}`}
       </text>
       <box style={{ flexGrow: 1 }} />
       <text fg={C.textFaint}>{` ~${fmt(e.tokensEst)}`}</text>
@@ -130,7 +157,7 @@ const HistoryItem = ({
         </text>
       )}
     </box>
-    {open ? <ItemBody decoded={decodeBody(e)} /> : null}
+    {open ? <ItemBody e={e} /> : null}
   </box>
 );
 

@@ -23,9 +23,21 @@ export const ROW_FIELDS = [
   "body",
 ] as const satisfies readonly (keyof TimelineEvent)[];
 
+type Edit = TimelineEvent["contextEdit"];
+
+/** Context edits compared by value: re-analysis rebuilds the object. */
+const sameEdit = (a: Edit, b: Edit) =>
+  a?.status === b?.status &&
+  a?.atIndex === b?.atIndex &&
+  JSON.stringify(a?.steps) === JSON.stringify(b?.steps) &&
+  (a?.status === "replaced" && b?.status === "replaced"
+    ? a.originalTokensEst === b.originalTokensEst && a.original === b.original
+    : true);
+
 /** True when both events would render an identical row. */
 export const sameEvent = (a: TimelineEvent, b: TimelineEvent) =>
-  ROW_FIELDS.every((field) => a[field] === b[field]);
+  ROW_FIELDS.every((field) => a[field] === b[field]) &&
+  sameEdit(a.contextEdit, b.contextEdit);
 
 /** What a CHAT leaf renders on top of the table's fields: the chip label
  *  (`title`), the chip icon (`loadedCategory`), and the error tint on a tool
@@ -40,7 +52,8 @@ export const CHAT_ROW_FIELDS = [
 
 /** True when both events would render an identical chat leaf. */
 export const sameChatEvent = (a: TimelineEvent, b: TimelineEvent) =>
-  CHAT_ROW_FIELDS.every((field) => a[field] === b[field]);
+  CHAT_ROW_FIELDS.every((field) => a[field] === b[field]) &&
+  sameEdit(a.contextEdit, b.contextEdit);
 
 /** The state a memoized chat bubble compares, apart from its event. Declared
  *  structurally rather than imported from the JSX so the comparators stay in the
