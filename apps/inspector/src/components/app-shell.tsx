@@ -120,21 +120,16 @@ const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
 const readSidebarCookie = () =>
   document.cookie.match(SIDEBAR_COOKIE)?.[1] !== "false";
 
-/** Footer row: reach note + theme toggle, both shrinking to fit the icon rail. */
+/** Footer row: theme toggle, centered on the icon rail. */
 const ShellFooter = () => {
   const collapsed = useSidebar().state === "collapsed";
   return (
     <div
       className={cn(
         "flex items-center gap-2",
-        collapsed ? "justify-center" : "justify-between"
+        collapsed ? "justify-center" : "justify-end"
       )}
     >
-      {collapsed ? null : (
-        <span className="truncate text-muted-foreground text-xs">
-          loopback only
-        </span>
-      )}
       <ThemeToggle iconOnly={collapsed} />
     </div>
   );
