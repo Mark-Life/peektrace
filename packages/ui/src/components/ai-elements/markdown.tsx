@@ -66,19 +66,21 @@ export const fenceLanguage = (lang: string | undefined): CodeBlockLanguage =>
 /** Custom tag a fenced block is rewritten to, so React renders our `CodeBlock`. */
 const FENCE_TAG = "md-fence";
 
+const fenceNode = (code: string, lang: string): ComponentNode => ({
+  attributes: {},
+  children: [],
+  name: "fence",
+  properties: { code, lang },
+  tagName: FENCE_TAG,
+  type: "component",
+});
+
 /** Swaps every fenced block, at any depth, for a component node carrying the
  *  raw code — the React renderer only hands components props, not AST nodes. */
 const withFences = (node: BlockNode): BlockNode => {
   switch (node.type) {
     case "code":
-      return {
-        attributes: {},
-        children: [],
-        name: "fence",
-        properties: { code: node.value, lang: node.lang ?? "" },
-        tagName: FENCE_TAG,
-        type: "component",
-      } satisfies ComponentNode;
+      return fenceNode(node.value, node.lang ?? "");
     case "list":
       return {
         ...node,
@@ -104,19 +106,31 @@ const withFences = (node: BlockNode): BlockNode => {
   }
 };
 
-/** Parses untrusted text with the safe options, fences rewritten. */
+/** Parses untrusted text with the safe options, fences rewritten. Leading
+ *  YAML frontmatter (a skill or agent file) shows as a code block: the parser
+ *  would otherwise drop it from the output. */
 export const parseTranscriptMarkdown = (text: string): MarkdownDocument => {
-  const doc = parseMarkdown(text, {
+  const { frontmatter, ...doc } = parseMarkdown(text, {
     headingIds: false,
     urlTransform: safeUrl,
   });
-  return { ...doc, children: doc.children.map(withFences) };
+  const children = doc.children.map(withFences);
+  return {
+    ...doc,
+    children:
+      frontmatter === undefined
+        ? children
+        : [fenceNode(`---\n${frontmatter}\n---`, "yaml"), ...children],
+  };
 };
 
 /** Parsed documents by source text. Bodies remount on every view switch and
- *  filter change; re-parsing them each time is wasted work. */
+ *  filter change; re-parsing them each time is wasted work. Bounded by entry
+ *  count and by total source size, oldest first out. */
 const CACHE_LIMIT = 1000;
+const CACHE_CHARS = 8_000_000;
 const cache = new Map<string, MarkdownDocument>();
+let cachedChars = 0;
 
 const parseCached = (text: string) => {
   const hit = cache.get(text);
@@ -124,13 +138,15 @@ const parseCached = (text: string) => {
     return hit;
   }
   const doc = parseTranscriptMarkdown(text);
-  if (cache.size >= CACHE_LIMIT) {
-    const oldest = cache.keys().next().value;
-    if (oldest !== undefined) {
-      cache.delete(oldest);
-    }
-  }
   cache.set(text, doc);
+  cachedChars += text.length;
+  for (const oldest of cache.keys()) {
+    if (cache.size <= CACHE_LIMIT && cachedChars <= CACHE_CHARS) {
+      break;
+    }
+    cache.delete(oldest);
+    cachedChars -= oldest.length;
+  }
   return doc;
 };
 
@@ -262,7 +278,7 @@ const MarkdownBody = ({ className, text }: MarkdownProps) => {
   return (
     <div
       className={cn(
-        "min-w-0 wrap-break-word",
+        "min-w-0 wrap-break-word [&_.footnotes>h2]:sr-only",
         tooLarge && "whitespace-pre-wrap",
         className
       )}

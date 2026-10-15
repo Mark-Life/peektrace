@@ -95,6 +95,17 @@ describe("blocks", () => {
     expect(html("# Title")).not.toContain(" id=");
   });
 
+  test("frontmatter stays visible as a code block, not silently dropped", () => {
+    const out = html("---\nname: skill\n---\n\n# Body");
+    expect(out).toContain("name: skill");
+    expect(out).toContain('data-markdown-fence="yaml"');
+    expect(out).toContain("<h1");
+  });
+
+  test("footnotes carry no element ids either", () => {
+    expect(html("a[^1]\n\n[^1]: note")).not.toContain(" id=");
+  });
+
   test("unknown fence languages fall back to plain text", () => {
     expect(fenceLanguage("python")).toBe("text");
     expect(fenceLanguage("TSX")).toBe("typescript");
