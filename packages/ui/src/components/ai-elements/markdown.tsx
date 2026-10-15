@@ -152,7 +152,7 @@ const parseCached = (text: string) => {
 
 const Fence = ({ code, lang }: { code: string; lang: string }) => (
   <CodeBlock
-    className="my-2 [&_code]:text-xs! [&_pre]:p-3! [&_pre]:text-xs! [&_pre]:leading-relaxed!"
+    className="my-2 [&_code]:text-xs! [&_pre]:p-3! [&_pre]:pr-10! [&_pre]:text-xs! [&_pre]:leading-relaxed!"
     code={code}
     data-markdown-fence={lang}
     language={fenceLanguage(lang)}
