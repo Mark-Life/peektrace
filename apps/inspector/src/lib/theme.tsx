@@ -8,7 +8,7 @@ import {
 } from "@workspace/ui/components/tooltip";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect } from "react";
 import { type Appearance, nextThemePress } from "./theme-modes";
 
 /**
@@ -59,19 +59,12 @@ export const ThemeToggle = ({
   /** Drop the label: for narrow rails. */
   readonly iconOnly?: boolean;
 }) => {
+  // Client-only app: next-themes reads storage and the OS in its initial state,
+  // so both appearances are already known on the first render.
   const { resolvedTheme, systemTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
-  // Appearances are unknown until mount; a blank frame beats a wrong label.
-  const press = mounted ? nextThemePress({ resolvedTheme, systemTheme }) : null;
-  const store = press?.store;
+  const { appearance, store } = nextThemePress({ resolvedTheme, systemTheme });
 
   useEffect(() => {
-    if (!store) {
-      return;
-    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         event.key.toLowerCase() !== "d" ||
@@ -89,23 +82,20 @@ export const ThemeToggle = ({
   }, [store, setTheme]);
 
   // Icon and label name the appearance the next press produces.
-  const Icon = press ? ICONS[press.appearance] : null;
-  const label = press ? `Switch to ${press.appearance} theme` : "Switch theme";
+  const Icon = ICONS[appearance];
+  const label = `Switch to ${appearance} theme`;
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           aria-label={label}
-          disabled={!store}
-          onClick={() => store && setTheme(store)}
+          onClick={() => setTheme(store)}
           size={iconOnly ? "icon-sm" : "sm"}
           variant="ghost"
         >
-          {Icon ? <Icon /> : <span className="size-4" />}
-          {iconOnly || !press ? null : (
-            <span className="capitalize">{press.appearance}</span>
-          )}
+          <Icon />
+          {iconOnly ? null : <span className="capitalize">{appearance}</span>}
         </Button>
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-1.5" side="right">
