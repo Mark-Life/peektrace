@@ -1,37 +1,25 @@
 /** Persisted, per-session inspector view state.
  *
- * One `localStorage` key per session id holds the open Collapsible ids, the
- * history search/type filters, and the redaction toggle, so reopening a session
- * (or reloading) restores exactly how it was left. Kept out of the URL to keep
- * deep links clean.
+ * One `localStorage` key per session id holds the open Collapsible ids and the
+ * redaction toggle, so reopening a session (or reloading) restores how it was
+ * left. Layout, sort and filters are shared across sessions instead (see
+ * `history-prefs.ts`). Kept out of the URL to keep deep links clean.
  */
 import { useCallback, useMemo } from "react";
 import { useLocalStorage } from "./use-local-storage";
-
-/** History row order: transcript order, or largest events first. */
-export type HistorySort = "order" | "size";
 
 /** Persisted, per-session inspector view state. */
 export interface SessionViewState {
   /** Open Collapsible ids (transcript events + subagent cards). */
   readonly expanded: readonly string[];
-  /** History type-filter value (`"all"` | event kind). */
-  readonly kind: string;
-  /** History search box value. */
-  readonly query: string;
   /** Redaction toggle (`true` = redacted). */
   readonly redacted: boolean;
-  /** History row order. */
-  readonly sort: HistorySort;
 }
 
-/** Fresh view: nothing expanded, no filters, redacted on, transcript order. */
+/** Fresh view: nothing expanded, redacted on. */
 export const DEFAULT_SESSION_VIEW: SessionViewState = {
   expanded: [],
-  query: "",
-  kind: "all",
   redacted: true,
-  sort: "order",
 };
 
 /** `localStorage` key for one session's view state. */
@@ -50,9 +38,10 @@ export const chatCollapseId = (pos: number) => `chat:${pos}`;
 export const subagentCollapseId = (id: string) => `subagent:${id}`;
 
 /** Coerce a parsed-but-untrusted stored value into a valid `SessionViewState`,
- *  filling any missing/wrong-typed field from the default. Guards against stale
- *  schemas and hand-edited storage so the detail view never sees a bad shape. */
-const normalizeView = (parsed: unknown): SessionViewState => {
+ *  filling any missing/wrong-typed field from the default and dropping unknown
+ *  ones (e.g. the old per-session filters). Guards against stale schemas and
+ *  hand-edited storage so the detail view never sees a bad shape. */
+export const normalizeView = (parsed: unknown): SessionViewState => {
   if (typeof parsed !== "object" || parsed === null) {
     return DEFAULT_SESSION_VIEW;
   }
@@ -61,14 +50,10 @@ const normalizeView = (parsed: unknown): SessionViewState => {
     expanded: Array.isArray(raw.expanded)
       ? raw.expanded.filter((x): x is string => typeof x === "string")
       : DEFAULT_SESSION_VIEW.expanded,
-    query:
-      typeof raw.query === "string" ? raw.query : DEFAULT_SESSION_VIEW.query,
-    kind: typeof raw.kind === "string" ? raw.kind : DEFAULT_SESSION_VIEW.kind,
     redacted:
       typeof raw.redacted === "boolean"
         ? raw.redacted
         : DEFAULT_SESSION_VIEW.redacted,
-    sort: raw.sort === "size" ? "size" : DEFAULT_SESSION_VIEW.sort,
   };
 };
 
@@ -76,10 +61,7 @@ const normalizeView = (parsed: unknown): SessionViewState => {
 export interface SessionView {
   readonly isExpanded: (id: string) => boolean;
   readonly setExpanded: (ids: readonly string[]) => void;
-  readonly setKind: (k: string) => void;
-  readonly setQuery: (q: string) => void;
   readonly setRedacted: (r: boolean) => void;
-  readonly setSort: (s: HistorySort) => void;
   readonly state: SessionViewState;
   readonly toggleExpanded: (id: string, open: boolean) => void;
 }
@@ -92,20 +74,8 @@ export const useSessionView = (id: string): SessionView => {
     normalizeView
   );
 
-  const setQuery = useCallback(
-    (query: string) => setState((prev) => ({ ...prev, query })),
-    [setState]
-  );
-  const setKind = useCallback(
-    (kind: string) => setState((prev) => ({ ...prev, kind })),
-    [setState]
-  );
   const setRedacted = useCallback(
     (redacted: boolean) => setState((prev) => ({ ...prev, redacted })),
-    [setState]
-  );
-  const setSort = useCallback(
-    (sort: HistorySort) => setState((prev) => ({ ...prev, sort })),
     [setState]
   );
 
@@ -138,10 +108,7 @@ export const useSessionView = (id: string): SessionView => {
 
   return {
     state,
-    setQuery,
-    setKind,
     setRedacted,
-    setSort,
     isExpanded,
     setExpanded,
     toggleExpanded,
