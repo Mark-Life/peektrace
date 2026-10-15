@@ -270,7 +270,11 @@ const parseNested = (args: {
       fs,
       ...(subagentDir ? { subagentDir } : {}),
     });
-    const stub = stubs.find((s) => s.id === id);
+    // Exact id, else a prefix that names exactly one subagent (as printed).
+    const prefixed = stubs.filter((s) => s.id.startsWith(id));
+    const stub =
+      stubs.find((s) => s.id === id) ??
+      (prefixed.length === 1 ? prefixed[0] : undefined);
     if (!stub) {
       return yield* Effect.fail(notFound);
     }

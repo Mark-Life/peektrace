@@ -238,6 +238,18 @@ describe("SessionsService.analyze (a stats link into a subagent)", () => {
       })
     ));
 
+  test("short ids, as the CLI prints them, resolve too", () =>
+    run(
+      Effect.gen(function* () {
+        const svc = yield* SessionsService;
+        const a = yield* svc.analyze({
+          id: "agent-",
+          parent: SESSION_ID.slice(0, 8),
+        });
+        expect(a.sessionId).toBe("agent-1");
+      })
+    ));
+
   test("a parent without that subagent fails with SessionNotFoundError", () =>
     run(
       Effect.gen(function* () {
