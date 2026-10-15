@@ -127,7 +127,7 @@ const ShellFooter = () => {
     <div
       className={cn(
         "flex items-center gap-2",
-        collapsed ? "justify-center" : "justify-end"
+        collapsed ? "justify-center" : "justify-start"
       )}
     >
       <ThemeToggle iconOnly={collapsed} />
