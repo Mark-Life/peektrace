@@ -95,12 +95,13 @@ export const openSession = (id: string) => {
 
 /**
  * Open a session from a stats row, carrying the detector id that sent you there
- * so the transcript can highlight the calls behind the number.
+ * so the transcript can highlight the calls behind the number. Marks render only
+ * in the chat layout, so `view=chat` overrides a stored table preference.
  */
 export const openSessionMarked = (id: string, mark: string) => {
   window.location.hash = buildHash(
     "sessions",
-    new URLSearchParams({ id, mark })
+    new URLSearchParams({ id, mark, view: "chat" })
   );
 };
 
