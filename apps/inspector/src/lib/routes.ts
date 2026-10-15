@@ -93,16 +93,40 @@ export const openSession = (id: string) => {
   window.location.hash = buildHash("sessions", new URLSearchParams({ id }));
 };
 
+/** A session to open: a nested transcript also names the session it ran under. */
+export interface SessionTarget {
+  readonly id: string;
+  readonly parent: string | null;
+}
+
+/** Query for a session target; `parent` is omitted for a top-level session. */
+const targetParams = ({ id, parent }: SessionTarget) =>
+  new URLSearchParams(parent === null ? { id } : { id, parent });
+
 /**
- * Open a session from a stats row, carrying the detector id that sent you there
- * so the transcript can highlight the calls behind the number. Marks render only
+ * The hash a stats row opens, carrying the detector id that sent you there so
+ * the transcript can highlight the calls behind the number. Marks render only
  * in the chat layout, so `view=chat` overrides a stored table preference.
  */
-export const openSessionMarked = (id: string, mark: string) => {
-  window.location.hash = buildHash(
-    "sessions",
-    new URLSearchParams({ id, mark, view: "chat" })
-  );
+export const markedSessionHash = (
+  target: SessionTarget & { readonly mark: string }
+) => {
+  const params = targetParams(target);
+  params.set("mark", target.mark);
+  params.set("view", "chat");
+  return buildHash("sessions", params);
+};
+
+/** Open a session from a stats row, marked by the row's detector. */
+export const openSessionMarked = (
+  target: SessionTarget & { readonly mark: string }
+) => {
+  window.location.hash = markedSessionHash(target);
+};
+
+/** Open a subagent transcript through the session it ran under. */
+export const openSubagent = (target: SessionTarget) => {
+  window.location.hash = buildHash("sessions", targetParams(target));
 };
 
 /** Clear the selected session without adding a history entry (in-app Back). */

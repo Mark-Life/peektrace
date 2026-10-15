@@ -305,7 +305,7 @@ export const SessionHistory = ({
         />
       )}
 
-      <Subagents a={a} isOpen={isOpen} onToggle={onToggle} />
+      <Subagents a={a} isOpen={isOpen} onToggle={onToggle} parent={sid} />
     </section>
   );
 };

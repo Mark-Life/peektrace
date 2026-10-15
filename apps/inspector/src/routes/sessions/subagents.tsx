@@ -6,13 +6,15 @@
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
+import { Button } from "@workspace/ui/components/button";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
-import { ChevronRightIcon } from "lucide-react";
+import { ArrowUpRightIcon, ChevronRightIcon } from "lucide-react";
+import { openSubagent } from "../../lib/routes";
 import { subagentCollapseId } from "../../lib/session-view";
 
 /** Subagent (sidechain) transcript cards — each runs in its own window. */
@@ -20,10 +22,13 @@ export const Subagents = ({
   a,
   isOpen,
   onToggle,
+  parent,
 }: {
   readonly a: AnalyzedSession;
   readonly isOpen: (id: string) => boolean;
   readonly onToggle: (id: string, open: boolean) => void;
+  /** The session these subagents ran under; opens each one through it. */
+  readonly parent: string;
 }) => {
   if (a.subagents.length === 0) {
     return null;
@@ -63,6 +68,15 @@ turns: ${s.turns}
 peak context: ${fmt(s.peakContextTokens)}
 path: ${s.path}`}
             </pre>
+            <Button
+              className="m-2 h-6 gap-1 px-2 text-xs"
+              data-testid="subagent-open"
+              onClick={() => openSubagent({ id: s.id, parent })}
+              size="sm"
+              variant="outline"
+            >
+              <ArrowUpRightIcon className="size-3" /> Open transcript
+            </Button>
           </CollapsibleContent>
         </Collapsible>
       ))}

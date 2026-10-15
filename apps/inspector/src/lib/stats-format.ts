@@ -14,6 +14,7 @@ import {
 export type { Finding } from "@workspace/core/services/stats/findings";
 
 import type {
+  SampleRef,
   StatsReport,
   TimeRow,
 } from "@workspace/core/services/stats/schema";
@@ -80,3 +81,16 @@ export const projectTail = (project: string, max = PROJECT_TAIL) => {
     clean || dash < 0 || dash === tail.length - 1 ? tail : tail.slice(dash + 1);
   return `…${cut}`;
 };
+
+/** Chars of a session id a chip shows; the full id is in the title. */
+const SID_HEAD = 8;
+
+/** What a session chip says. A subagent call names the session it ran under,
+ * because the subagent id alone is not a session a reader can find. */
+export const sessionChip = (
+  ref: Pick<SampleRef, "parent" | "project" | "sid">
+) => ({
+  project: projectTail(ref.project),
+  session: (ref.parent ?? ref.sid).slice(0, SID_HEAD),
+  subagent: ref.parent !== null,
+});

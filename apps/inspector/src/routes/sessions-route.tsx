@@ -23,7 +23,12 @@ import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 import { sessionsListAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
-import { closeSession, openSession, useSelectedSessionId } from "../lib/routes";
+import {
+  closeSession,
+  openSession,
+  useHashParam,
+  useSelectedSessionId,
+} from "../lib/routes";
 import { SessionList } from "./sessions/session-list";
 
 /** The detail pane only mounts once a session is picked, and it owns the two
@@ -72,6 +77,8 @@ const NoSelection = () => (
 export const SessionsRoute = () => {
   const result = useAtomValue(sessionsListAtom);
   const selected = useSelectedSessionId();
+  // A subagent opens through its parent, which is what the rail lists.
+  const parent = useHashParam("parent");
 
   return (
     <div className="flex flex-col">
@@ -100,7 +107,7 @@ export const SessionsRoute = () => {
                 <SessionList
                   headers={headers}
                   onOpen={openSession}
-                  selectedId={selected}
+                  selectedId={parent ?? selected}
                 />
               </div>
               <div
@@ -113,8 +120,9 @@ export const SessionsRoute = () => {
                   <Suspense fallback={<DetailFallback />}>
                     <SessionDetail
                       id={selected}
-                      key={selected}
+                      key={`${parent ?? ""}/${selected}`}
                       onBack={closeSession}
+                      parent={parent}
                     />
                   </Suspense>
                 ) : (

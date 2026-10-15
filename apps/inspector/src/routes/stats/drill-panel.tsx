@@ -54,7 +54,13 @@ const Hit = ({
   <button
     className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left hover:bg-muted/50"
     data-testid="drill-hit"
-    onClick={() => openSessionMarked(hit.sid, detector ?? "")}
+    onClick={() =>
+      openSessionMarked({
+        id: hit.sid,
+        parent: hit.parent,
+        mark: detector ?? "",
+      })
+    }
     type="button"
   >
     <div className="flex items-baseline gap-2 text-xs">
@@ -72,7 +78,7 @@ const Hit = ({
       {hit.line}
     </code>
     <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
-      {hit.project}/{hit.sid.slice(0, SID_HEAD)} · {hit.kind} ·{" "}
+      {hit.project}/{(hit.parent ?? hit.sid).slice(0, SID_HEAD)} · {hit.kind} ·{" "}
       {hit.ts ?? "no timestamp"}
     </span>
   </button>

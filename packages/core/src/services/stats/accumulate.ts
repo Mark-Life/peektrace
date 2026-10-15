@@ -108,6 +108,7 @@ export const sampleOf = (fact: CallFact, line: string): SampleRef => ({
   agent: fact.agent,
   project: fact.project,
   kind: fact.kind,
+  parent: fact.parent,
   seq: fact.seq,
   line,
 });

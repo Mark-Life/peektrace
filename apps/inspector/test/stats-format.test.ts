@@ -11,10 +11,12 @@ import type {
   StatsReport,
   TimeRow,
 } from "@workspace/core/services/stats/schema";
+import { markedSessionHash } from "../src/lib/routes";
 import {
   findingsOf,
   hms,
   projectTail,
+  sessionChip,
   timeNote,
 } from "../src/lib/stats-format";
 
@@ -158,4 +160,44 @@ test("projectTail keeps short slugs and cuts long ones at a dash", () => {
     "…personal-thinkrail"
   );
   expect(projectTail("a".repeat(30), 10)).toBe(`…${"a".repeat(10)}`);
+});
+
+const PARENT = "3f2a1b4c-9d8e-4f00-8000-000000000000";
+const SUBAGENT = "agent-aac481ccea1ab4b5a";
+
+test("a subagent chip names its parent session and says subagent", () => {
+  const chip = sessionChip({
+    project: "-Users-andrey-Code-jetbrains-thinkrail",
+    sid: SUBAGENT,
+    parent: PARENT,
+  });
+  expect(chip).toEqual({
+    project: "…thinkrail",
+    session: "3f2a1b4c",
+    subagent: true,
+  });
+  expect(sessionChip({ project: "p", sid: PARENT, parent: null })).toEqual({
+    project: "p",
+    session: "3f2a1b4c",
+    subagent: false,
+  });
+});
+
+test("a subagent link opens the subagent through its parent", () => {
+  const params = new URLSearchParams(
+    markedSessionHash({
+      id: SUBAGENT,
+      parent: PARENT,
+      mark: "piped-exit-code",
+    }).split("?")[1]
+  );
+  expect(params.get("id")).toBe(SUBAGENT);
+  expect(params.get("parent")).toBe(PARENT);
+  expect(params.get("mark")).toBe("piped-exit-code");
+  expect(params.get("view")).toBe("chat");
+  expect(
+    markedSessionHash({ id: PARENT, parent: null, mark: "" }).includes(
+      "parent="
+    )
+  ).toBe(false);
 });
