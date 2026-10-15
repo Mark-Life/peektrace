@@ -1,7 +1,6 @@
 /** The dense, one-row-per-event transcript — the forensics reading.
  *
- * Every event keeps its own row, in the order (or the size ranking) the shell
- * asked for. Tool calls and results render through the vendored AI Elements
+ * Every event keeps its own row, in the column sort the header picks. Tool calls and results render through the vendored AI Elements
  * `Tool` primitives; every other kind stays a plain disclosure row. One row per
  * event either way — pairing a call with its result into a single card would
  * reorder the transcript and merge two token figures, and this is a forensics
@@ -35,6 +34,11 @@ import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
 import { memo } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
+import {
+  type HistorySort,
+  type HistorySortKey,
+  nextSort,
+} from "../../lib/history-sort";
 import { eventCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import {
@@ -47,8 +51,9 @@ import {
 } from "../../lib/tool-event";
 import { sameEvent } from "../../lib/transcript-row";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
+import { SortHeader } from "./transcript-sort-header";
 
-/** Decimal places for the per-event window-share percent (size order only). */
+/** Decimal places for the per-event window-share percent (token sort only). */
 const PCT_DECIMALS = 2;
 
 /** Turn-number gutter, shared by every transcript row. */
@@ -86,7 +91,7 @@ interface EventRowProps {
   readonly e: TimelineEvent;
   readonly onToggle: (id: string, open: boolean) => void;
   readonly open: boolean;
-  /** Share of the context window, shown only when rows are sorted by size. */
+  /** Share of the context window, shown only when rows are sorted by tokens. */
   readonly share?: number;
   readonly turn: number;
 }
@@ -257,24 +262,29 @@ export const TranscriptTable = ({
   a,
   crossEvtIdx,
   isOpen,
+  onSort,
   onToggle,
   rows,
-  showShare,
+  sort,
   tools,
   turns,
 }: {
   readonly a: AnalyzedSession;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
+  /** Rows already in `sort` order. */
   readonly rows: readonly TranscriptRowRef[];
-  /** Window share per row: only meaningful while ranking by size. */
-  readonly showShare: boolean;
+  readonly sort: HistorySort;
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
   // The window share answers "how much did this one event cost me", which only
-  // matters while ranking by size — in transcript order it is just noise.
+  // matters while ranking by tokens — in transcript order it is just noise.
+  const showShare = sort.key === "tokens";
+  // The divider marks a point in time, so it only reads right in forward order.
+  const showDivider = sort.key === "order" && sort.dir === "asc";
   const shareOf = (e: TimelineEvent) =>
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
@@ -282,9 +292,13 @@ export const TranscriptTable = ({
 
   return (
     <div className="rounded-md border border-border">
+      <SortHeader
+        onSort={(key: HistorySortKey) => onSort(nextSort(sort, key))}
+        sort={sort}
+      />
       {rows.map(({ e, pos }) => (
         <div key={`${e.index}-${pos}`}>
-          {!showShare && pos === crossEvtIdx ? (
+          {showDivider && pos === crossEvtIdx ? (
             <div
               className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
               data-testid="dumbzone-divider"

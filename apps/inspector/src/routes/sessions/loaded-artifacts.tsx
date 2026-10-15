@@ -1,8 +1,8 @@
-/** Loaded artifacts (Phase 8.2).
+/** Loaded artifacts.
  *
  * On-disk instruction files (CLAUDE.md/AGENTS.md/memory, sizes from disk, with a
  * "trim me" hint when heavy). The biggest single events live in the full history
- * instead, where "Biggest first" sorts every event by size.
+ * table instead, where the Tokens column sorts every event by size.
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";

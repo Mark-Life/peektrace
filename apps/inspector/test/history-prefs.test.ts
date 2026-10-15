@@ -12,7 +12,7 @@ import { DEFAULT_SESSION_VIEW, normalizeView } from "../src/lib/session-view";
 test("defaults to chat, transcript order, no filters", () => {
   expect(DEFAULT_HISTORY_PREFS).toEqual({
     mode: "chat",
-    sort: "order",
+    sort: { key: "order", dir: "asc" },
     kind: "all",
     query: "",
   });
@@ -32,7 +32,12 @@ test("valid fields survive, bad ones reset per field", () => {
       query: "grep",
       extra: true,
     })
-  ).toEqual({ mode: "table", sort: "size", kind: "all", query: "grep" });
+  ).toEqual({
+    mode: "table",
+    sort: { key: "tokens", dir: "desc" },
+    kind: "all",
+    query: "grep",
+  });
   expect(normalizeHistoryPrefs({ mode: "grid", sort: "name" })).toEqual(
     DEFAULT_HISTORY_PREFS
   );
@@ -60,13 +65,13 @@ test("updates reach every subscriber and keep identity when unchanged", () => {
     calls += 1;
   });
 
-  updateHistoryPrefs({ mode: "table", sort: "size" });
+  updateHistoryPrefs({ mode: "table", sort: { key: "tokens", dir: "desc" } });
   expect(calls).toBe(2);
   const after = getHistoryPrefs();
   expect(after.mode).toBe("table");
-  expect(after.sort).toBe("size");
+  expect(after.sort).toEqual({ key: "tokens", dir: "desc" });
 
-  updateHistoryPrefs({ mode: "table" });
+  updateHistoryPrefs({ mode: "table", sort: { key: "tokens", dir: "desc" } });
   expect(calls).toBe(2);
   expect(getHistoryPrefs()).toBe(after);
 
