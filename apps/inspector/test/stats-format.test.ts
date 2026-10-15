@@ -154,5 +154,8 @@ test("projectTail keeps short slugs and cuts long ones at a dash", () => {
   expect(projectTail("-Users-andrey-Code-personal-peephole")).toBe(
     "…personal-peephole"
   );
+  expect(projectTail("-Users-x-personal-thinkrail")).toBe(
+    "…personal-thinkrail"
+  );
   expect(projectTail("a".repeat(30), 10)).toBe(`…${"a".repeat(10)}`);
 });
