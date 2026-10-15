@@ -1,22 +1,26 @@
 /** Which reading of the history is on screen.
  *
- * Lives in the URL hash rather than the persisted per-session view, for the same
- * reason `?expand=all` does: it describes the whole section, not one row, so a
- * link to `…&view=table` opens the way the sender was reading it. The chat is
- * the default — the readable pass; the table is the forensic one.
+ * The stored history prefs carry the user's chosen layout across sessions. A
+ * `view` param in the URL hash overrides it, so a link to `…&view=table` opens
+ * the way the sender was reading it. With neither, the chat is the default —
+ * the readable pass; the table is the forensic one.
  */
-import { setHashParam, useHashParam } from "./routes";
 
 /** Dense forensics table, or the conversation rendering. */
 export type TranscriptMode = "table" | "chat";
 
-/** Parse the raw `view` param; anything but `table` reads as the default chat. */
-export const transcriptModeOf = (raw: string | null): TranscriptMode =>
-  raw === "table" ? "table" : "chat";
+/** Layout used when nothing is stored and the hash names none. */
+export const DEFAULT_TRANSCRIPT_MODE: TranscriptMode = "chat";
 
-/** Reactively read the transcript layout from the hash (default `chat`). */
-export const useTranscriptMode = () => transcriptModeOf(useHashParam("view"));
+/** Parse an untrusted mode value; anything unknown reads as `null`. */
+export const transcriptModeOf = (raw: unknown): TranscriptMode | null =>
+  raw === "table" || raw === "chat" ? raw : null;
 
-/** Switch layouts; the default drops the param instead of spelling it out. */
-export const setTranscriptMode = (mode: TranscriptMode) =>
-  setHashParam("view", mode === "table" ? "table" : null);
+/** An explicit hash `view` wins over the stored layout. */
+export const resolveTranscriptMode = ({
+  hash,
+  stored,
+}: {
+  readonly hash: string | null;
+  readonly stored: TranscriptMode;
+}) => transcriptModeOf(hash) ?? stored;

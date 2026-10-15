@@ -1,16 +1,31 @@
-/** The history opens as a chat; only an explicit `view=table` picks the table. */
+/** A hash `view` overrides the stored layout; anything unknown is ignored. */
 import { expect, test } from "bun:test";
-import { transcriptModeOf } from "../src/lib/transcript-mode";
+import {
+  resolveTranscriptMode,
+  transcriptModeOf,
+} from "../src/lib/transcript-mode";
 
-test("no view param reads as chat", () => {
-  expect(transcriptModeOf(null)).toBe("chat");
-});
-
-test("view=table selects the table", () => {
+test("only table and chat parse as modes", () => {
   expect(transcriptModeOf("table")).toBe("table");
+  expect(transcriptModeOf("chat")).toBe("chat");
+  expect(transcriptModeOf("grid")).toBeNull();
+  expect(transcriptModeOf(null)).toBeNull();
 });
 
-test("legacy view=chat and unknown values fall back to chat", () => {
-  expect(transcriptModeOf("chat")).toBe("chat");
-  expect(transcriptModeOf("grid")).toBe("chat");
+test("no hash view falls back to the stored layout", () => {
+  expect(resolveTranscriptMode({ hash: null, stored: "table" })).toBe("table");
+  expect(resolveTranscriptMode({ hash: null, stored: "chat" })).toBe("chat");
+});
+
+test("an explicit hash view wins over the stored layout", () => {
+  expect(resolveTranscriptMode({ hash: "chat", stored: "table" })).toBe("chat");
+  expect(resolveTranscriptMode({ hash: "table", stored: "chat" })).toBe(
+    "table"
+  );
+});
+
+test("an unknown hash view keeps the stored layout", () => {
+  expect(resolveTranscriptMode({ hash: "grid", stored: "table" })).toBe(
+    "table"
+  );
 });

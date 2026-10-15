@@ -2,7 +2,8 @@
  *
  * The shell owns everything shared — search, the type filter, the redaction
  * toggle and its banner, expand-all, and the single `visible` array — then hands
- * the identical rows to either renderer. The chat layout is the default, the
+ * the identical rows to either renderer. Layout, sort and filters come from the
+ * history prefs shared across sessions. The chat layout is the default, the
  * readable pass; the dense table is the forensic answer ("what did this cost,
  * in what order") over the same events. Keeping the filtering here is what
  * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
@@ -31,19 +32,15 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
+import { type HistorySort, useHistoryPrefs } from "../../lib/history-prefs";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
-  type HistorySort,
   type SessionView,
   subagentCollapseId,
 } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
-import {
-  setTranscriptMode,
-  useTranscriptMode,
-} from "../../lib/transcript-mode";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
 import { TranscriptTable } from "./transcript-table";
@@ -93,8 +90,9 @@ export const SessionHistory = ({
   readonly sid: string;
   readonly view: SessionView;
 }) => {
-  const { query, kind, redacted, sort } = view.state;
-  const mode = useTranscriptMode();
+  const { redacted } = view.state;
+  const prefs = useHistoryPrefs();
+  const { query, kind, sort, mode } = prefs;
   const turns = useMemo(() => turnNumbers(a), [a]);
   const tools = useMemo(() => indexTools(a), [a]);
   // Stats marks are an annotation on the same calls the tables counted; a
@@ -228,11 +226,11 @@ export const SessionHistory = ({
         <Input
           className="max-w-xs"
           data-testid="history-search"
-          onChange={(e) => view.setQuery(e.target.value)}
+          onChange={(e) => prefs.setQuery(e.target.value)}
           placeholder="Search history…"
           value={query}
         />
-        <Select onValueChange={view.setKind} value={kind}>
+        <Select onValueChange={prefs.setKind} value={kind}>
           <SelectTrigger className="w-40" data-testid="history-kind-filter">
             <SelectValue />
           </SelectTrigger>
@@ -246,7 +244,7 @@ export const SessionHistory = ({
         </Select>
         {mode === "table" ? (
           <Select
-            onValueChange={(v) => view.setSort(v as HistorySort)}
+            onValueChange={(v) => prefs.setSort(v as HistorySort)}
             value={sort}
           >
             <SelectTrigger className="w-44" data-testid="history-sort">
@@ -272,7 +270,7 @@ export const SessionHistory = ({
         >
           <Button
             data-testid="history-layout-chat"
-            onClick={() => setTranscriptMode("chat")}
+            onClick={() => prefs.setMode("chat")}
             size="sm"
             variant={mode === "chat" ? "secondary" : "ghost"}
           >
@@ -281,7 +279,7 @@ export const SessionHistory = ({
           </Button>
           <Button
             data-testid="history-layout-table"
-            onClick={() => setTranscriptMode("table")}
+            onClick={() => prefs.setMode("table")}
             size="sm"
             variant={mode === "table" ? "secondary" : "ghost"}
           >
