@@ -63,3 +63,20 @@ export const coPresentNote = (row: TimeRow): string =>
 /** The cold-start list: rows that carry a fix, cheapest fix first. */
 export const findingsOf = (report: StatsReport) =>
   coreFindingsOf(report, FORMAT);
+
+/** Chars of a project slug a session chip keeps. */
+const PROJECT_TAIL = 18;
+
+/** The end of a long project slug, cut at a `-` so a chip shows the folder
+ * name rather than the shared `-Users-<name>-…` head. Full slug goes in a title. */
+export const projectTail = (project: string, max = PROJECT_TAIL) => {
+  if (project.length <= max) {
+    return project;
+  }
+  const tail = project.slice(-max);
+  const clean = project.at(-max - 1) === "-";
+  const dash = tail.indexOf("-");
+  const cut =
+    clean || dash < 0 || dash === tail.length - 1 ? tail : tail.slice(dash + 1);
+  return `…${cut}`;
+};

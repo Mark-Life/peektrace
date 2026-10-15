@@ -11,7 +11,12 @@ import type {
   StatsReport,
   TimeRow,
 } from "@workspace/core/services/stats/schema";
-import { findingsOf, hms, timeNote } from "../src/lib/stats-format";
+import {
+  findingsOf,
+  hms,
+  projectTail,
+  timeNote,
+} from "../src/lib/stats-format";
 
 const failRow = (
   over: Partial<FailRow> & { readonly key: string }
@@ -137,4 +142,20 @@ test("findings lead with the cheapest fix, then each table's own impact", () => 
   expect(findings.some((f) => f.key === "flag:Bash")).toBe(false);
   expect(findings[0]?.impact).toBe("91 sessions");
   expect(findings.at(-1)?.impact).toBe("1m40s");
+});
+
+test("projectTail keeps short slugs and cuts long ones at a dash", () => {
+  expect(projectTail("peephole")).toBe("peephole");
+  expect(
+    projectTail(
+      "-Users-andrey-Library-Mobile-Documents-iCloud-md-obsidian-Documents-Obsidian-Vault"
+    )
+  ).toBe("…Obsidian-Vault");
+  expect(projectTail("-Users-andrey-Code-personal-peephole")).toBe(
+    "…personal-peephole"
+  );
+  expect(projectTail("-Users-x-personal-thinkrail")).toBe(
+    "…personal-thinkrail"
+  );
+  expect(projectTail("a".repeat(30), 10)).toBe(`…${"a".repeat(10)}`);
 });
