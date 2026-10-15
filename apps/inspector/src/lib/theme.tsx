@@ -6,9 +6,10 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
-import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
+import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
 import { type ReactNode, useEffect, useState } from "react";
+import { type Appearance, nextThemePress } from "./theme-modes";
 
 /**
  * Wrap the app in `next-themes`. Default to the OS preference, but honor an
@@ -29,13 +30,9 @@ export const ThemeProvider = ({
   </NextThemeProvider>
 );
 
-const ORDER = ["light", "dark", "system"] as const;
-type ThemeMode = (typeof ORDER)[number];
-
-const ICONS: Record<ThemeMode, typeof SunIcon> = {
+const ICONS: Record<Appearance, typeof SunIcon> = {
   light: SunIcon,
   dark: MoonIcon,
-  system: MonitorIcon,
 };
 
 /** Returns true when focus is inside a field where typing should win over shortcuts. */
@@ -52,23 +49,29 @@ const isTypingTarget = (target: EventTarget | null) => {
   );
 };
 
-/** Cycles light → dark → system, also bound to the `D` shortcut. */
+/**
+ * Flips light <-> dark from what is on screen, storing "system" when the flip
+ * lands on the OS appearance. Also bound to the `D` shortcut.
+ */
 export const ThemeToggle = ({
   iconOnly = false,
 }: {
-  /** Drop the mode label — for narrow rails. */
+  /** Drop the label: for narrow rails. */
   readonly iconOnly?: boolean;
 }) => {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, systemTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
-  const current = (mounted ? (theme as ThemeMode) : "system") ?? "system";
-  const next: ThemeMode =
-    ORDER[(ORDER.indexOf(current) + 1) % ORDER.length] ?? "system";
+  // Appearances are unknown until mount; a blank frame beats a wrong label.
+  const press = mounted ? nextThemePress({ resolvedTheme, systemTheme }) : null;
+  const store = press?.store;
 
   useEffect(() => {
+    if (!store) {
+      return;
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (
         event.key.toLowerCase() !== "d" ||
@@ -79,30 +82,34 @@ export const ThemeToggle = ({
       ) {
         return;
       }
-      setTheme(next);
+      setTheme(store);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [next, setTheme]);
+  }, [store, setTheme]);
 
-  const Icon = ICONS[current];
-  const label = `Switch to ${next} theme`;
+  // Icon and label name the appearance the next press produces.
+  const Icon = press ? ICONS[press.appearance] : null;
+  const label = press ? `Switch to ${press.appearance} theme` : "Switch theme";
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           aria-label={label}
-          onClick={() => setTheme(next)}
+          disabled={!store}
+          onClick={() => store && setTheme(store)}
           size={iconOnly ? "icon-sm" : "sm"}
           variant="ghost"
         >
-          <Icon />
-          {iconOnly ? null : <span className="capitalize">{current}</span>}
+          {Icon ? <Icon /> : <span className="size-4" />}
+          {iconOnly || !press ? null : (
+            <span className="capitalize">{press.appearance}</span>
+          )}
         </Button>
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-1.5" side="right">
-        Switch theme
+        {label}
         <Kbd>D</Kbd>
       </TooltipContent>
     </Tooltip>
