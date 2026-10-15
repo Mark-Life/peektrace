@@ -153,6 +153,7 @@ export const ChatContextRun = ({
             className="max-h-[28rem] overflow-auto"
             code={e.body || EMPTY_BODY}
             language={e.kind === "meta" ? "text" : languageOfPath(chipLabel(e))}
+            wrap
           >
             <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
           </CodeBlock>

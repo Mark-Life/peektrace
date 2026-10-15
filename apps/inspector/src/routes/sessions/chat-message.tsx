@@ -142,6 +142,7 @@ export const RawToggle = ({ body }: { readonly body: string }) => {
           className="max-h-[28rem] overflow-auto"
           code={body || EMPTY_BODY}
           language="text"
+          wrap
         >
           <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
         </CodeBlock>
@@ -210,6 +211,7 @@ const ChatBubbleBody = ({
             className="max-h-[28rem] overflow-auto rounded-2xl"
             code={e.body || EMPTY_BODY}
             language="text"
+            wrap
           >
             <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
           </CodeBlock>
