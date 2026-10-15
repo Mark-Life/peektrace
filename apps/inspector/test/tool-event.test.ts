@@ -279,6 +279,15 @@ describe("shaping a call's arguments", () => {
     });
   });
 
+  test("a file's content stays code whatever the path arg is called", () => {
+    for (const key of ["path", "notebook_path", "filename"]) {
+      const { panes } = callView(
+        callWith({ content: "# x\ny", [key]: "a.py" })
+      );
+      expect(panes[0]?.type).toBe("code");
+    }
+  });
+
   test("a batch of edits gets a numbered diff each", () => {
     const { panes, summary } = callView(
       eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-multi", "tool-call")
@@ -326,6 +335,22 @@ describe("shaping a result", () => {
     expect(resultPane(blocks)).toEqual({
       text: "## Report\n\nall good",
       type: "prose",
+    });
+  });
+
+  test("a text block holding JSON stays a JSON code block", () => {
+    const blocks: TimelineEvent = {
+      body: JSON.stringify([{ text: '{"items":[1,2]}', type: "text" }]),
+      index: 0,
+      kind: "tool-result",
+      preview: "",
+      title: "tool_result",
+      tokensEst: 0,
+    };
+    expect(resultPane(blocks)).toEqual({
+      code: '{\n  "items": [\n    1,\n    2\n  ]\n}',
+      language: "json",
+      type: "code",
     });
   });
 

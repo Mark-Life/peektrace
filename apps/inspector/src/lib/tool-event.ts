@@ -138,10 +138,13 @@ const isPayload = ([key, value]: readonly [string, unknown]) =>
 const filePathOf = (input: Record<string, unknown>) =>
   typeof input.file_path === "string" ? input.file_path : "";
 
+/** Args that name a file, whatever the tool calls them. */
+const PATH_ARGS = ["file_path", "path", "notebook_path", "filename"];
+
 /** A payload is prose when its arg is named as prose and is not a file's
  *  content: `# comment` in a Python file must not turn into a heading. */
 const isProse = (key: string, input: Record<string, unknown>) =>
-  filePathOf(input) === "" && PROSE_ARGS.has(key);
+  PROSE_ARGS.has(key) && !PATH_ARGS.some((k) => typeof input[k] === "string");
 
 /** Guess a highlight language from a file path, so a chat attachment chip opens
  *  a `.md` as markdown and a `.ts` as TypeScript instead of everything as text. */
@@ -282,23 +285,29 @@ export const callView = (e: TimelineEvent): ToolCallView => {
   };
 };
 
+const jsonPane = (v: unknown) => ({
+  code: JSON.stringify(v, null, 2),
+  language: "json" as const,
+  type: "code" as const,
+});
+
 /**
  * Shape a tool result for display: standard `{ type: "text" }` blocks join into
- * prose, other JSON is pretty-printed, anything unparseable stays verbatim —
- * a plain string is usually command output, where Markdown would mangle it.
+ * prose (or JSON, when that text is JSON, as many MCP tools return), other JSON
+ * is pretty-printed, anything unparseable stays verbatim — a plain string is
+ * usually command output, where Markdown would mangle it.
  */
 export const resultPane = (e: TimelineEvent): ResultPane => {
   const parsed = parseJson(e.body);
   const text = parsed === undefined ? null : textFromBlocks(parsed);
   if (text !== null) {
-    return { text, type: "prose" };
+    const inner = parseJson(text);
+    return typeof inner === "object" && inner !== null
+      ? jsonPane(inner)
+      : { text, type: "prose" };
   }
   if (parsed !== undefined) {
-    return {
-      code: JSON.stringify(parsed, null, 2),
-      language: "json",
-      type: "code",
-    };
+    return jsonPane(parsed);
   }
   return { code: e.body || EMPTY_BODY, language: "text", type: "code" };
 };
