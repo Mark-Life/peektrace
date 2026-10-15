@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## cli-v0.10.0 — 2026-10-15
+
+### Added
+
+- **Transcripts render as Markdown** (#55). System prompts, user and
+  assistant messages, thinking, context chips and prose tool arguments render
+  through `@tanstack/markdown`, in chat and table views. Code, JSON, file
+  content and shell output stay highlighted code blocks. Raw HTML stays
+  escaped, links allow only http(s) and mailto, and images show as links.
+- **Table columns sort on click** (#46). Turn, type and token headers sort
+  both ways. The old "Biggest first" setting maps to tokens, largest first.
+- **Subagent sessions open from Stats** (#49). Chips for calls made inside a
+  subagent used to open "Session not found". They now open the subagent
+  transcript through its parent, with the marked call shown and a link back
+  to the parent. `sessions analyze` takes `--parent`.
+
+### Changed
+
+- **Chat is the default history view** (#44). `view=table` still opens the
+  table.
+- **History layout, sort, type filter and search carry across sessions**
+  (#45). Redaction and open rows stay per session.
+- **Theme toggle flips light and dark** (#50, #53). It stores "system" when
+  the target matches the OS, so the app keeps following it. The toggle sits
+  bottom-left, and the "loopback only" note is gone (#51).
+- **`@tanstack/highlight` 1.1.0** (#54).
+
+### Fixed
+
+- **Long chat content wraps** (#47). Expanded system prompts and context
+  chips no longer scroll sideways with a background cut at the edge.
+- **Stats cards keep their content inside** (#48). Long session chips and
+  command lines truncate, with the full text on hover.
+
 ## cli-v0.9.0 — 2026-09-26
 
 ### Added
