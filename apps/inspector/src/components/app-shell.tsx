@@ -120,14 +120,14 @@ const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
 const readSidebarCookie = () =>
   document.cookie.match(SIDEBAR_COOKIE)?.[1] !== "false";
 
-/** Footer row: theme toggle, centered on the icon rail. */
+/** Footer row: theme toggle, left-aligned when expanded, centered on the icon rail. */
 const ShellFooter = () => {
   const collapsed = useSidebar().state === "collapsed";
   return (
     <div
       className={cn(
         "flex items-center gap-2",
-        collapsed ? "justify-center" : "justify-end"
+        collapsed ? "justify-center" : "justify-start"
       )}
     >
       <ThemeToggle iconOnly={collapsed} />
