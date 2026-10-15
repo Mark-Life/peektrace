@@ -14,6 +14,7 @@ import { Command, Options } from "@effect/cli";
 import { AGENT_IDS, type AgentId } from "@workspace/core";
 import type {
   FailRow,
+  SampleRef,
   StatsReport,
   TimeRow,
 } from "@workspace/core/services/stats/schema";
@@ -80,12 +81,24 @@ const shortSid = (sid: string): string => {
 const clipCell = (s: string): string =>
   s.length > CELL_MAX ? `${s.slice(0, CELL_MAX - 1)}…` : s;
 
+/** Where a sample sits: its own session, or a subagent under `parent`. */
+type SessionRef = Pick<SampleRef, "parent" | "sid">;
+
+/** A drill hit's session. A subagent prints `<parent>/<subagent>`, the two
+ * short ids `sessions analyze --parent <parent> <subagent>` takes. */
+const hitRef = ({ parent, sid }: SessionRef): string =>
+  parent === null ? shortSid(sid) : `${shortSid(parent)}/${shortSid(sid)}`;
+
 /** The session ids behind a row: the route from a number back to a transcript. */
-const refsOf = (samples: readonly { readonly sid: string }[]): string => {
-  const ids = [...new Set(samples.map((s) => shortSid(s.sid)))].slice(
-    0,
-    REFS_PER_ROW
-  );
+const refsOf = (samples: readonly SessionRef[]): string => {
+  // A subagent id is not a listed session; name the parent it ran under.
+  const ids = [
+    ...new Set(
+      samples.map((s) =>
+        s.parent === null ? shortSid(s.sid) : `${shortSid(s.parent)}/sub`
+      )
+    ),
+  ].slice(0, REFS_PER_ROW);
   return ids.length === 0 ? "-" : ids.join(",");
 };
 
@@ -307,7 +320,7 @@ const makeStatsDrill = (globals: GlobalsAccessor) =>
         }
         const rows = result.hits.map((hit) => [
           hit.ts ?? "-",
-          shortSid(hit.sid),
+          hitRef(hit),
           hit.project,
           hit.tool,
           hit.durSec === null ? "-" : hms(hit.durSec),

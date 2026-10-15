@@ -27,18 +27,22 @@ import { sessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
  */
 export const useAnalyzedSession = ({
   id,
+  parent,
   redact,
 }: {
   readonly id: string;
+  /** Set when `id` is a subagent transcript, resolved through this session. */
+  readonly parent: string | null;
   readonly redact: boolean;
 }) => {
   const atom = useMemo(
     () =>
       PeektraceClient.query("sessions.analyze", {
         id,
+        ...(parent === null ? {} : { parent }),
         ...(redact ? {} : { redact: false }),
       }),
-    [id, redact]
+    [id, parent, redact]
   );
   const refresh = useAtomRefresh(atom);
   useOnVersionBump(useAtomValue(sessionsVersionAtom), refresh);

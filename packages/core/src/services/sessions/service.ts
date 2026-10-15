@@ -39,6 +39,8 @@ const JSONL = /\.jsonl$/;
 /** Options accepted by `parse`. */
 export interface ParseRequest {
   readonly id: string;
+  /** Parent session id when `id` names a nested (subagent) transcript. */
+  readonly parent?: string;
   /** Redact secret-looking transcript text. Default true. */
   readonly redact?: boolean;
 }
@@ -48,6 +50,8 @@ export interface AnalyzeRequest {
   /** Dumb-zone threshold as a fraction of the window. Default 0.40. */
   readonly dumbZone?: number;
   readonly id: string;
+  /** Parent session id when `id` names a nested (subagent) transcript. */
+  readonly parent?: string;
   /** Redact secret-looking transcript text. Default true. */
   readonly redact?: boolean;
   /** Explicit context-window override (tokens). Overrides the transcript. */
@@ -229,20 +233,91 @@ const foldClaudeSubagents = (args: {
   );
 };
 
+/** What a full parse yields: the owning agent, the session, its source. */
+interface FullParse {
+  readonly agent: AgentId;
+  readonly parsed: ParsedSession;
+  readonly source?: string;
+}
+
+/**
+ * Resolve + full-parse a nested transcript through its parent. Only Claude
+ * nests subagents under a session dir, so the parent bounds the search to one
+ * `subagents` tree instead of a corpus walk.
+ */
+const parseNested = (args: {
+  readonly fs: FileSystem.FileSystem;
+  readonly agents: AgentRegistryShape;
+  readonly id: string;
+  readonly parent: string;
+}): Effect.Effect<FullParse, SessionNotFoundError | TranscriptParseError> => {
+  const { fs, agents, id, parent } = args;
+  const notFound = new SessionNotFoundError({
+    id,
+    searchedRoot: `subagents of ${parent}`,
+  });
+  return Effect.gen(function* () {
+    const owner = yield* resolveSession({ fs, agents, idOrPath: parent });
+    if (owner.agent !== "claude") {
+      return yield* Effect.fail(notFound);
+    }
+    const { subagentDir } = yield* resolveClaudeSession({
+      fs,
+      agents,
+      idOrPath: owner.path,
+    });
+    const stubs = yield* findSubagents({
+      fs,
+      ...(subagentDir ? { subagentDir } : {}),
+    });
+    // Exact id, else a prefix that names exactly one subagent (as printed).
+    const prefixed = stubs.filter((s) => s.id.startsWith(id));
+    const stub =
+      stubs.find((s) => s.id === id) ??
+      (prefixed.length === 1 ? prefixed[0] : undefined);
+    if (!stub) {
+      return yield* Effect.fail(notFound);
+    }
+    const ref: SessionFileRef = {
+      id: stub.id,
+      path: stub.path,
+      slug: owner.slug,
+      ...(owner.source ? { source: owner.source } : {}),
+    };
+    const { text } = yield* agents
+      .loadTranscript({ agent: "claude", ref })
+      .pipe(
+        Effect.mapError(
+          (e) => new TranscriptParseError({ path: e.path, reason: e.reason })
+        )
+      );
+    const parsed = parseClaudeSession({
+      text,
+      path: stub.path,
+      sessionId: stub.id,
+      includeSidechainTurns: true,
+    });
+    return {
+      agent: owner.agent,
+      parsed,
+      ...(owner.source ? { source: owner.source.id } : {}),
+    } satisfies FullParse;
+  }).pipe(
+    Effect.withSpan("Sessions.parseNested", { attributes: { id, parent } })
+  );
+};
+
 /** Resolve + full-parse one transcript via its agent's parser. */
 const parseFull = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly agents: AgentRegistryShape;
   readonly id: string;
-}): Effect.Effect<
-  {
-    readonly agent: AgentId;
-    readonly parsed: ParsedSession;
-    readonly source?: string;
-  },
-  SessionNotFoundError | TranscriptParseError
-> => {
-  const { fs, agents, id } = args;
+  readonly parent?: string | undefined;
+}): Effect.Effect<FullParse, SessionNotFoundError | TranscriptParseError> => {
+  const { fs, agents, id, parent } = args;
+  if (parent !== undefined) {
+    return parseNested({ fs, agents, id, parent });
+  }
   return Effect.gen(function* () {
     const resolved = yield* resolveSession({ fs, agents, idOrPath: id });
     const parser = PARSERS[resolved.agent];
@@ -272,7 +347,7 @@ const parseFull = (args: {
       agent: resolved.agent,
       parsed,
       ...(resolved.source ? { source: resolved.source.id } : {}),
-    };
+    } satisfies FullParse;
   }).pipe(Effect.withSpan("Sessions.parse", { attributes: { id } }));
 };
 
@@ -333,19 +408,29 @@ const makeService = (args: {
       Effect.withSpan("Sessions.list")
     );
 
-  const parse: SessionsServiceShape["parse"] = ({ id, redact = true }) =>
-    parseFull({ fs, agents, id }).pipe(
+  const parse: SessionsServiceShape["parse"] = ({
+    id,
+    parent,
+    redact = true,
+  }) =>
+    parseFull({ fs, agents, id, parent }).pipe(
       Effect.map(({ parsed }) => (redact ? redactParsed(parsed) : parsed))
     );
 
   const analyzeReq: SessionsServiceShape["analyze"] = ({
     id,
+    parent,
     window,
     dumbZone,
     redact = true,
   }) =>
     Effect.gen(function* () {
-      const { agent, parsed, source } = yield* parseFull({ fs, agents, id });
+      const { agent, parsed, source } = yield* parseFull({
+        fs,
+        agents,
+        id,
+        parent,
+      });
       const onDiskContextFiles =
         agent === "claude"
           ? yield* gatherOnDiskContextFiles({

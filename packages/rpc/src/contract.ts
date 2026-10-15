@@ -195,12 +195,16 @@ export const SessionsListPayload = Schema.Struct({
 /** `sessions.get` arguments. */
 export const SessionGetPayload = Schema.Struct({
   id: Schema.String,
+  /** Parent session id when `id` names a subagent transcript. */
+  parent: Schema.optional(Schema.String),
   redact: Schema.optional(Schema.Boolean),
 });
 
 /** `sessions.analyze` arguments. */
 export const SessionAnalyzePayload = Schema.Struct({
   id: Schema.String,
+  /** Parent session id when `id` names a subagent transcript. */
+  parent: Schema.optional(Schema.String),
   window: Schema.optional(Schema.Number),
   dumbZone: Schema.optional(Schema.Number),
   redact: Schema.optional(Schema.Boolean),

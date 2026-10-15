@@ -83,6 +83,8 @@ export const SampleRef = Schema.Struct({
   agent: AgentId,
   project: Schema.String,
   kind: TranscriptKind,
+  /** Session a nested transcript runs under; open `sid` through it. */
+  parent: Schema.NullOr(Schema.String),
   /** Monotonic index of the fact inside its session; pairs with `sid` as a key. */
   seq: Schema.Number,
   /** One redacted, collapsed, clipped line of evidence. */

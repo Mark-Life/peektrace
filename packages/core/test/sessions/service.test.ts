@@ -13,6 +13,8 @@ import {
   SessionsService,
   SessionsServiceLive,
 } from "../../src/services/sessions/service";
+import { sampleOf } from "../../src/services/stats/accumulate";
+import type { ToolFact } from "../../src/services/stats/schema";
 
 const FIXTURE_DIR = join(import.meta.dir, "../fixtures/sessions");
 const PROJECTS_ROOT = join(FIXTURE_DIR, "projects");
@@ -172,6 +174,88 @@ describe("SessionsService.analyze", () => {
         const svc = yield* SessionsService;
         const result = yield* Effect.either(
           svc.analyze({ id: "does-not-exist" })
+        );
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("SessionNotFoundError");
+        }
+      })
+    ));
+});
+
+/** A call a subagent made, as the stats extractor records it. */
+const subagentCall: ToolFact = {
+  row: "tool",
+  sid: "agent-1",
+  agent: "claude",
+  project: SLUG,
+  kind: "subagent",
+  parent: SESSION_ID,
+  run: null,
+  seq: 0,
+  toolUseId: null,
+  tool: "Read",
+  ts: null,
+  durSec: null,
+  err: false,
+  failed: false,
+  failReason: null,
+  detector: null,
+  benign: null,
+  sig: null,
+  arg: null,
+  outChars: 0,
+  side: false,
+};
+
+describe("SessionsService.analyze (a stats link into a subagent)", () => {
+  const sample = sampleOf(subagentCall, "cat file");
+
+  test("the sample names the parent the subagent ran under", () => {
+    expect(sample.parent).toBe(SESSION_ID);
+  });
+
+  test("the subagent id alone is not a session", () =>
+    run(
+      Effect.gen(function* () {
+        const svc = yield* SessionsService;
+        const result = yield* Effect.either(svc.analyze({ id: sample.sid }));
+        expect(result._tag).toBe("Left");
+      })
+    ));
+
+  test("the subagent resolves through its parent", () =>
+    run(
+      Effect.gen(function* () {
+        const svc = yield* SessionsService;
+        const a = yield* svc.analyze({
+          id: sample.sid,
+          parent: sample.parent ?? "",
+        });
+        expect(a.sessionId).toBe("agent-1");
+        // Sidechain turns count in a subagent's own file.
+        expect(a.turnCount).toBe(2);
+      })
+    ));
+
+  test("short ids, as the CLI prints them, resolve too", () =>
+    run(
+      Effect.gen(function* () {
+        const svc = yield* SessionsService;
+        const a = yield* svc.analyze({
+          id: "agent-",
+          parent: SESSION_ID.slice(0, 8),
+        });
+        expect(a.sessionId).toBe("agent-1");
+      })
+    ));
+
+  test("a parent without that subagent fails with SessionNotFoundError", () =>
+    run(
+      Effect.gen(function* () {
+        const svc = yield* SessionsService;
+        const result = yield* Effect.either(
+          svc.analyze({ id: "agent-missing", parent: SESSION_ID })
         );
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {

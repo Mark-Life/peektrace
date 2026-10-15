@@ -23,6 +23,13 @@ const projectOpt = Options.text("project").pipe(
   Options.optional
 );
 
+const parentOpt = Options.text("parent").pipe(
+  Options.withDescription(
+    "Parent session id, when <id> is a subagent transcript (agent-*)"
+  ),
+  Options.optional
+);
+
 /** Peak fraction above which a session is judged to be actively rotting. */
 const ROTTING_FRACTION = 0.7;
 
@@ -92,13 +99,20 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
     {
       id: Args.text({ name: "id" }),
       json: localJsonOpt,
+      parent: parentOpt,
       readOnly: localReadOnlyOpt,
     },
-    ({ id, json: jsonFlag, readOnly }) =>
+    ({ id, json: jsonFlag, parent, readOnly }) =>
       Effect.gen(function* () {
         const g = yield* globals({ json: jsonFlag, readOnly });
         const a = yield* withClient(g, (client) =>
-          client.sessions.analyze({ id })
+          client.sessions.analyze({
+            id,
+            ...Option.match(parent, {
+              onNone: () => ({}),
+              onSome: (p) => ({ parent: p }),
+            }),
+          })
         );
         if (g.json) {
           return yield* Console.log(json(a));

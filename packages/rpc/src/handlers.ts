@@ -241,17 +241,19 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
                   )
                 )
               ),
-          "sessions.get": ({ id, redact }) =>
+          "sessions.get": ({ id, parent, redact }) =>
             wire(
               sessions.parse({
                 id,
+                ...(parent === undefined ? {} : { parent }),
                 ...(redact === undefined ? {} : { redact }),
               })
             ),
-          "sessions.analyze": ({ id, window, dumbZone, redact }) =>
+          "sessions.analyze": ({ id, parent, window, dumbZone, redact }) =>
             wire(
               sessions.analyze({
                 id,
+                ...(parent === undefined ? {} : { parent }),
                 ...(window === undefined ? {} : { window }),
                 ...(dumbZone === undefined ? {} : { dumbZone }),
                 ...(redact === undefined ? {} : { redact }),

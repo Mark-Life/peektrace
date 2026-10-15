@@ -283,12 +283,19 @@ export const shortSid = (sid: string): string => {
 
 const REFS_PER_ROW = 3;
 
+/** A sample's session as a reader finds it: a subagent call names its parent. */
+export const refOf = (ref: Pick<SampleRef, "parent" | "sid">): string =>
+  ref.parent === null ? shortSid(ref.sid) : `${shortSid(ref.parent)}/sub`;
+
+/** The command that opens a sample's transcript; a subagent opens via its parent. */
+export const openCommand = (ref: Pick<SampleRef, "parent" | "sid">): string =>
+  ref.parent === null
+    ? `peektrace sessions analyze ${ref.sid}`
+    : `peektrace sessions analyze --parent ${ref.parent} ${ref.sid}`;
+
 /** The session ids behind a row: the route from a number back to a transcript. */
 export const refsOf = (samples: readonly SampleRef[]): string => {
-  const ids = [...new Set(samples.map((s) => shortSid(s.sid)))].slice(
-    0,
-    REFS_PER_ROW
-  );
+  const ids = [...new Set(samples.map(refOf))].slice(0, REFS_PER_ROW);
   return ids.length === 0 ? "—" : ids.join(", ");
 };
 

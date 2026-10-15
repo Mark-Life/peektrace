@@ -8,34 +8,50 @@ import type { SampleRef } from "@workspace/core/services/stats/schema";
 import { Button } from "@workspace/ui/components/button";
 import { ArrowUpRightIcon } from "lucide-react";
 import { openSessionMarked } from "../../lib/routes";
-import { projectTail } from "../../lib/stats-format";
+import { sessionChip } from "../../lib/stats-format";
 
-/** Chars of a session id a link shows; the full id is in the title. */
-const SID_HEAD = 8;
+/** The hover text: every id behind the chip, then the evidence line. */
+const titleOf = (sample: SampleRef) =>
+  sample.parent === null
+    ? `${sample.project} · ${sample.sid} · ${sample.line}`
+    : `${sample.project} · ${sample.parent} · subagent ${sample.sid} · ${sample.line}`;
 
-/** One session button, labelled by project so two links are told apart. */
+/** One session button, labelled by project so two links are told apart. A
+ * subagent call names its parent session and opens the subagent through it. */
 const SessionLink = ({
   detector,
   sample,
 }: {
   readonly detector: string | null;
   readonly sample: SampleRef;
-}) => (
-  <Button
-    className="h-6 min-w-0 max-w-full gap-1 px-2 font-mono text-xs"
-    data-testid="stats-session-link"
-    onClick={() => openSessionMarked(sample.sid, detector ?? "")}
-    size="sm"
-    title={`${sample.project} · ${sample.sid} · ${sample.line}`}
-    variant="outline"
-  >
-    <ArrowUpRightIcon className="size-3 shrink-0" />
-    <span className="flex min-w-0">
-      <span className="truncate">{projectTail(sample.project)}</span>
-      <span className="shrink-0">/{sample.sid.slice(0, SID_HEAD)}</span>
-    </span>
-  </Button>
-);
+}) => {
+  const chip = sessionChip(sample);
+  return (
+    <Button
+      className="h-6 min-w-0 max-w-full gap-1 px-2 font-mono text-xs"
+      data-testid="stats-session-link"
+      onClick={() =>
+        openSessionMarked({
+          id: sample.sid,
+          parent: sample.parent,
+          mark: detector ?? "",
+        })
+      }
+      size="sm"
+      title={titleOf(sample)}
+      variant="outline"
+    >
+      <ArrowUpRightIcon className="size-3 shrink-0" />
+      <span className="flex min-w-0">
+        <span className="truncate">{chip.project}</span>
+        <span className="shrink-0">/{chip.session}</span>
+        {chip.subagent ? (
+          <span className="shrink-0 text-muted-foreground"> · subagent</span>
+        ) : null}
+      </span>
+    </Button>
+  );
+};
 
 /** Sample session links for one row, with the evidence line under them. */
 export const SessionLinks = ({
