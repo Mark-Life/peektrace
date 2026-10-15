@@ -1,7 +1,8 @@
 /** The dense, one-row-per-event transcript — the forensics reading.
  *
- * Every event keeps its own row, in the column sort the header picks. Tool calls and results render through the vendored AI Elements
- * `Tool` primitives; every other kind stays a plain disclosure row. One row per
+ * Every event keeps its own row, in the column sort the header picks. Tool
+ * calls and results render through the vendored AI Elements `Tool` primitives;
+ * every other kind stays a plain disclosure row. One row per
  * event either way — pairing a call with its result into a single card would
  * reorder the transcript and merge two token figures, and this is a forensics
  * view. (The chat layout pairs them; it also never sums the two figures.)
