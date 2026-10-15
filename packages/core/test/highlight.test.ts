@@ -65,8 +65,21 @@ describe("plainLines", () => {
 });
 
 describe("isHighlightable", () => {
-  test("caps input at 1 MB", () => {
-    expect(isHighlightable("x".repeat(1_000_000))).toBe(true);
-    expect(isHighlightable("x".repeat(1_000_001))).toBe(false);
+  test("caps linear tokenizers at 1 MB", () => {
+    expect(isHighlightable("x".repeat(1_000_000), "json")).toBe(true);
+    expect(isHighlightable("x".repeat(1_000_001), "typescript")).toBe(false);
+  });
+
+  test("caps bash at 20 KB", () => {
+    expect(isHighlightable("x".repeat(20_000), "bash")).toBe(true);
+    expect(isHighlightable("x".repeat(20_001), "bash")).toBe(false);
+  });
+
+  test("bash at the cap stays fast on heredoc-heavy input", () => {
+    const code = "cat <<'EOF'\na << b\nEOF\n".repeat(1000).slice(0, 20_000);
+    expect(isHighlightable(code, "bash")).toBe(true);
+    const start = performance.now();
+    tokenizeLines(code, "bash");
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });

@@ -41,11 +41,21 @@ const highlighter = createHighlighter({
   languages: [ts, shell, json, markdown, plaintext],
 });
 
-// Every registered tokenizer is linear and handles 1 MB in about 100 ms.
-const HIGHLIGHT_LIMIT = 1_000_000;
+// The shell tokenizer is quadratic in heredocs: each `<<` scans ahead for its
+// terminator, so a 200 KB script of heredocs takes ~1 s and 1 MB takes minutes.
+// The ts/json/markdown/plaintext tokenizers are linear and handle 1 MB in about
+// 100 ms.
+const highlightLimits: Record<CodeBlockLanguage, number> = {
+  bash: 20_000,
+  json: 1_000_000,
+  markdown: 1_000_000,
+  text: 1_000_000,
+  typescript: 1_000_000,
+};
 
 /** Whether code is small enough to tokenize without blocking the main thread. */
-export const isHighlightable = (code: string) => code.length <= HIGHLIGHT_LIMIT;
+export const isHighlightable = (code: string, language: CodeBlockLanguage) =>
+  code.length <= highlightLimits[language];
 
 const lineKey = (index: number) => `line-${index}`;
 
