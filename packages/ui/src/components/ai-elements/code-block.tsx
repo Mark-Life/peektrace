@@ -91,7 +91,7 @@ export const highlightCode = (
   code: string,
   language: CodeBlockLanguage
 ): CodeLine[] =>
-  isHighlightable(code, language)
+  isHighlightable(code)
     ? tokenizeLines(code, language)
     : plainLines(code);
 

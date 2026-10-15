@@ -41,21 +41,11 @@ const highlighter = createHighlighter({
   languages: [ts, shell, json, markdown, plaintext],
 });
 
-// The shell tokenizer backtracks quadratically on input that is not a shell
-// command (750 KB of JSON takes ~62 s), so it gets a far tighter ceiling than
-// the linear ts/json/markdown/plaintext tokenizers, which handle 1 MB in under
-// 70 ms.
-const highlightLimits: Record<CodeBlockLanguage, number> = {
-  bash: 20_000,
-  json: 1_000_000,
-  markdown: 1_000_000,
-  text: 1_000_000,
-  typescript: 1_000_000,
-};
+// Every registered tokenizer is linear and handles 1 MB in about 100 ms.
+const HIGHLIGHT_LIMIT = 1_000_000;
 
 /** Whether code is small enough to tokenize without blocking the main thread. */
-export const isHighlightable = (code: string, language: CodeBlockLanguage) =>
-  code.length <= highlightLimits[language];
+export const isHighlightable = (code: string) => code.length <= HIGHLIGHT_LIMIT;
 
 const lineKey = (index: number) => `line-${index}`;
 

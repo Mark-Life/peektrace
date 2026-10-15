@@ -177,9 +177,7 @@ const TokenLines = ({
   const styled = useMemo(
     () =>
       styledOf(
-        isHighlightable(code, language)
-          ? tokenizeLines(code, language)
-          : plainLines(code)
+        isHighlightable(code) ? tokenizeLines(code, language) : plainLines(code)
       ),
     [code, language]
   );
