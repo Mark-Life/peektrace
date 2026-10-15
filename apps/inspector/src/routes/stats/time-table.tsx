@@ -26,8 +26,11 @@ const DetailRow = ({ row }: { readonly row: TimeRow }) => {
   const note = timeNote(row);
   return (
     <TableRow className="bg-muted/30 hover:bg-muted/30">
-      <TableCell colSpan={7}>
-        <div className="flex flex-col gap-2 py-1" data-testid="time-detail">
+      <TableCell className="whitespace-normal" colSpan={7}>
+        <div
+          className="flex w-0 min-w-full flex-col gap-2 py-1"
+          data-testid="time-detail"
+        >
           <p className="text-muted-foreground text-xs">{coPresentNote(row)}</p>
           {note ? <p className="text-xs">{note}</p> : null}
           {row.bgRuns > 0 ? (

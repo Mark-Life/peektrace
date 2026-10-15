@@ -23,8 +23,11 @@ import { SessionLinks } from "./session-links";
 /** The rows behind one key, opened in place under it. */
 const DetailRow = ({ row }: { readonly row: FailRow }) => (
   <TableRow className="bg-muted/30 hover:bg-muted/30">
-    <TableCell colSpan={6}>
-      <div className="flex flex-col gap-2 py-1" data-testid="fail-detail">
+    <TableCell className="whitespace-normal" colSpan={6}>
+      <div
+        className="flex w-0 min-w-full flex-col gap-2 py-1"
+        data-testid="fail-detail"
+      >
         {row.note ? <p className="text-xs">{row.note}</p> : null}
         <SessionLinks detector={row.detector} samples={row.samples} />
       </div>

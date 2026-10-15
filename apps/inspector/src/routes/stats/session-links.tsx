@@ -8,6 +8,7 @@ import type { SampleRef } from "@workspace/core/services/stats/schema";
 import { Button } from "@workspace/ui/components/button";
 import { ArrowUpRightIcon } from "lucide-react";
 import { openSessionMarked } from "../../lib/routes";
+import { projectTail } from "../../lib/stats-format";
 
 /** Chars of a session id a link shows; the full id is in the title. */
 const SID_HEAD = 8;
@@ -21,15 +22,18 @@ const SessionLink = ({
   readonly sample: SampleRef;
 }) => (
   <Button
-    className="h-6 gap-1 px-2 font-mono text-xs"
+    className="h-6 min-w-0 max-w-full gap-1 px-2 font-mono text-xs"
     data-testid="stats-session-link"
     onClick={() => openSessionMarked(sample.sid, detector ?? "")}
     size="sm"
     title={`${sample.project} · ${sample.sid} · ${sample.line}`}
     variant="outline"
   >
-    <ArrowUpRightIcon className="size-3" />
-    {sample.project}/{sample.sid.slice(0, SID_HEAD)}
+    <ArrowUpRightIcon className="size-3 shrink-0" />
+    <span className="flex min-w-0">
+      <span className="truncate">{projectTail(sample.project)}</span>
+      <span className="shrink-0">/{sample.sid.slice(0, SID_HEAD)}</span>
+    </span>
   </Button>
 );
 
@@ -47,8 +51,11 @@ export const SessionLinks = ({
     return null;
   }
   return (
-    <div className="flex flex-col gap-1" data-testid="stats-session-links">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div
+      className="flex min-w-0 max-w-full flex-col gap-1"
+      data-testid="stats-session-links"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         {samples.map((sample) => (
           <SessionLink
             detector={detector}
@@ -58,7 +65,10 @@ export const SessionLinks = ({
         ))}
       </div>
       {showLine && samples[0] ? (
-        <code className="truncate text-muted-foreground text-xs">
+        <code
+          className="block min-w-0 truncate text-muted-foreground text-xs"
+          title={samples[0].line}
+        >
           {samples[0].line}
         </code>
       ) : null}

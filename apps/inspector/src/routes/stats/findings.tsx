@@ -30,13 +30,15 @@ const FindingCard = ({
 }) => (
   <article
     className={cn(
-      "flex flex-col gap-2 rounded-lg border border-border p-3",
+      "flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-border p-3",
       finding.detector !== null && "border-amber-500/40 bg-amber-500/5"
     )}
     data-testid="stats-finding"
   >
     <div className="flex flex-wrap items-baseline gap-2">
-      <span className="font-medium text-sm">{finding.title}</span>
+      <span className="wrap-break-word min-w-0 font-medium text-sm">
+        {finding.title}
+      </span>
       <Badge className="shrink-0" variant="secondary">
         {SOURCE_LABEL[finding.table]}
       </Badge>
@@ -50,11 +52,13 @@ const FindingCard = ({
       </span>
     </div>
     <p className="text-muted-foreground text-xs">{finding.note}</p>
-    <p className="font-mono text-muted-foreground text-xs">{finding.spread}</p>
-    <div className="flex flex-wrap items-end justify-between gap-2">
+    <p className="wrap-break-word font-mono text-muted-foreground text-xs">
+      {finding.spread}
+    </p>
+    <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
       <SessionLinks detector={finding.detector} samples={finding.samples} />
       <Button
-        className="h-6 gap-1 px-2 text-xs"
+        className="ml-auto h-6 shrink-0 gap-1 px-2 text-xs"
         onClick={() => onDrill(finding.table, finding.key)}
         size="sm"
         variant="ghost"

@@ -71,7 +71,7 @@ const Hit = ({
     <code className="wrap-break-word whitespace-pre-wrap text-muted-foreground text-xs">
       {hit.line}
     </code>
-    <span className="font-mono text-muted-foreground/70 text-xs">
+    <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
       {hit.project}/{hit.sid.slice(0, SID_HEAD)} · {hit.kind} ·{" "}
       {hit.ts ?? "no timestamp"}
     </span>
