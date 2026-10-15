@@ -133,7 +133,7 @@
       "dependencies": {
         "@effect/platform": "latest",
         "@effect/platform-bun": "latest",
-        "@tanstack/highlight": "0.0.9",
+        "@tanstack/highlight": "1.1.0",
         "effect": "latest",
       },
       "devDependencies": {
@@ -867,7 +867,7 @@
 
     "@tanstack/charts-scales": ["@tanstack/charts-scales@0.7.2", "", {}, "sha512-8FtKXz50TYBtMj8K6Y3BrBzPa61cRjBEVxexO3RMs4xiMQUoGToMrLotIMPiVhD+oP2Zy6oJdLOIj/0BoaxQqQ=="],
 
-    "@tanstack/highlight": ["@tanstack/highlight@0.0.9", "", {}, "sha512-vWuVpuSprbsEq5gle5vp2CEBNVue65m09idkbv0rcCPFn3XnxzZg1Q9kownk24iCag6tJdfd/gtKSwllPbQvSA=="],
+    "@tanstack/highlight": ["@tanstack/highlight@1.1.0", "", {}, "sha512-mDn/fhny+WgSVHUH0sAcARlSfbXCQJWebu2NRmCOcD+3I4/73m2D9rcMISgIiXJrhl1vyk9hmAJn7sSnWAbfvQ=="],
 
     "@tanstack/react-charts": ["@tanstack/react-charts@0.7.2", "", { "dependencies": { "@tanstack/charts": "0.7.2" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-3xcuV27/30prfdYcii21Pdp0NJij7rvgdQkF864l/dGk4a0rcjtWef+2CUzz5cgYq/lw/HthLgX/7evpWED3pA=="],
 
