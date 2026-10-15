@@ -41,10 +41,10 @@ const highlighter = createHighlighter({
   languages: [ts, shell, json, markdown, plaintext],
 });
 
-// The shell tokenizer backtracks quadratically on input that is not a shell
-// command (750 KB of JSON takes ~62 s), so it gets a far tighter ceiling than
-// the linear ts/json/markdown/plaintext tokenizers, which handle 1 MB in under
-// 70 ms.
+// The shell tokenizer is quadratic in heredocs: each `<<` scans ahead for its
+// terminator, so a 200 KB script of heredocs takes ~1 s and 1 MB takes minutes.
+// The ts/json/markdown/plaintext tokenizers are linear and handle 1 MB in about
+// 100 ms.
 const highlightLimits: Record<CodeBlockLanguage, number> = {
   bash: 20_000,
   json: 1_000_000,
