@@ -197,6 +197,13 @@ peektrace sessions analyze <session-uuid>
 peektrace sessions analyze <session-uuid> --json
 ```
 
+A subagent transcript is not a listed session. Open it through the session it
+ran under with `--parent`. Both ids accept the short form `stats drill` prints.
+
+```sh
+peektrace sessions analyze --parent <session-uuid> agent-<id>
+```
+
 ### `memory ls [project]` — memories overview / one vault
 
 No argument → every project that has a `memory/` directory (slug, file count,
