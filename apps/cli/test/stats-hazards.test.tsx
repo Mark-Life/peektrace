@@ -109,6 +109,7 @@ const hostileHit = {
   agent: "claude",
   project: `${ESC}]0;title${BEL}/tmp/p`,
   kind: "main",
+  parent: null,
   seq: 1,
   line: `${ESC}[1;32mrm -rf / tail`,
   ts: `${ESC}[Anot-a-date-at-all`,

@@ -17,6 +17,8 @@ import {
   findingsOf,
   layoutOf,
   noteLinesOf,
+  openCommand,
+  refsOf,
   shareCell,
   wrap,
 } from "../src/tui/screens/stats-format";
@@ -219,4 +221,24 @@ test("wrap keeps every word and hangs the continuation", () => {
   );
   expect(lines.length).toBeGreaterThan(1);
   expect(lines[1]?.startsWith("  ")).toBe(true);
+});
+
+test("a subagent call routes through its parent, never its own id", () => {
+  const parent = "3f2a1b4c-9d8e-4f00-8000-000000000000";
+  const sub = {
+    sid: "agent-aac481ccea1ab4b5a",
+    agent: "claude",
+    project: "p",
+    kind: "subagent",
+    parent,
+    seq: 3,
+    line: "x | tail",
+  } as const;
+  expect(refsOf([sub])).toBe("3f2a1b4c/sub");
+  expect(openCommand(sub)).toBe(
+    `peektrace sessions analyze --parent ${parent} agent-aac481ccea1ab4b5a`
+  );
+  expect(openCommand({ sid: parent, parent: null })).toBe(
+    `peektrace sessions analyze ${parent}`
+  );
 });

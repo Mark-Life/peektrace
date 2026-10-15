@@ -47,6 +47,7 @@ const report = (): StatsReport =>
             agent: "claude",
             project: "p",
             kind: "main",
+            parent: null,
             seq: 1,
             line: "echo ===",
           },

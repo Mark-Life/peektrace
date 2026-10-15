@@ -21,7 +21,7 @@ import { Empty, ErrorLine, KeyHints, Loading, Panel } from "../components";
 import { useQuery } from "../runtime";
 import { C, clip, firstLine, fmt, sanitize } from "../theme";
 import { useListSelection } from "../use-list";
-import type { DrillTarget, StatsScope } from "./stats-format";
+import { type DrillTarget, openCommand, type StatsScope } from "./stats-format";
 
 /** What the drill overlay is handed: the row, the scope, and its own box. */
 interface StatsDrillProps {
@@ -139,7 +139,9 @@ const HitRow = ({
     <box style={{ flexDirection: "row" }}>
       <text fg={C.primary}>{selected ? "▸ " : "  "}</text>
       <text fg={C.textFaint}>{stamp(hit.ts).padEnd(TS_W + 1)}</text>
-      <text fg={C.textDim}>{shortSid(hit.sid).padEnd(SID_W + 1)}</text>
+      <text fg={C.textDim}>
+        {shortSid(hit.parent ?? hit.sid).padEnd(SID_W + 1)}
+      </text>
       {showProject ? (
         <text fg={C.textFaint}>
           {projectTail(sanitize(hit.project)).padEnd(PROJ_W + 1)}
@@ -258,7 +260,7 @@ export const StatsDrill = ({
   const inner = Math.max(MIN_INNER, width - PANE_CHROME);
   const hasMore = at + hits.length < total;
   const routeOut = selected
-    ? `open it: peektrace sessions show ${sanitize(selected.sid)}`
+    ? `open it: ${sanitize(openCommand(selected))}`
     : "";
 
   return (
