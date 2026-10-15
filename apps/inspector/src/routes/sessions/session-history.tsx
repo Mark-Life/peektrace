@@ -2,9 +2,9 @@
  *
  * The shell owns everything shared — search, the type filter, the redaction
  * toggle and its banner, expand-all, and the single `visible` array — then hands
- * the identical rows to either renderer. The dense table stays the default and
- * the forensic answer ("what did this cost, in what order"); the chat layout is
- * the readable pass over the same events. Keeping the filtering here is what
+ * the identical rows to either renderer. The chat layout is the default, the
+ * readable pass; the dense table is the forensic answer ("what did this cost,
+ * in what order") over the same events. Keeping the filtering here is what
  * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
  * behind a persistent "review before sharing" banner; the reveal toggle
  * re-fetches with `redact:false` (handled by the parent atom).
@@ -271,15 +271,6 @@ export const SessionHistory = ({
           data-testid="history-layout-toggle"
         >
           <Button
-            data-testid="history-layout-table"
-            onClick={() => setTranscriptMode("table")}
-            size="sm"
-            variant={mode === "table" ? "secondary" : "ghost"}
-          >
-            <TableIcon className="size-3.5" />
-            Table
-          </Button>
-          <Button
             data-testid="history-layout-chat"
             onClick={() => setTranscriptMode("chat")}
             size="sm"
@@ -287,6 +278,15 @@ export const SessionHistory = ({
           >
             <MessagesSquareIcon className="size-3.5" />
             Chat
+          </Button>
+          <Button
+            data-testid="history-layout-table"
+            onClick={() => setTranscriptMode("table")}
+            size="sm"
+            variant={mode === "table" ? "secondary" : "ghost"}
+          >
+            <TableIcon className="size-3.5" />
+            Table
           </Button>
         </fieldset>
         {allIds.length > 0 ? (
