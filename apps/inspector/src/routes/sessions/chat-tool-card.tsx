@@ -11,10 +11,7 @@ import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import {
   Tool,
   ToolContent,
-  ToolDiff,
   ToolHeader,
-  ToolInput,
-  ToolOutput,
   type ToolState,
 } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
@@ -26,6 +23,7 @@ import { callView, resultPane } from "../../lib/tool-event";
 import { sameToolPair } from "../../lib/transcript-row";
 import { ChatRow, RawToggle } from "./chat-message";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
+import { ToolPaneView, ToolResultView } from "./tool-panes";
 
 interface ChatToolCardProps {
   /** The detector id the reader arrived with, from `#/sessions?…&mark=`. */
@@ -169,31 +167,11 @@ const ChatToolCardBody = ({
         <ToolContent className="max-h-96 overflow-auto">
           <ContextEditNote e={call} />
           <ContextEditNote e={result} />
-          {view?.panes.map((p) =>
-            p.type === "diff" ? (
-              <ToolDiff
-                diff={p.diff}
-                key={p.label}
-                label={p.label}
-                language={p.language}
-                newCode={p.newCode}
-                oldCode={p.oldCode}
-              />
-            ) : (
-              <ToolInput
-                code={p.code}
-                key={p.label}
-                label={p.label}
-                language={p.language}
-              />
-            )
-          )}
+          {view?.panes.map((p) => (
+            <ToolPaneView key={p.label} pane={p} />
+          ))}
           {out ? (
-            <ToolOutput
-              code={out.code}
-              isError={result?.isError === true}
-              language={out.language}
-            />
+            <ToolResultView isError={result?.isError === true} pane={out} />
           ) : null}
           <div className="px-3 py-2">
             <RawToggle body={rawBoth(call, result)} />

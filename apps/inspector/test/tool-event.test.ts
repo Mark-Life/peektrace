@@ -21,6 +21,7 @@ import type {
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
 import {
+  bodyView,
   callView,
   indexTools,
   isToolEvent,
@@ -230,7 +231,44 @@ describe("shaping a call's arguments", () => {
   });
 
   test("an edited file names the language its payloads are written in", () => {
-    expect(callView(editCall()).panes[0]?.language).toBe("typescript");
+    const [edit] = callView(editCall()).panes;
+    expect(edit?.type === "diff" && edit.language).toBe("typescript");
+  });
+
+  const callWith = (input: Record<string, unknown>): TimelineEvent => ({
+    body: JSON.stringify(input),
+    index: 0,
+    kind: "tool-call",
+    preview: "",
+    title: "tool_use",
+    tokensEst: 0,
+  });
+
+  test("a free-text arg, like a subagent prompt, renders as prose", () => {
+    const { panes, summary } = callView(
+      callWith({ description: "Survey", prompt: "# Task\n\n- read the code" })
+    );
+    expect(panes[0]).toEqual({
+      label: "prompt",
+      text: "# Task\n\n- read the code",
+      type: "prose",
+    });
+    expect(summary).toBe("# Task - read the code");
+  });
+
+  test("a multi-line arg not named as prose stays code", () => {
+    const { panes } = callView(callWith({ query: "a\nb", script: "x\ny" }));
+    expect(panes.map((p) => [p.label, p.type])).toEqual([
+      ["query", "code"],
+      ["script", "code"],
+    ]);
+  });
+
+  test("a file's content stays code even in a language with no highlighter", () => {
+    const { panes } = callView(
+      callWith({ content: "# not a heading\nx = 1", file_path: "/a/b.py" })
+    );
+    expect(panes[0]).toMatchObject({ language: "text", type: "code" });
   });
 
   test("the args that were not part of the edit stay visible", () => {
@@ -239,6 +277,15 @@ describe("shaping a call's arguments", () => {
       file_path: "/src/a.ts",
       replace_all: false,
     });
+  });
+
+  test("a file's content stays code whatever the path arg is called", () => {
+    for (const key of ["path", "notebook_path", "filename"]) {
+      const { panes } = callView(
+        callWith({ content: "# x\ny", [key]: "a.py" })
+      );
+      expect(panes[0]?.type).toBe("code");
+    }
   });
 
   test("a batch of edits gets a numbered diff each", () => {
@@ -267,8 +314,44 @@ describe("shaping a result", () => {
   test("plain text stays verbatim rather than becoming JSON", () => {
     const a = golden();
     const pane = resultPane(eventAt(a, "tool-1", "tool-result"));
-    expect(pane.language).toBe("text");
-    expect(pane.code).toContain("export function login");
+    expect(pane.type === "code" && pane.language).toBe("text");
+    expect(pane.type === "code" && pane.code).toContain(
+      "export function login"
+    );
+  });
+
+  test("text content blocks join into prose", () => {
+    const blocks: TimelineEvent = {
+      body: JSON.stringify([
+        { text: "## Report", type: "text" },
+        { text: "all good", type: "text" },
+      ]),
+      index: 0,
+      kind: "tool-result",
+      preview: "",
+      title: "tool_result",
+      tokensEst: 0,
+    };
+    expect(resultPane(blocks)).toEqual({
+      text: "## Report\n\nall good",
+      type: "prose",
+    });
+  });
+
+  test("a text block holding JSON stays a JSON code block", () => {
+    const blocks: TimelineEvent = {
+      body: JSON.stringify([{ text: '{"items":[1,2]}', type: "text" }]),
+      index: 0,
+      kind: "tool-result",
+      preview: "",
+      title: "tool_result",
+      tokensEst: 0,
+    };
+    expect(resultPane(blocks)).toEqual({
+      code: '{\n  "items": [\n    1,\n    2\n  ]\n}',
+      language: "json",
+      type: "code",
+    });
   });
 
   test("an empty body says so instead of rendering nothing", () => {
@@ -280,7 +363,7 @@ describe("shaping a result", () => {
       body: "",
       tokensEst: 0,
     };
-    expect(resultPane(empty).code).toBe("(no content)");
+    expect(resultPane(empty)).toMatchObject({ code: "(no content)" });
   });
 });
 
@@ -288,10 +371,19 @@ describe("redaction reaches every pane", () => {
   const SECRET = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
 
   /** Every string a pane puts on screen, whichever kind of pane it is. */
-  const paneText = (p: ToolPane) =>
-    p.type === "code"
-      ? [p.code]
-      : [p.oldCode, p.newCode, ...p.diff.rows.map((r) => r.text)];
+  const paneText = (p: ToolPane) => {
+    if (p.type === "code") {
+      return [p.code];
+    }
+    if (p.type === "prose") {
+      return [p.text];
+    }
+    return [p.oldCode, p.newCode, ...p.diff.rows.map((r) => r.text)];
+  };
+  const resultText = (e: TimelineEvent) => {
+    const pane = resultPane(e);
+    return pane.type === "code" ? pane.code : pane.text;
+  };
 
   /** Every string this module would put on screen for a session. */
   const rendered = (a: AnalyzedSession): string =>
@@ -300,7 +392,7 @@ describe("redaction reaches every pane", () => {
       .flatMap((e) =>
         e.kind === "tool-call"
           ? [callView(e).summary, ...callView(e).panes.flatMap(paneText)]
-          : [e.preview, resultPane(e).code]
+          : [e.preview, resultText(e)]
       )
       .join("\n");
 
@@ -310,5 +402,37 @@ describe("redaction reaches every pane", () => {
 
   test("and the raw session is what still does — so the test can tell", () => {
     expect(rendered(golden())).toContain(SECRET);
+  });
+});
+
+describe("choosing how an event body renders", () => {
+  const attachment = (title: string): TimelineEvent => ({
+    body: "x",
+    index: 0,
+    kind: "attachment",
+    preview: "",
+    title,
+    tokensEst: 0,
+  });
+
+  test("injected instructions render as Markdown", () => {
+    expect(bodyView(attachment("skills_instructions"))).toEqual({
+      type: "prose",
+    });
+  });
+
+  test("a Markdown file renders as Markdown", () => {
+    expect(bodyView(attachment("file: CLAUDE.md"))).toEqual({ type: "prose" });
+  });
+
+  test("a source file stays highlighted source", () => {
+    expect(bodyView(attachment("file: index.ts"))).toEqual({
+      language: "typescript",
+      type: "code",
+    });
+    expect(bodyView(attachment("opened_file_in_ide: main.py"))).toEqual({
+      language: "text",
+      type: "code",
+    });
   });
 });

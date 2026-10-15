@@ -197,6 +197,7 @@
       "dependencies": {
         "@hugeicons/core-free-icons": "^4.1.1",
         "@hugeicons/react": "^1.1.6",
+        "@tanstack/markdown": "1.0.0",
         "@workspace/core": "workspace:*",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -868,6 +869,8 @@
     "@tanstack/charts-scales": ["@tanstack/charts-scales@0.7.2", "", {}, "sha512-8FtKXz50TYBtMj8K6Y3BrBzPa61cRjBEVxexO3RMs4xiMQUoGToMrLotIMPiVhD+oP2Zy6oJdLOIj/0BoaxQqQ=="],
 
     "@tanstack/highlight": ["@tanstack/highlight@1.1.0", "", {}, "sha512-mDn/fhny+WgSVHUH0sAcARlSfbXCQJWebu2NRmCOcD+3I4/73m2D9rcMISgIiXJrhl1vyk9hmAJn7sSnWAbfvQ=="],
+
+    "@tanstack/markdown": ["@tanstack/markdown@1.0.0", "", { "peerDependencies": { "octane": ">=0.1.12", "react": ">=18" }, "optionalPeers": ["octane", "react"] }, "sha512-zE07RepFMbSQlHdnE82twgiVOKy50rP6a/X9UPOOBt8Z8x9lzaPvGpn2zioCnjXMvNt/IQkW5sSalXQ25C/FKw=="],
 
     "@tanstack/react-charts": ["@tanstack/react-charts@0.7.2", "", { "dependencies": { "@tanstack/charts": "0.7.2" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-3xcuV27/30prfdYcii21Pdp0NJij7rvgdQkF864l/dGk4a0rcjtWef+2CUzz5cgYq/lw/HthLgX/7evpWED3pA=="],
 

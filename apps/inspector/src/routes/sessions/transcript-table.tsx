@@ -19,10 +19,7 @@ import {
 import {
   Tool,
   ToolContent,
-  ToolDiff,
   ToolHeader,
-  ToolInput,
-  ToolOutput,
   type ToolState,
 } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
@@ -52,6 +49,8 @@ import {
 } from "../../lib/tool-event";
 import { sameEvent } from "../../lib/transcript-row";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
+import { EventBody } from "./event-body";
+import { ToolPaneView, ToolResultView } from "./tool-panes";
 import { SortHeader } from "./transcript-sort-header";
 
 /** Decimal places for the per-event window-share percent (token sort only). */
@@ -168,33 +167,11 @@ const ToolEventRowBody = ({
       </ToolHeader>
       <ToolContent className="max-h-96 overflow-auto">
         <ContextEditNote e={e} />
-        {view
-          ? view.panes.map((p) =>
-              p.type === "diff" ? (
-                <ToolDiff
-                  diff={p.diff}
-                  key={p.label}
-                  label={p.label}
-                  language={p.language}
-                  newCode={p.newCode}
-                  oldCode={p.oldCode}
-                />
-              ) : (
-                <ToolInput
-                  code={p.code}
-                  key={p.label}
-                  label={p.label}
-                  language={p.language}
-                />
-              )
-            )
-          : null}
+        {view?.panes.map((p) => (
+          <ToolPaneView key={p.label} pane={p} />
+        ))}
         {result ? (
-          <ToolOutput
-            code={result.code}
-            isError={e.isError === true}
-            language={result.language}
-          />
+          <ToolResultView isError={e.isError === true} pane={result} />
         ) : null}
       </ToolContent>
     </Tool>
@@ -214,7 +191,6 @@ const EventRowBody = ({
   share,
 }: EventRowProps) => {
   const onOpenChange = (next: boolean) => onToggle(collapseId, next);
-  const hasBody = e.body.trim().length > 0;
   const emptyText =
     e.kind === "assistant-thinking"
       ? "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band."
@@ -247,9 +223,11 @@ const EventRowBody = ({
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ContextEditNote e={e} />
-        <pre className="wrap-break-word max-h-96 overflow-auto whitespace-pre-wrap bg-muted/30 px-3 py-2 text-xs">
-          {hasBody ? e.body : emptyText}
-        </pre>
+        <EventBody
+          className="max-h-96 overflow-auto rounded-none border-0 border-t"
+          e={e}
+          empty={emptyText}
+        />
       </CollapsibleContent>
     </Collapsible>
   );
