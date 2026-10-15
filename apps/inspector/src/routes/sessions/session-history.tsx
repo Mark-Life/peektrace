@@ -11,7 +11,6 @@
  * re-fetches with `redact:false` (handled by the parent atom).
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
-import { eventTokens } from "@workspace/core/services/sessions/tokens";
 import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import {
@@ -32,7 +31,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
-import { type HistorySort, useHistoryPrefs } from "../../lib/history-prefs";
+import { useHistoryPrefs } from "../../lib/history-prefs";
+import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useToolMarks } from "../../lib/session-markers";
 import {
@@ -56,12 +56,6 @@ const KIND_OPTIONS = [
   { value: "assistant-thinking", label: "Thinking" },
   { value: "attachment", label: "Attachments" },
 ] as const;
-
-/** Row-order options; sorting by size replaces a separate "biggest items" list. */
-const SORT_OPTIONS: readonly { value: HistorySort; label: string }[] = [
-  { value: "order", label: "Transcript order" },
-  { value: "size", label: "Biggest first" },
-];
 
 /** Map every event to the 1-based turn it belongs to (for grouping). */
 const turnNumbers = (a: AnalyzedSession): number[] => {
@@ -101,8 +95,8 @@ export const SessionHistory = ({
   const activeMark = useHashParam("mark");
 
   // A conversation has one order — its own. The persisted sort is left alone, so
-  // switching back to the table restores "Biggest first" if that is how it was.
-  const effectiveSort = mode === "chat" ? "order" : sort;
+  // switching back to the table restores the column sort it had.
+  const effectiveSort = mode === "chat" ? DEFAULT_HISTORY_SORT : sort;
 
   const crossEvtIdx =
     a.dumbZoneCrossTurn >= 0
@@ -123,11 +117,7 @@ export const SessionHistory = ({
         const hay = `${e.title} ${e.preview}`.toLowerCase();
         return hay.includes(query.toLowerCase());
       });
-    // Size order keeps each row's original position, so open rows, the turn
-    // gutter and deep links all survive the re-sort.
-    return effectiveSort === "size"
-      ? rows.sort((x, y) => eventTokens(y.e).tokens - eventTokens(x.e).tokens)
-      : rows;
+    return sortRows(rows, effectiveSort);
   }, [a.events, kind, query, effectiveSort]);
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
@@ -242,23 +232,6 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
-        {mode === "table" ? (
-          <Select
-            onValueChange={(v) => prefs.setSort(v as HistorySort)}
-            value={sort}
-          >
-            <SelectTrigger className="w-44" data-testid="history-sort">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
         <span className="text-muted-foreground text-xs">
           {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
           dumb zone
@@ -323,9 +296,10 @@ export const SessionHistory = ({
           a={a}
           crossEvtIdx={crossEvtIdx}
           isOpen={isOpen}
+          onSort={prefs.setSort}
           onToggle={onToggle}
           rows={visible}
-          showShare={effectiveSort === "size"}
+          sort={sort}
           tools={tools}
           turns={turns}
         />

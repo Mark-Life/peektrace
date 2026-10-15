@@ -10,6 +10,12 @@
  * event keeps other tabs in step.
  */
 import { useCallback, useSyncExternalStore } from "react";
+import {
+  DEFAULT_HISTORY_SORT,
+  type HistorySort,
+  historySortOf,
+  sameSort,
+} from "./history-sort";
 import { setHashParam, useHashParam } from "./routes";
 import {
   DEFAULT_TRANSCRIPT_MODE,
@@ -17,9 +23,6 @@ import {
   type TranscriptMode,
   transcriptModeOf,
 } from "./transcript-mode";
-
-/** History row order: transcript order, or largest events first. */
-export type HistorySort = "order" | "size";
 
 /** Persisted history prefs, shared across sessions. */
 export interface HistoryPrefs {
@@ -29,14 +32,14 @@ export interface HistoryPrefs {
   readonly mode: TranscriptMode;
   /** History search box value. */
   readonly query: string;
-  /** History row order. */
+  /** Table row sort (chat always reads in transcript order). */
   readonly sort: HistorySort;
 }
 
 /** Fresh prefs: chat layout, no filters, transcript order. */
 export const DEFAULT_HISTORY_PREFS: HistoryPrefs = {
   mode: DEFAULT_TRANSCRIPT_MODE,
-  sort: "order",
+  sort: DEFAULT_HISTORY_SORT,
   kind: "all",
   query: "",
 };
@@ -52,7 +55,7 @@ export const normalizeHistoryPrefs = (parsed: unknown): HistoryPrefs => {
   const raw = parsed as Partial<Record<keyof HistoryPrefs, unknown>>;
   return {
     mode: transcriptModeOf(raw.mode) ?? DEFAULT_HISTORY_PREFS.mode,
-    sort: raw.sort === "size" ? "size" : DEFAULT_HISTORY_PREFS.sort,
+    sort: historySortOf(raw.sort),
     kind: typeof raw.kind === "string" ? raw.kind : DEFAULT_HISTORY_PREFS.kind,
     query:
       typeof raw.query === "string" ? raw.query : DEFAULT_HISTORY_PREFS.query,
@@ -102,8 +105,8 @@ export const updateHistoryPrefs = (patch: Partial<HistoryPrefs>) => {
   const prev = getHistoryPrefs();
   const next = { ...prev, ...patch };
   if (
-    (Object.keys(next) as (keyof HistoryPrefs)[]).every(
-      (k) => next[k] === prev[k]
+    (Object.keys(next) as (keyof HistoryPrefs)[]).every((k) =>
+      k === "sort" ? sameSort(next.sort, prev.sort) : next[k] === prev[k]
     )
   ) {
     return;

@@ -13,6 +13,7 @@ import type {
   Turn,
 } from "@workspace/core/services/sessions/schema";
 import { renderToStaticMarkup } from "react-dom/server";
+import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import type { ToolMarks } from "../src/lib/session-markers";
 import { indexTools } from "../src/lib/tool-event";
 import { TranscriptChat } from "../src/routes/sessions/transcript-chat";
@@ -217,15 +218,36 @@ test("table renders the same rows", () => {
       a={SESSION}
       crossEvtIdx={9}
       isOpen={() => false}
+      onSort={noop}
       onToggle={noop}
       rows={ROWS}
-      showShare={false}
+      sort={DEFAULT_HISTORY_SORT}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
   );
   expect(countOf(html, 'data-testid="history-event"')).toBe(ROWS.length);
   expect(html).toContain('data-testid="dumbzone-divider"');
+});
+
+test("token sort shows window share, hides the divider, marks the header", () => {
+  const html = renderToStaticMarkup(
+    <TranscriptTable
+      a={SESSION}
+      crossEvtIdx={9}
+      isOpen={() => false}
+      onSort={noop}
+      onToggle={noop}
+      rows={ROWS}
+      sort={{ key: "tokens", dir: "desc" }}
+      tools={indexTools(SESSION)}
+      turns={TURNS}
+    />
+  );
+  expect(html).not.toContain('data-testid="dumbzone-divider"');
+  expect(html).toContain("%");
+  expect(html).toContain('aria-label="Sort by tokens, descending"');
+  expect(html).toContain('data-dir="desc"');
 });
 
 test("empty filters read the same in both layouts", () => {
@@ -248,7 +270,7 @@ test("empty filters read the same in both layouts", () => {
     />
   );
   const table = renderToStaticMarkup(
-    <TranscriptTable {...props} showShare={false} />
+    <TranscriptTable {...props} onSort={noop} sort={DEFAULT_HISTORY_SORT} />
   );
   expect(chat).toContain("No events match the filters.");
   expect(table).toContain("No events match the filters.");
