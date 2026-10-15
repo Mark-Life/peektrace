@@ -10,6 +10,7 @@
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { tokenLabel } from "@workspace/core/services/sessions/tokens";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
+import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
 import { useMemo } from "react";
@@ -104,9 +105,10 @@ const Band = ({
         <p className="truncate text-muted-foreground text-xs">{e.preview}</p>
         {open ? (
           <div className="mt-1 flex flex-col gap-1 text-left">
-            <div className="wrap-break-word max-h-[28rem] overflow-auto whitespace-pre-wrap text-xs">
-              {e.body}
-            </div>
+            <Markdown
+              className="max-h-[28rem] overflow-auto text-xs"
+              text={e.body}
+            />
             <RawToggle body={e.body} />
           </div>
         ) : null}

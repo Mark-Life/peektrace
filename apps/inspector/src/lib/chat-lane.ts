@@ -41,7 +41,7 @@ export type ChatNode =
 export const CLAMP_CHARS = 800;
 
 /** Attachment titles that already carry a file name after their type prefix. */
-const FILE_TITLE_PREFIXES = [
+export const FILE_TITLE_PREFIXES = [
   "file: ",
   "edited_text_file: ",
   "opened_file_in_ide: ",

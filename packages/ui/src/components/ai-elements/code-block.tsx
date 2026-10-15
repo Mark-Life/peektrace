@@ -274,6 +274,8 @@ export const CodeBlock = ({
 
 export type CodeBlockCopyButtonProps = ComponentProps<typeof Button> & {
   onCopy?: () => void;
+  /** Copies this instead of the enclosing block's code, for use outside one. */
+  text?: string;
   onError?: (error: Error) => void;
   timeout?: number;
 };
@@ -282,13 +284,15 @@ export const CodeBlockCopyButton = ({
   onCopy,
   onError,
   timeout = 2000,
+  text,
   children,
   className,
   ...props
 }: CodeBlockCopyButtonProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const timeoutRef = useRef<number>(0);
-  const { code } = useContext(CodeBlockContext);
+  const context = useContext(CodeBlockContext);
+  const code = text ?? context.code;
 
   const copyToClipboard = useCallback(async () => {
     if (typeof window === "undefined" || !navigator?.clipboard?.writeText) {

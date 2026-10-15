@@ -14,6 +14,7 @@ import type {
 } from "@workspace/core/services/sessions/schema";
 import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
+import { FILE_TITLE_PREFIXES } from "./chat-lane";
 
 /** Text shown when an event carries no body at all. */
 export const EMPTY_BODY = "(no content)";
@@ -36,7 +37,18 @@ export interface DiffPane {
   readonly type: "diff";
 }
 
-export type ToolPane = CodePane | DiffPane;
+/** Free text an agent wrote — a subagent prompt, a returned report — rendered
+ *  as Markdown rather than highlighted as source. */
+export interface ProsePane {
+  readonly label: string;
+  readonly text: string;
+  readonly type: "prose";
+}
+
+export type ToolPane = CodePane | DiffPane | ProsePane;
+
+/** What a tool result shows: prose, or source/data in a code block. */
+export type ResultPane = Omit<CodePane, "label"> | Omit<ProsePane, "label">;
 
 /** A tool call's panes plus the single line that describes it when collapsed. */
 export interface ToolCallView {
@@ -52,7 +64,29 @@ export interface ToolCallView {
 const PRIMARY_ARGS = [
   ["code", "typescript"],
   ["command", "bash"],
+  ["script", "typescript"],
 ] as const satisfies readonly (readonly [string, CodeBlockLanguage])[];
+
+/** Args that carry text an agent or person wrote — a subagent prompt, a task
+ *  description — rather than source. Any other multi-line arg stays a code
+ *  block: Markdown would mangle code it does not know is code. */
+const PROSE_ARGS = new Set([
+  "args",
+  "body",
+  "content",
+  "context",
+  "description",
+  "instructions",
+  "message",
+  "notes",
+  "plan",
+  "prompt",
+  "question",
+  "reason",
+  "summary",
+  "task",
+  "text",
+]);
 
 /** Language for an unnamed payload arg, guessed from the file it edits. */
 const BY_EXTENSION = [
@@ -103,6 +137,11 @@ const isPayload = ([key, value]: readonly [string, unknown]) =>
 
 const filePathOf = (input: Record<string, unknown>) =>
   typeof input.file_path === "string" ? input.file_path : "";
+
+/** A payload is prose when its arg is named as prose and is not a file's
+ *  content: `# comment` in a Python file must not turn into a heading. */
+const isProse = (key: string, input: Record<string, unknown>) =>
+  filePathOf(input) === "" && PROSE_ARGS.has(key);
 
 /** Guess a highlight language from a file path, so a chat attachment chip opens
  *  a `.md` as markdown and a `.ts` as TypeScript instead of everything as text. */
@@ -162,6 +201,14 @@ const editSummary = (
   return `${name} +${added} −${removed}`.trim();
 };
 
+/** The text a pane shows, or undefined for a diff. */
+export const paneText = (pane: ToolPane | undefined) => {
+  if (pane?.type === "code") {
+    return pane.code;
+  }
+  return pane?.type === "prose" ? pane.text : undefined;
+};
+
 /**
  * Split a tool call's arguments into panes: a diff for every replacement an
  * edit tool recorded, then each remaining multi-line string as its own block —
@@ -204,12 +251,17 @@ export const callView = (e: TimelineEvent): ToolCallView => {
   }
   const panes: ToolPane[] = [
     ...diffs,
-    ...payloads.map(([key, value]) => ({
-      code: String(value),
-      label: key,
-      language: languageOf(key, input),
-      type: "code" as const,
-    })),
+    ...payloads.map(
+      ([key, value]): ToolPane =>
+        isProse(key, input)
+          ? { label: key, text: String(value), type: "prose" }
+          : {
+              code: String(value),
+              label: key,
+              language: languageOf(key, input),
+              type: "code",
+            }
+    ),
   ];
   const rest = args.filter((entry) => !isPayload(entry));
   if (rest.length > 0) {
@@ -226,26 +278,29 @@ export const callView = (e: TimelineEvent): ToolCallView => {
     summary:
       diffs.length > 0
         ? editSummary(diffs, input)
-        : oneLine(first?.type === "code" ? first.code : e.preview),
+        : oneLine(paneText(first) ?? e.preview),
   };
 };
 
 /**
  * Shape a tool result for display: standard `{ type: "text" }` blocks join into
- * markdown, other JSON is pretty-printed, anything unparseable stays verbatim.
+ * prose, other JSON is pretty-printed, anything unparseable stays verbatim —
+ * a plain string is usually command output, where Markdown would mangle it.
  */
-export const resultPane = (
-  e: TimelineEvent
-): Omit<CodePane, "label" | "type"> => {
+export const resultPane = (e: TimelineEvent): ResultPane => {
   const parsed = parseJson(e.body);
   const text = parsed === undefined ? null : textFromBlocks(parsed);
   if (text !== null) {
-    return { code: text, language: "markdown" };
+    return { text, type: "prose" };
   }
   if (parsed !== undefined) {
-    return { code: JSON.stringify(parsed, null, 2), language: "json" };
+    return {
+      code: JSON.stringify(parsed, null, 2),
+      language: "json",
+      type: "code",
+    };
   }
-  return { code: e.body || EMPTY_BODY, language: "text" };
+  return { code: e.body || EMPTY_BODY, language: "text", type: "code" };
 };
 
 /** Every tool call and result in the session, indexed by `toolUseId`. */
@@ -292,3 +347,17 @@ export const toolNameOf = (e: TimelineEvent, tools: ToolIndex): string =>
 /** Whether an event kind gets the AI Elements tool treatment. */
 export const isToolEvent = (e: TimelineEvent): boolean =>
   e.kind === "tool-call" || e.kind === "tool-result";
+
+/** How a non-tool event body renders: a file's content as source in its own
+ *  language (Markdown files excepted), everything else as Markdown. */
+export const bodyView = (
+  e: TimelineEvent
+): Omit<CodePane, "code" | "label"> | { readonly type: "prose" } => {
+  const prefix = FILE_TITLE_PREFIXES.find((p) => e.title.startsWith(p));
+  const language = prefix
+    ? languageOfPath(e.title.slice(prefix.length))
+    : "markdown";
+  return language === "markdown"
+    ? { type: "prose" }
+    : { language, type: "code" };
+};

@@ -12,6 +12,7 @@ import {
   CodeBlock,
   CodeBlockCopyButton,
 } from "@workspace/ui/components/ai-elements/code-block";
+import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
@@ -51,7 +52,7 @@ const LANE_SURFACE: Record<Exclude<ChatLane, "center">, string> = {
 };
 
 const BUBBLE =
-  "rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed wrap-break-word whitespace-pre-wrap";
+  "min-w-0 rounded-2xl border px-3.5 py-2.5 text-sm leading-relaxed";
 
 /** Clamped body: a fixed height behind a fade, rather than a line count — one
  *  unwrapped 800-character line would otherwise clamp to nothing. */
@@ -161,8 +162,8 @@ interface ChatBubbleProps {
 
 /** A prompt or a block of assistant text, in full — a message is the thing you
  *  came to read, so it renders its whole body, not the truncated preview. Long
- *  bodies clamp behind a fade until opened. Markdown stays literal: no renderer
- *  exists in this tree. */
+ *  bodies clamp behind a fade until opened. The body renders as Markdown; "Raw"
+ *  shows the recorded bytes. */
 const ChatBubbleBody = ({
   collapseId,
   e,
@@ -219,7 +220,7 @@ const ChatBubbleBody = ({
           <div className={cn(BUBBLE, LANE_SURFACE[lane])}>
             <div className={clampClass({ clamps, open })}>
               {hasBody ? (
-                e.body
+                <Markdown text={e.body} />
               ) : (
                 <span className="text-muted-foreground italic">
                   {EMPTY_BODY}
@@ -269,11 +270,15 @@ const ChatThinkingBody = ({
         <div className="flex flex-col gap-1">
           <div
             className={cn(
-              "wrap-break-word whitespace-pre-wrap rounded-md bg-muted/30 px-3 py-2 text-muted-foreground text-xs",
+              "rounded-md bg-muted/30 px-3 py-2 text-muted-foreground text-xs",
               OPENED
             )}
           >
-            {e.body.trim().length > 0 ? e.body : NO_THINKING}
+            {e.body.trim().length > 0 ? (
+              <Markdown text={e.body} />
+            ) : (
+              NO_THINKING
+            )}
           </div>
           <RawToggle body={e.body} />
         </div>

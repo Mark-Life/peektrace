@@ -10,10 +10,6 @@ import {
   eventTokens,
   tokenLabel,
 } from "@workspace/core/services/sessions/tokens";
-import {
-  CodeBlock,
-  CodeBlockCopyButton,
-} from "@workspace/ui/components/ai-elements/code-block";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmtK } from "@workspace/viz/lib/session-format";
@@ -34,8 +30,8 @@ import {
 import { useState } from "react";
 import { chipLabel, type TranscriptRowRef } from "../../lib/chat-lane";
 import { chatCollapseId } from "../../lib/session-view";
-import { EMPTY_BODY, languageOfPath } from "../../lib/tool-event";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
+import { EventBody } from "./event-body";
 
 /** How many chips show before the rest fold behind a "+N more". */
 const CHIP_LIMIT = 6;
@@ -149,14 +145,7 @@ export const ChatContextRun = ({
             {chipLabel(e)}
           </p>
           <ContextEditNote e={e} />
-          <CodeBlock
-            className="max-h-[28rem] overflow-auto"
-            code={e.body || EMPTY_BODY}
-            language={e.kind === "meta" ? "text" : languageOfPath(chipLabel(e))}
-            wrap
-          >
-            <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
-          </CodeBlock>
+          <EventBody className="max-h-[28rem] overflow-auto" e={e} />
         </div>
       ))}
     </div>

@@ -46,6 +46,7 @@ import {
   CodeTokens,
   highlightCode,
 } from "./code-block";
+import { Markdown } from "./markdown";
 
 /** What a recorded tool call ended up doing. */
 export type ToolState = "completed" | "error" | "unanswered";
@@ -343,5 +344,39 @@ export const ToolOutput = ({
       {label ?? (isError ? "Error" : "Result")}
     </ToolSectionLabel>
     <ToolPayload code={code} language={language} />
+  </div>
+);
+
+export type ToolProseProps = ComponentProps<"div"> & {
+  readonly isError?: boolean;
+  readonly label: string;
+  readonly text: string;
+};
+
+/** Free text in a tool payload — a subagent prompt, a returned report — as
+ *  Markdown under the same label and copy button a code pane gets. */
+export const ToolProse = ({
+  className,
+  isError = false,
+  label,
+  text,
+  ...props
+}: ToolProseProps) => (
+  <div
+    className={cn(
+      "overflow-hidden",
+      isError && "bg-destructive/10",
+      className
+    )}
+    {...props}
+  >
+    <ToolSectionLabel isError={isError}>{label}</ToolSectionLabel>
+    <div className="relative mt-2 border-t px-3 py-2 pr-10 text-xs leading-relaxed">
+      <CodeBlockCopyButton
+        className="absolute top-1 right-1 z-10 size-7"
+        text={text}
+      />
+      <Markdown text={text} />
+    </div>
   </div>
 );
