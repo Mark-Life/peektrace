@@ -73,6 +73,8 @@ type CodeBlockProps = HTMLAttributes<HTMLDivElement> & {
   code: string;
   language: CodeBlockLanguage;
   showLineNumbers?: boolean;
+  /** Soft-wrap long lines instead of scrolling sideways — for prose payloads. */
+  wrap?: boolean;
 };
 
 interface CodeBlockContextType {
@@ -111,16 +113,26 @@ export const CodeTokens = ({ line }: { line: CodeLine | undefined }) => (
   </>
 );
 
-/** The `pre`/`code` pair, memoized so re-renders skip long token lists. */
+/** The `pre`/`code` pair, memoized so re-renders skip long token lists.
+ *  `min-w-fit` stretches the surface to the longest unwrapped line, so the
+ *  background follows a sideways scroll instead of stopping at the edge. */
 const CodeBlockBody = memo(
   ({
     lines,
     showLineNumbers,
+    wrap,
   }: {
     lines: CodeLine[];
     showLineNumbers: boolean;
+    wrap: boolean;
   }) => (
-    <pre className="m-0 p-4 text-sm" style={PRE_STYLE}>
+    <pre
+      className={cn(
+        "m-0 min-w-fit p-4 text-sm",
+        wrap && "wrap-anywhere whitespace-pre-wrap"
+      )}
+      style={PRE_STYLE}
+    >
       <code
         className={cn(
           "font-mono text-sm",
@@ -139,7 +151,8 @@ const CodeBlockBody = memo(
   ),
   (prevProps, nextProps) =>
     prevProps.lines === nextProps.lines &&
-    prevProps.showLineNumbers === nextProps.showLineNumbers
+    prevProps.showLineNumbers === nextProps.showLineNumbers &&
+    prevProps.wrap === nextProps.wrap
 );
 
 CodeBlockBody.displayName = "CodeBlockBody";
@@ -218,16 +231,17 @@ export const CodeBlockContent = ({
   code,
   language,
   showLineNumbers = false,
-}: {
-  code: string;
-  language: CodeBlockLanguage;
-  showLineNumbers?: boolean;
-}) => {
+  wrap = false,
+}: Pick<CodeBlockProps, "code" | "language" | "showLineNumbers" | "wrap">) => {
   const lines = useMemo(() => highlightCode(code, language), [code, language]);
 
   return (
     <div className="relative overflow-auto">
-      <CodeBlockBody lines={lines} showLineNumbers={showLineNumbers} />
+      <CodeBlockBody
+        lines={lines}
+        showLineNumbers={showLineNumbers}
+        wrap={wrap}
+      />
     </div>
   );
 };
@@ -236,6 +250,7 @@ export const CodeBlock = ({
   code,
   language,
   showLineNumbers = false,
+  wrap = false,
   className,
   children,
   ...props
@@ -250,6 +265,7 @@ export const CodeBlock = ({
           code={code}
           language={language}
           showLineNumbers={showLineNumbers}
+          wrap={wrap}
         />
       </CodeBlockContainer>
     </CodeBlockContext.Provider>

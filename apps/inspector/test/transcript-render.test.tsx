@@ -212,6 +212,30 @@ test("chat renders expanded without throwing", () => {
   expect(html).toContain("You are a coding agent.");
 });
 
+test("expanded chat code blocks wrap instead of scrolling sideways", () => {
+  const html = renderToStaticMarkup(
+    <TranscriptChat
+      a={SESSION}
+      activeMark={null}
+      allOpen={true}
+      crossEvtIdx={9}
+      isOpen={() => true}
+      marks={NO_MARKS}
+      onToggle={noop}
+      queryActive={true}
+      rows={ROWS}
+      tools={indexTools(SESSION)}
+      turns={TURNS}
+    />
+  );
+  const pres = html.match(/<pre class="[^"]*"/g) ?? [];
+  expect(pres.length).toBeGreaterThan(0);
+  for (const pre of pres) {
+    expect(pre).toContain("whitespace-pre-wrap");
+    expect(pre).toContain("min-w-fit");
+  }
+});
+
 test("table renders the same rows", () => {
   const html = renderToStaticMarkup(
     <TranscriptTable

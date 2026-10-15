@@ -171,9 +171,10 @@ const ToolPayload = ({
   readonly language: CodeBlockLanguage;
 }) => (
   <CodeBlock
-    className="[&_pre]:whitespace-pre-wrap! [&_pre]:wrap-break-word! rounded-none border-0 border-t [&_code]:text-[11px]! [&_pre]:p-3! [&_pre]:text-[11px]! [&_pre]:leading-relaxed!"
+    className="rounded-none border-0 border-t [&_code]:text-[11px]! [&_pre]:p-3! [&_pre]:text-[11px]! [&_pre]:leading-relaxed!"
     code={code}
     language={language}
+    wrap
   >
     <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
   </CodeBlock>
