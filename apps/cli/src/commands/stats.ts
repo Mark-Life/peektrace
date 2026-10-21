@@ -23,6 +23,10 @@ import {
   ruleLine,
   suggestedRules,
 } from "@workspace/core/services/stats/findings";
+import {
+  type PromptTarget,
+  statsPrompt,
+} from "@workspace/core/services/stats/prompts";
 import type {
   CauseRow,
   FailRow,
@@ -473,6 +477,70 @@ const makeStatsDrill = (globals: GlobalsAccessor) =>
       })
   );
 
+/** `stats prompt` — the investigation prompt for the report or one row, the
+ * same text the inspector's "Copy prompt" buttons copy, so an agent in a
+ * terminal can fetch it itself. */
+const makeStatsPrompt = (globals: GlobalsAccessor) =>
+  Command.make(
+    "prompt",
+    {
+      cause: Options.text("cause").pipe(
+        Options.withDescription(
+          "Cause id or key, e.g. zsh-glob-flag (default: the whole report)"
+        ),
+        Options.optional
+      ),
+      fail: Options.text("fail").pipe(
+        Options.withDescription("Fail-table key"),
+        Options.optional
+      ),
+      time: Options.text("time").pipe(
+        Options.withDescription("Time-table job"),
+        Options.optional
+      ),
+      days: daysOpt,
+      agent: agentOpt,
+      limit: limitOpt,
+      readOnly: localReadOnlyOpt,
+    },
+    (opts) =>
+      Effect.gen(function* () {
+        const g = yield* globals({ json: false, readOnly: opts.readOnly });
+        const picked = (
+          [
+            ["cause", opts.cause],
+            ["fail", opts.fail],
+            ["time", opts.time],
+          ] as const
+        ).flatMap(([table_, key]) =>
+          Option.isSome(key) ? [{ table: table_, key: key.value }] : []
+        );
+        if (picked.length > 1) {
+          return yield* new CliUserError({
+            message: "Pass at most one of --cause, --fail or --time.",
+          });
+        }
+        const target: PromptTarget = picked[0] ?? { table: "report" };
+        const scope = yield* scopeOf(opts.agent);
+        const report = yield* withClient(g, (client) =>
+          client.stats.report({ ...scope, ...windowOf(opts.days, opts.limit) })
+        );
+        const text = statsPrompt({
+          agent: scope.agents?.[0] ?? null,
+          format: FORMAT,
+          remote: g.remote ?? null,
+          report,
+          target,
+        });
+        if (text === null) {
+          return yield* new CliUserError({
+            message: `No ${target.table} row "${"key" in target ? target.key : ""}" in this window's top rows. List the keys with: peektrace stats; for a row ranked past 20, pass the --limit that lists it`,
+          });
+        }
+        return yield* Console.log(text);
+      })
+  );
+
 /** `stats refresh` — re-extract the fact cache without computing a report. */
 const makeStatsRefresh = (globals: GlobalsAccessor) =>
   Command.make(
@@ -551,6 +619,7 @@ export const makeStats = (globals: GlobalsAccessor) =>
   ).pipe(
     Command.withSubcommands([
       makeStatsDrill(globals),
+      makeStatsPrompt(globals),
       makeStatsRefresh(globals),
     ])
   );

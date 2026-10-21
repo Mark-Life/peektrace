@@ -109,13 +109,13 @@ export const sampleOf = (fact: CallFact, line: string): SampleRef => ({
   parent: fact.parent,
   seq: fact.seq,
   toolUseId: fact.toolUseId,
+  ts: fact.ts,
   line,
 });
 
 /** Build a drill hit from a fact and one already-redacted line. */
 export const hitOf = (fact: CallFact, line: string): DrillHit => ({
   ...sampleOf(fact, line),
-  ts: fact.ts,
   durSec: fact.durSec,
   tool: fact.tool,
   failed: fact.failed,

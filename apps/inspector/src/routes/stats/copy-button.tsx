@@ -44,10 +44,14 @@ const writeText = (text: string): Promise<boolean> =>
       );
 
 export const CopyButton = ({
+  describe,
   label,
   testId,
   text,
 }: {
+  /** What the button copies, for a screen reader and the tooltip; default the
+   * text itself, which suits a one-line rule but not a whole prompt. */
+  readonly describe?: string;
   readonly label: string;
   readonly testId: string;
   readonly text: string;
@@ -76,11 +80,12 @@ export const CopyButton = ({
   return (
     <span className="inline-flex shrink-0 flex-col gap-1">
       <Button
+        aria-label={describe}
         className="h-6 shrink-0 gap-1 px-2 text-xs"
         data-testid={testId}
         onClick={copy}
         size="sm"
-        title={text}
+        title={describe ?? text}
         variant="outline"
       >
         {icon}

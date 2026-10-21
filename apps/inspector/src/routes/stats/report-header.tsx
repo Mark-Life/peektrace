@@ -21,6 +21,7 @@ import {
 } from "@workspace/ui/components/select";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 import { at, hms, n } from "../../lib/stats-format";
+import { PromptButton } from "./prompt-button";
 
 const WEEK_DAYS = 7;
 const MONTH_DAYS = 30;
@@ -113,6 +114,7 @@ export const ReportHeader = ({
   onAgent,
   onDays,
   onRescan,
+  prompt,
   report,
 }: {
   readonly agent: AgentId | null;
@@ -120,6 +122,8 @@ export const ReportHeader = ({
   readonly onAgent: (value: AgentId | null) => void;
   readonly onDays: (value: number) => void;
   readonly onRescan: () => void;
+  /** The whole-report investigation prompt. */
+  readonly prompt: string | null;
   readonly report: StatsReport;
 }) => {
   const { corpus } = report;
@@ -131,13 +135,20 @@ export const ReportHeader = ({
           {n(corpus.toolCalls)} tool calls · {n(corpus.bashCalls)} shell calls ·{" "}
           {hms(corpus.bashSec)} of shell time
         </p>
-        <Controls
-          agent={agent}
-          days={days}
-          onAgent={onAgent}
-          onDays={onDays}
-          onRescan={onRescan}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Controls
+            agent={agent}
+            days={days}
+            onAgent={onAgent}
+            onDays={onDays}
+            onRescan={onRescan}
+          />
+          <PromptButton
+            subject="this report"
+            testId="stats-prompt"
+            text={prompt}
+          />
+        </div>
       </div>
       <p className="text-muted-foreground text-xs">
         {report.window.fromIso.slice(0, 10)} →{" "}

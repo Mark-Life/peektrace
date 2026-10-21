@@ -28,7 +28,7 @@ import {
   useStatsRefresh,
   useStatsReport,
 } from "../lib/stats-atoms";
-import { findingsOf, suggestedRules } from "../lib/stats-format";
+import { findingsOf, promptsOf, suggestedRules } from "../lib/stats-format";
 import { CauseTable } from "./stats/cause-table";
 import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
@@ -112,6 +112,7 @@ const ReportView = ({
     setHashParam("drill", `${table}:${key}`);
   const keyOf = (table: DrillTable) =>
     drill?.table === table ? drill.key : null;
+  const prompt = promptsOf(report, agent);
   return (
     <>
       <ReportHeader
@@ -120,6 +121,7 @@ const ReportView = ({
         onAgent={(next) => setHashParam("agent", next)}
         onDays={(next) => setHashParam("days", String(next))}
         onRescan={onRescan}
+        prompt={prompt({ table: "report" })}
         report={report}
       />
 
@@ -132,6 +134,7 @@ const ReportView = ({
           findings={findingsOf(report)}
           onDrill={openDrill}
           onShowAll={() => setShowAllFindings(true)}
+          prompt={prompt}
           showAll={showAllFindings}
           suggested={suggestedRules(report)}
         />
@@ -151,6 +154,7 @@ const ReportView = ({
         </p>
         <CauseTable
           onSelect={(key) => openDrill("cause", key)}
+          prompt={prompt}
           rows={report.causes}
           selectedKey={keyOf("cause")}
         />
@@ -165,6 +169,7 @@ const ReportView = ({
         </p>
         <FailTable
           onSelect={(key) => openDrill("fail", key)}
+          prompt={prompt}
           rows={report.fails}
           selectedKey={keyOf("fail")}
         />
@@ -179,6 +184,7 @@ const ReportView = ({
         </p>
         <TimeTable
           onSelect={(key) => openDrill("time", key)}
+          prompt={prompt}
           rows={report.time}
           selectedKey={keyOf("time")}
         />
