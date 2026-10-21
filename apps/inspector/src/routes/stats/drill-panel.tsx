@@ -43,7 +43,8 @@ const STEP = 30;
 /** Distance from the bottom, in px, that counts as "scrolled to the end". */
 const NEAR_END = 240;
 
-/** One call: when, where, how long, and whether it failed. */
+/** One call: when, where, how long, and whether it failed. A cause hit that a
+ * later call corrected also links the retry, marked as one. */
 const Hit = ({
   hit,
   detector,
@@ -51,37 +52,67 @@ const Hit = ({
   readonly detector: string | null;
   readonly hit: DrillHit;
 }) => (
-  <button
-    className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left hover:bg-muted/50"
-    data-testid="drill-hit"
-    onClick={() =>
-      openSessionMarked({
-        id: hit.sid,
-        parent: hit.parent,
-        mark: detector ?? "",
-      })
-    }
-    type="button"
-  >
-    <div className="flex items-baseline gap-2 text-xs">
-      <span className="font-medium">{hit.tool}</span>
-      {hit.failed ? (
-        <Badge className="shrink-0" variant="destructive">
-          failed
-        </Badge>
-      ) : null}
-      <span className="ml-auto shrink-0 font-mono text-muted-foreground">
-        {hit.durSec === null ? "—" : hms(hit.durSec)}
+  <div className="flex flex-col gap-1" data-testid="drill-hit">
+    <button
+      className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left hover:bg-muted/50"
+      onClick={() =>
+        openSessionMarked({
+          id: hit.sid,
+          parent: hit.parent,
+          mark: detector ?? "",
+          call: hit.toolUseId,
+        })
+      }
+      type="button"
+    >
+      <div className="flex items-baseline gap-2 text-xs">
+        <span className="font-medium">{hit.tool}</span>
+        {hit.pairLine === null ? null : (
+          <Badge className="shrink-0" variant="outline">
+            retried
+          </Badge>
+        )}
+        {hit.failed ? (
+          <Badge className="shrink-0" variant="destructive">
+            failed
+          </Badge>
+        ) : null}
+        <span className="ml-auto shrink-0 font-mono text-muted-foreground">
+          {hit.durSec === null ? "—" : hms(hit.durSec)}
+        </span>
+      </div>
+      <code className="wrap-break-word whitespace-pre-wrap text-muted-foreground text-xs">
+        {hit.line}
+      </code>
+      {hit.pairLine === null ? null : (
+        <code className="wrap-break-word whitespace-pre-wrap text-xs">
+          → {hit.pairLine}
+        </code>
+      )}
+      <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
+        {hit.project}/{(hit.parent ?? hit.sid).slice(0, SID_HEAD)} · {hit.kind}{" "}
+        · {hit.ts ?? "no timestamp"}
       </span>
-    </div>
-    <code className="wrap-break-word whitespace-pre-wrap text-muted-foreground text-xs">
-      {hit.line}
-    </code>
-    <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
-      {hit.project}/{(hit.parent ?? hit.sid).slice(0, SID_HEAD)} · {hit.kind} ·{" "}
-      {hit.ts ?? "no timestamp"}
-    </span>
-  </button>
+    </button>
+    {hit.pairLine === null ? null : (
+      <Button
+        className="h-6 self-end px-2 text-xs"
+        data-testid="drill-retry"
+        onClick={() =>
+          openSessionMarked({
+            id: hit.sid,
+            parent: hit.parent,
+            mark: "retry",
+            call: hit.pairToolUseId,
+          })
+        }
+        size="sm"
+        variant="ghost"
+      >
+        Open the retry
+      </Button>
+    )}
+  </div>
 );
 
 /** What the reader is looking at, and what is left. */

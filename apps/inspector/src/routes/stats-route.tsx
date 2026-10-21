@@ -1,6 +1,7 @@
-/** Cross-session friction: what fails, and what costs time.
+/** Cross-session friction: which named causes cost retries, what fails, and
+ * what costs time.
  *
- * One route, one call, two ranked tables and no blended score — a failure count
+ * One route, one call, ranked tables and no blended score — a failure count
  * and a second are different units, and the seconds are carried by a thin tail
  * of long runs, so adding them would invent an ordering nobody measured. The
  * flagged findings come first because a number with no action attached is
@@ -12,6 +13,7 @@
 import type { Atom, Result } from "@effect-atom/atom-react";
 import { useAtomValue } from "@effect-atom/atom-react";
 import type { AgentId } from "@workspace/core/services/agent-id";
+import { RETRY_WINDOW } from "@workspace/core/services/stats/detectors/retry-gates";
 import type {
   DrillResult,
   DrillTable,
@@ -26,7 +28,8 @@ import {
   useStatsRefresh,
   useStatsReport,
 } from "../lib/stats-atoms";
-import { findingsOf } from "../lib/stats-format";
+import { findingsOf, suggestedRules } from "../lib/stats-format";
+import { CauseTable } from "./stats/cause-table";
 import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
 import { FailTable } from "./stats/fail-table";
@@ -49,6 +52,7 @@ const parseDrill = (raw: string | null): DrillTarget | null => {
   const table = cut < 0 ? "" : raw.slice(0, cut);
   const key = cut < 0 ? "" : raw.slice(cut + 1);
   const known =
+    table === "cause" ||
     table === "fail" ||
     table === "time" ||
     table === "cluster" ||
@@ -57,11 +61,14 @@ const parseDrill = (raw: string | null): DrillTarget | null => {
 };
 
 /** The detector id of the row a drill came from, so the sessions it opens are
- *  marked with the same glyph. Only the fail table names one. */
+ *  marked with the same glyph. The cause and fail tables name one. */
 const detectorOf = (
   report: StatsReport,
   drill: DrillTarget | null
 ): string | null => {
+  if (drill?.table === "cause") {
+    return report.causes.find((row) => row.key === drill.key)?.cause ?? null;
+  }
   if (drill?.table !== "fail") {
     return null;
   }
@@ -126,6 +133,26 @@ const ReportView = ({
           onDrill={openDrill}
           onShowAll={() => setShowAllFindings(true)}
           showAll={showAllFindings}
+          suggested={suggestedRules(report)}
+        />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionHead
+          by="sessions with a retry, then sessions, then retries"
+          title="Avoidable retries"
+        />
+        <p className="text-muted-foreground text-xs">
+          A retry is a failed call followed within {RETRY_WINDOW} calls by a
+          similar call of the same tool that succeeded: a round trip a rule or
+          an env fix would have saved. Retry time is the call-to-call gap;
+          context re-read is what the retrying model call carried. Neither is
+          added to the other.
+        </p>
+        <CauseTable
+          onSelect={(key) => openDrill("cause", key)}
+          rows={report.causes}
+          selectedKey={keyOf("cause")}
         />
       </section>
 
