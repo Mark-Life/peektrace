@@ -59,6 +59,7 @@ export const table = (
 const KB = 1024;
 const MB = KB * KB;
 const THOUSAND = 1000;
+const MILLION = 1_000_000;
 const PERCENT = 100;
 const DECIMALS = 1;
 
@@ -73,9 +74,15 @@ export const bytes = (n: number): string => {
   return `${(n / MB).toFixed(DECIMALS)} MB`;
 };
 
-/** Compact token count (e.g. 12_345 -> "12.3k"). */
-export const tokens = (n: number): string =>
-  n < THOUSAND ? String(n) : `${(n / THOUSAND).toFixed(DECIMALS)}k`;
+/** Compact token count: `950`, `12.3k`, `32.4M`. */
+export const tokens = (n: number): string => {
+  if (n < THOUSAND) {
+    return String(n);
+  }
+  return n < MILLION
+    ? `${(n / THOUSAND).toFixed(DECIMALS)}k`
+    : `${(n / MILLION).toFixed(DECIMALS)}M`;
+};
 
 const SEC_PER_MIN = 60;
 const SEC_PER_HOUR = 3600;

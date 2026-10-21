@@ -12,14 +12,19 @@
  */
 import type { AgentId } from "@workspace/core";
 import {
+  causeImpact as coreCauseImpact,
+  causeNote as coreCauseNote,
+  causeSpread as coreCauseSpread,
   failSpread as coreFailSpread,
   findingsOf as coreFindingsOf,
   timeNote as coreTimeNote,
   timeSpread as coreTimeSpread,
   type Finding,
   type FindingFormat,
+  NO_RULE,
 } from "@workspace/core/services/stats/findings";
 import type {
+  CauseRow,
   DrillTable,
   FailRow,
   SampleRef,
@@ -27,7 +32,7 @@ import type {
   TimeRow,
 } from "@workspace/core/services/stats/schema";
 import { hms, percent, shortId } from "../../render";
-import { AGENT_LABEL, clip, fmt, sanitize } from "../theme";
+import { AGENT_LABEL, clip, fmt, fmtK, sanitize } from "../theme";
 
 /** What the screen asks the server for. Also what a drill page must repeat. */
 export interface StatsScope {
@@ -302,7 +307,12 @@ export const refsOf = (samples: readonly SampleRef[]): string => {
 // --- Findings ---
 
 /** How this surface spells a number, for the sentences core composes. */
-const FORMAT: FindingFormat = { count: fmt, hms, pct: percent };
+const FORMAT: FindingFormat = {
+  count: fmt,
+  hms,
+  pct: percent,
+  tokens: fmtK,
+};
 
 export type { Finding } from "@workspace/core/services/stats/findings";
 
@@ -340,7 +350,7 @@ const seenIn = (samples: readonly SampleRef[], tail: string): string =>
   `seen in ${refsOf(samples)} · ⏎ ${tail}`;
 
 const failNoteLines = (row: FailRow): readonly string[] => [
-  row.note ?? "no rule fired for this row — ⏎ reads its calls",
+  row.note ?? `${NO_RULE} — ⏎ reads its calls`,
   failSpread(row),
   seenIn(row.samples, `reads all ${fmt(row.rows)} calls`),
 ];
@@ -416,11 +426,23 @@ export const timeTarget = (row: TimeRow, bashSec: number): DrillTarget => ({
   table: "time",
 });
 
+const causeTarget = (row: CauseRow): DrillTarget => ({
+  key: row.key,
+  label: row.label,
+  note: coreCauseNote(row) ?? NO_RULE,
+  spread: `${coreCauseSpread(row, FORMAT)} · ${coreCauseImpact(row, FORMAT)}`,
+  table: "cause",
+});
+
 /** The drill target for a finding, resolved back to the row it came from. */
 export const findingTarget = (
   finding: Finding,
   report: StatsReport
 ): DrillTarget | null => {
+  if (finding.table === "cause") {
+    const row = report.causes.find((r) => r.key === finding.key);
+    return row === undefined ? null : causeTarget(row);
+  }
   if (finding.table === "fail") {
     const row = report.fails.find((r) => r.key === finding.key);
     return row === undefined ? null : failTarget(row);
@@ -483,10 +505,14 @@ export const corpusLine = (report: StatsReport, wide: boolean): string => {
   ].join(" · ");
 };
 
+const SCHEMA_PREFIX = /^peektrace-/;
+
 /** What the numbers were made by, and how many caveats travel with them. */
 export const provenanceLine = (report: StatsReport, wide: boolean): string =>
   [
-    wide ? report.schemaVersion : "stats/v1",
+    wide
+      ? report.schemaVersion
+      : report.schemaVersion.replace(SCHEMA_PREFIX, ""),
     `detector v${report.detectorVersion}`,
     wide ? "durations ≈ the call→result gap" : "durations ≈ call→result gap",
     `${report.caveats.length + (report.skipped.length > 0 ? 1 : 0)} caveats (c)`,

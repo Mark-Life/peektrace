@@ -26,6 +26,7 @@ describe("render", () => {
     expect(bytes(512)).toBe("512 B");
     expect(bytes(2048)).toBe("2.0 KB");
     expect(tokens(1500)).toBe("1.5k");
+    expect(tokens(32_300_000)).toBe("32.3M");
     expect(percent(0.5)).toBe("50.0%");
     expect(shortId("abcd-ef-12")).toBe("abcd");
   });
