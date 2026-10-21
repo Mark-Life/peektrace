@@ -127,6 +127,8 @@ export const SampleRef = Schema.Struct({
   seq: Schema.Number,
   /** The transcript's own call id, so a link lands on the card a UI drew. */
   toolUseId: Schema.NullOr(Schema.String),
+  /** ISO call time, or null when the transcript records none. */
+  ts: Schema.NullOr(Schema.String),
   /** One redacted, collapsed, clipped line of evidence. */
   line: Schema.String,
 });
@@ -539,6 +541,9 @@ export const StatsReport = Schema.Struct({
   cost: Schema.Array(CostRow),
   /** Unreadable or skipped files, named. */
   skipped: Schema.Array(Schema.String),
+  /** Absolute transcript path of every session a sample names, keyed by
+   * `sid`, so an agent handed a row can open the calls behind it. */
+  paths: Schema.Record({ key: Schema.String, value: Schema.String }),
   /** Travels with the numbers, never dropped by a UI. */
   caveats: Schema.Array(Schema.String),
 });
@@ -557,7 +562,6 @@ export type DrillTable = typeof DrillTable.Type;
 /** One call behind an aggregate row. */
 export const DrillHit = Schema.Struct({
   ...SampleRef.fields,
-  ts: Schema.NullOr(Schema.String),
   durSec: Schema.NullOr(Schema.Number),
   tool: Schema.String,
   failed: Schema.Boolean,

@@ -23,6 +23,8 @@ import {
   type AgentRegistryShape,
   type AgentRoots,
 } from "@workspace/core";
+import type { FindingFormat } from "@workspace/core/services/stats/findings";
+import { statsPrompt } from "@workspace/core/services/stats/prompts";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Clock, Effect, Layer } from "effect";
 
@@ -283,6 +285,14 @@ const withClient = <A, E>(
     ) as Effect.Effect<A, E, never>
   );
 
+/** Plain spelling: these tests pin what a prompt names, not how it formats. */
+const FORMAT: FindingFormat = {
+  count: String,
+  hms: (sec) => `${sec}s`,
+  pct: (share) => `${share}`,
+  tokens: String,
+};
+
 /** A window wide enough to hold the fixture, whatever the pinned date. */
 const WIDE = 3650;
 
@@ -401,6 +411,43 @@ describe("stats.report", () => {
       Effect.gen(function* () {
         const report = yield* client.stats.report({ days: WIDE });
         expect(JSON.stringify(report)).not.toContain(SECRET);
+      })
+    ));
+
+  test("a sample names its call time and its transcript's path", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const report = yield* client.stats.report({ days: WIDE });
+        const glob = report.causes.find((row) => row.cause === "zsh-glob-flag");
+        const failed = glob?.pairSamples[0]?.failed;
+        expect(failed?.ts).toBe("2026-06-01T10:00:30.000Z");
+        expect(failed?.toolUseId).toBe("tool-3");
+        // Only sampled sessions are listed: the subagent made no call.
+        expect(report.paths).toEqual({
+          [SID]: join(root, SLUG, `${SID}.jsonl`),
+        });
+      })
+    ));
+
+  test("the investigation prompts carry the paths and no secret", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const report = yield* client.stats.report({ days: WIDE });
+        const prompts = [
+          { table: "report" },
+          { table: "cause", key: "zsh-glob-flag" },
+          { table: "fail", key: "scan:tsc" },
+        ] as const;
+        const texts = prompts.map(
+          (target) => statsPrompt({ format: FORMAT, report, target }) ?? ""
+        );
+        expect(texts[1]).toContain(
+          `· tool-3 · ${join(root, SLUG, `${SID}.jsonl`)}`
+        );
+        expect(texts[2]).toContain("Pattern: error TS####");
+        for (const text of texts) {
+          expect(text).not.toContain(SECRET);
+        }
       })
     ));
 

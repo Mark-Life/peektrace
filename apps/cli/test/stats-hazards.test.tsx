@@ -64,6 +64,7 @@ const empty = (): StatsReport =>
     web: [],
     cost: [],
     skipped: [],
+    paths: {},
     caveats: [],
   }) as StatsReport;
 

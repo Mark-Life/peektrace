@@ -99,7 +99,9 @@ const rulePlace = (rule: RuleCheck): string => {
  * What the calls since a rule appeared say about it: still firing, quiet, or
  * not measured yet (no whole day after it appeared).
  */
-const ruleState = (rule: RuleCheck): "firing" | "quiet" | "unmeasured" => {
+export const ruleState = (
+  rule: RuleCheck
+): "firing" | "quiet" | "unmeasured" => {
   if (rule.callsSince.main + rule.callsSince.nested === 0) {
     return "unmeasured";
   }

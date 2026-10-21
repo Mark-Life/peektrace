@@ -63,6 +63,7 @@ import {
   type DrillResult,
   type DrillTable,
   type RefreshSummary,
+  type SampleRef,
   type SessionMarkers,
   STATS_SCHEMA_VERSION,
   type StatsFact,
@@ -258,6 +259,8 @@ interface PassResult {
   readonly cached: number;
   readonly extracted: number;
   readonly facts: number;
+  /** Every walked transcript's absolute path, by session id. */
+  readonly paths: ReadonlyMap<string, string>;
   readonly skipped: readonly string[];
   readonly transcripts: number;
 }
@@ -349,6 +352,7 @@ const runPass = (args: {
       extracted,
       cached,
       facts,
+      paths: new Map(refs.map((ref) => [ref.id, ref.path] as const)),
       skipped: uniqSorted(skipped),
     };
   }).pipe(
@@ -433,6 +437,34 @@ const causeCaveats = (
     );
   }
 };
+
+/** Every sample a report carries, from every table that keeps them. */
+const samplesIn = (
+  report: Omit<StatsReport, "paths">
+): readonly SampleRef[] => [
+  ...report.causes.flatMap((row) => [
+    ...row.samples,
+    ...row.pairSamples.flatMap((pair) => [pair.failed, pair.retry]),
+  ]),
+  ...report.fails.flatMap((row) => row.samples),
+  ...report.time.flatMap((row) => row.samples),
+  ...report.waiting.samples,
+  ...report.clusters.flatMap((row) => row.samples),
+];
+
+/** The transcript path of each sampled session, sorted by sid so two runs
+ * print the same bytes. Only sampled sessions: the corpus would bloat it. */
+const pathsOf = (args: {
+  readonly paths: ReadonlyMap<string, string>;
+  readonly redact: Redactor;
+  readonly report: Omit<StatsReport, "paths">;
+}): Record<string, string> =>
+  Object.fromEntries(
+    uniqSorted(samplesIn(args.report).map((s) => s.sid)).flatMap((sid) => {
+      const path = args.paths.get(sid);
+      return path === undefined ? [] : [[sid, args.redact.text(path)]];
+    })
+  );
 
 /** Build the finish context. Corpus totals are computed first, by construction:
  * every share in the report divides by a field the detectors read from here. */
@@ -548,7 +580,7 @@ const makeService = (args: {
               redact: prepared.redact,
             });
             causeCaveats(causes, ctx.caveat);
-            return {
+            const body: Omit<StatsReport, "paths"> = {
               schemaVersion: STATS_SCHEMA_VERSION,
               generatedAt: prepared.generatedAt,
               window: prepared.window,
@@ -565,6 +597,14 @@ const makeService = (args: {
               cost: panels.cost,
               skipped: prepared.result.skipped,
               caveats: prepared.caveats,
+            };
+            return {
+              ...body,
+              paths: pathsOf({
+                paths: prepared.result.paths,
+                redact: prepared.redact,
+                report: body,
+              }),
             };
           },
           catch: (e) => new StatsScanError({ reason: String(e) }),

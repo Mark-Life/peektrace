@@ -120,6 +120,7 @@ const report = (): StatsReport =>
     web: [],
     cost: [],
     skipped: [],
+    paths: {},
     caveats: [
       "durSec is the gap between a call and its result: it includes harness overhead",
       "silent-failure counts are a floor: a detector only sees stored output",

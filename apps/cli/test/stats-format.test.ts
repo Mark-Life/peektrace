@@ -100,6 +100,7 @@ const report = (over: Partial<StatsReport>): StatsReport =>
     web: [],
     cost: [],
     skipped: [],
+    paths: {},
     caveats: [],
     ...over,
   }) as StatsReport;
