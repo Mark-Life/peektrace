@@ -9,6 +9,7 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { StatsReport } from "@workspace/core/services/stats/schema";
+import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
 
@@ -24,10 +25,10 @@ const TINY = 60;
 /** A window with no calls in it: every share has a zero denominator. */
 const empty = (): StatsReport =>
   ({
-    schemaVersion: "peektrace-stats/v1",
+    schemaVersion: "peektrace-stats/v2",
     generatedAt: Date.now(),
     window: { days: 60, fromIso: "a", toIso: "b" },
-    detectorVersion: 1,
+    detectorVersion: DETECTOR_VERSION,
     corpus: {
       transcripts: 0,
       sessions: 0,
@@ -40,6 +41,7 @@ const empty = (): StatsReport =>
       kinds: {},
       agents: {},
     },
+    causes: [],
     fails: [],
     time: [],
     waiting: {
@@ -70,6 +72,7 @@ const fatNumbers = (): StatsReport =>
   ({
     ...empty(),
     corpus: { ...empty().corpus, transcripts: 3, bashSec: 900 },
+    causes: [],
     fails: [
       {
         key: "k",
@@ -140,7 +143,7 @@ const makeBridge = (report: () => StatsReport): TuiBridge => ({
     }
     if (eff.tag === "drill") {
       return Promise.resolve({
-        schemaVersion: "peektrace-stats/v1",
+        schemaVersion: "peektrace-stats/v2",
         table: "fail",
         key: "k",
         total: 1,

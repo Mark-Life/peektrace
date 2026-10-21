@@ -15,7 +15,7 @@ import { Schema } from "effect";
 import { AgentId } from "../agent-id";
 
 /** Wire version of the report envelope. Bump on any breaking shape change. */
-export const STATS_SCHEMA_VERSION = "peektrace-stats/v1";
+export const STATS_SCHEMA_VERSION = "peektrace-stats/v2";
 
 /** Bumped when a detector's rule changes, so a row's meaning is versioned. */
 export const DETECTOR_VERSION = 2;
@@ -24,7 +24,7 @@ export const DETECTOR_VERSION = 2;
  * Bumped when `extract.ts` or any fact column changes. Part of the cache key:
  * a shard written by an older extractor is re-extracted, never read back.
  */
-export const EXTRACTOR_VERSION = 3;
+export const EXTRACTOR_VERSION = 6;
 
 /** Where a transcript sits in the session tree. */
 export const TranscriptKind = Schema.Literal(
@@ -77,6 +77,44 @@ export const WaitShape = Schema.Literal(
 );
 export type WaitShape = typeof WaitShape.Type;
 
+/**
+ * A named cause of a failed call: one entry of the cause catalog. Detected at
+ * extract time while the result text is in hand. `unclassified` never sits on
+ * a fact; it names the cause table row for errored calls no detector claimed.
+ */
+export const CauseId = Schema.Literal(
+  "zsh-glob-flag",
+  "zsh-glob-path",
+  "zsh-equals-abort",
+  "pkill-self-kill",
+  "sleep-blocked",
+  "command-not-found",
+  "output-too-large",
+  "read-before-write",
+  "stale-read",
+  "edit-no-match",
+  "structured-output-schema",
+  "rm-guard",
+  "scratch-module-resolution",
+  "ugrep-complexity",
+  "unclassified"
+);
+export type CauseId = typeof CauseId.Type;
+
+/**
+ * Where a fix lives: a memory-file line (`rule`), the host (`env`), the
+ * workflow or subagent prompt (`workflow`), or nowhere anyone measured (`none`).
+ */
+export const CauseKind = Schema.Literal("rule", "env", "workflow", "none");
+export type CauseKind = typeof CauseKind.Type;
+
+/** A count split by who made the call. `nested` is subagent + workflow agent. */
+export const Split = Schema.Struct({
+  main: Schema.Number,
+  nested: Schema.Number,
+});
+export type Split = typeof Split.Type;
+
 /** A pointer from an aggregate row back to the session it came from. */
 export const SampleRef = Schema.Struct({
   sid: Schema.String,
@@ -87,6 +125,8 @@ export const SampleRef = Schema.Struct({
   parent: Schema.NullOr(Schema.String),
   /** Monotonic index of the fact inside its session; pairs with `sid` as a key. */
   seq: Schema.Number,
+  /** The transcript's own call id, so a link lands on the card a UI drew. */
+  toolUseId: Schema.NullOr(Schema.String),
   /** One redacted, collapsed, clipped line of evidence. */
   line: Schema.String,
 });
@@ -112,6 +152,10 @@ export const SessionFact = Schema.Struct({
   endedAt: Schema.NullOr(Schema.String),
   /** Redacted session title, when the transcript records one. */
   title: Schema.NullOr(Schema.String),
+  /** Redacted working directory, so a project's own memory files can be read. */
+  cwd: Schema.NullOr(Schema.String),
+  /** The agent source the transcript is stored in; null for the default one. */
+  source: Schema.NullOr(Schema.String),
   models: Schema.Array(Schema.String),
   turns: Schema.Number,
   userMessages: Schema.Number,
@@ -156,6 +200,16 @@ export const ToolFact = Schema.Struct({
   outChars: Schema.Number,
   /** The call sat on a sidechain turn inside its own transcript. */
   side: Schema.Boolean,
+  /** Request id of the model call that made this call; parallel siblings share it. */
+  req: Schema.NullOr(Schema.String),
+  /** Context tokens (input + cache read + cache create) of that model call. */
+  ctxTok: Schema.NullOr(Schema.Number),
+  /** Cause catalog hit, detected at extract time. */
+  cause: Schema.NullOr(CauseId),
+  /** The culprit the cause names: glob word, binary, schema field, file. Redacted. */
+  causeArg: Schema.NullOr(Schema.String),
+  /** The failing shell segment(s), normalised, when the error names the culprit. */
+  focus: Schema.NullOr(Schema.String),
 });
 export type ToolFact = typeof ToolFact.Type;
 
@@ -341,6 +395,102 @@ export const CostRow = Schema.Struct({
 });
 export type CostRow = typeof CostRow.Type;
 
+/** One memory-file line that already states a cause's rule. */
+export const RuleMatch = Schema.Struct({
+  /** `~`-collapsed display path; `link → target` when the file is a symlink. */
+  path: Schema.String,
+  line: Schema.Number,
+  /** The matching line, redacted and clipped. */
+  excerpt: Schema.String,
+});
+export type RuleMatch = typeof RuleMatch.Type;
+
+/** A rule that is present in memory and whether the cause still fires since. */
+export const RuleCheck = Schema.Struct({
+  matches: Schema.Array(RuleMatch),
+  /**
+   * When the rule appeared: the newest matched file's oldest matched line,
+   * first seen by an earlier report or else dated by its file's mtime. Null
+   * when unknown.
+   */
+  sinceIso: Schema.NullOr(Schema.String),
+  /** Hits on whole days strictly after that day. */
+  hitsSince: Split,
+  /** Denominator calls on the same days. */
+  callsSince: Split,
+  per1kSince: Split,
+  /** The env or prompt-level fix: never "add another memory line". */
+  advice: Schema.String,
+});
+export type RuleCheck = typeof RuleCheck.Type;
+
+/** The token change a retry made, e.g. `--include=*.ts` → `--include='*.ts'`. */
+export const CauseDiff = Schema.Struct({
+  from: Schema.String,
+  to: Schema.String,
+  pairs: Schema.Number,
+});
+export type CauseDiff = typeof CauseDiff.Type;
+
+/** One culprit value and how often it was named: a binary, a glob, a field. */
+export const CauseDetail = Schema.Struct({
+  value: Schema.String,
+  hits: Schema.Number,
+});
+export type CauseDetail = typeof CauseDetail.Type;
+
+/** A failed call and the similar call that succeeded right after it. */
+export const PairSample = Schema.Struct({
+  failed: SampleRef,
+  retry: SampleRef,
+});
+export type PairSample = typeof PairSample.Type;
+
+/**
+ * One cause: what fired, how often the agent paid a round trip to correct it,
+ * and the one-line fix. Counts and seconds and tokens stay separate columns:
+ * never blended into a score.
+ */
+export const CauseRow = Schema.Struct({
+  /** `cause:<id>`; unclassified rows are `cause:unclassified:<tool>`. Drill key. */
+  key: Schema.String,
+  cause: CauseId,
+  kind: CauseKind,
+  label: Schema.String,
+  /** Null only when `kind` is "none": a UI prints "no rule to suggest". */
+  fix: Schema.NullOr(Schema.String),
+  /** False for a cause that is waste rather than failure (output too large). */
+  failing: Schema.Boolean,
+  hits: Schema.Number,
+  /** Of `hits`, how many set the agent's own error flag; the rest exited 0. */
+  flagged: Schema.Number,
+  hitsBy: Split,
+  /**
+   * Failed call followed by a similar succeeding call of the same tool: one
+   * wasted round trip each. For persisted output, a read-back of the file.
+   */
+  pairs: Schema.Number,
+  pairsBy: Split,
+  retrySessions: Schema.Number,
+  sessions: Schema.Number,
+  projects: Schema.Number,
+  /** Call-to-call gap summed over pairs whose gap is known. */
+  retrySec: Schema.Number,
+  secMeasured: Schema.Number,
+  /** Context re-read by the retry turns, deduped per model call. */
+  retryCtxTokens: Schema.Number,
+  tokensMeasured: Schema.Number,
+  /** Hits per 1,000 denominator calls: shell calls for a shell cause, else
+   * calls of the tools it watches. */
+  per1k: Split,
+  details: Schema.Array(CauseDetail),
+  diffs: Schema.Array(CauseDiff),
+  rule: Schema.NullOr(RuleCheck),
+  samples: Schema.Array(SampleRef),
+  pairSamples: Schema.Array(PairSample),
+});
+export type CauseRow = typeof CauseRow.Type;
+
 /** Corpus totals. Every share in the report divides by a field here. */
 export const CorpusSummary = Schema.Struct({
   transcripts: Schema.Number,
@@ -377,6 +527,8 @@ export const StatsReport = Schema.Struct({
   window: StatsWindow,
   detectorVersion: Schema.Number,
   corpus: CorpusSummary,
+  /** Named causes with their retry cost. Findings lead with these. */
+  causes: Schema.Array(CauseRow),
   fails: Schema.Array(FailRow),
   time: Schema.Array(TimeRow),
   waiting: WaitPanel,
@@ -393,7 +545,13 @@ export const StatsReport = Schema.Struct({
 export type StatsReport = typeof StatsReport.Type;
 
 /** Which table a drill key belongs to. */
-export const DrillTable = Schema.Literal("fail", "time", "cluster", "wait");
+export const DrillTable = Schema.Literal(
+  "cause",
+  "fail",
+  "time",
+  "cluster",
+  "wait"
+);
 export type DrillTable = typeof DrillTable.Type;
 
 /** One call behind an aggregate row. */
@@ -403,6 +561,12 @@ export const DrillHit = Schema.Struct({
   durSec: Schema.NullOr(Schema.Number),
   tool: Schema.String,
   failed: Schema.Boolean,
+  /** For a cause drill: the tool-use id of the retry that corrected this
+   * call, so its link lands on its card. */
+  pairToolUseId: Schema.NullOr(Schema.String),
+  /** That retry's own redacted line, null when no retry corrected this call;
+   * `line` stays the failed call's. */
+  pairLine: Schema.NullOr(Schema.String),
 });
 export type DrillHit = typeof DrillHit.Type;
 

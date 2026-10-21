@@ -8,13 +8,16 @@
  */
 import { expect, test } from "bun:test";
 import type {
+  CauseRow,
   FailRow,
   StatsReport,
   TimeRow,
 } from "@workspace/core/services/stats/schema";
+import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
 import {
   columnsOf,
   findingsOf,
+  findingTarget,
   layoutOf,
   noteLinesOf,
   openCommand,
@@ -58,10 +61,10 @@ const timeRow = (over: Partial<TimeRow>): TimeRow => ({
 
 const report = (over: Partial<StatsReport>): StatsReport =>
   ({
-    schemaVersion: "peektrace-stats/v1",
+    schemaVersion: "peektrace-stats/v2",
     generatedAt: 0,
     window: { days: 30, fromIso: "", toIso: "" },
-    detectorVersion: 1,
+    detectorVersion: DETECTOR_VERSION,
     corpus: {
       transcripts: 1,
       sessions: 1,
@@ -74,6 +77,7 @@ const report = (over: Partial<StatsReport>): StatsReport =>
       kinds: {},
       agents: {},
     },
+    causes: [],
     fails: [],
     time: [],
     waiting: {
@@ -102,6 +106,7 @@ const report = (over: Partial<StatsReport>): StatsReport =>
 
 test("findings rank by effort tier, never by a blended score", () => {
   const r = report({
+    causes: [],
     fails: [
       failRow({ key: "plain", label: "plain", note: "measured", sessions: 99 }),
       failRow({
@@ -194,6 +199,7 @@ test("layout gives both tables a body and sheds the note strip last", () => {
 
 test("the note strip states the measurement, never invented advice", () => {
   const r = report({
+    causes: [],
     fails: [failRow({ note: null, rows: 7 })],
     time: [timeRow({ cappedRuns: 2, cappedSec: 30 })],
   });
@@ -203,7 +209,7 @@ test("the note strip states the measurement, never invented advice", () => {
     pane: "fails",
     report: r,
   });
-  expect(noRule[0]).toContain("no rule fired");
+  expect(noRule[0]).toContain("no rule to suggest");
   const capped = noteLinesOf({
     findings: [],
     index: 0,
@@ -240,5 +246,57 @@ test("a subagent call routes through its parent, never its own id", () => {
   );
   expect(openCommand({ sid: parent, parent: null })).toBe(
     `peektrace sessions analyze ${parent}`
+  );
+});
+
+const causeRow = (over: Partial<CauseRow>): CauseRow => ({
+  key: "cause:zsh-glob-flag",
+  cause: "zsh-glob-flag",
+  kind: "rule",
+  label: "unquoted glob in a flag value",
+  fix: "quote the glob",
+  failing: true,
+  hits: 40,
+  flagged: 2,
+  hitsBy: { main: 10, nested: 30 },
+  pairs: 12,
+  pairsBy: { main: 2, nested: 10 },
+  retrySessions: 11,
+  sessions: 30,
+  projects: 3,
+  retrySec: 50,
+  secMeasured: 12,
+  retryCtxTokens: 9000,
+  tokensMeasured: 12,
+  per1k: { main: 1, nested: 2 },
+  details: [],
+  diffs: [],
+  rule: null,
+  samples: [],
+  pairSamples: [],
+  ...over,
+});
+
+test("a cause finding leads and drills into the cause table", () => {
+  const r = report({
+    causes: [causeRow({})],
+    fails: [failRow({ key: "named", note: "x", detector: "piped-exit-code" })],
+  });
+  const found = findingsOf(r);
+  expect(found.map((f) => f.key)).toEqual(["cause:zsh-glob-flag", "named"]);
+  const first = found[0];
+  const target = first === undefined ? null : findingTarget(first, r);
+  expect(target?.table).toBe("cause");
+  expect(target?.key).toBe("cause:zsh-glob-flag");
+  expect(target?.note).toBe("quote the glob");
+  expect(target?.spread).toContain("11 sessions with a retry");
+  expect(target?.spread).toContain("12 retries (main");
+});
+
+test("a cause finding spells re-read context compactly, as the inspector does", () => {
+  const r = report({ causes: [causeRow({ retryCtxTokens: 32_389_802 })] });
+  const [first] = findingsOf(r);
+  expect(first?.impact).toBe(
+    "12 retries (main 2 / sub 10) · 50.0s · 32.4M ctx tokens re-read"
   );
 });

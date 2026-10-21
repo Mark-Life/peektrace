@@ -10,6 +10,10 @@
  * path differs (a hash collision), or `EXTRACTOR_VERSION` moved. Everything else
  * is read back, so a rerun over an unchanged corpus parses nothing.
  *
+ * Beside it, `~/.peektrace/rule-lines.json` holds when each memory line was
+ * first seen (`rule-dates.ts`). It is history, not derived data, so it sits
+ * outside the cache dir and `clear` keeps it.
+ *
  * Shards are always redacted, because `extract.ts` redacts at mint time. A
  * caller asking for raw text bypasses the cache instead of writing raw text
  * down. Aggregation still runs over every shard on every report: one new file
@@ -17,11 +21,12 @@
  */
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { FileSystem } from "@effect/platform";
 import { Context, Effect, Layer } from "effect";
 import type { FileStat } from "../fs";
 import { StatsCacheError } from "./errors";
+import { EMPTY_LEDGER, type LineLedger } from "./rule-dates";
 import { EXTRACTOR_VERSION, type StatsFact } from "./schema";
 import type { TranscriptRef } from "./walk";
 
@@ -84,8 +89,14 @@ export interface StatsCacheShape {
   readonly commit: (
     entries: readonly CacheEntry[]
   ) => Effect.Effect<void, StatsCacheError>;
+  /** The memory-line ledger, written via a temp file + rename. */
+  readonly commitLines: (
+    ledger: LineLedger
+  ) => Effect.Effect<void, StatsCacheError>;
   /** The index, or an empty map when absent, unreadable or version-stale. */
   readonly load: () => Effect.Effect<ReadonlyMap<string, CacheEntry>>;
+  /** The memory-line ledger, or an empty one when absent or unreadable. */
+  readonly loadLines: () => Effect.Effect<LineLedger>;
   /** Facts of one cached transcript. Fails only on a corrupt shard. */
   readonly read: (
     entry: CacheEntry
@@ -109,6 +120,20 @@ export class StatsCache extends Context.Tag("@peektrace/StatsCache")<
 /** The stats cache dir, under `PEEKTRACE_DIR` or `~/.peektrace`. */
 export const statsCacheRoot = (env: NodeJS.ProcessEnv, home: string): string =>
   join(env.PEEKTRACE_DIR ?? join(home, ".peektrace"), "stats");
+
+/** Bumped when the ledger's layout changes, which starts it over. */
+const LEDGER_VERSION = 1;
+
+interface LedgerFile extends LineLedger {
+  readonly version: number;
+}
+
+const parseLedger = (raw: string): LineLedger => {
+  const parsed = JSON.parse(raw) as Partial<LedgerFile>;
+  return parsed.version === LEDGER_VERSION && parsed.files
+    ? { files: parsed.files }
+    : EMPTY_LEDGER;
+};
 
 const parseIndex = (raw: string): ReadonlyMap<string, CacheEntry> => {
   const parsed = JSON.parse(raw) as Partial<CacheIndexFile>;
@@ -144,6 +169,7 @@ const makeCache = (args: {
   const { fs, root } = args;
   const indexPath = join(root, "index.json");
   const shardsDir = join(root, "shards");
+  const linesPath = join(dirname(root), "rule-lines.json");
   const failed = (path: string) => (e: unknown) =>
     new StatsCacheError({ path, reason: String(e) });
 
@@ -195,13 +221,29 @@ const makeCache = (args: {
     );
   };
 
+  const loadLines: StatsCacheShape["loadLines"] = () =>
+    fs.readFileString(linesPath).pipe(
+      Effect.map(parseLedger),
+      Effect.orElseSucceed(() => EMPTY_LEDGER)
+    );
+
+  const commitLines: StatsCacheShape["commitLines"] = (ledger) => {
+    const file: LedgerFile = { version: LEDGER_VERSION, files: ledger.files };
+    const tmp = `${linesPath}.tmp`;
+    return fs.makeDirectory(dirname(linesPath), { recursive: true }).pipe(
+      Effect.andThen(() => fs.writeFileString(tmp, JSON.stringify(file))),
+      Effect.andThen(() => fs.rename(tmp, linesPath)),
+      Effect.mapError(failed(linesPath))
+    );
+  };
+
   const clear: StatsCacheShape["clear"] = () =>
     fs.remove(root, { recursive: true }).pipe(
       Effect.orElseSucceed(() => undefined),
       Effect.asVoid
     );
 
-  return { root, load, read, write, commit, clear };
+  return { root, load, loadLines, read, write, commit, commitLines, clear };
 };
 
 /** Live layer: the cache dir resolves at layer construction, never at import. */

@@ -17,6 +17,7 @@ const VISIBLE = 6;
 
 /** Where a finding came from, in one word the reader can trust. */
 const SOURCE_LABEL: Record<Finding["table"], string> = {
+  cause: "retries",
   fail: "fails",
   time: "time",
 };

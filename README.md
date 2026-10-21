@@ -117,9 +117,17 @@ and every failure read as a pass.
 
 ![Flagged findings across every session](assets/browser-stats.webp)
 
+Named causes lead: an unquoted `--include=*.ts` that zsh aborted, a `pkill -f`
+that killed its own shell, a missing binary, a harness-blocked `sleep`. Each one
+counts the retries it caused (a failed call followed by a similar call that
+worked), the seconds and context tokens those retries re-read, and carries a
+one-line fix. When `CLAUDE.md` / `AGENTS.md` already states the rule and the
+cause still fires, it says so and names an env or prompt-level change instead
+of another memory line.
+
 Subagent and workflow-agent transcripts count their own model calls, so their
-tokens and cost are measured rather than read as zero. Reports from earlier
-versions showed their cost as about $0.
+tokens, cost and retries are measured rather than read as zero. Reports from
+earlier versions showed their cost as about $0.
 
 Underneath sit shell time by job type, error signatures grouped by shape, and a
 waiting panel that separates real work from parked polling.
@@ -133,6 +141,7 @@ stored or shown. Every number ships with its caveats.
 peektrace stats [--days 60] [--agent claude|codex|pi|all] [--limit 20]
 peektrace stats refresh [--force]        # rescan and rebuild the cache
 peektrace stats drill --fail <key>       # expand one row
+peektrace stats drill --cause <key>      # failed → retry pairs behind a cause
 ```
 
 ## Memory

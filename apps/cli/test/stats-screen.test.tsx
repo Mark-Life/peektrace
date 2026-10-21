@@ -9,15 +9,16 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { StatsReport } from "@workspace/core/services/stats/schema";
+import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
 
 const report = (): StatsReport =>
   ({
-    schemaVersion: "peektrace-stats/v1",
+    schemaVersion: "peektrace-stats/v2",
     generatedAt: Date.now(),
     window: { days: 30, fromIso: "a", toIso: "b" },
-    detectorVersion: 1,
+    detectorVersion: DETECTOR_VERSION,
     corpus: {
       transcripts: 2509,
       sessions: 2491,
@@ -30,6 +31,7 @@ const report = (): StatsReport =>
       kinds: { main: 2509 },
       agents: { claude: 2509 },
     },
+    causes: [],
     fails: [
       {
         key: "detect:zsh-equals-abort",
@@ -151,7 +153,7 @@ const makeBridge = () => {
       }
       if (eff.tag === "drill") {
         return Promise.resolve({
-          schemaVersion: "peektrace-stats/v1",
+          schemaVersion: "peektrace-stats/v2",
           table: "fail",
           key: "k",
           total: 0,

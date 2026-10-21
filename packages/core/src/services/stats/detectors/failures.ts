@@ -7,14 +7,17 @@
  * result text is still in hand and stores `failed` + `failReason`, never the
  * text, so a later cap on stored output cannot lose a failure.
  *
- * Order matters. `zsh-equals-abort` is a detector, not a filter: an unquoted
- * `echo ===` separator EQUALS-expands, exits 1, and the rest of the line never
- * runs. It marks the row and must run before any suppression, because the four
- * benign filters would otherwise swallow it. The filters then run in order:
- * `glob-no-match` (zsh "no matches found"), `absence-probe` (a failing existence
- * check reporting absence), `chained-tail` (output printed before a failing
- * tail), `user-rejected` (the call never ran). Together they suppress 324 of 961
- * errored bash rows at 78% precision and 64% recall on the labelled sample;
+ * Order matters. A named cause from the catalog (`causes.ts`) claims its row
+ * first: `zsh-equals-abort` (an unquoted `echo ===` separator EQUALS-expands,
+ * exits 1, and the rest of the line never runs), a zsh glob abort, a missing
+ * binary, a harness block. A claimed row is never suppressed, because the four
+ * benign filters would otherwise swallow it, and it is charged to the cause
+ * table, which carries its fix and its retries: never to a fail row too. The filters then run in order:
+ * `glob-no-match` (zsh "no matches found" the glob causes did not claim),
+ * `absence-probe` (a failing existence check reporting absence),
+ * `chained-tail` (output printed before a failing tail), `user-rejected` (the
+ * call never ran). Before the causes claimed their rows they suppressed 324 of
+ * 961 errored bash rows at 78% precision and 64% recall on the labelled sample;
  * `chained-tail` unfiltered is 42% precise and must keep the detector's rows
  * out. Non-bash errors are never filtered.
  *
@@ -50,9 +53,7 @@ import {
   isCallFact,
   type StatsFact,
 } from "../schema";
-
-/** Id of the one named detector this corpus supports. */
-export const ZSH_EQUALS_ABORT = "zsh-equals-abort";
+import { CAUSES, SHELL_TOOLS } from "./causes";
 
 /** Id carried by a silent-failure row whose exit code a pipe discarded. */
 const PIPED_EXIT_CODE = "piped-exit-code";
@@ -93,33 +94,11 @@ const SIGNATURES = [
 ] as const;
 
 /**
- * Tools that return shell output. The scanner reads a compiler summary as a
- * failure, so it must not read one out of a file the agent merely opened.
- */
-const SHELL_TOOLS: ReadonlySet<string> = new Set([
-  "Bash",
-  "bash",
-  "shell",
-  "local_shell",
-  "run_command",
-  "execute_command",
-]);
-
-/**
  * The habit that discards the exit code: zsh has no `pipefail`, so the status of
  * `tsc | tail` is tail's. 1,004 of the 1,070 silent failures pipe this way.
  */
 const PIPED =
   /\|\s*(?:head|tail|grep|egrep|rg|wc|jq|sed|awk|tee|sort|uniq|cut)\b/;
-
-/**
- * A bare `echo ===` separator at a command position. zsh EQUALS-expands `===`,
- * fails to find the command, exits 1, and never runs the rest of the line. The
- * boundary is widened to any whitespace because the fact stores a
- * whitespace-collapsed command, which turns a newline separator into a space;
- * over the corpus both forms select the same 200 rows.
- */
-const ZSH_EQUALS = /(^|[\s;&|])echo\s+=/;
 
 /** Claude's shell results open with the exit status; a clean run has no header. */
 const EXIT_HEADER = /^Exit code (\d+)/;
@@ -148,7 +127,13 @@ const ABSENT_TEXT = /No such file or directory|not found|does not exist/i;
 const ERROR_TEXT =
   /Traceback|error TS\d|SyntaxError|TypeError|KeyError|ValueError|AssertionError|Cannot find module|ERR_MODULE_NOT_FOUND|fatal:|ModuleNotFoundError|timed out|rate limit|<tool_use_error>|FAIL |error:/;
 
-const USER_REJECTED = /The user doesn't want to proceed with this tool use/;
+/**
+ * The harness's text for a call the user rejected, in both of Claude Code's
+ * wordings: the call never ran, so it is not a mistake. The fail table reads
+ * it on a shell call's output, the retry pairer on any call's signature.
+ */
+export const USER_REJECTED =
+  /doesn't want to proceed with this tool use|doesn't want to take this action/;
 
 const GLOB_NO_MATCH = /no matches found/;
 
@@ -179,10 +164,8 @@ export interface OutputScan {
 /**
  * Scan one tool result for a failure the exit code did not report.
  *
- * `detector` stays null here: the only named detector this corpus supports keys
- * on the command, not on the output, and the shell's own EQUALS message reaches
- * the result in 196 of 200 rows while three unrelated rows quote it. The fail
- * table marks those rows from the command instead, which is exact.
+ * `detector` stays null here: named causes are the catalog's (`causes.ts`),
+ * detected beside this scan and charged to the cause table.
  */
 export const scanOutput = (args: {
   readonly tool: string;
@@ -226,9 +209,6 @@ const firstWord = (segment: string): string => {
 
 const isChain = (cmd: string): boolean => CHAIN.test(cmd);
 
-/** True when the line carries the unquoted separator that aborts the script. */
-export const isZshEqualsAbort = (cmd: string): boolean => ZSH_EQUALS.test(cmd);
-
 /**
  * The benign filter that suppresses a row, or null to keep it. Bash only, run
  * after the named detectors have marked their rows.
@@ -246,10 +226,12 @@ export const benignFilter = (args: {
   readonly cmd: string;
   readonly output: string;
   readonly detector: string | null;
+  /** Cause catalog hit; a claimed row is never suppressed. */
+  readonly cause: string | null;
 }): string | null => {
-  const { cmd, output, detector } = args;
-  // A row a detector claimed is never suppressed, however it was claimed.
-  if (detector !== null || isZshEqualsAbort(cmd)) {
+  const { cmd, output, detector, cause } = args;
+  // A row a detector or a cause claimed is never suppressed, however claimed.
+  if (detector !== null || cause !== null) {
     return null;
   }
   if (USER_REJECTED.test(output)) {
@@ -275,11 +257,10 @@ export const benignFilter = (args: {
 };
 
 /** Which family a fail row belongs to; each call is charged to exactly one. */
-type FailKind = "detect" | "flag" | "scan";
+type FailKind = "flag" | "scan";
 
 /** The row a call is charged to, before it is folded. */
 interface FailKey {
-  readonly detector: string | null;
   readonly key: string;
   readonly kind: FailKind;
   readonly label: string;
@@ -287,7 +268,6 @@ interface FailKey {
 
 /** Per-key state the `Tally` does not carry. Bounded by distinct keys. */
 interface FailMeta {
-  readonly detector: string | null;
   readonly kind: FailKind;
   readonly label: string;
   piped: number;
@@ -298,19 +278,15 @@ const labelForReason = (reason: string): string =>
   SIGNATURES.find((s) => s.id === reason)?.label ?? reason;
 
 /**
- * The one row this call belongs to, or null when it is not a failure. Charging
- * is exclusive and ordered: a detector claims the row first, then the agent's
- * own flag, then the output scanner. A signature that matches two shapes is
- * charged to the first in declaration order — 2 rows of 1,070 in the corpus.
+ * The one row this call belongs to, or null when it is not a failure here.
+ * Charging is exclusive and ordered: a failing catalog cause belongs to the
+ * cause table, not to this one; then the agent's own flag; then the output
+ * scanner. A signature that matches two shapes is charged to the first in
+ * declaration order — 2 rows of 1,070.
  */
 const keyOf = (fact: CallFact): FailKey | null => {
-  if (isBashFact(fact) && fact.failed && isZshEqualsAbort(fact.cmd)) {
-    return {
-      key: `detect:${ZSH_EQUALS_ABORT}`,
-      label: "unquoted echo === separator",
-      kind: "detect",
-      detector: ZSH_EQUALS_ABORT,
-    };
+  if (fact.cause !== null && fact.failed && CAUSES[fact.cause].failing) {
+    return null;
   }
   if (fact.err) {
     return fact.benign === null
@@ -318,7 +294,6 @@ const keyOf = (fact: CallFact): FailKey | null => {
           key: `flag:${fact.tool}`,
           label: `${fact.tool} errors`,
           kind: "flag",
-          detector: null,
         }
       : null;
   }
@@ -327,7 +302,6 @@ const keyOf = (fact: CallFact): FailKey | null => {
       key: `scan:${fact.failReason}`,
       label: labelForReason(fact.failReason),
       kind: "scan",
-      detector: null,
     };
   }
   return null;
@@ -349,7 +323,6 @@ const metaFor = (map: Map<string, FailMeta>, row: FailKey): FailMeta => {
   const fresh: FailMeta = {
     label: row.label,
     kind: row.kind,
-    detector: row.detector,
     piped: 0,
     tools: new Map(),
   };
@@ -359,9 +332,6 @@ const metaFor = (map: Map<string, FailMeta>, row: FailKey): FailMeta => {
 
 /** The one-line fix a row carries, or null when the rule has none to give. */
 const noteOf = (meta: FailMeta, rows: number): string | null => {
-  if (meta.kind === "detect") {
-    return 'quote the separator: echo "===" — zsh expands a bare === to a command name, exits 1, and never runs the rest of the line';
-  }
   if (meta.kind !== "scan") {
     return null;
   }
@@ -370,12 +340,8 @@ const noteOf = (meta: FailMeta, rows: number): string | null => {
     : "the command printed a failure and still exited 0";
 };
 
-const detectorOf = (meta: FailMeta): string | null => {
-  if (meta.detector !== null) {
-    return meta.detector;
-  }
-  return meta.kind === "scan" && meta.piped > 0 ? PIPED_EXIT_CODE : null;
-};
+const detectorOf = (meta: FailMeta): string | null =>
+  meta.kind === "scan" && meta.piped > 0 ? PIPED_EXIT_CODE : null;
 
 /** Drill hits read chronologically, with `sid` and `seq` breaking every tie. */
 const compareHits = chain<DrillHit>(
@@ -391,6 +357,7 @@ export const makeFailTable: AccumulatorFactory<readonly FailRow[]> = (opts) => {
   const hits: DrillHit[] = [];
   let erroredBash = 0;
   let suppressed = 0;
+  let claimed = 0;
 
   const add = (fact: StatsFact): void => {
     if (!isCallFact(fact)) {
@@ -400,6 +367,9 @@ export const makeFailTable: AccumulatorFactory<readonly FailRow[]> = (opts) => {
       erroredBash += 1;
       if (fact.benign !== null) {
         suppressed += 1;
+      }
+      if (fact.cause !== null) {
+        claimed += 1;
       }
     }
     const row = keyOf(fact);
@@ -457,7 +427,7 @@ export const makeFailTable: AccumulatorFactory<readonly FailRow[]> = (opts) => {
     if (suppressed > 0) {
       const pct = round(share(suppressed, erroredBash) * PERCENT, 1);
       ctx.caveat(
-        `${suppressed} of ${erroredBash} errored bash rows (${pct}%) are suppressed as benign, at a measured 78% precision`
+        `${suppressed} of ${erroredBash} errored bash rows (${pct}%) are suppressed as benign, at a precision of 78% measured before the cause catalog took ${claimed} rows (zsh glob aborts among them) out of the benign set`
       );
     }
     return ranked.rows;

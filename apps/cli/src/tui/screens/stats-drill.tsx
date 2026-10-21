@@ -113,7 +113,8 @@ const projectTail = (project: string): string =>
     ? `…${project.slice(project.length - (PROJ_W - 1))}`
     : project;
 
-/** One call: when it ran, where, which tool, how long, and the line itself. */
+/** One call: when it ran, where, which tool, how long, and the line itself;
+ * a cause hit a later call corrected adds the retry's line under it. */
 const HitRow = ({
   expanded,
   hit,
@@ -160,6 +161,11 @@ const HitRow = ({
     <text fg={selected ? C.text : C.textFaint}>
       {evidence(hit.line, lineMax, expanded)}
     </text>
+    {hit.pairLine === null ? null : (
+      <text fg={selected ? C.good : C.textFaint}>
+        {evidence(`→ ${hit.pairLine}`, lineMax, expanded)}
+      </text>
+    )}
   </box>
 );
 

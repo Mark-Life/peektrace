@@ -35,11 +35,20 @@ import {
 import { makeClusterTable } from "./detectors/clustering";
 import { makeCorpusPanels } from "./detectors/corpus";
 import { makeFailTable } from "./detectors/failures";
+import { makeCauseTable } from "./detectors/retries";
+import {
+  MAX_RETRY_GAP_SEC,
+  PAIR_THRESHOLD,
+  RETRY_WINDOW,
+} from "./detectors/retry-gates";
+import { matchRules } from "./detectors/rules";
 import { makeTimeTable } from "./detectors/timing";
 import { makeWaitPanel } from "./detectors/waiting";
 import { StatsRowNotFoundError, StatsScanError } from "./errors";
 import { extractFacts } from "./extract";
+import { hostBinsOf } from "./host-bins";
 import { makeMarkerCollector } from "./markers";
+import { readMemoryDocs } from "./memory-files";
 import {
   DEFAULT_DRILL_PAGE,
   DEFAULT_ROW_LIMIT,
@@ -47,7 +56,9 @@ import {
   uniqSorted,
 } from "./rank";
 import { makeRedactor, type Redactor } from "./redact";
+import { dateLines } from "./rule-dates";
 import {
+  type CauseRow,
   DETECTOR_VERSION,
   type DrillResult,
   type DrillTable,
@@ -73,7 +84,10 @@ const BASE_CAVEATS: readonly string[] = [
   "durSec is the gap between a call and its result: it includes harness overhead and approval waits",
   "silent-failure counts are a floor: a detector only sees the output the transcript stored",
   "backgrounded runs are charged the seconds they took, which understates the wait they started",
+  "shell causes cover Claude, OpenCode and Pi shell rows; Codex exec_command output is not parsed for causes",
+  `a retry pair is a failed call followed within ${RETRY_WINDOW} calls by a similar (hybrid similarity >= ${PAIR_THRESHOLD}) succeeding call of the same tool, about 87% precise on a hand-labelled sample; retry seconds are call-to-call gaps of at most ${MAX_RETRY_GAP_SEC}s`,
   "subagent and workflow-agent transcripts count their own model calls, so their tokens and cost are measured, not zero",
+  "a rule match is a keyword probe over CLAUDE.md/AGENTS.md: it means a line mentions the habit, not that it states the fix",
 ];
 
 /** What `report` accepts. */
@@ -222,7 +236,7 @@ const factsFor = (args: {
       sessionId: ref.id,
       slug: ref.slug,
       // A nested transcript is sidechain end to end: count its own turns, as
-      // the sessions view does, or its tokens and cost read zero.
+      // the sessions view does, or its tokens and every retry in it read zero.
       includeSidechainTurns: ref.kind !== "main",
     });
     // One project key across agents: Codex has no slug, so its cwd is encoded
@@ -346,6 +360,7 @@ const runPass = (args: {
 
 /** Everything a report pass folds into. */
 interface Detectors {
+  readonly causes: ReturnType<typeof makeCauseTable>;
   readonly clusters: ReturnType<typeof makeClusterTable>;
   readonly corpus: CorpusTotals;
   readonly fails: ReturnType<typeof makeFailTable>;
@@ -355,6 +370,7 @@ interface Detectors {
 }
 
 const buildDetectors = (opts: AccumulatorOptions): Detectors => ({
+  causes: makeCauseTable(opts),
   clusters: makeClusterTable(opts),
   corpus: makeCorpusTotals(),
   fails: makeFailTable(opts),
@@ -365,6 +381,7 @@ const buildDetectors = (opts: AccumulatorOptions): Detectors => ({
 
 const sinksOf = (d: Detectors): readonly FactSink[] => [
   d.corpus,
+  d.causes,
   d.fails,
   d.time,
   d.waiting,
@@ -378,6 +395,8 @@ const sinkForTable = (
   table: DrillTable
 ): FactAccumulator<unknown> => {
   switch (table) {
+    case "cause":
+      return d.causes;
     case "fail":
       return d.fails;
     case "time":
@@ -397,8 +416,23 @@ interface Prepared {
   readonly opts: AccumulatorOptions;
   readonly redact: Redactor;
   readonly result: PassResult;
+  readonly scope: readonly AgentId[];
   readonly window: StatsWindow;
 }
+
+/** Caveats only the cause rows can state: what was not costed. */
+const causeCaveats = (
+  rows: readonly CauseRow[],
+  caveat: (note: string) => void
+): void => {
+  const pairs = rows.reduce((n, r) => n + r.pairs, 0);
+  const costed = rows.reduce((n, r) => n + r.tokensMeasured, 0);
+  if (pairs > costed) {
+    caveat(
+      `${pairs - costed} of ${pairs} retry pairs are uncosted in tokens: sidechain calls and calls with no recorded model usage carry no context count`
+    );
+  }
+};
 
 /** Build the finish context. Corpus totals are computed first, by construction:
  * every share in the report divides by a field the detectors read from here. */
@@ -440,13 +474,14 @@ const makeService = (args: {
         try: () => buildDetectors(opts),
         catch: (e) => new StatsScanError({ reason: String(e) }),
       });
+      const scope = scopeOf(agents, req.agents);
       const result = yield* runPass({
         agents,
         cache,
         force: req.force === true,
         fs,
         redact,
-        scope: scopeOf(agents, req.agents),
+        scope,
         sinks: sinksOf(detectors),
         // Raw text is never written down: an unredacted pass skips the cache.
         useCache: redactOn,
@@ -454,6 +489,7 @@ const makeService = (args: {
       });
       return {
         caveats: [...BASE_CAVEATS],
+        scope,
         detectors,
         generatedAt,
         opts,
@@ -463,20 +499,62 @@ const makeService = (args: {
       };
     });
 
+  /**
+   * Memory files the rule check reads, after the pass and outside the fold,
+   * with each line dated by the ledger, which is then written back. The ledger
+   * holds line hashes only, so an unredacted report writes it too. The
+   * binaries the host has now are read here too, before the cause table
+   * finishes, so its fix names only what is still missing.
+   */
+  const hostFor = (prepared: Prepared) =>
+    Effect.gen(function* () {
+      const docs = yield* readMemoryDocs({
+        fs,
+        agents,
+        scope: prepared.scope,
+        projectDirs: prepared.detectors.causes.projectDirs(),
+      });
+      const { dateOf, next } = dateLines({
+        docs,
+        ledger: yield* cache.loadLines(),
+        now: prepared.generatedAt,
+      });
+      yield* cache
+        .commitLines(next)
+        .pipe(Effect.orElseSucceed(() => undefined));
+      prepared.detectors.causes.markInstalled(
+        yield* hostBinsOf({ fs, bins: prepared.detectors.causes.missingBins() })
+      );
+      return { docs, dateOf };
+    });
+
   const report: StatsServiceShape["report"] = (req) =>
     prepare(req, null).pipe(
       Effect.flatMap((prepared) =>
+        hostFor(prepared).pipe(Effect.map((memory) => ({ prepared, memory })))
+      ),
+      Effect.flatMap(({ prepared, memory }) =>
         Effect.try({
           try: (): StatsReport => {
             const ctx = contextOf(prepared);
             const { detectors } = prepared;
             const panels = detectors.panels.finish(ctx);
+            const causeTable = detectors.causes.finish(ctx);
+            const causes = matchRules({
+              rows: causeTable.rows,
+              docs: memory.docs,
+              dateOf: memory.dateOf,
+              counts: causeTable.counts,
+              redact: prepared.redact,
+            });
+            causeCaveats(causes, ctx.caveat);
             return {
               schemaVersion: STATS_SCHEMA_VERSION,
               generatedAt: prepared.generatedAt,
               window: prepared.window,
               detectorVersion: DETECTOR_VERSION,
               corpus: ctx.corpus,
+              causes,
               fails: detectors.fails.finish(ctx),
               time: detectors.time.finish(ctx),
               waiting: detectors.waiting.finish(ctx),

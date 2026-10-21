@@ -20,28 +20,15 @@ import {
 import { DEFAULT_ROW_LIMIT } from "../../src/services/stats/rank";
 import { makeRedactor } from "../../src/services/stats/redact";
 import type {
-  CorpusSummary,
   SessionFact,
   StatsFact,
   ToolFact,
 } from "../../src/services/stats/schema";
+import { EMPTY_CORPUS } from "./facts";
 
 const redact = makeRedactor({ enabled: true });
 
 const opts = { redact, limit: DEFAULT_ROW_LIMIT, sampleCap: 3, drill: null };
-
-const EMPTY_CORPUS: CorpusSummary = {
-  transcripts: 0,
-  sessions: 0,
-  projects: 0,
-  toolCalls: 0,
-  bashCalls: 0,
-  bashSec: 0,
-  toolSec: 0,
-  humanWaitSec: 0,
-  kinds: {},
-  agents: {},
-};
 
 /** One transcript summary, minted the way `extract.ts` mints it. */
 const session = (
@@ -56,6 +43,7 @@ const session = (
   startedAt: "2026-08-01T00:00:00.000Z",
   endedAt: "2026-08-01T01:00:00.000Z",
   title: null,
+  source: null,
   models: ["claude-opus-5"],
   turns: 1,
   userMessages: 1,

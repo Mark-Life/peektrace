@@ -14,8 +14,15 @@
  * output, so a later cap on stored text cannot lose a failure.
  */
 import type { ParsedSession, TimelineEvent } from "../sessions/schema";
+import {
+  CAUSES,
+  type CauseHit,
+  detectCause,
+  SHELL_TOOLS,
+} from "./detectors/causes";
 import { errorSignature, normalizeCommand } from "./detectors/clustering";
 import { benignFilter, isPiped, scanOutput } from "./detectors/failures";
+import { FOCUS_SEP } from "./detectors/similarity";
 import { classifyJob, isBackgrounded, isCapped } from "./detectors/timing";
 import { declaredDelaySec, waitShape } from "./detectors/waiting";
 import { round } from "./rank";
@@ -29,20 +36,19 @@ const CMD_MAX = 400;
 /** Chars of a primary argument a fact keeps, after redaction. */
 const ARG_MAX = 200;
 
+/** Chars of a cause culprit a fact keeps, after redaction. */
+const CAUSE_ARG_MAX = 80;
+
+/** Chars of one failing segment a fact keeps, after redaction. */
+const FOCUS_MAX = 200;
+
+/** Failing segments a fact keeps. */
+const FOCUS_SEGMENTS = 3;
+
 /** Decimal places a duration is stored with, so shard bytes are stable. */
 const DUR_DIGITS = 3;
 
 const MS_PER_SEC = 1000;
-
-/** Tool names that run a shell, across the four agents. */
-const BASH_TOOLS: ReadonlySet<string> = new Set([
-  "Bash",
-  "bash",
-  "shell",
-  "local_shell",
-  "run_command",
-  "execute_command",
-]);
 
 /** Per-tool primary argument, in the order the field names are tried. */
 const ARG_KEYS = [
@@ -54,6 +60,8 @@ const ARG_KEYS = [
   "subagent_type",
   "notebook_path",
   "command",
+  // Codex's exec_command line.
+  "cmd",
 ] as const;
 
 /** The `-lc` / `-c` flag of an argv-style shell call, whose payload is the line. */
@@ -63,6 +71,8 @@ const SHELL_FLAG = /^-{1,2}[lc]{1,2}$/;
 interface PendingCall {
   readonly id: string | null;
   readonly input: string;
+  /** Request id of the model call that emitted this call. */
+  readonly req: string | null;
   readonly side: boolean;
   readonly tool: string;
   readonly ts: string | null;
@@ -145,9 +155,11 @@ const sessionFactOf = (args: {
   readonly identity: Identity;
   readonly parsed: ParsedSession;
   readonly redact: Redactor;
+  /** The agent source the transcript is stored in, or null for the default. */
+  readonly source: string | null;
   readonly toolCalls: number;
 }): SessionFact => {
-  const { identity, parsed, redact, toolCalls } = args;
+  const { identity, parsed, redact, source, toolCalls } = args;
   const totals = parsed.turns.reduce(
     (acc, turn) => ({
       inputTokens: acc.inputTokens + turn.inputTokens,
@@ -170,6 +182,8 @@ const sessionFactOf = (args: {
     startedAt: parsed.startedAt ?? null,
     endedAt: parsed.endedAt ?? null,
     title: redact.nullable(parsed.title),
+    cwd: redact.nullable(parsed.cwd),
+    source,
     models: parsed.models,
     turns: parsed.turns.length,
     userMessages: parsed.events.filter((e) => e.kind === "user-prompt").length,
@@ -179,6 +193,38 @@ const sessionFactOf = (args: {
   };
 };
 
+/**
+ * Clip each failing segment on its own, so a clip never splits two. The
+ * detector already cut them from redacted text; this pass catches what the
+ * normalised form still shows.
+ */
+const focusOf = (hit: CauseHit | null, redact: Redactor): string | null => {
+  if (hit === null || hit.focus === null) {
+    return null;
+  }
+  const parts = hit.focus
+    .split(FOCUS_SEP)
+    .slice(0, FOCUS_SEGMENTS)
+    .map((s) => redact.line(s, FOCUS_MAX))
+    .filter((s) => s !== "");
+  return parts.length === 0 ? null : parts.join(FOCUS_SEP);
+};
+
+/** The error signature: a cause reads its own line, not the last one printed. */
+const sigOf = (args: {
+  readonly tool: string;
+  readonly output: string;
+  readonly hit: CauseHit | null;
+  readonly failed: boolean;
+}): string | null => {
+  const { tool, output, hit, failed } = args;
+  if (!failed) {
+    return null;
+  }
+  const line = hit?.line ?? null;
+  return errorSignature({ tool, text: line ?? output });
+};
+
 /** Build the tool or bash row for one joined call. */
 const callFactOf = (args: {
   readonly identity: Identity;
@@ -186,17 +232,21 @@ const callFactOf = (args: {
   readonly call: PendingCall;
   readonly result: TimelineEvent | null;
   readonly redact: Redactor;
+  readonly ctxTok: number | null;
 }): ToolFact | BashFact => {
-  const { identity, seq, call, result, redact } = args;
+  const { identity, seq, call, result, redact, ctxTok } = args;
   const output = result?.body ?? "";
   const err = result?.isError === true;
   const scan = scanOutput({ tool: call.tool, text: output, isError: err });
   const input = asObject(call.input);
   const arg = argOf(input);
-  const sig =
-    scan.failed || err
-      ? errorSignature({ tool: call.tool, text: output })
-      : null;
+  const shell = SHELL_TOOLS.has(call.tool);
+  const cmd = shell ? commandOf(input) : "";
+  const hit = detectCause({ tool: call.tool, cmd, output, scrub: redact.text });
+  // A failing cause is a failure whatever the exit code said: a glob abort in
+  // a chain segment exits 0 when the tail of the chain succeeds.
+  const failed = scan.failed || (hit !== null && CAUSES[hit.cause].failing);
+  const sig = sigOf({ tool: call.tool, output, hit, failed: failed || err });
   const base = {
     ...identity,
     seq,
@@ -205,7 +255,7 @@ const callFactOf = (args: {
     ts: call.ts,
     durSec: durationOf(call.ts, result?.ts ?? null),
     err,
-    failed: scan.failed,
+    failed,
     failReason: scan.reason,
     detector: scan.detector,
     benign: null,
@@ -213,17 +263,29 @@ const callFactOf = (args: {
     arg: arg === null ? null : redact.line(arg, ARG_MAX),
     outChars: output.length,
     side: call.side,
+    req: call.req,
+    ctxTok,
+    cause: hit?.cause ?? null,
+    causeArg:
+      hit === null || hit.arg === null
+        ? null
+        : redact.line(hit.arg, CAUSE_ARG_MAX),
+    focus: focusOf(hit, redact),
   };
-  if (!BASH_TOOLS.has(call.tool)) {
+  if (!shell) {
     return { row: "tool", ...base } satisfies ToolFact;
   }
-  const cmd = commandOf(input);
   const { bin, family } = normalizeCommand(cmd);
   const { job, present } = classifyJob(cmd);
   return {
     ...base,
     row: "bash",
-    benign: benignFilter({ cmd, output, detector: scan.detector }),
+    benign: benignFilter({
+      cmd,
+      output,
+      detector: scan.detector,
+      cause: base.cause,
+    }),
     cmd: redact.line(cmd, CMD_MAX),
     bin,
     family: redact.text(family),
@@ -255,10 +317,16 @@ export const extractFacts = (args: {
   const pending = new Map<string, PendingCall>();
   const matched = new Set<string>();
   const calls: (ToolFact | BashFact)[] = [];
+  // Context of the model call behind each tool call: what a retry re-read.
+  // Sidechain turns are not registered, so their calls stay uncosted (null).
+  const ctxByReq = new Map(
+    parsed.turns.map((t) => [t.requestId, t.contextTokens] as const)
+  );
   let seq = 0;
 
   const emit = (call: PendingCall, result: TimelineEvent | null) => {
-    calls.push(callFactOf({ identity, seq, call, result, redact }));
+    const ctxTok = call.req === null ? null : (ctxByReq.get(call.req) ?? null);
+    calls.push(callFactOf({ identity, seq, call, result, redact, ctxTok }));
     seq += 1;
   };
 
@@ -269,6 +337,7 @@ export const extractFacts = (args: {
         id,
         tool: event.toolName ?? "tool",
         input: event.body,
+        req: event.requestId ?? null,
         ts: event.ts ?? null,
         side: event.isSidechain === true,
       });
@@ -289,7 +358,13 @@ export const extractFacts = (args: {
   }
 
   return [
-    sessionFactOf({ identity, parsed, redact, toolCalls: calls.length }),
+    sessionFactOf({
+      identity,
+      parsed,
+      redact,
+      source: ref.source?.id ?? null,
+      toolCalls: calls.length,
+    }),
     ...calls,
   ];
 };

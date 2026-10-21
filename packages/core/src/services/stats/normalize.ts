@@ -1,5 +1,6 @@
 import {
   binName,
+  commandIndex,
   isEnvAssign,
   isFlag,
   isLiteral,
@@ -50,9 +51,6 @@ const FAMILY_MAX = 120;
 /** Family words kept after the binary. */
 const FAMILY_BUDGET = 3;
 
-/** Wrapper hops unwrapped before giving up on a nested command. */
-const UNWRAP_GUARD = 4;
-
 /**
  * Segments that set up a shell but do no work, so never name a family. `echo`
  * is one of them: it prints a banner in 2,768 calls, 7% of all bash, and names
@@ -75,27 +73,6 @@ const SETUP_BINS: ReadonlySet<string> = new Set([
   "umask",
   "unset",
 ]);
-
-/** Wrappers that stand in front of the real command. */
-const UNARY_WRAPPERS: ReadonlySet<string> = new Set([
-  "bunx",
-  "command",
-  "env",
-  "nohup",
-  "npx",
-  "pnpx",
-  "stdbuf",
-  "sudo",
-  "time",
-]);
-
-/** Two-word wrappers: `<bin> <word>` runs the next word as the real command. */
-const BINARY_WRAPPERS: Record<string, ReadonlySet<string>> = {
-  bun: new Set(["x"]),
-  npm: new Set(["exec", "x"]),
-  pnpm: new Set(["dlx", "exec"]),
-  yarn: new Set(["dlx"]),
-};
 
 /** Binaries whose first path argument is a script worth keeping in the family. */
 const SCRIPT_RUNNERS: ReadonlySet<string> = new Set([
@@ -166,32 +143,8 @@ const meaningfulSegment = (segments: readonly string[]) => {
 };
 
 /** Drop leading env assignments and wrapper binaries, returning the real words. */
-const unwrap = (words: readonly Word[]) => {
-  let ws = words;
-  while (ws.length > 0 && isEnvAssign(ws[0]?.text ?? "")) {
-    ws = ws.slice(1);
-  }
-  for (let guard = 0; guard < UNWRAP_GUARD && ws.length > 0; guard++) {
-    const head = binName(ws[0]?.text ?? "");
-    if (UNARY_WRAPPERS.has(head)) {
-      ws = ws.slice(1);
-      while (
-        ws.length > 0 &&
-        (isEnvAssign(ws[0]?.text ?? "") || isFlag(ws[0]?.text ?? ""))
-      ) {
-        ws = ws.slice(1);
-      }
-      continue;
-    }
-    const second = ws[1] ? binName(ws[1].text) : "";
-    if (BINARY_WRAPPERS[head]?.has(second)) {
-      ws = ws.slice(2);
-      continue;
-    }
-    break;
-  }
-  return ws;
-};
+const unwrap = (words: readonly Word[]) =>
+  words.slice(commandIndex(words.map((w) => w.text)));
 
 /** Walk state while the family words are picked out of one segment. */
 interface FamilyScan {
