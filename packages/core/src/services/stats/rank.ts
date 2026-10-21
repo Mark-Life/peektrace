@@ -265,11 +265,33 @@ export const collapseWs = (s: string): string => s.replace(/\s+/g, " ").trim();
 export const clip = (s: string, max: number): string =>
   s.length > max ? `${s.slice(0, max)}…` : s;
 
+/** Sample candidates held per key before the shortest-first cut. */
+export const SAMPLE_POOL = 64;
+
 /**
- * Choose sample lines: shortest first, then string compare, then session id.
+ * Sample order: shortest line first, then string compare, session id and seq.
  * Never "first seen" — that is transcript order, which is not stable across a
  * corpus whose files change.
  */
+export const compareSamples = chain<{ line: string; sid: string; seq: number }>(
+  asc((c) => c.line.length),
+  ascStr((c) => c.line),
+  ascStr((c) => c.sid),
+  asc((c) => c.seq)
+);
+
+/**
+ * Bound a growing sample pool to the `SAMPLE_POOL` that `cut` ranks first.
+ * The cut runs in batches, once the pool doubles: re-sorting on every add past
+ * the cap was the hottest line of a warm report. It keeps the same top of the
+ * same total order, so output is unchanged.
+ */
+export const boundPool = <T>(
+  pool: T[],
+  cut: (pool: readonly T[], cap: number) => readonly T[]
+): T[] => (pool.length > SAMPLE_POOL * 2 ? [...cut(pool, SAMPLE_POOL)] : pool);
+
+/** Choose sample lines in `compareSamples` order, one per call. */
 export const pickSamples = <
   T extends { line: string; sid: string; seq: number },
 >(
@@ -285,12 +307,5 @@ export const pickSamples = <
       unique.push(c);
     }
   }
-  return sortBy(
-    unique,
-    chain<T>(
-      asc((c) => c.line.length),
-      ascStr((c) => c.line),
-      ascStr((c) => c.sid)
-    )
-  ).slice(0, Math.max(0, cap));
+  return sortBy(unique, compareSamples).slice(0, Math.max(0, cap));
 };

@@ -34,6 +34,50 @@ const SECRET = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
 
 const ABORTED = "bun test 2>&1 | tail -5; echo ===; ls packages";
 const SILENT = "bun run typecheck | tail -3";
+const GLOBBED = "grep -rn needle src --include=*.ts | head -3; echo end";
+const QUOTED = "grep -rn needle src --include='*.ts' | head -3";
+
+/** One assistant tool call and its result, two seconds apart. */
+const callLines = (args: {
+  readonly id: string;
+  readonly req: string;
+  readonly at: string;
+  readonly done: string;
+  readonly command: string;
+  readonly output: string;
+}) => [
+  {
+    type: "assistant",
+    requestId: args.req,
+    timestamp: args.at,
+    message: {
+      model: "claude-opus-4",
+      usage: {
+        input_tokens: 10,
+        cache_read_input_tokens: 2000,
+        cache_creation_input_tokens: 0,
+        output_tokens: 5,
+      },
+      content: [
+        {
+          type: "tool_use",
+          id: args.id,
+          name: "Bash",
+          input: { command: args.command },
+        },
+      ],
+    },
+  },
+  {
+    type: "user",
+    timestamp: args.done,
+    message: {
+      content: [
+        { type: "tool_result", tool_use_id: args.id, content: args.output },
+      ],
+    },
+  },
+];
 
 const transcript = [
   {
@@ -115,6 +159,22 @@ const transcript = [
       ],
     },
   },
+  ...callLines({
+    id: "tool-3",
+    req: "req-3",
+    at: "2026-06-01T10:00:30.000Z",
+    done: "2026-06-01T10:00:31.000Z",
+    command: GLOBBED,
+    output: "(eval):1: no matches found: --include=*.ts\nend",
+  }),
+  ...callLines({
+    id: "tool-4",
+    req: "req-4",
+    at: "2026-06-01T10:00:36.000Z",
+    done: "2026-06-01T10:00:37.000Z",
+    command: QUOTED,
+    output: "src/a.ts:3:needle",
+  }),
 ]
   .map((line) => JSON.stringify(line))
   .join("\n");
@@ -231,6 +291,11 @@ const prevPtDir = process.env.PEEKTRACE_DIR;
 beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "peektrace-stats-"));
   mkdirSync(join(root, SLUG), { recursive: true });
+  mkdirSync(join(root, "home"), { recursive: true });
+  writeFileSync(
+    join(root, "home", "CLAUDE.md"),
+    "# Shell\n- Quote globs passed as flag values: --include='*.ts'.\n"
+  );
   writeFileSync(join(root, SLUG, `${SID}.jsonl`), `${transcript}\n`);
   mkdirSync(join(root, SLUG, SID, "subagents"), { recursive: true });
   writeFileSync(
@@ -254,11 +319,11 @@ describe("stats.report", () => {
     withClient((client) =>
       Effect.gen(function* () {
         const report = yield* client.stats.report({ days: WIDE });
-        expect(report.schemaVersion).toBe("peektrace-stats/v1");
+        expect(report.schemaVersion).toBe("peektrace-stats/v2");
         expect(report.generatedAt).toBe(FIXED_MS);
         expect(report.window.days).toBe(WIDE);
         expect(report.corpus.transcripts).toBe(2);
-        expect(report.corpus.bashCalls).toBe(2);
+        expect(report.corpus.bashCalls).toBe(4);
         expect(report.caveats.length).toBeGreaterThan(0);
       })
     ));
@@ -279,17 +344,44 @@ describe("stats.report", () => {
     withClient((client) =>
       Effect.gen(function* () {
         const report = yield* client.stats.report({ days: WIDE });
-        const rule = report.fails.find(
-          (row) => row.detector === "zsh-equals-abort"
+        const rule = report.causes.find(
+          (row) => row.cause === "zsh-equals-abort"
         );
-        expect(rule?.rows).toBe(1);
+        expect(rule?.hits).toBe(1);
         expect(rule?.sessions).toBe(1);
-        expect(rule?.note).toContain('echo "==="');
+        expect(rule?.fix).toContain('echo "==="');
+        expect(report.fails.some((row) => row.key.startsWith("cause:"))).toBe(
+          false
+        );
 
         const silent = report.fails.find((row) => row.key === "scan:tsc");
         expect(silent?.rows).toBe(1);
         expect(silent?.flagged).toBe(0);
         expect(silent?.detector).toBe("piped-exit-code");
+      })
+    ));
+
+  test("decodes the cause rows, with the retry pair and the rule check", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const report = yield* client.stats.report({ days: WIDE });
+        const glob = report.causes.find((row) => row.cause === "zsh-glob-flag");
+        expect(glob?.key).toBe("cause:zsh-glob-flag");
+        expect(glob?.hits).toBe(1);
+        expect(glob?.flagged).toBe(0);
+        expect(glob?.pairs).toBe(1);
+        expect(glob?.retrySec).toBe(6);
+        expect(glob?.retryCtxTokens).toBe(2010);
+        expect(glob?.diffs[0]?.to).toBe("--include='*.ts'");
+        expect(glob?.rule?.matches[0]?.path.endsWith("/home/CLAUDE.md")).toBe(
+          true
+        );
+        expect(glob?.rule?.matches[0]?.line).toBe(2);
+        const equals = report.causes.find(
+          (row) => row.cause === "zsh-equals-abort"
+        );
+        expect(equals?.hits).toBe(1);
+        expect(report.fails.some((row) => row.key === "flag:Bash")).toBe(false);
       })
     ));
 
@@ -331,12 +423,30 @@ describe("stats.drill", () => {
         const drill = yield* client.stats.drill({
           days: WIDE,
           table: "fail",
-          key: "detect:zsh-equals-abort",
+          key: "scan:tsc",
         });
-        expect(drill.schemaVersion).toBe("peektrace-stats/v1");
+        expect(drill.schemaVersion).toBe("peektrace-stats/v2");
         expect(drill.total).toBe(1);
         expect(drill.hits[0]?.sid).toBe(SID);
         expect(drill.hits[0]?.failed).toBe(true);
+      })
+    ));
+
+  test("expands a cause into its failed calls and their retries", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const drill = yield* client.stats.drill({
+          days: WIDE,
+          table: "cause",
+          key: "cause:zsh-glob-flag",
+        });
+        expect(drill.total).toBe(1);
+        // Links carry the transcript's own call ids, so they land on the card.
+        expect(drill.hits[0]?.toolUseId).toBe("tool-3");
+        expect(drill.hits[0]?.pairToolUseId).toBe("tool-4");
+        // The retry's own line travels apart from the failed call's.
+        expect(drill.hits[0]?.line).not.toContain(" → ");
+        expect(drill.hits[0]?.pairLine).not.toBeNull();
       })
     ));
 
@@ -345,8 +455,8 @@ describe("stats.drill", () => {
       Effect.gen(function* () {
         const args = {
           days: WIDE,
-          key: "detect:zsh-equals-abort",
-          table: "fail",
+          key: "cause:zsh-equals-abort",
+          table: "cause",
         } as const;
         const first = yield* client.stats.drill({ ...args, pageSize: 1 });
         expect(first.offset).toBe(0);
@@ -381,11 +491,13 @@ describe("stats.markers", () => {
     withClient((client) =>
       Effect.gen(function* () {
         const marked = yield* client.stats.markers({ sid: SID });
-        expect(marked.schemaVersion).toBe("peektrace-stats/v1");
+        expect(marked.schemaVersion).toBe("peektrace-stats/v2");
         expect(marked.sid).toBe(SID);
         const ids = marked.markers.map((m) => [m.toolUseId, m.detector]);
         expect(ids).toContainEqual(["tool-1", "zsh-equals-abort"]);
         expect(ids).toContainEqual(["tool-2", "piped-exit-code"]);
+        expect(ids).toContainEqual(["tool-3", "zsh-glob-flag"]);
+        expect(ids).toContainEqual(["tool-4", "retry"]);
       })
     ));
 

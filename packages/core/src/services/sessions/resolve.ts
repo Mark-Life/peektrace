@@ -1,6 +1,6 @@
 /** Locate a transcript by id and gather companion files via the platform FS. */
 import type { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { type AgentRegistryShape, sourcesOf } from "../agents";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
@@ -260,6 +260,65 @@ export const findSubagents = (args: {
   );
 };
 
+/** One context file as it sits on disk, symlinks resolved. */
+interface ContextRead {
+  readonly bytes: number;
+  /** Last modification, epoch ms; null when the platform reports none. */
+  readonly mtimeMs: number | null;
+  /** The path with every symlink resolved. */
+  readonly realPath: string;
+  /** Null when the file exists but its text could not be read. */
+  readonly text: string | null;
+}
+
+/**
+ * Stat and read one context file through the platform FS, following
+ * symlinks, or null when it is absent or cannot be stat'd.
+ */
+const readContext = (args: {
+  readonly fs: FileSystem.FileSystem;
+  readonly path: string;
+}): Effect.Effect<ContextRead | null> => {
+  const { fs, path } = args;
+  return fs.exists(path).pipe(
+    Effect.orElseSucceed(() => false),
+    Effect.flatMap((present) =>
+      present
+        ? Effect.gen(function* () {
+            const realPath = yield* fs
+              .realPath(path)
+              .pipe(Effect.orElseSucceed(() => path));
+            const info = yield* fs.stat(realPath);
+            const text = yield* fs
+              .readFileString(realPath)
+              .pipe(Effect.orElseSucceed(() => null));
+            const mtime = Option.getOrNull(info.mtime);
+            return {
+              bytes: Number(info.size),
+              text,
+              realPath,
+              mtimeMs: mtime === null ? null : mtime.getTime(),
+            } satisfies ContextRead;
+          }).pipe(Effect.orElseSucceed(() => null))
+        : Effect.succeed(null)
+    )
+  );
+};
+
+/**
+ * One memory file's text, where it really lives and when it last changed, or
+ * null when it is absent or unreadable.
+ */
+export const readContextText = (args: {
+  readonly fs: FileSystem.FileSystem;
+  readonly path: string;
+}): Effect.Effect<(ContextRead & { readonly text: string }) | null> =>
+  readContext(args).pipe(
+    Effect.map((read) =>
+      read === null || read.text === null ? null : { ...read, text: read.text }
+    )
+  );
+
 /** Read one context file into an OnDiskContextFile, or null when absent. */
 const readContextFile = (args: {
   readonly fs: FileSystem.FileSystem;
@@ -267,28 +326,20 @@ const readContextFile = (args: {
   readonly label: string;
   readonly scope: OnDiskContextFile["scope"];
 }): Effect.Effect<OnDiskContextFile | null> => {
-  const { fs, path, label, scope } = args;
-  return fs.exists(path).pipe(
-    Effect.orElseSucceed(() => false),
-    Effect.flatMap((present) =>
-      present
-        ? Effect.gen(function* () {
-            const info = yield* fs.stat(path);
-            const bytes = Number(info.size);
-            const text = yield* fs
-              .readFileString(path)
-              .pipe(Effect.orElseSucceed(() => ""));
-            return {
-              label,
-              path,
-              bytes,
-              tokensEst: text
-                ? estTokens(text)
-                : Math.round(bytes / BYTES_PER_TOKEN),
-              scope,
-            } satisfies OnDiskContextFile;
-          }).pipe(Effect.orElseSucceed(() => null))
-        : Effect.succeed(null)
+  const { path, label, scope } = args;
+  return readContext(args).pipe(
+    Effect.map((read) =>
+      read === null
+        ? null
+        : ({
+            label,
+            path,
+            bytes: read.bytes,
+            tokensEst: read.text
+              ? estTokens(read.text)
+              : Math.round(read.bytes / BYTES_PER_TOKEN),
+            scope,
+          } satisfies OnDiskContextFile)
     )
   );
 };

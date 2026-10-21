@@ -10,6 +10,7 @@ import {
   timeNote as coreTimeNote,
   type FindingFormat,
 } from "@workspace/core/services/stats/findings";
+import { fmtK } from "@workspace/viz/lib/session-format";
 
 export type { Finding } from "@workspace/core/services/stats/findings";
 
@@ -51,7 +52,7 @@ export const at = (epochMs: number): string =>
   new Date(epochMs).toLocaleString();
 
 /** How this surface spells a number, for the sentences core composes. */
-const FORMAT: FindingFormat = { count: n, hms, pct };
+const FORMAT: FindingFormat = { count: n, hms, pct, tokens: fmtK };
 
 /** What a time row can say for itself, from its own columns. */
 export const timeNote = (row: TimeRow): string | null =>

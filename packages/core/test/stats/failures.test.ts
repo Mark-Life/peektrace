@@ -1,80 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync } from "node:fs";
-import type { FinishContext } from "../../src/services/stats/accumulate";
 import { defaultOptions } from "../../src/services/stats/accumulate";
+import { detectCause } from "../../src/services/stats/detectors/causes";
 import {
   benignFilter,
   isPiped,
   makeFailTable,
   scanOutput,
 } from "../../src/services/stats/detectors/failures";
-import {
-  DEFAULT_ROW_LIMIT,
-  DEFAULT_SAMPLE_CAP,
-} from "../../src/services/stats/rank";
-import { makeRedactor } from "../../src/services/stats/redact";
-import type { BashFact, CorpusSummary } from "../../src/services/stats/schema";
-
-const redact = makeRedactor({ enabled: true });
-
-const EMPTY_CORPUS: CorpusSummary = {
-  transcripts: 0,
-  sessions: 0,
-  projects: 0,
-  toolCalls: 0,
-  bashCalls: 0,
-  bashSec: 0,
-  toolSec: 0,
-  humanWaitSec: 0,
-  kinds: {},
-  agents: {},
-};
-
-const contextOf = (caveats: string[]): FinishContext => ({
-  corpus: EMPTY_CORPUS,
-  window: { days: 60, fromIso: "", toIso: "" },
-  redact,
-  limit: DEFAULT_ROW_LIMIT,
-  sampleCap: DEFAULT_SAMPLE_CAP,
-  caveat: (note) => {
-    caveats.push(note);
-  },
-});
-
-const bashFact = (over: Partial<BashFact>): BashFact => ({
-  row: "bash",
-  sid: "s1",
-  agent: "claude",
-  project: "proj",
-  kind: "main",
-  parent: null,
-  run: null,
-  seq: 0,
-  toolUseId: null,
-  tool: "Bash",
-  ts: "2026-08-01T00:00:00.000Z",
-  durSec: 1,
-  err: false,
-  failed: false,
-  failReason: null,
-  detector: null,
-  benign: null,
-  sig: null,
-  arg: null,
-  outChars: 0,
-  side: false,
-  cmd: "true",
-  bin: "true",
-  family: "true",
-  job: "other",
-  present: ["other"],
-  wait: null,
-  declaredDelaySec: 0,
-  piped: false,
-  bg: false,
-  capped: false,
-  ...over,
-});
+import type { BashFact } from "../../src/services/stats/schema";
+import { bashFact, contextOf, redact } from "./facts";
 
 const shell = (text: string, isError = false) =>
   scanOutput({ tool: "Bash", text, isError });
@@ -133,7 +68,7 @@ describe("isPiped", () => {
 });
 
 const filterOf = (cmd: string, output: string) =>
-  benignFilter({ cmd, output, detector: null });
+  benignFilter({ cmd, output, detector: null, cause: null });
 
 describe("benignFilter", () => {
   test("zsh no-match is the answer, not a failure", () => {
@@ -168,13 +103,42 @@ describe("benignFilter", () => {
         "The user doesn't want to proceed with this tool use. The tool use was rejected."
       )
     ).toBe("user-rejected");
+    expect(
+      filterOf(
+        "rm -rf /",
+        "The user doesn't want to take this action right now."
+      )
+    ).toBe("user-rejected");
   });
 
   test("a detector's row is never suppressed", () => {
     const output = `Exit code 1\n${"printed work\n".repeat(30)}`;
-    expect(filterOf("ls -la; echo ===; git status; false", output)).toBeNull();
     expect(
-      benignFilter({ cmd: "ls -la; false", output, detector: "some-detector" })
+      benignFilter({
+        cmd: "ls -la; echo ===; git status; false",
+        output,
+        detector: null,
+        cause: "zsh-equals-abort",
+      })
+    ).toBeNull();
+    expect(
+      benignFilter({
+        cmd: "ls -la; false",
+        output,
+        detector: "some-detector",
+        cause: null,
+      })
+    ).toBeNull();
+  });
+
+  test("a row a cause claimed is never suppressed", () => {
+    expect(
+      benignFilter({
+        cmd: "grep -rn x . --include=*.ts",
+        output: "Exit code 1\n(eval):1: no matches found: --include=*.ts",
+        detector: null,
+        cause: "zsh-glob-flag",
+      })
     ).toBeNull();
   });
 
@@ -194,28 +158,39 @@ describe("fail table", () => {
     return { rows: table.finish(contextOf(caveats)), caveats };
   };
 
-  test("the zsh separator is a row of its own, with the fix attached", () => {
+  test("a call a failing cause claims is the cause table's, not a fail row", () => {
     const { rows } = rowsFor([
       bashFact({
         seq: 0,
         err: true,
         failed: true,
         cmd: "ls; echo ===; git status",
+        cause: "zsh-equals-abort",
       }),
       bashFact({
         seq: 1,
-        sid: "s2",
         err: true,
         failed: true,
-        cmd: "echo === done",
+        cmd: "grep -rn x . --include=*.ts",
+        cause: "zsh-glob-flag",
       }),
+      bashFact({
+        seq: 2,
+        failed: true,
+        cmd: "grep -rn y . --include=*.md | head",
+        cause: "zsh-glob-flag",
+      }),
+      bashFact({ seq: 3, err: true, failed: true, cmd: "bun test" }),
     ]);
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.key).toBe("detect:zsh-equals-abort");
-    expect(rows[0]?.detector).toBe("zsh-equals-abort");
-    expect(rows[0]?.rows).toBe(2);
-    expect(rows[0]?.sessions).toBe(2);
-    expect(rows[0]?.note).toContain('echo "==="');
+    expect(rows.map((r) => [r.key, r.rows])).toEqual([["flag:Bash", 1]]);
+    expect(rows[0]?.note).toBeNull();
+  });
+
+  test("a cause that is waste, not failure, is not a fail row", () => {
+    const { rows } = rowsFor([
+      bashFact({ seq: 0, cause: "output-too-large", causeArg: "b1.txt" }),
+    ]);
+    expect(rows).toEqual([]);
   });
 
   test("a silent failure is its own row and names the pipe", () => {
@@ -313,6 +288,8 @@ describe("fail table", () => {
  * The labelled oracle: 161 hand-labelled errored Bash rows, sampled every 6th by
  * (t, sid, cmd), kept outside the repo because it holds real commands from 25
  * private projects. Runs only when `PEEKTRACE_BENIGN_SAMPLE` names the file.
+ * The rows score with `cause: null`, so the filters are measured as they were
+ * labelled; a separate test shows the glob rows a cause now claims.
  */
 const ORACLE = process.env.PEEKTRACE_BENIGN_SAMPLE ?? "";
 
@@ -344,6 +321,7 @@ describe.skipIf(!(ORACLE !== "" && existsSync(ORACLE)))(
         cmd: row.cmd,
         output: row.err_text,
         detector: null,
+        cause: null,
       }),
     }));
     const suppressed = scored.filter((s) => s.id !== null);
@@ -381,13 +359,34 @@ describe.skipIf(!(ORACLE !== "" && existsSync(ORACLE)))(
       expect(per("chained-tail")).toEqual({ rows: 28, benign: 17, real: 10 });
     });
 
-    test("every sampled zsh-separator row is a real failure, and none is suppressed", () => {
+    test("every sampled zsh-separator row is a real failure, claimed by its cause", () => {
       const detected = sample.filter((r) => ZSH_SEPARATOR.test(r.cmd));
       expect(detected).toHaveLength(30);
       expect(detected.every((r) => r.label === "REAL")).toBe(true);
-      expect(suppressed.filter((s) => ZSH_SEPARATOR.test(s.row.cmd))).toEqual(
-        []
+      const unclaimed = detected.filter(
+        (r) =>
+          detectCause({
+            tool: "Bash",
+            cmd: r.cmd,
+            output: r.err_text,
+            failed: true,
+          }) === null
       );
+      expect(unclaimed).toEqual([]);
+    });
+
+    test("the glob rows the filter suppressed are now claimed by a cause", () => {
+      const globs = scored.filter((s) => s.id === "glob-no-match");
+      const claimed = globs.filter(
+        (s) =>
+          detectCause({
+            tool: "Bash",
+            cmd: s.row.cmd,
+            output: s.row.err_text,
+            failed: true,
+          }) !== null
+      );
+      expect(claimed).toHaveLength(globs.length);
     });
   }
 );

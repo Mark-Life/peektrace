@@ -128,6 +128,7 @@ export {
   type FindingFormat,
   failSpread,
   findingsOf,
+  rateText,
   timeNote,
   timeSpread,
 } from "./services/stats/findings";

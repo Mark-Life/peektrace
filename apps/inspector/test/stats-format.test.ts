@@ -58,6 +58,7 @@ const report = (args: {
   readonly time: readonly TimeRow[];
 }): StatsReport => ({
   caveats: [],
+  causes: [],
   clusters: [],
   context: [],
   corpus: {
@@ -77,7 +78,7 @@ const report = (args: {
   fails: args.fails,
   fanout: [],
   generatedAt: 0,
-  schemaVersion: "peektrace-stats/v1",
+  schemaVersion: "peektrace-stats/v2",
   skipped: [],
   time: args.time,
   waiting: {

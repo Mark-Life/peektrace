@@ -1,0 +1,106 @@
+[
+  { "a": "", "b": "", "r": 1.0 },
+  { "a": "abc", "b": "", "r": 0.0 },
+  { "a": "", "b": "xyz", "r": 0.0 },
+  { "a": "abc", "b": "abc", "r": 1.0 },
+  { "a": "abcd", "b": "bcde", "r": 0.75 },
+  {
+    "a": "grep -rn foo --include=*.ts .",
+    "b": "grep -rn foo --include='*.ts' .",
+    "r": 0.9666666666666667
+  },
+  {
+    "a": "rg -g *.ts pattern src",
+    "b": "rg -g '*.ts' pattern src",
+    "r": 0.9565217391304348
+  },
+  {
+    "a": "jq .name package.json",
+    "b": "bun -e 'console.log(1)'",
+    "r": 0.3181818181818182
+  },
+  {
+    "a": "sleep 60; cat /tmp/out.log",
+    "b": "until grep -q DONE /tmp/out.log; do sleep 2; done; cat /tmp/out.log",
+    "r": 0.5161290322580645
+  },
+  {
+    "a": "private Thread currentThread;",
+    "b": "private volatile Thread currentThread;",
+    "r": 0.8656716417910447
+  },
+  { "a": "qabxcd", "b": "abycdf", "r": 0.6666666666666666 },
+  { "a": "aaaaaaaaaa", "b": "aaaaaaa", "r": 0.8235294117647058 },
+  {
+    "a": "ls dir/*.x 2>/dev/null",
+    "b": "ls -d dir/*.x(N)",
+    "r": 0.5263157894736842
+  },
+  { "a": "é漢字 emoji 🙂 x", "b": "é漢字 emoji 🙃 x", "r": 0.9230769230769231 },
+  { "a": "tsc --noEmit | tail -20", "b": "bun run typecheck", "r": 0.2 },
+  {
+    "a": "a';.hd-c| gagbe*ae*hfdgg/f*ecgfgfe'-ab-aad'*-'-g/'bgf|/eag;e /aea;fcb;*hb';gb.efeabb' deb ed*hgd|eedh.*dgh;dcgdb.;e**hb/|*d-*;d/e.-/;ga.c.a; hb.eg*|d b/h-aa/f.hdf-.f'|e/a.ge''dg'd-ah*|'c*|h;'cbd'b-d|",
+    "b": "a';.hd-c| gagbe*ae*efdgg/f*ebgfg-e'-ab-aad'a-'-g.'bgf|/eag;e /aeacfcb;-h|'hgb'efeabbh deb eddhgd|'edh.*dghfdcgdb.;e**hb/|*d-*;d/e.-/aga.c.h; hb.eg*|d b/h-aa/f.h;f-.f'|e/agge''dg'd-ah*|'a*|h;'c.d b- *",
+    "r": 0.8793969849246231
+  },
+  {
+    "a": "f cf|.ahfeabcb;eef.h.*'a ;.cbgf/eb;dafgd.feh.'e  /'bg|.befea.fdade d|aa  b-hadgb-.acch;a|*g/e aeac;.;h/'-';g hfh';e.e/'| .;.dh-a f''d|a';h|be'eacf.c.|f e;'g /f f ach'' d c*-b h|**c-**b; ;| fc;*/hee'.f",
+    "b": "f cf|.ahfegbcb;eef...*'a ;.c-gf/eb;da/gd.feh.'e  /'bg|.beg;a.*dade d|ga  b';adgb-. bch;a|*g/e aeac;.;h/'-'*g hfh';ege/'| /;.dh|a f''d|'';h|be'eacf.c.|f e;'d /f f acd'''- c*-b h|**|-**b;';| fc;//he|'.f",
+    "r": 0.05
+  },
+  {
+    "a": ";;''-afe*eehe*;e- |-bf|-e|bh;/.|gfc;-caf'/'ca.ga;||dd| |ea;f-bhfbbd|/.| fc/;heb-*|ceghf/-b.dec;a/-gb/   eghd*ecd/f|'gaacbh -h-/dfgdg'c.he| /'//f/.b/.dh'' a-ce'--c'- cc.  d/d*ced;.|ce de .da* h-fb  dc c",
+    "b": ";/f'-afe*eehe*;e; |-bf|-e|bh;/a|gfc;dcaf'/'ca.g';||dd| |ea;f-bdfbbd /.| fc/;heb-*|;eghf/-b.dacaa/bgb/   eghd*ecd/ |'gaacb/ 'h-/;fgdg'c.he| /'//f/.e/gdh''ca-ce'--c'- cc.  d/ *ced;.|ce ;| .daa b-fb  dcac",
+    "r": 0.004975124378109453
+  },
+  {
+    "a": "-|f/f*ah;/dcbbbe'. ad- hf-af|e*f d|g-h-;' |-gga|'c|dhdb*|;/f'd/*'f;*c|g'; |ec-'eddcfac e.-/ca eh ;;gea.**g.c.bh/h.g|haaeaa-*hhg-afhhef-/f-/afc|c.a.d| -g;h.h|;/.;aef/g bcah.bcc-ag.'** |ggba h/g  -hffbc/-agcf bef.ggbh.d|g f.ag.;hb*fd|'agee|||h*|.'cf'd*",
+    "b": "-|faf*ahg/dcbbbe'. add hf-af|d*f d|g-e-;' |-gga|hc|bhdb*|;g|'d/ 'f;*c|g'; |ecg'edacfac e.-/ca  h ;;gea.*fg.c.bh/h.g|haaeaa-**hg-afhhef-;f-/afc|cda.de -g;h.h|;/.;aef/g 'cah.bhc-age'** |ggbach/g  -hffbc/-agcf bef.ggbh.d|/ f.ag.;hb*fd*'ageehe|h*|.'cf'gh",
+    "r": 0.012
+  },
+  {
+    "a": "|-hge|ag/-aa|.*f.-'daf*--  hff '/*.gg''''c''*hb'haf|.*ccbc|c'-be-/ ''bc'bah'edcbbd ada-gfca;.fg*/|c/ g*'|*af/'fg/c- /a';dahd*;-bh f*.fgb;;*ebd|h/|bhhhh|d/g*ga/ba*cfa/'-a'cd;g'*adah; c /.c/c**fc'| ac |cg.eb| '/b|c.h; -'/ff''hhcddfebf.e.|';dg.;h'.b'gf-'.eg-/c-bb. c|-b*f**'cf//-g.-'h |h.|.a**-*b/afb.c/.'bhd'afgbafbb/* ehh'c*.-.caff|c./hfdca* bfg'/acd-hd/f*gbeg-//|c*bd-gb;f'*h||;-/-.adf/  ;h||-/e..e*/",
+    "b": "|-hge|;gf-aab.*f.-'daf*-;  hf. '/*.gg'*''c''*hb*haf|.*ccbc|c'-be-/ ';bc'bah'edcb.d acc-gbca;d.g*/|c/ g*d/*af/'fgdc- /a';dahd*;-bd-f*.fgb;;*ebd|h/|bhhhhg*/g*ga/ba*cfa/'-a'cd;g'*adah; cc/.c/cd*fc'| cc |cggeb| '/b|c.ha -'/ff''hhcdd*ebf.eh|';dg./|*.b'gf-'.eg-/c-bb. c|-b*f***cf//-g.-'h |h.|.a*|-*b/afc.c/.'b-d;afgba*fb/**fhe'c*.'bcaff|../hfdca* bf '/'cd-hd/f*gbeg-//gc*bddgb;f'*h||;-/-.adfb .;h||-/ ..;*h",
+    "r": 0.015
+  },
+  {
+    "a": "fgeddda;f'/-'.b-eb'd.c;|d;hb*dccdhe'e fbhghfag |cc|ch|.cdb|/cf*dch*d| */b-/- ecf-.h/;*b-ghee  -fd|hd*|fh ae-/edaad*gc'e f/h //a-*d|ggaedd;g;*/-'bgdg-bccdd g-|adc/;-haaeg. -./cgg   d;'g|-. 'g*.cg;a*bddccdf.ch*-|;bb;/heda.e|g*b*.b'c|-g.d*'fg;|da|'e;|/-b.d .*-.gf'eg.e.|fc  d*cdegc g- ;-f|cff/*/* h-d.*.  /d;bdh'/c-|-cgbf;g..ba|h'ch;d;|bhchf/ca;cf;e//c*hhh// -e'bgace-;.gfgh-/-/g-;|;g.'.eee'ggc';.-hb.||df;c**ee/h.d|bgbh;fa|.dfd.aefc;/.*ba*|  d.hfh- hf aebehf'g.'gef;c/b*.h eb-a.*.;b'.cag|b;d-ab*h.*d|a-/*ghed'dfcea/c-/fhb;e.dcb/a/|-|-b/cc*he/.|f..b*a| gh|;fe;-|*fb';e.e.bchf.f |cfd-gd-.hd-eb-h|.*ddd -d;.aad;chhhgd*c d|/g b'*;ab.'f //e-*|gc-;'-ahfe'afc",
+    "b": "fgeddda;g'/-'.b;eb'd.c;|d;hb*dccdhe'ehfbhghfag  cc|ch|.cdb|/cf*dched| */b-/- ebf-.h/;*b-ghee  -fd|bd*|fh ae-/edaad*/c'e f/h /aa-*d|ggaed*agf*/-'bgdg-accdd g-|adc/;-haaeg.e-./hgg   d;'g|-. 'g*.cg;a*/ddccdf.ch*-|;bb; heda.f|g*e*.b'c|-g.d*'fc;|dae'e;|/eb.d e* .gf'.g.e.gfc  d*cdegc g- ;-f|cff;*e**'-d.*e  /d;bdh'/c-'-cgbf|g..bh|h'ch;d;*bhchf/ca;cf;///cdhhh/* -e'bg|ce--.gfgh-/'/g-;|;d.'.e.e'ggc';f-hb.||;f;c**ee/h.d|bgbh;fa|.df|.aefc;/;*ba*|  d.hfh- hf a*behc'g.dgef;c.b*.h bb-b.*.;b'.cag|b;abab*h.*d|a-/*ghed'dfcea/c-/fhh;e.dcb/a/|-||b/gcgee/.|f.. da| gh|ff|;ga*fb' e.e.bc/;.f |cfa-gd..hd-eb-h|.*ddd -d;.da ;chh'gd*c d|/g b'*; ee'f //e-.|gc-;'-ahfe'afa",
+    "r": 0.012307692307692308
+  },
+  {
+    "a": "--.c. hga' afggdb*//*.h/-bh|;fgfbb'|-g * bag.|'dbgg- /g.dfg'.*a*h/|a b||.aadhc/e-b.e|eh/-|b/h;d*hf- fche/da*d ;;hhh/c;/-/c-f.h  ' dcd-'gh-hec.faf'e./||affdg.';hdhe*.e;h/gc/--c.|//ce;fh ..dh*dcgg..'cfg.;* he/'-|-*c;cd|/.*he;;bg/g.h *cf-b/b|- bfe. gdb/bb.'/.|ga .|-af*'h|c|-cg'h/|hb..;;gcdd;/.*ge'*.c .b|babahh/-e'cdcb'*b||..;'da|*h;/'gh;ggab;ggacheae;h'/'dehbbb|*/*dcd-'cde'g*d*/;h'b*./g-a.cd|ah-ce/*'fa|-|;/*c.;bc|.b ;  a.g *a/|cabf'-afceb-e   eagb/ceedcg|'fcbe|/bc h.b -e|-|/*/h.adg|'*|e '--abf';h|* .b/c*hd;d|/fg'a..*-c/fa;;f./cb ae.*ff |dehg*a;'e'ebbf/a 'b||g.'bacg.gahdh;b|.ege/ccac/-;g.e.-hh./. g|'b*a/ |cbf|*|.g--|d/h |a .|g|dh;cch''hac.a;ebe.;*h'/'cc'f e/ebb-ddh*|g |e// g-g| fc..|-.ha;*;.;'||;;fffeh;fa;ghee  |;g-. .fdhc|-;*- cdae*|cg..;.;/*heea-b-*|-;f/.--c.gd dad'e|*efcg* f.aa/.*e'c|*g-def",
+    "b": "--;c. /ga' afggdb*//*.h/-bh|;fg.bb'|-g;* bag.|'dbgg- /g.dfh'.*a*h/|g b||.abdhc/e-ba.|eh/-|b h;d*hf- fc;e/da*d ;;hhh/c;.-/;-f.h  ' dgd-'gh|h-c.faf|eb/||affdg.c;hdhe*.chh.gc/--c.|//ce;|h ..dh*dcg ..';fg.;* he/'-||*c;cd|/.dhe;hbg/;.h-*cf-b/b|- bfe. gd|abb.'/.hga .|-a**/hfc|-cg'h/|hb..;;gcb-;/.*ge'*.c .b|babhhh/-e'cdcb'*b|*..;'d'|*h;/'gh;ggabbggacheae;h'/'dehbbbg***d.d-'c/h'g*d*/;h'b*./g-a'cd/ah-ce/*'fa|-/;/*c.;bc|.b ;/ a.g *a/|cabf'-acced-e   ea-b'ce|dcg''*cbe|/bc h.b -e|-|/*/|.adg|'*/e '--abf';h|* .b/c*fd;d|/ g'a..*-c/fag;f./hb ae.*ff |dehg*a;'e'd/bf/a 'b||g.'bacg.gahdh;b|./ge/ccaccf;g.e.;hh./. g|'b*a. |cbf|*|.g--gd/hh|a .|gfdh;cch'''fc.a;ebe.;*h'/'cc'f e/ebb-d/h*|g |e// gbg| ff..|c.h/;c;.;'||;;fefeh;fb;ghee  |;g|.befdhc|-;*- cdae*/cg.g;.|/*|eea-b.*|-;f/f--c.gd dad'e|*ef'g* f/a|/.*e'c|*g-deb",
+    "r": 0.0025
+  },
+  {
+    "a": " .*f ;b'*a|.c|cbf;  .;cfb/hdg-;cce*| hb|*a-/;'dbf--h.db.agdb fbcb*hee;*-;-dca'a-/e.. .;.---dhhddbde ddbdg.f*g|b|a.a-a-.|;f'-beecga--h gaag fe|f.e' *-*ebe- b.-c.cg'f- -/.f-/d /geca; c/--'d--ecgh|b |/ g*hfecf'g-;fb;*fcfabd;c-ebg-adbd/c**a*ebd*e.heh;|/-ebf'a;chh.f|ecf--;b|;de-bgf/hg/bf;|'f.fh;bgechh;*ffd'dac.'.fb/a'c*dge. | h/|'a'gbh/-g|h|dhg-gbcef'ac |*bd;*hcb;|..f-fcf-f|;*/e /| --afa''c;a-/  c*b-.-dh-*bfca|f-'ddac;;ba'|*; *./hghcfa/a' *a/;efc.ef;a/hfbc--fab' ef*eh/*;h.-;f.;ddfh;dgc*dbga b| -;.ah-gg|fa|f/*|*/'cc.'''d *-g|.h*'e-ge-'|.f|dfc;.b c|b;bh-.d|decgbd bf-' abd*eh*'gfdf/g|f-- -c../fha*-'edh-.-b;ddhg'gee'g|. - f |-d'.*/ef/.fa|ff|dg'*fdb | hedh.ah|ca;c*|d.facahdb e|'dca-g.'e 'hchh;;;d'f/ecbgcf*f|b-b;'bf--fac-eb|;-*c*hgd/gdc be*f*aef;|efd**/*e*ef''gd/|bafg |a.;-/|*d/bf'/a;'h|-/fhb*.gcc/a|gdgdh'*gc|fe'-/.fb. c**fa*/g/ga.-'f;ghdf/bfffg-acegc.h;a- .eeb'ec*.bf'.fge;|e' '.;';g|c eag--e*c / g",
+    "b": " .*f ;b'*a'.c|cef;  .;cfb-hdg-;.ce.| h*|'a-/;'dbf--'.dbgab-/ fccb*h;e;*-;-dca'a- e.. .;.f--dhhdd'ce ddbdg.f*g|b|a.a-e-.g;f'-bee/ga--h gaac fe|f.e' *-*eee- b*-c.c 'f-g-h.fb/d /geca| c/.-'d-;ecgh*| |/ g*hfecf'g-;f/;*fcfabd;c-ebg-adbd/c**a*ebd'g.h;h;|/-edf'a-'hh.f|ecfbf;b ; e-bgf/hg/;f;|'f.fh;bgechh;fffd'd;c.'.fb/a'c*dge. | h*|'a'gbh/-g.h|dhg-gbcef'ac |*bd;*hgb;|/.f-fcf-f|;*/eb/| --afa''c*a-* *c* -.-dh-*dfca|f-'-dac-;ba'e*; './hghcfa/a' ga/;efc.efaa/hfbc--'ab' ef*e /*;h;-;f.;ddfh;dgc*dbga b| -;-ah-gg|faef/*|*/'cc.'''d *-g|*h*'e-ge-'|.f|dfc;.b c|f;bh-.d|decgbd bf-' abg*bh*'gfdf/c|bea.-c../fha*-'edh-.--;'dhg'/ee'g|. c f |-d'.*/ef/.fa|ff|gg'*fdb | hedh.gh|ca;c*|d.facahdb e|-dca-g.'e 'hchhb;;d'f/ecbgcf*f|b/b;'bf--fac/eb|;-*c*hgd/gdc b**f*aeb;|-fd**/fe*ef''gd/|bafg |/.;b/|bd/bf'/a;'h|-/fh.*.gcc/a|edgdh'*gc|fe'-/.fb. c**fa*;g/cf.-'f;chdf/bf|f--|cegc.h;a- .ehb'ec*.bf'.fhe;de' '.;-;g|c e*gc-e*c / |",
+    "r": 0.0125
+  },
+  {
+    "a": ". e/*   bch-.-b*g/*badd/gebb|ef;|;a f/gf-gc dgbg;|a-*ec./;|-e.gb|| be;-a-**fg |b c'g bh; ;;'b*  ''*e -c.efad;h;|cgd- c*fh ab.h*h*h/ g*;cf/ab *cf-*b/fg*b|a;||/gb cbe.gd;;d..bb'g*|fbc;gfe*' h hff.d|c''*eb'f;*-c;- / g;  /-'';a*| hchfdfh. g*-.|*e*h|dg*ahga|a .*hebd. a ad-/|g/f--fgg-a| -f-hc'c.|b;;abh/ef / hf-cb'c./eee'-h;h-dead-d;.g- b;/bcdb.cfg*'fgaa.bb-b;.d-adf/ghd-d../ .daaea.gg-a *a/ea*/.cf hc|g*|h|;ghbebbbh/b/f.haf/b/gaf.hc-.f-gc |bcahhe'|*|ch'g.fchc.fgbf/*'c-|chb ef-a/ecfg.-h-' e;d-e.*ed-.f-dha g/e a.a'.c'ge/a.h||*| h- dec.fbg-*|/fd|ebba;d|c*;e;*d |;'a-*.af*ff;*ch/f;|-bf*;e';/ hg|/d|hf/ d-b|cgaf'ad-h/;*db f-|d;baahfh|c a/'*/b*-b|;fb *b'|'b|adc*.;-d;.da fedcefd|*f;ff.;ed|e*|/-aa'chg hd'b*.h*fecf*dbg/;| .c/*|..bdf//.ffdab'*-|*-;hfcfb;| c cgdb;bf*e*f/ag-*ah/;;g;gh;|/  /;d||heb'f/;;a-cg''adeg.;e*bf| .a'fhh-.c*-b''h'.ehfe--e-./*ceb/;-c/e b'*'gc;  e*/hb. bb*b*'bf*;aa*/'cf*hhaha*fa-b'bea f||*h.-dg/'bfg.gg;c.d*bbb/f*fb.g*gga-da;d*d-h;hgcbec*bc|h 'eg.ggahfg*h/;aca  |f''*f /d*''' bg- /db.;.g;dfb.heefb'd..a aebg -faah;/edd'.c/chdh*d*// /fedch h'ga-|h*  hhfcdaf-f '; /c; .hbbebe.df'gd|.*hg-ec-'||cf/he;h.d ;'d.;h/**ad| /dgd||ed; ;'gga*;a ;h/b/b;.a 'a'acb-e .'-*bch-b-a;f||fdh/'*.'-.cfadc/b|-*a ",
+    "b": ". e/*   bch-.-b*g/*cadd/gebb|df;|;a f/bf--c dgbd;|a-*ec./|--h.gb|| be;-a-**fg |- ''gfah; ;;'b*  ''*e -/.efad;h;;cgd- e*fh ab.h*h*hc'g';cf/.b acf-*b/fgdb|a;||/gb .be.gd;;f.abb.ghefbcbgfe*' h hef;g|c''*eb'/;*-c;- / g;  /-'';ah| hchfdfh. g*-.|*e*h.dg'ahga|a .*hebd. a ad-/|g/f--fgg-'| bf-bc'c.|b;;abh/*ff/ h'fcg'c.'eee'-/ h-dead-d;.gb b//bcab.cfg*'f/aa.bb-b;.dh*dfeghd-d'./ .ddaea.gg-a *a*ea*/.cf hc|g*|h|;ghbebbbh/b/..haf/b/gac.hc*.f-gcc|bcahhe'|*|ch'g.fchc.fgbf/*'d-|chb edga/ecfg.-h-' e;d-edbed-.f-dha g/e/afa'.c'ge|a.hfb*| h- dec.fbg-*|/fd|ebba;d|-*ge;*d |;'a-*.af*ff;*ch/f;|-.f*;e';/ hg|/d|hf/ d-b|cgaf'ad-hb;*db f-|d;baahfhf' a/'*/b*-b|dfbb*b'|'b|aeh*.e-d;.'a fedcefd|*f;ff.;ed|e*|/-aa'chggbd'b*.h*fecf*dbf/;d .c/*|..cdf//.|f-;b'*-|*-;hfcfb;| a cg*b;bf*e*b/ag-*ah/a;g;gh;|/  /;d-;heb'f/;;a-cg'.aded..e*bf| .a'/hc-.c*-*''h''eafe--e-.b*ceb/;-c/e b'*'gc;  d*/hb. db*b*'bf*;ha;b'cf*hgaha*fa--'bea f||*h.-dg/'bfg.gg;cgd*bbb/f*fb.g*gga-da;d*dch;.gcbef*bc|h 'eghggahfg*h/;acb  |f''*fc/d*''' /g- /db.;.g;cfb.heefb'd..a aebfe-f;hh./eddf.chchd-*d*// /fgdch haga-|h . hhfcdaf-f ';d/c; ;hbbebg.df'gd|h*hg-ec-.||cfhhe;h.d ;';.;e/**ad| 'dgd||ed; ;'gga*;a *h/'/ ;.a 'a'acb-e .';*bch-b-a;f||fdh/'*.'-.cfadc/b|--a ",
+    "r": 0.02375
+  },
+  {
+    "a": "grep -rn 'needle' packages apps --include=*.ts | grep -v node_modules | head -20; grep -rn 'needle' packages apps --include=*.ts | grep -v node_modules | head -20; grep -rn 'needle' packages apps --include=*.ts | grep -v node_modules | head -20; grep -rn 'needle' packages apps --include=*.ts | grep -v node_modules | head -20; ",
+    "b": "grep -rn 'needle' packages apps --include='*.ts' | grep -v node_modules | head -20; grep -rn 'needle' packages apps --include='*.ts' | grep -v node_modules | head -20; grep -rn 'needle' packages apps --include='*.ts' | grep -v node_modules | head -20; grep -rn 'needle' packages apps --include='*.ts' | grep -v node_modules | head -20; ",
+    "r": 0.9879518072289156
+  },
+  {
+    "a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxabc",
+    "b": "abcxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "r": 0.009900990099009901
+  },
+  {
+    "a": "aaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbbaaaaabbbbb",
+    "b": "abababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab",
+    "r": 0.0033333333333333335
+  },
+  {
+    "a": "cd /repo && a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c a b c ",
+    "b": "cd /repo; a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c a  b c ",
+    "r": 0.023809523809523808
+  }
+]

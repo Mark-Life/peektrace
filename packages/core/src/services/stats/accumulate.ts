@@ -12,6 +12,7 @@
  */
 
 import {
+  boundPool,
   DEFAULT_ROW_LIMIT,
   DEFAULT_SAMPLE_CAP,
   pickSamples,
@@ -28,9 +29,6 @@ import type {
   StatsFact,
   StatsWindow,
 } from "./schema";
-
-/** Sample candidates held per key before the shortest-first cut. */
-const SAMPLE_POOL = 64;
 
 /**
  * Tools whose duration is the human deciding or a subagent running, not the
@@ -110,6 +108,7 @@ export const sampleOf = (fact: CallFact, line: string): SampleRef => ({
   kind: fact.kind,
   parent: fact.parent,
   seq: fact.seq,
+  toolUseId: fact.toolUseId,
   line,
 });
 
@@ -120,6 +119,8 @@ export const hitOf = (fact: CallFact, line: string): DrillHit => ({
   durSec: fact.durSec,
   tool: fact.tool,
   failed: fact.failed,
+  pairToolUseId: null,
+  pairLine: null,
 });
 
 /** Per-key state every ranked table needs. Bounded by distinct keys. */
@@ -176,9 +177,7 @@ export const addToTally = (args: {
   tally.projects.add(fact.project);
   if (sample) {
     tally.samples.push(sample);
-    if (tally.samples.length > SAMPLE_POOL) {
-      tally.samples = [...pickSamples(tally.samples, SAMPLE_POOL)];
-    }
+    tally.samples = boundPool(tally.samples, pickSamples);
   }
 };
 
