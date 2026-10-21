@@ -35,6 +35,7 @@ const SessionLink = ({
           id: sample.sid,
           parent: sample.parent,
           mark: detector ?? "",
+          call: sample.toolUseId,
         })
       }
       size="sm"

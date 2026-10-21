@@ -103,24 +103,31 @@ export interface SessionTarget {
 const targetParams = ({ id, parent }: SessionTarget) =>
   new URLSearchParams(parent === null ? { id } : { id, parent });
 
+/** A session opened from a stats row: the detector that sent you there, and
+ * the call (its tool-use id) to bring into view, when one is meant. */
+type MarkedTarget = SessionTarget & {
+  readonly mark: string;
+  readonly call?: string | null;
+};
+
 /**
  * The hash a stats row opens, carrying the detector id that sent you there so
- * the transcript can highlight the calls behind the number. Marks render only
- * in the chat layout, so `view=chat` overrides a stored table preference.
+ * the transcript can highlight the calls behind the number, and `call=<id>`
+ * so it scrolls to the one meant. Marks render only in the chat layout, so
+ * `view=chat` overrides a stored table preference.
  */
-export const markedSessionHash = (
-  target: SessionTarget & { readonly mark: string }
-) => {
+export const markedSessionHash = (target: MarkedTarget) => {
   const params = targetParams(target);
   params.set("mark", target.mark);
+  if (target.call !== undefined && target.call !== null) {
+    params.set("call", target.call);
+  }
   params.set("view", "chat");
   return buildHash("sessions", params);
 };
 
 /** Open a session from a stats row, marked by the row's detector. */
-export const openSessionMarked = (
-  target: SessionTarget & { readonly mark: string }
-) => {
+export const openSessionMarked = (target: MarkedTarget) => {
   window.location.hash = markedSessionHash(target);
 };
 

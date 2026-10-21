@@ -34,7 +34,7 @@ import { chatIdsOf } from "../../lib/chat-lane";
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
-import { useToolMarks } from "../../lib/session-markers";
+import { useScrollToCall, useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
   type SessionView,
@@ -93,6 +93,7 @@ export const SessionHistory = ({
   // failed or pending marker query leaves the transcript exactly as it was.
   const marks = useToolMarks(sid);
   const activeMark = useHashParam("mark");
+  const callId = useHashParam("call");
 
   // A conversation has one order — its own. The persisted sort is left alone, so
   // switching back to the table restores the column sort it had.
@@ -119,6 +120,18 @@ export const SessionHistory = ({
       });
     return sortRows(rows, effectiveSort);
   }, [a.events, kind, query, effectiveSort]);
+
+  useScrollToCall(callId, visible);
+  // A stats link names a call the saved search or type filter can hide: say
+  // so, rather than leave the reader at the top of the transcript.
+  const callHidden =
+    callId !== null &&
+    a.events.some((e) => e.toolUseId === callId) &&
+    !visible.some(({ e }) => e.toolUseId === callId);
+  const showCall = () => {
+    prefs.setQuery("");
+    prefs.setKind("all");
+  };
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
   // shareable link; individual rows persist in the per-session set instead.
@@ -276,6 +289,25 @@ export const SessionHistory = ({
           </Button>
         ) : null}
       </div>
+
+      {callHidden ? (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
+          data-testid="history-call-hidden"
+        >
+          <span>
+            The call this link points to is hidden by the search or type filter.
+          </span>
+          <Button
+            className="h-6 px-2 text-xs"
+            onClick={showCall}
+            size="sm"
+            variant="outline"
+          >
+            Clear filters
+          </Button>
+        </div>
+      ) : null}
 
       {mode === "chat" ? (
         <TranscriptChat

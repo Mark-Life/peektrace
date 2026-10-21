@@ -6,7 +6,7 @@
  */
 import { Result, useAtomValue } from "@effect-atom/atom-react";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSessionMarkers } from "./stats-atoms";
 
 /** Marks for one tool call, in the order core emitted them. */
@@ -28,6 +28,49 @@ const indexOf = (markers: readonly SessionMarker[]): ToolMarks => {
     }
   }
   return map;
+};
+
+/**
+ * Move focus to a card's toggle, or the card itself when it has none: the
+ * route swap dropped the focused stats link, which would leave keyboard and
+ * screen-reader users at `<body>`. The scroll already placed the card.
+ */
+const focusCard = (card: HTMLElement): void => {
+  const trigger = card.querySelector<HTMLElement>("button");
+  if (trigger) {
+    trigger.focus({ preventScroll: true });
+    return;
+  }
+  card.tabIndex = -1;
+  card.focus({ preventScroll: true });
+};
+
+/**
+ * Bring the card of call `id` (a tool-use id) into view once it is drawn, so
+ * a stats link lands on the call it names, an unclassified error with no mark
+ * of its own included. `drawn` is the list the transcript renders: a filter
+ * or search that hid the card and is then cleared draws it, and the scroll
+ * runs then. Focus follows the scroll. Runs once per call: reading on from
+ * there is left alone.
+ */
+export const useScrollToCall = (
+  id: string | null,
+  drawn: readonly unknown[]
+): void => {
+  const done = useRef<string | null>(null);
+  useEffect(() => {
+    if (id === null || done.current === id || drawn.length === 0) {
+      return;
+    }
+    const card = document.querySelector(
+      `[data-tool-use-id="${CSS.escape(id)}"]`
+    );
+    if (card instanceof HTMLElement) {
+      done.current = id;
+      card.scrollIntoView({ block: "center" });
+      focusCard(card);
+    }
+  }, [id, drawn]);
 };
 
 /** Markers for one session id, indexed by the transcript's own tool-use id. */
