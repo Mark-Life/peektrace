@@ -312,11 +312,9 @@ describe("fail table", () => {
 /**
  * The labelled oracle: 161 hand-labelled errored Bash rows, sampled every 6th by
  * (t, sid, cmd), kept outside the repo because it holds real commands from 25
- * private projects. `PEEKTRACE_BENIGN_SAMPLE` overrides the path.
+ * private projects. Runs only when `PEEKTRACE_BENIGN_SAMPLE` names the file.
  */
-const ORACLE =
-  process.env.PEEKTRACE_BENIGN_SAMPLE ??
-  "/Users/andrey-m/Code/agent-analysis/peektrace-stats/benign-sample.jsonl";
+const ORACLE = process.env.PEEKTRACE_BENIGN_SAMPLE ?? "";
 
 interface LabelledRow {
   readonly cmd: string;
@@ -327,13 +325,19 @@ interface LabelledRow {
 
 const ZSH_SEPARATOR = /(^|[\s;&|])echo\s+=/;
 
-describe.skipIf(!existsSync(ORACLE))(
+/** Read lazily: Bun runs a skipped describe's body, so a top-level read throws. */
+const loadOracle = (): readonly LabelledRow[] =>
+  ORACLE !== "" && existsSync(ORACLE)
+    ? readFileSync(ORACLE, "utf8")
+        .trim()
+        .split("\n")
+        .map((l) => JSON.parse(l) as LabelledRow)
+    : [];
+
+describe.skipIf(!(ORACLE !== "" && existsSync(ORACLE)))(
   "benign filters against the labelled sample",
   () => {
-    const sample = readFileSync(ORACLE, "utf8")
-      .trim()
-      .split("\n")
-      .map((l) => JSON.parse(l) as LabelledRow);
+    const sample = loadOracle();
     const scored = sample.map((row) => ({
       row,
       id: benignFilter({

@@ -119,6 +119,37 @@ const transcript = [
   .map((line) => JSON.stringify(line))
   .join("\n");
 
+/** A subagent transcript: sidechain end to end, two model calls, no tools. */
+const SUBAGENT = [
+  {
+    type: "user",
+    isSidechain: true,
+    timestamp: "2026-06-01T10:00:13.000Z",
+    message: { content: "investigate the typecheck" },
+  },
+  ...[
+    ["sa-1", "2026-06-01T10:00:14.000Z", 200, 0],
+    ["sa-2", "2026-06-01T10:00:16.000Z", 300, 400],
+  ].map(([req, at, input, cacheRead]) => ({
+    type: "assistant",
+    isSidechain: true,
+    requestId: req,
+    timestamp: at,
+    message: {
+      model: "claude-haiku",
+      usage: {
+        input_tokens: input,
+        cache_read_input_tokens: cacheRead,
+        cache_creation_input_tokens: 0,
+        output_tokens: 50,
+      },
+      content: [{ type: "text", text: "looking" }],
+    },
+  })),
+]
+  .map((line) => JSON.stringify(line))
+  .join("\n");
+
 let root = "";
 
 /** Stub AgentRegistry pointing Claude resolution at the temp root. */
@@ -201,6 +232,11 @@ beforeAll(() => {
   root = mkdtempSync(join(tmpdir(), "peektrace-stats-"));
   mkdirSync(join(root, SLUG), { recursive: true });
   writeFileSync(join(root, SLUG, `${SID}.jsonl`), `${transcript}\n`);
+  mkdirSync(join(root, SLUG, SID, "subagents"), { recursive: true });
+  writeFileSync(
+    join(root, SLUG, SID, "subagents", "agent-1.jsonl"),
+    `${SUBAGENT}\n`
+  );
   process.env.PEEKTRACE_DIR = join(root, "pt");
   mkdirSync(process.env.PEEKTRACE_DIR, { recursive: true });
 });
@@ -221,9 +257,21 @@ describe("stats.report", () => {
         expect(report.schemaVersion).toBe("peektrace-stats/v1");
         expect(report.generatedAt).toBe(FIXED_MS);
         expect(report.window.days).toBe(WIDE);
-        expect(report.corpus.transcripts).toBe(1);
+        expect(report.corpus.transcripts).toBe(2);
         expect(report.corpus.bashCalls).toBe(2);
         expect(report.caveats.length).toBeGreaterThan(0);
+      })
+    ));
+
+  test("a subagent's own model calls are costed, not read as zero", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const report = yield* client.stats.report({ days: WIDE });
+        const sub = report.cost.find((row) => row.key === "kind:subagent");
+        expect(sub?.inputTokens).toBe(500);
+        expect(sub?.cacheReadTokens).toBe(400);
+        expect(sub?.outputTokens).toBe(100);
+        expect(report.caveats.some((c) => c.includes("subagent"))).toBe(true);
       })
     ));
 
@@ -355,12 +403,12 @@ describe("stats.refresh", () => {
     withClient((client) =>
       Effect.gen(function* () {
         const summary = yield* client.stats.refresh({ force: true });
-        expect(summary.transcripts).toBe(1);
-        expect(summary.extracted).toBe(1);
+        expect(summary.transcripts).toBe(2);
+        expect(summary.extracted).toBe(2);
         expect(summary.cached).toBe(0);
         expect(summary.facts).toBeGreaterThan(0);
         const warm = yield* client.stats.refresh({});
-        expect(warm.cached).toBe(1);
+        expect(warm.cached).toBe(2);
         expect(warm.extracted).toBe(0);
       })
     ));
@@ -371,7 +419,7 @@ describe("stats.refresh", () => {
         yield* client.stats.refresh({});
         yield* client.stats.markers({ sid: "no-such-session" });
         const after = yield* client.stats.refresh({});
-        expect(after.cached).toBe(1);
+        expect(after.cached).toBe(2);
         expect(after.extracted).toBe(0);
       })
     ));

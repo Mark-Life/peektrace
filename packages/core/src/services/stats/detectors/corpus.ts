@@ -4,7 +4,8 @@
  *
  * Four panels, one pass, all keyed so a row deep-links back to its sessions.
  *
- * Context concentration ranks sessions by the largest single-request context
+ * Context concentration ranks main sessions (the ones a user can compact or
+ * split; agent transcripts are left out) by the largest single-request context
  * they reached, with the cache-read split beside it, so a session that refilled
  * the window is distinguishable from one that held it. The lever is in the
  * tail — the top 1% of sessions hold about a third of every cache-read token —
@@ -373,20 +374,23 @@ export const makeCorpusPanels: AccumulatorFactory<CorpusPanels> = () => {
     ctx: FinishContext,
     all: readonly SessionAgg[]
   ): readonly ContextRow[] => {
-    const totalRead = sum(all, (s) => s.cacheReadTokens);
-    const head = Math.max(1, Math.ceil(all.length * CONCENTRATION_HEAD));
+    // Main sessions only: the advice is to compact or split them, which a
+    // user cannot do to a subagent or workflow-agent transcript.
+    const mains = all.filter((s) => s.kind === "main");
+    const totalRead = sum(mains, (s) => s.cacheReadTokens);
+    const head = Math.max(1, Math.ceil(mains.length * CONCENTRATION_HEAD));
     const byRead = sortBy(
-      all,
+      mains,
       compareKeyed<SessionAgg>((s) => s.cacheReadTokens)
     );
     const headRead = sum(byRead.slice(0, head), (s) => s.cacheReadTokens);
     if (totalRead > 0) {
       ctx.caveat(
-        `Context: the top 1% of sessions (${head} of ${all.length}) hold ${pct(headRead, totalRead)} of ${compact(totalRead)} cache-read tokens — compact or split those sessions before tuning anything else`
+        `Context: the top 1% of main sessions (${head} of ${mains.length}) hold ${pct(headRead, totalRead)} of ${compact(totalRead)} cache-read tokens — compact or split those sessions before tuning anything else`
       );
     }
     const ranked = rank(
-      all,
+      mains,
       compareKeyed<SessionAgg>((s) => s.maxContextTokens),
       ctx.limit
     );

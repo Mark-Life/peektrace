@@ -143,6 +143,22 @@ describe("context concentration", () => {
     expect(note).toContain("90.0%");
   });
 
+  test("leaves agent transcripts out: a user cannot compact or split them", () => {
+    const { caveats, panels } = run([
+      session({ sid: "m", maxContextTokens: 10, cacheReadTokens: 100 }),
+      session({
+        sid: "w",
+        kind: "workflow-agent",
+        maxContextTokens: 900,
+        cacheReadTokens: 9000,
+      }),
+    ]);
+    expect(panels.context.map((r) => r.sid)).toEqual(["m"]);
+    const note = caveatWith(caveats, "top 1%");
+    expect(note).toContain("main sessions (1 of 1)");
+    expect(note).toContain("100.0%");
+  });
+
   test("carries the session id and project, so a row routes back", () => {
     const { panels } = run([
       session({ sid: "a", project: "proj", maxContextTokens: 5 }),

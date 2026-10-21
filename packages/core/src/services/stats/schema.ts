@@ -18,13 +18,13 @@ import { AgentId } from "../agent-id";
 export const STATS_SCHEMA_VERSION = "peektrace-stats/v1";
 
 /** Bumped when a detector's rule changes, so a row's meaning is versioned. */
-export const DETECTOR_VERSION = 1;
+export const DETECTOR_VERSION = 2;
 
 /**
  * Bumped when `extract.ts` or any fact column changes. Part of the cache key:
  * a shard written by an older extractor is re-extracted, never read back.
  */
-export const EXTRACTOR_VERSION = 2;
+export const EXTRACTOR_VERSION = 3;
 
 /** Where a transcript sits in the session tree. */
 export const TranscriptKind = Schema.Literal(
