@@ -117,6 +117,10 @@ and every failure read as a pass.
 
 ![Flagged findings across every session](assets/browser-stats.webp)
 
+Subagent and workflow-agent transcripts count their own model calls, so their
+tokens and cost are measured rather than read as zero. Reports from earlier
+versions showed their cost as about $0.
+
 Underneath sit shell time by job type, error signatures grouped by shape, and a
 waiting panel that separates real work from parked polling.
 

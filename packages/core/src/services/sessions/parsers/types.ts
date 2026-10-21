@@ -11,6 +11,11 @@ import type { ParsedSession, SessionHeader } from "../schema";
 
 /** Inputs a parser needs to normalize one transcript into a `ParsedSession`. */
 export interface ParseSessionArgs {
+  /**
+   * Count sidechain turns toward `turns`. A subagent transcript is sidechain
+   * end to end, so without this its token usage reads as zero. Claude only.
+   */
+  readonly includeSidechainTurns?: boolean;
   /** Absolute path to the transcript. */
   readonly path: string;
   /** Session id resolved from the filename (or the transcript header). */

@@ -73,6 +73,7 @@ const BASE_CAVEATS: readonly string[] = [
   "durSec is the gap between a call and its result: it includes harness overhead and approval waits",
   "silent-failure counts are a floor: a detector only sees the output the transcript stored",
   "backgrounded runs are charged the seconds they took, which understates the wait they started",
+  "subagent and workflow-agent transcripts count their own model calls, so their tokens and cost are measured, not zero",
 ];
 
 /** What `report` accepts. */
@@ -220,6 +221,9 @@ const factsFor = (args: {
       path: ref.path,
       sessionId: ref.id,
       slug: ref.slug,
+      // A nested transcript is sidechain end to end: count its own turns, as
+      // the sessions view does, or its tokens and cost read zero.
+      includeSidechainTurns: ref.kind !== "main",
     });
     // One project key across agents: Codex has no slug, so its cwd is encoded
     // the same way Claude's project dir already is.
