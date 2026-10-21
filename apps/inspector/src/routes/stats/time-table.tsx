@@ -18,11 +18,25 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import { Fragment } from "react";
-import { coPresentNote, hms, n, pct, timeNote } from "../../lib/stats-format";
+import {
+  coPresentNote,
+  hms,
+  n,
+  type PromptFor,
+  pct,
+  timeNote,
+} from "../../lib/stats-format";
+import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
 /** The measured caveats of one job row, opened under it. */
-const DetailRow = ({ row }: { readonly row: TimeRow }) => {
+const DetailRow = ({
+  prompt,
+  row,
+}: {
+  readonly prompt: PromptFor;
+  readonly row: TimeRow;
+}) => {
   const note = timeNote(row);
   return (
     <TableRow className="bg-muted/30 hover:bg-muted/30">
@@ -31,7 +45,16 @@ const DetailRow = ({ row }: { readonly row: TimeRow }) => {
           className="flex w-0 min-w-full flex-col gap-2 py-1"
           data-testid="time-detail"
         >
-          <p className="text-muted-foreground text-xs">{coPresentNote(row)}</p>
+          <div className="flex flex-wrap items-start gap-2">
+            <p className="min-w-0 flex-1 text-muted-foreground text-xs">
+              {coPresentNote(row)}
+            </p>
+            <PromptButton
+              subject={`${row.label} time`}
+              testId="time-prompt"
+              text={prompt({ table: "time", key: row.key })}
+            />
+          </div>
           {note ? <p className="text-xs">{note}</p> : null}
           {row.bgRuns > 0 ? (
             <p className="text-muted-foreground text-xs">
@@ -49,9 +72,11 @@ const DetailRow = ({ row }: { readonly row: TimeRow }) => {
 export const TimeTable = ({
   rows,
   onSelect,
+  prompt,
   selectedKey,
 }: {
   readonly onSelect: (key: string) => void;
+  readonly prompt: PromptFor;
   readonly rows: readonly TimeRow[];
   readonly selectedKey: string | null;
 }) => {
@@ -125,7 +150,9 @@ export const TimeTable = ({
                   {hms(row.p95Sec)}
                 </TableCell>
               </TableRow>
-              {selectedKey === row.key ? <DetailRow row={row} /> : null}
+              {selectedKey === row.key ? (
+                <DetailRow prompt={prompt} row={row} />
+              ) : null}
             </Fragment>
           ))}
         </TableBody>

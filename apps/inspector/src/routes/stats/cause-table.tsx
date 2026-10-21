@@ -26,8 +26,15 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
-import { hms, NO_RULE, n, ruleLine } from "../../lib/stats-format";
+import {
+  hms,
+  NO_RULE,
+  n,
+  type PromptFor,
+  ruleLine,
+} from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
+import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
 /** A numeric column a phone drops; `NarrowSummary` says the same in a line. */
@@ -90,8 +97,10 @@ const SplitLine = ({ row }: { readonly row: CauseRow }) => (
 const DetailRow = ({
   row,
   onDrill,
+  prompt,
 }: {
   readonly onDrill: () => void;
+  readonly prompt: PromptFor;
   readonly row: CauseRow;
 }) => {
   const rule = suggestedRuleOf(row);
@@ -110,6 +119,11 @@ const DetailRow = ({
             {rule === null ? null : (
               <CopyButton label="Copy rule" testId="cause-copy" text={rule} />
             )}
+            <PromptButton
+              subject={row.label}
+              testId="cause-prompt"
+              text={prompt({ table: "cause", key: row.key })}
+            />
             <Button
               className="h-6 shrink-0 px-2 text-xs"
               data-testid="cause-drill"
@@ -179,9 +193,11 @@ const DetailRow = ({
 export const CauseTable = ({
   rows,
   onSelect,
+  prompt,
   selectedKey,
 }: {
   readonly onSelect: (key: string) => void;
+  readonly prompt: PromptFor;
   readonly rows: readonly CauseRow[];
   readonly selectedKey: string | null;
 }) => {
@@ -281,7 +297,11 @@ export const CauseTable = ({
                 </TableCell>
               </TableRow>
               {openKey === row.key ? (
-                <DetailRow onDrill={() => onSelect(row.key)} row={row} />
+                <DetailRow
+                  onDrill={() => onSelect(row.key)}
+                  prompt={prompt}
+                  row={row}
+                />
               ) : null}
             </Fragment>
           ))}

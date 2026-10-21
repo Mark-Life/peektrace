@@ -10,8 +10,9 @@ import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
 import { ListTreeIcon } from "lucide-react";
-import type { Finding } from "../../lib/stats-format";
+import type { Finding, PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
+import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
 /** Cards shown before the reader asks for more. */
@@ -27,9 +28,11 @@ const SOURCE_LABEL: Record<Finding["table"], string> = {
 const FindingCard = ({
   finding,
   onDrill,
+  prompt,
 }: {
   readonly finding: Finding;
   readonly onDrill: (table: Finding["table"], key: string) => void;
+  readonly prompt: PromptFor;
 }) => (
   <article
     className={cn(
@@ -72,6 +75,11 @@ const FindingCard = ({
           text={finding.rule}
         />
       )}
+      <PromptButton
+        subject={finding.title}
+        testId="finding-prompt"
+        text={prompt({ table: finding.table, key: finding.key })}
+      />
       <Button
         className="ml-auto h-6 shrink-0 gap-1 px-2 text-xs"
         onClick={() => onDrill(finding.table, finding.key)}
@@ -119,11 +127,13 @@ export const Findings = ({
   onDrill,
   showAll,
   onShowAll,
+  prompt,
   suggested,
 }: {
   readonly findings: readonly Finding[];
   readonly onDrill: (table: Finding["table"], key: string) => void;
   readonly onShowAll: () => void;
+  readonly prompt: PromptFor;
   readonly showAll: boolean;
   readonly suggested: readonly string[];
 }) => {
@@ -147,6 +157,7 @@ export const Findings = ({
             finding={finding}
             key={`${finding.table}:${finding.key}`}
             onDrill={onDrill}
+            prompt={prompt}
           />
         ))}
       </div>

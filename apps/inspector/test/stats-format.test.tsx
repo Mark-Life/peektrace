@@ -19,13 +19,17 @@ import {
   findingsOf,
   hms,
   projectTail,
+  promptsOf,
   ruleLine,
   sessionChip,
   suggestedRules,
   timeNote,
 } from "../src/lib/stats-format";
 import { CauseTable } from "../src/routes/stats/cause-table";
+import { FailTable } from "../src/routes/stats/fail-table";
 import { Findings } from "../src/routes/stats/findings";
+import { ReportHeader } from "../src/routes/stats/report-header";
+import { TimeTable } from "../src/routes/stats/time-table";
 
 const failRow = (
   over: Partial<FailRow> & { readonly key: string }
@@ -86,6 +90,7 @@ const report = (args: {
   fails: args.fails,
   fanout: [],
   generatedAt: 0,
+  paths: {},
   schemaVersion: "peektrace-stats/v2",
   skipped: [],
   time: args.time,
@@ -104,6 +109,11 @@ const report = (args: {
     totalSec: 0,
   },
   web: [],
+  window: {
+    days: 30,
+    fromIso: "2026-09-21T00:00:00.000Z",
+    toIso: "2026-10-21T00:00:00.000Z",
+  },
 });
 
 test("seconds read as a duration, never as a bare float", () => {
@@ -273,6 +283,9 @@ const FIRING: CauseRow["rule"] = {
   advice: "setopt nonomatch in ~/.zshenv",
 };
 
+/** A report with no row to prompt for: buttons that need one render nothing. */
+const NO_PROMPT = () => null;
+
 test("a cause finding leads, ahead of the fail rows", () => {
   const findings = findingsOf(
     report({
@@ -324,12 +337,14 @@ test("suggested rules skip causes a memory file already states", () => {
       findings={findingsOf(r)}
       onDrill={() => undefined}
       onShowAll={() => undefined}
+      prompt={promptsOf(r, null)}
       showAll={false}
       suggested={suggestedRules(r)}
     />
   );
   expect(html).toContain('data-testid="stats-copy-all"');
   expect(html).toContain('data-testid="finding-copy"');
+  expect(html).toContain('data-testid="finding-prompt"');
   expect(html).toContain("retries");
 });
 
@@ -337,6 +352,7 @@ test("the cause table renders its rows, and the open one shows the rule check", 
   const html = renderToStaticMarkup(
     <CauseTable
       onSelect={() => undefined}
+      prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey="cause:zsh-glob-flag"
     />
@@ -359,6 +375,7 @@ test("a phone reads each cause row as one wrapped summary line", () => {
   const html = renderToStaticMarkup(
     <CauseTable
       onSelect={() => undefined}
+      prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey={null}
     />
@@ -380,6 +397,7 @@ test("a finding's impact wraps instead of running past the card", () => {
       )}
       onDrill={() => undefined}
       onShowAll={() => undefined}
+      prompt={NO_PROMPT}
       showAll={false}
       suggested={[]}
     />
@@ -387,4 +405,86 @@ test("a finding's impact wraps instead of running past the card", () => {
   const impact = html.match(IMPACT_CLASS);
   expect(impact?.[1]).toContain("min-w-0");
   expect(impact?.[1]).not.toContain("shrink-0");
+});
+
+/** The accessible name of each prompt button in static markup. */
+const PROMPT_LABEL =
+  /aria-label="(Copy an agent prompt to investigate [^"]*)"/g;
+
+test("every open row and the header copy an agent prompt, each named for its row", () => {
+  const cause = causeRow({ rule: FIRING });
+  const fail = failRow({
+    key: "scan:tsc",
+    label: "error TS####",
+    note: "pipes",
+  });
+  const time = timeRow({ key: "test", label: "tests" });
+  const r = report({ causes: [cause], fails: [fail], time: [time] });
+  const prompt = promptsOf(r, null);
+  const html = [
+    renderToStaticMarkup(
+      <ReportHeader
+        agent={null}
+        days={30}
+        onAgent={() => undefined}
+        onDays={() => undefined}
+        onRescan={() => undefined}
+        prompt={prompt({ table: "report" })}
+        report={r}
+      />
+    ),
+    renderToStaticMarkup(
+      <CauseTable
+        onSelect={() => undefined}
+        prompt={prompt}
+        rows={[cause]}
+        selectedKey={cause.key}
+      />
+    ),
+    renderToStaticMarkup(
+      <FailTable
+        onSelect={() => undefined}
+        prompt={prompt}
+        rows={[fail]}
+        selectedKey={fail.key}
+      />
+    ),
+    renderToStaticMarkup(
+      <TimeTable
+        onSelect={() => undefined}
+        prompt={prompt}
+        rows={[time]}
+        selectedKey={time.key}
+      />
+    ),
+  ].join("");
+  for (const id of [
+    "stats-prompt",
+    "cause-prompt",
+    "fail-prompt",
+    "time-prompt",
+  ]) {
+    expect(html).toContain(`data-testid="${id}"`);
+  }
+  expect([...html.matchAll(PROMPT_LABEL)].map((m) => m[1])).toEqual([
+    "Copy an agent prompt to investigate this report",
+    "Copy an agent prompt to investigate unquoted glob in a flag value",
+    "Copy an agent prompt to investigate error TS####",
+    "Copy an agent prompt to investigate tests time",
+  ]);
+  // The tooltip names what is copied, not the whole prompt.
+  expect(html).not.toContain('title="Goal:');
+  expect(html).toContain("Copy prompt");
+});
+
+test("a closed row renders no prompt button", () => {
+  const html = renderToStaticMarkup(
+    <FailTable
+      onSelect={() => undefined}
+      prompt={() => "Goal: x"}
+      rows={[failRow({ key: "scan:tsc" })]}
+      selectedKey={null}
+    />
+  );
+  expect(html).not.toContain('data-testid="fail-prompt"');
 });

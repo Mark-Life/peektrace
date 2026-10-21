@@ -10,6 +10,10 @@ import {
   timeNote as coreTimeNote,
   type FindingFormat,
 } from "@workspace/core/services/stats/findings";
+import {
+  type PromptTarget,
+  statsPrompt,
+} from "@workspace/core/services/stats/prompts";
 import { fmtK } from "@workspace/viz/lib/session-format";
 
 export type { Finding } from "@workspace/core/services/stats/findings";
@@ -19,6 +23,7 @@ export {
   suggestedRules,
 } from "@workspace/core/services/stats/findings";
 
+import type { AgentId } from "@workspace/core/services/agent-id";
 import type {
   SampleRef,
   StatsReport,
@@ -70,6 +75,16 @@ export const coPresentNote = (row: TimeRow): string =>
 /** The cold-start list: rows that carry a fix, cheapest fix first. */
 export const findingsOf = (report: StatsReport) =>
   coreFindingsOf(report, FORMAT);
+
+/** The investigation prompt for one row, or null when no row has the key. */
+export type PromptFor = (target: PromptTarget) => string | null;
+
+/** Bind core's prompt builder to this report, its agent scope and this
+ * surface's number spelling, so every button copies the CLI's text. */
+export const promptsOf =
+  (report: StatsReport, agent: AgentId | null): PromptFor =>
+  (target) =>
+    statsPrompt({ agent, format: FORMAT, report, target });
 
 /** Chars of a project slug a session chip keeps. */
 const PROJECT_TAIL = 18;

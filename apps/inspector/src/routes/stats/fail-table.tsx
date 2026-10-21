@@ -17,18 +17,32 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import { Fragment } from "react";
-import { n } from "../../lib/stats-format";
+import { n, type PromptFor } from "../../lib/stats-format";
+import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
 /** The rows behind one key, opened in place under it. */
-const DetailRow = ({ row }: { readonly row: FailRow }) => (
+const DetailRow = ({
+  prompt,
+  row,
+}: {
+  readonly prompt: PromptFor;
+  readonly row: FailRow;
+}) => (
   <TableRow className="bg-muted/30 hover:bg-muted/30">
     <TableCell className="whitespace-normal" colSpan={6}>
       <div
         className="flex w-0 min-w-full flex-col gap-2 py-1"
         data-testid="fail-detail"
       >
-        {row.note ? <p className="text-xs">{row.note}</p> : null}
+        <div className="flex flex-wrap items-start gap-2">
+          <p className="min-w-0 flex-1 text-xs">{row.note ?? ""}</p>
+          <PromptButton
+            subject={row.label}
+            testId="fail-prompt"
+            text={prompt({ table: "fail", key: row.key })}
+          />
+        </div>
         <SessionLinks detector={row.detector} samples={row.samples} />
       </div>
     </TableCell>
@@ -39,9 +53,11 @@ const DetailRow = ({ row }: { readonly row: FailRow }) => (
 export const FailTable = ({
   rows,
   onSelect,
+  prompt,
   selectedKey,
 }: {
   readonly onSelect: (key: string) => void;
+  readonly prompt: PromptFor;
   readonly rows: readonly FailRow[];
   readonly selectedKey: string | null;
 }) => {
@@ -104,7 +120,9 @@ export const FailTable = ({
                   {n(row.projects)}
                 </TableCell>
               </TableRow>
-              {selectedKey === row.key ? <DetailRow row={row} /> : null}
+              {selectedKey === row.key ? (
+                <DetailRow prompt={prompt} row={row} />
+              ) : null}
             </Fragment>
           ))}
         </TableBody>
