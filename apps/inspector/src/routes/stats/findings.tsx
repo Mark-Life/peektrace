@@ -3,13 +3,15 @@
  * Not a score. Each card states the measurement in its own table's unit, the one
  * line that says what to change, and the sessions it came from. Failures and
  * seconds are never added together — the cards are ordered by how cheap the fix
- * is, then by the impact their own table already ranked them on.
+ * is, then by the impact their own table already ranked them on. A cause whose
+ * rule no memory file states yet carries a copy button for that rule line.
  */
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
 import { ListTreeIcon } from "lucide-react";
 import type { Finding } from "../../lib/stats-format";
+import { CopyButton } from "./copy-button";
 import { SessionLinks } from "./session-links";
 
 /** Cards shown before the reader asks for more. */
@@ -48,7 +50,12 @@ const FindingCard = ({
           {finding.detector}
         </Badge>
       )}
-      <span className="ml-auto shrink-0 font-mono text-sm">
+      {/* Not shrink-0: a retry impact names four numbers and must wrap, not
+          run past the card's clipped edge. */}
+      <span
+        className="wrap-break-word ml-auto min-w-0 font-mono text-sm"
+        data-testid="stats-finding-impact"
+      >
         {finding.impact}
       </span>
     </div>
@@ -58,6 +65,13 @@ const FindingCard = ({
     </p>
     <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
       <SessionLinks detector={finding.detector} samples={finding.samples} />
+      {finding.rule === null ? null : (
+        <CopyButton
+          label="Copy rule"
+          testId="finding-copy"
+          text={finding.rule}
+        />
+      )}
       <Button
         className="ml-auto h-6 shrink-0 gap-1 px-2 text-xs"
         onClick={() => onDrill(finding.table, finding.key)}
@@ -71,17 +85,47 @@ const FindingCard = ({
   </article>
 );
 
+/** Every suggested rule line, one copy away. */
+const SuggestedRules = ({ rules }: { readonly rules: readonly string[] }) =>
+  rules.length === 0 ? null : (
+    <div
+      className="flex flex-col gap-2 rounded-lg border border-border p-3"
+      data-testid="stats-suggested-rules"
+    >
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="font-medium text-sm">Suggested rules</span>
+        <span className="text-muted-foreground text-xs">
+          lines no CLAUDE.md / AGENTS.md states yet
+        </span>
+        <span className="ml-auto">
+          <CopyButton
+            label="Copy all suggested rules"
+            testId="stats-copy-all"
+            text={rules.map((r) => `- ${r}`).join("\n")}
+          />
+        </span>
+      </div>
+      <ul className="list-disc pl-5 text-muted-foreground text-xs">
+        {rules.map((r) => (
+          <li key={r}>{r}</li>
+        ))}
+      </ul>
+    </div>
+  );
+
 /** The flagged findings band. Empty is a real answer, and says so. */
 export const Findings = ({
   findings,
   onDrill,
   showAll,
   onShowAll,
+  suggested,
 }: {
   readonly findings: readonly Finding[];
   readonly onDrill: (table: Finding["table"], key: string) => void;
   readonly onShowAll: () => void;
   readonly showAll: boolean;
+  readonly suggested: readonly string[];
 }) => {
   if (findings.length === 0) {
     return (
@@ -89,8 +133,8 @@ export const Findings = ({
         className="text-muted-foreground text-sm"
         data-testid="stats-no-findings"
       >
-        No row in this window carries a named fix. The two tables below still
-        rank what happened.
+        No row in this window carries a named fix. The tables below still rank
+        what happened.
       </p>
     );
   }
@@ -116,6 +160,7 @@ export const Findings = ({
           Show {findings.length - VISIBLE} more
         </Button>
       ) : null}
+      <SuggestedRules rules={suggested} />
     </div>
   );
 };

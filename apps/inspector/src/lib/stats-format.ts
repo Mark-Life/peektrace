@@ -13,6 +13,11 @@ import {
 import { fmtK } from "@workspace/viz/lib/session-format";
 
 export type { Finding } from "@workspace/core/services/stats/findings";
+export {
+  NO_RULE,
+  ruleLine,
+  suggestedRules,
+} from "@workspace/core/services/stats/findings";
 
 import type {
   SampleRef,

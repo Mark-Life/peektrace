@@ -7,7 +7,11 @@
  */
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import { tokenLabel } from "@workspace/core/services/sessions/tokens";
-import type { SessionMarker } from "@workspace/core/services/stats/schema";
+import { CAUSES } from "@workspace/core/services/stats/detectors/causes";
+import type {
+  CauseKind,
+  SessionMarker,
+} from "@workspace/core/services/stats/schema";
 import {
   Tool,
   ToolContent,
@@ -39,11 +43,22 @@ interface ChatToolCardProps {
   readonly state: ToolState;
 }
 
+/** What a cause marker says: where its fix lives. */
+const CAUSE_MARK: Record<CauseKind, string> = {
+  rule: "rule",
+  env: "env",
+  workflow: "workflow",
+  none: "error",
+};
+
 /** Short glyph text per detector. The badge says what was printed, never that
  *  something broke — a silent failure is a failure the exit code did not
  *  report, which is not the same claim. */
 const MARK_TEXT: Record<string, string> = {
-  "zsh-equals-abort": "rule",
+  ...Object.fromEntries(
+    Object.entries(CAUSES).map(([id, spec]) => [id, CAUSE_MARK[spec.kind]])
+  ),
+  retry: "retry",
   "piped-exit-code": "silent fail",
   "silent-fail": "silent fail",
   capped: "capped",
@@ -122,6 +137,7 @@ const ChatToolCardBody = ({
         data-paired={call && result ? "true" : "false"}
         data-sidechain={anchor?.isSidechain ? "true" : "false"}
         data-testid="history-event"
+        data-tool-use-id={anchor?.toolUseId ?? undefined}
         id={collapseId}
         onOpenChange={(next: boolean) => onToggle(collapseId, next)}
         open={open}

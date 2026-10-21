@@ -125,6 +125,8 @@ one-line fix. When `CLAUDE.md` / `AGENTS.md` already states the rule and the
 cause still fires, it says so and names an env or prompt-level change instead
 of another memory line.
 
+![Avoidable retries with rule checks](assets/browser-stats-retries.webp)
+
 Subagent and workflow-agent transcripts count their own model calls, so their
 tokens, cost and retries are measured rather than read as zero. Reports from
 earlier versions showed their cost as about $0.
