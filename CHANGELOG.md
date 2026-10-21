@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+## cli-v0.10.1 — 2026-10-21
+
+### Added
+
+- **Stats names failure causes and counts avoidable retries** (#58). A
+  catalog of named causes (zsh glob and `===` aborts, `pkill -f` killing its
+  own shell, blocked `sleep`, missing binaries, oversized output read back,
+  stale Write/Edit reads, schema rejections and more) each carries a one-line
+  fix. Causes are found in the output, so failures inside a chain that exited
+  0 now count. A failed call followed by a similar call that succeeds is a
+  retry pair, reported with its wasted round trips, seconds and context tokens
+  re-read, split main vs subagent. Findings lead the report.
+- **Rules already in memory are checked** (#58). When AGENTS.md or CLAUDE.md
+  already holds the fix and the cause still fires, Stats says so with a rate
+  per 1k calls and points at an environment or prompt fix instead.
+- **Inspector shows avoidable retries** (#59), with copyable rules, a
+  retry-aware drill, and links that land on the call they name.
+- **Copy an investigation prompt** (#61) from the Stats header or any row: a
+  short goal plus that report's or row's data, sample transcripts included.
+  `peektrace stats prompt` prints the same text.
+
+### Fixed
+
+- **Subagent and workflow-agent tokens count** (#57). Their transcripts used
+  to read zero tokens and cost. Context concentration now ranks main sessions
+  only.
+
 ## cli-v0.10.0 — 2026-10-15
 
 ### Added
