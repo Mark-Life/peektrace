@@ -44,6 +44,9 @@ const sample = (over: Partial<SampleRef>): SampleRef => ({
   ...over,
 });
 
+/** A line that ends at its colon: a header with nothing under it. */
+const DANGLING_HEADER = /: $/m;
+
 const FIRING: RuleCheck = {
   matches: [{ path: "~/.claude/CLAUDE.md", line: 101, excerpt: "Quote globs" }],
   sinceIso: "2026-10-01T00:00:00.000Z",
@@ -200,7 +203,7 @@ describe("the report prompt", () => {
       "avoidable retries: 1,356 round trips, 5396s, 64K ctx tokens re-read"
     );
     expect(text).toContain(
-      "  - zsh-glob-flag: 1,492 hits · 678 retries (main 41 / sub 637) · 2698s · 32K ctx · rule in memory\n"
+      "  - zsh-glob-flag: 1,492 hits · 678 retries (main 41 / sub 637) · 2698s · 32K ctx tokens re-read · rule in memory\n"
     );
     expect(text).toContain("  - output-too-large: 1,492 hits · 678 read-backs");
     // A cause that never fired is not a finding.
@@ -221,18 +224,67 @@ describe("the report prompt", () => {
     expect(text).toContain(
       "rules in memory but still firing: zsh-glob-flag (rule in ~/.claude/CLAUDE.md:101 · still firing"
     );
+    const quiet = {
+      ...FIRING,
+      hitsSince: { main: 0, nested: 0 },
+      per1kSince: { main: 0, nested: 0 },
+    };
+    expect(
+      prompt(report({ causes: [causeRow({ rule: quiet })] }), {
+        table: "report",
+      })
+    ).toContain("rules in memory but still firing: none");
+    // No rule at all is no rule line.
     expect(
       prompt(report({ causes: [causeRow({})] }), { table: "report" })
-    ).toContain("rules in memory but still firing: none");
+    ).not.toContain("rules in memory");
+  });
+
+  test("an unmeasured rule is never reported as working", () => {
+    const unmeasured = prompt(
+      report({
+        causes: [
+          causeRow({
+            rule: {
+              ...FIRING,
+              callsSince: { main: 0, nested: 0 },
+              hitsSince: { main: 0, nested: 0 },
+            },
+          }),
+        ],
+      }),
+      { table: "report" }
+    );
+    expect(unmeasured).toContain(
+      "- rules in memory, still-firing rate not measured yet: zsh-glob-flag"
+    );
+    expect(unmeasured).not.toContain("still firing: none");
+  });
+
+  test("an empty window prints no empty section", () => {
+    const empty = prompt(
+      report({
+        causes: [],
+        fails: [],
+        time: [],
+        waiting: { ...r.waiting, calls: 0 },
+      }),
+      { table: "report" }
+    );
+    expect(empty).not.toContain("- causes");
+    expect(empty).not.toContain("- failures");
+    expect(empty).not.toContain("- shell time");
+    expect(empty).not.toContain("avoidable retries");
+    expect(empty).not.toMatch(DANGLING_HEADER);
   });
 
   test("ends with the real commands, in the report's window and agent scope", () => {
     expect(text).toContain("- full report: peektrace stats --days 30 --json");
     expect(text).toContain(
-      "peektrace stats prompt --cause <id> | --fail <key> | --time <job> --days 30"
+      "- one row, with transcript paths: peektrace stats prompt --days 30 --cause <id>"
     );
     expect(text).toContain(
-      "peektrace stats drill --cause cause:<id> | --fail <key> | --time <job> --days 30 --json"
+      "- a row's calls: peektrace stats drill --days 30 --cause <id> --json"
     );
     const scoped = statsPrompt({
       agent: "codex",
@@ -242,6 +294,24 @@ describe("the report prompt", () => {
     });
     expect(scoped).toContain("(last 30 days, codex)");
     expect(scoped).toContain("peektrace stats --days 30 --agent codex --json");
+  });
+
+  test("a remote report points every command at its server, and says so", () => {
+    const remote = statsPrompt({
+      format: FORMAT,
+      remote: "http://box:7777",
+      report: r,
+      target: { table: "report" },
+    });
+    expect(remote).toContain(
+      "(last 30 days, all agents; read from http://box:7777: transcript paths are on that host)"
+    );
+    expect(remote).toContain(
+      "- full report: peektrace --remote http://box:7777 stats --days 30 --json"
+    );
+    expect(remote).toContain(
+      "peektrace --remote http://box:7777 stats drill --days 30 --cause <id> --json"
+    );
   });
 });
 
@@ -279,9 +349,9 @@ describe("a cause prompt", () => {
         "Below is measured data for one pattern from peektrace (last 30 days, all agents). Read the sample transcripts to confirm it and find its root cause. Propose concrete changes to my environment (shell config, installed tools, hooks), AGENTS.md/CLAUDE.md, skills or prompts that prevent it. Rank by impact; show exact edits; don't apply until I confirm.",
         "",
         "Pattern: unquoted glob in a flag value",
-        "- cause: zsh-glob-flag · fix lives in: memory file (AGENTS.md/CLAUDE.md)",
-        "- hits: 1,492 (1,457 exited 0) in 913 sessions, 4 projects · main 125 / sub 1,367",
-        "- wasted: 678 retries (main 41 / sub 637) · 2698s · 32K ctx tokens re-read in 552 sessions",
+        "- cause: zsh-glob-flag",
+        "- 913 sessions · 1,492 hits (1,457 at exit 0) · 552 sessions with a retry · 4 projects · hits main 125 / sub 1,367",
+        "- wasted: 678 retries (main 41 / sub 637) · 2698s · 32K ctx tokens re-read",
         "- culprits: *.ts ×1,196",
         "- retries changed: --include=*.ts → --include='*.ts' ×145",
         "- suggested fix: quote the glob",
@@ -293,7 +363,7 @@ describe("a cause prompt", () => {
         "  retry: grep -rn \"x\" --include='*.ts' .",
         "- session lost",
         "  call: ls *.md",
-        "All calls: peektrace stats drill --cause cause:zsh-glob-flag --days 30 --json",
+        "Calls (first 200, .total counts all, .paths has transcripts): peektrace stats drill --days 30 --cause zsh-glob-flag --json",
       ].join("\n")
     );
   });
@@ -310,6 +380,9 @@ describe("a cause prompt", () => {
       key: "zsh-glob-flag",
     });
     expect(none).toContain("- rule: none in AGENTS.md/CLAUDE.md");
+    expect(none).toContain(
+      "- cause: zsh-glob-flag · fix lives in: memory file (AGENTS.md/CLAUDE.md)"
+    );
     const env = prompt(
       report({
         causes: [
@@ -342,7 +415,7 @@ describe("a cause prompt", () => {
       { table: "cause", key: "zsh-glob-flag" }
     );
     expect(fresh).toContain(
-      "not measured yet (added 2026-10-01)\n  Too new to measure; if it keeps firing: setopt nonomatch in ~/.zshenv."
+      "not measured yet (added 2026-10-01)\n  If it keeps firing: setopt nonomatch in ~/.zshenv."
     );
     expect(fresh).not.toContain("still fires");
   });
@@ -395,9 +468,7 @@ describe("fail and time prompts", () => {
       `Samples:\n- 2026-10-15T07:46:55Z · toolu_01 · ${PATH}\n  call: bun run typecheck | tail`
     );
     expect(
-      text.endsWith(
-        "All calls: peektrace stats drill --fail scan:tsc --days 30 --json"
-      )
+      text.endsWith("peektrace stats drill --days 30 --fail scan:tsc --json")
     ).toBe(true);
   });
 
@@ -410,7 +481,7 @@ describe("fail and time prompts", () => {
       }
     );
     expect(text).toContain(
-      "- job: wait/poll · 643 runs, 13196s (50% of shell time) · median 4s, p95 87s"
+      "- job: wait/poll · 13196s · 50% of shell time · 643 runs · median 4s, p95 87s"
     );
     expect(text).toContain(
       "- shapes: loop-poll 207 calls 8956s; 307 backgrounded, declaring 14608s of sleep"
@@ -419,7 +490,7 @@ describe("fail and time prompts", () => {
       "- note: 8 of 643 runs returned at a harness ceiling"
     );
     expect(text).toContain(
-      "peektrace stats drill --time wait/poll --days 30 --json"
+      "peektrace stats drill --days 30 --time wait/poll --json"
     );
   });
 });

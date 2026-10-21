@@ -53,7 +53,7 @@ export interface Finding {
 }
 
 /** `main 1 / sub 9`: one count split by who made the calls. */
-const splitOf = (
+export const splitOf = (
   split: { readonly main: number; readonly nested: number },
   f: FindingFormat
 ): string => `main ${f.count(split.main)} / sub ${f.count(split.nested)}`;

@@ -97,8 +97,8 @@ afterAll(() => {
 });
 
 /** Run the CLI against the throwaway home only. */
-const run = (args: readonly string[]) => {
-  const proc = Bun.spawnSync(["bun", ENTRY, "stats", "prompt", ...args], {
+const run = (args: readonly string[], sub = "prompt") => {
+  const proc = Bun.spawnSync(["bun", ENTRY, "stats", sub, ...args], {
     env: {
       PATH: process.env.PATH,
       HOME: home,
@@ -133,8 +133,36 @@ test("a cause prompt names the failing call by transcript path and id", () => {
   expect(out).toContain(`  failed: ${GLOBBED}`);
   expect(out).toContain(`  retry: ${QUOTED}`);
   expect(out).toContain(
-    "All calls: peektrace stats drill --cause cause:zsh-glob-flag --days 7 --agent claude --json"
+    "peektrace stats drill --days 7 --agent claude --cause zsh-glob-flag --json"
   );
+}, 60_000);
+
+test("the drill command the prompt prints finds the row and its transcripts", () => {
+  const { code, out } = run(
+    ["--days", "7", "--agent", "claude", "--cause", "zsh-glob-flag", "--json"],
+    "drill"
+  );
+  expect(code).toBe(0);
+  const result = JSON.parse(out) as {
+    readonly hits: readonly { readonly sid: string }[];
+    readonly key: string;
+    readonly paths: Record<string, string>;
+  };
+  expect(result.key).toBe("cause:zsh-glob-flag");
+  expect(result.hits.length).toBeGreaterThan(0);
+  expect(Object.values(result.paths)).toContain(transcript);
+}, 60_000);
+
+test("--limit reaches the rows the report lists past the default", () => {
+  const { code } = run([
+    "--cause",
+    "zsh-glob-flag",
+    "--days",
+    "7",
+    "--limit",
+    "50",
+  ]);
+  expect(code).toBe(0);
 }, 60_000);
 
 test("no flag prints the whole-report prompt", () => {

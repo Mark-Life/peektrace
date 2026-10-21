@@ -148,7 +148,7 @@ same text in a terminal.
 peektrace stats [--days 60] [--agent claude|codex|pi|all] [--limit 20]
 peektrace stats refresh [--force]        # rescan and rebuild the cache
 peektrace stats drill --fail <key>       # expand one row
-peektrace stats drill --cause <key>      # failed → retry pairs behind a cause
+peektrace stats drill --cause <id>       # failed → retry pairs behind a cause
 peektrace stats prompt [--cause <id> | --fail <key> | --time <job>]  # agent prompt
 ```
 

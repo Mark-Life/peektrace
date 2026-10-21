@@ -129,9 +129,6 @@ const shareCell = (fraction: number, bashSec: number): string =>
 const failFix = (row: FailRow): string =>
   row.note === null ? NO_RULE : clipCell(row.note);
 
-/** No `--limit`: a prompt reads the top rows core ranked. */
-const noLimit: Option.Option<number> = Option.none();
-
 /** Findings printed above the tables; the rest are in the tables below. */
 const FINDINGS_SHOWN = 5;
 
@@ -503,6 +500,7 @@ const makeStatsPrompt = (globals: GlobalsAccessor) =>
       ),
       days: daysOpt,
       agent: agentOpt,
+      limit: limitOpt,
       readOnly: localReadOnlyOpt,
     },
     (opts) =>
@@ -525,17 +523,18 @@ const makeStatsPrompt = (globals: GlobalsAccessor) =>
         const target: PromptTarget = picked[0] ?? { table: "report" };
         const scope = yield* scopeOf(opts.agent);
         const report = yield* withClient(g, (client) =>
-          client.stats.report({ ...scope, ...windowOf(opts.days, noLimit) })
+          client.stats.report({ ...scope, ...windowOf(opts.days, opts.limit) })
         );
         const text = statsPrompt({
           agent: scope.agents?.[0] ?? null,
           format: FORMAT,
+          remote: g.remote ?? null,
           report,
           target,
         });
         if (text === null) {
           return yield* new CliUserError({
-            message: `No ${target.table} row "${"key" in target ? target.key : ""}" in this window. List the keys with: peektrace stats`,
+            message: `No ${target.table} row "${"key" in target ? target.key : ""}" in this window's top rows. List the keys with: peektrace stats; for a row ranked past 20, pass the --limit that lists it`,
           });
         }
         return yield* Console.log(text);

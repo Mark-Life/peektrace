@@ -584,6 +584,8 @@ export const DrillResult = Schema.Struct({
   /** Index of the first hit in `hits`, counted from the whole match set. */
   offset: Schema.Number,
   hits: Schema.Array(DrillHit),
+  /** Absolute transcript path of each session in `hits`, keyed by `sid`. */
+  paths: Schema.Record({ key: Schema.String, value: Schema.String }),
 });
 export type DrillResult = typeof DrillResult.Type;
 

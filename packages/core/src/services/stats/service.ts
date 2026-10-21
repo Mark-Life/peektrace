@@ -457,14 +457,22 @@ const samplesIn = (
 const pathsOf = (args: {
   readonly paths: ReadonlyMap<string, string>;
   readonly redact: Redactor;
-  readonly report: Omit<StatsReport, "paths">;
+  readonly refs: readonly { readonly sid: string }[];
 }): Record<string, string> =>
   Object.fromEntries(
-    uniqSorted(samplesIn(args.report).map((s) => s.sid)).flatMap((sid) => {
+    uniqSorted(args.refs.map((s) => s.sid)).flatMap((sid) => {
       const path = args.paths.get(sid);
       return path === undefined ? [] : [[sid, args.redact.text(path)]];
     })
   );
+
+const CAUSE_PREFIX = "cause:";
+
+/** A cause drill takes the bare id the tables print, or the full key. */
+const drillKeyOf = (table: DrillTable, key: string): string =>
+  table === "cause" && !key.startsWith(CAUSE_PREFIX)
+    ? `${CAUSE_PREFIX}${key}`
+    : key;
 
 /** Build the finish context. Corpus totals are computed first, by construction:
  * every share in the report divides by a field the detectors read from here. */
@@ -603,7 +611,7 @@ const makeService = (args: {
               paths: pathsOf({
                 paths: prepared.result.paths,
                 redact: prepared.redact,
-                report: body,
+                refs: samplesIn(body),
               }),
             };
           },
@@ -613,8 +621,9 @@ const makeService = (args: {
       Effect.withSpan("Stats.report")
     );
 
-  const drill: StatsServiceShape["drill"] = (req) =>
-    prepare(req, { table: req.table, key: req.key }).pipe(
+  const drill: StatsServiceShape["drill"] = (raw) => {
+    const req = { ...raw, key: drillKeyOf(raw.table, raw.key) };
+    return prepare(req, { table: req.table, key: req.key }).pipe(
       Effect.flatMap((prepared) =>
         Effect.try({
           try: () =>
@@ -634,19 +643,26 @@ const makeService = (args: {
               1,
               Math.trunc(req.pageSize ?? DEFAULT_DRILL_PAGE)
             );
+            const shown = hits.slice(offset, offset + page);
             return Effect.succeed({
               schemaVersion: STATS_SCHEMA_VERSION,
               table: req.table,
               key: req.key,
               total: hits.length,
               offset,
-              hits: hits.slice(offset, offset + page),
+              hits: shown,
+              paths: pathsOf({
+                paths: prepared.result.paths,
+                redact: prepared.redact,
+                refs: shown,
+              }),
             } satisfies DrillResult);
           })
         )
       ),
       Effect.withSpan("Stats.drill", { attributes: { table: req.table } })
     );
+  };
 
   const markers: StatsServiceShape["markers"] = (req) =>
     Effect.gen(function* () {

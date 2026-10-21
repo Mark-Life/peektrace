@@ -16,7 +16,7 @@ export const PromptButton = ({
 }) =>
   text === null ? null : (
     <CopyButton
-      describe={`Copy an agent prompt to investigate ${subject}`}
+      describe={`Copy prompt: investigate ${subject}`}
       label="Copy prompt"
       testId={testId}
       text={text}

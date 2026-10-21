@@ -408,8 +408,7 @@ test("a finding's impact wraps instead of running past the card", () => {
 });
 
 /** The accessible name of each prompt button in static markup. */
-const PROMPT_LABEL =
-  /aria-label="(Copy an agent prompt to investigate [^"]*)"/g;
+const PROMPT_LABEL = /aria-label="(Copy prompt: investigate [^"]*)"/g;
 
 test("every open row and the header copy an agent prompt, each named for its row", () => {
   const cause = causeRow({ rule: FIRING });
@@ -467,10 +466,10 @@ test("every open row and the header copy an agent prompt, each named for its row
     expect(html).toContain(`data-testid="${id}"`);
   }
   expect([...html.matchAll(PROMPT_LABEL)].map((m) => m[1])).toEqual([
-    "Copy an agent prompt to investigate this report",
-    "Copy an agent prompt to investigate unquoted glob in a flag value",
-    "Copy an agent prompt to investigate error TS####",
-    "Copy an agent prompt to investigate tests time",
+    "Copy prompt: investigate this report",
+    "Copy prompt: investigate unquoted glob in a flag value",
+    "Copy prompt: investigate error TS####",
+    "Copy prompt: investigate tests time",
   ]);
   // The tooltip names what is copied, not the whole prompt.
   expect(html).not.toContain('title="Goal:');
