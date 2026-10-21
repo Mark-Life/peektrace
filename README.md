@@ -139,11 +139,17 @@ waiting panel that separates real work from parked polling.
 Command text, error signatures and cluster labels are redacted before they are
 stored or shown. Every number ships with its caveats.
 
+"Copy prompt", on the page and on each open row, hands an agent a short
+investigation prompt: the goal, that row's numbers, sample calls by transcript
+path and tool-use id, and the commands that pull more. `stats prompt` prints the
+same text in a terminal.
+
 ```sh
 peektrace stats [--days 60] [--agent claude|codex|pi|all] [--limit 20]
 peektrace stats refresh [--force]        # rescan and rebuild the cache
 peektrace stats drill --fail <key>       # expand one row
 peektrace stats drill --cause <key>      # failed → retry pairs behind a cause
+peektrace stats prompt [--cause <id> | --fail <key> | --time <job>]  # agent prompt
 ```
 
 ## Memory
