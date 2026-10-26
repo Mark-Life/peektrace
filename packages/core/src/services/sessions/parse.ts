@@ -179,7 +179,7 @@ const assistantBlockEvent = (args: {
       tokensEst: estTokens(text),
     };
   }
-  if (block?.type === "tool_use") {
+  if (block?.type === "tool_use" || block?.type === "server_tool_use") {
     const inputStr = JSON.stringify(block.input ?? {}, null, 2);
     return {
       ...base,
@@ -190,6 +190,25 @@ const assistantBlockEvent = (args: {
       tokensEst: estTokens(inputStr),
       toolName: String(block.name ?? "tool"),
       ...opt("toolUseId", typeof block.id === "string" ? block.id : undefined),
+    };
+  }
+  if (block?.type === "advisor_tool_result") {
+    const result = (block.content ?? {}) as Record<string, unknown>;
+    const redacted = result.type === "advisor_redacted_result";
+    const text = redacted
+      ? "(advisor response encrypted, not stored in transcript)"
+      : str(result.text ?? result);
+    return {
+      ...base,
+      kind: "tool-result",
+      title: "advisor result",
+      preview: firstLine(text),
+      body: text,
+      tokensEst: redacted ? 0 : estTokens(text),
+      ...opt(
+        "toolUseId",
+        typeof block.tool_use_id === "string" ? block.tool_use_id : undefined
+      ),
     };
   }
   return null;
