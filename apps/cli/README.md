@@ -36,6 +36,13 @@ Release that the `Publish CLI` workflow attaches to each `cli-v<semver>` tag.
 `apps/cli/dist-npm/`. That staging step is what produces the released binaries,
 so it runs in CI even though nothing is published to a registry.
 
+### Experimental: AOT and trimmed binaries
+
+`PEEKTRACE_AOT=1` / `PEEKTRACE_TRIM=1` make `src/build.ts` pass `aot` / `trim`
+to `Bun.build` (needs a Bun that has them). Off by default. Startup commands
+run 3–5× faster and `stats` uses 37% less memory; measurements and caveats in
+[`docs/aot-compile.md`](../../docs/aot-compile.md).
+
 ### npm (not published)
 
 Publishing to npm is disabled pending name registration — the publish step in

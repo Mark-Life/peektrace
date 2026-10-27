@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- **Opt-in AOT / trimmed CLI builds.** cli: opt-in `PEEKTRACE_AOT=1` / `PEEKTRACE_TRIM=1` binary builds (`bun build --compile --aot` / `--trim`); measurements in `docs/aot-compile.md`.
+
 ## cli-v0.10.1 — 2026-10-21
 
 ### Added

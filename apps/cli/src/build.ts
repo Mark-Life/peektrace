@@ -212,7 +212,7 @@ ${imports}
 
 export default {
 ${entries}
-} as Record<string, string>;
+} as unknown as Record<string, string>;
 `;
   await writeFile(GEN_PATH, content, "utf8");
   return files.length;
@@ -224,12 +224,27 @@ const readVersion = async () => {
   return typeof pkg.version === "string" ? pkg.version : "0.0.0-dev";
 };
 
+/**
+ * Opt-in Bun compile modes, read from the environment so CI and local
+ * measurements share one code path:
+ * - `PEEKTRACE_AOT=1`  — `--aot`: compile JS/TS to machine code at build time.
+ * - `PEEKTRACE_TRIM=1` — `--trim`: leave out the parts of Bun the program never uses.
+ * - `PEEKTRACE_OUT_NAME` — output file name (default `peektrace`).
+ */
+const compileOptions = () => ({
+  ...(process.env.PEEKTRACE_AOT === "1" ? { aot: true } : {}),
+  ...(process.env.PEEKTRACE_TRIM === "1" ? { trim: true } : {}),
+});
+
+/** Output file name; overridable so several variants can be built side by side. */
+const outName = () => process.env.PEEKTRACE_OUT_NAME ?? "peektrace";
+
 /** Compile `src/index.ts` into a standalone binary for `target`. */
 const compileBinary = async (
   target: Bun.Build.CompileTarget,
   version: string
 ) => {
-  const outfile = join(CLI_ROOT, "dist", target, "peektrace");
+  const outfile = join(CLI_ROOT, "dist", target, outName());
   const unused = unusedNativePackageFor(target);
   await Bun.build({
     entrypoints: [ENTRYPOINT],
@@ -238,7 +253,7 @@ const compileBinary = async (
     // (a bare undeclared global when run from source, guarded by `typeof`).
     define: { PEEKTRACE_VERSION: JSON.stringify(version) },
     plugins: unused ? [excludeNativePackage(unused, target)] : [],
-    compile: { target, outfile },
+    compile: { target, outfile, ...compileOptions() },
   });
   return outfile;
 };
