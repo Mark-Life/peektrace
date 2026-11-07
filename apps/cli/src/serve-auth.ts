@@ -14,7 +14,7 @@ import { CliUserError } from "./errors";
 /** Env var that supplies the token (server) or sends it (`--remote`). */
 export const TOKEN_ENV = "PEEKTRACE_TOKEN";
 /** Shortest token accepted from `PEEKTRACE_TOKEN`. */
-export const MIN_TOKEN_LENGTH = 32;
+const MIN_TOKEN_LENGTH = 32;
 const TOKEN_BYTES = 32;
 const QUERY_PARAM = "token";
 const BEARER_PREFIX = /^Bearer\s+/i;
@@ -95,12 +95,16 @@ const bearerOf = (headers: AuthRequest["headers"]) => {
     : undefined;
 };
 
+const LEADING_SLASHES = /^\/{2,}/;
+
 /** Same path and query as `url`, minus the `token` param. */
 const stripToken = (url: URL) => {
   const params = new URLSearchParams(url.search);
   params.delete(QUERY_PARAM);
   const query = params.toString();
-  return `${url.pathname}${query === "" ? "" : `?${query}`}`;
+  // A leading `//` would make the redirect protocol-relative (off-site).
+  const path = url.pathname.replace(LEADING_SLASHES, "/");
+  return `${path}${query === "" ? "" : `?${query}`}`;
 };
 
 /** Decide a request: Bearer header, then cookie, then `?token=` on GET. */
@@ -131,20 +135,31 @@ export const authOutcome = (
 export const tokenUrl = (baseUrl: string, token: string) =>
   `${baseUrl}/?${QUERY_PARAM}=${encodeURIComponent(token)}`;
 
+const HTTP_PROTOCOL = /^https?:$/;
+const TOKEN_PARAM_VALUE = /([?&]token=)[^&#]*/g;
+
 /**
  * Split a `--remote` value into a clean base URL and the `token` query param
- * (if any). Non-URL input passes through unchanged so existing validation runs.
+ * (if any). An empty token counts as none. Anything that is not an http(s) URL
+ * passes through with any `token` value masked, so validation errors never
+ * echo the secret.
  */
 export const splitRemote = (remote: string) => {
-  if (!URL.canParse(remote)) {
-    return { url: remote, token: undefined };
+  if (URL.canParse(remote)) {
+    const parsed = new URL(remote);
+    if (HTTP_PROTOCOL.test(parsed.protocol)) {
+      return parsed.searchParams.has(QUERY_PARAM)
+        ? {
+            url: parsed.origin,
+            token: parsed.searchParams.get(QUERY_PARAM) || undefined,
+          }
+        : { url: remote, token: undefined };
+    }
   }
-  const parsed = new URL(remote);
-  const token = parsed.searchParams.get(QUERY_PARAM) ?? undefined;
-  if (token === undefined) {
-    return { url: remote, token: undefined };
-  }
-  return { url: parsed.origin, token };
+  return {
+    url: remote.replace(TOKEN_PARAM_VALUE, "$1***"),
+    token: undefined,
+  };
 };
 
 /** `--allow-write` flag shared by `serve` and `tui`. */

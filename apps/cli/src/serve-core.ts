@@ -25,8 +25,6 @@ import embeddedUI from "./embedded-ui.gen";
 import { CliUserError } from "./errors";
 import { authOutcome, cookieName, isLoopbackHost } from "./serve-auth";
 
-export { isLoopbackHost } from "./serve-auth";
-
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 4321;
 const PORT_SCAN_ATTEMPTS = 20;

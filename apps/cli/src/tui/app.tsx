@@ -36,10 +36,10 @@ const SECTIONS: readonly Section[] = [
 /** Top brand + section tabs, active tab tinted and numbered. */
 const Header = ({
   active,
-  serverUrl,
+  authed,
 }: {
   readonly active: SectionId;
-  readonly serverUrl: string;
+  readonly authed: boolean;
 }) => (
   <box
     style={{
@@ -50,7 +50,7 @@ const Header = ({
       paddingRight: 1,
     }}
   >
-    <text attributes={1} fg={C.primary}>
+    <text attributes={1} fg={C.primary} style={{ flexShrink: 0 }}>
       Peektrace
     </text>
     <box style={{ flexDirection: "row", gap: 2, flexGrow: 1 }}>
@@ -69,35 +69,62 @@ const Header = ({
         );
       })}
     </box>
-    <text fg={C.textFaint}>
-      {serverUrl.includes("?token=") ? "token required" : "loopback only"}
-    </text>
+    <text fg={C.textFaint}>{authed ? "token" : "loopback only"}</text>
   </box>
 );
 
-/** Bottom status bar: live web URL on the left, global key hints on the right. */
-const Footer = ({ serverUrl }: { readonly serverUrl: string }) => (
-  <box
-    style={{
-      flexDirection: "row",
-      height: 1,
-      paddingLeft: 1,
-      paddingRight: 1,
-      justifyContent: "space-between",
-    }}
-  >
+/**
+ * Bottom status bar: live web URL, global key hints. A token URL is too long to
+ * share a row with the hints, so it gets its own row and is never cut.
+ */
+const Footer = ({
+  serverUrl,
+  authed,
+}: {
+  readonly serverUrl: string;
+  readonly authed: boolean;
+}) => {
+  const url = (
     <box style={{ flexDirection: "row" }}>
       <text fg={C.accent}>web ▸ </text>
       <text fg={C.textDim}>{serverUrl}</text>
     </box>
+  );
+  const hints = (
     <KeyHints
       hints={[
         ["1-5", "section"],
         ["q", "quit"],
       ]}
     />
-  </box>
-);
+  );
+  return authed ? (
+    <box
+      style={{
+        flexDirection: "column",
+        height: 2,
+        paddingLeft: 1,
+        paddingRight: 1,
+      }}
+    >
+      {url}
+      {hints}
+    </box>
+  ) : (
+    <box
+      style={{
+        flexDirection: "row",
+        height: 1,
+        paddingLeft: 1,
+        paddingRight: 1,
+        justifyContent: "space-between",
+      }}
+    >
+      {url}
+      {hints}
+    </box>
+  );
+};
 
 /** Render the screen for the active section. */
 const Screen = ({ active }: { readonly active: SectionId }) => {
@@ -120,9 +147,11 @@ const Screen = ({ active }: { readonly active: SectionId }) => {
 /** The shell body — depends on the typing flag, so it lives inside the provider. */
 const Shell = ({
   serverUrl,
+  authed,
   onQuit,
 }: {
   readonly serverUrl: string;
+  readonly authed: boolean;
   readonly onQuit: () => void;
 }) => {
   const { typing } = useTyping();
@@ -136,13 +165,13 @@ const Shell = ({
         backgroundColor: C.bg,
       }}
     >
-      <Header active={active} serverUrl={serverUrl} />
+      <Header active={active} authed={authed} />
       <box
         style={{ flexGrow: 1, minHeight: 0, paddingLeft: 1, paddingRight: 1 }}
       >
         <Screen active={active} />
       </box>
-      <Footer serverUrl={serverUrl} />
+      <Footer authed={authed} serverUrl={serverUrl} />
     </box>
   );
 };
@@ -184,7 +213,11 @@ export const App = ({
   <BridgeProvider bridge={bridge}>
     <WatchProvider>
       <TypingProvider>
-        <Shell onQuit={onQuit} serverUrl={bridge.serverUrl} />
+        <Shell
+          authed={bridge.authed}
+          onQuit={onQuit}
+          serverUrl={bridge.serverUrl}
+        />
       </TypingProvider>
     </WatchProvider>
   </BridgeProvider>

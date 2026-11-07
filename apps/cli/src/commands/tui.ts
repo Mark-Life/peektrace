@@ -79,7 +79,12 @@ const tuiProgram = (args: {
     // the HTTP server mounted just above.
     const client = yield* makeInProcessClient();
     const runtime = yield* Effect.runtime<TuiEnv>();
-    const bridge = makeTuiBridge(client, runtime, serverUrl);
+    const bridge = makeTuiBridge(
+      client,
+      runtime,
+      serverUrl,
+      args.token !== undefined
+    );
 
     if (args.open) {
       yield* openBrowser(serverUrl);

@@ -30,7 +30,7 @@ const TOKEN = "t".repeat(43);
 const RPC_BODY = `${JSON.stringify({
   _tag: "Request",
   id: "1",
-  tag: "sessions.list",
+  tag: "capabilities.list",
   payload: {},
   traceId: "0",
   spanId: "0",
@@ -107,6 +107,34 @@ describe("pure helpers", () => {
 
   test("cookie name carries the port", () => {
     expect(cookieName(4321)).toBe("peektrace_token_4321");
+  });
+
+  test("splitRemote never leaks or loses the token", () => {
+    for (const raw of [
+      "127.0.0.1:47812/?token=SECRET",
+      "server:4321/?token=SECRET",
+      "localhost:1/?token=SECRET",
+    ]) {
+      const out = splitRemote(raw);
+      expect(out.url).not.toContain("SECRET");
+      expect(out.url).not.toBe("null");
+      expect(out.token).toBeUndefined();
+    }
+    expect(splitRemote("http://h:1/?token=").token).toBeUndefined();
+  });
+
+  test("authOutcome redirect never becomes protocol-relative", () => {
+    const out = authOutcome(
+      {
+        method: "GET",
+        url: `/.//evil.example/x?token=${TOKEN}`,
+        headers: {},
+        cookies: {},
+      },
+      TOKEN,
+      4321
+    );
+    expect(out).toEqual({ _tag: "redirect", location: "/evil.example/x" });
   });
 
   test("splitRemote separates the token from the URL", () => {
@@ -259,7 +287,7 @@ describe("authed server", () => {
     const list = (token: string | undefined) =>
       Effect.gen(function* () {
         const client = yield* createPeektraceClient(authed.base, { token });
-        return yield* client.sessions.list({});
+        return yield* client.capabilities.list();
       }).pipe(Effect.scoped);
     expect(Array.isArray(await Effect.runPromise(list(TOKEN)))).toBe(true);
     const err = await Effect.runPromise(list(undefined).pipe(Effect.flip));

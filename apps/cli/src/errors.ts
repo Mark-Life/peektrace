@@ -71,13 +71,24 @@ export const isRpcClientError = (
 ): u is RpcClientError.RpcClientError =>
   u instanceof RpcClientError.RpcClientError;
 
+const httpStatus = (
+  error: RpcClientError.RpcClientError
+): number | undefined => {
+  const { cause } = error;
+  return HttpClientError.isHttpClientError(cause) &&
+    cause._tag === "ResponseError"
+    ? cause.response.status
+    : undefined;
+};
+
 /** Most specific detail from a transport error: HTTP status or root error code. */
 const transportDetail = (error: RpcClientError.RpcClientError): string => {
   const { cause } = error;
+  const status = httpStatus(error);
+  if (status !== undefined) {
+    return `HTTP ${status}`;
+  }
   if (HttpClientError.isHttpClientError(cause)) {
-    if (cause._tag === "ResponseError") {
-      return `HTTP ${cause.response.status}`;
-    }
     const root = cause.cause;
     if (isRecord(root) && typeof root.code === "string") {
       return root.code;
@@ -93,16 +104,6 @@ const isHttpUrl = (url: string): boolean =>
 
 const UNAUTHORIZED = 401;
 const FORBIDDEN = 403;
-
-const httpStatus = (
-  error: RpcClientError.RpcClientError
-): number | undefined => {
-  const { cause } = error;
-  return HttpClientError.isHttpClientError(cause) &&
-    cause._tag === "ResponseError"
-    ? cause.response.status
-    : undefined;
-};
 
 /** One-line message for a failed `--remote` transport call. */
 export const remoteErrorMessage = (

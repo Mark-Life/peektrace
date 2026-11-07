@@ -6,6 +6,8 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Effect } from "effect";
+import { findFreePort } from "../src/serve-core";
 
 const SLUG = "-home-demo-work";
 const SID = "33333333-3333-4333-8333-333333333333";
@@ -97,17 +99,19 @@ afterAll(() => {
 });
 
 /** Run the CLI against the throwaway home only. */
+const homeEnv = () => ({
+  PATH: process.env.PATH,
+  HOME: home,
+  CLAUDE_CONFIG_DIR: join(home, ".claude"),
+  CODEX_HOME: join(home, ".codex"),
+  XDG_DATA_HOME: join(home, ".local", "share"),
+  PEEKTRACE_DIR: join(home, ".peektrace"),
+  PEEKTRACE_NO_TELEMETRY: "1",
+});
+
 const run = (args: readonly string[], sub = "prompt") => {
   const proc = Bun.spawnSync(["bun", ENTRY, "stats", sub, ...args], {
-    env: {
-      PATH: process.env.PATH,
-      HOME: home,
-      CLAUDE_CONFIG_DIR: join(home, ".claude"),
-      CODEX_HOME: join(home, ".codex"),
-      XDG_DATA_HOME: join(home, ".local", "share"),
-      PEEKTRACE_DIR: join(home, ".peektrace"),
-      PEEKTRACE_NO_TELEMETRY: "1",
-    },
+    env: homeEnv(),
   });
   return {
     code: proc.exitCode,
@@ -183,3 +187,26 @@ test("two targets at once is a usage error", () => {
   expect(code).not.toBe(0);
   expect(err).toContain("at most one of --cause, --fail or --time");
 }, 60_000);
+
+test("a --remote URL with ?token= never reaches the prompt text", async () => {
+  const port = await Effect.runPromise(findFreePort(43_000, "127.0.0.1"));
+  const server = Bun.spawn(
+    ["bun", ENTRY, "serve", "--port", String(port), "--no-open"],
+    { env: homeEnv(), stdout: "ignore", stderr: "ignore" }
+  );
+  try {
+    const remote = `http://127.0.0.1:${port}/?token=SECRETVALUE`;
+    const deadline = Date.now() + 20_000;
+    let result = run(["--days", "7", "--remote", remote]);
+    while (result.code !== 0 && Date.now() < deadline) {
+      await Bun.sleep(200);
+      result = run(["--days", "7", "--remote", remote]);
+    }
+    expect(result.code).toBe(0);
+    expect(result.out).toContain(`http://127.0.0.1:${port}`);
+    expect(result.out).not.toContain("token=");
+    expect(result.out).not.toContain("SECRETVALUE");
+  } finally {
+    server.kill();
+  }
+}, 90_000);
