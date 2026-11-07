@@ -28,9 +28,9 @@ const FAQ_ENTRIES: readonly FaqEntry[] = [
     answer: (
       <>
         Nowhere. The server binds <Chip>127.0.0.1</Chip> and reads your local{" "}
-        <Chip>~/.claude</Chip>, <Chip>~/.codex</Chip>, and <Chip>~/.pi</Chip>{" "}
-        transcripts directly. The local run log is a SQLite file, and it makes
-        no network calls.
+        <Chip>~/.claude</Chip>, <Chip>~/.codex</Chip>, <Chip>~/.pi</Chip>, and{" "}
+        <Chip>~/.local/share/opencode</Chip> transcripts directly. The local run
+        log is a SQLite file, and it makes no network calls.
       </>
     ),
   },
@@ -38,10 +38,10 @@ const FAQ_ENTRIES: readonly FaqEntry[] = [
     question: "Which agents does it support?",
     answer: (
       <>
-        Session browsing + context forensics for Claude Code, Codex, and Pi.
-        Memory view/edit is Claude-only today. OpenCode identity is tracked but
-        its transcripts aren&apos;t listable yet. The in-app capability matrix
-        is the source of truth.
+        Session browsing for Claude Code, Codex, Pi, and OpenCode. Context
+        forensics is full on Claude and partial on the other three. Memory
+        view/edit is Claude-only today. The in-app capability matrix is the
+        source of truth.
       </>
     ),
   },
@@ -71,7 +71,8 @@ const FAQ_ENTRIES: readonly FaqEntry[] = [
     answer: (
       <>
         No. The installer drops a single self-contained binary with the
-        inspector UI baked in.
+        inspector UI baked in. If you already have Node,{" "}
+        <Chip>npx peektrace serve</Chip> runs the same binary through npm.
       </>
     ),
   },

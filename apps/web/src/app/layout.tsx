@@ -9,7 +9,7 @@ import { Providers } from "@/components/providers";
 const METADATA_TITLE = "Peektrace — Context-window forensics for coding agents";
 
 const METADATA_DESCRIPTION =
-  "Peektrace is a local, loopback-only CLI and inspector that reconstructs where every token in a Claude Code, Codex, or Pi session went — including the invisible thinking band — and scores each session Healthy, Degrading, or Rotting. One self-contained binary. Nothing leaves your machine.";
+  "Peektrace is a local, loopback-only CLI and inspector that reconstructs where every token in a Claude Code, Codex, Pi, or OpenCode session went — including the invisible thinking band — and scores each session Healthy, Degrading, or Rotting. One self-contained binary. Nothing leaves your machine.";
 
 export const metadata: Metadata = {
   title: METADATA_TITLE,

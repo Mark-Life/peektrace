@@ -2,9 +2,9 @@
 
 **See what your coding agent actually put in its context window.**
 
-Peektrace reads the sessions and memories that Claude Code, Codex and Pi scatter
-across your disk, and shows you where the tokens went: what the model was
-carrying at peak, when a session crossed into the dumb zone, which tool calls
+Peektrace reads the sessions and memories that Claude Code, Codex, Pi and
+OpenCode scatter across your disk, and shows you where the tokens went: what
+the model was carrying at peak, when a session crossed into the dumb zone, which tool calls
 failed, and how much wall-clock time went to waiting.
 
 It runs on `127.0.0.1`, reads your files, and sends nothing anywhere.
@@ -70,6 +70,11 @@ CI publishes these packages with npm trusted publishing, so each one carries a
 provenance attestation tying the tarball to the commit and workflow that built
 it. Check yours with `npm audit signatures`.
 
+If you see "could not locate a platform binary", your platform has no prebuilt
+binary: reinstall, or build from source. To run an explicit binary, set
+`PEEKTRACE_BIN_PATH=/path/to/peektrace` (on Windows,
+`$env:PEEKTRACE_BIN_PATH` pointing at `peektrace.exe`).
+
 There is no desktop download yet. Anything claiming otherwise under the name
 `peektrace` is not published by this project.
 
@@ -91,9 +96,9 @@ only.
 
 ## Sessions
 
-Browse Claude, Codex and Pi sessions, filter by agent, then open one for the
-full context-budget breakdown: peak context against the window, the partition at
-peak including the hidden **thinking** band, a growth timeline marking the
+Browse Claude, Codex, Pi and OpenCode sessions in the web app, filter by agent,
+then open one for the full context-budget breakdown: peak context against the
+window, the partition at peak including the hidden **thinking** band, a growth timeline marking the
 dumb-zone crossing and every compaction cliff, the artifacts injected on each
 turn, and searchable history.
 
@@ -111,7 +116,7 @@ per-session.
 ## Stats
 
 Rank what fails and what costs time across every session on the machine, not one
-at a time. Findings come sorted by cheapest fix first — the run below caught 561
+at a time. Findings come sorted by cheapest fix first — one run caught 561
 of 603 lint invocations piping into `head`, so the exit code belonged to the pipe
 and every failure read as a pass.
 
@@ -145,7 +150,7 @@ path and tool-use id, and the commands that pull more. `stats prompt` prints the
 same text in a terminal.
 
 ```sh
-peektrace stats [--days 60] [--agent claude|codex|pi|all] [--limit 20]
+peektrace stats [--days 60] [--agent claude|codex|pi|opencode|all] [--limit 20]
 peektrace stats refresh [--force]        # rescan and rebuild the cache
 peektrace stats drill --fail <key>       # expand one row
 peektrace stats drill --cause <id>       # failed → retry pairs behind a cause
@@ -168,9 +173,9 @@ mtime.
 ## Capabilities
 
 A feature × agent matrix for Claude, Codex, Pi and OpenCode. Click a cell to see
-why a capability is supported, partial, planned or unsupported. Session browsing
-is live for Claude, Codex and Pi; memory tooling is Claude-only; OpenCode is a
-column that shows the gap.
+why a capability is supported, partial, planned or unsupported. In the web app,
+session browsing is live for all four. Context debugging is full on Claude and
+partial on Codex, Pi and OpenCode. Memory tooling is Claude-only.
 
 ## Scripting
 
@@ -178,7 +183,9 @@ The same binary exposes one-shot commands, in-process or `--remote <url>`
 against a running server. Root flags go **before** the subcommand: `--json`
 (raw JSON instead of tables), `--pretty` (aligned instead of tab-separated),
 `--read-only` (refuse mutating commands), `--remote <url>`, `--otel`,
-`--no-telemetry`.
+`--no-telemetry`. `--json` and `--read-only` also work after the subcommand on
+`sessions`, `memory` and `stats` (not `stats prompt`). Put `--remote`
+before the subcommand.
 
 ```sh
 peektrace sessions ls [--agent <id>] [--project <name>] [--since <when>] [--cwd <path>] [--limit <n>]
@@ -203,7 +210,7 @@ loopback sidecar and loading its URL.
 
 It is **not distributed yet**. The workflow is manual-dispatch only until builds
 can be signed and notarized; Mac builds are currently unsigned (right-click →
-Open on first launch). Plan: `.docs/plan/desktop-app.md`.
+Open on first launch)..
 
 ## Privacy posture
 

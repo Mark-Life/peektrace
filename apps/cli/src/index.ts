@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
-/** `peektrace` — local, loopback-only inspector for Claude Code memories & sessions.
+/** `peektrace` — local, loopback-only inspector for Claude Code, Codex, Pi and OpenCode sessions.
+ * Context-budget forensics, stats and Claude memory.
  *
  * One binary, two execution modes per command: in-process (default; provisions the
  * core layers directly) and `--remote <url>` (HTTP client against a running
- * `peektrace serve`). Global flags `--json` and `--read-only` apply to every
- * subcommand and are read from this parent command's parsed config.
+ * `peektrace serve`). Global flags `--json` and `--read-only` are read from this
+ * parent command's parsed config; `sessions`, `memory` and `stats` leaf commands
+ * also accept them locally, after the subcommand.
  */
 import { Command, Options, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
@@ -18,6 +20,7 @@ import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
 import { makeStats } from "./commands/stats";
 import { makeTui } from "./commands/tui";
 import { makeUpgrade } from "./commands/upgrade";
+import { DESCRIPTION } from "./description";
 import { formatCliError } from "./errors";
 import { otelEnabled, tracingLayer } from "./tracing";
 import { APP_VERSION } from "./version";
@@ -66,10 +69,10 @@ const peektrace = Command.make(
   },
   () =>
     Console.log(
-      "Peektrace — local, loopback-only inspector for Claude Code.\n" +
-        "Try: peektrace serve | sessions ls | memory ls"
+      `Peektrace — ${DESCRIPTION}\n` +
+        "Try: peektrace serve | tui | sessions ls | memory ls | stats"
     )
-);
+).pipe(Command.withDescription(DESCRIPTION));
 
 /** Resolve the parent command's parsed global flags inside any subcommand,
  * OR-ing subcommand-local `--json`/`--read-only` onto the parent values. */

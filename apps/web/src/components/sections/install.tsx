@@ -71,6 +71,21 @@ const COMMANDS: RefEntry[] = [
     name: "memory rm <project> <name>",
     desc: "delete an entry (blocked under --read-only)",
   },
+  { name: "tui", desc: "terminal UI for browsing sessions" },
+  {
+    name: "stats [--days --agent --limit]",
+    desc: "rank what fails and what costs time across all sessions",
+  },
+  { name: "stats drill", desc: "evidence behind one finding" },
+  { name: "stats refresh", desc: "rebuild the stats index" },
+  {
+    name: "stats prompt",
+    desc: "print a prompt to hand the report to an agent",
+  },
+  {
+    name: "upgrade [--check]",
+    desc: "update to the latest release, or only check for one",
+  },
   {
     name: "doctor",
     desc: "write a redacted support bundle (--last, --interesting-only, --out)",
@@ -89,8 +104,8 @@ const ReferenceRow = ({ name, desc }: RefEntry) => (
 );
 
 /**
- * Install & first run: the native one-liner installer (the only distribution
- * channel — Peektrace is not on npm and ships no desktop app), a numbered
+ * Install & first run: the native one-liner installer, the npm route
+ * (`npx peektrace`, no desktop app yet), a numbered
  * quickstart, and a man-page-style command reference.
  */
 export const Install = () => (
@@ -181,8 +196,9 @@ export const Install = () => (
       <Alert className="mt-8" variant="default">
         <Info aria-hidden="true" />
         <AlertDescription>
-          Not on npm, no desktop download — the native installer is the only
-          channel. It also works read-only over an SSH tunnel to a headless VPS:{" "}
+          Two channels: the native installer, or npm if you have Node. No
+          desktop download yet. Peektrace also works read-only over an SSH
+          tunnel to a headless VPS:{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
             peektrace --remote http://127.0.0.1:4321 sessions ls
           </code>

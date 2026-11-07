@@ -6,6 +6,7 @@ import { Install } from "@/components/sections/install";
 import { MemoryForensics } from "@/components/sections/memory-forensics";
 import { Problem } from "@/components/sections/problem";
 import { SiteFooter } from "@/components/sections/site-footer";
+import { Stats } from "@/components/sections/stats";
 import { TimelineDumbzone } from "@/components/sections/timeline-dumbzone";
 
 /** Marketing landing page composing every forensic section in narrative order. */
@@ -22,6 +23,7 @@ const Page = () => (
       <Problem />
       <BudgetForensics />
       <TimelineDumbzone />
+      <Stats />
       <MemoryForensics />
       <AgentsCapabilities />
       <Install />
