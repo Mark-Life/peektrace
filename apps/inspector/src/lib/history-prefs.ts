@@ -62,7 +62,10 @@ export const normalizeHistoryPrefs = (parsed: unknown): HistoryPrefs => {
   };
 };
 
-const hasStorage = () => typeof window !== "undefined";
+/** A real browser window. Test renderers can leave a bare `window` global behind. */
+const hasStorage = () =>
+  typeof window !== "undefined" &&
+  typeof window.addEventListener === "function";
 
 const readPrefs = () => {
   if (!hasStorage()) {
