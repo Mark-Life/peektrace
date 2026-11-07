@@ -261,7 +261,7 @@ const DumbZoneDivider = ({ a }: { readonly a: AnalyzedSession }) => (
 
 /** One table row, with the divider above it when the session crossed into the
  *  dumb zone here. */
-export const TableRowView = ({
+const TableRowViewBody = ({
   a,
   divider,
   isOpen,
@@ -308,6 +308,8 @@ export const TableRowView = ({
     </>
   );
 };
+
+export const TableRowView = memo(TableRowViewBody);
 
 /** The bordered list of event rows, with the dumb-zone divider inline. Only
  *  the rows near the screen are mounted; `callId` is the tool call a link

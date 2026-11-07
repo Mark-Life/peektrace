@@ -7,7 +7,8 @@
  */
 import { type ChatNode, chatCollapseIdOf } from "./chat-lane";
 
-/** Space below each chat block: matches `pb-3` on each chat item. */
+/** Space below each chat block, as a class on each chat item and in pixels. */
+export const CHAT_ITEM_CLASS = "pb-3";
 export const CHAT_GAP = 12;
 
 /** Characters per wrapped line in the chat column, and the line height. */

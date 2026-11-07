@@ -15,7 +15,7 @@ import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
-import { type RefObject, useMemo, useRef } from "react";
+import { memo, type RefObject, useMemo, useRef } from "react";
 import {
   buildChatPlan,
   type ChatNode,
@@ -28,7 +28,10 @@ import type { ToolMarks } from "../../lib/session-markers";
 import { chatCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import { toolNameOf, toolState } from "../../lib/tool-event";
-import { estimateChatNode } from "../../lib/transcript-estimate";
+import {
+  CHAT_ITEM_CLASS,
+  estimateChatNode,
+} from "../../lib/transcript-estimate";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ChatContextRun } from "./chat-context-run";
@@ -122,7 +125,7 @@ const Band = ({
 const NO_MARKS: readonly SessionMarker[] = [];
 
 /** One node of the plan, as the transcript draws it. */
-export const ChatNodeView = ({
+const ChatNodeViewBody = ({
   a,
   activeMark,
   allOpen,
@@ -251,6 +254,8 @@ export const ChatNodeView = ({
   );
 };
 
+export const ChatNodeView = memo(ChatNodeViewBody);
+
 /** The transcript as a conversation. Only the blocks near the screen are
  *  mounted; `callId` is the tool call a link asked to land on. */
 export const TranscriptChat = ({
@@ -314,7 +319,7 @@ export const TranscriptChat = ({
     <VirtualList
       className="mx-auto w-full max-w-3xl"
       estimate={(n) => estimateChatNode({ allOpen, isOpen, n })}
-      itemClassName="pb-3"
+      itemClassName={CHAT_ITEM_CLASS}
       items={plan}
       keys={keys}
       measureKey={bulkKey}

@@ -25,28 +25,6 @@ const focusCard = (card: HTMLElement) => {
   card.focus({ preventScroll: true });
 };
 
-/** Whether a jump to `target` is due: one is named, it has not landed yet,
- *  and a filter does not hide it (`index` is -1 then). */
-export const jumpDue = ({
-  done,
-  index,
-  target,
-}: {
-  readonly done: string | null;
-  readonly index: number;
-  readonly target: string | null;
-}) => target !== null && done !== target && index >= 0;
-
-/** What `done` holds once a jump ends: the target when it landed, else null,
- *  so a jump cut short (the list changed or the view swapped) runs again. */
-export const doneAfter = ({
-  landed,
-  target,
-}: {
-  readonly landed: boolean;
-  readonly target: string;
-}) => (landed ? target : null);
-
 /**
  * Bring item `index` into view and focus it, once per `target`. `target` is
  * the id the link names; `index` is where it sits in the list now, or -1 when
@@ -67,9 +45,11 @@ export const useVirtualJump = ({
   readonly target: string | null;
 }) => {
   useEffect(() => {
+    // Not named, already landed, or hidden by a filter (`index` is -1).
     if (
       target === null ||
-      !jumpDue({ done: done.current, index, target }) ||
+      done.current === target ||
+      index < 0 ||
       !list.current
     ) {
       return;
@@ -97,7 +77,8 @@ export const useVirtualJump = ({
     raf = requestAnimationFrame(land);
     return () => {
       cancelAnimationFrame(raf);
-      done.current = doneAfter({ landed, target });
+      // A jump cut short (the list changed or the view swapped) runs again.
+      done.current = landed ? target : null;
     };
   }, [target, index, list, done]);
 };

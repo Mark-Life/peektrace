@@ -46,6 +46,42 @@ const initialRect = () => ({
   width: 0,
 });
 
+/** Calls `update` whenever something can move the list down: an earlier
+ *  sibling of the list or of any ancestor up to the pane resizes, appears or
+ *  goes, or the pane itself resizes. The list's own growth is not watched. */
+const watchAbove = (
+  root: HTMLElement,
+  list: HTMLElement,
+  update: () => void
+) => {
+  const resize = new ResizeObserver(update);
+  const wire = () => {
+    resize.disconnect();
+    resize.observe(root);
+    for (let n: Element | null = list; n && n !== root; n = n.parentElement) {
+      for (let s = n.previousElementSibling; s; s = s.previousElementSibling) {
+        resize.observe(s);
+      }
+    }
+  };
+  const mutate = new MutationObserver(() => {
+    wire();
+    update();
+  });
+  for (
+    let p: HTMLElement | null = list.parentElement;
+    p;
+    p = p === root ? null : p.parentElement
+  ) {
+    mutate.observe(p, { childList: true });
+  }
+  wire();
+  return () => {
+    resize.disconnect();
+    mutate.disconnect();
+  };
+};
+
 /** Where the list starts inside the scroll pane's content, kept current as
  *  anything above it (verdict, timeline, banners) changes height. */
 const useScrollMargin = (
@@ -66,19 +102,15 @@ const useScrollMargin = (
       setMargin((prev) => (prev === next ? prev : next));
     };
     update();
-    const observer = new ResizeObserver(update);
-    observer.observe(root);
-    if (root.firstElementChild) {
-      observer.observe(root.firstElementChild);
-    }
-    return () => observer.disconnect();
+    return watchAbove(root, list, update);
   }, [root, list]);
   return margin;
 };
 
-/** The item index that holds focus, or null when focus is outside the list. */
-const useFocusedIndex = (list: HTMLElement | null) => {
-  const [focused, setFocused] = useState<number | null>(null);
+/** The key of the item that holds focus, or null when focus is outside the
+ *  list. A key, not an index: rows inserted above move the focused item. */
+const useFocusedKey = (list: HTMLElement | null) => {
+  const [focused, setFocused] = useState<string | null>(null);
   useEffect(() => {
     if (!list) {
       return;
@@ -86,10 +118,9 @@ const useFocusedIndex = (list: HTMLElement | null) => {
     const onIn = (ev: FocusEvent) => {
       const item =
         ev.target instanceof Element
-          ? ev.target.closest<HTMLElement>("[data-index]")
+          ? ev.target.closest<HTMLElement>("[data-key]")
           : null;
-      const index = Number(item?.dataset.index);
-      setFocused(item && Number.isInteger(index) ? index : null);
+      setFocused(item?.dataset.key ?? null);
     };
     const onOut = (ev: FocusEvent) => {
       if (
@@ -136,9 +167,11 @@ export const VirtualList = <T,>({
 }) => {
   const root = useScrollRoot();
   const [list, setList] = useState<HTMLUListElement | null>(null);
-  const scrollMargin = useScrollMargin(root, list);
-  const focused = useFocusedIndex(list);
   const count = items.length;
+  const virtual = count > FULL_RENDER_MAX;
+  const scrollMargin = useScrollMargin(root, virtual ? list : null);
+  const focusedKey = useFocusedKey(list);
+  const focused = focusedKey === null ? null : keys.indexOf(focusedKey);
 
   const getItemKey = useCallback((i: number) => keys[i] ?? i, [keys]);
   const rangeExtractor = useCallback(
@@ -153,6 +186,7 @@ export const VirtualList = <T,>({
 
   const v = useVirtualizer<HTMLElement, HTMLLIElement>({
     count,
+    enabled: virtual,
     estimateSize: (i) => {
       const it = items[i];
       return it === undefined ? 0 : estimate(it);
@@ -160,21 +194,31 @@ export const VirtualList = <T,>({
     getItemKey,
     getScrollElement: () => root,
     initialRect: initialRect(),
-    overscan: count <= FULL_RENDER_MAX ? count : OVERSCAN,
+    overscan: OVERSCAN,
     rangeExtractor,
     scrollMargin,
     useFlushSync: false,
   });
 
+  const elementAt = useCallback(
+    (index: number) =>
+      list?.querySelector<HTMLElement>(`:scope > [data-index="${index}"]`) ??
+      null,
+    [list]
+  );
   useImperativeHandle(
     ref,
     () => ({
-      elementAt: (index) =>
-        list?.querySelector<HTMLElement>(`:scope > [data-index="${index}"]`) ??
-        null,
-      scrollToIndex: (index, align) => v.scrollToIndex(index, { align }),
+      elementAt,
+      scrollToIndex: (index, align) => {
+        if (virtual) {
+          v.scrollToIndex(index, { align });
+          return;
+        }
+        elementAt(index)?.scrollIntoView({ block: align });
+      },
     }),
-    [v, list]
+    [v, virtual, elementAt]
   );
 
   const lastMeasureKey = useRef(measureKey);
@@ -183,6 +227,9 @@ export const VirtualList = <T,>({
       return;
     }
     lastMeasureKey.current = measureKey;
+    if (!virtual) {
+      return;
+    }
     // Only re-anchor when the reader is inside the list; above it, the page
     // is already where they left it.
     const offset = v.scrollOffset ?? 0;
@@ -197,16 +244,21 @@ export const VirtualList = <T,>({
     if (anchor) {
       v.scrollToIndex(anchor.index, { align: "start" });
     }
-  }, [measureKey, list, v, scrollMargin]);
+  }, [measureKey, list, v, virtual, scrollMargin]);
 
-  const drawn = v.getVirtualItems();
+  // Small lists mount every item in plain flow: nothing to measure or place.
+  const drawn: readonly Pick<VirtualItem, "index" | "start">[] = virtual
+    ? v.getVirtualItems()
+    : items.map((_, index) => ({ index, start: 0 }));
   const { flow, pinned } = splitPinned(drawn);
-  const top = (flow[0]?.start ?? scrollMargin) - scrollMargin;
+  const top = virtual ? (flow[0]?.start ?? scrollMargin) - scrollMargin : 0;
 
   // One keyed array for every drawn item: a block that moves between the run
-  // and the pinned slot keeps its DOM node, and with it the focus.
-  const item = (it: VirtualItem) => {
+  // and the pinned slot, or between the two modes, keeps its DOM node, and
+  // with it the focus.
+  const item = (it: Pick<VirtualItem, "index" | "start">) => {
     const value = items[it.index];
+    const key = keys[it.index] ?? String(it.index);
     const style: CSSProperties | undefined = pinned.includes(it)
       ? {
           left: 0,
@@ -221,8 +273,9 @@ export const VirtualList = <T,>({
         aria-setsize={count}
         className={itemClassName}
         data-index={it.index}
-        key={it.key}
-        ref={v.measureElement}
+        data-key={key}
+        key={key}
+        ref={virtual ? v.measureElement : undefined}
         style={style}
       >
         {render(value)}
@@ -235,7 +288,9 @@ export const VirtualList = <T,>({
       className={cn("relative", className)}
       data-testid={testId}
       ref={setList}
-      style={{ height: v.getTotalSize(), paddingTop: top }}
+      style={
+        virtual ? { height: v.getTotalSize(), paddingTop: top } : undefined
+      }
     >
       {drawn.map(item)}
     </ul>

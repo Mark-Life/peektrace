@@ -28,6 +28,9 @@ import {
   TranscriptTable,
 } from "../src/routes/sessions/transcript-table";
 
+/** The table list carrying an inline style (spacer or fixed height). */
+const STYLED_TABLE_LIST = /data-testid="table-transcript"[^>]*style=/;
+
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
   body: "",
   kind: "assistant-text" as const,
@@ -308,6 +311,9 @@ test("both transcripts mount as lists before the page has scrolled", () => {
   expect(table).toContain(`aria-setsize="${ROWS.length}"`);
   // A short transcript mounts every row, so find-in-page reaches all of it.
   expect(countOf(table, "data-index=")).toBe(ROWS.length);
+  // ...in plain flow, with no spacer or fixed height to keep current.
+  expect(table).not.toMatch(STYLED_TABLE_LIST);
+  expect(countOf(table, "data-key=")).toBe(ROWS.length);
   expect(table).toContain('data-testid="history-event"');
 });
 
