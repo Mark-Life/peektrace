@@ -2,6 +2,7 @@
  *
  * Claude Code re-attaches skill / agent / tool / MCP listings right after the
  * compact summary. Counting the old copies too would double the slice.
+ * Nested memory is not re-attached, so it drops out of context.
  */
 import { describe, expect, test } from "bun:test";
 import { analyze } from "../../src/services/sessions/analyze";
@@ -25,12 +26,13 @@ const listingLines = [
   { type: "agent_listing_delta", addedLines: agents },
   { type: "deferred_tools_delta", addedNames: tools },
   { type: "mcp_instructions_delta", addedBlocks: mcp },
-  {
-    type: "nested_memory",
-    path: "/repo/sub/CLAUDE.md",
-    content: { content: memory },
-  },
 ];
+
+const memoryLine = {
+  type: "nested_memory",
+  path: "/repo/sub/CLAUDE.md",
+  content: { content: memory },
+};
 
 const attach = (a: object, n: number) => ({
   type: "attachment",
@@ -62,7 +64,7 @@ const user = (text: string, extra: object = {}) => ({
 
 const lines = [
   user("start the demo"),
-  ...listingLines.map((a, i) => attach(a, i)),
+  ...[...listingLines, memoryLine].map((a, i) => attach(a, i)),
   assistant("r1", 50_000),
   {
     type: "system",
@@ -91,10 +93,10 @@ describe("compaction resets re-attached buckets", () => {
     expect(after?.slices.listings).toBe(before?.slices.listings);
   });
 
-  test("memory is counted once after a compaction", () => {
+  test("memory loaded before a compaction drops to zero", () => {
     const a = analyze(parsed());
     const [before, after] = a.snapshots;
     expect(before?.slices.memory).toBeGreaterThan(0);
-    expect(after?.slices.memory).toBe(before?.slices.memory);
+    expect(after?.slices.memory).toBe(0);
   });
 });

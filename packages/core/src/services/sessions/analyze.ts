@@ -323,9 +323,10 @@ const snapshotTurn = (args: {
 };
 
 /**
- * Compaction rewrites history: clear every content bucket. CC re-attaches
- * listings/memory after the summary, so they are re-counted. Memory is reset
- * on the same grounds as `files`; its re-attachment is not yet confirmed.
+ * Compaction rewrites history: clear every content bucket except the system
+ * floor. CC re-attaches listings after the summary, so they are re-counted.
+ * Memory loaded before the compaction leaves the context and is not
+ * re-attached; it grows again only from later `nested_memory` attachments.
  */
 const foldNonTurnEvent = (
   ws: WalkState,
@@ -334,13 +335,7 @@ const foldNonTurnEvent = (
   if (e.kind === "compaction") {
     ws.pendingCompaction = true;
     ws.retainedThinking = 0;
-    ws.cat.assistant_text = 0;
-    ws.cat.tool_results = 0;
-    ws.cat.prompts = 0;
-    ws.cat.files = 0;
-    ws.cat.listings = 0;
-    ws.cat.memory = 0;
-    ws.cat.other = 0;
+    ws.cat = { ...zeroSlices(), system_tools: ws.cat.system_tools };
     ws.edits = [];
   }
   // The measured system floor already covers the prompt.
