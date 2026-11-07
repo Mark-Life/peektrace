@@ -14,7 +14,7 @@ const DELAY_MS = 250;
 const EVERY_MS = 100;
 const CLEAR = "\r\x1b[2K";
 
-export interface ProgressSink extends StatsProgressShape {
+interface ProgressSink extends StatsProgressShape {
   /** Erase the line if one was drawn. */
   readonly clear: () => void;
 }
@@ -23,7 +23,7 @@ export interface ProgressSink extends StatsProgressShape {
 export const makeProgressSink = (args: {
   readonly now: () => number;
   readonly write: (chunk: string) => void;
-}): ProgressSink => {
+}) => {
   const { now, write } = args;
   const start = now();
   let last = Number.NEGATIVE_INFINITY;
@@ -56,7 +56,7 @@ export const makeProgressSink = (args: {
         safeWrite(CLEAR);
       }
     },
-  };
+  } satisfies ProgressSink;
 };
 
 /**
