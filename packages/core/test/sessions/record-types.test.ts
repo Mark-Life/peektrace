@@ -1,4 +1,4 @@
-/** Claude record types and fields the parser used to drop (#111). Synthetic fixture only. */
+/** Claude record types and usage fields read by the parser. Synthetic fixture only. */
 import { describe, expect, test } from "bun:test";
 import { Schema } from "effect";
 import { analyze } from "../../src/services/sessions/analyze";
@@ -114,7 +114,7 @@ const header = (text: string) =>
   });
 const joined = (lines: readonly string[]) => `${lines.join("\n")}\n`;
 
-describe("Claude record types (#111)", () => {
+describe("Claude record types", () => {
   test("1h vs 5m cache-write split lands on the turn", () => {
     const turn = parsed().turns.find((t) => t.requestId === "r1");
     expect(turn?.cacheCreationTokens).toBe(3000);
@@ -252,6 +252,27 @@ describe("Claude record types (#111)", () => {
         line({ type: 7 }),
         line({ type: "system", subtype: "turn_duration" }),
         line({ type: "custom-title" }),
+      ])
+    );
+    expect(p.unknownRecordTypes).toBeUndefined();
+    expect(p.unknownSystemSubtypes).toBeUndefined();
+  });
+
+  test("record types and subtypes Claude Code writes are not counted", () => {
+    const types = [
+      "agent-color",
+      "agent-setting",
+      "tag",
+      "worktree-state",
+      "content-replacement",
+      "memory-mode",
+      "progress",
+      "pr-link",
+    ];
+    const p = parseText(
+      joined([
+        ...types.map((type) => line({ type })),
+        line({ type: "system", subtype: "api_error" }),
       ])
     );
     expect(p.unknownRecordTypes).toBeUndefined();

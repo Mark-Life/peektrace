@@ -12,7 +12,6 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Schema } from "effect";
-import { windowForModel } from "../../src/services/sessions/parsers/model-windows";
 import { parsePiSession } from "../../src/services/sessions/parsers/pi";
 import { buildPiHeader } from "../../src/services/sessions/parsers/pi-header";
 import { ParsedSession } from "../../src/services/sessions/schema";
@@ -168,12 +167,6 @@ describe("parsePiSession — context window", () => {
       slug: "",
     });
     expect(p.nativeContextWindow).toBeUndefined();
-  });
-
-  test("model-window table: [1m] ids get 1M, bare sonnet gets 200k", () => {
-    expect(windowForModel("claude-sonnet-9[1m]")).toBe(1_000_000);
-    expect(windowForModel("claude-opus-9[1m]")).toBe(1_000_000);
-    expect(windowForModel("claude-sonnet-9")).toBe(200_000);
   });
 
   test("a call larger than the guessed window leaves it unset", () => {

@@ -1,7 +1,9 @@
 /** Claude record types and fields read outside the main line handlers. */
+import type { TimelineEvent } from "./schema";
+import { num, opt } from "./usage";
 
 /** Model id Claude Code writes on harness-made messages (API errors, etc.). */
-export const SYNTHETIC_MODEL = "<synthetic>";
+const SYNTHETIC_MODEL = "<synthetic>";
 
 /** True for a model id that names a real model call. */
 export const isRealModel = (model: string) => model !== SYNTHETIC_MODEL;
@@ -23,6 +25,14 @@ export const KNOWN_IGNORED_TYPES: ReadonlySet<string> = new Set([
   "atis-latch",
   "file-history-delta",
   "pr-link",
+  "agent-color",
+  "agent-setting",
+  "tag",
+  "worktree-state",
+  "content-replacement",
+  "memory-mode",
+  "progress",
+  "hook_progress",
 ]);
 
 /** `system` subtypes the parser knows; others are counted as unknown. */
@@ -33,6 +43,8 @@ export const KNOWN_SYSTEM_SUBTYPES: ReadonlySet<string> = new Set([
   "informational",
   "away_summary",
   "local_command",
+  "api_error",
+  "hook_progress",
 ]);
 
 /** Add one to `key`'s count. */
@@ -45,21 +57,17 @@ export const countsRecord = (counts: ReadonlyMap<string, number>) =>
   counts.size > 0 ? Object.fromEntries(counts) : undefined;
 
 /** Context size before and after a compaction, from `compact_boundary`. */
-export interface CompactTokens {
-  readonly compactPostTokens?: number;
-  readonly compactPreTokens?: number;
-}
-
-const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+export type CompactTokens = Pick<
+  TimelineEvent,
+  "compactPreTokens" | "compactPostTokens"
+>;
 
 /** The pre/post token counts of a `compact_boundary` line's `compactMetadata`. */
 export const compactMetaOf = (o: Record<string, unknown>): CompactTokens => {
   const m = (o.compactMetadata ?? {}) as Record<string, unknown>;
-  const pre = num(m.preTokens);
-  const post = num(m.postTokens);
   return {
-    ...(pre === undefined ? {} : { compactPreTokens: pre }),
-    ...(post === undefined ? {} : { compactPostTokens: post }),
+    ...opt("compactPreTokens", num(m.preTokens)),
+    ...opt("compactPostTokens", num(m.postTokens)),
   };
 };
 
