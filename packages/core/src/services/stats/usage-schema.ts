@@ -12,6 +12,19 @@ export const USAGE_SCHEMA_VERSION = "peektrace-stats-usage/v1";
 export const UsageBy = Schema.Literal("day", "month", "block");
 export type UsageBy = typeof UsageBy.Type;
 
+/** Days a view covers when the caller names none. */
+export const DEFAULT_USAGE_DAYS: Readonly<Record<UsageBy, number>> = {
+  day: 30,
+  month: 365,
+  block: 7,
+};
+
+/** Most days a view may cover: 100 years. */
+export const MAX_USAGE_DAYS = 36_500;
+
+/** A whole number of days, 1 to `MAX_USAGE_DAYS`. */
+export const UsageDays = Schema.Int.pipe(Schema.between(1, MAX_USAGE_DAYS));
+
 /** A 5-hour billing window, opened at the UTC hour of its first call. */
 export const UsageBlock = Schema.Struct({
   startIso: Schema.String,
@@ -57,7 +70,7 @@ export const UsageSkipped = Schema.Struct({
   noTimestamp: Schema.Number,
   /** All four token counts are zero, e.g. a synthetic error turn. */
   zeroTokens: Schema.Number,
-  /** The same Claude request id seen in another transcript. */
+  /** Repeated request ids: the call is counted once. */
   duplicates: Schema.Number,
   /** Block mode only: calls by agents other than Claude. */
   otherAgents: Schema.Number,

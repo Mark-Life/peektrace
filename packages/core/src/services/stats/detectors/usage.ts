@@ -42,6 +42,9 @@ const LINE_ID = /^line-\d+$/;
 /** Length of `YYYY-MM`. */
 const MONTH_LEN = 7;
 
+/** Length of `YYYY-MM-DD`. */
+const DAY_LEN = 10;
+
 /** The token columns of a usage row. */
 type Tokens = Pick<
   UsageFact,
@@ -54,7 +57,7 @@ interface Agg extends Types.Mutable<Tokens> {
 }
 
 /** One Claude call, kept for the block fold. */
-export interface BlockCall {
+interface BlockCall {
   readonly model: string;
   readonly ms: number;
   readonly tokens: Tokens;
@@ -119,8 +122,15 @@ export const dayKeyOf = (tz: string) => {
   };
 };
 
+/** The `YYYY-MM-DD` that is `n` calendar days before `day`. Steps on the
+ * date itself, so a DST change in between does not shift it. */
+const daysBefore = (day: string, n: number) => {
+  const [y = 0, m = 1, d = 1] = day.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d - n)).toISOString().slice(0, DAY_LEN);
+};
+
 /** One folded block, before pricing. */
-export interface BlockOf {
+interface BlockOf {
   readonly active: boolean;
   readonly calls: readonly BlockCall[];
   readonly endMs: number;
@@ -147,7 +157,7 @@ export const blocksOf = (calls: readonly BlockCall[], nowMs: number) => {
     (b): BlockOf => ({
       ...b,
       endMs: b.startMs + BLOCK_MS,
-      active: nowMs - b.lastMs < BLOCK_MS && nowMs < b.startMs + BLOCK_MS,
+      active: nowMs < b.startMs + BLOCK_MS,
     })
   );
 };
@@ -155,7 +165,8 @@ export const blocksOf = (calls: readonly BlockCall[], nowMs: number) => {
 /** What the sink is built with. */
 export interface UsageSinkOptions {
   readonly by: UsageBy;
-  /** Buckets kept: days back from `nowMs`, the first bucket kept whole. */
+  /** Buckets kept: days back from `nowMs`, the first bucket kept whole.
+   * A whole number from 1; the caller checks it. */
   readonly days: number;
   readonly nowMs: number;
   /** IANA zone for day and month keys. */
@@ -163,7 +174,7 @@ export interface UsageSinkOptions {
 }
 
 /** What the sink produces. */
-export interface UsageSinkResult {
+interface UsageSinkResult {
   readonly caveats: readonly string[];
   readonly rows: readonly UsageRow[];
   readonly skipped: UsageSkipped;
@@ -175,7 +186,8 @@ export interface UsageSinkResult {
 export const makeUsageSink = (opts: UsageSinkOptions) => {
   const { by, days, nowMs, tz } = opts;
   const dayKey = dayKeyOf(tz);
-  const cutoffDay = dayKey(nowMs - (days - 1) * DAY_MS);
+  const cutoffDay = daysBefore(dayKey(nowMs), days - 1);
+  const cutoffMs = nowMs - days * DAY_MS;
   const bucketKeyOf = (ms: number) =>
     by === "month" ? dayKey(ms).slice(0, MONTH_LEN) : dayKey(ms);
   const cutoffKey = by === "month" ? cutoffDay.slice(0, MONTH_LEN) : cutoffDay;
@@ -188,17 +200,6 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
     zeroTokens: 0,
     duplicates: 0,
     otherAgents: 0,
-  };
-
-  const prices = new Map<string, ReturnType<typeof priceFor>>();
-  const priceOf = (model: string) => {
-    const hit = prices.get(model);
-    if (hit) {
-      return hit;
-    }
-    const found = priceFor(model);
-    prices.set(model, found);
-    return found;
   };
 
   const fold = (
@@ -268,7 +269,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
     let usd = 0;
     for (const [model, agg] of byModel) {
       addInto(sum, agg, agg.turns);
-      usd += estimateCost(agg, priceOf(model).rates);
+      usd += estimateCost(agg, priceFor(model).rates);
     }
     return {
       ...sum,
@@ -280,7 +281,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
 
   const blockRows = () =>
     blocksOf(calls, nowMs)
-      .filter((b) => b.startMs >= nowMs - days * DAY_MS)
+      .filter((b) => b.endMs > cutoffMs)
       .map((b) => {
         const byModel = new Map<string, Agg>();
         for (const call of b.calls) {
@@ -311,7 +312,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
       }
     }
     const unpricedModels = uniqSorted(
-      [...all.keys()].filter((model) => !priceOf(model).priced)
+      [...all.keys()].filter((model) => !priceFor(model).priced)
     );
     const caveats = [
       `Cost is an ESTIMATE at published list prices per million tokens (input/output/cacheWrite/cacheRead USD): ${pricingEcho()}`,
@@ -323,7 +324,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
     }
     if (skipped.duplicates > 0) {
       caveats.push(
-        `${skipped.duplicates} Claude model calls appear in more than one transcript (a resumed session copies its history) and count once, so totals can sit below the report's cost panel`
+        `${skipped.duplicates} model calls repeat a request id already seen and count once, so totals can sit below the report's cost panel`
       );
     }
     if (skipped.noTimestamp > 0) {

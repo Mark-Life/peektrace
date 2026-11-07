@@ -1,10 +1,12 @@
 /** `peektrace stats usage` — tokens and estimated cost per day, month or
  * 5-hour block. Core computes every number; this file only prints them. */
 import { Command, Options } from "@effect/cli";
-import type {
-  UsageReport,
-  UsageRow,
-  UsageTotals,
+import {
+  DEFAULT_USAGE_DAYS,
+  MAX_USAGE_DAYS,
+  type UsageReport,
+  type UsageRow,
+  type UsageTotals,
 } from "@workspace/core/services/stats/usage-schema";
 import { Console, Effect, Option } from "effect";
 import {
@@ -112,7 +114,7 @@ const byOpt = Options.choice("by", ["day", "month", "block"]).pipe(
 
 const usageDaysOpt = Options.integer("days").pipe(
   Options.withDescription(
-    "Days back from now (default 30 by day, 365 by month, 7 by block)"
+    `Days back from now (default ${DEFAULT_USAGE_DAYS.day} by day, ${DEFAULT_USAGE_DAYS.month} by month, ${DEFAULT_USAGE_DAYS.block} by block)`
   ),
   Options.optional
 );
@@ -142,6 +144,20 @@ const tzOf = (tz: Option.Option<string>) =>
       }),
   });
 
+/** `--days`, checked: a whole number from 1 to `MAX_USAGE_DAYS`. */
+const daysOf = (days: Option.Option<number>) =>
+  Option.match(days, {
+    onNone: () => Effect.succeed({}),
+    onSome: (value) =>
+      value >= 1 && value <= MAX_USAGE_DAYS
+        ? Effect.succeed({ days: value })
+        : Effect.fail(
+            new CliUserError({
+              message: `--days must be from 1 to ${MAX_USAGE_DAYS}, got ${value}.`,
+            })
+          ),
+  });
+
 /** `stats usage`. */
 export const makeStatsUsage = (globals: GlobalsAccessor) =>
   Command.make(
@@ -160,6 +176,7 @@ export const makeStatsUsage = (globals: GlobalsAccessor) =>
         const g = yield* globals({ json: opts.json, readOnly: opts.readOnly });
         const scope = yield* scopeOf(opts.agent);
         const tz = yield* tzOf(opts.tz);
+        const days = yield* daysOf(opts.days);
         const report = yield* withScanProgress(
           withClient(g, (client) =>
             client.stats.usage({
@@ -167,7 +184,7 @@ export const makeStatsUsage = (globals: GlobalsAccessor) =>
               by: opts.by,
               tz,
               force: opts.force,
-              ...(Option.isSome(opts.days) ? { days: opts.days.value } : {}),
+              ...days,
             })
           )
         );

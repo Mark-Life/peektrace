@@ -38,6 +38,7 @@ import {
 } from "@workspace/core/services/stats/schema";
 import {
   UsageBy,
+  UsageDays,
   UsageReport,
 } from "@workspace/core/services/stats/usage-schema";
 import { Schema } from "effect";
@@ -313,8 +314,8 @@ export const StatsMarkersPayload = Schema.Struct({
 export const StatsUsagePayload = Schema.Struct({
   ...statsScopeFields,
   by: UsageBy,
-  /** Days back from now. Default: 30 by day, 365 by month, 7 by block. */
-  days: Schema.optional(Schema.Number),
+  /** Days back from now. Default per `by`: see `DEFAULT_USAGE_DAYS`. */
+  days: Schema.optional(UsageDays),
   /** IANA zone for day and month keys. Default UTC. */
   tz: Schema.optional(Schema.String),
 });

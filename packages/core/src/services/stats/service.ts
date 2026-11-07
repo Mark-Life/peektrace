@@ -362,7 +362,8 @@ const runPass = (args: {
           if (!inWindow(fact, fromMs, toMs)) {
             continue;
           }
-          facts += 1;
+          // Usage rows are not calls, so `facts` leaves them out.
+          facts += Number(fact.row !== "usage");
           for (const sink of sinks) {
             sink.add(fact);
           }

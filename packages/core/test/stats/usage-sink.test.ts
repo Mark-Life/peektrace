@@ -120,12 +120,21 @@ describe("blocks", () => {
     expect(out.caveats.some((c) => c.includes("Claude turns only"))).toBe(true);
   });
 
-  test("a block that opened before the window is dropped whole", () => {
+  test("a block that ended before the window is dropped whole", () => {
     const out = run(
       [at("2026-08-02T23:00:00.000Z"), at("2026-08-03T13:00:00.000Z")],
       { by: "block", days: 7 }
     );
     expect(out.rows.map((r) => r.key)).toEqual(["2026-08-03T13:00:00.000Z"]);
+  });
+
+  test("a block that overlaps the cutoff is kept whole", () => {
+    const out = run(
+      [at("2026-08-09T10:30:00.000Z"), at("2026-08-09T13:00:00.000Z")],
+      { by: "block", days: 1 }
+    );
+    expect(out.rows.map((r) => r.key)).toEqual(["2026-08-09T10:00:00.000Z"]);
+    expect(out.totals.turns).toBe(2);
   });
 });
 
@@ -164,6 +173,22 @@ describe("window trim", () => {
     expect(out.rows.map((r) => r.key)).toEqual(["2026-08-09"]);
   });
 
+  test("day mode counts calendar days across a DST change", () => {
+    const out = run(
+      [
+        at("2026-03-08T12:00:00.000Z"),
+        at("2026-03-08T04:30:00.000Z"),
+        at("2026-03-15T03:00:00.000Z"),
+      ],
+      {
+        days: 8,
+        nowMs: ms("2026-03-15T04:30:00.000Z"),
+        tz: "America/New_York",
+      }
+    );
+    expect(out.rows.map((r) => r.key)).toEqual(["2026-03-08", "2026-03-14"]);
+  });
+
   test("month mode keeps the first month whole", () => {
     const out = run(
       [
@@ -189,6 +214,7 @@ describe("dedup", () => {
     expect(out.totals.turns).toBe(1);
     expect(out.skipped.duplicates).toBe(1);
     expect(out.caveats.some((c) => c.includes("count once"))).toBe(true);
+    expect(out.caveats.some((c) => c.includes("Claude"))).toBe(false);
   });
 
   test("line-number ids and other agents' ids stay per transcript", () => {

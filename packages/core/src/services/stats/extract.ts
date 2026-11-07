@@ -204,7 +204,8 @@ const sessionFactOf = (args: {
 /** One model call's usage, 1:1 with a parsed turn. The usage view filters. */
 const usageFactOf = (identity: Identity, turn: Turn): UsageFact => ({
   row: "usage",
-  ...identity,
+  sid: identity.sid,
+  agent: identity.agent,
   ts: turn.ts ?? null,
   req: turn.requestId,
   model: turn.model,

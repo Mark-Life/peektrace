@@ -244,7 +244,8 @@ export type BashFact = typeof BashFact.Type;
 /** One model call's usage. `row` leads, so a shard line opens `{"row":"usage"`. */
 export const UsageFact = Schema.Struct({
   row: Schema.Literal("usage"),
-  ...factFields,
+  sid: factFields.sid,
+  agent: factFields.agent,
   /** ISO time of the call's first line, or null when the transcript records none. */
   ts: Schema.NullOr(Schema.String),
   /** The transcript's request id for the call. */
@@ -637,6 +638,7 @@ export const RefreshSummary = Schema.Struct({
   extracted: Schema.Number,
   cached: Schema.Number,
   skipped: Schema.Array(Schema.String),
+  /** Session, tool and bash rows read; usage rows are left out. */
   facts: Schema.Number,
 });
 export type RefreshSummary = typeof RefreshSummary.Type;
