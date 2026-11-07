@@ -54,7 +54,10 @@ const COMMANDS: RefEntry[] = [
     name: "serve",
     desc: "boot the loopback inspector UI + RPC server (--port, --host, --open/--no-open, --read-only)",
   },
-  { name: "sessions ls", desc: "list session headers (--agent, --project)" },
+  {
+    name: "sessions ls",
+    desc: "list session headers (--agent, --project, --since, --cwd, --limit)",
+  },
   { name: "sessions analyze <id>", desc: "context forensics for one session" },
   {
     name: "memory ls [project]",
