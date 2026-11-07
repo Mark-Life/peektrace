@@ -17,8 +17,18 @@ export const estTokens = (s: string): number =>
  * @param lineCap - max characters before an ellipsis is appended
  */
 export const firstLine = (s: string, lineCap = DEFAULT_LINE_CAP): string => {
-  const line = (s || "").split("\n").find((l) => l.trim().length > 0) ?? "";
-  const trimmed = line.trim();
+  const text = s || "";
+  let trimmed = "";
+  // indexOf walk: a long body is scanned only up to its first non-blank line
+  for (let start = 0; start <= text.length; ) {
+    const nl = text.indexOf("\n", start);
+    const end = nl === -1 ? text.length : nl;
+    trimmed = text.slice(start, end).trim();
+    if (trimmed.length > 0 || nl === -1) {
+      break;
+    }
+    start = nl + 1;
+  }
   return trimmed.length > lineCap ? `${trimmed.slice(0, lineCap)}…` : trimmed;
 };
 
