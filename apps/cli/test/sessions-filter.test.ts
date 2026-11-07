@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { win32 } from "node:path";
 import {
   byUpdatedDesc,
   matchesCwd,
@@ -26,7 +27,21 @@ test("parseSince reads a date-only ISO value as UTC midnight", () => {
 });
 
 test("parseSince rejects junk and ambiguous units", () => {
-  for (const bad of ["nope", "", "5m", "d", "-3d", "1.5d"]) {
+  for (const bad of [
+    "nope",
+    "",
+    "5m",
+    "d",
+    "-3d",
+    "1.5d",
+    "7",
+    "12",
+    "Nov 1",
+    "2026",
+    "1/2",
+    "1 2",
+    "99999999999999999999d",
+  ]) {
     expect(parseSince(bad, NOW)).toBeUndefined();
   }
 });
@@ -38,6 +53,15 @@ test("matchesCwd takes exact and nested paths on a / boundary", () => {
   expect(matchesCwd({ cwd: "/a/b/" }, "/a/b")).toBe(true);
   expect(matchesCwd({ cwd: "/a/b" }, "/a/b/")).toBe(true);
   expect(matchesCwd({ cwd: "/a" }, "/a/b")).toBe(false);
+});
+
+test("matchesCwd handles Windows separators, trailing backslash and case", () => {
+  const want = win32.resolve("C:\\Users\\demo\\work");
+  expect(matchesCwd({ cwd: "C:\\Users\\demo\\work\\sub" }, want)).toBe(true);
+  expect(matchesCwd({ cwd: "C:\\Users\\demo\\work\\" }, want)).toBe(true);
+  expect(matchesCwd({ cwd: "c:\\users\\demo\\WORK" }, want)).toBe(true);
+  expect(matchesCwd({ cwd: "C:\\Users\\demo\\workshop" }, want)).toBe(false);
+  expect(matchesCwd({ cwd: "C:\\Users\\demo\\work" }, `${want}\\`)).toBe(true);
 });
 
 test("matchesCwd: root matches any row with a cwd, none without", () => {

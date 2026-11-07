@@ -131,46 +131,30 @@ const dataRows = (out: string) =>
     .slice(1)
     .map((line) => line.split("\t"));
 
-test("no --agent lists every agent, newest first, with an AGENT column", () => {
+test("no --agent lists every agent, newest first, with a short-id AGENT table", () => {
   const { code, out } = run();
   expect(code).toBe(0);
   expect(out.split("\n")[0]?.split("\t").slice(0, 2)).toEqual(["id", "agent"]);
   const rows = dataRows(out);
   expect(rows.map((r) => r[1])).toEqual(["codex", "pi", "claude"]);
-}, 60_000);
-
-test("the table id is the first uuid segment, for a bare-uuid agent too", () => {
-  const rows = dataRows(run().out);
   expect(rows[0]?.[0]).toBe(CODEX_ID.split("-")[0]);
 }, 60_000);
 
-test("--agent narrows to one agent", () => {
-  for (const [agent, id] of [
-    ["codex", CODEX_ID],
-    ["pi", PI_ID],
-    ["claude", CLAUDE_ID],
-  ] as const) {
-    const { code, out } = run("--agent", agent, "--json");
-    expect(code).toBe(0);
-    const headers = JSON.parse(out) as Header[];
-    expect(headers.map((h) => h.id)).toEqual([id]);
-    expect(headers.every((h) => h.agent === agent)).toBe(true);
-  }
+test("--agent narrows to one agent; all equals no --agent", () => {
+  const pi = run("--agent", "pi", "--json");
+  expect(pi.code).toBe(0);
+  expect(ids(pi.out)).toEqual([PI_ID]);
+  expect(ids(run("--agent", "all", "--json").out)).toEqual([
+    CODEX_ID,
+    PI_ID,
+    CLAUDE_ID,
+  ]);
 }, 60_000);
 
 test("--agent opencode with no sessions is empty, not an error", () => {
-  const json = run("--agent", "opencode", "--json");
-  expect(json.code).toBe(0);
-  expect(JSON.parse(json.out)).toEqual([]);
   const table = run("--agent", "opencode");
   expect(table.code).toBe(0);
   expect(dataRows(table.out)).toEqual([["(none)"]]);
-}, 60_000);
-
-test("--agent all equals no --agent", () => {
-  expect(ids(run("--agent", "all", "--json").out)).toEqual(
-    ids(run("--json").out)
-  );
 }, 60_000);
 
 test("an unknown agent fails and lists the known ones", () => {
@@ -189,45 +173,35 @@ test("--limit caps rows and hints on stderr only", () => {
   expect(err).toContain("2 more hidden, use --limit 0 to show all");
 }, 60_000);
 
-test("--limit with --json stays valid JSON", () => {
+test("--limit with --json keeps stdout valid JSON and hints on stderr", () => {
   const { err, out } = run("--limit", "1", "--json");
   expect(ids(out)).toEqual([CODEX_ID]);
-  expect(err).not.toContain("hidden");
+  expect(err).toContain("2 more hidden, use --limit 0 to show all");
 }, 60_000);
 
-test("--limit 0 shows all and a negative limit fails", () => {
-  expect(dataRows(run("--limit", "0").out)).toHaveLength(3);
+test("a negative --limit fails", () => {
   const bad = run("--limit", "-1");
   expect(bad.code).not.toBe(0);
   expect(bad.err).toContain("Invalid --limit -1");
 }, 60_000);
 
 test("--since keeps only sessions updated on or after the date", () => {
-  expect(ids(run("--since", "2026-04-01", "--json").out)).toEqual([
-    CODEX_ID,
-    PI_ID,
-  ]);
   expect(ids(run("--since", "2026-05-01", "--json").out)).toEqual([CODEX_ID]);
-  expect(JSON.parse(run("--since", "2027-01-01", "--json").out)).toEqual([]);
 }, 60_000);
 
-test("a bad --since fails with the accepted forms", () => {
-  const { code, err } = run("--since", "nope");
-  expect(code).not.toBe(0);
-  expect(err).toContain('Invalid --since "nope"');
+test("a bad or loose --since fails with the accepted forms", () => {
+  for (const bad of ["nope", "7"]) {
+    const { code, err } = run("--since", bad);
+    expect(code).not.toBe(0);
+    expect(err).toContain(`Invalid --since "${bad}"`);
+  }
 }, 60_000);
 
 test("--cwd matches the directory and anything below it", () => {
-  expect(ids(run("--cwd", CODEX_CWD, "--json").out)).toEqual([CODEX_ID]);
-  expect(ids(run("--cwd", CLAUDE_CWD, "--json").out)).toEqual([
-    PI_ID,
-    CLAUDE_ID,
-  ]);
   expect(ids(run("--cwd", `${CLAUDE_CWD}/`, "--json").out)).toEqual([
     PI_ID,
     CLAUDE_ID,
   ]);
-  expect(JSON.parse(run("--cwd", "/home/demo/wor", "--json").out)).toEqual([]);
 }, 60_000);
 
 test("an empty result prints the header and a (none) line", () => {

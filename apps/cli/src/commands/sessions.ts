@@ -1,9 +1,10 @@
 /** `peektrace sessions` subcommands: `ls` and `analyze`.
  *
  * Both run against the shared RPC client (in-process or `--remote`). Tables go to
- * stdout by default; `--json` emits the raw RPC payload. `ls` lists every agent
- * unless `--agent` narrows it, then filters client-side (`--since`, `--cwd`),
- * sorts newest first and caps at `--limit`.
+ * stdout by default. `analyze --json` emits the raw RPC payload; `ls --json`
+ * emits the same rows the table shows. `ls` lists every agent unless `--agent`
+ * narrows it, then filters client-side (`--since`, `--cwd`), sorts newest first
+ * and caps at `--limit`.
  */
 import { Args, Command, Options } from "@effect/cli";
 import { AGENT_IDS } from "@workspace/core";
@@ -112,8 +113,13 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
           since: sinceMs,
           cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
         });
+        const hint =
+          hidden > 0
+            ? Console.error(`${hidden} more hidden, use --limit 0 to show all`)
+            : Effect.void;
         if (g.json) {
-          return yield* Console.log(json(picked));
+          yield* Console.log(json(picked));
+          return yield* hint;
         }
         const rows = picked.map((h) => [
           shortId(h.id),
@@ -141,11 +147,7 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
             { compact: g.compact }
           )
         );
-        if (hidden > 0) {
-          yield* Console.error(
-            `${hidden} more hidden, use --limit 0 to show all`
-          );
-        }
+        yield* hint;
       })
   );
 

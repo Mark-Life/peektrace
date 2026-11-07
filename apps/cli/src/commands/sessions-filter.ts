@@ -3,39 +3,47 @@ import { resolve } from "node:path";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 
 const RELATIVE = /^(\d+)([hdw])$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 const UNIT_MS = { h: 3_600_000, d: 86_400_000, w: 604_800_000 } as const;
+const MAX_DATE_MS = 8.64e15;
 
 /** A relative (`7d`, `12h`, `2w`) or ISO date to epoch ms; `undefined` if invalid. */
 export const parseSince = (text: string, now: number) => {
-  const match = RELATIVE.exec(text.trim());
-  if (match) {
-    const unit = UNIT_MS[match[2] as keyof typeof UNIT_MS];
-    return now - Number(match[1]) * unit;
-  }
-  const parsed = Date.parse(text);
-  return Number.isNaN(parsed) ? undefined : parsed;
+  const trimmed = text.trim();
+  const match = RELATIVE.exec(trimmed);
+  const parsed = match
+    ? now - Number(match[1]) * UNIT_MS[match[2] as keyof typeof UNIT_MS]
+    : Date.parse(ISO_DATE.test(trimmed) ? trimmed : "");
+  return Number.isFinite(parsed) && Math.abs(parsed) <= MAX_DATE_MS
+    ? parsed
+    : undefined;
 };
 
-const TRAILING_SLASHES = /\/+$/;
+const TRAILING_SEPARATORS = /[\\/]+$/;
+const WINDOWS_PATH = /^(?:[a-z]:|\\\\)/i;
 
-const stripSlash = (path: string) =>
-  path.length > 1 ? path.replace(TRAILING_SLASHES, "") || "/" : path;
+const stripSeparators = (path: string) =>
+  path.replace(TRAILING_SEPARATORS, "") || "/";
 
 /** Resolve a `--cwd` argument against this machine's working directory. */
-export const resolveCwd = (text: string) => stripSlash(resolve(text));
+export const resolveCwd = (text: string) => stripSeparators(resolve(text));
 
-/** True when the header's cwd is `cwd` or inside it. Rows without a cwd never match. */
+/** True when the header's cwd is `cwd` or inside it. Rows without a cwd never match.
+ * Both `/` and `\` separate segments; Windows paths compare case-insensitively. */
 export const matchesCwd = (header: Pick<SessionHeader, "cwd">, cwd: string) => {
   if (header.cwd === undefined) {
     return false;
   }
-  const have = stripSlash(header.cwd);
-  const want = stripSlash(cwd);
-  return (
-    want === "/" ||
-    have === want ||
-    have.startsWith(want.endsWith("/") ? want : `${want}/`)
-  );
+  const fold = WINDOWS_PATH.test(cwd)
+    ? (p: string) => p.toLowerCase()
+    : (p: string) => p;
+  const have = fold(stripSeparators(header.cwd));
+  const want = fold(stripSeparators(cwd));
+  if (want === "/" || have === want) {
+    return true;
+  }
+  const next = have[want.length];
+  return have.startsWith(want) && (next === "/" || next === "\\");
 };
 
 const timeOf = (header: Pick<SessionHeader, "updatedAt">) => {
