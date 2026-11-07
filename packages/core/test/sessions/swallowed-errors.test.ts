@@ -23,6 +23,7 @@ import {
 import { buildHeader } from "../../src/services/sessions/header";
 import { UNREADABLE_ROOT_ATTR } from "../../src/services/sessions/listing";
 import { parseJsonl, scanJsonl } from "../../src/services/sessions/parse";
+import { buildCodexHeader } from "../../src/services/sessions/parsers/codex-header";
 import {
   SessionsService,
   SessionsServiceLive,
@@ -299,9 +300,82 @@ describe("header messageCount", () => {
     expect(h.messageCount).toBe(4);
   });
 
+  test("harness-injected user lines do not count", () => {
+    const h = header(
+      [
+        line({
+          type: "user",
+          isMeta: true,
+          message: {
+            content: "<local-command-caveat>x</local-command-caveat>",
+          },
+        }),
+        line({
+          type: "user",
+          isCompactSummary: true,
+          message: { content: "Summary of earlier work" },
+        }),
+        line({ type: "user", message: { content: "hello" } }),
+        line({
+          type: "assistant",
+          requestId: "r1",
+          message: { content: [{ type: "text", text: "hi" }] },
+        }),
+      ].join("\n")
+    );
+    expect(h.messageCount).toBe(2);
+  });
+
   test("malformed mid-file lines are counted on the header", () => {
     const h = header([TRANSCRIPT, "{bad", line({ type: "user" })].join("\n"));
     expect(h.messageCount).toBe(3);
     expect(h.malformedLines).toBe(1);
+  });
+});
+
+describe("codex header messageCount", () => {
+  const item = (role: string, ...texts: string[]) =>
+    line({
+      type: "response_item",
+      payload: {
+        type: "message",
+        role,
+        content: texts.map((text) => ({ type: "input_text", text })),
+      },
+    });
+  const codexHeader = (text: string) =>
+    buildCodexHeader({
+      text,
+      id: GOOD,
+      slug: "",
+      path: "/x.jsonl",
+      sizeBytes: 1,
+      mtimeMs: 0,
+    });
+
+  test("user items that only carry injected parts do not count", () => {
+    const h = codexHeader(
+      [
+        item(
+          "developer",
+          "<permissions instructions>x</permissions instructions>"
+        ),
+        item("user", "# AGENTS.md instructions for /demo\n\nbe brief"),
+        item(
+          "user",
+          "<environment_context>\n  <cwd>/demo</cwd>\n</environment_context>"
+        ),
+        item("user", "hello"),
+        item("assistant", "hi"),
+      ].join("\n")
+    );
+    expect(h.messageCount).toBe(2);
+  });
+
+  test("a user item mixing an injected part with typed text counts", () => {
+    const h = codexHeader(
+      item("user", "<environment_context>x</environment_context>", "hello")
+    );
+    expect(h.messageCount).toBe(1);
   });
 });

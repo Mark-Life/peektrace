@@ -51,7 +51,6 @@ export {
   type ParseClaudeArgs,
   parseClaudeSession,
   parseJsonl,
-  scanJsonl,
 } from "./services/sessions/parse";
 export {
   PARSERS,
@@ -93,7 +92,6 @@ export {
   TranscriptLine,
   Turn,
   TurnSnapshot,
-  UnreadableSession,
   Usage,
   UserLine,
 } from "./services/sessions/schema";

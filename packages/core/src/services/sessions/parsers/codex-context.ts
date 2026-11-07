@@ -70,6 +70,12 @@ const userInjection = (text: string) => {
   return USER_INJECTIONS.find(([marker]) => t.startsWith(marker))?.[1];
 };
 
+/** A user-role message whose every part the harness injected. */
+export const isInjectedUserMessage = (payload: Raw) => {
+  const parts = partTexts(payload.content);
+  return parts.length > 0 && parts.every((text) => userInjection(text));
+};
+
 const TAG = /^<([a-z][\w -]*)>/i;
 
 /** Classify a developer part by its leading `<tag>`. */

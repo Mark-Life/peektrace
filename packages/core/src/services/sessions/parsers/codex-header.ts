@@ -2,6 +2,7 @@
  * timeline. */
 import { scanJsonl } from "../parse";
 import type { SessionHeader } from "../schema";
+import { isInjectedUserMessage } from "./codex-context";
 import type { BuildHeaderArgs } from "./types";
 
 type RawLine = Record<string, unknown>;
@@ -60,14 +61,17 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
-/** A user or assistant `message` item (developer/system items excluded). */
+/** A user or assistant `message` item. Developer items and user items that
+ * only carry harness-injected parts (AGENTS.md, environment) are excluded. */
 const isMessage = (line: RawLine) => {
   const payload = asObj(line.payload);
-  return (
-    line.type === "response_item" &&
-    payload?.type === "message" &&
-    (payload.role === "user" || payload.role === "assistant")
-  );
+  if (line.type !== "response_item" || payload?.type !== "message") {
+    return false;
+  }
+  if (payload.role === "assistant") {
+    return true;
+  }
+  return payload.role === "user" && !isInjectedUserMessage(payload);
 };
 
 /**

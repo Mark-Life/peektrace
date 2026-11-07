@@ -43,8 +43,8 @@ const rootOf = (span: Tracer.Span): Tracer.Span => {
 };
 
 /**
- * Put a count on the root span too. A tracer may cap child spans per root, so a
- * listing with many transcripts can drop the `Sessions.list` span itself.
+ * Put a count on the root span, not on `Sessions.list`: a tracer may cap child
+ * spans per root, so a listing with many transcripts can drop that span.
  */
 const annotateRoot = (key: string, value: number) =>
   Effect.currentSpan.pipe(
@@ -86,7 +86,6 @@ export const listSessions = (args: {
     Effect.tap((listing) =>
       Effect.zipRight(
         Effect.annotateCurrentSpan({
-          unreadable: listing.unreadable.length,
           malformedLines: listing.headers.reduce(
             (sum, h) => sum + (h.malformedLines ?? 0),
             0

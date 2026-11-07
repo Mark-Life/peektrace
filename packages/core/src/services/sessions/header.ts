@@ -12,6 +12,8 @@ interface RawLine {
   readonly aiTitle?: unknown;
   readonly cwd?: unknown;
   readonly gitBranch?: unknown;
+  readonly isCompactSummary?: unknown;
+  readonly isMeta?: unknown;
   readonly message?: { readonly content?: unknown; readonly model?: unknown };
   readonly requestId?: unknown;
   readonly timestamp?: unknown;
@@ -35,9 +37,12 @@ interface HeaderAcc {
 const assistantKey = (o: RawLine, index: number) =>
   typeof o.requestId === "string" ? `req-${o.requestId}` : `line-${index}`;
 
-/** A user line that only carries tool output, not a message the user wrote.
- * Pi and Codex headers leave tool output out of the count too. */
-const isToolResultOnly = (o: RawLine) => {
+/** A user line the user did not write: harness-injected (`isMeta`, compact
+ * summary) or tool output only. Pi and Codex headers skip these too. */
+const isNotUserWritten = (o: RawLine) => {
+  if (o.isMeta === true || o.isCompactSummary === true) {
+    return true;
+  }
   const content = o.message?.content;
   return (
     Array.isArray(content) &&
@@ -100,7 +105,7 @@ export const buildHeader = (args: {
     }
     const o = row as RawLine;
     applyLine(acc, o);
-    if (o.type === "user" && !isToolResultOnly(o)) {
+    if (o.type === "user" && !isNotUserWritten(o)) {
       users += 1;
     } else if (o.type === "assistant") {
       assistants.add(assistantKey(o, index));

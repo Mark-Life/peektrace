@@ -92,23 +92,13 @@ const redactJson = (v: unknown, key?: string): unknown => {
   return v;
 };
 
-/** The unreadable count one event recorded, or undefined if it listed none.
- * The root attribute wins: the tracer may drop child spans past its cap. */
-const unreadableOf = (event: WideEvent) => {
-  if (UNREADABLE_ROOT_ATTR in event.attributes) {
-    return event.attributes[UNREADABLE_ROOT_ATTR];
-  }
-  const span = event.spans.find((s) => s.name === "Sessions.list");
-  return span ? span.attributes.unreadable : undefined;
-};
-
 /**
  * Unreadable-transcript count from the newest event (events newest first) that
  * ran a sessions listing, or 0 when no listing was recorded.
  */
 export const lastUnreadableCount = (events: readonly WideEvent[]) => {
   for (const event of events) {
-    const n = unreadableOf(event);
+    const n = event.attributes[UNREADABLE_ROOT_ATTR];
     if (n !== undefined) {
       return typeof n === "number" ? n : 0;
     }

@@ -72,58 +72,37 @@ describe("doctor export", () => {
 });
 
 describe("doctor unreadable count", () => {
-  const event = (ts: number, spans: { name: string; unreadable?: number }[]) =>
-    ({
-      id: `e${ts}`,
-      traceId: `t${ts}`,
-      ts,
-      kind: "rpc",
-      name: "sessions.listing",
-      appVersion: "0.0.1",
-      platform: "test",
-      durationMs: 1,
-      attributes: {},
-      spans: spans.map(({ name, unreadable }) => ({
-        name,
-        durationMs: 1,
-        attributes: unreadable === undefined ? {} : { unreadable },
-      })),
-      outcome: "success",
-    }) as const;
-
-  test("reads the newest Sessions.list span", async () => {
-    const { lastUnreadableCount } = await import("../src/commands/doctor");
-    const events = [
-      event(3, [{ name: "Sessions.parse" }]),
-      event(2, [{ name: "Sessions.list", unreadable: 2 }]),
-      event(1, [{ name: "Sessions.list", unreadable: 5 }]),
-    ];
-    expect(lastUnreadableCount(events)).toBe(2);
-  });
-
-  test("prefers the root attribute, which survives a dropped Sessions.list span", async () => {
+  const load = async () => {
     const { lastUnreadableCount } = await import("../src/commands/doctor");
     const { UNREADABLE_ROOT_ATTR } = await import("@workspace/core");
-    const capped = {
-      ...event(2, [{ name: "AgentRegistry.loadTranscript" }]),
-      attributes: { [UNREADABLE_ROOT_ATTR]: 3 },
-    };
-    expect(
-      lastUnreadableCount([
-        capped,
-        event(1, [{ name: "Sessions.list", unreadable: 5 }]),
-      ])
-    ).toBe(3);
+    const event = (ts: number, unreadable?: number) =>
+      ({
+        id: `e${ts}`,
+        traceId: `t${ts}`,
+        ts,
+        kind: "rpc",
+        name: "sessions.listing",
+        appVersion: "0.0.1",
+        platform: "test",
+        durationMs: 1,
+        attributes:
+          unreadable === undefined
+            ? {}
+            : { [UNREADABLE_ROOT_ATTR]: unreadable },
+        spans: [],
+        outcome: "success",
+      }) as const;
+    return { lastUnreadableCount, event };
+  };
+
+  test("reads the newest event that ran a listing", async () => {
+    const { lastUnreadableCount, event } = await load();
+    expect(lastUnreadableCount([event(3), event(2, 2), event(1, 5)])).toBe(2);
   });
 
   test("is 0 when the newest listing read everything or none was recorded", async () => {
-    const { lastUnreadableCount } = await import("../src/commands/doctor");
-    expect(
-      lastUnreadableCount([
-        event(2, [{ name: "Sessions.list", unreadable: 0 }]),
-        event(1, [{ name: "Sessions.list", unreadable: 4 }]),
-      ])
-    ).toBe(0);
-    expect(lastUnreadableCount([event(1, [{ name: "Sessions.get" }])])).toBe(0);
+    const { lastUnreadableCount, event } = await load();
+    expect(lastUnreadableCount([event(2, 0), event(1, 4)])).toBe(0);
+    expect(lastUnreadableCount([event(1)])).toBe(0);
   });
 });

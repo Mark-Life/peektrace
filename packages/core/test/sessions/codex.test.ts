@@ -171,7 +171,7 @@ describe("buildCodexHeader", () => {
     expect(h.cwd).toBe("/Users/andrey-m/Code/personal/peephole");
     expect(h.gitBranch).toBe("feature/parsers");
     expect(h.model).toBe("gpt-5.5");
-    expect(h.messageCount).toBe(4);
+    expect(h.messageCount).toBe(3);
     expect(h.startedAt).toBe("2026-07-08T10:00:00.000Z");
     expect(h.sizeBytes).toBeGreaterThan(0);
   });
