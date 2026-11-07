@@ -41,4 +41,14 @@ describe("updateHint", () => {
       })
     ).toContain("npm i -g peektrace@latest");
   });
+
+  test("bun global installs get the bun command", () => {
+    const hint = updateHint({
+      latest: "cli-v1.0.0",
+      execPath:
+        "/home/u/.bun/install/global/node_modules/@peektrace/cli-linux-x64/bin/peektrace",
+    });
+    expect(hint).toContain("bun add -g peektrace@latest");
+    expect(hint).not.toContain("npm");
+  });
 });

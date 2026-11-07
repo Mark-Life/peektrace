@@ -4,7 +4,9 @@
  * (`capabilities.list`) driven through the same client + handlers the CLI uses —
  * no network, no fixtures needed since the matrix is static.
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Effect } from "effect";
@@ -91,11 +93,22 @@ describe("remoteErrorMessage", () => {
 });
 
 describe("--remote transport failure", () => {
+  const scratch = mkdtempSync(join(tmpdir(), "pt-cli-remote-"));
+  afterAll(() => {
+    rmSync(scratch, { recursive: true, force: true });
+  });
   const run = async (...args: string[]) => {
     const proc = Bun.spawn(["bun", "run", "src/index.ts", ...args], {
       cwd: join(import.meta.dir, ".."),
       stdout: "pipe",
       stderr: "pipe",
+      env: {
+        PATH: process.env.PATH,
+        HOME: scratch,
+        PEEKTRACE_DIR: join(scratch, ".peektrace"),
+        PEEKTRACE_NO_TELEMETRY: "1",
+        PEEKTRACE_NO_UPDATE_CHECK: "1",
+      },
     });
     const [stdout, stderr, code] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -121,8 +134,16 @@ describe("--remote transport failure", () => {
   });
 
   test("names a scheme-less URL too", async () => {
-    const r = await run("--remote", "localhost:4321", "sessions", "ls");
+    const r = await run("--remote", "localhost:1", "sessions", "ls");
     expect(r.code).toBe(1);
-    expect(r.stderr).toContain("localhost:4321");
+    expect(r.stderr).toContain("localhost:1");
+  });
+
+  test("a bare IP:port asks for a scheme, not for serve", async () => {
+    const r = await run("--remote", "127.0.0.1:1", "sessions", "ls");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("127.0.0.1:1");
+    expect(r.stderr).toContain("http://");
+    expect(r.stderr).not.toContain("peektrace serve");
   });
 });

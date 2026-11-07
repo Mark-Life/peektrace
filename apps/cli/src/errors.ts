@@ -15,9 +15,11 @@ interface Tagged {
   readonly _tag: string;
 }
 
+const isRecord = (u: unknown): u is Record<string, unknown> =>
+  typeof u === "object" && u !== null;
+
 /** Narrow an unknown value to a tagged (`_tag`) object. */
-const isTagged = (u: unknown): u is Tagged =>
-  typeof u === "object" && u !== null && "_tag" in u;
+const isTagged = (u: unknown): u is Tagged => isRecord(u) && "_tag" in u;
 
 /**
  * Human message for a known domain/user error; a generic message fallback for
@@ -61,9 +63,6 @@ export const formatCliError = (error: unknown): string => {
   }
 };
 
-const isRecord = (u: unknown): u is Record<string, unknown> =>
-  typeof u === "object" && u !== null;
-
 /** Structural guard for the `@effect/rpc` transport error. */
 export const isRpcClientError = (u: unknown): u is Tagged =>
   isTagged(u) && u._tag === "RpcClientError";
@@ -87,5 +86,11 @@ const transportDetail = (error: unknown): string => {
 };
 
 /** One-line message for a failed `--remote` transport call. */
-export const remoteErrorMessage = (url: string, error: unknown): string =>
-  `Remote request to ${url} failed (${transportDetail(error)}). Check that \`peektrace serve\` is running there.`;
+export const remoteErrorMessage = (url: string, error: unknown): string => {
+  const detail = transportDetail(error);
+  const advice =
+    detail === "ERR_INVALID_URL"
+      ? "Include the scheme, for example `http://host:port`."
+      : "Check that `peektrace serve` is running there.";
+  return `Remote request to ${url} failed (${detail}). ${advice}`;
+};

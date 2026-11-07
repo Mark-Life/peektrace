@@ -11,6 +11,20 @@ export const isDevVersion = (version: string): boolean =>
 export const isNpmInstall = (execPath: string): boolean =>
   execPath.split(PATH_SEPARATOR).includes("node_modules");
 
+/** True for a bun global install (`~/.bun/install/global/node_modules/...`). */
+export const isBunGlobalInstall = (execPath: string): boolean =>
+  execPath.replaceAll("\\", "/").includes(".bun/install/global");
+
+const hintCommand = (execPath: string): string => {
+  if (isBunGlobalInstall(execPath)) {
+    return "bun add -g peektrace@latest";
+  }
+  if (isNpmInstall(execPath)) {
+    return "npm i -g peektrace@latest' (or 'npx peektrace@latest";
+  }
+  return "peektrace upgrade";
+};
+
 /** The upgrade hint matching how peektrace was installed. */
 export const updateHint = ({
   latest,
@@ -19,6 +33,4 @@ export const updateHint = ({
   readonly latest: string;
   readonly execPath: string;
 }): string =>
-  isNpmInstall(execPath)
-    ? `A newer version (${latest}) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')`
-    : `A newer version (${latest}) is available — run 'peektrace upgrade'`;
+  `A newer version (${latest}) is available — run '${hintCommand(execPath)}'`;
