@@ -150,6 +150,29 @@ describe("pure helpers", () => {
     expect(tokenUrl("http://h:1", "a b")).toBe("http://h:1/?token=a%20b");
   });
 
+  test("resolveAuthToken trims whitespace such as a trailing CR", async () => {
+    const long = "x".repeat(40);
+    expect(
+      await Effect.runPromise(
+        resolveAuthToken({ PEEKTRACE_TOKEN: `${long}\r` })
+      )
+    ).toBe(long);
+  });
+
+  test("authOutcome redirects ?token= even when a cookie is valid", () => {
+    const outcome = authOutcome(
+      {
+        cookies: { [cookieName(4321)]: TOKEN },
+        headers: {},
+        method: "GET",
+        url: `/a?token=${TOKEN}&x=1`,
+      },
+      TOKEN,
+      4321
+    );
+    expect(outcome).toEqual({ _tag: "redirect", location: "/a?x=1" });
+  });
+
   test("resolveAuthToken honours a long env token and rejects a short one", async () => {
     const long = "x".repeat(40);
     expect(
@@ -220,7 +243,7 @@ describe("authed server", () => {
       expect(res.headers.get("referrer-policy")).toBe("no-referrer");
     }
     const body = await (await fetch(`${authed.base}/`)).text();
-    expect(body).toContain("peektrace serve");
+    expect(body).toContain("tui footer");
   });
 
   test("wrong Bearer and wrong ?token= give 401", async () => {
@@ -265,6 +288,24 @@ describe("authed server", () => {
     expect(ok.status).toBe(200);
     const none = await rpc(authed.base, { host });
     expect(none.status).toBe(401);
+  });
+
+  test("an https Origin matching Host passes (TLS proxy)", async () => {
+    const res = await rpc(authed.base, {
+      authorization: `Bearer ${TOKEN}`,
+      host: "box.example",
+      origin: "https://box.example",
+    });
+    expect(res.status).toBe(200);
+  });
+
+  test("a valid cookie plus ?token= still redirects", async () => {
+    const res = await fetch(`${authed.base}/?token=${TOKEN}`, {
+      redirect: "manual",
+      headers: { cookie: `${cookieName(authed.port)}=${TOKEN}` },
+    });
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe("/");
   });
 
   test("Origin must equal the request Host", async () => {

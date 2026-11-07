@@ -83,48 +83,30 @@ const Footer = ({
 }: {
   readonly serverUrl: string;
   readonly authed: boolean;
-}) => {
-  const url = (
+}) => (
+  <box
+    style={{
+      flexDirection: authed ? "column" : "row",
+      flexShrink: 0,
+      paddingLeft: 1,
+      paddingRight: 1,
+      justifyContent: "space-between",
+    }}
+  >
     <box style={{ flexDirection: "row" }}>
       <text fg={C.accent}>web ▸ </text>
       <text fg={C.textDim}>{serverUrl}</text>
     </box>
-  );
-  const hints = (
-    <KeyHints
-      hints={[
-        ["1-5", "section"],
-        ["q", "quit"],
-      ]}
-    />
-  );
-  return authed ? (
-    <box
-      style={{
-        flexDirection: "column",
-        height: 2,
-        paddingLeft: 1,
-        paddingRight: 1,
-      }}
-    >
-      {url}
-      {hints}
+    <box style={{ flexShrink: 0 }}>
+      <KeyHints
+        hints={[
+          ["1-5", "section"],
+          ["q", "quit"],
+        ]}
+      />
     </box>
-  ) : (
-    <box
-      style={{
-        flexDirection: "row",
-        height: 1,
-        paddingLeft: 1,
-        paddingRight: 1,
-        justifyContent: "space-between",
-      }}
-    >
-      {url}
-      {hints}
-    </box>
-  );
-};
+  </box>
+);
 
 /** Render the screen for the active section. */
 const Screen = ({ active }: { readonly active: SectionId }) => {

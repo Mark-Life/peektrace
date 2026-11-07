@@ -1,6 +1,6 @@
 /** Shared HTTP-serving core for `peektrace serve` and `peektrace tui`.
  *
- * Both commands stand up the same loopback HTTP surface — the Effect-RPC handler
+ * Both commands stand up the same HTTP surface (loopback by default) — the Effect-RPC handler
  * at `POST /rpc` plus the static inspector assets — guarded by the same
  * DNS-rebinding + CSRF checks. This module owns that construction so the two
  * commands share one source of truth: `serve` wraps it with human-readable
@@ -267,8 +267,11 @@ const rpcForbiddenReason = (
   authed: boolean
 ): string | undefined => {
   const origin = headers.origin;
+  // Under auth the token is the guard: accept the server's own host over http
+  // or https (a TLS proxy in front shows an https Origin).
   const originOk = authed
-    ? origin === `http://${headers.host}`
+    ? origin === `http://${headers.host}` ||
+      origin === `https://${headers.host}`
     : allow.origins.has(origin ?? "");
   if (origin !== undefined && !originOk) {
     return "cross-origin request rejected (Origin not allowed)";
@@ -277,7 +280,7 @@ const rpcForbiddenReason = (
 };
 
 const UNAUTHORIZED_BODY =
-  "Peektrace needs the token: open the URL printed by `peektrace serve`.";
+  "Peektrace needs the token: open the token URL printed by peektrace (serve output or tui footer).";
 
 /** Options for `buildServeApp`. `token` turns on the auth gate. */
 export interface ServeAppOptions {

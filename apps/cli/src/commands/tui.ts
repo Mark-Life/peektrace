@@ -1,6 +1,6 @@
 /** `peektrace tui` — the terminal UI, with the web app hosted alongside it.
  *
- * Boots the same loopback HTTP surface as `serve` (RPC + static inspector), then
+ * Boots the same HTTP surface (loopback by default) as `serve` (RPC + static inspector), then
  * renders an OpenTUI terminal UI over the *same* in-process backend. Both are
  * live at once: browse in the terminal or open the URL in a browser, one shared
  * `makeHandlersLayer` (one filesystem watcher, one read model) behind both.

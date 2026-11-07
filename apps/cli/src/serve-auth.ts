@@ -9,7 +9,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { Options } from "@effect/cli";
 import { Effect } from "effect";
-import { CliUserError } from "./errors";
+import { CliUserError, isHttpUrl } from "./errors";
 
 /** Env var that supplies the token (server) or sends it (`--remote`). */
 export const TOKEN_ENV = "PEEKTRACE_TOKEN";
@@ -63,7 +63,7 @@ export const servePosture = (args: {
 /** Token for an authed bind: `PEEKTRACE_TOKEN` when set (checked), else random. */
 export const resolveAuthToken = (env: Record<string, string | undefined>) =>
   Effect.gen(function* () {
-    const fromEnv = env[TOKEN_ENV];
+    const fromEnv = env[TOKEN_ENV]?.trim();
     if (fromEnv === undefined || fromEnv === "") {
       return makeToken();
     }
@@ -107,35 +107,35 @@ const stripToken = (url: URL) => {
   return `${path}${query === "" ? "" : `?${query}`}`;
 };
 
-/** Decide a request: Bearer header, then cookie, then `?token=` on GET. */
+/**
+ * Decide a request: Bearer header, then cookie, then `?token=` on GET. A GET
+ * that carries `?token=` with a valid token by any means redirects, so the
+ * token never stays in the URL bar.
+ */
 export const authOutcome = (
   req: AuthRequest,
   token: string,
   port: number
 ): AuthOutcome => {
   const bearer = bearerOf(req.headers);
-  if (bearer !== undefined && tokensEqual(bearer, token)) {
-    return { _tag: "ok" };
-  }
   const cookie = req.cookies[cookieName(port)];
-  if (cookie !== undefined && tokensEqual(cookie, token)) {
-    return { _tag: "ok" };
-  }
+  const held =
+    (bearer !== undefined && tokensEqual(bearer, token)) ||
+    (cookie !== undefined && tokensEqual(cookie, token));
   if (req.method === "GET") {
     const url = new URL(req.url, "http://peektrace.invalid");
     const queryToken = url.searchParams.get(QUERY_PARAM);
-    if (queryToken !== null && tokensEqual(queryToken, token)) {
+    if (queryToken !== null && (held || tokensEqual(queryToken, token))) {
       return { _tag: "redirect", location: stripToken(url) };
     }
   }
-  return { _tag: "unauthorized" };
+  return held ? { _tag: "ok" } : { _tag: "unauthorized" };
 };
 
 /** URL a human opens: the base URL with the token as a query param. */
 export const tokenUrl = (baseUrl: string, token: string) =>
   `${baseUrl}/?${QUERY_PARAM}=${encodeURIComponent(token)}`;
 
-const HTTP_PROTOCOL = /^https?:$/;
 const TOKEN_PARAM_VALUE = /([?&]token=)[^&#]*/g;
 
 /**
@@ -145,16 +145,14 @@ const TOKEN_PARAM_VALUE = /([?&]token=)[^&#]*/g;
  * echo the secret.
  */
 export const splitRemote = (remote: string) => {
-  if (URL.canParse(remote)) {
+  if (isHttpUrl(remote)) {
     const parsed = new URL(remote);
-    if (HTTP_PROTOCOL.test(parsed.protocol)) {
-      return parsed.searchParams.has(QUERY_PARAM)
-        ? {
-            url: parsed.origin,
-            token: parsed.searchParams.get(QUERY_PARAM) || undefined,
-          }
-        : { url: remote, token: undefined };
-    }
+    return parsed.searchParams.has(QUERY_PARAM)
+      ? {
+          url: parsed.origin,
+          token: parsed.searchParams.get(QUERY_PARAM) || undefined,
+        }
+      : { url: remote, token: undefined };
   }
   return {
     url: remote.replace(TOKEN_PARAM_VALUE, "$1***"),

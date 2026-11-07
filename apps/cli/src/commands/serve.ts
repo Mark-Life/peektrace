@@ -1,6 +1,6 @@
 /** `peektrace serve` — the headline command.
  *
- * Boots a loopback-only Bun HTTP server that:
+ * Boots a Bun HTTP server (loopback by default) that:
  * - mounts the Effect-RPC handler (NDJSON over HTTP) at `POST /rpc`, backed by the
  *   real core layers provisioned once at boot via `makeHandlersLayer`;
  * - serves the built inspector static assets from `apps/inspector/dist` at `/`,

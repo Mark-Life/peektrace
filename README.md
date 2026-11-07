@@ -231,7 +231,8 @@ Open on first launch)..
 
 ## Privacy posture
 
-- **Loopback only.** The server binds `127.0.0.1`. Nothing is exposed off-box.
+- **Loopback by default.** The server binds `127.0.0.1`. A non-loopback
+  `--host` needs a token and is read-only unless `--allow-write`.
 - **Secret redaction on by default** for every rendered or exported transcript.
 - **No model ever sees your data.** The core reads bodies itself; no transcript
   and no memory is sent to an LLM.

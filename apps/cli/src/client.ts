@@ -79,7 +79,7 @@ export const withClient = <A, E>(
   if (globals.remote !== undefined) {
     // A pasted `?token=` URL wins over the env; errors never echo the token.
     const { url, token } = splitRemote(globals.remote);
-    const bearer = token ?? (process.env[TOKEN_ENV] || undefined);
+    const bearer = token ?? (process.env[TOKEN_ENV]?.trim() || undefined);
     return createPeektraceClient(url, { token: bearer }).pipe(
       Effect.flatMap(use),
       Effect.scoped,

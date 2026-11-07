@@ -130,3 +130,33 @@ test("token shell shows the badge and the full token URL at 80 columns", async (
     { url, authed: true }
   );
 });
+
+test("token footer keeps the key hints intact at 60 columns", async () => {
+  const url = `http://127.0.0.1:4321/?token=${SYNTHETIC_TOKEN}`;
+  await withRealBridge(
+    async (bridge) => {
+      const setup = await testRender(
+        <App bridge={bridge} onQuit={() => undefined} />,
+        { width: 60, height: 20 }
+      );
+      try {
+        const frame = await setup.waitForFrame((v) => v.includes("web ▸"));
+        const lines = frame.split("\n");
+        const hintLine = lines.find((l) => l.includes("section"));
+        expect(hintLine?.trim()).toBe("1-5 section  q quit");
+        const urlRows = lines
+          .slice(lines.findIndex((l) => l.includes("web ▸")))
+          .filter((l) => !l.includes("section"));
+        expect(
+          urlRows
+            .map((l) => l.trim())
+            .join("")
+            .replace("web▸", "")
+        ).toContain(SYNTHETIC_TOKEN);
+      } finally {
+        setup.renderer.destroy();
+      }
+    },
+    { url, authed: true }
+  );
+});
