@@ -328,6 +328,9 @@ export const ChatBand = ({
   </div>
 );
 
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
+
 /** The rule between turns: what the model was, and how full its window already
  *  was — the context the table's `t{n}` gutter could only hint at. */
 export const ChatTurnRule = ({
@@ -338,6 +341,8 @@ export const ChatTurnRule = ({
   thinkingTokens,
   tokens,
   turn,
+  webFetches,
+  webSearches,
 }: {
   readonly ctxFrac: number;
   readonly dumbZone: number;
@@ -346,6 +351,8 @@ export const ChatTurnRule = ({
   readonly thinkingTokens: number | undefined;
   readonly tokens: number;
   readonly turn: number;
+  readonly webFetches: number | undefined;
+  readonly webSearches: number | undefined;
 }) => (
   <div
     className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground"
@@ -359,6 +366,10 @@ export const ChatTurnRule = ({
       </span>{" "}
       · out {fmtK(outputTokens)}
       {thinkingTokens ? ` (${fmtK(thinkingTokens)} thinking)` : ""}
+      {webSearches
+        ? ` · ${plural(webSearches, "web search", "web searches")}`
+        : ""}
+      {webFetches ? ` · ${plural(webFetches, "web fetch", "web fetches")}` : ""}
     </span>
     <div className="h-px flex-1 bg-border" />
   </div>

@@ -156,6 +156,16 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
         {a.subagents.length > 0 ? (
           <Badge variant="outline">{a.subagents.length} subagent(s)</Badge>
         ) : null}
+        {a.webSearchRequests > 0 ? (
+          <Badge data-testid="web-searches" variant="outline">
+            {a.webSearchRequests} web search(es)
+          </Badge>
+        ) : null}
+        {a.webFetchRequests > 0 ? (
+          <Badge data-testid="web-fetches" variant="outline">
+            {a.webFetchRequests} web fetch(es)
+          </Badge>
+        ) : null}
         {a.gitBranch ? <Badge variant="secondary">{a.gitBranch}</Badge> : null}
       </div>
     </section>

@@ -549,4 +549,6 @@ export const MOCK_SESSION: typeof AnalyzedSession.Type = {
   userMessageCount: EVENTS.filter((e) => e.kind === "user-prompt").length,
   toolCallCount: EVENTS.filter((e) => e.kind === "tool-call").length,
   peakCacheReadTokens: cacheReadAt(PEAK_TURN_INDEX),
+  webSearchRequests: 0,
+  webFetchRequests: 0,
 };

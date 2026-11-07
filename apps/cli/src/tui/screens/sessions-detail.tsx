@@ -98,6 +98,13 @@ const PeakGauge = ({
   );
 };
 
+/** Server-side web searches and fetches, when the session ran any. */
+const webCounts = (s: AnalyzedSession) =>
+  [
+    s.webSearchRequests > 0 ? ` · ${s.webSearchRequests} web search` : "",
+    s.webFetchRequests > 0 ? ` · ${s.webFetchRequests} web fetch` : "",
+  ].join("");
+
 /** Verdict header: title, ident subline, health word + gauge, metadata grid. */
 const VerdictHeader = ({
   s,
@@ -143,7 +150,7 @@ const VerdictHeader = ({
         labelWidth={LABEL_W}
         value={`${s.turnCount} · ${s.toolCallCount} tools · ${fmt(
           s.totalOutputTokens
-        )} out`}
+        )} out${webCounts(s)}`}
       />
       <Field
         label="System + tools"

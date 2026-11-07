@@ -169,6 +169,8 @@ const renderNode = ({
         thinkingTokens={turn.thinkingTokens}
         tokens={turn.contextTokens}
         turn={n.turn}
+        webFetches={turn.webFetchRequests}
+        webSearches={turn.webSearchRequests}
       />
     );
   }
