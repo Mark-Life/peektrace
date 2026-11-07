@@ -17,6 +17,11 @@ import {
 } from "../agents";
 import { analyze } from "./analyze";
 import { SessionNotFoundError, TranscriptParseError } from "./errors";
+import {
+  type HeaderCache,
+  listAgentHeaders,
+  makeHeaderCache,
+} from "./header-cache";
 import { imageAt } from "./images";
 import { jsonlLineAt, parseClaudeSession, parseJsonl } from "./parse";
 import { PARSERS } from "./parsers";
@@ -44,6 +49,11 @@ export interface ParseRequest {
   readonly parent?: string;
   /** Redact secret-looking transcript text. Default true. */
   readonly redact?: boolean;
+}
+
+/** Options accepted by `list`. */
+export interface ListFilter {
+  readonly agent?: AgentId;
 }
 
 /** Options accepted by `image`. */
@@ -88,8 +98,13 @@ export interface SessionsServiceShape {
     NonNullable<ReturnType<typeof imageAt>> | null,
     SessionNotFoundError | TranscriptParseError
   >;
-  /** Lightweight headers for every supported agent's transcripts. */
-  readonly list: () => Effect.Effect<readonly SessionHeader[]>;
+  /**
+   * Lightweight headers for every supported agent's transcripts, or one
+   * agent's when `filter.agent` is set. Unchanged files reuse cached headers.
+   */
+  readonly list: (
+    filter?: ListFilter
+  ) => Effect.Effect<readonly SessionHeader[]>;
   /** Full parse of one transcript, folding in subagent transcripts (Claude). */
   readonly parse: (
     req: ParseRequest
@@ -418,61 +433,25 @@ const parseFull = (args: {
   );
 };
 
-/** Build one header from a transcript ref via its agent's parser. */
-const headerFor = (args: {
-  readonly agents: AgentRegistryShape;
-  readonly agent: AgentId;
-  readonly ref: SessionFileRef;
-}): Effect.Effect<SessionHeader | null> => {
-  const { agents, agent, ref } = args;
-  const parser = PARSERS[agent];
-  if (!parser) {
-    return Effect.succeed(null);
-  }
-  return agents.loadTranscript({ agent, ref }).pipe(
-    Effect.map(({ text, sizeBytes, mtimeMs }) => {
-      if (text === "" && sizeBytes === 0) {
-        return null;
-      }
-      const header = parser.buildHeader({
-        text,
-        id: ref.id,
-        slug: ref.slug,
-        path: ref.path,
-        sizeBytes,
-        mtimeMs,
-      });
-      return ref.source
-        ? { ...header, source: ref.source.id, sourceLabel: ref.source.label }
-        : header;
-    }),
-    Effect.orElseSucceed(() => null)
-  );
-};
-
 const makeService = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly agents: AgentRegistryShape;
+  readonly cache: HeaderCache;
 }): SessionsServiceShape => {
-  const { fs, agents } = args;
+  const { fs, agents, cache } = args;
 
-  const list: SessionsServiceShape["list"] = () =>
+  const list: SessionsServiceShape["list"] = (filter) =>
     Effect.forEach(
-      supportedAgents(agents),
-      (agent) =>
-        agents.listSessionFiles(agent).pipe(
-          Effect.flatMap((refs) =>
-            Effect.forEach(refs, (ref) => headerFor({ agents, agent, ref }), {
-              concurrency: LIST_CONCURRENCY,
-            })
-          )
-        ),
+      supportedAgents(agents).filter(
+        (agent) => !filter?.agent || agent === filter.agent
+      ),
+      (agent) => listAgentHeaders({ fs, agents, cache, agent }),
       { concurrency: LIST_CONCURRENCY }
     ).pipe(
-      Effect.map((groups) =>
-        groups.flat().filter((h): h is SessionHeader => h !== null)
-      ),
-      Effect.withSpan("Sessions.list")
+      Effect.map((groups) => groups.flat()),
+      Effect.withSpan("Sessions.list", {
+        attributes: filter?.agent ? { agent: filter.agent } : {},
+      })
     );
 
   const parse: SessionsServiceShape["parse"] = ({
@@ -546,6 +525,7 @@ export const SessionsServiceLive = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const agents = yield* AgentRegistry;
-    return makeService({ fs, agents });
+    const cache = yield* makeHeaderCache();
+    return makeService({ fs, agents, cache });
   })
 );
