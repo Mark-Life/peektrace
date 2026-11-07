@@ -229,3 +229,41 @@ export const chatIdsOf = (
     .filter(({ pos }) => !consumed.has(pos))
     .map(({ pos }) => chatCollapseId(pos));
 };
+
+/** The node that shows tool call `id`: its card, whether the call itself or
+ *  only its result is visible. -1 when no visible node carries it. */
+export const planIndexOfCall = (plan: readonly ChatNode[], id: string) =>
+  plan.findIndex(
+    (n) =>
+      n.type === "tool" &&
+      (n.call?.e.toolUseId === id ||
+        (n.call === null && n.result?.e.toolUseId === id))
+  );
+
+/** The key one node is known by, before deduplication. Built from event
+ *  positions and turn numbers, never list positions, so a node keeps its key
+ *  (and its measured height) when a filter or a live append moves it. */
+const baseKeyOf = (n: ChatNode) => {
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
+    return `n${n.row.pos}`;
+  }
+  if (n.type === "tool") {
+    return `n${n.call?.pos ?? n.result?.pos ?? "?"}`;
+  }
+  if (n.type === "run") {
+    return `run${n.items[0]?.pos ?? "?"}`;
+  }
+  return n.type === "turn" ? `turn${n.turn}` : "dumbzone";
+};
+
+/** One unique key per node. A turn whose events are interleaved with another's
+ *  draws its rule twice; the repeat gets a numbered suffix. */
+export const chatNodeKeys = (plan: readonly ChatNode[]) => {
+  const seen = new Map<string, number>();
+  return plan.map((n) => {
+    const base = baseKeyOf(n);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return count === 0 ? base : `${base}~${count}`;
+  });
+};
