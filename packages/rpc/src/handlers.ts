@@ -337,6 +337,15 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
             ),
           "stats.markers": ({ sid, ...rest }) =>
             wire(stats.markers({ ...statsScope(rest), sid })),
+          "stats.usage": ({ by, days, tz, ...rest }) =>
+            wire(
+              stats.usage({
+                ...statsScope(rest),
+                by,
+                ...(days === undefined ? {} : { days }),
+                ...(tz === undefined ? {} : { tz }),
+              })
+            ),
           "stats.refresh": (payload) =>
             wire(stats.refresh(statsScope(payload))),
           "settings.get": () => settings.get,

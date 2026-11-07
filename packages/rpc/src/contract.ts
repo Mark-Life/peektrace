@@ -36,6 +36,10 @@ import {
   SessionMarkers,
   StatsReport,
 } from "@workspace/core/services/stats/schema";
+import {
+  UsageBy,
+  UsageReport,
+} from "@workspace/core/services/stats/usage-schema";
 import { Schema } from "effect";
 
 // --- Wire error mirrors (Schema.TaggedError twins of the core Data errors) ---
@@ -305,6 +309,16 @@ export const StatsMarkersPayload = Schema.Struct({
   sid: Schema.String,
 });
 
+/** `stats.usage` arguments: tokens and cost per day, month or 5-hour block. */
+export const StatsUsagePayload = Schema.Struct({
+  ...statsScopeFields,
+  by: UsageBy,
+  /** Days back from now. Default: 30 by day, 365 by month, 7 by block. */
+  days: Schema.optional(Schema.Number),
+  /** IANA zone for day and month keys. Default UTC. */
+  tz: Schema.optional(Schema.String),
+});
+
 /** `stats.refresh` arguments (cache only; computes no rows). */
 export const StatsRefreshPayload = Schema.Struct(statsScopeFields);
 
@@ -399,6 +413,11 @@ export const PeektraceRpcs = RpcGroup.make(
   Rpc.make("stats.markers", {
     payload: StatsMarkersPayload,
     success: SessionMarkers,
+    error: WireError,
+  }),
+  Rpc.make("stats.usage", {
+    payload: StatsUsagePayload,
+    success: UsageReport,
     error: WireError,
   }),
   Rpc.make("stats.refresh", {
