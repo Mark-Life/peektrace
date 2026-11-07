@@ -248,6 +248,7 @@ const factsFor = (args: {
       // A nested transcript is sidechain end to end: count its own turns, as
       // the sessions view does, or its tokens and every retry in it read zero.
       includeSidechainTurns: ref.kind !== "main",
+      skipSystemPrompt: true,
     });
     // One project key across agents: Codex has no slug, so its cwd is encoded
     // the same way Claude's project dir already is.
