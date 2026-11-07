@@ -19,6 +19,7 @@ import { analyze } from "./analyze";
 import { SessionNotFoundError, TranscriptParseError } from "./errors";
 import {
   type HeaderCache,
+  LIST_CONCURRENCY,
   listAgentHeaders,
   makeHeaderCache,
 } from "./header-cache";
@@ -39,7 +40,6 @@ import type {
   SubagentRef,
 } from "./schema";
 
-const LIST_CONCURRENCY = 8;
 const JSONL = /\.jsonl$/;
 
 /** Options accepted by `parse`. */

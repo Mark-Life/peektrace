@@ -110,6 +110,22 @@ export class TranscriptReadError extends Data.TaggedError(
 /** A transcript's raw text plus the stat used for header sizing/recency. */
 export type TranscriptPayload = SessionText;
 
+/** File size and mtime, as read by `fs.stat`. */
+export type FileStamp = Pick<TranscriptPayload, "mtimeMs" | "sizeBytes">;
+
+export const statFileStamp = (fs: FileSystem.FileSystem, path: string) =>
+  fs.stat(path).pipe(
+    Effect.map(
+      (info): FileStamp => ({
+        sizeBytes: Number(info.size),
+        mtimeMs: Option.match(info.mtime, {
+          onNone: () => 0,
+          onSome: (d) => d.getTime(),
+        }),
+      })
+    )
+  );
+
 /**
  * First non-empty entry of a `PATH`-style env var. Claude Code accepts a
  * colon-separated list in `CLAUDE_CONFIG_DIR`; peektrace scans a single root, so
@@ -343,10 +359,12 @@ export interface AgentRegistryShape {
    * Load one transcript's text + stat, abstracting over file-backed agents
    * (Claude/Codex/Pi read `ref.path` off disk) and OpenCode (whose `ref.path`
    * is a `<dataDir>#<sessionId>` handle the SQLite/tree reader serializes).
+   * A file-backed load given `stamp` reuses it instead of a fresh stat.
    */
   readonly loadTranscript: (args: {
     readonly agent: AgentId;
     readonly ref: SessionFileRef;
+    readonly stamp?: FileStamp;
   }) => Effect.Effect<TranscriptPayload, TranscriptReadError>;
   /** Per-project memory dir for an agent + slug. */
   readonly memoryDir: (args: {
@@ -646,19 +664,11 @@ export const AgentRegistryLive = Layer.effect(
       });
 
     /** File-backed agents (Claude/Codex/Pi): stat + read `ref.path` off disk. */
-    const loadFileTranscript = (ref: SessionFileRef) =>
+    const loadFileTranscript = (ref: SessionFileRef, known?: FileStamp) =>
       Effect.gen(function* () {
-        const info = yield* fs.stat(ref.path);
+        const stamp = known ?? (yield* statFileStamp(fs, ref.path));
         const text = yield* fs.readFileString(ref.path);
-        const mtimeMs = Option.match(info.mtime, {
-          onNone: () => 0,
-          onSome: (d) => d.getTime(),
-        });
-        return {
-          text,
-          sizeBytes: Number(info.size),
-          mtimeMs,
-        } satisfies TranscriptPayload;
+        return { text, ...stamp } satisfies TranscriptPayload;
       }).pipe(
         Effect.mapError(
           (e) => new TranscriptReadError({ path: ref.path, reason: String(e) })
@@ -668,13 +678,15 @@ export const AgentRegistryLive = Layer.effect(
     const loadTranscript = ({
       agent,
       ref,
+      stamp,
     }: {
       readonly agent: AgentId;
       readonly ref: SessionFileRef;
+      readonly stamp?: FileStamp;
     }) =>
       (rootOf(agent).layout === "opencode-sqlite"
         ? loadOpencodeTranscript(ref)
-        : loadFileTranscript(ref)
+        : loadFileTranscript(ref, stamp)
       ).pipe(
         Effect.withSpan("AgentRegistry.loadTranscript", {
           attributes: { agent },

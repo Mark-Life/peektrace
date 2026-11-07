@@ -8,16 +8,18 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect, Option, Ref } from "effect";
 import type { AgentId } from "../agent-id";
-import type {
-  AgentRegistryShape,
-  SessionFileRef,
-  TranscriptPayload,
+import {
+  type AgentRegistryShape,
+  type SessionFileRef,
+  statFileStamp,
+  type TranscriptPayload,
 } from "../agents";
 import { PARSERS } from "./parsers";
 import type { SessionParser } from "./parsers/types";
 import type { SessionHeader } from "./schema";
 
-const LIST_CONCURRENCY = 8;
+/** Files read in parallel per agent, and agents listed in parallel. */
+export const LIST_CONCURRENCY = 8;
 
 /** One cached header and the file stamp it was built from. */
 interface HeaderEntry {
@@ -89,23 +91,11 @@ interface Lookup {
   readonly key: string;
 }
 
-const statStamp = (fs: FileSystem.FileSystem, path: string) =>
-  fs.stat(path).pipe(
-    Effect.map((info) => ({
-      sizeBytes: Number(info.size),
-      mtimeMs: Option.match(info.mtime, {
-        onNone: () => 0,
-        onSome: (d) => d.getTime(),
-      }),
-    })),
-    Effect.option
-  );
-
 /**
  * Header for a file-backed ref: reuse the cached entry when the stamp matches,
- * else load and parse. The new entry takes the payload's own stamp, which the
- * loader reads before the text, so an append during the read leaves a stale
- * stamp and the next list parses the file again.
+ * else load and parse. The load reuses the stamp taken here, before the read,
+ * so an append during the read leaves a stale stamp and the next list parses
+ * the file again.
  */
 const cachedHeaderFor = (args: {
   readonly fs: FileSystem.FileSystem;
@@ -118,7 +108,7 @@ const cachedHeaderFor = (args: {
   const { fs, agents, agent, parser, ref, cached } = args;
   const key = entryKey(ref);
   return Effect.gen(function* () {
-    const stamp = yield* statStamp(fs, ref.path);
+    const stamp = yield* Effect.option(statFileStamp(fs, ref.path));
     if (Option.isNone(stamp)) {
       return { key, header: null };
     }
@@ -130,18 +120,20 @@ const cachedHeaderFor = (args: {
     ) {
       return { key, header: withSource(hit.header, ref), entry: hit };
     }
-    return yield* agents.loadTranscript({ agent, ref }).pipe(
-      Effect.map((payload): Lookup => {
-        const header = toHeader({ parser, ref, payload });
-        const entry = {
-          header,
-          sizeBytes: payload.sizeBytes,
-          mtimeMs: payload.mtimeMs,
-        };
-        return { key, header: withSource(header, ref), entry };
-      }),
-      Effect.orElseSucceed((): Lookup => ({ key, header: null }))
-    );
+    return yield* agents
+      .loadTranscript({ agent, ref, stamp: stamp.value })
+      .pipe(
+        Effect.map((payload): Lookup => {
+          const header = toHeader({ parser, ref, payload });
+          const entry = {
+            header,
+            sizeBytes: payload.sizeBytes,
+            mtimeMs: payload.mtimeMs,
+          };
+          return { key, header: withSource(header, ref), entry };
+        }),
+        Effect.orElseSucceed((): Lookup => ({ key, header: null }))
+      );
   });
 };
 

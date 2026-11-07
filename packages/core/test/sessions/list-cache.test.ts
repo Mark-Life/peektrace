@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   appendFileSync,
   mkdtempSync,
@@ -42,8 +42,17 @@ const writeSession = (root: string, id: string) => {
   return { path, id, slug: "-work-demo" } satisfies SessionFileRef;
 };
 
+const roots: string[] = [];
+
+afterEach(() => {
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 const makeCorpus = (letters: readonly string[] = ["a", "b", "c"]) => {
   const root = mkdtempSync(join(tmpdir(), "pt-list-cache-"));
+  roots.push(root);
   return {
     root,
     refs: letters.map((c) => writeSession(root, sessionId(c))),
@@ -62,12 +71,14 @@ interface StubOptions {
 /** Registry stub over real files; counts transcript loads per agent. */
 const makeStub = (opts: StubOptions) => {
   const loads: Partial<Record<AgentId, number>> = {};
+  const stamped: { ref: string; stamped: boolean }[] = [];
   const listed = (id: AgentId) => opts.refs()[id];
   const stub = {
     listSessionFiles: (id) => Effect.succeed(listed(id) ?? []),
-    loadTranscript: ({ agent, ref }) =>
+    loadTranscript: ({ agent, ref, stamp }) =>
       Effect.suspend(() => {
         loads[agent] = (loads[agent] ?? 0) + 1;
+        stamped.push({ ref: ref.path, stamped: stamp !== undefined });
         if (opts.failOnce?.delete(ref.path)) {
           return Effect.fail(
             new TranscriptReadError({ path: ref.path, reason: "boom" })
@@ -98,7 +109,7 @@ const makeStub = (opts: StubOptions) => {
       Layer.provide(BunFileSystem.layer)
     );
   const total = () => Object.values(loads).reduce((a, b) => a + b, 0);
-  return { loads, layer, total };
+  return { loads, layer, stamped, total };
 };
 
 /** A fresh service has an empty cache, so its list is the uncached answer. */
@@ -254,5 +265,17 @@ describe("sessions.list header cache", () => {
       }).pipe(Effect.provide(layer()))
     );
     expect(loads.opencode).toBe(4);
+  });
+
+  test("a cache miss hands its pre-read stamp to the loader", async () => {
+    const { refs } = makeCorpus(["a", "b"]);
+    const { layer, stamped } = makeStub({ refs: () => ({ claude: refs }) });
+    await Effect.runPromise(
+      Effect.flatMap(SessionsService, (s) => s.list()).pipe(
+        Effect.provide(layer())
+      )
+    );
+    expect(stamped).toHaveLength(2);
+    expect(stamped.every((l) => l.stamped)).toBe(true);
   });
 });
