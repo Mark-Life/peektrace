@@ -75,7 +75,8 @@ export const bytes = (n: number): string => {
 };
 
 /** Compact token count: `950`, `12.3k`, `32.4M`. */
-export const tokens = (n: number): string => {
+export const tokens = (value: number): string => {
+  const n = Math.round(value);
   if (n < THOUSAND) {
     return String(n);
   }
@@ -83,6 +84,10 @@ export const tokens = (n: number): string => {
     ? `${(n / THOUSAND).toFixed(DECIMALS)}k`
     : `${(n / MILLION).toFixed(DECIMALS)}M`;
 };
+
+/** Dumb-zone cross turn for display: 1-based like the inspector, `never` for -1. */
+export const crossTurnCell = (n: number): string =>
+  n < 0 ? "never" : String(n + 1);
 
 const SEC_PER_MIN = 60;
 const SEC_PER_HOUR = 3600;

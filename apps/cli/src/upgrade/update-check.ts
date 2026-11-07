@@ -16,6 +16,7 @@ import {
   type ReleaseConfig,
   resolveReleaseConfig,
 } from "./release";
+import { isDevVersion, updateHint } from "./update-hint";
 
 /** One day in milliseconds — the passive check runs at most once per this window. */
 const CACHE_TTL_MS = 86_400_000;
@@ -97,22 +98,22 @@ const findAvailableUpdate = ({
 
 /**
  * Print a single update hint to stdout when a newer release exists, silent when
- * current. Gated by `PEEKTRACE_NO_UPDATE_CHECK`, bounded by a short timeout, and
- * fully error-swallowing — safe to `Effect.fork` at startup without ever
- * blocking or failing the server.
+ * current. Skipped for dev builds and when `PEEKTRACE_NO_UPDATE_CHECK` is set;
+ * the hint text depends on `execPath` (npm, bun global, or standalone).
+ * Bounded by a short timeout, and fully error-swallowing — safe to
+ * `Effect.fork` at startup without ever blocking or failing the server.
  */
 export const startupUpdateNotice = (
-  currentVersion: string
+  currentVersion: string,
+  { execPath = process.execPath }: { readonly execPath?: string } = {}
 ): Effect.Effect<void> =>
   Effect.gen(function* () {
-    if (process.env.PEEKTRACE_NO_UPDATE_CHECK) {
+    if (process.env.PEEKTRACE_NO_UPDATE_CHECK || isDevVersion(currentVersion)) {
       return;
     }
     const config = resolveReleaseConfig();
     const latest = yield* findAvailableUpdate({ currentVersion, config });
     if (latest !== null) {
-      yield* Console.log(
-        `A newer version (${latest}) is available — run 'peektrace upgrade'`
-      );
+      yield* Console.log(updateHint({ latest, execPath }));
     }
   }).pipe(Effect.timeout(CHECK_TIMEOUT_MS), Effect.ignore);

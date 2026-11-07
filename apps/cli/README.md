@@ -200,7 +200,7 @@ peektrace sessions ls --project -Users-me-myrepo --json
 
 Reproduces the `session-report` math headlessly: verdict
 (Healthy/Degrading/Rotting), peak context vs window, final context, turn / tool
-counts, the dumb-zone crossing turn, and the budget-at-peak partition.
+counts, the dumb-zone crossing turn (1-based, or `never`, in the table; `--json` keeps the 0-based turn, `-1` for none), and the budget-at-peak partition.
 
 ```sh
 peektrace sessions analyze <session-uuid>

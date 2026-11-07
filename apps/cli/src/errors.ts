@@ -4,6 +4,8 @@
  * domain errors that flow up through `withClient` — and prints only the rendered
  * message to stderr, never a raw Effect FiberFailure / bunfs stack dump.
  */
+import { HttpClientError } from "@effect/platform";
+import { RpcClientError } from "@effect/rpc";
 import { Data } from "effect";
 
 /** A user-facing CLI error: rendered as a clean one-liner, never a stack dump. */
@@ -15,9 +17,11 @@ interface Tagged {
   readonly _tag: string;
 }
 
+const isRecord = (u: unknown): u is Record<string, unknown> =>
+  typeof u === "object" && u !== null;
+
 /** Narrow an unknown value to a tagged (`_tag`) object. */
-const isTagged = (u: unknown): u is Tagged =>
-  typeof u === "object" && u !== null && "_tag" in u;
+const isTagged = (u: unknown): u is Tagged => isRecord(u) && "_tag" in u;
 
 /**
  * Human message for a known domain/user error; a generic message fallback for
@@ -59,4 +63,48 @@ export const formatCliError = (error: unknown): string => {
     default:
       return typeof e.message === "string" ? e.message : `Error: ${e._tag}`;
   }
+};
+
+/** True for the `@effect/rpc` transport error. */
+export const isRpcClientError = (
+  u: unknown
+): u is RpcClientError.RpcClientError =>
+  u instanceof RpcClientError.RpcClientError;
+
+/** Most specific detail from a transport error: HTTP status or root error code. */
+const transportDetail = (error: RpcClientError.RpcClientError): string => {
+  const { cause } = error;
+  if (HttpClientError.isHttpClientError(cause)) {
+    if (cause._tag === "ResponseError") {
+      return `HTTP ${cause.response.status}`;
+    }
+    const root = cause.cause;
+    if (isRecord(root) && typeof root.code === "string") {
+      return root.code;
+    }
+  }
+  return error.message;
+};
+
+const HTTP_PROTOCOL = /^https?:$/;
+
+const isHttpUrl = (url: string): boolean =>
+  URL.canParse(url) && HTTP_PROTOCOL.test(new URL(url).protocol);
+
+/** One-line message for a failed `--remote` transport call. */
+export const remoteErrorMessage = (
+  url: string,
+  error: RpcClientError.RpcClientError
+): string => {
+  if (url.trim() === "") {
+    return "Invalid --remote URL: it is empty. Use `http://host:port`.";
+  }
+  const detail = transportDetail(error);
+  if (!url.includes("://")) {
+    return `Remote request to ${url} failed (${detail}). Include the scheme, for example \`http://host:port\`.`;
+  }
+  if (!isHttpUrl(url)) {
+    return `Invalid --remote URL ${url}. Use \`http://host:port\`.`;
+  }
+  return `Remote request to ${url} failed (${detail}). Check that \`peektrace serve\` is running there.`;
 };

@@ -17,7 +17,15 @@ import {
   withClient,
 } from "../client";
 import { CliUserError } from "../errors";
-import { bytes, json, percent, shortId, table, tokens } from "../render";
+import {
+  bytes,
+  crossTurnCell,
+  json,
+  percent,
+  shortId,
+  table,
+  tokens,
+} from "../render";
 import { parseSince, resolveCwd, selectSessions } from "./sessions-filter";
 
 const DEFAULT_LIMIT = 30;
@@ -190,7 +198,7 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
             ["final context", tokens(a.finalContextTokens)],
             ["turns", String(a.turnCount)],
             ["tool calls", String(a.toolCallCount)],
-            ["dumb-zone cross turn", String(a.dumbZoneCrossTurn)],
+            ["dumb-zone cross turn", crossTurnCell(a.dumbZoneCrossTurn)],
           ],
           { compact: g.compact }
         );

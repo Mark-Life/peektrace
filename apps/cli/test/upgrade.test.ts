@@ -13,7 +13,7 @@ import {
   expect,
   test,
 } from "bun:test";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
@@ -298,8 +298,16 @@ describe("startupUpdateNotice (criterion e)", () => {
     process.env.PEEKTRACE_NO_UPDATE_CHECK = savedNoCheck;
   });
 
-  const runNotice = (version: string): Promise<string> =>
-    captureLog(() => Effect.runPromise(startupUpdateNotice(version)));
+  const BINARY_PATH = "/opt/x/bin/peektrace";
+  const NPM_PATH = "/opt/x/node_modules/@peektrace/cli-linux-x64/bin/peektrace";
+
+  const runNotice = (
+    version: string,
+    execPath = BINARY_PATH
+  ): Promise<string> =>
+    captureLog(() =>
+      Effect.runPromise(startupUpdateNotice(version, { execPath }))
+    );
 
   test("prints the hint and writes the cache when a newer tag exists", async () => {
     const dir = freshCacheDir();
@@ -343,6 +351,37 @@ describe("startupUpdateNotice (criterion e)", () => {
     } finally {
       process.env.PEEKTRACE_GITHUB_API = savedApi;
     }
+  });
+
+  test("prints nothing when the cached tag is older than the running version", async () => {
+    const dir = freshCacheDir();
+    writeFileSync(
+      join(dir, "update-check.json"),
+      JSON.stringify({ checkedAt: Date.now(), latestTag: "cli-v0.10.1" })
+    );
+
+    const out = await runNotice("0.11.0");
+
+    expect(requestCount).toBe(0);
+    expect(out).toBe("");
+  });
+
+  test("skips cache and network on dev builds", async () => {
+    const dir = freshCacheDir();
+    for (const version of ["0.0.0-dev", "0.12.0-dev.1"]) {
+      const out = await runNotice(version);
+      expect(out).toBe("");
+    }
+    expect(requestCount).toBe(0);
+    expect(existsSync(join(dir, "update-check.json"))).toBe(false);
+  });
+
+  test("prints the npm command for npm installs", async () => {
+    freshCacheDir();
+    const out = await runNotice("0.0.1", NPM_PATH);
+
+    expect(out).toContain("npm i -g peektrace@latest");
+    expect(out).not.toContain("peektrace upgrade");
   });
 
   test("uses a fresh cache (<24h) and skips the network entirely", async () => {
