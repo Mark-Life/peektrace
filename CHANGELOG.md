@@ -2,6 +2,41 @@
 
 ## Unreleased
 
+## cli-v0.11.0 — 2026-11-07
+
+### Added
+
+- **Harness prompts read as system notices** (#64). Claude Code logs task
+  notifications, `ScheduleWakeup` ticks, injected skill bodies and command
+  output as user lines. Each is now classified from `origin.kind`,
+  `promptSource`, `turnOrigin` and `isMeta`, and shown as a centred notice
+  that names its source; task notifications open into a field table. Your
+  own prompts are labelled "user" with their `promptSource` (`typed`, `sdk`).
+  Harness prompts no longer count as user messages or as "User prompts" in
+  the budget.
+- **Thinking is sized from usage** (#65). `output_tokens_details.thinking_tokens`
+  sizes each thinking block, even when only its signature was stored, and
+  splits output exactly into thinking and visible text. The old estimate
+  roughly doubled thinking on large sessions. The thinking strip shows its
+  tokens and duration; the turn rule shows output and thinking.
+- **Server web search and fetch results** (#66) show under their call
+  instead of "no result", with per-turn and per-session request counts.
+- **Images show inline** (#68). A pasted image or a screenshot in a tool
+  result loads when its row is opened (new `sessions.image` RPC). Only
+  base64 PNG, JPEG, GIF and WebP are served.
+- **Each turn shows its reasoning effort** (#69) on the chat turn rule.
+- **Advisor calls appear in the timeline** (#62), with the result marked as
+  encrypted when it is.
+
+### Changed
+
+- **Tool definitions read as a parameter list** (#67). The system prompt's
+  tools section shows each tool's description and parameters (type,
+  required, constraints, nested fields) instead of a raw JSON dump that
+  repeated the description. Sections and tools are set apart in the band.
+- Stats shards re-extract once (extractor version 8): user-message counts
+  and server tool results changed meaning.
+
 ## cli-v0.10.1 — 2026-10-21
 
 ### Added
