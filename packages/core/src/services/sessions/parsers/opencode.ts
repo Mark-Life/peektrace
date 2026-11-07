@@ -59,6 +59,10 @@ const str = (v: unknown): string => {
 /** Read a numeric field, defaulting to 0 when absent/non-numeric. */
 const num = (v: unknown): number => (typeof v === "number" ? v : 0);
 
+/** A number above 0, or `undefined`. OpenCode writes 0 when it has no price. */
+const positive = (v: unknown): number | undefined =>
+  typeof v === "number" && v > 0 ? v : undefined;
+
 /** Basename of a POSIX path (last non-empty segment), or "". */
 const basename = (p: string | undefined): string =>
   p ? (p.split(PATH_SEP).filter(Boolean).pop() ?? "") : "";
@@ -275,6 +279,8 @@ interface Meta {
   cwd?: string;
   /** ISO of the last message seen — the endedAt fallback when no session end. */
   lastMessageAt?: string;
+  /** The session's own `cost`, when above 0. */
+  nativeCostUsd?: number;
   /** ISO(timeUpdated) from the session line — authoritative when present. */
   sessionEndedAt?: string;
   sessionId?: string;
@@ -321,6 +327,7 @@ const turnForMessage = (args: {
     outputTokens,
     eventIndexes: [],
     ...opt("ts", ts),
+    ...opt("costUsd", positive(msg.cost)),
   };
 };
 
@@ -414,6 +421,10 @@ const applySession = (meta: Meta, line: RawLine, models: Set<string>) => {
   if (updated) {
     meta.sessionEndedAt = updated;
   }
+  const cost = positive(line.cost);
+  if (cost !== undefined) {
+    meta.nativeCostUsd = cost;
+  }
 };
 
 /**
@@ -466,11 +477,13 @@ export const parseOpencodeSession = ({
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.sessionEndedAt ?? meta.lastMessageAt),
+    ...opt("nativeCostUsd", meta.nativeCostUsd),
   });
 };
 
 /** Mutable header fields gathered from the leading `session` line. */
 interface HeaderAcc {
+  costUsd?: number;
   cwd?: string;
   model?: string;
   startedAt?: string;
@@ -497,6 +510,10 @@ const applyHeaderSession = (acc: HeaderAcc, line: RawLine) => {
   const updated = isoFromMs(line.timeUpdated);
   if (updated) {
     acc.updatedAt = updated;
+  }
+  const cost = positive(line.cost);
+  if (cost !== undefined) {
+    acc.costUsd = cost;
   }
 };
 
@@ -541,6 +558,7 @@ export const buildOpencodeHeader = ({
     ...opt("title", acc.title),
     ...opt("startedAt", acc.startedAt),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
+    ...opt("costUsd", acc.costUsd),
   };
 };
 

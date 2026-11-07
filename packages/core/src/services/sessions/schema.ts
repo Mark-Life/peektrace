@@ -263,6 +263,11 @@ export const Turn = Schema.Struct({
   webSearchRequests: Schema.optional(Schema.Number),
   /** Server-side web fetches the API ran in this call (`server_tool_use`). */
   webFetchRequests: Schema.optional(Schema.Number),
+  /**
+   * Estimated USD for this call at list price, or the agent's own figure
+   * (OpenCode). Absent when the model has no rate card.
+   */
+  costUsd: Schema.optional(Schema.Number),
   eventIndexes: Schema.Array(Schema.Number),
 });
 export type Turn = typeof Turn.Type;
@@ -291,6 +296,10 @@ export const SubagentRef = Schema.Struct({
   parentAgentId: Schema.optional(Schema.String),
   /** The transcript could not be read; `turns` and the peak are then 0. */
   unreadable: Schema.optional(Schema.Literal(true)),
+  /** Estimated USD of this agent's priced turns; absent when none is priced. */
+  costUsd: Schema.optional(Schema.Number),
+  /** Model ids in this agent's turns with no rate card. Set only when non-empty. */
+  unpricedModels: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
@@ -389,8 +398,26 @@ export const ParsedSession = Schema.Struct({
   unknownSystemSubtypes: Schema.optional(
     Schema.Record({ key: Schema.String, value: Schema.Number })
   ),
+  /** USD the agent itself recorded for the session (OpenCode); set only when above 0. */
+  nativeCostUsd: Schema.optional(Schema.Number),
 });
 export type ParsedSession = typeof ParsedSession.Type;
+
+/** A session's cost: an estimate at list price, or the agent's own figure. */
+export const SessionCost = Schema.Struct({
+  /**
+   * Main transcript plus every subagent. Absent when nothing is priced, so a
+   * fully unpriced session never reads as $0.
+   */
+  totalUsd: Schema.optional(Schema.Number),
+  /** The subagents' share of `totalUsd`; set only when above 0. */
+  subagentsUsd: Schema.optional(Schema.Number),
+  /** `agent` when the main figure came from the transcript itself. */
+  source: Schema.Literal("estimate", "agent"),
+  /** Model ids left out of the figure for lack of a rate card. Set only when non-empty. */
+  unpricedModels: Schema.optional(Schema.Array(Schema.String)),
+});
+export type SessionCost = typeof SessionCost.Type;
 
 /** Fully analyzed session, ready to render (serializable, no HTML). */
 export const AnalyzedSession = Schema.Struct({
@@ -418,6 +445,8 @@ export const AnalyzedSession = Schema.Struct({
   webSearchRequests: Schema.Number,
   /** Server-side web fetches across all counted turns. */
   webFetchRequests: Schema.Number,
+  /** Absent when the session has no turns to price. */
+  cost: Schema.optional(SessionCost),
 });
 export type AnalyzedSession = typeof AnalyzedSession.Type;
 
@@ -442,6 +471,10 @@ export const SessionHeader = Schema.Struct({
   sourceLabel: Schema.optional(Schema.String),
   /** Malformed lines other than a partial last line; set only when above 0. */
   malformedLines: Schema.optional(Schema.Number),
+  /** USD of the main transcript (no subagents); absent when nothing is priced. */
+  costUsd: Schema.optional(Schema.Number),
+  /** Some turn's model has no rate card, so `costUsd` is a floor. */
+  costUnpriced: Schema.optional(Schema.Literal(true)),
 });
 export type SessionHeader = typeof SessionHeader.Type;
 

@@ -135,6 +135,7 @@ test("--latest --cwd combine; the table form works too", () => {
   expect(code).toBe(0);
   expect(out).toContain(MID_ID);
   expect(out).toContain("verdict");
+  expect(out).toContain("est. cost");
 }, 60_000);
 
 test("--cwd with no match fails and names the directory", () => {

@@ -84,6 +84,7 @@ export {
   OnDiskContextFile,
   ParsedSession,
   Provider,
+  SessionCost,
   SessionHeader,
   SessionListing,
   SubagentRef,

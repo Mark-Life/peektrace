@@ -5,8 +5,10 @@
  */
 import type { AgentId } from "../agent-id";
 import { isRealModel } from "./claude-records";
+import { type CostTurn, headerCost } from "./cost";
 import { scanJsonl } from "./parse";
 import type { SessionHeader } from "./schema";
+import { cacheWriteSplit } from "./usage";
 
 interface RawLine {
   readonly aiTitle?: unknown;
@@ -14,7 +16,12 @@ interface RawLine {
   readonly gitBranch?: unknown;
   readonly isCompactSummary?: unknown;
   readonly isMeta?: unknown;
-  readonly message?: { readonly content?: unknown; readonly model?: unknown };
+  readonly isSidechain?: unknown;
+  readonly message?: {
+    readonly content?: unknown;
+    readonly model?: unknown;
+    readonly usage?: unknown;
+  };
   readonly requestId?: unknown;
   readonly timestamp?: unknown;
   readonly type?: unknown;
@@ -54,6 +61,48 @@ const isNotUserWritten = (o: RawLine) => {
         (b as { type?: unknown }).type === "tool_result"
     )
   );
+};
+
+const count = (v: unknown) => (typeof v === "number" ? v : 0);
+
+/**
+ * Fold one assistant line's usage into its request, the way `parse.ts` builds
+ * turns: input and cache counts as first seen, output as the streamed max.
+ * Sidechain lines and non-real models are skipped.
+ */
+const applyUsage = (args: {
+  readonly turns: Map<string, CostTurn>;
+  readonly key: string;
+  readonly o: RawLine;
+}) => {
+  const { turns, key, o } = args;
+  const usage = o.message?.usage;
+  const model = o.message?.model;
+  if (o.isSidechain === true || !usage || typeof usage !== "object") {
+    return;
+  }
+  const u = usage as Record<string, unknown>;
+  const prev = turns.get(key);
+  if (prev) {
+    turns.set(key, {
+      ...prev,
+      outputTokens: Math.max(prev.outputTokens, count(u.output_tokens)),
+    });
+    return;
+  }
+  const turn: CostTurn = {
+    model: typeof model === "string" ? model : "unknown",
+    inputTokens: count(u.input_tokens),
+    cacheReadTokens: count(u.cache_read_input_tokens),
+    cacheCreationTokens: count(u.cache_creation_input_tokens),
+    outputTokens: count(u.output_tokens),
+    ...cacheWriteSplit(u),
+  };
+  const context =
+    turn.inputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
+  if (context > 0 && isRealModel(turn.model)) {
+    turns.set(key, turn);
+  }
 };
 
 /** Fold one raw line's header-relevant fields into the accumulator. */
@@ -97,6 +146,7 @@ export const buildHeader = (args: {
   const { text, id, slug, path, sizeBytes, mtimeMs } = args;
   const acc: HeaderAcc = {};
   const assistants = new Set<string>();
+  const turns = new Map<string, CostTurn>();
   let users = 0;
   const { rows, malformed } = scanJsonl(text);
   rows.forEach((row, index) => {
@@ -108,7 +158,9 @@ export const buildHeader = (args: {
     if (o.type === "user" && !isNotUserWritten(o)) {
       users += 1;
     } else if (o.type === "assistant") {
-      assistants.add(assistantKey(o, index));
+      const key = assistantKey(o, index);
+      assistants.add(key);
+      applyUsage({ turns, key, o });
     }
   });
 
@@ -126,5 +178,6 @@ export const buildHeader = (args: {
     ...(acc.title ? { title: acc.title } : {}),
     ...(acc.startedAt ? { startedAt: acc.startedAt } : {}),
     ...(malformed > 0 ? { malformedLines: malformed } : {}),
+    ...headerCost([...turns.values()]),
   };
 };

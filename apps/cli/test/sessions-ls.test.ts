@@ -128,6 +128,14 @@ test("no --agent lists every agent, newest first, with a short-id AGENT table", 
   expect(rows[0]?.[0]).toBe(CODEX_ID.split("-")[0]);
 }, 60_000);
 
+test("the table has an EST COST column, '-' when nothing is priced", () => {
+  const { out } = run();
+  const head = out.split("\n")[0]?.split("\t") ?? [];
+  const col = head.indexOf("est cost");
+  expect(col).toBe(head.indexOf("msgs") + 1);
+  expect(dataRows(out).map((r) => r[col])).toEqual(["-", "-", "-"]);
+}, 60_000);
+
 test("--agent narrows to one agent; all equals no --agent", () => {
   const pi = run("--agent", "pi", "--json");
   expect(pi.code).toBe(0);

@@ -1,4 +1,5 @@
 /** Lightweight Pi list header: scans raw lines without building a timeline. */
+import { type CostTurn, headerCost } from "../cost";
 import { scanJsonl } from "../parse";
 import type { SessionHeader } from "../schema";
 import type { BuildHeaderArgs } from "./types";
@@ -53,6 +54,37 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
+const count = (v: unknown) => (typeof v === "number" ? v : 0);
+
+/**
+ * Record the usage of one assistant `message` line, the way `pi.ts` builds
+ * turns: first line per id, and only when its usage occupies context.
+ */
+const applyUsage = (
+  turns: Map<string, CostTurn>,
+  line: RawLine,
+  index: number
+) => {
+  const msg = (line.message ?? {}) as RawLine;
+  if (line.type !== "message" || msg.role !== "assistant") {
+    return;
+  }
+  const key = typeof line.id === "string" ? line.id : `line-${index}`;
+  const usage = (msg.usage ?? {}) as RawLine;
+  const turn: CostTurn = {
+    model: String(msg.model ?? "unknown"),
+    inputTokens: count(usage.input),
+    cacheReadTokens: count(usage.cacheRead),
+    cacheCreationTokens: count(usage.cacheWrite),
+    outputTokens: count(usage.output),
+  };
+  const context =
+    turn.inputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
+  if (!turns.has(key) && context > 0) {
+    turns.set(key, turn);
+  }
+};
+
 /** A user or assistant `message` line (tool results, bash, system excluded). */
 const isMessage = (line: RawLine) => {
   const role = ((line.message ?? {}) as RawLine).role;
@@ -68,15 +100,17 @@ export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
   const acc: HeaderAcc = {};
   const { rows, malformed } = scanJsonl(text);
   let messageCount = 0;
-  for (const line of rows) {
+  const turns = new Map<string, CostTurn>();
+  rows.forEach((line, index) => {
     if (!line || typeof line !== "object") {
-      continue;
+      return;
     }
     applyHeaderLine(acc, line);
+    applyUsage(turns, line, index);
     if (isMessage(line)) {
       messageCount += 1;
     }
-  }
+  });
 
   return {
     id,
@@ -91,5 +125,6 @@ export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
     ...opt("startedAt", acc.startedAt),
     ...opt("title", acc.title),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
+    ...headerCost([...turns.values()]),
   };
 };
