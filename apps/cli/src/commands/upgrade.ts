@@ -21,6 +21,7 @@ import {
   resolveTargetTag,
   SUPPORTED_PLATFORMS,
 } from "../upgrade/release";
+import { updateHint } from "../upgrade/update-hint";
 import { APP_VERSION } from "../version";
 
 const WINDOWS_INSTALL_HINT =
@@ -63,7 +64,7 @@ export const makeUpgrade = () =>
         if (check) {
           if (comparison > 0) {
             yield* Console.log(
-              `A newer version (${targetTag}) is available — run 'peektrace upgrade'`
+              updateHint({ latest: targetTag, execPath: process.execPath })
             );
           } else {
             yield* Console.log(
