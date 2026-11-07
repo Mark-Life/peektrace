@@ -14,6 +14,9 @@ export const opt = <K extends string, V>(
 ): Partial<Record<K, V>> =>
   value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 
+/** A number, or `undefined` for anything else. */
+export const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+
 /** The thinking share of a call's output tokens, when usage reports it. */
 export const thinkingTokensOf = (usage: Record<string, unknown>) => {
   const details = usage.output_tokens_details as
@@ -31,6 +34,18 @@ export const serverToolCounts = (usage: Record<string, unknown>) => {
   return {
     ...opt("webSearchRequests", positive(counts.web_search_requests)),
     ...opt("webFetchRequests", positive(counts.web_fetch_requests)),
+  };
+};
+
+/**
+ * The 1-hour vs 5-minute split of a call's cache writes. Keeps a reported 0,
+ * so "none written" stays distinct from "not reported".
+ */
+export const cacheWriteSplit = (usage: Record<string, unknown>) => {
+  const split = (usage.cache_creation ?? {}) as Record<string, unknown>;
+  return {
+    ...opt("cacheCreation1hTokens", num(split.ephemeral_1h_input_tokens)),
+    ...opt("cacheCreation5mTokens", num(split.ephemeral_5m_input_tokens)),
   };
 };
 

@@ -6,6 +6,12 @@
  * `claude-opus-4-8`, `qwen/qwen3.6-27b`, `z-ai/glm-5.2`), matched longest-first
  * so more specific families win. This is intentionally a small, low-confidence
  * heuristic — not authoritative context like Codex's `model_context_window`.
+ *
+ * Anthropic ids: the id alone does not fix the window. Claude Code runs bare
+ * `claude-opus` ids at 1M as well as 200k, and writes `[1m]` only on some of
+ * them. The rows are guesses: 200k for opus and haiku, 1M for sonnet. Pi drops the
+ * guess when a call is larger. The Claude parser never reads this table: it
+ * sets 1M only from a `[1m]` id, else `analyze` infers the window.
  */
 
 const K128 = 128_000;

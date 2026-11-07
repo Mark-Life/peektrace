@@ -1,6 +1,23 @@
 /** Parse a Claude Code JSONL transcript into a normalized ParsedSession. */
 import { attachmentEvent, type PromptSeen } from "./claude-attachments";
 import {
+  bump,
+  type CompactTokens,
+  compactMetaOf,
+  countsRecord,
+  hasOneMillionKey,
+  isRealModel,
+  KNOWN_IGNORED_TYPES,
+  KNOWN_SYSTEM_SUBTYPES,
+} from "./claude-records";
+import {
+  type AssistantBase,
+  advisorResultEvent,
+  type Block,
+  serverResultEvent,
+  str,
+} from "./claude-server-results";
+import {
   imageMarker,
   imageRef,
   isImageBlock,
@@ -12,6 +29,7 @@ import { promptEvent } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 import {
+  cacheWriteSplit,
   mergeStreamedUsage,
   opt,
   serverToolCounts,
@@ -25,7 +43,7 @@ type RawLine = Record<string, unknown>;
 type MutTurn = Omit<Turn, "eventIndexes"> & { eventIndexes: number[] };
 
 const WHITESPACE = /\s+/g;
-const TOOL_RESULT_SUFFIX = /_tool_result$/;
+const ONE_MILLION = 1_000_000;
 
 /** Parse JSONL text into raw lines, skipping blanks and malformed rows. */
 export const parseJsonl = (text: string): RawLine[] => {
@@ -73,20 +91,19 @@ export const jsonlLineAt = (text: string, n: number): unknown => {
   return;
 };
 
-const str = (v: unknown): string => {
-  if (typeof v === "string") {
-    return v;
-  }
-  return v == null ? "" : JSON.stringify(v);
-};
-
 interface ParseState {
   readonly compactionIndexes: number[];
   readonly events: TimelineEvent[];
   readonly models: Set<string>;
+  /** A `cost-state` line billed a `[1m]` model id. */
+  oneMillion: boolean;
+  /** Token counts of the last `compact_boundary`, for the next summary. */
+  pendingCompact: CompactTokens | undefined;
   /** Prompt parts already shown, per thread (main or one subagent). */
   readonly promptSeen: Map<string, PromptSeen>;
   readonly turnsById: Map<string, MutTurn>;
+  readonly unknownSubtypes: Map<string, number>;
+  readonly unknownTypes: Map<string, number>;
 }
 
 /** Mutable session-level metadata gathered while scanning lines. */
@@ -184,114 +201,6 @@ const userBlockEvent = (args: {
   return null;
 };
 
-/** Position fields every event from one assistant line carries. */
-interface AssistantBase {
-  readonly index: number;
-  readonly isSidechain: boolean;
-  readonly requestId: string;
-  readonly ts?: string;
-}
-
-type Block = Record<string, unknown>;
-
-/** The `tool_use_id` a result block answers, spread-ready. */
-const answers = (block: Block) =>
-  opt(
-    "toolUseId",
-    typeof block.tool_use_id === "string" ? block.tool_use_id : undefined
-  );
-
-const advisorResultEvent = (
-  base: AssistantBase,
-  block: Block
-): TimelineEvent => {
-  const result = (block.content ?? {}) as Block;
-  const redacted = result.type === "advisor_redacted_result";
-  const text = redacted
-    ? "(advisor response encrypted, not stored in transcript)"
-    : str(result.text ?? result);
-  return {
-    ...base,
-    kind: "tool-result",
-    title: "advisor result",
-    preview: firstLine(text),
-    body: text,
-    tokensEst: redacted ? 0 : estTokens(text),
-    serverTool: true,
-    ...answers(block),
-  };
-};
-
-/** One web search hit as a Markdown list item. */
-const searchHit = (r: Block) => {
-  const title = str(r.title) || str(r.url);
-  const age = typeof r.page_age === "string" ? ` · ${r.page_age}` : "";
-  return `- [${title}](${str(r.url)})${age}`;
-};
-
-/** Text of content blocks, joined; anything else as JSON. */
-const blockText = (content: unknown) =>
-  Array.isArray(content)
-    ? (content as Block[])
-        .map((b) => (typeof b?.text === "string" ? b.text : str(b)))
-        .join("\n\n")
-    : str(content);
-
-/** Body of a server tool result: hits, fetched text, or the error code. */
-const serverResultBody = (block: Block) => {
-  const content = block.content;
-  const c = (content ?? {}) as Block;
-  if (typeof c.error_code === "string") {
-    return { text: `error: ${c.error_code}`, isError: true };
-  }
-  if (
-    block.type !== "web_search_tool_result" &&
-    block.type !== "web_fetch_tool_result"
-  ) {
-    return { text: blockText(content), isError: false };
-  }
-  if (Array.isArray(content)) {
-    return {
-      text: (content as Block[]).map(searchHit).join("\n"),
-      isError: false,
-    };
-  }
-  const doc = (c.content ?? {}) as Block;
-  const source = (doc.source ?? {}) as Block;
-  const text =
-    typeof source.data === "string" && source.type === "text"
-      ? source.data
-      : "";
-  const head = [str(c.url), typeof doc.title === "string" ? doc.title : ""]
-    .filter(Boolean)
-    .join(" — ");
-  return { text: text ? `${head}\n\n${text}` : head, isError: false };
-};
-
-/**
- * A server tool's result (`web_search_tool_result`, `web_fetch_tool_result`,
- * …), which the API returns inside the assistant message. Search hits carry
- * their page text encrypted, so only titles and URLs are readable.
- */
-const serverResultEvent = (
-  base: AssistantBase,
-  block: Block
-): TimelineEvent => {
-  const name = String(block.type).replace(TOOL_RESULT_SUFFIX, "");
-  const { text, isError } = serverResultBody(block);
-  return {
-    ...base,
-    kind: "tool-result",
-    title: `${name} result${isError ? " (error)" : ""}`,
-    preview: firstLine(text),
-    body: text,
-    tokensEst: estTokens(text),
-    serverTool: true,
-    ...opt("isError", isError ? true : undefined),
-    ...answers(block),
-  };
-};
-
 /** Build an assistant content event (thinking / text / tool_use). */
 const assistantBlockEvent = (args: {
   readonly block: Block;
@@ -357,8 +266,10 @@ const handleUser = (ctx: LineCtx) => {
   const msg = (o.message ?? {}) as Record<string, unknown>;
   const content = msg.content;
   const isCompact = o.isCompactSummary === true;
+  const compactTokens = isCompact ? state.pendingCompact : undefined;
   if (isCompact) {
     state.compactionIndexes.push(index);
+    state.pendingCompact = undefined;
   }
   if (typeof content === "string") {
     state.events.push(
@@ -373,6 +284,7 @@ const handleUser = (ctx: LineCtx) => {
             tokensEst: estTokens(content),
             ...opt("ts", ts),
             ...opt("isMeta", o.isMeta === true ? true : undefined),
+            ...compactTokens,
           }
         : promptEvent({
             o,
@@ -425,7 +337,7 @@ const registerTurn = (args: {
     state.turnsById.set(requestId, mergeStreamedUsage(prev, args.usage));
     return;
   }
-  if (contextTokens > 0 && countable) {
+  if (contextTokens > 0 && countable && isRealModel(model)) {
     state.turnsById.set(requestId, {
       requestId,
       model,
@@ -433,6 +345,7 @@ const registerTurn = (args: {
       inputTokens,
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheCreate,
+      ...cacheWriteSplit(args.usage),
       outputTokens: usage.output_tokens ?? 0,
       eventIndexes: [],
       ...opt("ts", ts),
@@ -450,7 +363,9 @@ const handleAssistant = (
   const { o, index, ts, isSidechain, state, includeSidechainTurns } = ctx;
   const msg = (o.message ?? {}) as Record<string, unknown>;
   const model = String(msg.model ?? "unknown");
-  state.models.add(model);
+  if (isRealModel(model)) {
+    state.models.add(model);
+  }
   const requestId =
     typeof o.requestId === "string" ? o.requestId : `line-${index}`;
   registerTurn({
@@ -527,6 +442,14 @@ const handleAttachment = (ctx: LineCtx) => {
 const handleSystem = (ctx: LineCtx) => {
   const { o, index, ts, isSidechain, state } = ctx;
   const text = str(o.content ?? o.subtype ?? "");
+  if (o.subtype === "compact_boundary") {
+    state.pendingCompact = compactMetaOf(o);
+  } else if (
+    typeof o.subtype === "string" &&
+    !KNOWN_SYSTEM_SUBTYPES.has(o.subtype)
+  ) {
+    bump(state.unknownSubtypes, o.subtype);
+  }
   state.events.push({
     index,
     kind: "system",
@@ -606,12 +529,16 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     turnsById: new Map(),
     compactionIndexes: [],
     models: new Set(),
+    oneMillion: false,
+    pendingCompact: undefined,
     promptSeen: new Map(),
+    unknownSubtypes: new Map(),
+    unknownTypes: new Map(),
   };
   const meta: Meta = {};
 
   parseJsonl(text).forEach((o, index) => {
-    const type = String(o.type ?? "");
+    const type = typeof o.type === "string" ? o.type : "";
     const ts = typeof o.timestamp === "string" ? o.timestamp : undefined;
     applyMeta(meta, o, ts);
     const ctx: LineCtx = {
@@ -649,7 +576,13 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
       case "system":
         handleSystem(ctx);
         break;
+      case "cost-state":
+        state.oneMillion ||= hasOneMillionKey(o);
+        break;
       default:
+        if (type && !KNOWN_IGNORED_TYPES.has(type)) {
+          bump(state.unknownTypes, type);
+        }
         break;
     }
   });
@@ -670,5 +603,8 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
+    ...opt("nativeContextWindow", state.oneMillion ? ONE_MILLION : undefined),
+    ...opt("unknownRecordTypes", countsRecord(state.unknownTypes)),
+    ...opt("unknownSystemSubtypes", countsRecord(state.unknownSubtypes)),
   });
 };

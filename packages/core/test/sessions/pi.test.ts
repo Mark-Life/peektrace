@@ -21,6 +21,7 @@ const FIXTURE = join(
   "../fixtures/sessions-pi/pi-fixture.jsonl"
 );
 const text = readFileSync(FIXTURE, "utf8");
+const FIRST_INPUT = /"input":\s*\d+/;
 
 const parse = () =>
   parsePiSession({
@@ -163,6 +164,18 @@ describe("parsePiSession — context window", () => {
       text: line,
       path: "/tmp/x.jsonl",
       sessionId: "s1",
+      slug: "",
+    });
+    expect(p.nativeContextWindow).toBeUndefined();
+  });
+
+  test("a call larger than the guessed window leaves it unset", () => {
+    const big = text.replace(FIRST_INPUT, '"input":300000');
+    expect(big).not.toBe(text);
+    const p = parsePiSession({
+      text: big,
+      path: FIXTURE,
+      sessionId: "fallback-id",
       slug: "",
     });
     expect(p.nativeContextWindow).toBeUndefined();
