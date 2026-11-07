@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { imageAt } from "../../src/services/sessions/images";
 import {
+  jsonlLineAt,
   parseClaudeSession,
   parseJsonl,
 } from "../../src/services/sessions/parse";
@@ -14,6 +15,17 @@ const path = join(
 );
 const text = readFileSync(path, "utf8");
 const lines = parseJsonl(text);
+
+describe("jsonlLineAt", () => {
+  test("numbers lines the way parseJsonl does, parsing only the one asked for", () => {
+    for (const [n, line] of lines.entries()) {
+      expect(jsonlLineAt(text, n)).toEqual(line);
+    }
+    const gappy = '{"a":1}\n\n  \n{"b":2}\n{"c":';
+    expect(jsonlLineAt(gappy, 1)).toEqual({ b: 2 });
+    expect(jsonlLineAt(gappy, 2)).toBeUndefined();
+  });
+});
 
 describe("image refs", () => {
   test("a pasted image and a tool-result screenshot each carry a ref", () => {

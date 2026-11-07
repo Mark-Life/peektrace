@@ -44,6 +44,36 @@ export const parseJsonl = (text: string): RawLine[] => {
   return out;
 };
 
+/**
+ * Line `n` as `parseJsonl` numbers it, parsing only that line. A line counts
+ * when it looks like one JSON object; `parseJsonl` also drops a line that only
+ * looks complete, so a caller that cannot confirm the result should fall back
+ * to the full parse.
+ */
+export const jsonlLineAt = (text: string, n: number): unknown => {
+  let seen = 0;
+  let start = 0;
+  while (start <= text.length) {
+    const end = text.indexOf("\n", start);
+    const line = text.slice(start, end < 0 ? text.length : end).trim();
+    if (line.startsWith("{") && line.endsWith("}")) {
+      if (seen === n) {
+        try {
+          return JSON.parse(line) as unknown;
+        } catch {
+          return;
+        }
+      }
+      seen++;
+    }
+    if (end < 0) {
+      return;
+    }
+    start = end + 1;
+  }
+  return;
+};
+
 const str = (v: unknown): string => {
   if (typeof v === "string") {
     return v;

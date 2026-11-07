@@ -18,7 +18,7 @@ import {
 import { analyze } from "./analyze";
 import { SessionNotFoundError, TranscriptParseError } from "./errors";
 import { imageAt } from "./images";
-import { parseClaudeSession, parseJsonl } from "./parse";
+import { jsonlLineAt, parseClaudeSession, parseJsonl } from "./parse";
 import { PARSERS } from "./parsers";
 import { redactParsed, redactSession } from "./redact";
 import {
@@ -523,12 +523,17 @@ const makeService = (args: {
     item,
   }) =>
     loadText({ fs, agents, id, parent }).pipe(
-      Effect.map(
-        ({ agent, text }) =>
-          (agent === "claude"
-            ? imageAt({ line: parseJsonl(text)[line], block, item })
-            : undefined) ?? null
-      ),
+      Effect.map(({ agent, text }) => {
+        if (agent !== "claude") {
+          return null;
+        }
+        // Parse only the one line; the full parse is the fallback for a
+        // transcript whose malformed lines shift the numbering.
+        const at = (raw: unknown) => imageAt({ line: raw, block, item });
+        return (
+          at(jsonlLineAt(text, line)) ?? at(parseJsonl(text)[line]) ?? null
+        );
+      }),
       Effect.withSpan("Sessions.image", { attributes: { id, line } })
     );
 
