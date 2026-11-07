@@ -4,6 +4,7 @@ import {
   byUpdatedDesc,
   matchesCwd,
   parseSince,
+  resolveCwd,
   selectSessions,
 } from "../src/commands/sessions-filter";
 
@@ -24,6 +25,40 @@ test("parseSince reads a date-only ISO value as UTC midnight", () => {
   expect(parseSince("2026-01-31T05:00:00+02:00", NOW)).toBe(
     Date.parse("2026-01-31T03:00:00Z")
   );
+});
+
+test("parseSince reads a zoneless date-time as UTC", () => {
+  expect(parseSince("2026-04-15T10:00", NOW)).toBe(
+    Date.parse("2026-04-15T10:00:00Z")
+  );
+  expect(parseSince("2026-04-15 10:00:30", NOW)).toBe(
+    Date.parse("2026-04-15T10:00:30Z")
+  );
+});
+
+test("parseSince rejects days that do not exist", () => {
+  for (const bad of ["2026-02-30", "2026-04-31", "2026-13-01", "2026-02-29"]) {
+    expect(parseSince(bad, NOW)).toBeUndefined();
+  }
+  expect(parseSince("2028-02-29", NOW)).toBe(
+    Date.parse("2028-02-29T00:00:00Z")
+  );
+});
+
+test("resolveCwd resolves and trims separators", () => {
+  expect(resolveCwd(".")).toBe(process.cwd());
+  expect(resolveCwd("/a/b/")).toBe("/a/b");
+  expect(resolveCwd("/")).toBe("/");
+});
+
+test("matchesCwd: Windows paths with mixed separators", () => {
+  expect(matchesCwd({ cwd: "C:/Users/demo/work" }, "C:\\Users\\demo")).toBe(
+    true
+  );
+  expect(matchesCwd({ cwd: "C:\\Users\\demo\\work" }, "C:/Users/demo")).toBe(
+    true
+  );
+  expect(matchesCwd({ cwd: "C:/Users/demo2" }, "C:\\Users\\demo")).toBe(false);
 });
 
 test("parseSince rejects junk and ambiguous units", () => {

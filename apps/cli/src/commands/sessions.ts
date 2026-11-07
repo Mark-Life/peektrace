@@ -30,13 +30,13 @@ const agentOpt = Options.text("agent").pipe(
 );
 const projectOpt = Options.text("project").pipe(
   Options.withDescription(
-    "Filter sessions by project name (Claude slug, or cwd basename for Codex/Pi)"
+    "Filter sessions by project name (Claude/Pi slug, or cwd basename for Codex/OpenCode). Slugs starting with - need --project=<slug>"
   ),
   Options.optional
 );
 const sinceOpt = Options.text("since").pipe(
   Options.withDescription(
-    "Only sessions updated since: ISO date (2026-01-31, UTC midnight) or 7d, 12h, 2w"
+    "Only sessions updated since: ISO date or date-time (2026-01-31 is UTC midnight; no offset means UTC) or 7d, 12h, 2w"
   ),
   Options.optional
 );

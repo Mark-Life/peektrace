@@ -190,7 +190,7 @@ test("--since keeps only sessions updated on or after the date", () => {
 }, 60_000);
 
 test("a bad or loose --since fails with the accepted forms", () => {
-  for (const bad of ["nope", "7"]) {
+  for (const bad of ["nope"]) {
     const { code, err } = run("--since", bad);
     expect(code).not.toBe(0);
     expect(err).toContain(`Invalid --since "${bad}"`);

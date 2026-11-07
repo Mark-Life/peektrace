@@ -180,8 +180,8 @@ newest first and capped at 30; a hint on stderr says how many were hidden.
 | Flag | Effect |
 | --- | --- |
 | `--agent <id>` | `claude`, `codex`, `pi`, `opencode` or `all` (default `all`) |
-| `--project <name>` | Filter by project name (Claude slug, or cwd basename for Codex and Pi) |
-| `--since <when>` | Only sessions updated since an ISO date (`2026-01-31`, UTC midnight) or `7d`, `12h`, `2w` |
+| `--project <name>` | Filter by project name (Claude or Pi slug, or cwd basename for Codex and OpenCode). Slugs starting with `-` need `--project=<slug>` |
+| `--since <when>` | Only sessions updated since an ISO date or date-time (`2026-01-31` is UTC midnight; no offset means UTC) or `7d`, `12h`, `2w` |
 | `--cwd <path>` | Only sessions run in this directory or below (path on this machine) |
 | `--limit <n>` | Max sessions, newest first (default 30, `0` = all) |
 

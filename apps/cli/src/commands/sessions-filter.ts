@@ -6,6 +6,23 @@ const RELATIVE = /^(\d+)([hdw])$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 const UNIT_MS = { h: 3_600_000, d: 86_400_000, w: 604_800_000 } as const;
 const MAX_DATE_MS = 8.64e15;
+const HAS_ZONE = /(?:Z|[+-]\d{2}:?\d{2})$/;
+
+/** True when the leading `YYYY-MM-DD` is a real calendar day. */
+const isRealDay = (text: string) => {
+  const day = text.slice(0, 10);
+  const ms = Date.parse(`${day}T00:00:00Z`);
+  return Number.isFinite(ms) && new Date(ms).toISOString().slice(0, 10) === day;
+};
+
+/** ISO input as epoch ms. A time with no offset is UTC. NaN if invalid. */
+const parseIso = (text: string) => {
+  if (!(ISO_DATE.test(text) && isRealDay(text))) {
+    return Number.NaN;
+  }
+  const iso = text.replace(" ", "T");
+  return Date.parse(iso.includes("T") && !HAS_ZONE.test(iso) ? `${iso}Z` : iso);
+};
 
 /** A relative (`7d`, `12h`, `2w`) or ISO date to epoch ms; `undefined` if invalid. */
 export const parseSince = (text: string, now: number) => {
@@ -13,7 +30,7 @@ export const parseSince = (text: string, now: number) => {
   const match = RELATIVE.exec(trimmed);
   const parsed = match
     ? now - Number(match[1]) * UNIT_MS[match[2] as keyof typeof UNIT_MS]
-    : Date.parse(ISO_DATE.test(trimmed) ? trimmed : "");
+    : parseIso(trimmed);
   return Number.isFinite(parsed) && Math.abs(parsed) <= MAX_DATE_MS
     ? parsed
     : undefined;
@@ -35,7 +52,7 @@ export const matchesCwd = (header: Pick<SessionHeader, "cwd">, cwd: string) => {
     return false;
   }
   const fold = WINDOWS_PATH.test(cwd)
-    ? (p: string) => p.toLowerCase()
+    ? (p: string) => p.toLowerCase().replaceAll("/", "\\")
     : (p: string) => p;
   const have = fold(stripSeparators(header.cwd));
   const want = fold(stripSeparators(cwd));
