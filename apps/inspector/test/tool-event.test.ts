@@ -354,6 +354,23 @@ describe("shaping a result", () => {
     });
   });
 
+  test("a server tool's result reads as prose; a requestId alone does not", () => {
+    const hits: TimelineEvent = {
+      body: "- [Bun 1.4](https://bun.sh/blog/bun-v1.4)",
+      index: 0,
+      kind: "tool-result",
+      preview: "",
+      requestId: "r1",
+      serverTool: true,
+      title: "web_search result",
+      tokensEst: 0,
+    };
+    expect(resultPane(hits)).toEqual({ text: hits.body, type: "prose" });
+    // OpenCode stamps every event with its turn's requestId.
+    const shell = { ...hits, serverTool: undefined, body: "a.md\nb.md" };
+    expect(resultPane(shell).type).toBe("code");
+  });
+
   test("an empty body says so instead of rendering nothing", () => {
     const empty: TimelineEvent = {
       index: 0,

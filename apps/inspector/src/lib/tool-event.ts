@@ -295,9 +295,13 @@ const jsonPane = (v: unknown) => ({
  * Shape a tool result for display: standard `{ type: "text" }` blocks join into
  * prose (or JSON, when that text is JSON, as many MCP tools return), other JSON
  * is pretty-printed, anything unparseable stays verbatim — a plain string is
- * usually command output, where Markdown would mangle it.
+ * usually command output, where Markdown would mangle it. A server tool's
+ * result is text the parser shaped as Markdown, so it reads as prose.
  */
 export const resultPane = (e: TimelineEvent): ResultPane => {
+  if (e.serverTool === true && e.body.trim() !== "") {
+    return { text: e.body, type: "prose" };
+  }
   const parsed = parseJson(e.body);
   const text = parsed === undefined ? null : textFromBlocks(parsed);
   if (text !== null) {

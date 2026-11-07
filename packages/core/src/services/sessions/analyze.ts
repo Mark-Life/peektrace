@@ -424,6 +424,12 @@ const computeSystemOverhead = (p: ParsedSession): number => {
   return Math.max(0, (p.turns[0]?.contextTokens ?? 0) - visibleAtStart);
 };
 
+/** Sum an optional per-turn count over every counted turn. */
+const sumTurns = (
+  turns: ParsedSession["turns"],
+  pick: (t: ParsedSession["turns"][number]) => number | undefined
+) => turns.reduce((n, t) => n + (pick(t) ?? 0), 0);
+
 /** Analyze a parsed session into render-ready, serializable metrics. */
 export const analyze = (
   p: ParsedSession,
@@ -496,6 +502,8 @@ export const analyze = (
     userMessageCount,
     toolCallCount,
     peakCacheReadTokens: peak.peakCacheReadTokens,
+    webSearchRequests: sumTurns(turns, (t) => t.webSearchRequests),
+    webFetchRequests: sumTurns(turns, (t) => t.webFetchRequests),
     ...(durationMs === undefined ? {} : { durationMs }),
   };
 };

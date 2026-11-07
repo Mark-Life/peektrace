@@ -203,6 +203,9 @@ export const TimelineEvent = Schema.Struct({
    */
   tokensMeasured: Schema.optional(Schema.Number),
   isError: Schema.optional(Schema.Boolean),
+  /** A server tool's call or result (web search, web fetch, advisor): the API
+   *  ran it and wrote the result into the assistant message. */
+  serverTool: Schema.optional(Schema.Boolean),
   /** Wall time the model spent on this thinking block, when the harness logs it. */
   thinkingDurationMs: Schema.optional(Schema.Number),
   toolName: Schema.optional(Schema.String),
@@ -228,6 +231,10 @@ export const Turn = Schema.Struct({
    * Absent on transcripts that do not report it.
    */
   thinkingTokens: Schema.optional(Schema.Number),
+  /** Server-side web searches the API ran in this call (`server_tool_use`). */
+  webSearchRequests: Schema.optional(Schema.Number),
+  /** Server-side web fetches the API ran in this call (`server_tool_use`). */
+  webFetchRequests: Schema.optional(Schema.Number),
   eventIndexes: Schema.Array(Schema.Number),
 });
 export type Turn = typeof Turn.Type;
@@ -356,6 +363,10 @@ export const AnalyzedSession = Schema.Struct({
   userMessageCount: Schema.Number,
   toolCallCount: Schema.Number,
   peakCacheReadTokens: Schema.Number,
+  /** Server-side web searches across all counted turns. */
+  webSearchRequests: Schema.Number,
+  /** Server-side web fetches across all counted turns. */
+  webFetchRequests: Schema.Number,
 });
 export type AnalyzedSession = typeof AnalyzedSession.Type;
 

@@ -13,6 +13,7 @@ type RawLine = Record<string, unknown>;
 type MutTurn = Omit<Turn, "eventIndexes"> & { eventIndexes: number[] };
 
 const WHITESPACE = /\s+/g;
+const TOOL_RESULT_SUFFIX = /_tool_result$/;
 
 /** Spread helper that drops a key when its value is undefined (exactOptional safe). */
 const opt = <K extends string, V>(
@@ -210,6 +211,77 @@ const advisorResultEvent = (
     preview: firstLine(text),
     body: text,
     tokensEst: redacted ? 0 : estTokens(text),
+    serverTool: true,
+    ...answers(block),
+  };
+};
+
+/** One web search hit as a Markdown list item. */
+const searchHit = (r: Block) => {
+  const title = str(r.title) || str(r.url);
+  const age = typeof r.page_age === "string" ? ` · ${r.page_age}` : "";
+  return `- [${title}](${str(r.url)})${age}`;
+};
+
+/** Text of content blocks, joined; anything else as JSON. */
+const blockText = (content: unknown) =>
+  Array.isArray(content)
+    ? (content as Block[])
+        .map((b) => (typeof b?.text === "string" ? b.text : str(b)))
+        .join("\n\n")
+    : str(content);
+
+/** Body of a server tool result: hits, fetched text, or the error code. */
+const serverResultBody = (block: Block) => {
+  const content = block.content;
+  const c = (content ?? {}) as Block;
+  if (typeof c.error_code === "string") {
+    return { text: `error: ${c.error_code}`, isError: true };
+  }
+  if (
+    block.type !== "web_search_tool_result" &&
+    block.type !== "web_fetch_tool_result"
+  ) {
+    return { text: blockText(content), isError: false };
+  }
+  if (Array.isArray(content)) {
+    return {
+      text: (content as Block[]).map(searchHit).join("\n"),
+      isError: false,
+    };
+  }
+  const doc = (c.content ?? {}) as Block;
+  const source = (doc.source ?? {}) as Block;
+  const text =
+    typeof source.data === "string" && source.type === "text"
+      ? source.data
+      : "";
+  const head = [str(c.url), typeof doc.title === "string" ? doc.title : ""]
+    .filter(Boolean)
+    .join(" — ");
+  return { text: text ? `${head}\n\n${text}` : head, isError: false };
+};
+
+/**
+ * A server tool's result (`web_search_tool_result`, `web_fetch_tool_result`,
+ * …), which the API returns inside the assistant message. Search hits carry
+ * their page text encrypted, so only titles and URLs are readable.
+ */
+const serverResultEvent = (
+  base: AssistantBase,
+  block: Block
+): TimelineEvent => {
+  const name = String(block.type).replace(TOOL_RESULT_SUFFIX, "");
+  const { text, isError } = serverResultBody(block);
+  return {
+    ...base,
+    kind: "tool-result",
+    title: `${name} result${isError ? " (error)" : ""}`,
+    preview: firstLine(text),
+    body: text,
+    tokensEst: estTokens(text),
+    serverTool: true,
+    ...opt("isError", isError ? true : undefined),
     ...answers(block),
   };
 };
@@ -266,7 +338,10 @@ const assistantBlockEvent = (args: {
     case "advisor_tool_result":
       return advisorResultEvent(base, block);
     default:
-      return null;
+      return typeof block?.type === "string" &&
+        block.type.endsWith("_tool_result")
+        ? serverResultEvent(base, block)
+        : null;
   }
 };
 
@@ -323,6 +398,17 @@ const thinkingTokensOf = (usage: Record<string, unknown>) => {
   return typeof n === "number" ? n : undefined;
 };
 
+/** Server tool counts a call reports, keeping only the ones it actually used. */
+const serverToolCounts = (usage: Record<string, unknown>) => {
+  const counts = (usage.server_tool_use ?? {}) as Record<string, unknown>;
+  const positive = (v: unknown) =>
+    typeof v === "number" && v > 0 ? v : undefined;
+  return {
+    ...opt("webSearchRequests", positive(counts.web_search_requests)),
+    ...opt("webFetchRequests", positive(counts.web_fetch_requests)),
+  };
+};
+
 /** Register the turn for an assistant line, if it should count toward the curve. */
 const registerTurn = (args: {
   readonly state: ParseState;
@@ -350,6 +436,7 @@ const registerTurn = (args: {
       eventIndexes: [],
       ...opt("ts", ts),
       ...opt("thinkingTokens", thinkingTokensOf(args.usage)),
+      ...serverToolCounts(args.usage),
     });
   }
 };
