@@ -13,8 +13,12 @@ type Raw = Record<string, unknown>;
 
 const TASK_NOTIFICATION = /^\s*<task-notification>/;
 
-/** Tags Claude Code writes around a slash command and its local output. */
-const COMMAND = /^\s*<(?:command-name|command-message|local-command-stdout)>/;
+/** Tags Claude Code writes around a slash command or `!` shell line the user typed. */
+const COMMAND = /^\s*<(?:command-name|command-message|bash-input)>/;
+
+/** Tags around what a command printed: the harness's output, not the user's. */
+const COMMAND_OUTPUT =
+  /^\s*<(?:local-command-stdout|local-command-stderr|bash-stdout|bash-stderr)>/;
 
 const COMMAND_NAME = /<command-name>\s*([^<]*?)\s*<\/command-name>/;
 const COMMAND_ARGS = /<command-args>\s*([^<]*?)\s*<\/command-args>/;
@@ -40,11 +44,13 @@ export const claudePromptOrigin = (o: Raw, text: string): PromptOrigin => {
   if (turnOrigin === "scheduled") {
     return "scheduled";
   }
+  // Skill bodies the harness expands from a typed command carry the same
+  // tags but are `isMeta`; a typed command never is.
+  if (o.isMeta === true || COMMAND_OUTPUT.test(text)) {
+    return "harness";
+  }
   if (COMMAND.test(text)) {
     return "command";
-  }
-  if (o.isMeta === true) {
-    return "harness";
   }
   if (o.promptSource === "sdk" || turnOrigin === "sdk") {
     return "sdk";
@@ -85,11 +91,13 @@ export const promptLabel = (
     case "scheduled":
       return { title: "Scheduled prompt" };
     case "harness":
-      return { title: "Harness message" };
+      return {
+        title: COMMAND_OUTPUT.test(text) ? "Command output" : "Harness message",
+      };
     case "command": {
       const name = COMMAND_NAME.exec(text)?.[1];
       if (!name) {
-        return { title: "Command output" };
+        return { title: "Command" };
       }
       const args = COMMAND_ARGS.exec(text)?.[1];
       const line = args ? `${name} ${args}` : name;
