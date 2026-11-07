@@ -12,6 +12,7 @@ const STALE = [
   "shows the gap",
   "memories & sessions",
   "peektrace-<platform>-<arch>",
+  "no auth — firewall yourself",
 ];
 const GLOBS = [
   "README.md",

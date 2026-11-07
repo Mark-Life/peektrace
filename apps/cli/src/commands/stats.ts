@@ -45,6 +45,7 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { hms, json, percent, shortId, table, tokens } from "../render";
+import { splitRemote } from "../serve-auth";
 import { withScanProgress } from "./stats-progress";
 
 /** Chars of a row label or fix a cell keeps. Keys are never clipped: they route. */
@@ -529,7 +530,7 @@ const makeStatsPrompt = (globals: GlobalsAccessor) =>
         const text = statsPrompt({
           agent: scope.agents?.[0] ?? null,
           format: FORMAT,
-          remote: g.remote ?? null,
+          remote: g.remote === undefined ? null : splitRemote(g.remote).url,
           report,
           target,
         });

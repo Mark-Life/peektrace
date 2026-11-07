@@ -1,6 +1,7 @@
 /** Public surface of `@workspace/rpc`: the Effect-RPC contract, the wired
  * handler layer factory, and the typed clients (HTTP + in-process). */
 export {
+  type ClientOptions,
   createPeektraceClient,
   makeInProcessClient,
   protocolLayer,

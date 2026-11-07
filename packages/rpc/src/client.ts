@@ -10,7 +10,11 @@
  * Types flow disk -> core -> client: every method returns `Effect` of the core
  * success schema with the typed wire-error channel, zero `any`.
  */
-import { FetchHttpClient } from "@effect/platform";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientRequest,
+} from "@effect/platform";
 import { RpcClient, RpcSerialization, RpcTest } from "@effect/rpc";
 import { Effect, Layer } from "effect";
 import { PeektraceRpcs } from "./contract";
@@ -21,17 +25,37 @@ const RPC_PATH = "/rpc";
 /** Trailing-slash matcher for normalizing the base URL. */
 const TRAILING_SLASH = /\/$/;
 
+/** Optional client settings. */
+export interface ClientOptions {
+  /** Sent as `Authorization: Bearer <token>` when the server requires a token. */
+  readonly token?: string | undefined;
+}
+
 /**
  * Build the HTTP protocol layer for the client: NDJSON serialization over a
  * `fetch`-based HTTP client pointed at `${baseUrl}/rpc`.
  */
-const protocolLayer = (baseUrl: string) =>
-  RpcClient.layerProtocolHttp({
+const protocolLayer = (baseUrl: string, options?: ClientOptions) => {
+  const token = options?.token;
+  // Non-2xx (401 bad token, 403 guard) becomes a `ResponseError`; otherwise the
+  // NDJSON decoder would wait on a plain-text body forever.
+  const httpClient = Layer.effect(
+    HttpClient.HttpClient,
+    Effect.map(HttpClient.HttpClient, (client) =>
+      HttpClient.filterStatusOk(
+        token === undefined || token === ""
+          ? client
+          : HttpClient.mapRequest(client, HttpClientRequest.bearerToken(token))
+      )
+    )
+  ).pipe(Layer.provide(FetchHttpClient.layer));
+  return RpcClient.layerProtocolHttp({
     url: `${baseUrl.replace(TRAILING_SLASH, "")}${RPC_PATH}`,
   }).pipe(
     Layer.provide(RpcSerialization.layerNdjson),
-    Layer.provide(FetchHttpClient.layer)
+    Layer.provide(httpClient)
   );
+};
 
 /**
  * Create a typed HTTP RPC client against a running `peektrace serve` at `baseUrl`
@@ -44,8 +68,13 @@ const protocolLayer = (baseUrl: string) =>
  * }).pipe(Effect.scoped);
  * ```
  */
-export const createPeektraceClient = (baseUrl: string) =>
-  RpcClient.make(PeektraceRpcs).pipe(Effect.provide(protocolLayer(baseUrl)));
+export const createPeektraceClient = (
+  baseUrl: string,
+  options?: ClientOptions
+) =>
+  RpcClient.make(PeektraceRpcs).pipe(
+    Effect.provide(protocolLayer(baseUrl, options))
+  );
 
 /**
  * Drive the group directly through an in-process handlers layer (no transport).

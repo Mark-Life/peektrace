@@ -71,13 +71,24 @@ export const isRpcClientError = (
 ): u is RpcClientError.RpcClientError =>
   u instanceof RpcClientError.RpcClientError;
 
+const httpStatus = (
+  error: RpcClientError.RpcClientError
+): number | undefined => {
+  const { cause } = error;
+  return HttpClientError.isHttpClientError(cause) &&
+    cause._tag === "ResponseError"
+    ? cause.response.status
+    : undefined;
+};
+
 /** Most specific detail from a transport error: HTTP status or root error code. */
 const transportDetail = (error: RpcClientError.RpcClientError): string => {
   const { cause } = error;
+  const status = httpStatus(error);
+  if (status !== undefined) {
+    return `HTTP ${status}`;
+  }
   if (HttpClientError.isHttpClientError(cause)) {
-    if (cause._tag === "ResponseError") {
-      return `HTTP ${cause.response.status}`;
-    }
     const root = cause.cause;
     if (isRecord(root) && typeof root.code === "string") {
       return root.code;
@@ -88,8 +99,12 @@ const transportDetail = (error: RpcClientError.RpcClientError): string => {
 
 const HTTP_PROTOCOL = /^https?:$/;
 
-const isHttpUrl = (url: string): boolean =>
+/** True for a parseable `http:` or `https:` URL. */
+export const isHttpUrl = (url: string): boolean =>
   URL.canParse(url) && HTTP_PROTOCOL.test(new URL(url).protocol);
+
+const UNAUTHORIZED = 401;
+const FORBIDDEN = 403;
 
 /** One-line message for a failed `--remote` transport call. */
 export const remoteErrorMessage = (
@@ -98,6 +113,13 @@ export const remoteErrorMessage = (
 ): string => {
   if (url.trim() === "") {
     return "Invalid --remote URL: it is empty. Use `http://host:port`.";
+  }
+  const status = httpStatus(error);
+  if (status === UNAUTHORIZED) {
+    return `Remote request to ${url} was unauthorized (HTTP 401). Set PEEKTRACE_TOKEN or pass the printed ?token= URL.`;
+  }
+  if (status === FORBIDDEN) {
+    return `Remote request to ${url} was refused (HTTP 403). Check that the local and remote ports match when using ssh -L (the Host header must be the server's own address).`;
   }
   const detail = transportDetail(error);
   if (!url.includes("://")) {

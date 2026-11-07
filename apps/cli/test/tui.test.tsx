@@ -18,12 +18,13 @@ import { makeTuiBridge, type TuiBridge, type TuiEnv } from "../src/tui/runtime";
  * effects need an ambient `Scope`).
  */
 const withRealBridge = (
-  use: (bridge: TuiBridge) => Promise<void>
+  use: (bridge: TuiBridge) => Promise<void>,
+  { url = "http://127.0.0.1:4321", authed = false } = {}
 ): Promise<void> =>
   Effect.gen(function* () {
     const client = yield* makeInProcessClient();
     const runtime = yield* Effect.runtime<TuiEnv>();
-    const bridge = makeTuiBridge(client, runtime, "http://127.0.0.1:4321");
+    const bridge = makeTuiBridge(client, runtime, url, authed);
     yield* Effect.promise(() => use(bridge));
   }).pipe(
     Effect.scoped,
@@ -91,3 +92,71 @@ test("memory screen mounts with its web-app editing note", () =>
 
 test("settings screen mounts its agent-roots editor", () =>
   expectScreen("4", "Agent roots"));
+
+const SYNTHETIC_TOKEN = "A".repeat(43);
+
+test("loopback shell shows the loopback badge", async () => {
+  await withRealBridge(async (bridge) => {
+    const setup = await testRender(
+      <App bridge={bridge} onQuit={() => undefined} />,
+      { width: 110, height: 34 }
+    );
+    try {
+      const frame = await setup.waitForFrame((v) => v.includes("Peektrace"));
+      expect(frame).toContain("loopback only");
+      expect(frame).not.toContain("token");
+    } finally {
+      setup.renderer.destroy();
+    }
+  });
+});
+
+test("token shell shows the badge and the full token URL at 80 columns", async () => {
+  const url = `http://127.0.0.1:4321/?token=${SYNTHETIC_TOKEN}`;
+  await withRealBridge(
+    async (bridge) => {
+      const setup = await testRender(
+        <App bridge={bridge} onQuit={() => undefined} />,
+        { width: 80, height: 34 }
+      );
+      try {
+        const frame = await setup.waitForFrame((v) => v.includes("web ▸"));
+        expect(frame).toContain("Peektrace");
+        expect(frame).toContain(url);
+      } finally {
+        setup.renderer.destroy();
+      }
+    },
+    { url, authed: true }
+  );
+});
+
+test("token footer keeps the key hints intact at 60 columns", async () => {
+  const url = `http://127.0.0.1:4321/?token=${SYNTHETIC_TOKEN}`;
+  await withRealBridge(
+    async (bridge) => {
+      const setup = await testRender(
+        <App bridge={bridge} onQuit={() => undefined} />,
+        { width: 60, height: 20 }
+      );
+      try {
+        const frame = await setup.waitForFrame((v) => v.includes("web ▸"));
+        const lines = frame.split("\n");
+        const hintLine = lines.find((l) => l.includes("section"));
+        expect(hintLine?.trim()).toBe("1-5 section  q quit");
+        const urlRows = lines
+          .slice(lines.findIndex((l) => l.includes("web ▸")))
+          .filter((l) => !l.includes("section"));
+        expect(
+          urlRows
+            .map((l) => l.trim())
+            .join("")
+            .replace("web▸", "")
+        ).toContain(SYNTHETIC_TOKEN);
+      } finally {
+        setup.renderer.destroy();
+      }
+    },
+    { url, authed: true }
+  );
+});

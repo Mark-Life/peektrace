@@ -54,7 +54,7 @@ const GLOBAL_FLAGS: RefEntry[] = [
 const COMMANDS: RefEntry[] = [
   {
     name: "serve",
-    desc: "boot the loopback inspector UI + RPC server (--port, --host, --open/--no-open, --read-only)",
+    desc: "boot the inspector UI + RPC server, loopback by default (--port, --host, --allow-write, --open/--no-open, --read-only)",
   },
   {
     name: "sessions ls",

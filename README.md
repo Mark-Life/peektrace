@@ -90,9 +90,14 @@ alongside it on the same port. Pass `--no-open` to skip the browser.
 Both read the same data through the same in-process core, so you can switch
 between them mid-investigation.
 
-On a headless box, `peektrace serve --host 0.0.0.0 --port <p>` binds every
-interface. **There is no auth — firewall it yourself.** The default is loopback
-only.
+On a headless box, tunnel over SSH. Run `peektrace serve --no-open` on the box
+(loopback, no token needed) and forward the same port:
+`ssh -N -L 4321:127.0.0.1:4321 user@host`.
+
+Direct network access is the second choice. `peektrace serve --host 0.0.0.0`
+needs a token (printed in the URL) and is read-only unless you pass
+`--allow-write`. It is plain HTTP, so use a private network or a tunnel. The
+default is loopback only.
 
 ## Sessions
 
@@ -226,7 +231,8 @@ Open on first launch)..
 
 ## Privacy posture
 
-- **Loopback only.** The server binds `127.0.0.1`. Nothing is exposed off-box.
+- **Loopback by default.** The server binds `127.0.0.1`. A non-loopback
+  `--host` needs a token and is read-only unless `--allow-write`.
 - **Secret redaction on by default** for every rendered or exported transcript.
 - **No model ever sees your data.** The core reads bodies itself; no transcript
   and no memory is sent to an LLM.

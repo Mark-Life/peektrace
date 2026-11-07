@@ -39,6 +39,8 @@ export type Call<A, E> = (client: TuiClient) => Effect.Effect<A, E, TuiEnv>;
 
 /** The runtime bridge handed to the React tree at the root. */
 export interface TuiBridge {
+  /** True when the web server requires a token. */
+  readonly authed: boolean;
   /** Run one client call to a promise (rejects with the typed failure). */
   readonly run: <A, E>(build: Call<A, E>) => Promise<A>;
   /** URL of the sibling web server, shown in the footer. */
@@ -53,9 +55,11 @@ export interface TuiBridge {
 export const makeTuiBridge = (
   client: TuiClient,
   runtime: Runtime.Runtime<TuiEnv>,
-  serverUrl: string
+  serverUrl: string,
+  authed: boolean
 ): TuiBridge => ({
   serverUrl,
+  authed,
   run: (build) => Runtime.runPromise(runtime)(build(client)),
 });
 
