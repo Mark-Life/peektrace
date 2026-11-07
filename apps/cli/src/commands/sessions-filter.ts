@@ -116,3 +116,80 @@ export const selectSessions = <
   const rows = limit === 0 ? kept : kept.slice(0, limit);
   return { rows, hidden: kept.length - rows.length };
 };
+
+export interface TargetRequest {
+  /** Absolute `--cwd` directory, already resolved. */
+  readonly cwd?: string | undefined;
+  readonly id?: string | undefined;
+  readonly latest: boolean;
+  /** `--parent` id; only valid together with an explicit subagent `id`. */
+  readonly parent?: string | undefined;
+}
+
+export type Target =
+  | { readonly _tag: "Picked"; readonly id: string }
+  | { readonly _tag: "Invalid"; readonly message: string };
+
+export type TargetPlan =
+  | Target
+  | { readonly _tag: "Newest"; readonly cwd: string | undefined };
+
+/** Validate the request. `Newest` means the caller must list sessions and
+ * call `newestTarget`; every other outcome is final. */
+export const planTarget = ({
+  id,
+  latest,
+  cwd,
+  parent,
+}: TargetRequest): TargetPlan => {
+  const wantsNewest = latest || cwd !== undefined;
+  if (id?.startsWith("-")) {
+    return { _tag: "Invalid", message: `Missing value for ${id}.` };
+  }
+  if (parent !== undefined && id === undefined) {
+    return {
+      _tag: "Invalid",
+      message: "--parent needs an explicit subagent id.",
+    };
+  }
+  if (id !== undefined && wantsNewest) {
+    return {
+      _tag: "Invalid",
+      message: "Pass either a session id or --latest/--cwd, not both.",
+    };
+  }
+  if (id !== undefined) {
+    return { _tag: "Picked", id };
+  }
+  if (!wantsNewest) {
+    return {
+      _tag: "Invalid",
+      message: "Pass a session id, --latest, or --cwd <dir>.",
+    };
+  }
+  return { _tag: "Newest", cwd };
+};
+
+/** The newest header (optionally under `cwd`), or an `Invalid` with a message. */
+export const newestTarget = (
+  cwd: string | undefined,
+  headers: readonly Pick<SessionHeader, "cwd" | "id" | "updatedAt">[]
+): Target => {
+  const [newest] = selectSessions(headers, { limit: 1, cwd }).rows;
+  return newest
+    ? { _tag: "Picked", id: newest.id }
+    : {
+        _tag: "Invalid",
+        message: `No sessions found${cwd === undefined ? "" : ` under ${cwd}`}.`,
+      };
+};
+
+/** Pick the session `analyze` runs on: an explicit id, or the newest header
+ * (optionally under `--cwd`). Invalid combinations and empty matches carry a message. */
+export const pickTarget = (
+  request: TargetRequest,
+  headers: readonly Pick<SessionHeader, "cwd" | "id" | "updatedAt">[]
+): Target => {
+  const plan = planTarget(request);
+  return plan._tag === "Newest" ? newestTarget(plan.cwd, headers) : plan;
+};

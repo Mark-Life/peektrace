@@ -3,11 +3,14 @@
  * known cwds and update times (Codex newest, Claude oldest). OpenCode's data
  * dir is empty. */
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-
-const ENTRY = join(import.meta.dir, "..", "src", "index.ts");
+import { join } from "node:path";
+import {
+  ENTRY,
+  envFor,
+  makeHome,
+  removeHome,
+  write,
+} from "./support/synthetic-home";
 
 const CLAUDE_ID = "11111111-1111-4111-8111-111111111111";
 const CODEX_ID = "22222222-2222-4222-8222-222222222222";
@@ -23,13 +26,8 @@ const CODEX_AT = "2026-06-01T10:00:00.000Z";
 
 let home = "";
 
-const write = (path: string, lines: readonly unknown[]) => {
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`);
-};
-
 beforeAll(() => {
-  home = mkdtempSync(join(tmpdir(), "peektrace-ls-"));
+  home = makeHome("ls");
   write(
     join(home, ".claude", "projects", "-home-demo-work", `${CLAUDE_ID}.jsonl`),
     [
@@ -93,21 +91,11 @@ beforeAll(() => {
   );
 });
 
-afterAll(() => {
-  rmSync(home, { recursive: true, force: true });
-});
+afterAll(() => removeHome(home));
 
 const run = (...args: readonly string[]) => {
   const proc = Bun.spawnSync(["bun", ENTRY, "sessions", "ls", ...args], {
-    env: {
-      PATH: process.env.PATH,
-      HOME: home,
-      CLAUDE_CONFIG_DIR: join(home, ".claude"),
-      CODEX_HOME: join(home, ".codex"),
-      XDG_DATA_HOME: join(home, ".local", "share"),
-      PEEKTRACE_DIR: join(home, ".peektrace"),
-      PEEKTRACE_NO_TELEMETRY: "1",
-    },
+    env: envFor(home),
   });
   return {
     code: proc.exitCode,

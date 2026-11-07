@@ -21,7 +21,7 @@ const QUICKSTART: QuickstartStep[] = [
   },
   {
     title: "Or score a session without leaving the terminal",
-    commands: ["peektrace sessions ls", "peektrace sessions analyze <id>"],
+    commands: ["peektrace sessions ls", "peektrace sessions analyze --latest"],
   },
   {
     title: "Audit your memory index",
@@ -29,7 +29,9 @@ const QUICKSTART: QuickstartStep[] = [
   },
   {
     title: "Pipe any of it into your own tools",
-    commands: ["peektrace --json sessions analyze <id> | jq .verdict"],
+    commands: [
+      "peektrace --json sessions analyze <id> | jq .peakContextTokens",
+    ],
   },
 ];
 
@@ -58,7 +60,14 @@ const COMMANDS: RefEntry[] = [
     name: "sessions ls",
     desc: "list session headers (--agent, --project, --since, --cwd, --limit)",
   },
-  { name: "sessions analyze <id>", desc: "context forensics for one session" },
+  {
+    name: "sessions analyze [<id>]",
+    desc: "context forensics for one session (--latest, --cwd)",
+  },
+  {
+    name: "statusline",
+    desc: "one-line context health for the Claude Code status line (--timeout)",
+  },
   {
     name: "memory ls [project]",
     desc: "projects with memory, or one vault's entries",

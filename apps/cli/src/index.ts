@@ -12,12 +12,14 @@ import { Command, Options, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
 import { Console, Effect, Layer, Option } from "effect";
+import { skipsTelemetry } from "./argv";
 import type { GlobalsAccessor } from "./client";
 import { makeDoctor } from "./commands/doctor";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
 import { makeStats } from "./commands/stats";
+import { makeStatusline } from "./commands/statusline";
 import { makeTui } from "./commands/tui";
 import { makeUpgrade } from "./commands/upgrade";
 import { DESCRIPTION } from "./description";
@@ -104,6 +106,7 @@ const command = peektrace.pipe(
     sessions,
     memory,
     makeStats(globals),
+    makeStatusline(globals),
     makeServe(globals),
     makeTui(globals),
     makeDoctor(),
@@ -119,10 +122,11 @@ const cli = Command.run(command, {
 // One tracer slot is chosen at boot from raw argv (flags are also parsed by
 // @effect/cli, but the tracer layer must be picked before dispatch). Telemetry
 // is ON by default and persists one wide event per invocation to local SQLite;
-// `--no-telemetry` (or `PEEKTRACE_NO_TELEMETRY`) opts out. `--otel` becomes the
+// `--no-telemetry` (or `PEEKTRACE_NO_TELEMETRY`) opts out; `statusline` never
+// records (it runs on every status-bar refresh). `--otel` becomes the
 // stderr echo. When telemetry is off, `--otel` still drives the console tracer.
 const telemetryOn =
-  !process.argv.includes("--no-telemetry") &&
+  !(process.argv.includes("--no-telemetry") || skipsTelemetry(process.argv)) &&
   process.env.PEEKTRACE_NO_TELEMETRY == null;
 const echo = otelEnabled(process.argv.includes("--otel"));
 

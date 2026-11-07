@@ -200,7 +200,7 @@ peektrace sessions ls --cwd .
 peektrace sessions ls --project -Users-me-myrepo --json
 ```
 
-### `sessions analyze <id>` — context-budget forensics
+### `sessions analyze [<id>]` — context-budget forensics
 
 Reproduces the `session-report` math headlessly: verdict
 (Healthy/Degrading/Rotting), peak context vs window, final context, turn / tool
@@ -211,11 +211,42 @@ peektrace sessions analyze <session-uuid>
 peektrace sessions analyze <session-uuid> --json
 ```
 
+Without an id, `--latest` picks the newest session of any agent. `--cwd <dir>`
+picks the newest one run in that directory or below (it implies `--latest`).
+An id cannot be combined with either flag. Subagent transcripts are never
+picked.
+
+```sh
+peektrace sessions analyze --latest
+peektrace sessions analyze --cwd .
+peektrace --json sessions analyze --latest | jq .peakContextTokens
+```
+
 A subagent transcript is not a listed session. Open it through the session it
 ran under with `--parent`. Both ids accept the short form `stats drill` prints.
 
 ```sh
 peektrace sessions analyze --parent <session-uuid> agent-<id>
+```
+
+### `statusline` — Claude Code status line
+
+Reads the JSON Claude Code pipes to a `statusLine` command, analyzes the
+transcript it names (`transcript_path`, else `session_id` when the path does not resolve) and prints one line:
+`ctx 42% Healthy`. The percent is the current context fill. The verdict uses the
+same bands as `sessions analyze`, applied to the current fill, not the peak.
+`context_window.context_window_size` from the input sets the window when
+present.
+
+Any failure prints `ctx --` and exits 0: bad input, unknown session, or
+`--timeout <ms>` (default 1500) reached. The timeout covers stdin, session
+lookup and remote calls. It does not stop the parse of a very large local
+transcript, which runs to the end. Telemetry is never recorded for it.
+Under `--remote`, `transcript_path` only works if the server is on the same
+machine.
+
+```json
+{ "statusLine": { "type": "command", "command": "peektrace statusline" } }
 ```
 
 ### `memory ls [project]` — memories overview / one vault

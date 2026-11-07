@@ -4,6 +4,8 @@ import {
   byUpdatedDesc,
   matchesCwd,
   parseSince,
+  pickTarget,
+  planTarget,
   resolveCwd,
   selectSessions,
 } from "../src/commands/sessions-filter";
@@ -139,4 +141,73 @@ test("selectSessions applies since, cwd, sort, then limit", () => {
   const capped = selectSessions(headers, { limit: 1 });
   expect(capped.rows.map((h) => h.id)).toEqual(["4"]);
   expect(capped.hidden).toBe(4);
+});
+
+const HEADERS = [
+  { id: "old", cwd: "/w/a", updatedAt: "2026-01-01T00:00:00.000Z" },
+  { id: "new", cwd: "/w/b", updatedAt: "2026-02-01T00:00:00.000Z" },
+  { id: "nocwd", updatedAt: "2026-03-01T00:00:00.000Z" },
+];
+
+test("pickTarget: explicit id wins, newest otherwise", () => {
+  expect(pickTarget({ id: "x", latest: false }, [])).toEqual({
+    _tag: "Picked",
+    id: "x",
+  });
+  expect(pickTarget({ latest: true }, HEADERS)).toEqual({
+    _tag: "Picked",
+    id: "nocwd",
+  });
+});
+
+test("pickTarget: --cwd implies latest and scopes the pick", () => {
+  expect(pickTarget({ latest: false, cwd: "/w/a" }, HEADERS)).toEqual({
+    _tag: "Picked",
+    id: "old",
+  });
+  expect(pickTarget({ latest: true, cwd: "/w" }, HEADERS)).toEqual({
+    _tag: "Picked",
+    id: "new",
+  });
+});
+
+test("pickTarget: conflicts, missing selector and empty matches are invalid", () => {
+  expect(pickTarget({ id: "x", latest: true }, HEADERS)._tag).toBe("Invalid");
+  expect(pickTarget({ id: "x", latest: false, cwd: "/w" }, HEADERS)._tag).toBe(
+    "Invalid"
+  );
+  expect(pickTarget({ latest: false }, HEADERS)._tag).toBe("Invalid");
+  expect(pickTarget({ latest: true, parent: "p" }, HEADERS)).toEqual({
+    _tag: "Invalid",
+    message: "--parent needs an explicit subagent id.",
+  });
+  expect(pickTarget({ id: "--cwd", latest: true }, HEADERS)).toEqual({
+    _tag: "Invalid",
+    message: "Missing value for --cwd.",
+  });
+  expect(pickTarget({ id: "x", latest: false, parent: "p" }, [])._tag).toBe(
+    "Picked"
+  );
+  expect(pickTarget({ latest: true }, [])).toEqual({
+    _tag: "Invalid",
+    message: "No sessions found.",
+  });
+  expect(pickTarget({ latest: false, cwd: "/z" }, HEADERS)).toEqual({
+    _tag: "Invalid",
+    message: "No sessions found under /z.",
+  });
+});
+
+test("planTarget asks for a listing only for the newest branch", () => {
+  expect(planTarget({ latest: true })).toEqual({
+    _tag: "Newest",
+    cwd: undefined,
+  });
+  expect(planTarget({ latest: false, cwd: "/w" })).toEqual({
+    _tag: "Newest",
+    cwd: "/w",
+  });
+  expect(planTarget({ latest: false, id: "abc" })._tag).toBe("Picked");
+  expect(planTarget({ latest: false })._tag).toBe("Invalid");
+  expect(planTarget({ latest: true, id: "abc" })._tag).toBe("Invalid");
 });

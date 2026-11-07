@@ -26,7 +26,14 @@ import {
   table,
   tokens,
 } from "../render";
-import { parseSince, resolveCwd, selectSessions } from "./sessions-filter";
+import { peakFractionOf, verdict } from "../verdict";
+import {
+  newestTarget,
+  parseSince,
+  planTarget,
+  resolveCwd,
+  selectSessions,
+} from "./sessions-filter";
 
 const DEFAULT_LIMIT = 30;
 
@@ -65,20 +72,6 @@ const parentOpt = Options.text("parent").pipe(
   ),
   Options.optional
 );
-
-/** Peak fraction above which a session is judged to be actively rotting. */
-const ROTTING_FRACTION = 0.7;
-
-/** Verdict band for a peak-context fraction, mirroring the session-report tiers. */
-const verdict = (peakFraction: number, dumbZone: number): string => {
-  if (peakFraction < dumbZone) {
-    return "Healthy";
-  }
-  if (peakFraction < ROTTING_FRACTION) {
-    return "Degrading";
-  }
-  return "Rotting";
-};
 
 /** `sessions ls` — list lightweight session headers. */
 export const makeSessionsLs = (globals: GlobalsAccessor) =>
@@ -159,33 +152,56 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
       })
   );
 
-/** `sessions analyze <id>` — print the context-budget forensics summary. */
+const latestOpt = Options.boolean("latest").pipe(
+  Options.withDescription(
+    "Analyze the newest session of any agent (combine with --cwd to scope it)"
+  )
+);
+
+/** `sessions analyze [<id>] [--latest] [--cwd <dir>]` — print the context-budget forensics summary. */
 export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
   Command.make(
     "analyze",
     {
-      id: Args.text({ name: "id" }),
+      id: Args.text({ name: "id" }).pipe(
+        Args.withDescription("Session id, short id, or transcript path"),
+        Args.optional
+      ),
+      latest: latestOpt,
+      cwd: cwdOpt,
       json: localJsonOpt,
       parent: parentOpt,
       readOnly: localReadOnlyOpt,
     },
-    ({ id, json: jsonFlag, parent, readOnly }) =>
+    ({ id, latest, cwd, json: jsonFlag, parent, readOnly }) =>
       Effect.gen(function* () {
         const g = yield* globals({ json: jsonFlag, readOnly });
+        const request = {
+          id: Option.getOrUndefined(id),
+          latest,
+          cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
+        };
+        const parentId = Option.getOrUndefined(parent);
         const a = yield* withClient(g, (client) =>
-          client.sessions.analyze({
-            id,
-            ...Option.match(parent, {
-              onNone: () => ({}),
-              onSome: (p) => ({ parent: p }),
-            }),
+          Effect.gen(function* () {
+            const plan = planTarget({ ...request, parent: parentId });
+            const target =
+              plan._tag === "Newest"
+                ? newestTarget(plan.cwd, yield* client.sessions.list({}))
+                : plan;
+            if (target._tag === "Invalid") {
+              return yield* new CliUserError({ message: target.message });
+            }
+            return yield* client.sessions.analyze({
+              id: target.id,
+              ...(parentId === undefined ? {} : { parent: parentId }),
+            });
           })
         );
         if (g.json) {
           return yield* Console.log(json(a));
         }
-        const peakFraction =
-          a.contextWindow > 0 ? a.peakContextTokens / a.contextWindow : 0;
+        const peakFraction = peakFractionOf(a);
         const summary = table(
           ["FIELD", "VALUE"],
           [
