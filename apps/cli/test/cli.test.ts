@@ -8,6 +8,12 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import {
+  HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse,
+} from "@effect/platform";
+import { RpcClientError } from "@effect/rpc";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Effect } from "effect";
 import { remoteErrorMessage } from "../src/errors";
@@ -69,26 +75,70 @@ describe("crossTurnCell", () => {
 
 describe("remoteErrorMessage", () => {
   const url = "http://127.0.0.1:1";
+  const request = HttpClientRequest.get(url);
+  const transportError = (code: string) =>
+    new RpcClientError.RpcClientError({
+      reason: "Protocol",
+      message: "Failed to send HTTP request",
+      cause: new HttpClientError.RequestError({
+        request,
+        reason: "Transport",
+        cause: Object.assign(new Error("connect"), { code }),
+      }),
+    });
 
   test("uses the nested transport code", () => {
-    const err = {
-      message: "Failed to send HTTP request",
-      cause: { cause: { code: "ECONNREFUSED" } },
-    };
-    const msg = remoteErrorMessage(url, err);
+    const msg = remoteErrorMessage(url, transportError("ECONNREFUSED"));
     expect(msg).toContain(url);
     expect(msg).toContain("ECONNREFUSED");
     expect(msg).toContain("peektrace serve");
   });
 
-  test("falls back to the HTTP status, then the message", () => {
-    expect(
-      remoteErrorMessage(url, {
-        message: "x",
-        cause: { response: { status: 502 } },
-      })
-    ).toContain("HTTP 502");
-    expect(remoteErrorMessage(url, { message: "boom" })).toContain("boom");
+  test("reports the HTTP status of a response error", () => {
+    const err = new RpcClientError.RpcClientError({
+      reason: "Protocol",
+      message: "x",
+      cause: new HttpClientError.ResponseError({
+        request,
+        response: HttpClientResponse.fromWeb(
+          request,
+          new Response("nope", { status: 502 })
+        ),
+        reason: "StatusCode",
+      }),
+    });
+    expect(remoteErrorMessage(url, err)).toContain("HTTP 502");
+  });
+
+  test("falls back to the error message", () => {
+    const err = new RpcClientError.RpcClientError({
+      reason: "Unknown",
+      message: "boom",
+    });
+    expect(remoteErrorMessage(url, err)).toContain("boom");
+  });
+
+  test("asks for a scheme when the URL has none", () => {
+    const msg = remoteErrorMessage(
+      "127.0.0.1:1",
+      transportError("ERR_INVALID_URL")
+    );
+    expect(msg).toContain("Include the scheme");
+  });
+
+  test("flags malformed or non-http URLs instead of advising serve", () => {
+    for (const bad of ["http://127.0.0.1:99999", "ftp://127.0.0.1:1"]) {
+      const msg = remoteErrorMessage(bad, transportError("ERR_INVALID_URL"));
+      expect(msg).toContain(`Invalid --remote URL ${bad}`);
+      expect(msg).not.toContain("peektrace serve");
+      expect(msg).not.toContain("Include the scheme");
+    }
+  });
+
+  test("names an empty URL without a double space", () => {
+    const msg = remoteErrorMessage("", transportError("ERR_INVALID_URL"));
+    expect(msg).toContain("empty");
+    expect(msg).not.toContain("  ");
   });
 });
 
@@ -144,6 +194,20 @@ describe("--remote transport failure", () => {
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("127.0.0.1:1");
     expect(r.stderr).toContain("http://");
+    expect(r.stderr).not.toContain("peektrace serve");
+  });
+
+  test("a malformed port gets the invalid-URL message", async () => {
+    const r = await run("--remote", "http://127.0.0.1:99999", "sessions", "ls");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("Invalid --remote URL");
+    expect(r.stderr).not.toContain("peektrace serve");
+  });
+
+  test("a non-http scheme gets the invalid-URL message", async () => {
+    const r = await run("--remote", "ftp://127.0.0.1:1", "sessions", "ls");
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("Invalid --remote URL");
     expect(r.stderr).not.toContain("peektrace serve");
   });
 });

@@ -99,9 +99,9 @@ const findAvailableUpdate = ({
 /**
  * Print a single update hint to stdout when a newer release exists, silent when
  * current. Skipped for dev builds and when `PEEKTRACE_NO_UPDATE_CHECK` is set;
- * the hint text depends on `execPath` (npm, bun global, or standalone). Bounded by a short timeout, and
- * fully error-swallowing — safe to `Effect.fork` at startup without ever
- * blocking or failing the server.
+ * the hint text depends on `execPath` (npm, bun global, or standalone).
+ * Bounded by a short timeout, and fully error-swallowing — safe to
+ * `Effect.fork` at startup without ever blocking or failing the server.
  */
 export const startupUpdateNotice = (
   currentVersion: string,

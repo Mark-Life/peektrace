@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  isBunGlobalInstall,
   isDevVersion,
   isNpmInstall,
   updateHint,
@@ -27,6 +28,20 @@ describe("isNpmInstall", () => {
   });
 });
 
+describe("isBunGlobalInstall", () => {
+  test("matches posix and Windows bun global paths", () => {
+    expect(
+      isBunGlobalInstall("/home/u/.bun/install/global/node_modules/x/peektrace")
+    ).toBe(true);
+    expect(
+      isBunGlobalInstall(
+        "C:\\Users\\u\\.bun\\install\\global\\node_modules\\x\\peektrace.exe"
+      )
+    ).toBe(true);
+    expect(isBunGlobalInstall("/opt/x/node_modules/y/peektrace")).toBe(false);
+  });
+});
+
 describe("updateHint", () => {
   test("picks the command for the install kind", () => {
     expect(
@@ -39,7 +54,9 @@ describe("updateHint", () => {
         latest: "cli-v1.0.0",
         execPath: "/a/node_modules/b/peektrace",
       })
-    ).toContain("npm i -g peektrace@latest");
+    ).toBe(
+      "A newer version (cli-v1.0.0) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')"
+    );
   });
 
   test("bun global installs get the bun command", () => {

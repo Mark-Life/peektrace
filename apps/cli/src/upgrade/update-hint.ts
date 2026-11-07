@@ -17,12 +17,12 @@ export const isBunGlobalInstall = (execPath: string): boolean =>
 
 const hintCommand = (execPath: string): string => {
   if (isBunGlobalInstall(execPath)) {
-    return "bun add -g peektrace@latest";
+    return "'bun add -g peektrace@latest'";
   }
   if (isNpmInstall(execPath)) {
-    return "npm i -g peektrace@latest' (or 'npx peektrace@latest";
+    return "'npm i -g peektrace@latest' (or 'npx peektrace@latest')";
   }
-  return "peektrace upgrade";
+  return "'peektrace upgrade'";
 };
 
 /** The upgrade hint matching how peektrace was installed. */
@@ -33,4 +33,4 @@ export const updateHint = ({
   readonly latest: string;
   readonly execPath: string;
 }): string =>
-  `A newer version (${latest}) is available — run '${hintCommand(execPath)}'`;
+  `A newer version (${latest}) is available — run ${hintCommand(execPath)}`;

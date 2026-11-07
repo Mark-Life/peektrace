@@ -4,6 +4,8 @@
  * domain errors that flow up through `withClient` — and prints only the rendered
  * message to stderr, never a raw Effect FiberFailure / bunfs stack dump.
  */
+import { HttpClientError } from "@effect/platform";
+import { RpcClientError } from "@effect/rpc";
 import { Data } from "effect";
 
 /** A user-facing CLI error: rendered as a clean one-liner, never a stack dump. */
@@ -63,34 +65,46 @@ export const formatCliError = (error: unknown): string => {
   }
 };
 
-/** Structural guard for the `@effect/rpc` transport error. */
-export const isRpcClientError = (u: unknown): u is Tagged =>
-  isTagged(u) && u._tag === "RpcClientError";
+/** True for the `@effect/rpc` transport error. */
+export const isRpcClientError = (
+  u: unknown
+): u is RpcClientError.RpcClientError =>
+  u instanceof RpcClientError.RpcClientError;
 
-/** Pull the most specific detail out of a nested transport error. */
-const transportDetail = (error: unknown): string => {
-  if (!isRecord(error)) {
-    return String(error);
+/** Most specific detail from a transport error: HTTP status or root error code. */
+const transportDetail = (error: RpcClientError.RpcClientError): string => {
+  const { cause } = error;
+  if (HttpClientError.isHttpClientError(cause)) {
+    if (cause._tag === "ResponseError") {
+      return `HTTP ${cause.response.status}`;
+    }
+    const root = cause.cause;
+    if (isRecord(root) && typeof root.code === "string") {
+      return root.code;
+    }
   }
-  const inner = isRecord(error.cause) ? error.cause : undefined;
-  const root = inner && isRecord(inner.cause) ? inner.cause : undefined;
-  if (root && typeof root.code === "string") {
-    return root.code;
-  }
-  const response =
-    inner && isRecord(inner.response) ? inner.response : undefined;
-  if (response && typeof response.status === "number") {
-    return `HTTP ${response.status}`;
-  }
-  return typeof error.message === "string" ? error.message : "unknown error";
+  return error.message;
 };
 
+const HTTP_PROTOCOL = /^https?:$/;
+
+const isHttpUrl = (url: string): boolean =>
+  URL.canParse(url) && HTTP_PROTOCOL.test(new URL(url).protocol);
+
 /** One-line message for a failed `--remote` transport call. */
-export const remoteErrorMessage = (url: string, error: unknown): string => {
+export const remoteErrorMessage = (
+  url: string,
+  error: RpcClientError.RpcClientError
+): string => {
+  if (url.trim() === "") {
+    return "Invalid --remote URL: it is empty. Use `http://host:port`.";
+  }
   const detail = transportDetail(error);
-  const advice =
-    detail === "ERR_INVALID_URL"
-      ? "Include the scheme, for example `http://host:port`."
-      : "Check that `peektrace serve` is running there.";
-  return `Remote request to ${url} failed (${detail}). ${advice}`;
+  if (!url.includes("://")) {
+    return `Remote request to ${url} failed (${detail}). Include the scheme, for example \`http://host:port\`.`;
+  }
+  if (!isHttpUrl(url)) {
+    return `Invalid --remote URL ${url}. Use \`http://host:port\`.`;
+  }
+  return `Remote request to ${url} failed (${detail}). Check that \`peektrace serve\` is running there.`;
 };
