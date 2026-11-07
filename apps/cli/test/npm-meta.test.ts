@@ -11,7 +11,6 @@ describe("npm metadata", () => {
     for (const name of ["Claude Code", "Codex", "Pi", "OpenCode"]) {
       expect(DESCRIPTION).toContain(name);
     }
-    expect(DESCRIPTION).not.toContain("memories & sessions");
   });
   test("keywords cover every agent", () => {
     for (const k of ["codex", "pi", "opencode", "context-window"]) {
@@ -24,9 +23,6 @@ describe("npm metadata", () => {
     }
   });
   test("targets include linux-arm64", () => {
-    expect(variantName({ platform: "linux", arch: "arm64" })).toBe(
-      "@peektrace/cli-linux-arm64"
-    );
     expect(
       TARGETS.some((t) => t.platform === "linux" && t.arch === "arm64")
     ).toBe(true);

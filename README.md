@@ -3,8 +3,8 @@
 **See what your coding agent actually put in its context window.**
 
 Peektrace reads the sessions and memories that Claude Code, Codex, Pi and
-OpenCode scatter across your disk, and shows you where the tokens went: what the model was
-carrying at peak, when a session crossed into the dumb zone, which tool calls
+OpenCode scatter across your disk, and shows you where the tokens went: what
+the model was carrying at peak, when a session crossed into the dumb zone, which tool calls
 failed, and how much wall-clock time went to waiting.
 
 It runs on `127.0.0.1`, reads your files, and sends nothing anywhere.
@@ -97,8 +97,8 @@ only.
 ## Sessions
 
 Browse Claude, Codex, Pi and OpenCode sessions in the web app, filter by agent,
-then open one for the full context-budget breakdown: peak context against the window, the partition at
-peak including the hidden **thinking** band, a growth timeline marking the
+then open one for the full context-budget breakdown: peak context against the
+window, the partition at peak including the hidden **thinking** band, a growth timeline marking the
 dumb-zone crossing and every compaction cliff, the artifacts injected on each
 turn, and searchable history.
 
@@ -184,7 +184,7 @@ against a running server. Root flags go **before** the subcommand: `--json`
 (raw JSON instead of tables), `--pretty` (aligned instead of tab-separated),
 `--read-only` (refuse mutating commands), `--remote <url>`, `--otel`,
 `--no-telemetry`. `--json` and `--read-only` also work after the subcommand on
-`sessions`, `memory`, `stats` (not `stats prompt`) and `doctor`. Put `--remote`
+`sessions`, `memory` and `stats` (not `stats prompt`). Put `--remote`
 before the subcommand.
 
 ```sh
@@ -210,7 +210,7 @@ loopback sidecar and loading its URL.
 
 It is **not distributed yet**. The workflow is manual-dispatch only until builds
 can be signed and notarized; Mac builds are currently unsigned (right-click →
-Open on first launch). Plan: `.docs/plan/desktop-app.md`.
+Open on first launch)..
 
 ## Privacy posture
 

@@ -17,6 +17,7 @@ const GLOBS = [
   "README.md",
   "apps/cli/README.md",
   "apps/cli/src/index.ts",
+  "apps/cli/src/description.ts",
   "apps/cli/scripts/*.ts",
   "apps/web/src/**/*.{ts,tsx}",
   ".github/workflows/*.yml",

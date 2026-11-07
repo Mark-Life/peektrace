@@ -50,6 +50,7 @@ describe("npmReadme (root README)", async () => {
     expect(out).not.toMatch(RELATIVE_MD_LINK);
     expect(out).not.toContain("assets/");
     expect(out).not.toContain(".webp");
+    expect(out).not.toContain(".docs/");
   });
   test("keeps the Use half only", () => {
     expect(out).not.toContain("# Develop");

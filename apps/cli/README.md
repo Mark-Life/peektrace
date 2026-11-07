@@ -1,8 +1,8 @@
 # Peektrace CLI (`apps/cli`)
 
 `peektrace` — a local, **loopback-only** inspector for Claude Code, Codex, Pi and
-OpenCode sessions: context-budget forensics, stats and Claude memory. One binary built on [`@effect/cli`](https://effect.website): the
-headline `serve` command boots the browser UI, plus one-shot subcommands for
+OpenCode sessions: context-budget forensics, stats and Claude memory. One
+binary built on [`@effect/cli`](https://effect.website): the headline `serve` command boots the browser UI, plus one-shot subcommands for
 scripting.
 
 All disk I/O lives in `@workspace/core`; the CLI only parses input and renders
@@ -106,7 +106,7 @@ Flags are declared on the root command, so place them **before** the subcommand
 (`peektrace --json memory ls`, `peektrace --read-only memory rm ...`). `--json`
 and `--read-only` also work after the subcommand on `sessions`, `memory` and
 `stats` commands (`peektrace sessions ls --json`), except `stats prompt`, which
-always prints text. `doctor` also takes both. Put `--remote`, `--otel` and
+always prints text. Put `--remote`, `--otel` and
 `--no-telemetry` before the subcommand.
 
 ## Commands

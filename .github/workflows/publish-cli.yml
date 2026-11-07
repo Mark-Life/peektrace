@@ -9,15 +9,13 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # cross-compiles all five platform binaries on this one host and stages them
 # under dist-npm/.
 #
-# Native installers are the primary channel. The staged
-# binaries are published as raw assets on the GitHub Release for the tag
+# Native installers are the primary channel. The staged binaries are published as raw assets on the GitHub Release for the tag
 # (peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
 # peektrace-linux-arm64, peektrace-windows-x64.exe + a SHA256SUMS), which the
 # curl|sh / irm|iex installers (scripts/install.sh, scripts/install.ps1)
 # download. Both Linux binaries are glibc-only; musl (Alpine) is not shipped.
 #
-# Each binary
-# also ships a gzipped copy (<asset>.gz, what everything downloads by default)
+# Each binary also ships a gzipped copy (<asset>.gz, what everything downloads by default)
 # and, when it is small enough to be worth it, a delta patch from the previous
 # cli-v* release (<asset>.patch) that `peektrace upgrade` applies in place.
 # SHA256SUMS records the UNCOMPRESSED digest, which stays the trust anchor for
