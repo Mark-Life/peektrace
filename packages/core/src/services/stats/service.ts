@@ -29,6 +29,7 @@ import {
 import {
   type CacheEntry,
   isFresh,
+  mergeIndex,
   StatsCache,
   type StatsCacheShape,
 } from "./cache";
@@ -165,6 +166,14 @@ const scopeOf = (
     (id) => wanted.has(id) && agents.roots(id).supported && PARSERS[id]
   );
 };
+
+/** True when a pass walks every transcript the registry can list. */
+const isFullScope = (args: {
+  readonly agents: AgentRegistryShape;
+  readonly only?: ((ref: TranscriptRef) => boolean) | undefined;
+  readonly scope: readonly AgentId[];
+}) =>
+  !args.only && args.scope.length === scopeOf(args.agents, undefined).length;
 
 /** The window, resolved from the injected clock. */
 const windowOf = (now: number, days: number): StatsWindow => ({
@@ -335,17 +344,20 @@ const runPass = (args: {
     });
 
     if (useCache) {
-      // A narrowed pass saw one transcript, so it may only add to the index.
-      // Replacing it would drop every other shard and force a full re-parse.
-      const merged = only
-        ? [
-            ...new Map([
-              ...index,
-              ...entries.map((e) => [e.path, e] as const),
-            ]).values(),
-          ]
-        : entries;
-      yield* cache.commit(merged).pipe(Effect.orElseSucceed(() => undefined));
+      // Only a pass over every agent may replace the index and prune shards.
+      // A narrower one merges into a fresh read, so a concurrent writer's
+      // entries survive and other agents' shards stay warm.
+      const full = isFullScope({ agents, only, scope });
+      const next = mergeIndex({
+        prev: full ? index : yield* cache.load(),
+        entries,
+        scanned: new Set(refs.map((ref) => ref.path)),
+        full,
+      });
+      yield* cache.commit(next).pipe(Effect.orElseSucceed(() => undefined));
+      if (full) {
+        yield* cache.prune(new Set(next.map((e) => e.shard)));
+      }
     }
     return {
       transcripts: refs.length,
@@ -693,7 +705,10 @@ const makeService = (args: {
   const refresh: StatsServiceShape["refresh"] = (req) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
-      if (req.force === true) {
+      const scope = scopeOf(agents, req.agents);
+      // A scoped force re-extracts its own agents; wiping the dir would cost
+      // every other agent a cold run.
+      if (req.force === true && isFullScope({ agents, scope })) {
         yield* cache.clear().pipe(Effect.orElseSucceed(() => undefined));
       }
       const result = yield* runPass({
@@ -702,7 +717,7 @@ const makeService = (args: {
         force: req.force === true,
         fs,
         redact: makeRedactor({ enabled: true }),
-        scope: scopeOf(agents, req.agents),
+        scope,
         sinks: [],
         useCache: true,
         // The cache holds every fact; the report window is a read-time filter.
