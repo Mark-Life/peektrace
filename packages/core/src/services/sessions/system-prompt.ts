@@ -7,27 +7,16 @@
  */
 import type { TimelineEvent } from "./schema";
 import { estTokens, firstLine } from "./tokens";
+import { renderTool, toolWireText } from "./tool-schema";
 
 /** One named part of a system prompt. */
 export interface PromptSection {
   readonly name: string;
+  /** What the model received, when `text` reshapes it for reading. Sizes the
+   *  section, so a friendlier layout does not change the token estimate. */
+  readonly sent?: string;
   readonly text: string;
 }
-
-const asObj = (v: unknown): Record<string, unknown> | undefined =>
-  v && typeof v === "object" && !Array.isArray(v)
-    ? (v as Record<string, unknown>)
-    : undefined;
-
-/** Render one tool definition the way the model receives it: name, description, schema. */
-const renderTool = (tool: unknown): string => {
-  const o = asObj(tool) ?? {};
-  const { name, description, ...rest } = o;
-  const head = `### ${typeof name === "string" ? name : "tool"}`;
-  const desc = typeof description === "string" ? description : "";
-  const schema = Object.keys(rest).length ? JSON.stringify(rest, null, 2) : "";
-  return [head, desc, schema].filter(Boolean).join("\n\n");
-};
 
 /** A `tools (N)` section from raw tool definitions, or null when there are none. */
 export const toolsSection = (
@@ -37,7 +26,8 @@ export const toolsSection = (
   Array.isArray(tools) && tools.length > 0
     ? {
         name: `${label} (${tools.length})`,
-        text: tools.map(renderTool).join("\n\n"),
+        sent: tools.map(toolWireText).join("\n"),
+        text: tools.map((t) => renderTool(t)).join("\n\n"),
       }
     : null;
 
@@ -78,7 +68,10 @@ export const systemPromptEvent = (args: {
         ? firstLine(body)
         : sections.map((s) => s.name).join(" · "),
     body,
-    tokensEst: estTokens(body),
+    tokensEst: sections.reduce(
+      (n, sec) => n + estTokens(sec.sent ?? sec.text),
+      0
+    ),
     attachmentType: args.attachmentType,
     ...(args.ts === undefined ? {} : { ts: args.ts }),
     ...(args.isSidechain === undefined
