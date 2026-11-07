@@ -3,7 +3,9 @@
  * The plan is unit-tested elsewhere; this covers the part unit tests cannot —
  * that the components mount at all, over a session carrying every `EventKind`,
  * and that the markers a script would target (`history-event`, `chat-chip`,
- * `dumbzone-divider`) come out in the counts the layout promises.
+ * `dumbzone-divider`) come out in the counts the layout promises. The
+ * transcripts only mount what is near the screen, so the counts render every
+ * block through the same per-block views the lists use.
  */
 
 import { expect, test } from "bun:test";
@@ -13,11 +15,18 @@ import type {
   Turn,
 } from "@workspace/core/services/sessions/schema";
 import { renderToStaticMarkup } from "react-dom/server";
+import { buildChatPlan, chatNodeKeys } from "../src/lib/chat-lane";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import type { ToolMarks } from "../src/lib/session-markers";
 import { indexTools } from "../src/lib/tool-event";
-import { TranscriptChat } from "../src/routes/sessions/transcript-chat";
-import { TranscriptTable } from "../src/routes/sessions/transcript-table";
+import {
+  ChatNodeView,
+  TranscriptChat,
+} from "../src/routes/sessions/transcript-chat";
+import {
+  TableRowView,
+  TranscriptTable,
+} from "../src/routes/sessions/transcript-table";
 
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
   body: "",
@@ -159,23 +168,60 @@ const noop = () => {
 
 const countOf = (html: string, needle: string) => html.split(needle).length - 1;
 
-test("chat renders every event kind", () => {
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark={null}
-      allOpen={false}
-      crossEvtIdx={9}
-      isOpen={() => false}
-      marks={NO_MARKS}
-      onToggle={noop}
-      queryActive={false}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
+/** Every block of the chat plan, drawn the way the virtual list draws one. */
+const chatHtml = ({
+  activeMark = null,
+  marks = NO_MARKS,
+  open,
+}: {
+  readonly activeMark?: string | null;
+  readonly marks?: ToolMarks;
+  readonly open: boolean;
+}) => {
+  const plan = buildChatPlan({ crossEvtIdx: 9, rows: ROWS, turns: TURNS });
+  const keys = chatNodeKeys(plan);
+  return renderToStaticMarkup(
+    <div>
+      {plan.map((n, i) => (
+        <ChatNodeView
+          a={SESSION}
+          activeMark={activeMark}
+          allOpen={open}
+          isOpen={() => open}
+          key={keys[i]}
+          marks={marks}
+          n={n}
+          onToggle={noop}
+          queryActive={open}
+          tools={indexTools(SESSION)}
+        />
+      ))}
+    </div>
   );
-  expect(html).toContain('data-testid="chat-transcript"');
+};
+
+/** Every table row, drawn the way the virtual list draws one. */
+const tableHtml = (divider: (pos: number) => boolean) =>
+  renderToStaticMarkup(
+    <div>
+      {ROWS.map((row) => (
+        <TableRowView
+          a={SESSION}
+          divider={divider(row.pos)}
+          isOpen={() => false}
+          key={row.pos}
+          onToggle={noop}
+          row={row}
+          share={undefined}
+          tools={indexTools(SESSION)}
+          turn={TURNS[row.pos] ?? 0}
+        />
+      ))}
+    </div>
+  );
+
+test("chat renders every event kind", () => {
+  const html = chatHtml({ open: false });
   expect(html).toContain('data-testid="dumbzone-divider"');
   expect(html).toContain('data-testid="chat-turn-rule"');
   // 14 non-system rows, minus the result folded into its call, minus the three
@@ -192,42 +238,14 @@ test("chat renders every event kind", () => {
 });
 
 test("chat renders expanded without throwing", () => {
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark={null}
-      allOpen={true}
-      crossEvtIdx={9}
-      isOpen={() => true}
-      marks={NO_MARKS}
-      onToggle={noop}
-      queryActive={true}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
-  );
+  const html = chatHtml({ open: true });
   expect(html).toContain("file contents");
   expect(html).toContain("running notes");
   expect(html).toContain("You are a coding agent.");
 });
 
 test("expanded chat code blocks wrap instead of scrolling sideways", () => {
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark={null}
-      allOpen={true}
-      crossEvtIdx={9}
-      isOpen={() => true}
-      marks={NO_MARKS}
-      onToggle={noop}
-      queryActive={true}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
-  );
+  const html = chatHtml({ open: true });
   const pres = html.match(/<pre class="[^"]*"/g) ?? [];
   expect(pres.length).toBeGreaterThan(0);
   for (const pre of pres) {
@@ -237,9 +255,42 @@ test("expanded chat code blocks wrap instead of scrolling sideways", () => {
 });
 
 test("table renders the same rows", () => {
-  const html = renderToStaticMarkup(
+  const html = tableHtml((pos) => pos === 9);
+  expect(countOf(html, 'data-testid="history-event"')).toBe(ROWS.length);
+  expect(countOf(html, 'data-testid="dumbzone-divider"')).toBe(1);
+});
+
+test("table tool rows carry their tool-use id, so call links can land", () => {
+  const html = tableHtml(() => false);
+  expect(countOf(html, 'data-tool-use-id="t1"')).toBe(2);
+  expect(html).toContain('data-tool-use-id="orphan"');
+});
+
+test("both transcripts mount as lists before the page has scrolled", () => {
+  const chat = renderToStaticMarkup(
+    <TranscriptChat
+      a={SESSION}
+      activeMark={null}
+      allOpen={false}
+      callId="t1"
+      crossEvtIdx={9}
+      isOpen={() => false}
+      marks={NO_MARKS}
+      onToggle={noop}
+      queryActive={false}
+      rows={ROWS}
+      tools={indexTools(SESSION)}
+      turns={TURNS}
+    />
+  );
+  expect(chat).toContain('data-testid="chat-transcript"');
+  expect(chat).toContain('aria-posinset="1"');
+  expect(chat).toContain('data-testid="history-event"');
+  const table = renderToStaticMarkup(
     <TranscriptTable
       a={SESSION}
+      allOpen={false}
+      callId={null}
       crossEvtIdx={9}
       isOpen={() => false}
       onSort={noop}
@@ -250,14 +301,17 @@ test("table renders the same rows", () => {
       turns={TURNS}
     />
   );
-  expect(countOf(html, 'data-testid="history-event"')).toBe(ROWS.length);
-  expect(html).toContain('data-testid="dumbzone-divider"');
+  expect(table).toContain('data-testid="table-transcript"');
+  expect(table).toContain(`aria-setsize="${ROWS.length}"`);
+  expect(table).toContain('data-testid="history-event"');
 });
 
 test("token sort shows window share, hides the divider, marks the header", () => {
   const html = renderToStaticMarkup(
     <TranscriptTable
       a={SESSION}
+      allOpen={false}
+      callId={null}
       crossEvtIdx={9}
       isOpen={() => false}
       onSort={noop}
@@ -277,6 +331,8 @@ test("token sort shows window share, hides the divider, marks the header", () =>
 test("empty filters read the same in both layouts", () => {
   const props = {
     a: SESSION,
+    allOpen: false,
+    callId: null,
     crossEvtIdx: -1,
     isOpen: () => false,
     onToggle: noop,
@@ -288,7 +344,6 @@ test("empty filters read the same in both layouts", () => {
     <TranscriptChat
       {...props}
       activeMark={null}
-      allOpen={false}
       marks={NO_MARKS}
       queryActive={false}
     />
@@ -314,21 +369,7 @@ test("a stats marker lands on the card its detector counted", () => {
       ],
     ],
   ]);
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark="piped-exit-code"
-      allOpen={false}
-      crossEvtIdx={9}
-      isOpen={() => false}
-      marks={marks}
-      onToggle={noop}
-      queryActive={false}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
-  );
+  const html = chatHtml({ activeMark: "piped-exit-code", marks, open: false });
   expect(countOf(html, 'data-testid="stats-marker"')).toBe(1);
   expect(html).toContain('data-detector="piped-exit-code"');
   expect(html).toContain("silent fail");

@@ -29,12 +29,19 @@ import {
   ShieldAlertIcon,
   TableIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
+import { filterRows, searchIndex } from "../../lib/history-filter";
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
-import { useScrollToCall, useToolMarks } from "../../lib/session-markers";
+import { useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
   type SessionView,
@@ -106,22 +113,20 @@ export const SessionHistory = ({
         )
       : -1;
 
-  const visible = useMemo(() => {
-    const rows = a.events
-      .map((e, pos) => ({ e, pos }))
-      .filter(({ e }) => e.kind !== "system")
-      .filter(({ e }) => kind === "all" || e.kind === kind)
-      .filter(({ e }) => {
-        if (query.length === 0) {
-          return true;
-        }
-        const hay = `${e.title} ${e.preview}`.toLowerCase();
-        return hay.includes(query.toLowerCase());
-      });
-    return sortRows(rows, effectiveSort);
-  }, [a.events, kind, query, effectiveSort]);
+  // The input follows every keystroke; the transcript follows when React has
+  // time, so typing never waits on a re-filter of thousands of events.
+  const deferredQuery = useDeferredValue(query);
+  const stale = query !== deferredQuery;
+  const hay = useMemo(() => searchIndex(a.events), [a.events]);
+  const visible = useMemo(
+    () =>
+      sortRows(
+        filterRows({ events: a.events, hay, kind, query: deferredQuery }),
+        effectiveSort
+      ),
+    [a.events, hay, kind, deferredQuery, effectiveSort]
+  );
 
-  useScrollToCall(callId, visible);
   // A stats link names a call the saved search or type filter can hide: say
   // so, rather than leave the reader at the top of the transcript.
   const callHidden =
@@ -310,33 +315,41 @@ export const SessionHistory = ({
         </div>
       ) : null}
 
-      {mode === "chat" ? (
-        <TranscriptChat
-          a={a}
-          activeMark={activeMark}
-          allOpen={allOpen}
-          crossEvtIdx={crossEvtIdx}
-          isOpen={isOpen}
-          marks={marks}
-          onToggle={onToggle}
-          queryActive={query.length > 0}
-          rows={visible}
-          tools={tools}
-          turns={turns}
-        />
-      ) : (
-        <TranscriptTable
-          a={a}
-          crossEvtIdx={crossEvtIdx}
-          isOpen={isOpen}
-          onSort={prefs.setSort}
-          onToggle={onToggle}
-          rows={visible}
-          sort={sort}
-          tools={tools}
-          turns={turns}
-        />
-      )}
+      <div
+        aria-busy={stale}
+        className={cn("transition-opacity", stale && "opacity-70")}
+      >
+        {mode === "chat" ? (
+          <TranscriptChat
+            a={a}
+            activeMark={activeMark}
+            allOpen={allOpen}
+            callId={callId}
+            crossEvtIdx={crossEvtIdx}
+            isOpen={isOpen}
+            marks={marks}
+            onToggle={onToggle}
+            queryActive={deferredQuery.length > 0}
+            rows={visible}
+            tools={tools}
+            turns={turns}
+          />
+        ) : (
+          <TranscriptTable
+            a={a}
+            allOpen={allOpen}
+            callId={callId}
+            crossEvtIdx={crossEvtIdx}
+            isOpen={isOpen}
+            onSort={prefs.setSort}
+            onToggle={onToggle}
+            rows={visible}
+            sort={sort}
+            tools={tools}
+            turns={turns}
+          />
+        )}
+      </div>
 
       <Subagents a={a} isOpen={isOpen} onToggle={onToggle} parent={sid} />
     </section>
