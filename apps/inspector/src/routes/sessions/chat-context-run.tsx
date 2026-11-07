@@ -99,6 +99,10 @@ const ContextChip = ({
   );
 };
 
+/** The card is the body's frame, so the body drops its own border. */
+const FLAT_BODY =
+  "max-h-[28rem] overflow-auto rounded-none border-0 bg-transparent";
+
 /** An opened chip, grown in place into a card: the chip itself is its header,
  *  so what was clicked stays where it was and names the body under it. */
 const ContextCard = ({
@@ -143,10 +147,8 @@ const ContextCard = ({
           <ChevronUpIcon className="size-3.5" />
         </span>
       </button>
-      <div className="flex flex-col gap-1 p-2">
-        <ContextEditNote e={e} />
-        <EventBody className="max-h-[28rem] overflow-auto" e={e} />
-      </div>
+      <ContextEditNote e={e} />
+      <EventBody className={FLAT_BODY} e={e} />
     </section>
   );
 };
