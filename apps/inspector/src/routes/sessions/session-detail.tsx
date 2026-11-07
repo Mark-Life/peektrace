@@ -12,10 +12,12 @@ import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { ArrowLeftIcon } from "lucide-react";
+import { useMemo } from "react";
 import { ResultView } from "../../lib/result-view";
 import { openSession } from "../../lib/routes";
 import { useAnalyzedSession } from "../../lib/session-atoms";
 import { useSessionView } from "../../lib/session-view";
+import { TranscriptSourceContext } from "../../lib/transcript-source";
 import { LoadedArtifacts } from "./loaded-artifacts";
 import { SessionHistory } from "./session-history";
 
@@ -52,6 +54,7 @@ export const SessionDetail = ({
   const view = useSessionView(id);
   const atom = useAnalyzedSession({ id, parent, redact: view.state.redacted });
   const result = useAtomValue(atom);
+  const source = useMemo(() => ({ id, parent }), [id, parent]);
 
   return (
     <div className="flex flex-col gap-4" data-testid="session-detail">
@@ -72,7 +75,9 @@ export const SessionDetail = ({
             <BudgetBar a={a} />
             <GrowthTimeline a={a} />
             <LoadedArtifacts a={a} />
-            <SessionHistory a={a} sid={id} view={view} />
+            <TranscriptSourceContext.Provider value={source}>
+              <SessionHistory a={a} sid={id} view={view} />
+            </TranscriptSourceContext.Provider>
           </div>
         )}
       </ResultView>

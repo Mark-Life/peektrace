@@ -27,6 +27,7 @@ import { callView, resultPane } from "../../lib/tool-event";
 import { sameToolPair } from "../../lib/transcript-row";
 import { ChatRow, RawToggle } from "./chat-message";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
+import { EventImages } from "./event-images";
 import { ToolPaneView, ToolResultView } from "./tool-panes";
 
 interface ChatToolCardProps {
@@ -188,6 +189,11 @@ const ChatToolCardBody = ({
           ))}
           {out ? (
             <ToolResultView isError={result?.isError === true} pane={out} />
+          ) : null}
+          {result ? (
+            <div className="px-3 empty:hidden">
+              <EventImages e={result} />
+            </div>
           ) : null}
           <div className="px-3 py-2">
             <RawToggle body={rawBoth(call, result)} />

@@ -17,7 +17,8 @@ import {
 } from "../agents";
 import { analyze } from "./analyze";
 import { SessionNotFoundError, TranscriptParseError } from "./errors";
-import { parseClaudeSession } from "./parse";
+import { imageAt } from "./images";
+import { jsonlLineAt, parseClaudeSession, parseJsonl } from "./parse";
 import { PARSERS } from "./parsers";
 import { redactParsed, redactSession } from "./redact";
 import {
@@ -45,6 +46,16 @@ export interface ParseRequest {
   readonly redact?: boolean;
 }
 
+/** Options accepted by `image`. */
+export interface ImageRequest {
+  readonly block: number;
+  readonly id: string;
+  readonly item?: number;
+  /** Line of the event in the parsed transcript (`TimelineEvent.index`). */
+  readonly line: number;
+  readonly parent?: string;
+}
+
 /** Options accepted by `analyze`. */
 export interface AnalyzeRequest {
   /** Dumb-zone threshold as a fraction of the window. Default 0.40. */
@@ -65,6 +76,16 @@ export interface SessionsServiceShape {
     req: AnalyzeRequest
   ) => Effect.Effect<
     AnalyzedSession,
+    SessionNotFoundError | TranscriptParseError
+  >;
+  /**
+   * One image's bytes from a Claude transcript, located by the event's line and
+   * `ImageRef`; null when the ref names no showable image.
+   */
+  readonly image: (
+    req: ImageRequest
+  ) => Effect.Effect<
+    NonNullable<ReturnType<typeof imageAt>> | null,
     SessionNotFoundError | TranscriptParseError
   >;
   /** Lightweight headers for every supported agent's transcripts. */
@@ -240,17 +261,37 @@ interface FullParse {
   readonly source?: string;
 }
 
+/** One transcript's text, located by id (and parent, for a nested one). */
+interface LoadedTranscript {
+  readonly agent: AgentId;
+  readonly id: string;
+  /** Nested under a parent session (a Claude subagent file). */
+  readonly nested: boolean;
+  readonly path: string;
+  readonly slug: string;
+  readonly source?: string;
+  readonly text: string;
+}
+
+const toParseError = Effect.mapError(
+  (e: { readonly path: string; readonly reason: string }) =>
+    new TranscriptParseError({ path: e.path, reason: e.reason })
+);
+
 /**
- * Resolve + full-parse a nested transcript through its parent. Only Claude
- * nests subagents under a session dir, so the parent bounds the search to one
+ * Locate + read a nested transcript through its parent. Only Claude nests
+ * subagents under a session dir, so the parent bounds the search to one
  * `subagents` tree instead of a corpus walk.
  */
-const parseNested = (args: {
+const loadNested = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly agents: AgentRegistryShape;
   readonly id: string;
   readonly parent: string;
-}): Effect.Effect<FullParse, SessionNotFoundError | TranscriptParseError> => {
+}): Effect.Effect<
+  LoadedTranscript,
+  SessionNotFoundError | TranscriptParseError
+> => {
   const { fs, agents, id, parent } = args;
   const notFound = new SessionNotFoundError({
     id,
@@ -286,25 +327,48 @@ const parseNested = (args: {
     };
     const { text } = yield* agents
       .loadTranscript({ agent: "claude", ref })
-      .pipe(
-        Effect.mapError(
-          (e) => new TranscriptParseError({ path: e.path, reason: e.reason })
-        )
-      );
-    const parsed = parseClaudeSession({
-      text,
-      path: stub.path,
-      sessionId: stub.id,
-      includeSidechainTurns: true,
-    });
+      .pipe(toParseError);
     return {
       agent: owner.agent,
-      parsed,
+      id: stub.id,
+      nested: true,
+      path: stub.path,
+      slug: owner.slug,
+      text,
       ...(owner.source ? { source: owner.source.id } : {}),
-    } satisfies FullParse;
-  }).pipe(
-    Effect.withSpan("Sessions.parseNested", { attributes: { id, parent } })
-  );
+    } satisfies LoadedTranscript;
+  });
+};
+
+/** Locate + read one transcript, nested through `parent` when given. */
+const loadText = (args: {
+  readonly fs: FileSystem.FileSystem;
+  readonly agents: AgentRegistryShape;
+  readonly id: string;
+  readonly parent?: string | undefined;
+}): Effect.Effect<
+  LoadedTranscript,
+  SessionNotFoundError | TranscriptParseError
+> => {
+  const { fs, agents, id, parent } = args;
+  if (parent !== undefined) {
+    return loadNested({ fs, agents, id, parent });
+  }
+  return Effect.gen(function* () {
+    const resolved = yield* resolveSession({ fs, agents, idOrPath: id });
+    const { text } = yield* agents
+      .loadTranscript({ agent: resolved.agent, ref: resolved })
+      .pipe(toParseError);
+    return {
+      agent: resolved.agent,
+      id: resolved.id,
+      nested: false,
+      path: resolved.path,
+      slug: resolved.slug,
+      text,
+      ...(resolved.source ? { source: resolved.source.id } : {}),
+    } satisfies LoadedTranscript;
+  });
 };
 
 /** Resolve + full-parse one transcript via its agent's parser. */
@@ -315,40 +379,43 @@ const parseFull = (args: {
   readonly parent?: string | undefined;
 }): Effect.Effect<FullParse, SessionNotFoundError | TranscriptParseError> => {
   const { fs, agents, id, parent } = args;
-  if (parent !== undefined) {
-    return parseNested({ fs, agents, id, parent });
-  }
   return Effect.gen(function* () {
-    const resolved = yield* resolveSession({ fs, agents, idOrPath: id });
-    const parser = PARSERS[resolved.agent];
+    const loaded = yield* loadText({ fs, agents, id, parent });
+    const source = loaded.source ? { source: loaded.source } : {};
+    if (loaded.nested) {
+      const parsed = parseClaudeSession({
+        text: loaded.text,
+        path: loaded.path,
+        sessionId: loaded.id,
+        includeSidechainTurns: true,
+      });
+      return { agent: loaded.agent, parsed, ...source } satisfies FullParse;
+    }
+    const parser = PARSERS[loaded.agent];
     if (!parser) {
       return yield* Effect.fail(
-        new SessionNotFoundError({ id, searchedRoot: resolved.agent })
+        new SessionNotFoundError({ id, searchedRoot: loaded.agent })
       );
     }
-    const { text } = yield* agents
-      .loadTranscript({ agent: resolved.agent, ref: resolved })
-      .pipe(
-        Effect.mapError(
-          (e) => new TranscriptParseError({ path: e.path, reason: e.reason })
-        )
-      );
     const base = parser.parseSession({
-      text,
-      path: resolved.path,
-      sessionId: resolved.id,
-      slug: resolved.slug,
+      text: loaded.text,
+      path: loaded.path,
+      sessionId: loaded.id,
+      slug: loaded.slug,
     });
     const parsed =
-      resolved.agent === "claude"
+      loaded.agent === "claude"
         ? yield* foldClaudeSubagents({ fs, agents, parsed: base, id })
         : base;
-    return {
-      agent: resolved.agent,
-      parsed,
-      ...(resolved.source ? { source: resolved.source.id } : {}),
-    } satisfies FullParse;
-  }).pipe(Effect.withSpan("Sessions.parse", { attributes: { id } }));
+    return { agent: loaded.agent, parsed, ...source } satisfies FullParse;
+  }).pipe(
+    Effect.withSpan(
+      parent === undefined ? "Sessions.parse" : "Sessions.parseNested",
+      {
+        attributes: { id, ...(parent === undefined ? {} : { parent }) },
+      }
+    )
+  );
 };
 
 /** Build one header from a transcript ref via its agent's parser. */
@@ -448,7 +515,29 @@ const makeService = (args: {
       return redact ? redactSession(result) : result;
     }).pipe(Effect.withSpan("Sessions.analyze", { attributes: { id } }));
 
-  return { list, parse, analyze: analyzeReq };
+  const image: SessionsServiceShape["image"] = ({
+    id,
+    parent,
+    line,
+    block,
+    item,
+  }) =>
+    loadText({ fs, agents, id, parent }).pipe(
+      Effect.map(({ agent, text }) => {
+        if (agent !== "claude") {
+          return null;
+        }
+        // Parse only the one line; the full parse is the fallback for a
+        // transcript whose malformed lines shift the numbering.
+        const at = (raw: unknown) => imageAt({ line: raw, block, item });
+        return (
+          at(jsonlLineAt(text, line)) ?? at(parseJsonl(text)[line]) ?? null
+        );
+      }),
+      Effect.withSpan("Sessions.image", { attributes: { id, line } })
+    );
+
+  return { list, parse, analyze: analyzeReq, image };
 };
 
 /** Live layer: depends on AgentRegistry + the platform FileSystem. */

@@ -130,6 +130,19 @@ export const PromptOrigin = Schema.Literal(
 );
 export type PromptOrigin = typeof PromptOrigin.Type;
 
+/**
+ * Where an image's bytes sit in the transcript: content block `block` of the
+ * event's line, and item `item` inside it when that block is a tool result.
+ * Events carry the ref, never the base64, so the payload stays small and the
+ * inspector fetches an image only when it is opened.
+ */
+export const ImageRef = Schema.Struct({
+  block: Schema.Number,
+  item: Schema.optional(Schema.Number),
+  mediaType: Schema.String,
+});
+export type ImageRef = typeof ImageRef.Type;
+
 /** Budget category an attachment contributes to (null = not persistent context). */
 export const LoadedCategory = Schema.Literal(
   "claude-md",
@@ -211,6 +224,8 @@ export const TimelineEvent = Schema.Struct({
   toolName: Schema.optional(Schema.String),
   toolUseId: Schema.optional(Schema.String),
   attachmentType: Schema.optional(Schema.String),
+  /** Images on this event's line, fetched on demand (`sessions.image`). */
+  images: Schema.optional(Schema.Array(ImageRef)),
   loadedCategory: Schema.optional(LoadedCategory),
   contextEdit: Schema.optional(ContextEdit),
 });

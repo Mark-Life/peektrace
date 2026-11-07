@@ -8,6 +8,7 @@ import {
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import { bodyView, EMPTY_BODY } from "../../lib/tool-event";
+import { EventImages } from "./event-images";
 
 const COPY = "absolute top-1 right-1 z-10 size-7";
 
@@ -30,8 +31,23 @@ export const ProseBody = ({
   </div>
 );
 
-/** One event's body, or `empty` in italics when it has none. */
-export const EventBody = ({
+/** One event's body, or `empty` in italics when it has none; an image event
+ *  shows the image above its marker text. */
+export const EventBody = (props: {
+  readonly className?: string;
+  readonly e: TimelineEvent;
+  readonly empty?: string;
+}) =>
+  props.e.images && props.e.images.length > 0 ? (
+    <div className="flex flex-col gap-1.5">
+      <EventImages e={props.e} />
+      <EventText {...props} />
+    </div>
+  ) : (
+    <EventText {...props} />
+  );
+
+const EventText = ({
   className,
   e,
   empty = EMPTY_BODY,
