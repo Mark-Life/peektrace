@@ -3,7 +3,7 @@ When writing or reviewing TypeScript/full-stack code, follow the `quality-code` 
 
 
 ## Typecheck
-Typecheck with `bun run typecheck` (per-package `tsc --noEmit`). Never run `tsc -b` or bare `tsc` — build/emit mode writes `.js`/`.d.ts`/`.d.ts.map` next to sources and pollutes the tree; stale emitted `*.test.js` then get double-run by `bun test`. The base tsconfig sets `noEmit`, but build mode (`-b`) bypasses it. This repo never builds via tsc (Bun runs TS directly; the inspector builds with Vite; web with Next).
+Typecheck with `bun run typecheck` (per-package `tsrs --noEmit`, the Rust TypeScript 7 port from oxc-project/tsrs; `typescript` stays installed for editors and tooling). Never run `tsc -b` or bare `tsc` — build/emit mode writes `.js`/`.d.ts`/`.d.ts.map` next to sources and pollutes the tree; stale emitted `*.test.js` then get double-run by `bun test`. The base tsconfig sets `noEmit`, but build mode (`-b`) bypasses it. This repo never builds via tsc (Bun runs TS directly; the inspector builds with Vite; web with Next).
 
 ## Local Effect Source
 Two Effect checkouts are cloned locally for reference (we're mid-transition, so both matter):

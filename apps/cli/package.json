@@ -8,7 +8,7 @@
     "peektrace": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsrs --noEmit",
     "test": "bun test",
     "start": "bun run src/index.ts",
     "build:ui": "bun run --filter=inspector build",
