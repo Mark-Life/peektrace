@@ -17,6 +17,8 @@
     "@effect/rpc": "latest",
     "@effect/platform": "latest",
     "@effect-atom/atom-react": "latest",
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@workspace/core": "workspace:*",
     "@workspace/rpc": "workspace:*",
     "@workspace/ui": "workspace:*",

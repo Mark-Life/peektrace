@@ -1,18 +1,29 @@
 /*
- * Inspector font variables.
+ * Inspector fonts.
  *
  * `@workspace/ui/globals.css` externalizes its font stacks: it maps the
  * Tailwind `font-sans`/`font-heading` utilities to `var(--font-sans)` /
  * `var(--font-heading)` and expects the consuming app to define them. The web
- * app supplies these via `next/font` (DM Sans + Geist). This Vite app has no
- * font loader, so without these declarations `var(--font-sans)` is invalid and
- * the browser falls back to its default serif. Define a system-ui stack here.
+ * app supplies these via `next/font`. This Vite app has no font loader, so the
+ * faces are bundled from Fontsource (Geist and Geist Mono, both with Cyrillic)
+ * and embedded in the binary with the rest of `dist/`.
+ *
+ * Bundled rather than left to the system: on a machine without the Tailwind
+ * mono stack (SF Mono, Menlo, Consolas…), most Linux boxes, the browser falls
+ * back to DejaVu Sans Mono, whose tall ascent and descent sit the glyphs high in
+ * their line box, so chip and badge labels look off-centre.
  *
  * Imported in `main.tsx` AFTER globals.css so it wins the cascade.
  */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
 :root {
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, sans-serif;
+    "Geist Variable", ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-heading: var(--font-sans);
+  --font-mono:
+    "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
 }
