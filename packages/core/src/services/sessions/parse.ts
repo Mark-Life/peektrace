@@ -1,5 +1,6 @@
 /** Parse a Claude Code JSONL transcript into a normalized ParsedSession. */
 import { attachmentEvent, type PromptSeen } from "./claude-attachments";
+import { deadBranchRows } from "./claude-branches";
 import {
   bump,
   type CompactTokens,
@@ -536,10 +537,16 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
   };
   const meta: Meta = {};
 
-  parseJsonl(text).forEach((o, index) => {
+  const lines = parseJsonl(text);
+  // Rows abandoned by a rewind still feed meta, never turns or events.
+  const dead = deadBranchRows(lines);
+  lines.forEach((o, index) => {
     const type = typeof o.type === "string" ? o.type : "";
     const ts = typeof o.timestamp === "string" ? o.timestamp : undefined;
     applyMeta(meta, o, ts);
+    if (dead.has(index)) {
+      return;
+    }
     const ctx: LineCtx = {
       o,
       index,

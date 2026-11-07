@@ -15,6 +15,7 @@ import { parseJsonl } from "../parse";
 import type { ParsedSession, TimelineEvent, Turn } from "../schema";
 import { estTokens, firstLine } from "../tokens";
 import { windowForModel } from "./model-windows";
+import { activeBranch } from "./pi-branch";
 import {
   type PiBase,
   piBashEvent,
@@ -393,7 +394,10 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   const meta: Meta = {};
 
   const lines = parseJsonl(text);
-  const edits = collectPiEdits(lines);
+  // Entries off the active branch keep only session-wide meta.
+  const live = activeBranch(lines);
+  const onBranch = (i: number) => live === null || live.has(i);
+  const edits = collectPiEdits(lines, onBranch);
   const editFor = (line: RawLine) =>
     typeof line.id === "string" && isEditable(line)
       ? edits.get(line.id)
@@ -406,10 +410,20 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
       meta.startedAt ??= ts;
       meta.endedAt = ts;
     }
+    if (type === "session") {
+      applySessionLine(meta, line);
+      return;
+    }
+    if (type === "session_info") {
+      if (typeof line.name === "string" && line.name.trim() !== "") {
+        meta.title = line.name;
+      }
+      return;
+    }
+    if (!onBranch(index)) {
+      return;
+    }
     switch (type) {
-      case "session":
-        applySessionLine(meta, line);
-        break;
       case "model_change": {
         if (typeof line.modelId === "string") {
           state.models.add(line.modelId);
@@ -417,11 +431,6 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
         }
         break;
       }
-      case "session_info":
-        if (typeof line.name === "string" && line.name.trim() !== "") {
-          meta.title = line.name;
-        }
-        break;
       case "message":
         foldWithEdit({
           state,

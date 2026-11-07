@@ -11,6 +11,7 @@ const BYTES_PER_TOKEN = 4;
 const SUBAGENT_FILE = /^agent-.*\.jsonl$/;
 const JSONL_EXT = /\.jsonl$/;
 const SLASHES = /\/+/g;
+const TRAILING_SLASH = /\/$/;
 const WORKFLOW_RUN = "wf_";
 
 /** A resolved transcript location plus its optional subagents dir. */
@@ -421,42 +422,6 @@ const readContextFile = (args: {
   );
 };
 
-/** Sum byte sizes of every file under a memory dir, returning [bytes, count]. */
-const sumMemoryDir = (args: {
-  readonly fs: FileSystem.FileSystem;
-  readonly dir: string;
-}): Effect.Effect<readonly [number, number]> => {
-  const { fs, dir } = args;
-  const walk = (d: string): Effect.Effect<readonly [number, number]> =>
-    Effect.gen(function* () {
-      const names = yield* fs
-        .readDirectory(d)
-        .pipe(Effect.orElseSucceed(() => [] as string[]));
-      let bytes = 0;
-      let count = 0;
-      for (const name of names) {
-        const path = join(d, name);
-        const info = yield* fs.stat(path).pipe(
-          Effect.map((s) => s),
-          Effect.orElseSucceed(() => null)
-        );
-        if (!info) {
-          continue;
-        }
-        if (info.type === "Directory") {
-          const [b, c] = yield* walk(path);
-          bytes += b;
-          count += c;
-        } else if (info.type === "File") {
-          bytes += Number(info.size);
-          count += 1;
-        }
-      }
-      return [bytes, count] as const;
-    });
-  return walk(dir);
-};
-
 /** Resolve the home + projectsRoot of the Claude source owning a session id. */
 const claudeSourcePaths = (
   agents: AgentRegistryShape,
@@ -473,9 +438,48 @@ const claudeSourcePaths = (
   };
 };
 
+/** Claude Code reads only the head of `memory/MEMORY.md`. */
+const MEMORY_MAX_LINES = 200;
+const MEMORY_MAX_BYTES = 25_000;
+
+/** Files Claude Code loads from each project dir and its ancestors. */
+const PROJECT_FILES = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"];
+
 /**
- * Gather the CLAUDE.md / AGENTS.md / memory files that would be injected into
- * the system prompt for `cwd`, used to attribute the system+tools residual.
+ * `cwd` and its ancestors, farthest first. Stops at the user's home (included)
+ * for a dir under it, else before `/`, as Claude Code skips the root.
+ */
+const projectDirs = (cwd: string, userHome: string | null) => {
+  const start = cwd.replace(SLASHES, "/").replace(TRAILING_SLASH, "");
+  const stop =
+    userHome !== null && start.startsWith(`${userHome}/`) ? userHome : null;
+  const out: string[] = [];
+  for (let d = start; d !== "" && d !== "/"; ) {
+    out.push(d);
+    if (d === stop) {
+      break;
+    }
+    d = d.slice(0, d.lastIndexOf("/"));
+  }
+  return out.reverse();
+};
+
+/** First 200 lines / 25,000 bytes of a text, as Claude Code injects it. */
+const capMemory = (text: string) => {
+  const lines = text.split("\n");
+  const head =
+    lines.length > MEMORY_MAX_LINES
+      ? lines.slice(0, MEMORY_MAX_LINES).join("\n")
+      : text;
+  const bytes = new TextEncoder().encode(head);
+  return bytes.length > MEMORY_MAX_BYTES
+    ? new TextDecoder().decode(bytes.slice(0, MEMORY_MAX_BYTES))
+    : head;
+};
+
+/**
+ * Gather the CLAUDE.md / CLAUDE.local.md / MEMORY.md files Claude Code injects
+ * into the system prompt for `cwd`, used to attribute the system+tools residual.
  */
 export const gatherOnDiskContextFiles = (args: {
   readonly fs: FileSystem.FileSystem;
@@ -506,30 +510,42 @@ export const gatherOnDiskContextFiles = (args: {
     );
 
     if (cwd) {
-      const projectFiles: ReadonlyArray<readonly [string, string]> = [
-        [join(cwd, "CLAUDE.md"), `${cwd}/CLAUDE.md`],
-        [join(cwd, "AGENTS.md"), `${cwd}/AGENTS.md`],
-        [join(cwd, ".claude", "CLAUDE.md"), `${cwd}/.claude/CLAUDE.md`],
-      ];
-      for (const [path, label] of projectFiles) {
-        push(yield* readContextFile({ fs, path, label, scope: "project" }));
+      const userHome = home.endsWith("/.claude") ? dirname(home) : null;
+      // The home's `.claude/CLAUDE.md` is the global file, read above.
+      const seen = new Set([join(home, "CLAUDE.md")]);
+      for (const dir of projectDirs(cwd, userHome)) {
+        for (const name of PROJECT_FILES) {
+          const path = join(dir, name);
+          if (!seen.has(path)) {
+            seen.add(path);
+            push(
+              yield* readContextFile({
+                fs,
+                path,
+                label: path,
+                scope: "project",
+              })
+            );
+          }
+        }
       }
 
-      const memDir = join(projectsRoot, agents.encodeSlug(cwd), "memory");
-      const present = yield* fs
-        .exists(memDir)
-        .pipe(Effect.orElseSucceed(() => false));
-      if (present) {
-        const [bytes, count] = yield* sumMemoryDir({ fs, dir: memDir });
-        if (count > 0) {
-          files.push({
-            label: `memory/ (${count} file${count === 1 ? "" : "s"})`,
-            path: memDir,
-            bytes,
-            tokensEst: Math.round(bytes / BYTES_PER_TOKEN),
-            scope: "memory",
-          });
-        }
+      const memPath = join(
+        projectsRoot,
+        agents.encodeSlug(cwd),
+        "memory",
+        "MEMORY.md"
+      );
+      const mem = yield* readContextText({ fs, path: memPath });
+      if (mem) {
+        const text = capMemory(mem.text);
+        files.push({
+          label: "memory/MEMORY.md",
+          path: memPath,
+          bytes: new TextEncoder().encode(text).length,
+          tokensEst: estTokens(text),
+          scope: "memory",
+        });
       }
     }
 

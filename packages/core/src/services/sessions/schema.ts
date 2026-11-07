@@ -309,7 +309,7 @@ export const SubagentRef = Schema.Struct({
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
-/** A CLAUDE.md / AGENTS.md / memory file read from disk for residual attribution. */
+/** A CLAUDE.md / CLAUDE.local.md / MEMORY.md file read from disk for residual attribution. */
 export const OnDiskContextFile = Schema.Struct({
   label: Schema.String,
   path: Schema.String,

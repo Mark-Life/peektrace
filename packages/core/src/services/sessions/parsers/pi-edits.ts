@@ -30,11 +30,21 @@ const parseEdit = (line: Raw, atIndex: number): PiEdit | undefined => {
   }
 };
 
-/** Map target entry id to its edits, oldest first. */
-export const collectPiEdits = (lines: readonly Raw[]) => {
+/**
+ * Map target entry id to its edits, oldest first. `keep` drops edits off the
+ * active branch, which Pi never applies.
+ */
+export const collectPiEdits = (
+  lines: readonly Raw[],
+  keep: (index: number) => boolean = () => true
+) => {
   const edits = new Map<string, PiEdit[]>();
   lines.forEach((line, atIndex) => {
-    if (line.type !== "context_edit" || typeof line.targetId !== "string") {
+    if (
+      line.type !== "context_edit" ||
+      typeof line.targetId !== "string" ||
+      !keep(atIndex)
+    ) {
       return;
     }
     const edit = parseEdit(line, atIndex);
