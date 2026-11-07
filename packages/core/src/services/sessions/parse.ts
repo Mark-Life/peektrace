@@ -458,6 +458,43 @@ const serverToolCounts = (usage: Record<string, unknown>) => {
   };
 };
 
+/** Max of two optional counts; undefined only when both are. */
+const maxOf = (a: number | undefined, b: number | undefined) => {
+  if (a === undefined) {
+    return b;
+  }
+  return b === undefined ? a : Math.max(a, b);
+};
+
+/**
+ * Fold a later streamed line of the same request into its turn. Output-side
+ * counts grow as the response streams, so keep the max; input and cache
+ * counts are fixed per request and stay as first seen.
+ */
+const mergeStreamedUsage = (prev: MutTurn, usage: Record<string, unknown>) => {
+  const output = usage.output_tokens;
+  const tools = serverToolCounts(usage);
+  return {
+    ...prev,
+    outputTokens: Math.max(
+      prev.outputTokens,
+      typeof output === "number" ? output : 0
+    ),
+    ...opt(
+      "thinkingTokens",
+      maxOf(prev.thinkingTokens, thinkingTokensOf(usage))
+    ),
+    ...opt(
+      "webSearchRequests",
+      maxOf(prev.webSearchRequests, tools.webSearchRequests)
+    ),
+    ...opt(
+      "webFetchRequests",
+      maxOf(prev.webFetchRequests, tools.webFetchRequests)
+    ),
+  };
+};
+
 /** Register the turn for an assistant line, if it should count toward the curve. */
 const registerTurn = (args: {
   readonly state: ParseState;
@@ -474,7 +511,12 @@ const registerTurn = (args: {
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cacheCreate = usage.cache_creation_input_tokens ?? 0;
   const contextTokens = inputTokens + cacheRead + cacheCreate;
-  if (!state.turnsById.has(requestId) && contextTokens > 0 && countable) {
+  const prev = state.turnsById.get(requestId);
+  if (prev) {
+    state.turnsById.set(requestId, mergeStreamedUsage(prev, args.usage));
+    return;
+  }
+  if (contextTokens > 0 && countable) {
     state.turnsById.set(requestId, {
       requestId,
       model,
