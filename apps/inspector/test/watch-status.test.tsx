@@ -1,5 +1,5 @@
 /** The header's live toggle states: one fixed name, pressed when paused, and a
- *  description that says when changes are held back. */
+ *  live-region description that says when changes are held back. */
 import { expect, test } from "bun:test";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -17,6 +17,11 @@ const render = (mode: LiveMode, syncing = false) =>
     </TooltipProvider>
   );
 
+const HIDDEN_SYNCING_LABEL =
+  /aria-hidden="true"[^>]*><span[^>]*>syncing<\/span>/;
+const WAITING_LIVE_REGION =
+  /aria-live="polite"[^>]*role="status"[^>]*>paused · updates waiting</;
+
 const DESCRIBED_BY = /aria-describedby="([^"]+)"/;
 
 /** Text of the element the toggle's `aria-describedby` points at. */
@@ -31,7 +36,9 @@ test("live: the toggle is not pressed and the label is hidden", () => {
   const html = render("live", true);
   expect(html).toContain('aria-pressed="false"');
   expect(html).toContain('aria-label="Pause live updates"');
-  expect(html).toContain("syncing");
+  expect(html).toMatch(HIDDEN_SYNCING_LABEL);
+  expect(html).not.toContain('role="status"');
+  expect(html).not.toContain("aria-live");
   expect(describedBy(html)).toBeUndefined();
 });
 
@@ -41,8 +48,12 @@ test("paused: the same toggle is pressed and described as paused", () => {
   expect(html).toContain('aria-label="Pause live updates"');
   expect(html).not.toContain("Resume live updates");
   expect(describedBy(html)).toBe("paused");
+  expect(html).toContain('aria-live="polite"');
+  expect(html).toContain('role="status"');
 });
 
-test("paused with changes on disk tells screen readers too", () => {
-  expect(describedBy(render("waiting"))).toBe("paused · updates waiting");
+test("paused with changes on disk is announced through the live region", () => {
+  const html = render("waiting");
+  expect(describedBy(html)).toBe("paused · updates waiting");
+  expect(html).toMatch(WAITING_LIVE_REGION);
 });

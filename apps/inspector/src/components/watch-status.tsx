@@ -45,9 +45,12 @@ const liveMode = (paused: boolean, waiting: boolean) => {
   return waiting ? "waiting" : "paused";
 };
 
+const TOGGLE_NAME = "Pause live updates";
+
 /** The dot, label and toggle, with no data wiring. The toggle keeps one fixed
- *  name and reports its state through `aria-pressed`; while paused, the label
- *  is its description, so "updates waiting" reaches screen readers too. */
+ *  name, used for its tooltip too, and reports its state through `aria-pressed`.
+ *  While paused, the label is a polite live region and the toggle's description,
+ *  so "updates waiting" is announced when it appears. */
 export const WatchStatusView = ({
   mode,
   syncing,
@@ -59,7 +62,6 @@ export const WatchStatusView = ({
 }) => {
   const paused = mode !== "live";
   const labelId = useId();
-  const hint = paused ? "Resume live updates" : "Pause live updates";
   const Icon = paused ? PlayIcon : PauseIcon;
   return (
     <div
@@ -87,14 +89,20 @@ export const WatchStatusView = ({
             paused || syncing ? "opacity-100" : "opacity-0"
           )}
         >
-          <span id={labelId}>{LABEL[mode]}</span>
+          <span
+            aria-live={paused ? "polite" : undefined}
+            id={labelId}
+            role={paused ? "status" : undefined}
+          >
+            {LABEL[mode]}
+          </span>
         </span>
       </span>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-describedby={paused ? labelId : undefined}
-            aria-label="Pause live updates"
+            {...(paused ? { "aria-describedby": labelId } : {})}
+            aria-label={TOGGLE_NAME}
             aria-pressed={paused}
             data-testid="watch-pause"
             onClick={onToggle}
@@ -104,7 +112,7 @@ export const WatchStatusView = ({
             <Icon />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{hint}</TooltipContent>
+        <TooltipContent side="bottom">{TOGGLE_NAME}</TooltipContent>
       </Tooltip>
     </div>
   );

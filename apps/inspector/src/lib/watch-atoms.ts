@@ -100,8 +100,9 @@ export const useOnVersionBump = (version: number, onBump: () => void) => {
  * Poll `watch.poll` and fan the settled bumps out to the root atoms. Returns the
  * total applied bump count across scopes, for a quiet "syncing" hint.
  *
- * Mount this in a LEAF component only — it subscribes to both version atoms, so
- * its caller re-renders on every real change. `WatchStatus` is that leaf.
+ * Mount this in a LEAF component only — it subscribes to both settled version
+ * atoms, so its caller re-renders on every settled bump. `WatchStatus` is that
+ * leaf.
  */
 export const useWatchRefresh = () => {
   const pollAgain = useAtomRefresh(watchVersionsAtom);
