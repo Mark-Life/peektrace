@@ -114,6 +114,22 @@ export const EventKind = Schema.Literal(
 );
 export type EventKind = typeof EventKind.Type;
 
+/**
+ * Who wrote a user-side prompt: a person at the keyboard (`human`), a program
+ * through the Agent SDK (`sdk`), a slash command and its output (`command`), a
+ * background task reporting back (`task-notification`), a wake-up the model
+ * scheduled (`scheduled`), or other text the harness wrote (`harness`).
+ */
+export const PromptOrigin = Schema.Literal(
+  "human",
+  "sdk",
+  "command",
+  "task-notification",
+  "scheduled",
+  "harness"
+);
+export type PromptOrigin = typeof PromptOrigin.Type;
+
 /** Budget category an attachment contributes to (null = not persistent context). */
 export const LoadedCategory = Schema.Literal(
   "claude-md",
@@ -173,6 +189,10 @@ export const TimelineEvent = Schema.Struct({
   isSidechain: Schema.optional(Schema.Boolean),
   /** The harness wrote this line, not the person at the keyboard. */
   isMeta: Schema.optional(Schema.Boolean),
+  /** Who wrote a `user-prompt`; absent when the transcript does not say. */
+  promptOrigin: Schema.optional(PromptOrigin),
+  /** Claude Code's own `promptSource` for the line (`typed`, `sdk`, `system`…). */
+  promptSource: Schema.optional(Schema.String),
   title: Schema.String,
   preview: Schema.String,
   body: Schema.String,

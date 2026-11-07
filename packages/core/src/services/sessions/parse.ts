@@ -2,6 +2,7 @@
 import { attachmentEvent, type PromptSeen } from "./claude-attachments";
 import { imageMarker, isImageBlock, omitImageData } from "./images";
 import { measureTokens } from "./measure";
+import { claudePromptOrigin, promptLabel } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 
@@ -87,15 +88,48 @@ const applyMeta = (meta: Meta, o: RawLine, ts: string | undefined) => {
   }
 };
 
+/** A prompt event, titled after whoever wrote it. */
+const promptEvent = (args: {
+  readonly o: RawLine;
+  readonly index: number;
+  readonly ts: string | undefined;
+  readonly isSidechain: boolean;
+  readonly text: string;
+  readonly title: string;
+}): TimelineEvent => {
+  const { o, index, ts, isSidechain, text } = args;
+  const origin = claudePromptOrigin(o, text);
+  const label =
+    origin === "human" || origin === "sdk"
+      ? undefined
+      : promptLabel(origin, text);
+  return {
+    index,
+    kind: "user-prompt",
+    isSidechain,
+    title: label?.title ?? args.title,
+    preview: label?.preview ?? firstLine(text),
+    body: text,
+    tokensEst: estTokens(text),
+    promptOrigin: origin,
+    ...opt("ts", ts),
+    ...opt("isMeta", o.isMeta === true ? true : undefined),
+    ...opt(
+      "promptSource",
+      typeof o.promptSource === "string" ? o.promptSource : undefined
+    ),
+  };
+};
+
 /** Build a tool_result / text event from a user content block. */
 const userBlockEvent = (args: {
   readonly block: Record<string, unknown>;
   readonly index: number;
   readonly ts: string | undefined;
   readonly isSidechain: boolean;
-  readonly isMeta: boolean;
+  readonly o: RawLine;
 }): TimelineEvent | null => {
-  const { block, index, ts, isSidechain, isMeta } = args;
+  const { block, index, ts, isSidechain, o } = args;
   if (block?.type === "tool_result") {
     const raw = omitImageData(block.content);
     const text = typeof raw === "string" ? raw : str(raw);
@@ -116,18 +150,14 @@ const userBlockEvent = (args: {
     };
   }
   if (block?.type === "text") {
-    const text = str(block.text);
-    return {
+    return promptEvent({
+      o,
       index,
-      kind: "user-prompt",
+      ts,
       isSidechain,
+      text: str(block.text),
       title: "User message",
-      preview: firstLine(text),
-      body: text,
-      tokensEst: estTokens(text),
-      ...opt("ts", ts),
-      ...opt("isMeta", isMeta ? true : undefined),
-    };
+    });
   }
   if (isImageBlock(block)) {
     const text = imageMarker(block);
@@ -220,27 +250,37 @@ const handleUser = (ctx: LineCtx) => {
   const msg = (o.message ?? {}) as Record<string, unknown>;
   const content = msg.content;
   const isCompact = o.isCompactSummary === true;
-  const isMeta = o.isMeta === true;
   if (isCompact) {
     state.compactionIndexes.push(index);
   }
   if (typeof content === "string") {
-    state.events.push({
-      index,
-      kind: isCompact ? "compaction" : "user-prompt",
-      isSidechain,
-      title: isCompact ? "Context compaction (summary)" : "User prompt",
-      preview: firstLine(content),
-      body: content,
-      tokensEst: estTokens(content),
-      ...opt("ts", ts),
-      ...opt("isMeta", isMeta ? true : undefined),
-    });
+    state.events.push(
+      isCompact
+        ? {
+            index,
+            kind: "compaction",
+            isSidechain,
+            title: "Context compaction (summary)",
+            preview: firstLine(content),
+            body: content,
+            tokensEst: estTokens(content),
+            ...opt("ts", ts),
+            ...opt("isMeta", o.isMeta === true ? true : undefined),
+          }
+        : promptEvent({
+            o,
+            index,
+            ts,
+            isSidechain,
+            text: content,
+            title: "User prompt",
+          })
+    );
     return;
   }
   if (Array.isArray(content)) {
     for (const block of content as Record<string, unknown>[]) {
-      const ev = userBlockEvent({ block, index, ts, isSidechain, isMeta });
+      const ev = userBlockEvent({ block, index, ts, isSidechain, o });
       if (ev) {
         state.events.push(ev);
       }

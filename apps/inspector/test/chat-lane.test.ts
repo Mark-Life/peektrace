@@ -56,6 +56,19 @@ describe("laneOf", () => {
     );
     expect(laneOf(evt({ kind: "user-prompt" }))).toBe("user");
   });
+
+  test("a prompt the harness wrote is centred; a person's stays right", () => {
+    for (const promptOrigin of ["human", "sdk", "command"] as const) {
+      expect(laneOf(evt({ kind: "user-prompt", promptOrigin }))).toBe("user");
+    }
+    for (const promptOrigin of [
+      "task-notification",
+      "scheduled",
+      "harness",
+    ] as const) {
+      expect(laneOf(evt({ kind: "user-prompt", promptOrigin }))).toBe("center");
+    }
+  });
 });
 
 describe("chipLabel", () => {
@@ -164,6 +177,24 @@ describe("buildChatPlan", () => {
       evt({ kind: "attachment" }),
     ]);
     expect(nodes.map((n) => n.type)).toEqual(["band", "run"]);
+  });
+
+  test("a task notification is a centred notice, not a user bubble", () => {
+    const nodes = plan([
+      evt({ kind: "user-prompt", promptOrigin: "human" }),
+      evt({ kind: "user-prompt", promptOrigin: "task-notification" }),
+      evt({ kind: "user-prompt", promptOrigin: "scheduled" }),
+    ]);
+    expect(nodes.map((n) => n.type)).toEqual(["message", "notice", "notice"]);
+  });
+
+  test("a harness system line folds into the chip cluster, not a reply", () => {
+    const nodes = plan([
+      evt({ kind: "attachment" }),
+      evt({ kind: "system", title: "system: stop_hook_summary" }),
+      evt({ kind: "assistant-text" }),
+    ]);
+    expect(nodes.map((n) => n.type)).toEqual(["run", "message"]);
   });
 
   test("turn rules mark changes only, and never turn 0", () => {

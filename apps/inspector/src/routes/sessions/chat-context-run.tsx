@@ -94,7 +94,9 @@ export const ChatContextRun = ({
           const id = chatCollapseId(pos);
           const open = isOpen(id);
           const Icon =
-            e.kind === "meta" ? InfoIcon : chipIcon(e.loadedCategory);
+            e.kind === "meta" || e.kind === "system"
+              ? InfoIcon
+              : chipIcon(e.loadedCategory);
           return (
             <Badge asChild key={id} variant="outline">
               <button

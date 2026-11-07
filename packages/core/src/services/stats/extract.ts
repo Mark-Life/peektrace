@@ -13,6 +13,7 @@
  * text is still in hand: the fact stores `failed` + `failReason`, never the
  * output, so a later cap on stored text cannot lose a failure.
  */
+import { isUserAuthored } from "../sessions/prompt-origin";
 import type { ParsedSession, TimelineEvent } from "../sessions/schema";
 import {
   CAUSES,
@@ -186,7 +187,7 @@ const sessionFactOf = (args: {
     source,
     models: parsed.models,
     turns: parsed.turns.length,
-    userMessages: parsed.events.filter((e) => e.kind === "user-prompt").length,
+    userMessages: parsed.events.filter(isUserAuthored).length,
     toolCalls,
     ...totals,
     firstTurnCacheCreation: parsed.turns[0]?.cacheCreationTokens ?? 0,

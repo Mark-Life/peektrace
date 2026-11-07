@@ -2,7 +2,8 @@
  *
  * Same filtered rows the table gets, arranged the way the session actually
  * happened: prompts on the right, model work on the left, everything injected
- * into the window centred between them. `buildChatPlan` decides the shape; this
+ * into the window — context, and prompts the harness wrote — centred between
+ * them. `buildChatPlan` decides the shape; this
  * file only maps nodes to components — and resolves each tool's name and outcome
  * here rather than inside a card, so a memoized card compares two strings
  * instead of the whole tool index, which is rebuilt on every re-analysis.
@@ -32,6 +33,7 @@ import {
   ChatTurnRule,
   RawToggle,
 } from "./chat-message";
+import { ChatNotice } from "./chat-notice";
 import { ChatToolCard } from "./chat-tool-card";
 
 /** Off-screen nodes skip layout; the transcript is long and mostly unread. */
@@ -39,7 +41,7 @@ const NODE = "[content-visibility:auto] [contain-intrinsic-size:auto_80px]";
 
 /** A stable React key per node — position-based, like every collapse id here. */
 const keyOf = (n: ChatNode, i: number) => {
-  if (n.type === "message" || n.type === "band") {
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
     return `n${n.row.pos}`;
   }
   if (n.type === "tool") {
@@ -185,6 +187,17 @@ const renderNode = ({
         onToggle={onToggle}
         open={isOpen(chatCollapseId(n.row.pos))}
         row={n.row}
+      />
+    );
+  }
+  if (n.type === "notice") {
+    const id = chatCollapseId(n.row.pos);
+    return (
+      <ChatNotice
+        collapseId={id}
+        e={n.row.e}
+        onToggle={onToggle}
+        open={isOpen(id)}
       />
     );
   }

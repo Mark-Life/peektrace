@@ -7,8 +7,9 @@ import type { TimelineEvent } from "./schema";
 
 /**
  * The badge label for one transcript row: the tool name when there is one, else
- * "system prompt" for system prompts, else the attachment type as words, else
- * the bare event kind.
+ * "system prompt" for system prompts, else what wrote a prompt the user did not
+ * type (`task notification`, `scheduled`, …), else the attachment type as
+ * words, else the bare event kind.
  *
  * The type is humanised mechanically (`skill_listing` → `skill listing`) rather
  * than looked up, so a type Claude starts writing tomorrow reads as words on the
@@ -20,6 +21,14 @@ export const eventBadgeLabel = (e: TimelineEvent): string => {
   }
   if (e.kind === "system-prompt") {
     return "system prompt";
+  }
+  if (
+    e.kind === "user-prompt" &&
+    e.promptOrigin !== undefined &&
+    e.promptOrigin !== "human" &&
+    e.promptOrigin !== "sdk"
+  ) {
+    return e.promptOrigin.replaceAll("-", " ");
   }
   const type = e.attachmentType?.trim() ?? "";
   return type === "" ? e.kind : type.replaceAll("_", " ");
