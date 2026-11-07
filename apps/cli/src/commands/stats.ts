@@ -45,8 +45,8 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { hms, json, percent, shortId, table, tokens } from "../render";
-import { withScanProgress } from "./stats-progress";
 import { splitRemote } from "../serve-auth";
+import { withScanProgress } from "./stats-progress";
 
 /** Chars of a row label or fix a cell keeps. Keys are never clipped: they route. */
 const CELL_MAX = 72;
