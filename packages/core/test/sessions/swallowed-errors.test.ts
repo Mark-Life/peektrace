@@ -21,6 +21,7 @@ import {
   TranscriptReadError,
 } from "../../src/services/agents";
 import { buildHeader } from "../../src/services/sessions/header";
+import { UNREADABLE_ROOT_ATTR } from "../../src/services/sessions/listing";
 import { parseJsonl, scanJsonl } from "../../src/services/sessions/parse";
 import {
   SessionsService,
@@ -148,6 +149,43 @@ describe("read errors are surfaced", () => {
     ]);
   });
 
+  test("list: the unreadable count lands on the root span", async () => {
+    const attrs = await run(
+      stub(),
+      Effect.gen(function* () {
+        const s = yield* SessionsService;
+        yield* Effect.withSpan(s.list(), "inner");
+        const span = yield* Effect.currentSpan;
+        return span.attributes;
+      }).pipe(
+        Effect.withSpan("root", { attributes: { "peektrace.root": true } }),
+        Effect.withSpan("outer")
+      )
+    );
+    expect(attrs.get(UNREADABLE_ROOT_ATTR)).toBe(1);
+  });
+
+  test("list: an unreadable row with no slug keeps an empty project", async () => {
+    const { unreadable } = await run(
+      stub({
+        listSessionFiles: (id) =>
+          Effect.succeed(
+            id === "claude"
+              ? [
+                  {
+                    path: join(projectDir, `${MISSING}.jsonl`),
+                    id: MISSING,
+                    slug: "",
+                  },
+                ]
+              : []
+          ),
+      }),
+      Effect.flatMap(SessionsService, (s) => s.list())
+    );
+    expect(unreadable.map((u) => u.project)).toEqual([""]);
+  });
+
   test.skipIf(isRoot)(
     "parseSubagent: an unreadable subagent is flagged",
     async () => {
@@ -232,6 +270,33 @@ describe("header messageCount", () => {
       ].join("\n")
     );
     expect(h.messageCount).toBe(3);
+  });
+
+  test("user lines that only carry tool output do not count", () => {
+    const toolResult = (id: string) =>
+      line({
+        type: "user",
+        message: {
+          content: [{ type: "tool_result", tool_use_id: id, content: "ok" }],
+        },
+      });
+    const ask = (requestId: string) =>
+      line({
+        type: "assistant",
+        requestId,
+        message: { content: [{ type: "tool_use", id: requestId }] },
+      });
+    const h = header(
+      [
+        line({ type: "user", message: { content: "q" } }),
+        ask("r1"),
+        toolResult("r1"),
+        ask("r2"),
+        toolResult("r2"),
+        ask("r3"),
+      ].join("\n")
+    );
+    expect(h.messageCount).toBe(4);
   });
 
   test("malformed mid-file lines are counted on the header", () => {

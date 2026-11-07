@@ -448,6 +448,8 @@ export type SessionHeader = typeof SessionHeader.Type;
 /** A listed transcript that could not be read. */
 export const UnreadableSession = Schema.Struct({
   agent: AgentId,
+  /** Project from the file location alone; "" when only the unread file knows
+   * it (Codex), so a project filter cannot match or exclude the row. */
   project: Schema.String,
   path: Schema.String,
 });

@@ -24,6 +24,7 @@ import {
 } from "@workspace/core";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Effect, Layer } from "effect";
+import { filterListing } from "../src/handlers";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SESSION_FIXTURES = join(
@@ -365,4 +366,26 @@ describe("settings", () => {
         }
       })
     ));
+});
+
+describe("filterListing", () => {
+  const unreadable = (project: string) => ({
+    agent: "codex" as const,
+    project,
+    path: `/x/${project || "unknown"}.jsonl`,
+  });
+  const listing = {
+    headers: [],
+    unreadable: [unreadable(""), unreadable("demo"), unreadable("other")],
+  };
+
+  test("an unreadable row with no known project passes a project filter", () => {
+    const kept = filterListing(listing, { project: "demo" });
+    expect(kept.unreadable.map((u) => u.project)).toEqual(["", "demo"]);
+  });
+
+  test("the agent filter still applies to it", () => {
+    const kept = filterListing(listing, { project: "demo", agent: "claude" });
+    expect(kept.unreadable).toEqual([]);
+  });
 });

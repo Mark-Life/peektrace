@@ -1,7 +1,7 @@
 /** Session listing: one header per readable transcript, plus the transcripts
  * that failed to read, so a read error is counted instead of hidden. */
 import type { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import { Effect, Option, type Tracer } from "effect";
 import { AGENT_IDS, type AgentId } from "../agent-id";
 import type { AgentRegistryShape } from "../agents";
 import {
@@ -27,6 +27,30 @@ export const supportedAgents = (
   agents: AgentRegistryShape
 ): readonly AgentId[] =>
   AGENT_IDS.filter((id) => agents.roots(id).supported && PARSERS[id]);
+
+/** Root-span attribute that carries the unreadable count. */
+export const UNREADABLE_ROOT_ATTR = "sessions.unreadable";
+
+/** The nearest enclosing `peektrace.root` span, else the outermost span. */
+const rootOf = (span: Tracer.Span): Tracer.Span => {
+  if (span.attributes.get("peektrace.root") === true) {
+    return span;
+  }
+  return Option.match(span.parent, {
+    onNone: () => span,
+    onSome: (p) => (p._tag === "Span" ? rootOf(p) : span),
+  });
+};
+
+/**
+ * Put a count on the root span too. A tracer may cap child spans per root, so a
+ * listing with many transcripts can drop the `Sessions.list` span itself.
+ */
+const annotateRoot = (key: string, value: number) =>
+  Effect.currentSpan.pipe(
+    Effect.map((span) => rootOf(span).attribute(key, value)),
+    Effect.ignore
+  );
 
 /** Split per-ref results into the listing. */
 const toListing = (results: readonly HeaderResult[]): SessionListing => {
@@ -60,13 +84,16 @@ export const listSessions = (args: {
   ).pipe(
     Effect.map((groups) => toListing(groups.flat())),
     Effect.tap((listing) =>
-      Effect.annotateCurrentSpan({
-        unreadable: listing.unreadable.length,
-        malformedLines: listing.headers.reduce(
-          (sum, h) => sum + (h.malformedLines ?? 0),
-          0
-        ),
-      })
+      Effect.zipRight(
+        Effect.annotateCurrentSpan({
+          unreadable: listing.unreadable.length,
+          malformedLines: listing.headers.reduce(
+            (sum, h) => sum + (h.malformedLines ?? 0),
+            0
+          ),
+        }),
+        annotateRoot(UNREADABLE_ROOT_ATTR, listing.unreadable.length)
+      )
     ),
     Effect.withSpan("Sessions.list", {
       attributes: filter?.agent ? { agent: filter.agent } : {},

@@ -46,6 +46,7 @@ export {
   TranscriptParseError,
 } from "./services/sessions/errors";
 export { buildHeader } from "./services/sessions/header";
+export { UNREADABLE_ROOT_ATTR } from "./services/sessions/listing";
 export {
   type ParseClaudeArgs,
   parseClaudeSession,

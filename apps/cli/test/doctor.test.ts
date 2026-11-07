@@ -101,6 +101,21 @@ describe("doctor unreadable count", () => {
     expect(lastUnreadableCount(events)).toBe(2);
   });
 
+  test("prefers the root attribute, which survives a dropped Sessions.list span", async () => {
+    const { lastUnreadableCount } = await import("../src/commands/doctor");
+    const { UNREADABLE_ROOT_ATTR } = await import("@workspace/core");
+    const capped = {
+      ...event(2, [{ name: "AgentRegistry.loadTranscript" }]),
+      attributes: { [UNREADABLE_ROOT_ATTR]: 3 },
+    };
+    expect(
+      lastUnreadableCount([
+        capped,
+        event(1, [{ name: "Sessions.list", unreadable: 5 }]),
+      ])
+    ).toBe(3);
+  });
+
   test("is 0 when the newest listing read everything or none was recorded", async () => {
     const { lastUnreadableCount } = await import("../src/commands/doctor");
     expect(

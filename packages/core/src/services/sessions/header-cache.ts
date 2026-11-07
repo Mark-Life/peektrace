@@ -6,6 +6,7 @@
  * re-read. A failed read is never cached, and a cache hit is reused only while
  * the file is still readable, so an unreadable file is reported on every list.
  */
+import { basename } from "node:path";
 import type { FileSystem } from "@effect/platform";
 import { Effect, Ref } from "effect";
 import type { AgentId } from "../agent-id";
@@ -94,7 +95,7 @@ const unreadable = (args: {
       _tag: "Unreadable",
       session: {
         agent: args.agent,
-        project: args.ref.slug,
+        project: basename(args.ref.slug),
         path: args.ref.path,
       },
     })

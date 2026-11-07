@@ -12,7 +12,7 @@ interface RawLine {
   readonly aiTitle?: unknown;
   readonly cwd?: unknown;
   readonly gitBranch?: unknown;
-  readonly message?: { readonly id?: unknown; readonly model?: unknown };
+  readonly message?: { readonly content?: unknown; readonly model?: unknown };
   readonly requestId?: unknown;
   readonly timestamp?: unknown;
   readonly type?: unknown;
@@ -30,15 +30,25 @@ interface HeaderAcc {
 
 /**
  * Identity of one assistant API message. Claude writes one response as one line
- * per content block, sharing a `requestId` (as `parse.ts` groups turns).
+ * per content block, sharing a `requestId`; `parse.ts` groups turns the same way.
  */
-const assistantKey = (o: RawLine, index: number) => {
-  if (typeof o.requestId === "string") {
-    return `req-${o.requestId}`;
-  }
-  return typeof o.message?.id === "string"
-    ? `msg-${o.message.id}`
-    : `line-${index}`;
+const assistantKey = (o: RawLine, index: number) =>
+  typeof o.requestId === "string" ? `req-${o.requestId}` : `line-${index}`;
+
+/** A user line that only carries tool output, not a message the user wrote.
+ * Pi and Codex headers leave tool output out of the count too. */
+const isToolResultOnly = (o: RawLine) => {
+  const content = o.message?.content;
+  return (
+    Array.isArray(content) &&
+    content.length > 0 &&
+    content.every(
+      (b) =>
+        typeof b === "object" &&
+        b !== null &&
+        (b as { type?: unknown }).type === "tool_result"
+    )
+  );
 };
 
 /** Fold one raw line's header-relevant fields into the accumulator. */
@@ -90,7 +100,7 @@ export const buildHeader = (args: {
     }
     const o = row as RawLine;
     applyLine(acc, o);
-    if (o.type === "user") {
+    if (o.type === "user" && !isToolResultOnly(o)) {
       users += 1;
     } else if (o.type === "assistant") {
       assistants.add(assistantKey(o, index));

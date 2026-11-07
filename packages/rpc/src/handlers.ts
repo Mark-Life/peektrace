@@ -216,16 +216,24 @@ const readOnlyRefusal = () =>
     })
   );
 
-/** Keep the listing rows that match the `sessions.list` project/agent filter. */
-const filterListing = (
+/**
+ * Keep the listing rows that match the `sessions.list` project/agent filter.
+ * An unreadable row with no known project ("") passes any project filter.
+ */
+export const filterListing = (
   listing: SessionListing,
   { project, agent }: typeof SessionsListPayload.Type
 ): SessionListing => {
-  const keep = (row: { readonly project: string; readonly agent: AgentId }) =>
-    (!project || row.project === project) && (!agent || row.agent === agent);
+  const keep =
+    (unknownProjectMatches: boolean) =>
+    (row: { readonly project: string; readonly agent: AgentId }) =>
+      (!project ||
+        row.project === project ||
+        (unknownProjectMatches && row.project === "")) &&
+      (!agent || row.agent === agent);
   return {
-    headers: listing.headers.filter(keep),
-    unreadable: listing.unreadable.filter(keep),
+    headers: listing.headers.filter(keep(false)),
+    unreadable: listing.unreadable.filter(keep(true)),
   };
 };
 
