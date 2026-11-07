@@ -162,7 +162,10 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
   Command.make(
     "analyze",
     {
-      id: Args.text({ name: "id" }).pipe(Args.optional),
+      id: Args.text({ name: "id" }).pipe(
+        Args.withDescription("Session id, short id, or transcript path"),
+        Args.optional
+      ),
       latest: latestOpt,
       cwd: cwdOpt,
       json: localJsonOpt,
