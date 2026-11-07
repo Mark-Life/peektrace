@@ -1,0 +1,50 @@
+name: CI
+
+# Gates every pull request and every push to main: typecheck, lint, tests, and
+# an inspector build (the CLI embeds the built inspector, so a broken build
+# breaks `serve`). Release builds live in publish-cli.yml / publish-desktop.yml.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # A new push to a PR supersedes the old run; runs on main always finish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run check
+
+      - name: Test
+        run: bun test
+
+      - name: Build inspector
+        run: bun run --filter=inspector build
