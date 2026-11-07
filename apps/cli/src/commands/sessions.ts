@@ -82,6 +82,29 @@ const verdict = (peakFraction: number, dumbZone: number): string => {
 };
 
 /** `sessions ls` — list lightweight session headers. */
+/** Validate `--limit` and parse `--since` into epoch ms. */
+const parseLsBounds = (limit: number, since: Option.Option<string>) =>
+  Effect.gen(function* () {
+    if (limit < 0) {
+      return yield* new CliUserError({
+        message: `Invalid --limit ${limit}. Use 0 for all, or a positive number.`,
+      });
+    }
+    const sinceMs = Option.isSome(since)
+      ? parseSince(since.value, Date.now())
+      : undefined;
+    if (Option.isSome(since) && sinceMs === undefined) {
+      return yield* new CliUserError({
+        message: `Invalid --since "${since.value}". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).`,
+      });
+    }
+    return sinceMs;
+  });
+
+/** Stderr notice for transcripts the listing could not read. */
+const noteUnreadable = (n: number) =>
+  n > 0 ? Console.error(unreadableNotice(n)) : Effect.void;
+
 export const makeSessionsLs = (globals: GlobalsAccessor) =>
   Command.make(
     "ls",
@@ -98,28 +121,14 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
       Effect.gen(function* () {
         const g = yield* globals({ json: jsonFlag, readOnly });
         const agentId = yield* parseAgent(agent);
-        if (limit < 0) {
-          return yield* new CliUserError({
-            message: `Invalid --limit ${limit}. Use 0 for all, or a positive number.`,
-          });
-        }
-        const sinceMs = Option.isSome(since)
-          ? parseSince(since.value, Date.now())
-          : undefined;
-        if (Option.isSome(since) && sinceMs === undefined) {
-          return yield* new CliUserError({
-            message: `Invalid --since "${since.value}". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).`,
-          });
-        }
+        const sinceMs = yield* parseLsBounds(limit, since);
         const { headers, unreadable } = yield* withClient(g, (client) =>
           client.sessions.listing({
             ...(Option.isSome(project) ? { project: project.value } : {}),
             ...(agentId === undefined ? {} : { agent: agentId }),
           })
         );
-        if (unreadable.length > 0) {
-          yield* Console.error(unreadableNotice(unreadable.length));
-        }
+        yield* noteUnreadable(unreadable.length);
         const { rows: picked, hidden } = selectSessions(headers, {
           limit,
           since: sinceMs,
