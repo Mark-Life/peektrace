@@ -203,6 +203,9 @@ export const TimelineEvent = Schema.Struct({
    */
   tokensMeasured: Schema.optional(Schema.Number),
   isError: Schema.optional(Schema.Boolean),
+  /** A server tool's call or result (web search, web fetch, advisor): the API
+   *  ran it and wrote the result into the assistant message. */
+  serverTool: Schema.optional(Schema.Boolean),
   /** Wall time the model spent on this thinking block, when the harness logs it. */
   thinkingDurationMs: Schema.optional(Schema.Number),
   toolName: Schema.optional(Schema.String),

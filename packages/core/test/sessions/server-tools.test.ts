@@ -36,6 +36,32 @@ describe("Claude server tools", () => {
     expect(results[1]?.body).toBe("error: url_not_accessible");
   });
 
+  test("other server tool results keep their text", () => {
+    const p = parseClaudeSession({
+      text: JSON.stringify({
+        type: "assistant",
+        requestId: "r9",
+        message: {
+          model: "m",
+          content: [
+            {
+              type: "code_execution_tool_result",
+              tool_use_id: "srv_9",
+              content: [{ type: "text", text: "42" }],
+            },
+          ],
+          usage: { input_tokens: 1, output_tokens: 1 },
+        },
+      }),
+      path,
+      sessionId: "s2",
+    });
+    const [result] = p.events;
+    expect(result?.title).toBe("code_execution result");
+    expect(result?.body).toBe("42");
+    expect(result?.serverTool).toBe(true);
+  });
+
   test("usage counts land on the turn and sum on the session", () => {
     const p = parsed();
     expect(p.turns[0]?.webSearchRequests).toBe(1);

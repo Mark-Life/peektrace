@@ -211,6 +211,7 @@ const advisorResultEvent = (
     preview: firstLine(text),
     body: text,
     tokensEst: redacted ? 0 : estTokens(text),
+    serverTool: true,
     ...answers(block),
   };
 };
@@ -222,18 +223,32 @@ const searchHit = (r: Block) => {
   return `- [${title}](${str(r.url)})${age}`;
 };
 
+/** Text of content blocks, joined; anything else as JSON. */
+const blockText = (content: unknown) =>
+  Array.isArray(content)
+    ? (content as Block[])
+        .map((b) => (typeof b?.text === "string" ? b.text : str(b)))
+        .join("\n\n")
+    : str(content);
+
 /** Body of a server tool result: hits, fetched text, or the error code. */
 const serverResultBody = (block: Block) => {
   const content = block.content;
+  const c = (content ?? {}) as Block;
+  if (typeof c.error_code === "string") {
+    return { text: `error: ${c.error_code}`, isError: true };
+  }
+  if (
+    block.type !== "web_search_tool_result" &&
+    block.type !== "web_fetch_tool_result"
+  ) {
+    return { text: blockText(content), isError: false };
+  }
   if (Array.isArray(content)) {
     return {
       text: (content as Block[]).map(searchHit).join("\n"),
       isError: false,
     };
-  }
-  const c = (content ?? {}) as Block;
-  if (typeof c.error_code === "string") {
-    return { text: `error: ${c.error_code}`, isError: true };
   }
   const doc = (c.content ?? {}) as Block;
   const source = (doc.source ?? {}) as Block;
@@ -265,6 +280,7 @@ const serverResultEvent = (
     preview: firstLine(text),
     body: text,
     tokensEst: estTokens(text),
+    serverTool: true,
     ...opt("isError", isError ? true : undefined),
     ...answers(block),
   };

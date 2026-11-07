@@ -296,11 +296,10 @@ const jsonPane = (v: unknown) => ({
  * prose (or JSON, when that text is JSON, as many MCP tools return), other JSON
  * is pretty-printed, anything unparseable stays verbatim — a plain string is
  * usually command output, where Markdown would mangle it. A server tool's
- * result (it carries the call's `requestId`: the API wrote it into the
- * assistant message) is text the parser shaped as Markdown, so it reads as prose.
+ * result is text the parser shaped as Markdown, so it reads as prose.
  */
 export const resultPane = (e: TimelineEvent): ResultPane => {
-  if (e.requestId !== undefined && e.body.trim() !== "") {
+  if (e.serverTool === true && e.body.trim() !== "") {
     return { text: e.body, type: "prose" };
   }
   const parsed = parseJson(e.body);
