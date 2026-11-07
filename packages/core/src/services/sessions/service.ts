@@ -39,6 +39,7 @@ import type {
   SessionHeader,
   SubagentRef,
 } from "./schema";
+import { workflowCallsByRun } from "./workflows";
 
 const JSONL = /\.jsonl$/;
 
@@ -242,14 +243,38 @@ const resolveSession = (args: {
   }).pipe(Effect.withSpan("Sessions.resolve", { attributes: { idOrPath } }));
 };
 
+/**
+ * Point each workflow agent's `toolUseId` at the Workflow call that started its
+ * run. Runs with no call in this transcript stay unlinked.
+ */
+const linkWorkflowCalls = (args: {
+  readonly stubs: readonly SubagentStub[];
+  readonly text: string;
+}) => {
+  const { stubs, text } = args;
+  if (!stubs.some((s) => s.workflowRunId && !s.toolUseId)) {
+    return [...stubs];
+  }
+  const calls = workflowCallsByRun(text);
+  return stubs.map((stub) => {
+    const call =
+      stub.workflowRunId && !stub.toolUseId
+        ? calls.get(stub.workflowRunId)
+        : undefined;
+    return call ? { ...stub, toolUseId: call } : stub;
+  });
+};
+
 /** Fold Claude subagent transcripts into a parsed session (no-op elsewhere). */
 const foldClaudeSubagents = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly agents: AgentRegistryShape;
   readonly parsed: ParsedSession;
   readonly id: string;
+  /** Raw main transcript, scanned for the Workflow calls that started runs. */
+  readonly text: string;
 }): Effect.Effect<ParsedSession> => {
-  const { fs, agents, parsed, id } = args;
+  const { fs, agents, parsed, id, text } = args;
   return resolveClaudeSession({ fs, agents, idOrPath: id }).pipe(
     Effect.flatMap((resolved) =>
       findSubagents({
@@ -257,6 +282,7 @@ const foldClaudeSubagents = (args: {
         ...(resolved.subagentDir ? { subagentDir: resolved.subagentDir } : {}),
       })
     ),
+    Effect.map((stubs) => linkWorkflowCalls({ stubs, text })),
     Effect.flatMap((stubs) =>
       Effect.forEach(stubs, (stub) => parseSubagent({ fs, stub }), {
         concurrency: LIST_CONCURRENCY,
@@ -420,7 +446,13 @@ const parseFull = (args: {
     });
     const parsed =
       loaded.agent === "claude"
-        ? yield* foldClaudeSubagents({ fs, agents, parsed: base, id })
+        ? yield* foldClaudeSubagents({
+            fs,
+            agents,
+            parsed: base,
+            id,
+            text: loaded.text,
+          })
         : base;
     return { agent: loaded.agent, parsed, ...source } satisfies FullParse;
   }).pipe(

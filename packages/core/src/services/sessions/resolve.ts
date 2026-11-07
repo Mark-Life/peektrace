@@ -5,11 +5,18 @@ import { type AgentRegistryShape, sourcesOf } from "../agents";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
 import { estTokens } from "./tokens";
+import {
+  parseWorkflowRun,
+  toAgentRef,
+  toBareAgentId,
+  type WorkflowRun,
+} from "./workflows";
 
 const BYTES_PER_TOKEN = 4;
 const SUBAGENT_FILE = /^agent-.*\.jsonl$/;
 const JSONL_EXT = /\.jsonl$/;
 const SLASHES = /\/+/g;
+const WORKFLOW_RUN = "wf_";
 
 /** A resolved transcript location plus its optional subagents dir. */
 export interface ResolvedSession {
@@ -27,11 +34,40 @@ const join = (...parts: readonly string[]): string =>
 
 const basename = (path: string): string => path.split("/").pop() ?? path;
 
+const dirname = (path: string): string =>
+  path.split("/").slice(0, -1).join("/");
+
+/** Workflow fields from meta + run json (empty outside a workflow run). */
+const workflowFields = (args: {
+  readonly id: string;
+  readonly meta: Record<string, unknown>;
+  readonly run?: WorkflowRun;
+}) => {
+  const { id, meta, run } = args;
+  if (!run) {
+    return {};
+  }
+  const phase = run.agents.get(toBareAgentId(id));
+  const title =
+    typeof meta.workflowPhase === "string"
+      ? meta.workflowPhase
+      : phase?.phaseTitle;
+  return {
+    workflowRunId: run.runId,
+    ...(run.workflowName ? { workflowName: run.workflowName } : {}),
+    ...(title ? { workflowPhase: title } : {}),
+    ...(phase?.phaseIndex === undefined
+      ? {}
+      : { workflowPhaseIndex: phase.phaseIndex }),
+  };
+};
+
 /** Build a subagent stub from its path + parsed meta (no control flow). */
 const buildStub = (args: {
   readonly id: string;
   readonly path: string;
   readonly meta: Record<string, unknown>;
+  readonly run?: WorkflowRun;
 }): SubagentStub => {
   const { id, path, meta } = args;
   return {
@@ -46,6 +82,10 @@ const buildStub = (args: {
     ...(typeof meta.toolUseId === "string"
       ? { toolUseId: meta.toolUseId }
       : {}),
+    ...(typeof meta.parentAgentId === "string"
+      ? { parentAgentId: toAgentRef(meta.parentAgentId) }
+      : {}),
+    ...workflowFields(args),
   };
 };
 
@@ -221,9 +261,19 @@ export const findSubagents = (args: {
       Effect.orElseSucceed(() => ({}) as Record<string, unknown>)
     );
 
+  const workflowsDir = join(subagentDir, "workflows");
+  const readRun = (runId: string): Effect.Effect<WorkflowRun> =>
+    fs
+      .readFileString(join(dirname(subagentDir), "workflows", `${runId}.json`))
+      .pipe(
+        Effect.map((raw) => ({ runId, ...parseWorkflowRun(raw) })),
+        Effect.orElseSucceed(() => ({ runId, agents: new Map() }))
+      );
+
   const processEntry = (
     dir: string,
-    name: string
+    name: string,
+    run?: WorkflowRun
   ): Effect.Effect<SubagentStub[]> =>
     Effect.gen(function* () {
       const path = join(dir, name);
@@ -232,21 +282,22 @@ export const findSubagents = (args: {
         Effect.orElseSucceed(() => "Other" as const)
       );
       if (type === "Directory") {
-        return yield* walk(path);
+        const isRun = dir === workflowsDir && name.startsWith(WORKFLOW_RUN);
+        return yield* walk(path, isRun ? yield* readRun(name) : run);
       }
       if (type === "File" && SUBAGENT_FILE.test(name)) {
         const id = name.replace(JSONL_EXT, "");
         const meta = yield* readMeta(dir, id);
-        return [buildStub({ id, path, meta })];
+        return [buildStub({ id, path, meta, ...(run ? { run } : {}) })];
       }
       return [];
     });
 
-  function walk(dir: string): Effect.Effect<SubagentStub[]> {
+  function walk(dir: string, run?: WorkflowRun): Effect.Effect<SubagentStub[]> {
     return fs.readDirectory(dir).pipe(
       Effect.orElseSucceed(() => [] as string[]),
       Effect.flatMap((names) =>
-        Effect.forEach(names, (name) => processEntry(dir, name))
+        Effect.forEach(names, (name) => processEntry(dir, name, run))
       ),
       Effect.map((lists) => lists.flat())
     );

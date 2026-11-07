@@ -261,10 +261,25 @@ export const SubagentRef = Schema.Struct({
   id: Schema.String,
   agentType: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
+  /**
+   * The call that launched this agent: the Workflow call for workflow agents.
+   * When `parentAgentId` is set, the call is in the parent subagent's
+   * transcript, not the main events.
+   */
   toolUseId: Schema.optional(Schema.String),
   path: Schema.String,
   turns: Schema.Number,
   peakContextTokens: Schema.Number,
+  /** The workflow run this agent belongs to: the `wf_*` dir name. */
+  workflowRunId: Schema.optional(Schema.String),
+  /** The run's workflow name, from the run json. */
+  workflowName: Schema.optional(Schema.String),
+  /** The run phase title, from meta or the run json. */
+  workflowPhase: Schema.optional(Schema.String),
+  /** The run phase position, from the run json; sort phases by it. */
+  workflowPhaseIndex: Schema.optional(Schema.Number),
+  /** The subagent that spawned this one, as `agent-<id>` like stub ids. */
+  parentAgentId: Schema.optional(Schema.String),
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
