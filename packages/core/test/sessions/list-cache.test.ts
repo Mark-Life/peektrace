@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   appendFileSync,
+  chmodSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -84,13 +85,19 @@ const makeStub = (opts: StubOptions) => {
             new TranscriptReadError({ path: ref.path, reason: "boom" })
           );
         }
-        const st = statSync(ref.path);
-        const text = readFileSync(ref.path, "utf8");
         // Whole ms, as the real loader reads mtime through a Date.
-        return Effect.succeed({
-          text,
-          sizeBytes: st.size,
-          mtimeMs: Math.trunc(st.mtimeMs),
+        return Effect.try({
+          try: () => {
+            const st = statSync(ref.path);
+            const text = readFileSync(ref.path, "utf8");
+            return {
+              text,
+              sizeBytes: st.size,
+              mtimeMs: Math.trunc(st.mtimeMs),
+            };
+          },
+          catch: (e) =>
+            new TranscriptReadError({ path: ref.path, reason: String(e) }),
         });
       }),
     roots: (id) => ({
@@ -134,7 +141,7 @@ describe("sessions.list header cache", () => {
       }).pipe(Effect.provide(layer()))
     );
     expect(second).toEqual(first);
-    expect(first.length).toBe(3);
+    expect(first.headers.length).toBe(3);
     expect(loadsSecond).toBe(0);
   });
 
@@ -199,7 +206,7 @@ describe("sessions.list header cache", () => {
             cached,
             uncached,
             loads,
-            length: cached.length,
+            length: cached.headers.length,
           });
         }
         return out;
@@ -246,9 +253,11 @@ describe("sessions.list header cache", () => {
         return [yield* s.list(), yield* s.list()] as const;
       }).pipe(Effect.provide(layer()))
     );
-    expect(first.map((h) => h.id)).not.toContain(a.id);
-    expect(second.map((h) => h.id)).toContain(a.id);
-    expect(second).toHaveLength(2);
+    expect(first.headers.map((h) => h.id)).not.toContain(a.id);
+    expect(first.unreadable.map((u) => u.path)).toEqual([a.path]);
+    expect(second.headers.map((h) => h.id)).toContain(a.id);
+    expect(second.headers).toHaveLength(2);
+    expect(second.unreadable).toEqual([]);
   });
 
   test("OpenCode-layout sessions are read on every list", async () => {
@@ -277,5 +286,74 @@ describe("sessions.list header cache", () => {
     );
     expect(stamped).toHaveLength(2);
     expect(stamped.every((l) => l.stamped)).toBe(true);
+  });
+
+  test.skipIf(process.getuid?.() === 0)(
+    "a cached header is not reused once the file stops reading",
+    async () => {
+      const { refs } = makeCorpus(["a", "b"]);
+      const [a] = refs;
+      if (!a) {
+        throw new Error("corpus");
+      }
+      const { layer } = makeStub({ refs: () => ({ claude: refs }) });
+      const [first, locked, again] = await Effect.runPromise(
+        Effect.gen(function* () {
+          const s = yield* SessionsService;
+          const one = yield* s.list();
+          chmodSync(a.path, 0o000);
+          const two = yield* s
+            .list()
+            .pipe(Effect.ensuring(Effect.sync(() => chmodSync(a.path, 0o600))));
+          chmodSync(a.path, 0o000);
+          const three = yield* s
+            .list()
+            .pipe(Effect.ensuring(Effect.sync(() => chmodSync(a.path, 0o600))));
+          return [one, two, three] as const;
+        }).pipe(Effect.provide(layer()))
+      );
+      expect(first.headers).toHaveLength(2);
+      expect(first.unreadable).toEqual([]);
+      for (const listing of [locked, again]) {
+        expect(listing.headers.map((h) => h.id)).not.toContain(a.id);
+        expect(listing.unreadable).toEqual([
+          { agent: "claude", project: a.slug, path: a.path },
+        ]);
+      }
+    }
+  );
+
+  test("headers count messages, and the count survives a cache hit", async () => {
+    const { refs } = makeCorpus(["a"]);
+    const [a] = refs;
+    if (!a) {
+      throw new Error("corpus");
+    }
+    // One assistant response written as two content-block lines.
+    const block = (text: string) =>
+      JSON.stringify({
+        type: "assistant",
+        requestId: "req-1",
+        timestamp: new Date(1_700_000_001_000).toISOString(),
+        message: {
+          id: "msg-1",
+          role: "assistant",
+          content: [{ type: "text", text }],
+        },
+      });
+    appendFileSync(a.path, `${block("one")}\n${block("two")}\n`);
+    const { layer, total } = makeStub({ refs: () => ({ claude: refs }) });
+    const [first, second, loads] = await Effect.runPromise(
+      Effect.gen(function* () {
+        const s = yield* SessionsService;
+        const one = yield* s.list();
+        const before = total();
+        const two = yield* s.list();
+        return [one, two, total() - before] as const;
+      }).pipe(Effect.provide(layer()))
+    );
+    expect(loads).toBe(0);
+    expect(first.headers[0]?.messageCount).toBe(2);
+    expect(second.headers[0]?.messageCount).toBe(2);
   });
 });

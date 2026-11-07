@@ -1,4 +1,5 @@
 /** Lightweight Pi list header: scans raw lines without building a timeline. */
+import { scanJsonl } from "../parse";
 import type { SessionHeader } from "../schema";
 import type { BuildHeaderArgs } from "./types";
 
@@ -52,6 +53,12 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
+/** A user or assistant `message` line (tool results, bash, system excluded). */
+const isMessage = (line: RawLine) => {
+  const role = ((line.message ?? {}) as RawLine).role;
+  return line.type === "message" && (role === "user" || role === "assistant");
+};
+
 /**
  * Build a lightweight Pi header from raw transcript text. Scans lines for the
  * cwd, first model, and timestamps; never constructs timeline events.
@@ -59,16 +66,15 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
 export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
   const { text, id, slug, path, sizeBytes, mtimeMs } = args;
   const acc: HeaderAcc = {};
+  const { rows, malformed } = scanJsonl(text);
   let messageCount = 0;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim()) {
+  for (const line of rows) {
+    if (!line || typeof line !== "object") {
       continue;
     }
-    messageCount += 1;
-    try {
-      applyHeaderLine(acc, JSON.parse(raw) as RawLine);
-    } catch {
-      /* tolerate a partial last line of a live session */
+    applyHeaderLine(acc, line);
+    if (isMessage(line)) {
+      messageCount += 1;
     }
   }
 
@@ -84,5 +90,6 @@ export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
     ...opt("model", acc.model),
     ...opt("startedAt", acc.startedAt),
     ...opt("title", acc.title),
+    ...opt("malformedLines", malformed > 0 ? malformed : undefined),
   };
 };

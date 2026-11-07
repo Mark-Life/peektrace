@@ -289,6 +289,8 @@ export const SubagentRef = Schema.Struct({
   workflowPhaseIndex: Schema.optional(Schema.Number),
   /** The subagent that spawned this one, as `agent-<id>` like stub ids. */
   parentAgentId: Schema.optional(Schema.String),
+  /** The transcript could not be read; `turns` and the peak are then 0. */
+  unreadable: Schema.optional(Schema.Literal(true)),
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
@@ -438,5 +440,24 @@ export const SessionHeader = Schema.Struct({
   source: Schema.optional(Schema.String),
   /** Human label for that source (e.g. "work"), shown as a badge. */
   sourceLabel: Schema.optional(Schema.String),
+  /** Malformed lines other than a partial last line; set only when above 0. */
+  malformedLines: Schema.optional(Schema.Number),
 });
 export type SessionHeader = typeof SessionHeader.Type;
+
+/** A listed transcript that could not be read. */
+export const UnreadableSession = Schema.Struct({
+  agent: AgentId,
+  /** Project from the file location alone; "" when only the unread file knows
+   * it (Codex), so a project filter cannot match or exclude the row. */
+  project: Schema.String,
+  path: Schema.String,
+});
+export type UnreadableSession = typeof UnreadableSession.Type;
+
+/** Every readable header, plus the transcripts that failed to read. */
+export const SessionListing = Schema.Struct({
+  headers: Schema.Array(SessionHeader),
+  unreadable: Schema.Array(UnreadableSession),
+});
+export type SessionListing = typeof SessionListing.Type;

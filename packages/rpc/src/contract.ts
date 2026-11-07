@@ -26,6 +26,7 @@ import {
   AnalyzedSession,
   ParsedSession,
   SessionHeader,
+  SessionListing,
 } from "@workspace/core/services/sessions/schema";
 import { PeektraceSettings } from "@workspace/core/services/settings";
 import {
@@ -326,6 +327,11 @@ export const PeektraceRpcs = RpcGroup.make(
   Rpc.make("sessions.list", {
     payload: SessionsListPayload,
     success: Schema.Array(SessionHeader),
+  }),
+  /** `sessions.list` plus the transcripts that could not be read. */
+  Rpc.make("sessions.listing", {
+    payload: SessionsListPayload,
+    success: SessionListing,
   }),
   Rpc.make("sessions.get", {
     payload: SessionGetPayload,

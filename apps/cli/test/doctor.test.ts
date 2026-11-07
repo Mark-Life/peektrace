@@ -70,3 +70,39 @@ describe("doctor export", () => {
     expect(bundle.events[0]?.attributes.argv).toBe("sessions ls");
   });
 });
+
+describe("doctor unreadable count", () => {
+  const load = async () => {
+    const { lastUnreadableCount } = await import("../src/commands/doctor");
+    const { UNREADABLE_ROOT_ATTR } = await import("@workspace/core");
+    const event = (ts: number, unreadable?: number) =>
+      ({
+        id: `e${ts}`,
+        traceId: `t${ts}`,
+        ts,
+        kind: "rpc",
+        name: "sessions.listing",
+        appVersion: "0.0.1",
+        platform: "test",
+        durationMs: 1,
+        attributes:
+          unreadable === undefined
+            ? {}
+            : { [UNREADABLE_ROOT_ATTR]: unreadable },
+        spans: [],
+        outcome: "success",
+      }) as const;
+    return { lastUnreadableCount, event };
+  };
+
+  test("reads the newest event that ran a listing", async () => {
+    const { lastUnreadableCount, event } = await load();
+    expect(lastUnreadableCount([event(3), event(2, 2), event(1, 5)])).toBe(2);
+  });
+
+  test("is 0 when the newest listing read everything or none was recorded", async () => {
+    const { lastUnreadableCount, event } = await load();
+    expect(lastUnreadableCount([event(2, 0), event(1, 4)])).toBe(0);
+    expect(lastUnreadableCount([event(1)])).toBe(0);
+  });
+});

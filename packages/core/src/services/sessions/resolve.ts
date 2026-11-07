@@ -63,6 +63,16 @@ const workflowFields = (args: {
   };
 };
 
+/** Debug-log a read that falls back to an empty value instead of failing. */
+const logSkipped = (args: {
+  readonly what: string;
+  readonly path: string;
+  readonly e: unknown;
+}) =>
+  Effect.logDebug(`${args.what} unreadable`).pipe(
+    Effect.annotateLogs({ path: args.path, reason: String(args.e) })
+  );
+
 /** Build a subagent stub from its path + parsed meta (no control flow). */
 const buildStub = (args: {
   readonly id: string;
@@ -215,9 +225,12 @@ export const resolveClaudeSession = (args: {
     }
 
     const id = idOrPath.replace(JSONL_EXT, "");
-    const slugs = yield* agents
-      .listProjectSlugs("claude")
-      .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+    const slugs = yield* agents.listProjectSlugs("claude").pipe(
+      Effect.tapError((e) =>
+        logSkipped({ what: "project slugs", path: projectsRoot, e })
+      ),
+      Effect.orElseSucceed(() => [] as readonly string[])
+    );
     // A slug only exists under its own root, so probing the union of slugs
     // against every source root is filtered by `exists`.
     const exactDir = yield* findExactAcrossSources({ fs, sources, slugs, id });
@@ -258,7 +271,12 @@ export const findSubagents = (args: {
 
   const readMeta = (dir: string, id: string) =>
     fs.readFileString(join(dir, `${id}.meta.json`)).pipe(
-      Effect.map((raw) => JSON.parse(raw) as Record<string, unknown>),
+      Effect.flatMap((raw) =>
+        Effect.try(() => JSON.parse(raw) as Record<string, unknown>)
+      ),
+      Effect.tapError((e) =>
+        logSkipped({ what: "subagent meta", path: join(dir, id), e })
+      ),
       Effect.orElseSucceed(() => ({}) as Record<string, unknown>)
     );
 
@@ -268,6 +286,9 @@ export const findSubagents = (args: {
       .readFileString(join(dirname(subagentDir), "workflows", `${runId}.json`))
       .pipe(
         Effect.map((raw) => ({ runId, ...parseWorkflowRun(raw) })),
+        Effect.tapError((e) =>
+          logSkipped({ what: "workflow run", path: runId, e })
+        ),
         Effect.orElseSucceed(() => ({ runId, agents: new Map() }))
       );
 
@@ -280,6 +301,7 @@ export const findSubagents = (args: {
       const path = join(dir, name);
       const type = yield* fs.stat(path).pipe(
         Effect.map((s) => s.type),
+        Effect.tapError((e) => logSkipped({ what: "subagent entry", path, e })),
         Effect.orElseSucceed(() => "Other" as const)
       );
       if (type === "Directory") {
@@ -296,6 +318,9 @@ export const findSubagents = (args: {
 
   function walk(dir: string, run?: WorkflowRun): Effect.Effect<SubagentStub[]> {
     return fs.readDirectory(dir).pipe(
+      Effect.tapError((e) =>
+        logSkipped({ what: "subagent dir", path: dir, e })
+      ),
       Effect.orElseSucceed(() => [] as string[]),
       Effect.flatMap((names) =>
         Effect.forEach(names, (name) => processEntry(dir, name, run))
