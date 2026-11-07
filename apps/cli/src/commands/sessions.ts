@@ -28,8 +28,9 @@ import {
 } from "../render";
 import { peakFractionOf, verdict } from "../verdict";
 import {
+  newestTarget,
   parseSince,
-  pickTarget,
+  planTarget,
   resolveCwd,
   selectSessions,
 } from "./sessions-filter";
@@ -180,16 +181,14 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
           latest,
           cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
         };
-        const needsList =
-          request.id === undefined && (latest || request.cwd !== undefined);
         const parentId = Option.getOrUndefined(parent);
         const a = yield* withClient(g, (client) =>
           Effect.gen(function* () {
-            const headers = needsList ? yield* client.sessions.list({}) : [];
-            const target = pickTarget(
-              { ...request, parent: parentId },
-              headers
-            );
+            const plan = planTarget({ ...request, parent: parentId });
+            const target =
+              plan._tag === "Newest"
+                ? newestTarget(plan.cwd, yield* client.sessions.list({}))
+                : plan;
             if (target._tag === "Invalid") {
               return yield* new CliUserError({ message: target.message });
             }

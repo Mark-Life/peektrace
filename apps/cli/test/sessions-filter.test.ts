@@ -5,6 +5,7 @@ import {
   matchesCwd,
   parseSince,
   pickTarget,
+  planTarget,
   resolveCwd,
   selectSessions,
 } from "../src/commands/sessions-filter";
@@ -195,4 +196,18 @@ test("pickTarget: conflicts, missing selector and empty matches are invalid", ()
     _tag: "Invalid",
     message: "No sessions found under /z.",
   });
+});
+
+test("planTarget asks for a listing only for the newest branch", () => {
+  expect(planTarget({ latest: true })).toEqual({
+    _tag: "Newest",
+    cwd: undefined,
+  });
+  expect(planTarget({ latest: false, cwd: "/w" })).toEqual({
+    _tag: "Newest",
+    cwd: "/w",
+  });
+  expect(planTarget({ latest: false, id: "abc" })._tag).toBe("Picked");
+  expect(planTarget({ latest: false })._tag).toBe("Invalid");
+  expect(planTarget({ latest: true, id: "abc" })._tag).toBe("Invalid");
 });

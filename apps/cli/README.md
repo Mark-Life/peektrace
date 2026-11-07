@@ -232,14 +232,16 @@ peektrace sessions analyze --parent <session-uuid> agent-<id>
 ### `statusline` — Claude Code status line
 
 Reads the JSON Claude Code pipes to a `statusLine` command, analyzes the
-transcript it names (`transcript_path`, else `session_id`) and prints one line:
+transcript it names (`transcript_path`, else `session_id` when the path does not resolve) and prints one line:
 `ctx 42% Healthy`. The percent is the current context fill. The verdict uses the
 same bands as `sessions analyze`, applied to the current fill, not the peak.
 `context_window.context_window_size` from the input sets the window when
 present.
 
 Any failure prints `ctx --` and exits 0: bad input, unknown session, or
-`--timeout <ms>` (default 1500) reached. Telemetry is never recorded for it.
+`--timeout <ms>` (default 1500) reached. The timeout covers stdin, session
+lookup and remote calls. It does not stop the parse of a very large local
+transcript, which runs to the end. Telemetry is never recorded for it.
 Under `--remote`, `transcript_path` only works if the server is on the same
 machine.
 

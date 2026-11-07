@@ -106,6 +106,26 @@ test("empty transcript_path falls back to session_id; a short id is ignored", as
   expect(short.out).toBe(FALLBACK_LINE);
 }, 60_000);
 
+test("an unresolvable transcript_path falls back to session_id", async () => {
+  const r = await run(
+    JSON.stringify({
+      session_id: ID,
+      transcript_path: `/elsewhere/${ID}.jsonl`,
+    })
+  );
+  expect(r.out).toBe("ctx 5% Healthy\n");
+}, 60_000);
+
+test("a wrongly typed context_window loses only the window", async () => {
+  const r = await run(
+    JSON.stringify({
+      transcript_path: path,
+      context_window: { context_window_size: "200000" },
+    })
+  );
+  expect(r.out).toBe("ctx 5% Healthy\n");
+}, 60_000);
+
 test("writes no telemetry even when telemetry is enabled", async () => {
   const { PEEKTRACE_NO_TELEMETRY: _off, ...env } = envFor(home);
   const r = await run(JSON.stringify({ transcript_path: path }), [], env);

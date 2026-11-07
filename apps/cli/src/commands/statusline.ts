@@ -7,7 +7,8 @@
  * server runs on the same machine.
  */
 import { Command, Options } from "@effect/cli";
-import { Console, Duration, Effect, Schema, Stream } from "effect";
+import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import { Console, Duration, Effect, Option, Schema, Stream } from "effect";
 import { type GlobalsAccessor, withClient } from "../client";
 import { finalFractionOf, verdict } from "../verdict";
 
@@ -20,27 +21,26 @@ const PERCENT = 100;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The subset of Claude Code's statusline payload we read; other fields are ignored.
- * JSON `null` counts as absent so one null field cannot sink the whole decode. */
+ * JSON `null` counts as absent so one null field cannot sink the whole decode.
+ * `context_window` stays unknown here and is decoded on its own, so a wrong
+ * type there loses only the window, not the transcript. */
 const StatuslineInput = Schema.Struct({
   session_id: Schema.optionalWith(Schema.String, { nullable: true }),
   transcript_path: Schema.optionalWith(Schema.String, { nullable: true }),
-  context_window: Schema.optionalWith(
-    Schema.Struct({
-      context_window_size: Schema.optionalWith(Schema.Number, {
-        nullable: true,
-      }),
-    }),
-    { nullable: true }
-  ),
+  context_window: Schema.optional(Schema.Unknown),
+});
+
+const ContextWindow = Schema.Struct({
+  context_window_size: Schema.Number.pipe(Schema.positive()),
 });
 
 const decodeInput = Schema.decodeUnknown(Schema.parseJson(StatuslineInput));
+const decodeWindow = Schema.decodeUnknownOption(ContextWindow);
 
 /** Format the one-line output from the current context fill. */
 const formatStatusline = (
-  a: Parameters<typeof finalFractionOf>[0] & {
-    readonly dumbZoneFraction: number;
-  }
+  a: Parameters<typeof finalFractionOf>[0] &
+    Pick<AnalyzedSession, "dumbZoneFraction">
 ) => {
   const fill = finalFractionOf(a);
   const shown = Math.min(MAX_PERCENT, Math.round(fill * PERCENT));
@@ -68,7 +68,7 @@ const readStdin = process.stdin.isTTY
 
 const timeoutOpt = Options.integer("timeout").pipe(
   Options.withDescription(
-    `Give up and print "${FALLBACK}" after this many ms (default ${DEFAULT_TIMEOUT_MS})`
+    `Give up and print "${FALLBACK}" after this many ms (default ${DEFAULT_TIMEOUT_MS}). Covers stdin, lookup and remote calls, not parsing a large transcript`
   ),
   Options.withDefault(DEFAULT_TIMEOUT_MS)
 );
@@ -83,23 +83,31 @@ export const makeStatusline = (globals: GlobalsAccessor) =>
         input.session_id && UUID.test(input.session_id)
           ? input.session_id
           : undefined;
-      const id = input.transcript_path || sessionId;
-      if (!id) {
+      const path = input.transcript_path || undefined;
+      const window = Option.getOrUndefined(
+        decodeWindow(input.context_window)
+      )?.context_window_size;
+      const analyze = (id: string) =>
+        withClient(g, (client) =>
+          client.sessions.analyze({
+            id,
+            ...(window === undefined ? {} : { window }),
+          })
+        );
+      const first = path ?? sessionId;
+      if (first === undefined) {
         return FALLBACK;
       }
-      const window = input.context_window?.context_window_size;
-      const a = yield* withClient(g, (client) =>
-        client.sessions.analyze({
-          id,
-          ...(window && window > 0 ? { window } : {}),
-        })
+      const a = yield* analyze(first).pipe(
+        Effect.catchTag("SessionNotFoundError", (e) =>
+          path !== undefined && sessionId !== undefined
+            ? analyze(sessionId)
+            : Effect.fail(e)
+        )
       );
       return formatStatusline(a);
     }).pipe(
-      Effect.timeoutFail({
-        duration: Duration.millis(Math.max(1, timeout)),
-        onTimeout: () => "timeout",
-      }),
+      Effect.timeout(Duration.millis(Math.max(1, timeout))),
       Effect.catchAllCause(() => Effect.succeed(FALLBACK)),
       Effect.flatMap(Console.log)
     )
