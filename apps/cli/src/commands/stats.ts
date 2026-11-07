@@ -45,6 +45,7 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { hms, json, percent, shortId, table, tokens } from "../render";
+import { withScanProgress } from "./stats-progress";
 
 /** Chars of a row label or fix a cell keeps. Keys are never clipped: they route. */
 const CELL_MAX = 72;
@@ -425,13 +426,15 @@ const makeStatsDrill = (globals: GlobalsAccessor) =>
           });
         }
         const scope = yield* scopeOf(opts.agent);
-        const result = yield* withClient(g, (client) =>
-          client.stats.drill({
-            ...scope,
-            ...windowOf(opts.days, opts.limit),
-            key: target.key,
-            table: target.table,
-          })
+        const result = yield* withScanProgress(
+          withClient(g, (client) =>
+            client.stats.drill({
+              ...scope,
+              ...windowOf(opts.days, opts.limit),
+              key: target.key,
+              table: target.table,
+            })
+          )
         );
         if (g.json) {
           return yield* Console.log(json(result));
@@ -515,8 +518,13 @@ const makeStatsPrompt = (globals: GlobalsAccessor) =>
         }
         const target: PromptTarget = picked[0] ?? { table: "report" };
         const scope = yield* scopeOf(opts.agent);
-        const report = yield* withClient(g, (client) =>
-          client.stats.report({ ...scope, ...windowOf(opts.days, opts.limit) })
+        const report = yield* withScanProgress(
+          withClient(g, (client) =>
+            client.stats.report({
+              ...scope,
+              ...windowOf(opts.days, opts.limit),
+            })
+          )
         );
         const text = statsPrompt({
           agent: scope.agents?.[0] ?? null,
@@ -548,8 +556,10 @@ const makeStatsRefresh = (globals: GlobalsAccessor) =>
       Effect.gen(function* () {
         const g = yield* globals({ json: opts.json, readOnly: opts.readOnly });
         const scope = yield* scopeOf(opts.agent);
-        const summary = yield* withClient(g, (client) =>
-          client.stats.refresh({ ...scope, force: opts.force })
+        const summary = yield* withScanProgress(
+          withClient(g, (client) =>
+            client.stats.refresh({ ...scope, force: opts.force })
+          )
         );
         if (g.json) {
           return yield* Console.log(json(summary));
@@ -579,8 +589,10 @@ const runReport = (args: {
 }) =>
   Effect.gen(function* () {
     const { days, g, limit, scope } = args;
-    const result = yield* withClient(g, (client) =>
-      client.stats.report({ ...scope, ...windowOf(days, limit) })
+    const result = yield* withScanProgress(
+      withClient(g, (client) =>
+        client.stats.report({ ...scope, ...windowOf(days, limit) })
+      )
     );
     return yield* Console.log(
       g.json ? json(result) : renderReport(result, g.compact)
