@@ -160,6 +160,7 @@ peektrace stats refresh [--force]        # rescan and rebuild the cache
 peektrace stats drill --fail <key>       # expand one row
 peektrace stats drill --cause <id>       # failed → retry pairs behind a cause
 peektrace stats prompt [--cause <id> | --fail <key> | --time <job>]  # agent prompt
+peektrace stats usage [--by day|month|block] [--days N] [--tz IANA]  # tokens and cost over time
 ```
 
 ## Memory
