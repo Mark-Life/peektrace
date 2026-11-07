@@ -354,6 +354,19 @@ describe("shaping a result", () => {
     });
   });
 
+  test("a server tool's result (it has a requestId) reads as prose", () => {
+    const hits: TimelineEvent = {
+      body: "- [Bun 1.4](https://bun.sh/blog/bun-v1.4)",
+      index: 0,
+      kind: "tool-result",
+      preview: "",
+      requestId: "r1",
+      title: "web_search result",
+      tokensEst: 0,
+    };
+    expect(resultPane(hits)).toEqual({ text: hits.body, type: "prose" });
+  });
+
   test("an empty body says so instead of rendering nothing", () => {
     const empty: TimelineEvent = {
       index: 0,
