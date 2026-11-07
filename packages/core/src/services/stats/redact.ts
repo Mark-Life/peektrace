@@ -8,9 +8,12 @@
  *
  * First, redaction happens where a string is minted: `extract.ts` builds every
  * fact through a `Redactor`, so a shard on disk holds no unredacted text and the
- * cache can never leak one. Second, anything a detector derives from a fact
- * (labels, notes, cluster names) goes through `ctx.redact` in `finish`, because
- * masking can re-expose a secret the fact carried in a redacted span.
+ * cache can never leak one. Second, everything a detector ships goes through
+ * `ctx.redact` in `finish`: labels, notes and cluster names, because masking
+ * can re-expose a secret the fact carried in a redacted span, and the picked
+ * sample lines and drill hits, so a shard written under older rules is still
+ * caught. Per fact, a detector only collapses and clips; redacting there would
+ * cost one call per fact for lines that never ship.
  *
  * Redaction is on by default. `redact: false` is a live re-extract that bypasses
  * the cache entirely, so an unredacted string is never written down.

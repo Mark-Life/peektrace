@@ -6,6 +6,11 @@
  * its rows in `finish`. It never reads a file, never sorts by hand — ordering
  * comes from `rank.ts` — and never mints a string without `ctx.redact`.
  *
+ * Fact text is already redacted at extract time, so `add` only collapses and
+ * clips a line (`sampleLine`). Redaction runs once more on what ships: the
+ * picked samples (`samplesOf`) and the drill hits (`redactHits`). That bounds
+ * redactor calls by output size, not by fact count.
+ *
  * `add` is called once per fact and must be synchronous: the walk folds inside
  * `Effect.sync`, so an accumulator that wants IO belongs in the service, not
  * here.
@@ -13,10 +18,13 @@
 
 import {
   boundPool,
+  clip,
+  collapseWs,
   DEFAULT_ROW_LIMIT,
   DEFAULT_SAMPLE_CAP,
   pickSamples,
   round,
+  SAMPLE_LINE_MAX,
   sortedRecord,
 } from "./rank";
 import type { Redactor } from "./redact";
@@ -100,7 +108,11 @@ export const defaultOptions = (redact: Redactor): AccumulatorOptions => ({
   drill: null,
 });
 
-/** Build a sample ref from a fact and one already-redacted line. */
+/** A fact's text as a sample line: collapsed and clipped, not yet re-redacted. */
+export const sampleLine = (s: string): string =>
+  clip(collapseWs(s), SAMPLE_LINE_MAX);
+
+/** Build a sample ref from a fact and one sample line. */
 export const sampleOf = (fact: CallFact, line: string): SampleRef => ({
   sid: fact.sid,
   agent: fact.agent,
@@ -113,7 +125,7 @@ export const sampleOf = (fact: CallFact, line: string): SampleRef => ({
   line,
 });
 
-/** Build a drill hit from a fact and one already-redacted line. */
+/** Build a drill hit from a fact and one sample line. */
 export const hitOf = (fact: CallFact, line: string): DrillHit => ({
   ...sampleOf(fact, line),
   durSec: fact.durSec,
@@ -181,11 +193,26 @@ export const addToTally = (args: {
   }
 };
 
-/** The sample lines a row ships: shortest first, then string compare. */
+/** The sample lines a row ships: shortest first, then string compare, redacted. */
 export const samplesOf = (
   tally: Tally,
-  cap = DEFAULT_SAMPLE_CAP
-): readonly SampleRef[] => pickSamples(tally.samples, cap);
+  ctx: Pick<FinishContext, "redact" | "sampleCap">
+): readonly SampleRef[] =>
+  pickSamples(tally.samples, ctx.sampleCap).map((sample) => ({
+    ...sample,
+    line: ctx.redact.line(sample.line),
+  }));
+
+/** Drill hits as they ship: every line redacted once more. */
+export const redactHits = (
+  hits: readonly DrillHit[],
+  redact: Redactor
+): readonly DrillHit[] =>
+  hits.map((hit) => ({
+    ...hit,
+    line: redact.line(hit.line),
+    pairLine: hit.pairLine === null ? null : redact.line(hit.pairLine),
+  }));
 
 /** The spine's own sink: the totals every share divides by. */
 export interface CorpusTotals extends FactSink {

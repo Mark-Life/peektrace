@@ -28,6 +28,8 @@ import {
   addToTally,
   type FinishContext,
   hitOf,
+  redactHits,
+  sampleLine,
   sampleOf,
   samplesOf,
   type Tally,
@@ -384,7 +386,7 @@ export const makeFailTable: AccumulatorFactory<readonly FailRow[]> = (opts) => {
     if (row === null) {
       return;
     }
-    const line = opts.redact.line(lineOf(fact));
+    const line = sampleLine(lineOf(fact));
     addToTally({
       tally: tallyFor(tallies, row.key),
       fact,
@@ -419,7 +421,7 @@ export const makeFailTable: AccumulatorFactory<readonly FailRow[]> = (opts) => {
       flagged: tally.flagged,
       note: note === null ? null : ctx.redact.line(note),
       detector: detectorOf(meta),
-      samples: samplesOf(tally, ctx.sampleCap),
+      samples: samplesOf(tally, ctx),
     };
   };
 
@@ -445,6 +447,6 @@ export const makeFailTable: AccumulatorFactory<readonly FailRow[]> = (opts) => {
     id: "fails",
     add,
     finish,
-    drill: () => sortBy(hits, compareHits),
+    drill: (ctx) => sortBy(redactHits(hits, ctx.redact), compareHits),
   };
 };
