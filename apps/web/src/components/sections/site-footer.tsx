@@ -1,5 +1,8 @@
 import { CommandBlock } from "@/components/command-block";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { readLatestRelease } from "@/lib/release";
+
+const RELEASE = readLatestRelease();
 
 const INSTALL_COMMAND =
   "curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh";
@@ -86,6 +89,23 @@ export const SiteFooter = () => (
               <span aria-hidden="true">&middot;</span>
             </li>
           ))}
+          {RELEASE ? (
+            <li className="flex items-center gap-2">
+              <a
+                className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                href={`https://github.com/Mark-Life/peektrace/releases/tag/${RELEASE.tag}`}
+              >
+                v{RELEASE.version}
+                {RELEASE.date ? (
+                  <>
+                    {" "}
+                    &middot; <time dateTime={RELEASE.date}>{RELEASE.date}</time>
+                  </>
+                ) : null}
+              </a>
+              <span aria-hidden="true">&middot;</span>
+            </li>
+          ) : null}
           <li>&copy; 2026 Peektrace</li>
         </ul>
         <ThemeToggle />

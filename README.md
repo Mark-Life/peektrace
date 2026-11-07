@@ -338,6 +338,9 @@ npm gets six packages per release: the `peektrace` wrapper plus one
 `@peektrace/cli-<platform>-<arch>` per binary, published over OIDC with no stored
 token. See the header of `.github/workflows/publish-cli.yml`.
 
+The GitHub Release body is the matching `## cli-vX.Y.Z` section of
+`CHANGELOG.md`. A tag with no section gets generated notes instead.
+
 ---
 
 ## Author

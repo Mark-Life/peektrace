@@ -24,6 +24,13 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # account) — without a signature a cross-compiled arm64 binary is 'killed: 9' by
 # the kernel on first launch.
 #
+# Release notes come from the matching `## <tag>` section of CHANGELOG.md
+# (apps/cli/scripts/release-notes.ts); a tag with no section gets GitHub's
+# generated notes. To backfill an old release without rebuilding it (a
+# workflow_dispatch run builds and uploads binaries from the dispatched branch):
+#   bun apps/cli/scripts/release-notes.ts cli-v0.8.0 \
+#     | gh release edit cli-v0.8.0 --repo Mark-Life/peektrace --notes-file -
+#
 # npm is the second channel: `npx peektrace`. It publishes LAST, after the
 # GitHub Release, so a registry failure costs the npm channel and nothing else.
 #
@@ -273,18 +280,35 @@ jobs:
         run: shasum -a 256 peektrace-* > SHA256SUMS
 
       # Create the Release for this tag if missing, then (re)upload every asset.
+      # The body is the tag's CHANGELOG.md section; if it is missing (or the
+      # extraction fails) a new release falls back to generated notes and an
+      # existing release keeps its body.
       - name: Publish GitHub Release with raw binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
+          notes="$RUNNER_TEMP/release-notes.md"
+          if bun apps/cli/scripts/release-notes.ts "$TAG" > "$notes"; then
+            [ -s "$notes" ] || echo "::warning::no CHANGELOG.md section for $TAG; using generated notes"
+          else
+            echo "::warning::release notes extraction failed; using generated notes"
+            : > "$notes"
+          fi
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            if [ -s "$notes" ]; then
+              notes_args=(--notes-file "$notes")
+            else
+              notes_args=(--generate-notes)
+            fi
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" \
-              --generate-notes \
+              "${notes_args[@]}" \
               --verify-tag
+          elif [ -s "$notes" ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"
           fi
           # Globbed rather than listed: the binaries, their .gz copies and
           # whichever .patch files survived the size gate.
