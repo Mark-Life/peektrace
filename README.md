@@ -181,7 +181,7 @@ against a running server. Root flags go **before** the subcommand: `--json`
 `--no-telemetry`.
 
 ```sh
-peektrace sessions ls [--project <slug>]
+peektrace sessions ls [--agent <id>] [--project <name>] [--since <when>] [--cwd <path>] [--limit <n>]
 peektrace sessions analyze <session-id>
 peektrace memory ls [project]                    # --json for raw output
 peektrace memory show <project> <name>

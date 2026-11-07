@@ -171,18 +171,28 @@ supported way to launch it today; the compiled-binary path (`bun build
 --compile` auto-embeds OpenTUI's native assets, but cross-target release
 packaging isn't yet wired up for them) is not yet validated for the TUI.
 
-### `sessions ls` — list Claude sessions
+### `sessions ls` — list sessions
 
-Lightweight headers (lazy — bodies are not parsed). Columns: id, project, model,
-message count, size, updated, title.
+Lightweight headers (lazy — bodies are not parsed), across every agent. Columns:
+id, agent, project, model, message count, size, updated, title. Rows are sorted
+newest first and capped at 30; a hint on stderr says how many were hidden.
 
 | Flag | Effect |
 | --- | --- |
-| `--agent <id>` | Agent to list. Only `claude` is wired; anything else lists empty (forward-compat) |
-| `--project <slug>` | Filter sessions by project slug |
+| `--agent <id>` | `claude`, `codex`, `pi`, `opencode` or `all` (default `all`) |
+| `--project <name>` | Filter by project name (Claude or Pi slug, or cwd basename for Codex and OpenCode). Slugs starting with `-` need `--project=<slug>` |
+| `--since <when>` | Only sessions updated since an ISO date or date-time (`2026-01-31` is UTC midnight; no offset means UTC) or `7d`, `12h`, `2w` |
+| `--cwd <path>` | Only sessions run in this directory or below (path on this machine) |
+| `--limit <n>` | Max sessions, newest first (default 30, `0` = all) |
+
+`--json` prints the same filtered, sorted and capped list. Pass `--limit 0` for
+everything.
 
 ```sh
 peektrace sessions ls
+peektrace sessions ls --agent codex --limit 0 --json
+peektrace sessions ls --since 7d
+peektrace sessions ls --cwd .
 peektrace sessions ls --project -Users-me-myrepo --json
 ```
 
