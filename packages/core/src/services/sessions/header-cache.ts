@@ -8,12 +8,12 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect, Option, Ref } from "effect";
 import type { AgentId } from "../agent-id";
-import {
-  type AgentRegistryShape,
-  type SessionFileRef,
-  statFileStamp,
-  type TranscriptPayload,
+import type {
+  AgentRegistryShape,
+  SessionFileRef,
+  TranscriptPayload,
 } from "../agents";
+import { statFileStamp } from "../file-stamp";
 import { PARSERS } from "./parsers";
 import type { SessionParser } from "./parsers/types";
 import type { SessionHeader } from "./schema";

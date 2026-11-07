@@ -2,8 +2,9 @@ import { execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { FileSystem } from "@effect/platform";
-import { Context, Data, Effect, Layer, Option } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 import { AGENT_IDS, type AgentId } from "./agent-id";
+import { type FileStamp, statFileStamp } from "./file-stamp";
 import {
   listSessionRefs,
   loadSessionText,
@@ -109,22 +110,6 @@ export class TranscriptReadError extends Data.TaggedError(
 
 /** A transcript's raw text plus the stat used for header sizing/recency. */
 export type TranscriptPayload = SessionText;
-
-/** File size and mtime, as read by `fs.stat`. */
-export type FileStamp = Pick<TranscriptPayload, "mtimeMs" | "sizeBytes">;
-
-export const statFileStamp = (fs: FileSystem.FileSystem, path: string) =>
-  fs.stat(path).pipe(
-    Effect.map(
-      (info): FileStamp => ({
-        sizeBytes: Number(info.size),
-        mtimeMs: Option.match(info.mtime, {
-          onNone: () => 0,
-          onSome: (d) => d.getTime(),
-        }),
-      })
-    )
-  );
 
 /**
  * First non-empty entry of a `PATH`-style env var. Claude Code accepts a
