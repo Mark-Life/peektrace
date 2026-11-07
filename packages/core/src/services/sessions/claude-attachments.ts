@@ -5,6 +5,7 @@
  * `prompt_snapshot` attachments hold the system prompt and tool definitions and
  * become `system-prompt` events instead of plain attachments.
  */
+import { claudePromptOrigin, promptLabel } from "./prompt-origin";
 import type { LoadedCategory, TimelineEvent } from "./schema";
 import {
   type PromptSection,
@@ -25,6 +26,57 @@ const str = (v: unknown): string => {
     return v;
   }
   return v == null ? "" : JSON.stringify(v);
+};
+
+/** Types Claude Code keeps in the transcript but never sends to the model. */
+export const METADATA_ONLY: ReadonlySet<string> = new Set([
+  "structured_output",
+  "deferred_tools_record",
+  "credential_org",
+  "command_permissions",
+  "max_turns_reached",
+  "thinking_drop",
+  "thinking_stripped",
+  "advisor_stripped",
+  "prompt_render_point",
+  "already_read_file",
+  "async_hook_response_batch",
+  "batching_reminder_sent",
+  "secondary_reminder_sent",
+  "edited_image_file",
+  "goal_status",
+  "session_cron_carry",
+  "projects_thread_ask",
+  "teammate_shutdown_batch",
+  "tool_host_result_lines",
+  "withheld_memory",
+  "hook_cancelled",
+  "hook_error_during_execution",
+  "hook_non_blocking_error",
+  "hook_system_message",
+  "hook_permission_decision",
+  "hook_deferred_tool",
+  "context_efficiency",
+  "goals",
+]);
+
+/** Hook events whose `hook_success` output is added to the context. */
+const CONTEXT_HOOK_EVENTS: ReadonlySet<string> = new Set([
+  "SessionStart",
+  "UserPromptSubmit",
+  "UserPromptExpansion",
+]);
+
+/** Whether the attachment never reaches the model. A `hook_success` without
+ *  `hookEvent` (older lines) still counts. */
+export const isMetadataOnly = (a: Raw) => {
+  const t = String(a.type ?? "");
+  if (t === "hook_success") {
+    return (
+      typeof a.hookEvent === "string" && !CONTEXT_HOOK_EVENTS.has(a.hookEvent)
+    );
+  }
+  return METADATA_ONLY.has(t);
 };
 
 /** Classify an attachment into the budget category it loads, if any. */
@@ -56,8 +108,27 @@ const attachmentCategory = (a: Raw): LoadedCategory => {
       return "ide";
     case "image":
       return "file";
+    case "compact_file_reference":
+      return "file";
     case "task_reminder":
     case "hook_success":
+    case "total_tokens_reminder":
+    case "silent_turn_reminder":
+    case "output_style":
+    case "output_style_instructions":
+    case "environment":
+    case "date":
+    case "model":
+    case "session_context":
+    case "auto_mode":
+    case "auto_mode_exit":
+    case "remote_session_change":
+    case "read_truncation_notice":
+    case "plan_mode":
+    case "plan_mode_exit":
+    case "plan_mode_reentry":
+    case "todo_reminder":
+    case "queued_command":
     case "date_change":
     case "ultra_effort_enter":
     case "workflow_keyword_request":
@@ -205,6 +276,66 @@ export interface AttachmentBase {
   readonly ts: string | undefined;
 }
 
+/** Text of a queued prompt: a string, or the text parts of a block array. */
+const queuedText = (prompt: unknown): string => {
+  if (typeof prompt === "string") {
+    return prompt;
+  }
+  if (!Array.isArray(prompt)) {
+    return "";
+  }
+  return (prompt as Raw[])
+    .filter((b) => b?.type === "text" && typeof b.text === "string")
+    .map((b) => b.text as string)
+    .join("\n");
+};
+
+/** Tokens a queued prompt adds: its rendered text, else the raw prompt. Batched
+ *  prompts render nothing, since the batch head's text holds them. */
+const queuedTokens = (args: {
+  readonly o: Raw;
+  readonly a: Raw;
+  readonly text: string;
+}) => {
+  const shown = renderedBody(args.o);
+  if (shown !== undefined) {
+    return estTokens(shown);
+  }
+  return args.a.renderedByBatchHead === true ? 0 : estTokens(args.text);
+};
+
+/** A message the user sent while the agent was busy, as a `user-prompt` event.
+ *  Null when the prompt has no text, so the line falls back to an attachment. */
+const queuedPromptEvent = (args: {
+  readonly o: Raw;
+  readonly a: Raw;
+  readonly base: AttachmentBase;
+}): TimelineEvent | null => {
+  const { o, a, base } = args;
+  const text = queuedText(a.prompt);
+  if (text === "") {
+    return null;
+  }
+  const origin = claudePromptOrigin(a, text);
+  const label =
+    origin === "human" || origin === "sdk"
+      ? undefined
+      : promptLabel(origin, text);
+  return {
+    index: base.index,
+    kind: "user-prompt",
+    isSidechain: base.isSidechain,
+    title: label?.title ?? "Queued message",
+    preview: label?.preview ?? firstLine(text),
+    body: text,
+    tokensEst: queuedTokens({ o, a, text }),
+    promptOrigin: origin,
+    attachmentType: "queued_command",
+    ...(a.isMeta === true ? { isMeta: true } : {}),
+    ...(base.ts === undefined ? {} : { ts: base.ts }),
+  };
+};
+
 /** Build the event for one `attachment` line, or null when it adds nothing new. */
 export const attachmentEvent = (args: {
   readonly o: Raw;
@@ -216,7 +347,14 @@ export const attachmentEvent = (args: {
   if (a.type === "prompt_snapshot") {
     return promptSnapshotEvent({ a, base, seen });
   }
+  if (a.type === "queued_command" && a.commandMode === "prompt") {
+    const queued = queuedPromptEvent({ o, a, base });
+    if (queued) {
+      return queued;
+    }
+  }
   const body = renderedBody(o) ?? structuredBody(a);
+  const metadata = isMetadataOnly(a);
   return {
     index: base.index,
     kind: "attachment",
@@ -224,9 +362,9 @@ export const attachmentEvent = (args: {
     title: attachmentTitle(a),
     preview: firstLine(body.replace(REMINDER_OPEN, "")) || String(a.type ?? ""),
     body,
-    tokensEst: estTokens(body),
+    tokensEst: metadata ? 0 : estTokens(body),
     attachmentType: String(a.type ?? ""),
-    loadedCategory: attachmentCategory(a),
+    ...(metadata ? {} : { loadedCategory: attachmentCategory(a) }),
     ...(base.ts === undefined ? {} : { ts: base.ts }),
   };
 };
