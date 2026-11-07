@@ -91,6 +91,19 @@ const HTTP_PROTOCOL = /^https?:$/;
 const isHttpUrl = (url: string): boolean =>
   URL.canParse(url) && HTTP_PROTOCOL.test(new URL(url).protocol);
 
+const UNAUTHORIZED = 401;
+const FORBIDDEN = 403;
+
+const httpStatus = (
+  error: RpcClientError.RpcClientError
+): number | undefined => {
+  const { cause } = error;
+  return HttpClientError.isHttpClientError(cause) &&
+    cause._tag === "ResponseError"
+    ? cause.response.status
+    : undefined;
+};
+
 /** One-line message for a failed `--remote` transport call. */
 export const remoteErrorMessage = (
   url: string,
@@ -100,6 +113,13 @@ export const remoteErrorMessage = (
     return "Invalid --remote URL: it is empty. Use `http://host:port`.";
   }
   const detail = transportDetail(error);
+  const status = httpStatus(error);
+  if (status === UNAUTHORIZED) {
+    return `Remote request to ${url} was unauthorized (HTTP 401). Set PEEKTRACE_TOKEN or pass the printed ?token= URL.`;
+  }
+  if (status === FORBIDDEN) {
+    return `Remote request to ${url} was refused (HTTP 403). Check that the local and remote ports match when using ssh -L (the Host header must be the server's own address).`;
+  }
   if (!url.includes("://")) {
     return `Remote request to ${url} failed (${detail}). Include the scheme, for example \`http://host:port\`.`;
   }

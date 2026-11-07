@@ -6,8 +6,8 @@
  * - serves the built inspector static assets from `apps/inspector/dist` at `/`,
  *   falling back to `index.html` for client-side routes;
  * - binds `127.0.0.1:<port>` (default 4321, auto-picking the next free port if
- *   busy) and opens the browser unless `--no-open`. `--host 0.0.0.0` exposes it
- *   on the network (no auth — warned at startup); the default stays loopback.
+ *   busy) and opens the browser unless `--no-open`. A non-loopback `--host`
+ *   requires a token (printed in the URL) and is read-only unless `--allow-write`.
  *
  * The HTTP surface (router, guards, static-asset resolution, port scan) lives in
  * `serve-core` and is shared with `peektrace tui`. Filesystem-driven live refresh
@@ -23,12 +23,12 @@ import { makeHandlersLayer } from "@workspace/rpc";
 import { Console, Effect, Layer } from "effect";
 import { type GlobalsAccessor, localReadOnlyOpt } from "../client";
 import { CliUserError } from "../errors";
+import { allowWriteOpt, resolveServeAuth, tokenUrl } from "../serve-auth";
 import {
   buildServeApp,
   DEFAULT_HOST,
   DEFAULT_PORT,
   findFreePort,
-  isLoopbackHost,
   openBrowser,
 } from "../serve-core";
 import { startupUpdateNotice } from "../upgrade/update-check";
@@ -45,7 +45,7 @@ const portOpt = Options.integer("port").pipe(
 );
 const hostOpt = Options.text("host").pipe(
   Options.withDescription(
-    `Interface to bind (default ${DEFAULT_HOST} loopback; --host 0.0.0.0 exposes it on the network — no auth, firewall yourself)`
+    `Interface to bind (default ${DEFAULT_HOST} loopback; any other host needs a token and is read-only unless --allow-write; prefer ssh -L)`
   ),
   Options.withDefault(DEFAULT_HOST)
 );
@@ -61,10 +61,14 @@ const serveProgram = (args: {
   readonly open: boolean;
   readonly host: string;
   readonly port: number;
+  readonly readOnly: boolean;
+  readonly token: string | undefined;
 }) =>
   Effect.gen(function* () {
     const server = yield* HttpServer.HttpServer;
-    const { app, uiSource } = yield* buildServeApp(args.host, args.port);
+    const { app, uiSource } = yield* buildServeApp(args.host, args.port, {
+      token: args.token,
+    });
 
     yield* server.serve(app);
 
@@ -75,18 +79,25 @@ const serveProgram = (args: {
     const displayHost =
       args.host === "0.0.0.0" || args.host === "::" ? "127.0.0.1" : args.host;
     const url = `http://${displayHost}:${port}`;
+    const openUrl = args.token === undefined ? url : tokenUrl(url, args.token);
     yield* Console.log(`Peektrace serving on ${url}`);
     yield* Console.log(`  RPC:    ${url}/rpc`);
     yield* Console.log(`  UI:     ${url}/  (from ${uiSource})`);
     yield* Console.log(
+      `  Mode:   ${args.readOnly ? "read-only" : "read-write"}`
+    );
+    yield* Console.log(
       "  Watch:  on (filesystem-driven refresh via watch.poll)"
     );
 
-    if (!isLoopbackHost(args.host)) {
+    if (args.token !== undefined) {
       yield* Console.warn(
-        `  WARNING: bound to ${args.host} (not loopback). Peektrace has no auth — ` +
-          "anyone who can reach this port can read your Claude Code data. " +
-          "Restrict access with a firewall or use --read-only."
+        `  WARNING: bound to ${args.host} (not loopback). Token required; ` +
+          "read-only unless --allow-write; plain HTTP, so prefer ssh -L."
+      );
+      yield* Console.log(`  Open:   ${openUrl}`);
+      yield* Console.log(
+        `  Remote: from another machine use http://<this-host>:${port}/?token=...`
       );
     }
 
@@ -96,7 +107,7 @@ const serveProgram = (args: {
     }
 
     if (args.open) {
-      yield* openBrowser(url);
+      yield* openBrowser(openUrl);
     }
 
     // Best-effort, non-blocking release check: forked so it never delays
@@ -111,8 +122,14 @@ const serveProgram = (args: {
 export const makeServe = (globals: GlobalsAccessor) =>
   Command.make(
     "serve",
-    { port: portOpt, open: openOpt, host: hostOpt, readOnly: localReadOnlyOpt },
-    ({ port, open, host, readOnly }) =>
+    {
+      port: portOpt,
+      open: openOpt,
+      host: hostOpt,
+      readOnly: localReadOnlyOpt,
+      allowWrite: allowWriteOpt,
+    },
+    ({ port, open, host, readOnly, allowWrite }) =>
       Effect.gen(function* () {
         const g = yield* globals({ readOnly });
         if (!Number.isInteger(port) || port < MIN_PORT || port > MAX_PORT) {
@@ -120,18 +137,30 @@ export const makeServe = (globals: GlobalsAccessor) =>
             message: `Invalid --port ${port}: must be an integer between ${MIN_PORT} and ${MAX_PORT}.`,
           });
         }
+        const posture = yield* resolveServeAuth({
+          host,
+          readOnly: g.readOnly,
+          allowWrite,
+          env: process.env,
+        });
         const chosen = yield* findFreePort(port, host);
         const serverLayer = BunHttpServer.layer({
           port: chosen,
           hostname: host,
         });
-        yield* serveProgram({ open, host, port: chosen }).pipe(
+        yield* serveProgram({
+          open,
+          host,
+          port: chosen,
+          readOnly: posture.readOnly,
+          token: posture.token,
+        }).pipe(
           Effect.scoped,
           Effect.provide(
             Layer.mergeAll(
               serverLayer,
               RpcSerialization.layerNdjson,
-              makeHandlersLayer({ rootSpans: true, readOnly: g.readOnly })
+              makeHandlersLayer({ rootSpans: true, readOnly: posture.readOnly })
             )
           )
         );

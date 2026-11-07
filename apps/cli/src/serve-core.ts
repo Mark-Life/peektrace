@@ -23,21 +23,22 @@ import { PeektraceRpcs } from "@workspace/rpc";
 import { Effect } from "effect";
 import embeddedUI from "./embedded-ui.gen";
 import { CliUserError } from "./errors";
+import { authOutcome, cookieName, isLoopbackHost } from "./serve-auth";
+
+export { isLoopbackHost } from "./serve-auth";
 
 export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 4321;
 const PORT_SCAN_ATTEMPTS = 20;
 const NOT_BUILT_STATUS = 503;
 const FORBIDDEN_STATUS = 403;
+const UNAUTHORIZED_STATUS = 401;
+const REDIRECT_STATUS = 302;
 const LEADING_SLASHES = /^\/+/;
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 /** Built inspector assets: apps/cli/src -> apps/inspector/dist. */
 const DIST_DIR = resolve(HERE, "..", "..", "inspector", "dist");
-
-/** True when `host` is a loopback interface (no off-box exposure). */
-export const isLoopbackHost = (host: string) =>
-  host === "127.0.0.1" || host === "localhost" || host === "::1";
 
 /** Outcome of probing one port: free, taken, or unbindable (with a reason). */
 type PortProbe =
@@ -245,10 +246,13 @@ const HOST_FORBIDDEN_REASON = "request rejected (Host header not allowed)";
  */
 const hostForbiddenReason = (
   headers: Record<string, string | undefined>,
-  allow: RpcAllowlist
+  allow: RpcAllowlist,
+  authed: boolean
 ): string | undefined => {
   const host = headers.host;
-  if (host === undefined || !allow.hosts.has(host)) {
+  // Under auth any Host is fine: the token, which a DNS-rebinding page cannot
+  // hold, is what protects the server.
+  if (host === undefined || !(authed || allow.hosts.has(host))) {
     return HOST_FORBIDDEN_REASON;
   }
   return;
@@ -261,14 +265,26 @@ const hostForbiddenReason = (
  */
 const rpcForbiddenReason = (
   headers: Record<string, string | undefined>,
-  allow: RpcAllowlist
+  allow: RpcAllowlist,
+  authed: boolean
 ): string | undefined => {
   const origin = headers.origin;
-  if (origin !== undefined && !allow.origins.has(origin)) {
+  const originOk = authed
+    ? origin === `http://${headers.host}`
+    : allow.origins.has(origin ?? "");
+  if (origin !== undefined && !originOk) {
     return "cross-origin request rejected (Origin not allowed)";
   }
-  return hostForbiddenReason(headers, allow);
+  return hostForbiddenReason(headers, allow, authed);
 };
+
+const UNAUTHORIZED_BODY =
+  "Peektrace needs the token: open the URL printed by `peektrace serve`.";
+
+/** Options for `buildServeApp`. `token` turns on the auth gate. */
+export interface ServeAppOptions {
+  readonly token?: string | undefined;
+}
 
 /**
  * Build the fully-guarded HTTP app that both commands serve: the RPC handler
@@ -277,16 +293,22 @@ const rpcForbiddenReason = (
  * guard applied to every route. Requires the RPC serialization + handlers layer
  * in context (the caller provides them); yields the UI source label alongside.
  */
-export const buildServeApp = (host: string, port: number) =>
+export const buildServeApp = (
+  host: string,
+  port: number,
+  options: ServeAppOptions = {}
+) =>
   Effect.gen(function* () {
     const rpcApp = yield* RpcServer.toHttpApp(PeektraceRpcs);
     const { handler: staticHandler, source: uiSource } = resolveStaticHandler();
     const allow = buildRpcAllowlist(host, port);
+    const { token } = options;
+    const authed = token !== undefined;
     // Guard the RPC surface: the embedded same-origin UI still reaches it, but a
     // cross-origin `fetch` or a spoofed Host is 403'd.
     const guardedRpcApp = Effect.gen(function* () {
       const req = yield* HttpServerRequest.HttpServerRequest;
-      const reason = rpcForbiddenReason(req.headers, allow);
+      const reason = rpcForbiddenReason(req.headers, allow, authed);
       if (reason !== undefined) {
         return HttpServerResponse.text(reason, { status: FORBIDDEN_STATUS });
       }
@@ -302,11 +324,38 @@ export const buildServeApp = (host: string, port: number) =>
     // request whose `Host` is not allowed is 403'd before dispatch.
     const guardedRouter = Effect.gen(function* () {
       const req = yield* HttpServerRequest.HttpServerRequest;
-      const reason = hostForbiddenReason(req.headers, allow);
+      const reason = hostForbiddenReason(req.headers, allow, authed);
       if (reason !== undefined) {
         return HttpServerResponse.text(reason, { status: FORBIDDEN_STATUS });
       }
+      if (token === undefined) {
+        return yield* router;
+      }
+      const outcome = authOutcome(req, token, port);
+      if (outcome._tag === "unauthorized") {
+        return HttpServerResponse.text(UNAUTHORIZED_BODY, {
+          status: UNAUTHORIZED_STATUS,
+          headers: { "cache-control": "no-store" },
+        });
+      }
+      if (outcome._tag === "redirect") {
+        return HttpServerResponse.redirect(outcome.location, {
+          status: REDIRECT_STATUS,
+        }).pipe(
+          HttpServerResponse.unsafeSetCookie(cookieName(port), token, {
+            httpOnly: true,
+            sameSite: "lax",
+            path: "/",
+          })
+        );
+      }
       return yield* router;
-    });
+    }).pipe(
+      Effect.map((res) =>
+        authed
+          ? HttpServerResponse.setHeader(res, "referrer-policy", "no-referrer")
+          : res
+      )
+    );
     return { app: guardedRouter, uiSource };
   });

@@ -37,15 +37,18 @@ export interface ClientOptions {
  */
 const protocolLayer = (baseUrl: string, options?: ClientOptions) => {
   const token = options?.token;
-  const httpClient =
-    token === undefined || token === ""
-      ? FetchHttpClient.layer
-      : Layer.effect(
-          HttpClient.HttpClient,
-          Effect.map(HttpClient.HttpClient, (client) =>
-            HttpClient.mapRequest(client, HttpClientRequest.bearerToken(token))
-          )
-        ).pipe(Layer.provide(FetchHttpClient.layer));
+  // Non-2xx (401 bad token, 403 guard) becomes a `ResponseError`; otherwise the
+  // NDJSON decoder would wait on a plain-text body forever.
+  const httpClient = Layer.effect(
+    HttpClient.HttpClient,
+    Effect.map(HttpClient.HttpClient, (client) =>
+      HttpClient.filterStatusOk(
+        token === undefined || token === ""
+          ? client
+          : HttpClient.mapRequest(client, HttpClientRequest.bearerToken(token))
+      )
+    )
+  ).pipe(Layer.provide(FetchHttpClient.layer));
   return RpcClient.layerProtocolHttp({
     url: `${baseUrl.replace(TRAILING_SLASH, "")}${RPC_PATH}`,
   }).pipe(

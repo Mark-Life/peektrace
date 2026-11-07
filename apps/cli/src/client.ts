@@ -19,6 +19,7 @@ import {
 } from "@workspace/rpc";
 import { Effect } from "effect";
 import { CliUserError, isRpcClientError, remoteErrorMessage } from "./errors";
+import { splitRemote, TOKEN_ENV } from "./serve-auth";
 
 /**
  * Per-subcommand `--json` twin of the root flag. Declaring it locally means a
@@ -76,8 +77,10 @@ export const withClient = <A, E>(
   use: (client: PeektraceClient) => Effect.Effect<A, E>
 ) => {
   if (globals.remote !== undefined) {
-    const url = globals.remote;
-    return createPeektraceClient(url).pipe(
+    // A pasted `?token=` URL wins over the env; errors never echo the token.
+    const { url, token } = splitRemote(globals.remote);
+    const bearer = token ?? (process.env[TOKEN_ENV] || undefined);
+    return createPeektraceClient(url, { token: bearer }).pipe(
       Effect.flatMap(use),
       Effect.scoped,
       Effect.mapError((e) =>

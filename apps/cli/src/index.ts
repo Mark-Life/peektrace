@@ -41,7 +41,9 @@ const prettyOpt = Options.boolean("pretty").pipe(
   )
 );
 const remoteOpt = Options.text("remote").pipe(
-  Options.withDescription("Target a running `peektrace serve` over HTTP"),
+  Options.withDescription(
+    "Target a running `peektrace serve` over HTTP (token from PEEKTRACE_TOKEN or a ?token= URL)"
+  ),
   Options.optional
 );
 const otelOpt = Options.boolean("otel").pipe(

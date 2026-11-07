@@ -34,7 +34,13 @@ const SECTIONS: readonly Section[] = [
 ];
 
 /** Top brand + section tabs, active tab tinted and numbered. */
-const Header = ({ active }: { readonly active: SectionId }) => (
+const Header = ({
+  active,
+  serverUrl,
+}: {
+  readonly active: SectionId;
+  readonly serverUrl: string;
+}) => (
   <box
     style={{
       flexDirection: "row",
@@ -63,7 +69,9 @@ const Header = ({ active }: { readonly active: SectionId }) => (
         );
       })}
     </box>
-    <text fg={C.textFaint}>loopback only</text>
+    <text fg={C.textFaint}>
+      {serverUrl.includes("?token=") ? "token required" : "loopback only"}
+    </text>
   </box>
 );
 
@@ -128,7 +136,7 @@ const Shell = ({
         backgroundColor: C.bg,
       }}
     >
-      <Header active={active} />
+      <Header active={active} serverUrl={serverUrl} />
       <box
         style={{ flexGrow: 1, minHeight: 0, paddingLeft: 1, paddingRight: 1 }}
       >
