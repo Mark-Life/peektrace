@@ -29,6 +29,7 @@ describe("Claude thinking tokens", () => {
     expect(thinking?.tokensMeasured).toBe(400);
     expect(thinking?.thinkingDurationMs).toBe(4200);
     expect(p.turns.map((t) => t.thinkingTokens)).toEqual([400, undefined]);
+    expect(p.turns.map((t) => t.effort)).toEqual(["high", undefined]);
   });
 
   test("the thinking slice is the reported count, the rest of output is visible", () => {

@@ -466,6 +466,7 @@ const registerTurn = (args: {
   readonly ts: string | undefined;
   readonly usage: Record<string, unknown>;
   readonly countable: boolean;
+  readonly effort: string | undefined;
 }) => {
   const { state, requestId, model, ts, countable } = args;
   const usage = args.usage as Record<string, number>;
@@ -486,6 +487,7 @@ const registerTurn = (args: {
       ...opt("ts", ts),
       ...opt("thinkingTokens", thinkingTokensOf(args.usage)),
       ...serverToolCounts(args.usage),
+      ...opt("effort", args.effort),
     });
   }
 };
@@ -507,6 +509,7 @@ const handleAssistant = (
     ts,
     usage: (msg.usage ?? {}) as Record<string, unknown>,
     countable: includeSidechainTurns || !isSidechain,
+    effort: typeof o.effort === "string" ? o.effort : undefined,
   });
   const turn = state.turnsById.get(requestId);
   for (const block of (msg.content ?? []) as Record<string, unknown>[]) {

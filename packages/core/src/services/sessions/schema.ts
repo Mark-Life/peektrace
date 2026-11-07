@@ -246,6 +246,8 @@ export const Turn = Schema.Struct({
    * Absent on transcripts that do not report it.
    */
   thinkingTokens: Schema.optional(Schema.Number),
+  /** Reasoning effort the harness asked for on this call (`low` … `max`). */
+  effort: Schema.optional(Schema.String),
   /** Server-side web searches the API ran in this call (`server_tool_use`). */
   webSearchRequests: Schema.optional(Schema.Number),
   /** Server-side web fetches the API ran in this call (`server_tool_use`). */
