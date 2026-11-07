@@ -159,7 +159,7 @@ type Segment =
 
 /** Split the run at every opened item: closed neighbours stay chip rows above
  *  and below it, so the run keeps its order. */
-const segmentsOf = (
+export const segmentsOf = (
   items: readonly TranscriptRowRef[],
   open: (item: TranscriptRowRef) => boolean
 ): Segment[] => {
