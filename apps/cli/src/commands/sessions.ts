@@ -1,26 +1,53 @@
 /** `peektrace sessions` subcommands: `ls` and `analyze`.
  *
  * Both run against the shared RPC client (in-process or `--remote`). Tables go to
- * stdout by default; `--json` emits the raw RPC payload. Only Claude is wired —
- * `--agent` is accepted for forward-compat and anything but `claude` lists empty.
+ * stdout by default; `--json` emits the raw RPC payload. `ls` lists every agent
+ * unless `--agent` narrows it, then filters client-side (`--since`, `--cwd`),
+ * sorts newest first and caps at `--limit`.
  */
 import { Args, Command, Options } from "@effect/cli";
+import { AGENT_IDS } from "@workspace/core";
 import { Console, Effect, Option } from "effect";
+import { parseAgent } from "../agent-scope";
 import {
   type GlobalsAccessor,
   localJsonOpt,
   localReadOnlyOpt,
   withClient,
 } from "../client";
+import { CliUserError } from "../errors";
 import { bytes, json, percent, shortId, table, tokens } from "../render";
+import { parseSince, resolveCwd, selectSessions } from "./sessions-filter";
+
+const DEFAULT_LIMIT = 30;
 
 const agentOpt = Options.text("agent").pipe(
-  Options.withDescription("Agent to list (only `claude` is supported)"),
+  Options.withDescription(
+    `Agent to list: ${AGENT_IDS.join("|")}|all (default all)`
+  ),
   Options.optional
 );
 const projectOpt = Options.text("project").pipe(
-  Options.withDescription("Filter sessions by project slug"),
+  Options.withDescription(
+    "Filter sessions by project name (Claude slug, or cwd basename for Codex/Pi)"
+  ),
   Options.optional
+);
+const sinceOpt = Options.text("since").pipe(
+  Options.withDescription(
+    "Only sessions updated since: ISO date (2026-01-31, UTC midnight) or 7d, 12h, 2w"
+  ),
+  Options.optional
+);
+const cwdOpt = Options.text("cwd").pipe(
+  Options.withDescription(
+    "Only sessions run in this directory or below (path on this machine)"
+  ),
+  Options.optional
+);
+const limitOpt = Options.integer("limit").pipe(
+  Options.withDescription("Max sessions to list, newest first (0 = all)"),
+  Options.withDefault(DEFAULT_LIMIT)
 );
 
 const parentOpt = Options.text("parent").pipe(
@@ -51,30 +78,46 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
     {
       agent: agentOpt,
       project: projectOpt,
+      since: sinceOpt,
+      cwd: cwdOpt,
+      limit: limitOpt,
       json: localJsonOpt,
       readOnly: localReadOnlyOpt,
     },
-    ({ agent, project, json: jsonFlag, readOnly }) =>
+    ({ agent, project, since, cwd, limit, json: jsonFlag, readOnly }) =>
       Effect.gen(function* () {
         const g = yield* globals({ json: jsonFlag, readOnly });
-        const agentId = Option.getOrElse(agent, () => "claude");
-        if (agentId !== "claude") {
-          return yield* Console.log(
-            g.json
-              ? "[]"
-              : `No sessions: agent "${agentId}" is not supported yet.`
-          );
+        const agentId = yield* parseAgent(agent);
+        if (limit < 0) {
+          return yield* new CliUserError({
+            message: `Invalid --limit ${limit}. Use 0 for all, or a positive number.`,
+          });
+        }
+        const sinceMs = Option.isSome(since)
+          ? parseSince(since.value, Date.now())
+          : undefined;
+        if (Option.isSome(since) && sinceMs === undefined) {
+          return yield* new CliUserError({
+            message: `Invalid --since "${since.value}". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).`,
+          });
         }
         const headers = yield* withClient(g, (client) =>
           client.sessions.list({
             ...(Option.isSome(project) ? { project: project.value } : {}),
+            ...(agentId === undefined ? {} : { agent: agentId }),
           })
         );
+        const { rows: picked, hidden } = selectSessions(headers, {
+          limit,
+          since: sinceMs,
+          cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
+        });
         if (g.json) {
-          return yield* Console.log(json(headers));
+          return yield* Console.log(json(picked));
         }
-        const rows = headers.map((h) => [
+        const rows = picked.map((h) => [
           shortId(h.id),
+          h.agent,
           h.project,
           h.model ?? "-",
           String(h.messageCount),
@@ -82,13 +125,27 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
           h.updatedAt ?? "-",
           h.title ?? "-",
         ]);
-        return yield* Console.log(
+        yield* Console.log(
           table(
-            ["ID", "PROJECT", "MODEL", "MSGS", "SIZE", "UPDATED", "TITLE"],
+            [
+              "ID",
+              "AGENT",
+              "PROJECT",
+              "MODEL",
+              "MSGS",
+              "SIZE",
+              "UPDATED",
+              "TITLE",
+            ],
             rows,
             { compact: g.compact }
           )
         );
+        if (hidden > 0) {
+          yield* Console.error(
+            `${hidden} more hidden, use --limit 0 to show all`
+          );
+        }
       })
   );
 

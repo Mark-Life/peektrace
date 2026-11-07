@@ -35,6 +35,7 @@ import type {
   TimeRow,
 } from "@workspace/core/services/stats/schema";
 import { Console, Effect, Option } from "effect";
+import { parseAgent } from "../agent-scope";
 import {
   type Globals,
   type GlobalsAccessor,
@@ -352,21 +353,13 @@ export const renderReport = (report: StatsReport, compact: boolean): string =>
     footer(report),
   ].join("\n");
 
-/** Resolve `--agent`: absent or `all` scans every agent that has a parser. */
-const scopeOf = (agent: Option.Option<string>) => {
-  const value = Option.getOrElse(agent, () => "all");
-  if (value === "all") {
-    return Effect.succeed<{ agents?: readonly AgentId[] }>({});
-  }
-  const found = AGENT_IDS.find((id) => id === value);
-  return found === undefined
-    ? Effect.fail(
-        new CliUserError({
-          message: `Unknown agent "${value}". Known: ${AGENT_IDS.join(", ")}, all.`,
-        })
-      )
-    : Effect.succeed({ agents: [found] as readonly AgentId[] });
-};
+/** Resolve `--agent` to core's scope: absent or `all` scans every agent. */
+const scopeOf = (agent: Option.Option<string>) =>
+  parseAgent(agent).pipe(
+    Effect.map((id): { agents?: readonly AgentId[] } =>
+      id === undefined ? {} : { agents: [id] }
+    )
+  );
 
 /** The window/limit half of a request, with absent flags left to core's defaults. */
 const windowOf = (
