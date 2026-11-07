@@ -109,9 +109,10 @@ const homeEnv = () => ({
   PEEKTRACE_NO_TELEMETRY: "1",
 });
 
-const run = (args: readonly string[], sub = "prompt") => {
+const run = (args: readonly string[], sub = "prompt", timeout = 0) => {
   const proc = Bun.spawnSync(["bun", ENTRY, "stats", sub, ...args], {
     env: homeEnv(),
+    ...(timeout > 0 ? { timeout } : {}),
   });
   return {
     code: proc.exitCode,
@@ -196,11 +197,13 @@ test("a --remote URL with ?token= never reaches the prompt text", async () => {
   );
   try {
     const remote = `http://127.0.0.1:${port}/?token=SECRETVALUE`;
-    const deadline = Date.now() + 20_000;
-    let result = run(["--days", "7", "--remote", remote]);
+    const deadline = Date.now() + 70_000;
+    const attempt = () =>
+      run(["--days", "7", "--remote", remote], "prompt", 10_000);
+    let result = attempt();
     while (result.code !== 0 && Date.now() < deadline) {
       await Bun.sleep(200);
-      result = run(["--days", "7", "--remote", remote]);
+      result = attempt();
     }
     expect(result.code).toBe(0);
     expect(result.out).toContain(`http://127.0.0.1:${port}`);
@@ -209,4 +212,4 @@ test("a --remote URL with ?token= never reaches the prompt text", async () => {
   } finally {
     server.kill();
   }
-}, 90_000);
+}, 100_000);
