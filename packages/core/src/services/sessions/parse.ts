@@ -584,6 +584,8 @@ export interface ParseClaudeArgs {
   readonly includeSidechainTurns?: boolean;
   readonly path: string;
   readonly sessionId: string;
+  /** Leave out `prompt_snapshot` system-prompt events, for callers that never read them. */
+  readonly skipSystemPrompt?: boolean;
   readonly text: string;
 }
 
@@ -592,7 +594,13 @@ export interface ParseClaudeArgs {
  * Token usage is taken verbatim from assistant `usage`; body sizes are chars/4.
  */
 export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
-  const { text, path, sessionId, includeSidechainTurns = false } = args;
+  const {
+    text,
+    path,
+    sessionId,
+    includeSidechainTurns = false,
+    skipSystemPrompt = false,
+  } = args;
   const state: ParseState = {
     events: [],
     turnsById: new Map(),
@@ -620,7 +628,14 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
         }
         break;
       case "attachment":
-        handleAttachment(ctx);
+        if (
+          !(
+            skipSystemPrompt &&
+            (o.attachment as RawLine | undefined)?.type === "prompt_snapshot"
+          )
+        ) {
+          handleAttachment(ctx);
+        }
         break;
       case "user":
         handleUser(ctx);

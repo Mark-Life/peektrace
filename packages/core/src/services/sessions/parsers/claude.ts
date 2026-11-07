@@ -9,12 +9,19 @@ import type { SessionParser } from "./types";
 /** The Claude-Code `SessionParser`. */
 export const claudeParser: SessionParser = {
   agent: "claude",
-  parseSession: ({ text, path, sessionId, includeSidechainTurns }) =>
+  parseSession: ({
+    text,
+    path,
+    sessionId,
+    includeSidechainTurns,
+    skipSystemPrompt,
+  }) =>
     parseClaudeSession({
       text,
       path,
       sessionId,
       ...(includeSidechainTurns === undefined ? {} : { includeSidechainTurns }),
+      ...(skipSystemPrompt === undefined ? {} : { skipSystemPrompt }),
     }),
   buildHeader,
 };

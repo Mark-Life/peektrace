@@ -20,6 +20,8 @@ export interface ParseSessionArgs {
   readonly path: string;
   /** Session id resolved from the filename (or the transcript header). */
   readonly sessionId: string;
+  /** Leave out system-prompt events, for callers that never read them. Claude only. */
+  readonly skipSystemPrompt?: boolean;
   /** Owning project slug, or `""` for layouts without one (Codex date tree). */
   readonly slug: string;
   /** Raw transcript text (whole `.jsonl` file). */

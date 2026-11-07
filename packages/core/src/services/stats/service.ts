@@ -13,7 +13,7 @@
  */
 import type { FileSystem } from "@effect/platform";
 import { FileSystem as Fs } from "@effect/platform";
-import { Clock, Context, Effect, Layer } from "effect";
+import { Clock, Context, Effect, Layer, Option } from "effect";
 import { AGENT_IDS, type AgentId } from "../agent-id";
 import { AgentRegistry, type AgentRegistryShape } from "../agents";
 import { PARSERS } from "../sessions/parsers";
@@ -50,6 +50,7 @@ import { extractFacts } from "./extract";
 import { hostBinsOf } from "./host-bins";
 import { makeMarkerCollector } from "./markers";
 import { readMemoryDocs } from "./memory-files";
+import { StatsProgress, type StatsProgressShape } from "./progress";
 import {
   DEFAULT_DRILL_PAGE,
   DEFAULT_ROW_LIMIT,
@@ -248,6 +249,7 @@ const factsFor = (args: {
       // A nested transcript is sidechain end to end: count its own turns, as
       // the sessions view does, or its tokens and every retry in it read zero.
       includeSidechainTurns: ref.kind !== "main",
+      skipSystemPrompt: true,
     });
     // One project key across agents: Codex has no slug, so its cwd is encoded
     // the same way Claude's project dir already is.
@@ -282,6 +284,7 @@ const runPass = (args: {
   readonly fs: FileSystem.FileSystem;
   /** Narrow the walk to some transcripts. Default: every one the scope finds. */
   readonly only?: (ref: TranscriptRef) => boolean;
+  readonly progress: StatsProgressShape | undefined;
   readonly redact: Redactor;
   readonly scope: readonly AgentId[];
   readonly sinks: readonly FactSink[];
@@ -294,6 +297,7 @@ const runPass = (args: {
     force,
     fs,
     only,
+    progress,
     redact,
     scope,
     sinks,
@@ -313,12 +317,15 @@ const runPass = (args: {
     let extracted = 0;
     let cached = 0;
     let facts = 0;
+    let done = 0;
 
     yield* foldCorpus({
       refs,
       perFile: (ref) =>
         factsFor({ agents, cache, force, fs, index, redact, ref, useCache }),
       onFile: (result) => {
+        done += 1;
+        progress?.onFile(done, refs.length);
         if (result.skipped !== null) {
           skipped.push(result.skipped);
           return;
@@ -505,8 +512,9 @@ const makeService = (args: {
   readonly agents: AgentRegistryShape;
   readonly cache: StatsCacheShape;
   readonly fs: FileSystem.FileSystem;
+  readonly progress: StatsProgressShape | undefined;
 }): StatsServiceShape => {
-  const { agents, cache, fs } = args;
+  const { agents, cache, fs, progress } = args;
 
   /** One pass, shared by `report` and `drill`. */
   const prepare = (
@@ -534,6 +542,7 @@ const makeService = (args: {
         cache,
         force: req.force === true,
         fs,
+        progress,
         redact,
         scope,
         sinks: sinksOf(detectors),
@@ -690,6 +699,7 @@ const makeService = (args: {
         fs,
         // One session's transcript, not the corpus: an unknown id marks nothing.
         only: (ref) => ref.id === req.sid,
+        progress,
         redact,
         scope: scopeOf(agents, req.agents),
         sinks: [collector],
@@ -718,6 +728,7 @@ const makeService = (args: {
         cache,
         force: req.force === true,
         fs,
+        progress,
         redact: makeRedactor({ enabled: true }),
         scope,
         sinks: [],
@@ -744,6 +755,10 @@ export const StatsServiceLive = Layer.effect(
     const fs = yield* Fs.FileSystem;
     const agents = yield* AgentRegistry;
     const cache = yield* StatsCache;
-    return makeService({ agents, cache, fs });
+    // Read here, not in R: a caller opts in by providing it around the build.
+    const progress = Option.getOrUndefined(
+      yield* Effect.serviceOption(StatsProgress)
+    );
+    return makeService({ agents, cache, fs, progress });
   })
 );

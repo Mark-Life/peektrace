@@ -38,6 +38,7 @@ export {
   type NormalizedCommand,
   normalizeCommand,
 } from "./normalize";
+export { StatsProgress, type StatsProgressShape } from "./progress";
 export * from "./rank";
 export { defaultRedactor, makeRedactor, type Redactor } from "./redact";
 export * from "./schema";
