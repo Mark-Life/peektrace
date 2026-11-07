@@ -13,17 +13,22 @@
  * transcript stays mounted while the newer analysis is in flight.
  */
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { sessionHeaderAtom } from "./atoms";
 import { PeektraceClient } from "./client";
-import { sessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
+import { isHeaderUpdate } from "./share-headers";
+import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
+
+const noop = () => undefined;
 
 /**
  * Build a memoized `sessions.analyze` atom for one session id + redact flag, and
- * re-validate it whenever an agent appends to a session on disk, so a live
- * transcript grows by appending rows rather than going stale.
+ * re-validate it when that session changes on disk, so a live transcript grows
+ * by appending rows rather than going stale.
  *
- * The version is read as a number, not as the poll's `Result`, so this only
- * re-renders when something actually changed (see `watch-atoms`).
+ * A listed top-level session re-analyses only when its own list header changes,
+ * so writes to other sessions cost the open transcript nothing. A subagent, or a
+ * session the list does not carry, falls back to the settled sessions version.
  */
 export const useAnalyzedSession = ({
   id,
@@ -45,6 +50,21 @@ export const useAnalyzedSession = ({
     [id, parent, redact]
   );
   const refresh = useAtomRefresh(atom);
-  useOnVersionBump(useAtomValue(sessionsVersionAtom), refresh);
+  const header = useAtomValue(sessionHeaderAtom(id));
+  const tracked = parent === null && header !== undefined;
+
+  const seenHeader = useRef(header);
+  useEffect(() => {
+    const prev = seenHeader.current;
+    seenHeader.current = header;
+    if (parent === null && isHeaderUpdate(prev, header)) {
+      refresh();
+    }
+  }, [header, parent, refresh]);
+
+  useOnVersionBump(
+    useAtomValue(settledSessionsVersionAtom),
+    tracked ? noop : refresh
+  );
   return atom;
 };

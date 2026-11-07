@@ -7,6 +7,10 @@
  * feeds — `allVaultsAtom` for memory, `sessionsListAtom` for sessions, plus the
  * open session's analysis (see `useAnalyzedSession`). No full-page reload.
  *
+ * Refreshes key off the settled versions (see `settle.ts`): sessions reload at
+ * most every few seconds under continuous writes, and nothing reloads while the
+ * user has paused live updates.
+ *
  * Two rules keep a refresh from disturbing the reader, both learned from the
  * transcript flicker:
  *
@@ -29,6 +33,7 @@ import type { WatchVersions } from "@workspace/rpc/contract";
 import { useEffect, useRef } from "react";
 import { allVaultsAtom, sessionsListAtom } from "./atoms";
 import { PeektraceClient } from "./client";
+import { MEMORY_SETTLE, SESSIONS_SETTLE, settledAtom } from "./settle";
 
 /** Poll cadence for the watch token (ms). */
 const POLL_INTERVAL = 1000;
@@ -50,6 +55,32 @@ export const memoryVersionAtom = versionAtom("memory");
 /** Sessions-scope version: bumps when a session `.jsonl` changes on disk. */
 export const sessionsVersionAtom = versionAtom("sessions");
 
+/** "Pause live": holds every refresh until resumed. In memory on purpose — a
+ *  forgotten, persisted pause would look like a broken app. */
+export const livePausedAtom = Atom.make(false).pipe(Atom.keepAlive);
+
+/** Memory version as applied: gated by pause. */
+export const settledMemoryVersionAtom = settledAtom({
+  paused: livePausedAtom,
+  source: memoryVersionAtom,
+  timing: MEMORY_SETTLE,
+}).pipe(Atom.keepAlive);
+
+/** Sessions version as applied: debounced with a max wait, gated by pause. */
+export const settledSessionsVersionAtom = settledAtom({
+  paused: livePausedAtom,
+  source: sessionsVersionAtom,
+  timing: SESSIONS_SETTLE,
+}).pipe(Atom.keepAlive);
+
+/** True while paused and the disk has moved past what is on screen. */
+export const liveWaitingAtom = Atom.readable(
+  (get) =>
+    get(livePausedAtom) &&
+    (get(memoryVersionAtom) > get(settledMemoryVersionAtom) ||
+      get(sessionsVersionAtom) > get(settledSessionsVersionAtom))
+);
+
 /**
  * Run `onBump` whenever `version` advances past the value seen at mount, so the
  * first poll (which only reports where the watcher already was) refreshes
@@ -66,16 +97,16 @@ export const useOnVersionBump = (version: number, onBump: () => void) => {
 };
 
 /**
- * Poll `watch.poll` and fan the bumps out to the root atoms. Returns the total
- * bump count across scopes, for a quiet "syncing" hint.
+ * Poll `watch.poll` and fan the settled bumps out to the root atoms. Returns the
+ * total applied bump count across scopes, for a quiet "syncing" hint.
  *
  * Mount this in a LEAF component only — it subscribes to both version atoms, so
  * its caller re-renders on every real change. `WatchStatus` is that leaf.
  */
 export const useWatchRefresh = () => {
   const pollAgain = useAtomRefresh(watchVersionsAtom);
-  const memory = useAtomValue(memoryVersionAtom);
-  const sessions = useAtomValue(sessionsVersionAtom);
+  const memory = useAtomValue(settledMemoryVersionAtom);
+  const sessions = useAtomValue(settledSessionsVersionAtom);
   const refreshVaults = useAtomRefresh(allVaultsAtom);
   const refreshSessions = useAtomRefresh(sessionsListAtom);
 
