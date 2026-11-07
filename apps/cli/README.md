@@ -267,6 +267,34 @@ ran under with `--parent`. Both ids accept the short form `stats drill` prints.
 peektrace sessions analyze --parent <session-uuid> agent-<id>
 ```
 
+### `sessions export [<id>]` — save a session as HTML, Markdown or JSON
+
+Writes one session to stdout, or to a file with `--out`. Secrets and home
+directories are redacted by default. Redaction is best effort: read the file
+before you share it. `--no-redact` keeps the raw text, so treat that output as
+private. Transcript file paths are never exported. Images appear as
+`[image: <type>]`. Subagents are listed, not inlined.
+
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--format html\|md\|json` | see below | Output format |
+| `--out <path>` | stdout | Write to this file (overwrites) and print `Wrote <path>` to stderr |
+| `--no-redact` | redacted | Keep secrets and home paths |
+| `--latest`, `--cwd <dir>` | | Pick the newest session, as in `sessions analyze` |
+| `--parent <id>` | | Parent session when `<id>` is a subagent transcript |
+
+Without `--format`: `--json` gives JSON, else the `--out` extension decides
+(`.html`, `.md`, `.json`), else Markdown. Redaction covers provider-format
+secrets and `/home/<user>`, `/Users/<user>` and `C:\Users\<user>` paths, which
+become `~`. The HTML file is self-contained: no script, no external loads.
+`--read-only` does not block `--out`; it writes your file, not agent data.
+
+```sh
+peektrace sessions export <session-uuid> > session.md
+peektrace sessions export --latest --out session.html
+peektrace sessions export --cwd . --format json --no-redact --out raw.json
+```
+
 ### `statusline` — Claude Code status line
 
 Reads the JSON Claude Code pipes to a `statusLine` command, analyzes the

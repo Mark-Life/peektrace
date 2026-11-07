@@ -65,6 +65,10 @@ const COMMANDS: RefEntry[] = [
     desc: "context forensics for one session (--latest, --cwd)",
   },
   {
+    name: "sessions export [<id>]",
+    desc: "one session as md, html or json, redacted by default (--format, --out, --no-redact)",
+  },
+  {
     name: "statusline",
     desc: "one-line context health for the Claude Code status line (--timeout)",
   },
