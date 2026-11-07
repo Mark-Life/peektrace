@@ -25,8 +25,9 @@
  *
  * Shards are always redacted, because `extract.ts` redacts at mint time. A
  * caller asking for raw text bypasses the cache instead of writing raw text
- * down. Aggregation still runs over every shard on every report: one new file
- * changes shares and ranks, so nothing downstream of extraction is cached.
+ * down. Aggregation reruns on every report over every shard that can hold an
+ * in-window fact: one new file changes shares and ranks, so nothing downstream
+ * of extraction is cached.
  */
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
