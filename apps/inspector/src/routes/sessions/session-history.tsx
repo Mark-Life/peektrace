@@ -215,7 +215,8 @@ export const SessionHistory = ({
         {redacted ? (
           <span>
             Secrets are redacted by default. This transcript may still contain
-            sensitive data — review before sharing.
+            sensitive data, and images are shown as recorded — review before
+            sharing.
           </span>
         ) : (
           <span data-testid="redaction-off">

@@ -249,6 +249,16 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
                 ...(redact === undefined ? {} : { redact }),
               })
             ),
+          "sessions.image": ({ id, parent, line, block, item }) =>
+            wire(
+              sessions.image({
+                id,
+                line,
+                block,
+                ...(parent === undefined ? {} : { parent }),
+                ...(item === undefined ? {} : { item }),
+              })
+            ),
           "sessions.analyze": ({ id, parent, window, dumbZone, redact }) =>
             wire(
               sessions.analyze({

@@ -200,6 +200,21 @@ export const SessionGetPayload = Schema.Struct({
   redact: Schema.optional(Schema.Boolean),
 });
 
+/** `sessions.image` arguments: an event's line and one of its `ImageRef`s. */
+export const SessionImagePayload = Schema.Struct({
+  id: Schema.String,
+  /** Parent session id when `id` names a subagent transcript. */
+  parent: Schema.optional(Schema.String),
+  line: Schema.Number,
+  block: Schema.Number,
+  item: Schema.optional(Schema.Number),
+});
+
+/** One image's base64 bytes, or null when the ref names no showable image. */
+export const SessionImage = Schema.NullOr(
+  Schema.Struct({ data: Schema.String, mediaType: Schema.String })
+);
+
 /** `sessions.analyze` arguments. */
 export const SessionAnalyzePayload = Schema.Struct({
   id: Schema.String,
@@ -315,6 +330,11 @@ export const PeektraceRpcs = RpcGroup.make(
   Rpc.make("sessions.get", {
     payload: SessionGetPayload,
     success: ParsedSession,
+    error: WireError,
+  }),
+  Rpc.make("sessions.image", {
+    payload: SessionImagePayload,
+    success: SessionImage,
     error: WireError,
   }),
   Rpc.make("sessions.analyze", {

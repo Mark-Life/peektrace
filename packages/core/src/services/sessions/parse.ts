@@ -1,6 +1,12 @@
 /** Parse a Claude Code JSONL transcript into a normalized ParsedSession. */
 import { attachmentEvent, type PromptSeen } from "./claude-attachments";
-import { imageMarker, isImageBlock, omitImageData } from "./images";
+import {
+  imageMarker,
+  imageRef,
+  isImageBlock,
+  omitImageData,
+  toolResultImageRefs,
+} from "./images";
 import { measureTokens } from "./measure";
 import { claudePromptOrigin, promptLabel } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
@@ -129,11 +135,13 @@ const userBlockEvent = (args: {
   readonly ts: string | undefined;
   readonly isSidechain: boolean;
   readonly o: RawLine;
+  readonly blockIndex: number;
 }): TimelineEvent | null => {
-  const { block, index, ts, isSidechain, o } = args;
+  const { block, index, ts, isSidechain, o, blockIndex } = args;
   if (block?.type === "tool_result") {
     const raw = omitImageData(block.content);
     const text = typeof raw === "string" ? raw : str(raw);
+    const images = toolResultImageRefs(blockIndex, block.content);
     return {
       index,
       kind: "tool-result",
@@ -144,6 +152,7 @@ const userBlockEvent = (args: {
       tokensEst: estTokens(text),
       isError: block.is_error === true,
       ...opt("ts", ts),
+      ...opt("images", images.length > 0 ? images : undefined),
       ...opt(
         "toolUseId",
         typeof block.tool_use_id === "string" ? block.tool_use_id : undefined
@@ -172,6 +181,7 @@ const userBlockEvent = (args: {
       tokensEst: estTokens(text),
       attachmentType: "image",
       loadedCategory: "file",
+      images: [imageRef({ block, blockIndex })],
       ...opt("ts", ts),
     };
   }
@@ -380,8 +390,17 @@ const handleUser = (ctx: LineCtx) => {
     return;
   }
   if (Array.isArray(content)) {
-    for (const block of content as Record<string, unknown>[]) {
-      const ev = userBlockEvent({ block, index, ts, isSidechain, o });
+    for (const [blockIndex, block] of (
+      content as Record<string, unknown>[]
+    ).entries()) {
+      const ev = userBlockEvent({
+        block,
+        index,
+        ts,
+        isSidechain,
+        o,
+        blockIndex,
+      });
       if (ev) {
         state.events.push(ev);
       }

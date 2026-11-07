@@ -53,6 +53,7 @@ import {
 import { sameEvent } from "../../lib/transcript-row";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 import { EventBody } from "./event-body";
+import { EventImages } from "./event-images";
 import { ToolPaneView, ToolResultView } from "./tool-panes";
 import { SortHeader } from "./transcript-sort-header";
 
@@ -176,6 +177,9 @@ const ToolEventRowBody = ({
         {result ? (
           <ToolResultView isError={e.isError === true} pane={result} />
         ) : null}
+        <div className="px-3 empty:hidden">
+          <EventImages e={e} />
+        </div>
       </ToolContent>
     </Tool>
   );
