@@ -1,7 +1,7 @@
 # Peektrace CLI (`apps/cli`)
 
-`peektrace` — a local, **loopback-only** inspector for Claude Code memories &
-sessions. One binary built on [`@effect/cli`](https://effect.website): the
+`peektrace` — a local, **loopback-only** inspector for Claude Code, Codex, Pi and
+OpenCode sessions: context-budget forensics, stats and Claude memory. One binary built on [`@effect/cli`](https://effect.website): the
 headline `serve` command boots the browser UI, plus one-shot subcommands for
 scripting.
 
@@ -27,29 +27,29 @@ workspace `bunx` exposes the same commands documented below.
 
 ## Distribution
 
-The native installers (`scripts/install.sh` / `scripts/install.ps1`, at the repo
-root) are the only channel. They pull the per-platform binary from the GitHub
-Release that the `Publish CLI` workflow attaches to each `cli-v<semver>` tag.
+Two channels, both driven by the `Publish CLI` workflow on each `cli-v<semver>`
+tag. The native installers (`scripts/install.sh` / `scripts/install.ps1`, at the
+repo root) pull the per-platform binary from the GitHub Release. npm
+(`npx peektrace`) is the second channel, published after the Release.
 
 `bun run --cwd apps/cli build:npm` cross-compiles every target (re-running
 `src/build.ts` with `BUN_TARGET`) and stages package dirs under the gitignored
-`apps/cli/dist-npm/`. That staging step is what produces the released binaries,
-so it runs in CI even though nothing is published to a registry.
+`apps/cli/dist-npm/`. That staging step produces both the Release binaries and
+the npm packages. The wrapper README is generated from the root README (up to
+`# Develop`), with image lines dropped and relative links pinned to the release
+tag.
 
-### npm (not published)
+### npm
 
-Publishing to npm is disabled pending name registration — the publish step in
-`.github/workflows/publish-cli.yml` is commented out, and no `peektrace` package
-on npm comes from this project.
-
-The staged layout, for whenever it is re-enabled: a single unscoped `peektrace`
-package shipping prebuilt binaries via `os`/`cpu`-filtered optional dependencies
-— one per platform, named `peektrace-<platform>-<arch>` (`darwin-arm64`,
-`darwin-x64`, `linux-x64`, `linux-arm64`, `win32-x64`). Installing pulls only the host's binary;
-a tiny Node shim (`peektrace.js`) resolves it and forwards argv. Publish each
-`peektrace-*` variant first, then the `peektrace` wrapper (so its
-optionalDependencies resolve). The scoped `@peektrace/*` naming is a documented
-alternative (needs an npm org) — see the header of `scripts/build-npm.ts`.
+Live. CI publishes with npm trusted publishing (OIDC, no token), so each package
+carries a provenance attestation. The unscoped `peektrace` wrapper ships prebuilt
+binaries via `os`/`cpu`-filtered optional dependencies, one scoped package per
+platform: `@peektrace/cli-<platform>-<arch>` (`darwin-arm64`, `darwin-x64`,
+`linux-x64`, `linux-arm64`, `win32-x64`). Installing pulls only the host's
+binary; a tiny Node shim (`peektrace.js`) resolves it and forwards argv. CI
+publishes each `@peektrace/cli-*` variant first, then the `peektrace` wrapper, so
+its optionalDependencies resolve. See `scripts/build-npm.ts` and
+`scripts/npm-meta.ts`.
 
 ### Running on a VPS / headless server
 
@@ -103,7 +103,11 @@ Declared on the root command; apply to every subcommand:
 | `--no-telemetry` | Disable the local run log for this invocation (also via `PEEKTRACE_NO_TELEMETRY`). The local run log is **on by default** and writes one event per run to local SQLite — see [Local run log & privacy](#local-run-log--privacy) |
 
 Flags are declared on the root command, so place them **before** the subcommand
-(`peektrace --json memory ls`, `peektrace --read-only memory rm ...`).
+(`peektrace --json memory ls`, `peektrace --read-only memory rm ...`). `--json`
+and `--read-only` also work after the subcommand on `sessions`, `memory` and
+`stats` commands (`peektrace sessions ls --json`). `serve` and `tui` take
+`--read-only` only; `doctor` and `upgrade` take neither. `--pretty`, `--remote`,
+`--otel` and `--no-telemetry` go before the subcommand.
 
 ## Commands
 

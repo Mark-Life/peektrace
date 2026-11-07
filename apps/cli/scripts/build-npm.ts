@@ -52,39 +52,26 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join, resolve } from "node:path";
+import {
+  DESCRIPTION,
+  KEYWORDS,
+  TARGETS,
+  type Target,
+  variantName,
+} from "./npm-meta";
+import { npmReadme } from "./npm-readme";
 
 const SCRIPT_DIR = import.meta.dirname;
 const CLI_ROOT = resolve(SCRIPT_DIR, "..");
 const NPM_SRC = join(SCRIPT_DIR, "npm");
 const DIST_NPM = join(CLI_ROOT, "dist-npm");
 const CLI_PKG_JSON = join(CLI_ROOT, "package.json");
-const CLI_README = join(CLI_ROOT, "README.md");
+const ROOT_README = join(CLI_ROOT, "..", "..", "README.md");
 
 const REPO_URL = "https://github.com/Mark-Life/peektrace";
 const LICENSE = "MIT";
 /** rwxr-xr-x — needed so `npx`/global installs can exec the bin on unix. */
 const EXECUTABLE_MODE = 0o755;
-const DESCRIPTION =
-  "Local, loopback-only inspector for Claude Code memories & sessions.";
-
-/** One publishable per-platform binary variant. */
-interface Target {
-  readonly arch: "x64" | "arm64";
-  readonly bunTarget: Bun.Build.CompileTarget;
-  readonly platform: "darwin" | "linux" | "win32";
-}
-
-/** The matrix of platforms shipped as `peektrace-<platform>-<arch>` packages. */
-const TARGETS = [
-  { platform: "darwin", arch: "arm64", bunTarget: "bun-darwin-arm64" },
-  { platform: "darwin", arch: "x64", bunTarget: "bun-darwin-x64" },
-  { platform: "linux", arch: "x64", bunTarget: "bun-linux-x64" },
-  { platform: "linux", arch: "arm64", bunTarget: "bun-linux-arm64" },
-  { platform: "win32", arch: "x64", bunTarget: "bun-windows-x64" },
-] as const satisfies readonly Target[];
-
-/** npm package name for a per-platform binary variant. */
-const variantName = (t: Target) => `@peektrace/cli-${t.platform}-${t.arch}`;
 
 /** Binary filename inside a variant (`.exe` only on Windows). */
 const binaryName = (t: Target) =>
@@ -159,7 +146,7 @@ const stageVariant = (t: Target, version: string, producedBinary: string) => {
 };
 
 /** Stage the main `dist-npm/peektrace/` wrapper: package.json + shim + postinstall. */
-const stageWrapper = (version: string) => {
+const stageWrapper = async (version: string) => {
   const pkgDir = join(DIST_NPM, "peektrace");
   mkdirSync(pkgDir, { recursive: true });
 
@@ -170,14 +157,7 @@ const stageWrapper = (version: string) => {
     name: "peektrace",
     version,
     description: DESCRIPTION,
-    keywords: [
-      "claude",
-      "claude-code",
-      "inspector",
-      "cli",
-      "memory",
-      "sessions",
-    ],
+    keywords: [...KEYWORDS],
     ...commonMeta,
     type: "commonjs",
     bin: { peektrace: "./peektrace.js" },
@@ -196,10 +176,13 @@ const stageWrapper = (version: string) => {
   chmodSync(shim, EXECUTABLE_MODE);
   cpSync(join(NPM_SRC, "postinstall.js"), join(pkgDir, "postinstall.js"));
 
-  const readmeSrc = join(NPM_SRC, "README.md");
-  cpSync(
-    existsSync(readmeSrc) ? readmeSrc : CLI_README,
-    join(pkgDir, "README.md")
+  const rootReadme = Bun.file(ROOT_README);
+  if (!(await rootReadme.exists())) {
+    throw new Error(`Root README not found at ${ROOT_README}`);
+  }
+  writeFileSync(
+    join(pkgDir, "README.md"),
+    npmReadme(await rootReadme.text(), `cli-v${version}`)
   );
   console.log(`Staged peektrace wrapper (${pkgDir})`);
 };
@@ -214,11 +197,11 @@ const main = async () => {
     const produced = compileTarget(t);
     stageVariant(t, version, produced);
   }
-  stageWrapper(version);
+  await stageWrapper(version);
 
   console.log(`\nDone. Publishable packages staged under ${DIST_NPM}`);
   console.log(
-    "Publish order (manual/CI): each peektrace-* first, then peektrace."
+    "Publish order (manual/CI): each @peektrace/cli-* first, then peektrace."
   );
 };
 
