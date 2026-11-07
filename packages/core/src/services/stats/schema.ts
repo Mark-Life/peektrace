@@ -24,7 +24,7 @@ export const DETECTOR_VERSION = 2;
  * Bumped when `extract.ts` or any fact column changes. Part of the cache key:
  * a shard written by an older extractor is re-extracted, never read back.
  */
-export const EXTRACTOR_VERSION = 9;
+export const EXTRACTOR_VERSION = 10;
 
 /** Where a transcript sits in the session tree. */
 export const TranscriptKind = Schema.Literal(

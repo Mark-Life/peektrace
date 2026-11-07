@@ -5,6 +5,7 @@
  * `prompt_snapshot` attachments hold the system prompt and tool definitions and
  * become `system-prompt` events instead of plain attachments.
  */
+import { imageMarker, isImageBlock } from "./images";
 import { promptEvent } from "./prompt-origin";
 import type { LoadedCategory, TimelineEvent } from "./schema";
 import {
@@ -107,7 +108,6 @@ const attachmentCategory = (a: Raw): LoadedCategory => {
     case "edited_text_file":
       return "ide";
     case "image":
-      return "file";
     case "compact_file_reference":
       return "file";
     case "task_reminder":
@@ -276,7 +276,16 @@ export interface AttachmentBase {
   readonly ts: string | undefined;
 }
 
-/** Text of a queued prompt: a string, or the text parts of a block array. */
+/** Text of one queued prompt block: its text, an image marker, or "". */
+const queuedBlockText = (b: Raw | undefined): string => {
+  if (isImageBlock(b)) {
+    return imageMarker(b as Raw);
+  }
+  return b?.type === "text" && typeof b.text === "string" ? b.text : "";
+};
+
+/** Text of a queued prompt: a string, or the text parts of a block array with
+ *  images as markers, so base64 data never lands in the body or the count. */
 const queuedText = (prompt: unknown): string => {
   if (typeof prompt === "string") {
     return prompt;
@@ -284,9 +293,9 @@ const queuedText = (prompt: unknown): string => {
   if (!Array.isArray(prompt)) {
     return "";
   }
-  return (prompt as Raw[])
-    .filter((b) => b?.type === "text" && typeof b.text === "string")
-    .map((b) => b.text as string)
+  return (prompt as (Raw | undefined)[])
+    .map(queuedBlockText)
+    .filter((t) => t !== "")
     .join("\n");
 };
 

@@ -30,7 +30,6 @@ const parse = (lines: readonly Record<string, unknown>[]) =>
       .map((o) => JSON.stringify({ timestamp: ts, sessionId: "s", ...o }))
       .join("\n"),
     sessionId: "s",
-    slug: "",
   });
 
 describe("metadata-only attachments", () => {
@@ -250,20 +249,43 @@ describe("queued prompts", () => {
     expect(e?.promptSource).toBe("sdk");
   });
 
-  test("an array prompt joins its text blocks", () => {
+  const image = {
+    type: "image",
+    source: {
+      type: "base64",
+      media_type: "image/png",
+      data: "QUJD".repeat(500),
+    },
+  };
+
+  test("an array prompt joins its text blocks, images as markers", () => {
     const e = attachmentEvent({
       o: queued({
         prompt: [
           { type: "text", text: "part one" },
-          { type: "image", source: {} },
+          image,
           { type: "text", text: "part two" },
         ],
       }),
       base,
       seen: {},
     });
+    const body = "part one\n[image: image/png]\npart two";
     expect(e?.kind).toBe("user-prompt");
-    expect(e?.body).toBe("part one\npart two");
-    expect(e?.tokensEst).toBe(estTokens("part one\npart two"));
+    expect(e?.body).toBe(body);
+    expect(e?.tokensEst).toBe(estTokens(body));
+  });
+
+  test("an image-only prompt is a user message without base64 data", () => {
+    const e = attachmentEvent({
+      o: queued({ prompt: [image] }),
+      base,
+      seen: {},
+    });
+    expect(e?.kind).toBe("user-prompt");
+    expect(e?.body).toBe("[image: image/png]");
+    expect(e?.body).not.toContain("QUJD");
+    expect(e?.tokensEst).toBe(estTokens("[image: image/png]"));
+    expect(e?.loadedCategory).toBeUndefined();
   });
 });
