@@ -54,7 +54,7 @@ describe("usage facts", () => {
     const first = usage[0];
     expect(first).toBeDefined();
     expect(first && isCallFact(first)).toBe(false);
-    expect(facts.filter(isCallFact).every((f) => f.row !== "usage")).toBe(true);
+    expect(facts.filter((f) => f.row === "usage").some(isCallFact)).toBe(false);
   });
 
   test("usage facts survive a cache round trip", async () => {

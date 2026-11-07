@@ -26,11 +26,11 @@ import type {
 } from "../usage-schema";
 import { estimateCost, FALLBACK_FAMILY, priceFor, pricingEcho } from "./corpus";
 
-const HOUR_MS = 3_600_000;
-const DAY_MS = 86_400_000;
+export const HOUR_MS = 3_600_000;
+export const DAY_MS = 86_400_000;
 /** Length of a billing block, in hours. */
 const BLOCK_HOURS = 5;
-const BLOCK_MS = BLOCK_HOURS * HOUR_MS;
+export const BLOCK_MS = BLOCK_HOURS * HOUR_MS;
 
 /** Every IANA offset is a multiple of 15 minutes, so a day key is constant
  * across one 15-minute slot. An hour slot would be wrong at +5:30 or +5:45. */
@@ -168,6 +168,9 @@ export interface UsageSinkOptions {
   /** Buckets kept: days back from `nowMs`, the first bucket kept whole.
    * A whole number from 1; the caller checks it. */
   readonly days: number;
+  /** Block mode: epoch ms the pass starts at. Calls before it are unseen, so
+   * blocks before the first gap over 5 hours are not trusted. Unset: full history. */
+  readonly fromMs?: number | undefined;
   readonly nowMs: number;
   /** IANA zone for day and month keys. */
   readonly tz: string;
@@ -176,6 +179,9 @@ export interface UsageSinkOptions {
 /** What the sink produces. */
 interface UsageSinkResult {
   readonly caveats: readonly string[];
+  /** Block mode: unseen calls before `fromMs` may change blocks in the
+   * window, so the pass has to start earlier. */
+  readonly chainCut: boolean;
   readonly rows: readonly UsageRow[];
   readonly skipped: UsageSkipped;
   readonly totals: UsageTotals;
@@ -184,7 +190,7 @@ interface UsageSinkResult {
 
 /** The usage sink. Throws a `RangeError` on an unknown `tz`. */
 export const makeUsageSink = (opts: UsageSinkOptions) => {
-  const { by, days, nowMs, tz } = opts;
+  const { by, days, fromMs, nowMs, tz } = opts;
   const dayKey = dayKeyOf(tz);
   const cutoffDay = daysBefore(dayKey(nowMs), days - 1);
   const cutoffMs = nowMs - days * DAY_MS;
@@ -279,8 +285,28 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
     };
   };
 
-  const blockRows = () =>
-    blocksOf(calls, nowMs)
+  /** Calls from the first one more than 5 hours after the call before it (or
+   * the pass start): a gap over 5 hours always opens a new block, so blocks
+   * from there on do not depend on unseen history. */
+  const trustedCalls = () => {
+    if (fromMs === undefined) {
+      return { kept: calls, chainCut: false };
+    }
+    const sorted = [...calls].sort((a, b) => a.ms - b.ms);
+    const anchor = sorted.findIndex(
+      (call, i) => call.ms - (sorted[i - 1]?.ms ?? fromMs) > BLOCK_MS
+    );
+    if (anchor === -1) {
+      return { kept: [], chainCut: sorted.length > 0 };
+    }
+    // Dropped calls end their true blocks before the anchor, so they only
+    // matter when the anchor sits inside the window.
+    const anchorMs = sorted[anchor]?.ms ?? 0;
+    return { kept: sorted.slice(anchor), chainCut: anchorMs > cutoffMs };
+  };
+
+  const blockRows = (kept: readonly BlockCall[]) =>
+    blocksOf(kept, nowMs)
       .filter((b) => b.endMs > cutoffMs)
       .map((b) => {
         const byModel = new Map<string, Agg>();
@@ -301,19 +327,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([key, byModel]) => ({ key, byModel, block: null }));
 
-  const finish = (): UsageSinkResult => {
-    const built = by === "block" ? blockRows() : bucketRows();
-    const all = new Map<string, Agg>();
-    for (const row of built) {
-      for (const [model, agg] of row.byModel) {
-        const into = all.get(model) ?? noAgg();
-        addInto(into, agg, agg.turns);
-        all.set(model, into);
-      }
-    }
-    const unpricedModels = uniqSorted(
-      [...all.keys()].filter((model) => !priceFor(model).priced)
-    );
+  const caveatsOf = (unpricedModels: readonly string[]) => {
     const caveats = [
       `Cost is an ESTIMATE at published list prices per million tokens (input/output/cacheWrite/cacheRead USD): ${pricingEcho()}`,
     ];
@@ -342,7 +356,26 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
         `blocks cover Claude turns only: ${skipped.otherAgents} calls from other agents are left out`
       );
     }
+    return caveats;
+  };
+
+  const finish = (): UsageSinkResult => {
+    const trusted = by === "block" ? trustedCalls() : null;
+    const built = trusted ? blockRows(trusted.kept) : bucketRows();
+    const all = new Map<string, Agg>();
+    for (const row of built) {
+      for (const [model, agg] of row.byModel) {
+        const into = all.get(model) ?? noAgg();
+        addInto(into, agg, agg.turns);
+        all.set(model, into);
+      }
+    }
+    const unpricedModels = uniqSorted(
+      [...all.keys()].filter((model) => !priceFor(model).priced)
+    );
+    const caveats = caveatsOf(unpricedModels);
     return {
+      chainCut: trusted?.chainCut ?? false,
       rows: built.map(({ key, byModel, block }) => ({
         key,
         ...totalsOf(byModel),

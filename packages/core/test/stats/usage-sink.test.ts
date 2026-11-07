@@ -291,8 +291,8 @@ describe("the report detectors ignore usage rows", () => {
   ];
   const withUsage: readonly StatsFact[] = [
     ...base,
-    usageFact({ run: "wf_1", kind: "workflow-agent" }),
-    usageFact({ run: "wf_1", kind: "workflow-agent", req: "req_2" }),
+    usageFact({}),
+    usageFact({ req: "req_2" }),
   ];
 
   const fold = (facts: readonly StatsFact[]) => {

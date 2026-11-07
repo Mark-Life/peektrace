@@ -2,12 +2,13 @@
  * `stats.usage`: one pass over the cached facts, folded into the usage sink.
  *
  * The pass is widened past the requested days so the first bucket and the
- * first block are whole; the sink trims afterwards.
+ * first block are whole; the sink trims afterwards. In block mode, when the
+ * widened pass still cuts a block chain, a second pass reads full history.
  */
 import { Clock, Effect, Schema } from "effect";
 import type { AgentId } from "../agent-id";
 import type { FactSink } from "./accumulate";
-import { makeUsageSink } from "./detectors/usage";
+import { DAY_MS, makeUsageSink } from "./detectors/usage";
 import { StatsScanError } from "./errors";
 import type { StatsWindow } from "./schema";
 import {
@@ -19,22 +20,17 @@ import {
   type UsageReport,
 } from "./usage-schema";
 
-const MS_PER_DAY = 86_400_000;
-const MS_PER_HOUR = 3_600_000;
-
 /** Longest month, plus one day of zone offset. */
 const MONTH_WIDEN_DAYS = 32;
-/** Length of a billing block, in hours. */
-const BLOCK_HOURS = 5;
 
 /** Time before the cutoff the pass also reads, so the first bucket is whole.
  * Day: the first local day can start up to a day early (zone offset, DST).
  * Month: the first month can start up to 31 days early, plus that day.
- * Block: a block that opened before the cutoff runs at most 5 hours. */
+ * Block: room to find a gap over 5 hours, which resets the block chain. */
 const WIDEN_MS: Readonly<Record<UsageBy, number>> = {
-  day: MS_PER_DAY,
-  month: MONTH_WIDEN_DAYS * MS_PER_DAY,
-  block: BLOCK_HOURS * MS_PER_HOUR,
+  day: DAY_MS,
+  month: MONTH_WIDEN_DAYS * DAY_MS,
+  block: DAY_MS,
 };
 
 const isUsageDays = Schema.is(UsageDays);
@@ -81,15 +77,31 @@ export const makeUsage =
         try: () => new Intl.DateTimeFormat("en-US", { timeZone: tz }),
         catch: () => new StatsScanError({ reason: `unknown time zone: ${tz}` }),
       });
-      const sink = makeUsageSink({ by: req.by, days, nowMs: now, tz });
-      const fromMs = now - days * MS_PER_DAY;
-      yield* args.pass({
-        agents: req.agents,
+      const fromMs = now - days * DAY_MS;
+      const passFromMs = fromMs - WIDEN_MS[req.by];
+      const run = (opts: { readonly from?: number; readonly force: boolean }) =>
+        Effect.gen(function* () {
+          const sink = makeUsageSink({
+            by: req.by,
+            days,
+            fromMs: opts.from,
+            nowMs: now,
+            tz,
+          });
+          yield* args.pass({
+            agents: req.agents,
+            force: opts.force,
+            sinks: [sink],
+            window: windowOf(opts.from ?? 0, now, days),
+          });
+          return sink.finish();
+        });
+      const first = yield* run({
+        from: passFromMs,
         force: req.force === true,
-        sinks: [sink],
-        window: windowOf(fromMs - WIDEN_MS[req.by], now, days),
       });
-      const out = sink.finish();
+      // The first pass already refreshed the cache, so the second never forces.
+      const out = first.chainCut ? yield* run({ force: false }) : first;
       return {
         schemaVersion: USAGE_SCHEMA_VERSION,
         generatedAt: now,
