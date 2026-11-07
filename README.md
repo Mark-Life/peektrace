@@ -189,7 +189,8 @@ before the subcommand.
 
 ```sh
 peektrace sessions ls [--agent <id>] [--project <name>] [--since <when>] [--cwd <path>] [--limit <n>]
-peektrace sessions analyze <session-id>
+peektrace sessions analyze [<session-id>] [--latest] [--cwd <path>]
+peektrace statusline [--timeout <ms>]            # Claude Code status line, reads stdin
 peektrace memory ls [project]                    # --json for raw output
 peektrace memory show <project> <name>
 peektrace --read-only memory rm <project> <name> # refused, nothing written
@@ -199,6 +200,17 @@ peektrace doctor                                 # write a local support bundle
 `peektrace doctor` collects recent local run-log events, recursively redacts
 them, and writes a JSON bundle to `~/.peektrace` (or `PEEKTRACE_DIR`) for you to
 email. It is a diagnostics export, not a health check — nothing is uploaded.
+
+`peektrace sessions analyze --latest` scores the newest session of any agent.
+`--cwd .` limits it to sessions run in this directory or below.
+
+To show context health in the Claude Code status line, add this to
+`~/.claude/settings.json`. It prints `ctx 42% Healthy`, or `ctx --` on any
+problem.
+
+```json
+{ "statusLine": { "type": "command", "command": "peektrace statusline" } }
+```
 
 Full flag reference: [`apps/cli/README.md`](apps/cli/README.md).
 
