@@ -18,6 +18,8 @@ export const ROW_FIELDS = [
   "toolName",
   "attachmentType",
   "isSidechain",
+  "promptOrigin",
+  "promptSource",
   "preview",
   "tokensEst",
   "tokensMeasured",
@@ -62,7 +64,8 @@ export const sameChatEvent = (a: TimelineEvent, b: TimelineEvent) =>
 interface ChatLeafState {
   readonly collapseId: string;
   readonly e: TimelineEvent;
-  readonly lane: string;
+  /** Absent for centred leaves, which have only the one lane. */
+  readonly lane?: string;
   readonly onToggle: (id: string, open: boolean) => void;
   readonly open: boolean;
 }

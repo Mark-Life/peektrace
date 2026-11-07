@@ -8,6 +8,7 @@
  * than something you have to spot by eye in a 2000-event session.
  */
 import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
+import { isUserAuthored } from "@workspace/core/services/sessions/prompt-origin";
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import { chatCollapseId } from "./session-view";
 
@@ -21,8 +22,8 @@ export interface TranscriptRowRef {
   readonly pos: number;
 }
 
-/** One thing the chat renders: a bubble, a tool card, a chip cluster, a band, or
- *  a synthetic separator. */
+/** One thing the chat renders: a bubble, a tool card, a chip cluster, a band, a
+ *  centred notice from the harness, or a synthetic separator. */
 export type ChatNode =
   | { readonly type: "message"; readonly row: TranscriptRowRef }
   | {
@@ -32,6 +33,7 @@ export type ChatNode =
     }
   | { readonly type: "run"; readonly items: readonly TranscriptRowRef[] }
   | { readonly type: "band"; readonly row: TranscriptRowRef }
+  | { readonly type: "notice"; readonly row: TranscriptRowRef }
   | { readonly type: "turn"; readonly turn: number }
   | { readonly type: "dumbzone" };
 
@@ -48,10 +50,14 @@ export const FILE_TITLE_PREFIXES = [
 ];
 
 /** Which side of the conversation an event belongs to. A sidechain event is
- *  never the human talking, so it stays in the agent column whatever its kind. */
+ *  never the human talking, so it stays in the agent column whatever its kind;
+ *  a prompt the harness wrote (task notification, wake-up) is centred. */
 export const laneOf = (e: TimelineEvent): ChatLane => {
   if (e.kind === "user-prompt") {
-    return e.isSidechain === true ? "agent" : "user";
+    if (e.isSidechain === true) {
+      return "agent";
+    }
+    return isUserAuthored(e) ? "user" : "center";
   }
   if (
     e.kind === "assistant-text" ||
@@ -81,7 +87,7 @@ export const needsClamp = (e: TimelineEvent) => e.body.length > CLAMP_CHARS;
 /** The collapse id a node toggles, or null when the node is not interactive.
  *  A chip cluster has no id of its own — each chip inside it owns one. */
 export const chatCollapseIdOf = (n: ChatNode): string | null => {
-  if (n.type === "message" || n.type === "band") {
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
     return chatCollapseId(n.row.pos);
   }
   if (n.type === "tool") {
@@ -91,9 +97,11 @@ export const chatCollapseIdOf = (n: ChatNode): string | null => {
   return null;
 };
 
-/** Whether an event joins a centred chip cluster rather than standing alone. */
+/** Whether an event joins a centred chip cluster rather than standing alone.
+ *  Harness `system` lines (hook summaries, turn durations) are bookkeeping, so
+ *  they fold in with the context chips instead of reading as a reply. */
 const isChip = (e: TimelineEvent) =>
-  e.kind === "attachment" || e.kind === "meta";
+  e.kind === "attachment" || e.kind === "meta" || e.kind === "system";
 
 /** The result that answers `call`, searched forward among the still-visible rows
  *  so a result the filter dropped simply leaves the call unanswered. */
@@ -138,6 +146,9 @@ const nodeForRow = (
     e.kind === "system-prompt"
   ) {
     return { consumed: null, node: { type: "band", row } };
+  }
+  if (laneOf(e) === "center") {
+    return { consumed: null, node: { type: "notice", row } };
   }
   return { consumed: null, node: { type: "message", row } };
 };

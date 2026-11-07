@@ -14,6 +14,7 @@ import {
   tokensAt,
   tokensBefore,
 } from "./context-edits";
+import { isUserAuthored } from "./prompt-origin";
 import type {
   AnalyzedSession,
   BudgetKey,
@@ -96,7 +97,7 @@ const CAT_META: Record<BudgetKey, CatMeta> = {
     note: "derived from output_tokens − visible text",
   },
   other: {
-    label: "Other injected (reminders, hooks)",
+    label: "Other injected (reminders, hooks, notifications)",
     short: "Other",
     color: "#8a929e",
     estimated: true,
@@ -160,9 +161,11 @@ const foldContent = (args: {
   readonly cat: MutSlices;
   readonly loadedCategory: string | undefined;
   readonly kind: string;
+  /** A prompt the harness wrote (task notification, wake-up) is not the user's. */
+  readonly harnessPrompt: boolean;
   readonly tokens: number;
 }) => {
-  const { cat, loadedCategory, kind, tokens } = args;
+  const { cat, loadedCategory, kind, harnessPrompt, tokens } = args;
   switch (loadedCategory) {
     case "claude-md":
       cat.memory += tokens;
@@ -186,6 +189,8 @@ const foldContent = (args: {
   }
   if (kind === "tool-result") {
     cat.tool_results += tokens;
+  } else if (harnessPrompt) {
+    cat.other += tokens;
   } else if (kind === "user-prompt" || kind === "compaction") {
     cat.prompts += tokens;
   } else if (kind === "summary") {
@@ -332,6 +337,7 @@ const foldNonTurnEvent = (
       cat,
       loadedCategory: e.loadedCategory,
       kind: e.kind,
+      harnessPrompt: e.kind === "user-prompt" && !isUserAuthored(e),
       tokens,
     });
   let prev = tokensBefore(e);
@@ -454,9 +460,7 @@ export const analyze = (
     }
   });
 
-  const userMessageCount = p.events.filter(
-    (e) => e.kind === "user-prompt"
-  ).length;
+  const userMessageCount = p.events.filter(isUserAuthored).length;
   const toolCallCount = p.events.filter((e) => e.kind === "tool-call").length;
   const durationMs =
     p.startedAt && p.endedAt

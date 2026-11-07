@@ -185,7 +185,16 @@ const ChatBubbleBody = ({
         id={collapseId}
       >
         <div className={cn(META, lane === "user" && "justify-end")}>
-          <span>{e.kind === "user-prompt" ? "you" : "assistant"}</span>
+          <span>{e.kind === "user-prompt" ? "user" : "assistant"}</span>
+          {e.promptSource ? (
+            <Badge
+              className="h-4 px-1"
+              title="Claude Code promptSource: how this prompt reached the session"
+              variant="outline"
+            >
+              {e.promptSource}
+            </Badge>
+          ) : null}
           {e.tokensEst ? <span>· {tokenLabel(e, fmt)} tok</span> : null}
           {e.isSidechain ? (
             <Badge className="h-4" variant="secondary">

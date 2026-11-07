@@ -15,6 +15,7 @@ import {
   contextEditTag,
   eventBadgeLabel,
 } from "@workspace/core/services/sessions/labels";
+import { isUserAuthored } from "@workspace/core/services/sessions/prompt-origin";
 import type {
   AnalyzedSession,
   EventKind,
@@ -49,6 +50,17 @@ const KIND_COLOR: Record<EventKind, string> = {
   compaction: C.warn,
   summary: C.accent,
   meta: C.textFaint,
+};
+
+/** Badge tint for a row: errors read `bad`, a prompt the harness wrote reads
+ *  as the faint system tint rather than the user's. */
+const badgeColor = (e: TimelineEvent) => {
+  if (e.isError) {
+    return C.bad;
+  }
+  return e.kind === "user-prompt" && !isUserAuthored(e)
+    ? C.textFaint
+    : KIND_COLOR[e.kind];
 };
 
 /** Row order: transcript order, or largest events first. */
@@ -147,7 +159,7 @@ const HistoryItem = ({
       <Badge label={`t${turn}`} />
       <text> </text>
       <Badge
-        color={e.isError ? C.bad : KIND_COLOR[e.kind]}
+        color={badgeColor(e)}
         label={clip(eventBadgeLabel(e), BADGE_MAX)}
       />
       <text fg={selected ? C.primary : C.text}>
