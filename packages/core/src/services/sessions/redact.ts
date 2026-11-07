@@ -233,9 +233,11 @@ const redactEvent = (e: TimelineEvent): TimelineEvent => ({
 
 /** Redact every transcript-derived subagent description. */
 const redactSubagents = (subs: readonly SubagentRef[]): SubagentRef[] =>
-  subs.map((s) =>
-    s.description ? { ...s, description: redactText(s.description) } : s
-  );
+  subs.map((s) => ({
+    ...s,
+    ...(s.description ? { description: redactText(s.description) } : {}),
+    ...(s.workflowPhase ? { workflowPhase: redactText(s.workflowPhase) } : {}),
+  }));
 
 /**
  * Return a copy of a parsed session with every transcript-derived string field

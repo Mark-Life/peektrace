@@ -39,6 +39,11 @@ import type {
   SessionHeader,
   SubagentRef,
 } from "./schema";
+import {
+  pickWorkflowCall,
+  type WorkflowCall,
+  workflowCallsByRun,
+} from "./workflows";
 
 const JSONL = /\.jsonl$/;
 
@@ -120,12 +125,16 @@ export class SessionsService extends Context.Tag("@peektrace/SessionsService")<
   SessionsServiceShape
 >() {}
 
-/** Parse one subagent file into a SubagentRef (its own window, sidechain on). */
+/**
+ * Parse one subagent file into a SubagentRef (its own window, sidechain on).
+ * `link` sets the Workflow call once the transcript start time is known.
+ */
 const parseSubagent = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly stub: SubagentStub;
+  readonly link: ReturnType<typeof workflowLinker>;
 }): Effect.Effect<SubagentRef> => {
-  const { fs, stub } = args;
+  const { fs, stub, link } = args;
   return fs.readFileString(stub.path).pipe(
     Effect.orElseSucceed(() => ""),
     Effect.map((text) => {
@@ -140,7 +149,7 @@ const parseSubagent = (args: {
         0
       );
       return {
-        ...stub,
+        ...link(stub, parsed.startedAt),
         turns: parsed.turns.length,
         peakContextTokens,
       } satisfies SubagentRef;
@@ -242,14 +251,48 @@ const resolveSession = (args: {
   }).pipe(Effect.withSpan("Sessions.resolve", { attributes: { idOrPath } }));
 };
 
+/**
+ * Build a linker that points each workflow agent's `toolUseId` at the Workflow
+ * call that started its run, or the resume call that was live when it started.
+ * The start time comes from the run json, else from the agent's own transcript.
+ * Runs with no call in this transcript stay unlinked.
+ */
+const workflowLinker = (args: {
+  readonly stubs: readonly SubagentStub[];
+  readonly text: string;
+}) => {
+  const { stubs, text } = args;
+  const calls = stubs.some((s) => s.workflowRunId && !s.toolUseId)
+    ? workflowCallsByRun(text)
+    : new Map<string, readonly WorkflowCall[]>();
+  return (
+    { workflowStartedAt, ...stub }: SubagentStub,
+    transcriptStartedAt?: string
+  ) => {
+    if (!stub.workflowRunId || stub.toolUseId) {
+      return stub;
+    }
+    const fallback = transcriptStartedAt
+      ? Date.parse(transcriptStartedAt)
+      : Number.NaN;
+    const call = pickWorkflowCall(
+      calls.get(stub.workflowRunId) ?? [],
+      workflowStartedAt ?? (Number.isNaN(fallback) ? undefined : fallback)
+    );
+    return call ? { ...stub, toolUseId: call } : stub;
+  };
+};
+
 /** Fold Claude subagent transcripts into a parsed session (no-op elsewhere). */
 const foldClaudeSubagents = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly agents: AgentRegistryShape;
   readonly parsed: ParsedSession;
   readonly id: string;
+  /** Raw main transcript, scanned for the Workflow calls that started runs. */
+  readonly text: string;
 }): Effect.Effect<ParsedSession> => {
-  const { fs, agents, parsed, id } = args;
+  const { fs, agents, parsed, id, text } = args;
   return resolveClaudeSession({ fs, agents, idOrPath: id }).pipe(
     Effect.flatMap((resolved) =>
       findSubagents({
@@ -257,11 +300,16 @@ const foldClaudeSubagents = (args: {
         ...(resolved.subagentDir ? { subagentDir: resolved.subagentDir } : {}),
       })
     ),
-    Effect.flatMap((stubs) =>
-      Effect.forEach(stubs, (stub) => parseSubagent({ fs, stub }), {
-        concurrency: LIST_CONCURRENCY,
-      })
-    ),
+    Effect.flatMap((stubs) => {
+      const link = workflowLinker({ stubs, text });
+      return Effect.forEach(
+        stubs,
+        (stub) => parseSubagent({ fs, stub, link }),
+        {
+          concurrency: LIST_CONCURRENCY,
+        }
+      );
+    }),
     Effect.map(
       (subagents) => ({ ...parsed, subagents }) satisfies ParsedSession
     ),
@@ -420,7 +468,13 @@ const parseFull = (args: {
     });
     const parsed =
       loaded.agent === "claude"
-        ? yield* foldClaudeSubagents({ fs, agents, parsed: base, id })
+        ? yield* foldClaudeSubagents({
+            fs,
+            agents,
+            parsed: base,
+            id,
+            text: loaded.text,
+          })
         : base;
     return { agent: loaded.agent, parsed, ...source } satisfies FullParse;
   }).pipe(
