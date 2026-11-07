@@ -18,6 +18,7 @@ import { openSession } from "../../lib/routes";
 import { useAnalyzedSession } from "../../lib/session-atoms";
 import { useSessionView } from "../../lib/session-view";
 import { TranscriptSourceContext } from "../../lib/transcript-source";
+import { ExportButtons } from "./export-button";
 import { LoadedArtifacts } from "./loaded-artifacts";
 import { SessionHistory } from "./session-history";
 
@@ -72,6 +73,7 @@ export const SessionDetail = ({
         {(a) => (
           <div className="flex flex-col gap-4">
             <VerdictHeader a={a} />
+            <ExportButtons a={a} redacted={view.state.redacted} />
             <BudgetBar a={a} />
             <GrowthTimeline a={a} />
             <LoadedArtifacts a={a} />
