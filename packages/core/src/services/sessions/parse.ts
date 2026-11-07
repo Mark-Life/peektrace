@@ -11,6 +11,11 @@ import { measureTokens } from "./measure";
 import { claudePromptOrigin, promptLabel } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
+import {
+  mergeStreamedUsage,
+  serverToolCounts,
+  thinkingTokensOf,
+} from "./usage";
 
 /** A raw JSONL line, untyped. */
 type RawLine = Record<string, unknown>;
@@ -436,63 +441,6 @@ const handleUser = (ctx: LineCtx) => {
       }
     }
   }
-};
-
-/** The thinking share of a call's output tokens, when usage reports it. */
-const thinkingTokensOf = (usage: Record<string, unknown>) => {
-  const details = usage.output_tokens_details as
-    | Record<string, unknown>
-    | undefined;
-  const n = details?.thinking_tokens;
-  return typeof n === "number" ? n : undefined;
-};
-
-/** Server tool counts a call reports, keeping only the ones it actually used. */
-const serverToolCounts = (usage: Record<string, unknown>) => {
-  const counts = (usage.server_tool_use ?? {}) as Record<string, unknown>;
-  const positive = (v: unknown) =>
-    typeof v === "number" && v > 0 ? v : undefined;
-  return {
-    ...opt("webSearchRequests", positive(counts.web_search_requests)),
-    ...opt("webFetchRequests", positive(counts.web_fetch_requests)),
-  };
-};
-
-/** Max of two optional counts; undefined only when both are. */
-const maxOf = (a: number | undefined, b: number | undefined) => {
-  if (a === undefined) {
-    return b;
-  }
-  return b === undefined ? a : Math.max(a, b);
-};
-
-/**
- * Fold a later streamed line of the same request into its turn. Output-side
- * counts grow as the response streams, so keep the max; input and cache
- * counts are fixed per request and stay as first seen.
- */
-const mergeStreamedUsage = (prev: MutTurn, usage: Record<string, unknown>) => {
-  const output = usage.output_tokens;
-  const tools = serverToolCounts(usage);
-  return {
-    ...prev,
-    outputTokens: Math.max(
-      prev.outputTokens,
-      typeof output === "number" ? output : 0
-    ),
-    ...opt(
-      "thinkingTokens",
-      maxOf(prev.thinkingTokens, thinkingTokensOf(usage))
-    ),
-    ...opt(
-      "webSearchRequests",
-      maxOf(prev.webSearchRequests, tools.webSearchRequests)
-    ),
-    ...opt(
-      "webFetchRequests",
-      maxOf(prev.webFetchRequests, tools.webFetchRequests)
-    ),
-  };
 };
 
 /** Register the turn for an assistant line, if it should count toward the curve. */
