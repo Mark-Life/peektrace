@@ -45,6 +45,18 @@ export {
   SessionNotFoundError,
   TranscriptParseError,
 } from "./services/sessions/errors";
+export {
+  collapseHomePaths,
+  EXPORT_FORMATS,
+  type ExportFormat,
+  type ExportOptions,
+  escapeHtml,
+  fenceFor,
+  renderExport,
+  renderHtml,
+  renderJson,
+  renderMarkdown,
+} from "./services/sessions/export/index";
 export { buildHeader } from "./services/sessions/header";
 export { UNREADABLE_ROOT_ATTR } from "./services/sessions/listing";
 export {
