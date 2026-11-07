@@ -29,14 +29,15 @@ import {
  *   <slug>/<sid>/workflows/wf_run-1.json                  run summary
  *   <slug>/<sid>/subagents/agent-plain.jsonl (+ .meta)    Task subagent
  *   <slug>/<sid>/subagents/agent-deep.jsonl  (+ .meta)    parentAgentId: plain
- *   <slug>/<sid>/subagents/workflows/wf_run-1/
- *       agent-wfa.jsonl (+ .meta, workflowPhase: survey)
- *       agent-wfb.jsonl (+ .meta, workflowPhase: build)
+ *   <slug>/<sid>/subagents/workflows/wf_run-1/        started, then resumed
+ *       agent-wfa.jsonl (+ .meta, workflowPhase: survey)  starts before the resume
+ *       agent-wfb.jsonl (+ .meta, workflowPhase: build)   starts after the resume
  *       agent-wfc.jsonl (+ .meta, workflowPhase: null)
+ *       agent-wfd.jsonl (+ .meta, not in run json)       transcript starts after the resume
  *       journal.jsonl
  *   <slug>/<sid>/subagents/workflows/wf_run-2/agent-orphan  no run json, no call
  *   <slug>/<sid>/workflows/wf_run-3.json + subagents/workflows/wf_run-3/agent-secret
- *       no call; name and phase hold a fake secret, for redaction
+ *       no call; phase holds a fake secret, for redaction
  *
  * Workflow agents' meta has no toolUseId. The run links back to the call only
  * through the main transcript: the Workflow tool_result's `toolUseResult.runId`
@@ -50,6 +51,10 @@ const RUN_NO_JSON = "wf_run-2";
 const RUN_SECRET = "wf_run-3";
 const FAKE_KEY = `sk-ant-${"a".repeat(48)}`;
 const WF_CALL = "toolu_workflow_1";
+const WF_RESUME_CALL = "toolu_workflow_resume";
+const RESULT_AT = "2026-06-01T10:00:02.000Z";
+const RESUME_AT = "2026-06-01T10:00:10.000Z";
+const ms = (iso: string) => Date.parse(iso);
 const TASK_CALL = "toolu_task_1";
 const DEEP_CALL = "toolu_task_deep";
 
@@ -82,13 +87,14 @@ const toolResult = (
   uuid: string,
   id: string,
   text: string,
-  toolUseResult?: unknown
+  toolUseResult?: unknown,
+  timestamp = RESULT_AT
 ) =>
   line({
     type: "user",
     uuid,
     sessionId: SID,
-    timestamp: "2026-06-01T10:00:02.000Z",
+    timestamp,
     message: {
       role: "user",
       content: [{ type: "tool_result", tool_use_id: id, content: text }],
@@ -123,16 +129,31 @@ const mainTranscript = [
     },
   ]),
   toolResult("u2", TASK_CALL, "done"),
+  assistant("a3", "req-3", [
+    {
+      type: "tool_use",
+      id: WF_RESUME_CALL,
+      name: "Workflow",
+      input: { resumeFromRunId: RUN, scriptPath: "x" },
+    },
+  ]),
+  toolResult(
+    "u3",
+    WF_RESUME_CALL,
+    `Workflow resumed: ${RUN}`,
+    { runId: RUN, taskId: "task-2", status: "started", workflowName: "demo" },
+    RESUME_AT
+  ),
 ].join("");
 
-const subTranscript = (sid: string) =>
+const subTranscript = (sid: string, at = ["10:00:03", "10:00:04"]) =>
   [
     line({
       type: "user",
       uuid: `${sid}-u`,
       isSidechain: true,
       sessionId: SID,
-      timestamp: "2026-06-01T10:00:03.000Z",
+      timestamp: `2026-06-01T${at[0]}.000Z`,
       message: { role: "user", content: "go" },
     }),
     line({
@@ -140,7 +161,7 @@ const subTranscript = (sid: string) =>
       uuid: `${sid}-a`,
       isSidechain: true,
       sessionId: SID,
-      timestamp: "2026-06-01T10:00:04.000Z",
+      timestamp: `2026-06-01T${at[1]}.000Z`,
       requestId: `req-${sid}`,
       message: {
         id: `msg-${sid}`,
@@ -182,6 +203,7 @@ beforeAll(() => {
           phaseTitle: "survey",
           label: "survey-a",
           state: "done",
+          startedAt: ms(RESULT_AT) + 1000,
         },
         { type: "workflow_phase", index: 1, title: "build" },
         {
@@ -192,6 +214,7 @@ beforeAll(() => {
           phaseTitle: "build",
           label: "build-b",
           state: "done",
+          startedAt: ms(RESUME_AT) + 1000,
         },
         {
           type: "workflow_agent",
@@ -206,8 +229,13 @@ beforeAll(() => {
     })
   );
 
-  const write = (dir: string, id: string, meta: Record<string, unknown>) => {
-    writeFileSync(join(dir, `agent-${id}.jsonl`), subTranscript(id));
+  const write = (
+    dir: string,
+    id: string,
+    meta: Record<string, unknown>,
+    at?: string[]
+  ) => {
+    writeFileSync(join(dir, `agent-${id}.jsonl`), subTranscript(id, at));
     writeFileSync(join(dir, `agent-${id}.meta.json`), JSON.stringify(meta));
   };
   write(subDir, "plain", {
@@ -242,6 +270,18 @@ beforeAll(() => {
     workflowPhase: null,
     spawnDepth: 1,
   });
+  // Missing from the run json; only its own transcript says it started after the resume.
+  write(
+    runDir,
+    "wfd",
+    {
+      agentType: "workflow-agent",
+      description: "build-d",
+      workflowPhase: "build",
+      spawnDepth: 1,
+    },
+    ["10:00:20", "10:00:21"]
+  );
   writeFileSync(join(runDir, "journal.jsonl"), "");
 
   const orphanDir = join(subDir, "workflows", RUN_NO_JSON);
@@ -254,7 +294,6 @@ beforeAll(() => {
     join(sessDir, "workflows", `${RUN_SECRET}.json`),
     JSON.stringify({
       runId: RUN_SECRET,
-      workflowName: `leak ${FAKE_KEY}`,
       workflowProgress: [
         {
           type: "workflow_agent",
@@ -343,26 +382,41 @@ describe("workflow subagents", () => {
       "agent-wfa",
       "agent-wfb",
       "agent-wfc",
+      "agent-wfd",
     ]);
   });
 
   test("a workflow agent links to the Workflow call that launched its run", async () => {
     const parsed = await parse();
     expect(byId(parsed.subagents, "agent-wfa")?.toolUseId).toBe(WF_CALL);
-    expect(byId(parsed.subagents, "agent-wfb")?.toolUseId).toBe(WF_CALL);
+  });
+
+  test("an agent started after a resume links to the resume call", async () => {
+    const parsed = await parse();
+    expect(byId(parsed.subagents, "agent-wfb")?.toolUseId).toBe(WF_RESUME_CALL);
+  });
+
+  test("an agent missing from the run json uses its transcript start time", async () => {
+    const parsed = await parse();
+    expect(byId(parsed.subagents, "agent-wfd")?.toolUseId).toBe(WF_RESUME_CALL);
+  });
+
+  test("the internal start time does not reach the output", async () => {
+    const parsed = await parse();
+    expect(byId(parsed.subagents, "agent-wfa")).not.toHaveProperty(
+      "workflowStartedAt"
+    );
   });
 
   test("a workflow agent carries its run id and phase", async () => {
     const parsed = await parse();
     expect(byId(parsed.subagents, "agent-wfa")).toMatchObject({
       workflowRunId: RUN,
-      workflowName: "demo",
       workflowPhase: "survey",
       workflowPhaseIndex: 0,
     });
     expect(byId(parsed.subagents, "agent-wfb")).toMatchObject({
       workflowRunId: RUN,
-      workflowName: "demo",
       workflowPhase: "build",
       workflowPhaseIndex: 1,
     });
@@ -394,7 +448,6 @@ describe("workflow subagents", () => {
     expect(orphan?.workflowRunId).toBe(RUN_NO_JSON);
     expect(orphan?.toolUseId).toBeUndefined();
     expect(orphan?.workflowPhase).toBeUndefined();
-    expect(orphan?.workflowName).toBeUndefined();
   });
 
   test("a run with no matching Workflow result keeps toolUseId undefined", async () => {
@@ -412,10 +465,9 @@ describe("workflow subagents", () => {
     );
   });
 
-  test("redact covers workflow phase and name", async () => {
+  test("redact covers the workflow phase", async () => {
     const parsed = await parse(true);
     const secret = byId(parsed.subagents, "agent-secret");
-    expect(secret?.workflowName).toBe("leak [REDACTED:anthropic-key]");
     expect(secret?.workflowPhase).toBe("phase [REDACTED:anthropic-key]");
   });
 });

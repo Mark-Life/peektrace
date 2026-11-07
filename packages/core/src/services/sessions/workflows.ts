@@ -3,18 +3,26 @@
 const AGENT_PREFIX = "agent-";
 const RUN_ID_KEY = '"runId"';
 
-/** Phase info for one agent of a workflow run, from `workflowProgress`. */
-export interface WorkflowAgentPhase {
+/** One agent of a workflow run, from `workflowProgress`. */
+interface WorkflowAgentPhase {
   readonly phaseIndex?: number;
   readonly phaseTitle?: string;
+  /** Epoch ms. */
+  readonly startedAt?: number;
+}
+
+/** A Workflow tool call that started or resumed a run. */
+export interface WorkflowCall {
+  /** Epoch ms of its tool_result; the result returns as soon as the run starts. */
+  readonly at?: number;
+  readonly callId: string;
 }
 
 /** A workflow run as read from `<session>/workflows/<runId>.json`. */
 export interface WorkflowRun {
-  /** Keyed by bare agent id (no `agent-` prefix). */
+  /** Keyed by stub id (`agent-<id>`). */
   readonly agents: ReadonlyMap<string, WorkflowAgentPhase>;
   readonly runId: string;
-  readonly workflowName?: string;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
@@ -32,10 +40,6 @@ const safeParse = (raw: string): unknown => {
 export const toAgentRef = (v: string) =>
   v.startsWith(AGENT_PREFIX) ? v : `${AGENT_PREFIX}${v}`;
 
-/** Strip the `agent-` prefix from a stub id. */
-export const toBareAgentId = (v: string) =>
-  v.startsWith(AGENT_PREFIX) ? v.slice(AGENT_PREFIX.length) : v;
-
 const toolResultId = (entry: Record<string, unknown>) => {
   const message = entry.message;
   if (!(isRecord(message) && Array.isArray(message.content))) {
@@ -50,12 +54,17 @@ const toolResultId = (entry: Record<string, unknown>) => {
   return block?.tool_use_id as string | undefined;
 };
 
+const toEpochMs = (v: unknown) => {
+  const ms = typeof v === "string" ? Date.parse(v) : Number.NaN;
+  return Number.isNaN(ms) ? undefined : ms;
+};
+
 /**
- * Map each workflow run id to the Workflow tool call that started it, from a
- * raw Claude transcript. First match wins: one run can show up in many results.
+ * Map each workflow run id to the Workflow calls that started or resumed it,
+ * in transcript order, from a raw Claude transcript.
  */
 export const workflowCallsByRun = (text: string) => {
-  const calls = new Map<string, string>();
+  const calls = new Map<string, WorkflowCall[]>();
   for (const raw of text.split("\n")) {
     if (!raw.includes(RUN_ID_KEY)) {
       continue;
@@ -66,11 +75,32 @@ export const workflowCallsByRun = (text: string) => {
     }
     const runId = entry.toolUseResult.runId;
     const callId = toolResultId(entry);
-    if (typeof runId === "string" && callId && !calls.has(runId)) {
-      calls.set(runId, callId);
+    if (typeof runId !== "string" || !callId) {
+      continue;
+    }
+    const list = calls.get(runId) ?? [];
+    if (!list.some((c) => c.callId === callId)) {
+      const at = toEpochMs(entry.timestamp);
+      list.push(at === undefined ? { callId } : { callId, at });
+      calls.set(runId, list);
     }
   }
   return calls;
+};
+
+/**
+ * The call an agent belongs to: the last one that returned before the agent
+ * started. Falls back to the first call when the start time is unknown.
+ */
+export const pickWorkflowCall = (
+  calls: readonly WorkflowCall[],
+  startedAt?: number
+) => {
+  if (startedAt === undefined) {
+    return calls[0]?.callId;
+  }
+  const before = calls.filter((c) => c.at !== undefined && c.at <= startedAt);
+  return (before.at(-1) ?? calls[0])?.callId;
 };
 
 const toAgentPhase = (item: Record<string, unknown>): WorkflowAgentPhase => ({
@@ -80,6 +110,7 @@ const toAgentPhase = (item: Record<string, unknown>): WorkflowAgentPhase => ({
   ...(typeof item.phaseTitle === "string"
     ? { phaseTitle: item.phaseTitle }
     : {}),
+  ...(typeof item.startedAt === "number" ? { startedAt: item.startedAt } : {}),
 });
 
 /** Parse a workflow run json. Bad JSON or missing keys give an empty result. */
@@ -97,15 +128,10 @@ export const parseWorkflowRun = (raw: string): Omit<WorkflowRun, "runId"> => {
       isRecord(item) &&
       item.type === "workflow_agent" &&
       typeof item.agentId === "string" &&
-      !agents.has(item.agentId)
+      !agents.has(toAgentRef(item.agentId))
     ) {
-      agents.set(item.agentId, toAgentPhase(item));
+      agents.set(toAgentRef(item.agentId), toAgentPhase(item));
     }
   }
-  return {
-    agents,
-    ...(typeof doc.workflowName === "string"
-      ? { workflowName: doc.workflowName }
-      : {}),
-  };
+  return { agents };
 };

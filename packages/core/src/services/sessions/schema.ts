@@ -272,8 +272,6 @@ export const SubagentRef = Schema.Struct({
   peakContextTokens: Schema.Number,
   /** The workflow run this agent belongs to: the `wf_*` dir name. */
   workflowRunId: Schema.optional(Schema.String),
-  /** The run's workflow name, from the run json. */
-  workflowName: Schema.optional(Schema.String),
   /** The run phase title, from meta or the run json. */
   workflowPhase: Schema.optional(Schema.String),
   /** The run phase position, from the run json; sort phases by it. */

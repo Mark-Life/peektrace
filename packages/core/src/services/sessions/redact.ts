@@ -237,7 +237,6 @@ const redactSubagents = (subs: readonly SubagentRef[]): SubagentRef[] =>
     ...s,
     ...(s.description ? { description: redactText(s.description) } : {}),
     ...(s.workflowPhase ? { workflowPhase: redactText(s.workflowPhase) } : {}),
-    ...(s.workflowName ? { workflowName: redactText(s.workflowName) } : {}),
   }));
 
 /**

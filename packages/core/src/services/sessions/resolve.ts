@@ -5,12 +5,7 @@ import { type AgentRegistryShape, sourcesOf } from "../agents";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
 import { estTokens } from "./tokens";
-import {
-  parseWorkflowRun,
-  toAgentRef,
-  toBareAgentId,
-  type WorkflowRun,
-} from "./workflows";
+import { parseWorkflowRun, toAgentRef, type WorkflowRun } from "./workflows";
 
 const BYTES_PER_TOKEN = 4;
 const SUBAGENT_FILE = /^agent-.*\.jsonl$/;
@@ -27,7 +22,11 @@ export interface ResolvedSession {
 }
 
 /** A subagent transcript discovered on disk, before its turns are parsed. */
-export type SubagentStub = Omit<SubagentRef, "turns" | "peakContextTokens">;
+export interface SubagentStub
+  extends Omit<SubagentRef, "turns" | "peakContextTokens"> {
+  /** Workflow agent start, epoch ms; picks the call among resumes of its run. */
+  readonly workflowStartedAt?: number;
+}
 
 const join = (...parts: readonly string[]): string =>
   parts.join("/").replace(SLASHES, "/");
@@ -47,18 +46,20 @@ const workflowFields = (args: {
   if (!run) {
     return {};
   }
-  const phase = run.agents.get(toBareAgentId(id));
+  const phase = run.agents.get(id);
   const title =
     typeof meta.workflowPhase === "string"
       ? meta.workflowPhase
       : phase?.phaseTitle;
   return {
     workflowRunId: run.runId,
-    ...(run.workflowName ? { workflowName: run.workflowName } : {}),
     ...(title ? { workflowPhase: title } : {}),
     ...(phase?.phaseIndex === undefined
       ? {}
       : { workflowPhaseIndex: phase.phaseIndex }),
+    ...(phase?.startedAt === undefined
+      ? {}
+      : { workflowStartedAt: phase.startedAt }),
   };
 };
 
