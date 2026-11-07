@@ -5,15 +5,12 @@
  * pure and unit-tested; the component wraps returned `content` in `<Highlighted>`
  * (which sanitizes) before render.
  */
+import { thinkingNote } from "@workspace/core/services/sessions/labels";
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
 import type { Lang } from "../syntax";
-
-/** Shown for `assistant-thinking` events whose body was not persisted. */
-export const THINKING_NOTE =
-  "Thinking content is not stored in the transcript (only a signature). Its cost is in the timeline thinking band.";
 
 /** A decoded event body: the highlighter language + raw content (+ optional note). */
 export interface DecodedBody {
@@ -86,7 +83,7 @@ export const decodeBody = (e: TimelineEvent): DecodedBody => {
       return { lang: "markdown", content: e.body };
     case "assistant-thinking":
       return e.body.trim() === ""
-        ? { lang: "plain", content: "", note: THINKING_NOTE }
+        ? { lang: "plain", content: "", note: thinkingNote(e) }
         : { lang: "plain", content: e.body };
     default:
       return { lang: "plain", content: e.body };

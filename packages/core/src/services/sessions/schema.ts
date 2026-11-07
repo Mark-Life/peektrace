@@ -203,6 +203,8 @@ export const TimelineEvent = Schema.Struct({
    */
   tokensMeasured: Schema.optional(Schema.Number),
   isError: Schema.optional(Schema.Boolean),
+  /** Wall time the model spent on this thinking block, when the harness logs it. */
+  thinkingDurationMs: Schema.optional(Schema.Number),
   toolName: Schema.optional(Schema.String),
   toolUseId: Schema.optional(Schema.String),
   attachmentType: Schema.optional(Schema.String),
@@ -221,6 +223,11 @@ export const Turn = Schema.Struct({
   cacheReadTokens: Schema.Number,
   cacheCreationTokens: Schema.Number,
   outputTokens: Schema.Number,
+  /**
+   * The thinking share of `outputTokens`, from `usage.output_tokens_details`.
+   * Absent on transcripts that do not report it.
+   */
+  thinkingTokens: Schema.optional(Schema.Number),
   eventIndexes: Schema.Array(Schema.Number),
 });
 export type Turn = typeof Turn.Type;

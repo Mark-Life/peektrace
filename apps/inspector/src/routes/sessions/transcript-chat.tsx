@@ -165,6 +165,8 @@ const renderNode = ({
         ctxFrac={a.contextWindow > 0 ? turn.contextTokens / a.contextWindow : 0}
         dumbZone={a.dumbZoneFraction}
         model={turn.model}
+        outputTokens={turn.outputTokens}
+        thinkingTokens={turn.thinkingTokens}
         tokens={turn.contextTokens}
         turn={n.turn}
       />

@@ -7,7 +7,10 @@
  * reorder the transcript and merge two token figures, and this is a forensics
  * view. (The chat layout pairs them; it also never sums the two figures.)
  */
-import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
+import {
+  eventBadgeLabel,
+  thinkingNote,
+} from "@workspace/core/services/sessions/labels";
 import type {
   AnalyzedSession,
   TimelineEvent,
@@ -192,9 +195,7 @@ const EventRowBody = ({
 }: EventRowProps) => {
   const onOpenChange = (next: boolean) => onToggle(collapseId, next);
   const emptyText =
-    e.kind === "assistant-thinking"
-      ? "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band."
-      : EMPTY_BODY;
+    e.kind === "assistant-thinking" ? thinkingNote(e) : EMPTY_BODY;
   return (
     <Collapsible
       className="border-border border-b"

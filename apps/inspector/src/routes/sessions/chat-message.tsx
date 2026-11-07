@@ -6,8 +6,16 @@
  * comes from `TimelineEvent.body`/`preview`/`title`, which the server redacts,
  * so no path here reaches around the redaction toggle.
  */
+
+import {
+  fmtThinkingMs,
+  thinkingNote,
+} from "@workspace/core/services/sessions/labels";
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import { tokenLabel } from "@workspace/core/services/sessions/tokens";
+import {
+  eventTokens,
+  tokenLabel,
+} from "@workspace/core/services/sessions/tokens";
 import {
   CodeBlock,
   CodeBlockCopyButton,
@@ -29,10 +37,6 @@ import { type ChatLane, needsClamp } from "../../lib/chat-lane";
 import { EMPTY_BODY } from "../../lib/tool-event";
 import { sameChatRow } from "../../lib/transcript-row";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
-
-/** Thinking content is a signature only — the tokens are real, the text is not. */
-const NO_THINKING =
-  "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band.";
 
 const LANE_JUSTIFY: Record<ChatLane, string> = {
   agent: "justify-start",
@@ -273,7 +277,11 @@ const ChatThinkingBody = ({
           className={cn("size-3 transition-transform", open && "rotate-90")}
         />
         <BrainIcon className="size-3" />
-        thinking{e.tokensEst ? ` · ${tokenLabel(e, fmtK)}` : ""}
+        thinking
+        {eventTokens(e).tokens ? ` · ${tokenLabel(e, fmtK)} tok` : ""}
+        {e.thinkingDurationMs === undefined
+          ? ""
+          : ` · ${fmtThinkingMs(e.thinkingDurationMs)}`}
       </button>
       {open ? (
         <div className="flex flex-col gap-1">
@@ -286,7 +294,7 @@ const ChatThinkingBody = ({
             {e.body.trim().length > 0 ? (
               <Markdown text={e.body} />
             ) : (
-              NO_THINKING
+              thinkingNote(e)
             )}
           </div>
           <RawToggle body={e.body} />
@@ -326,12 +334,16 @@ export const ChatTurnRule = ({
   ctxFrac,
   dumbZone,
   model,
+  outputTokens,
+  thinkingTokens,
   tokens,
   turn,
 }: {
   readonly ctxFrac: number;
   readonly dumbZone: number;
   readonly model: string;
+  readonly outputTokens: number;
+  readonly thinkingTokens: number | undefined;
   readonly tokens: number;
   readonly turn: number;
 }) => (
@@ -344,7 +356,9 @@ export const ChatTurnRule = ({
       turn {turn} · {model} · ctx {fmtK(tokens)}{" "}
       <span className={ZONE_CLASSES[zoneOf({ dumbZone, frac: ctxFrac })].text}>
         ({fmtPct(ctxFrac)})
-      </span>
+      </span>{" "}
+      · out {fmtK(outputTokens)}
+      {thinkingTokens ? ` (${fmtK(thinkingTokens)} thinking)` : ""}
     </span>
     <div className="h-px flex-1 bg-border" />
   </div>

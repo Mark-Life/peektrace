@@ -23,6 +23,7 @@ export const ROW_FIELDS = [
   "preview",
   "tokensEst",
   "tokensMeasured",
+  "thinkingDurationMs",
   "body",
 ] as const satisfies readonly (keyof TimelineEvent)[];
 
