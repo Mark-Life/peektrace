@@ -16,7 +16,8 @@ const CHANGELOG_PATH = join(
 export const readLatestRelease = () => {
   try {
     return latestRelease(readFileSync(CHANGELOG_PATH, "utf8"));
-  } catch {
+  } catch (error) {
+    console.warn(`release: cannot read ${CHANGELOG_PATH}`, error);
     return;
   }
 };

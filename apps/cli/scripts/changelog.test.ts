@@ -76,6 +76,40 @@ describe("changelogSection", () => {
   });
 });
 
+describe("changelogSection edge cases", () => {
+  test("mixed fence markers do not close each other", () => {
+    const md =
+      "## cli-v1.0.0 — 2026-01-01\n~~~md\n```\n## not\n~~~\n\nafter\n\n## cli-v0.9.0 — 2025-01-01\nold\n";
+    expect(changelogSection(md, "cli-v1.0.0")).toBe(
+      "~~~md\n```\n## not\n~~~\n\nafter"
+    );
+    const swallow =
+      "## cli-v1.0.0 — 2026-01-01\n~~~md\n```\n~~~\n\n## cli-v0.9.0\nold\n";
+    expect(changelogSection(swallow, "cli-v1.0.0")).toBe("~~~md\n```\n~~~");
+  });
+
+  test("heading with trailing text keeps a clean tag", () => {
+    const md = "## cli-v1.0.0 — 2026-01-01 (hotfix)\nx\n";
+    expect(changelogSection(md, "cli-v1.0.0")).toBe("x");
+    expect(latestRelease("## cli-v1.0.0 (2026-01-01)\n")).toEqual({
+      tag: "cli-v1.0.0",
+      version: "1.0.0",
+      date: undefined,
+    });
+    expect(latestRelease(md)?.date).toBe("2026-01-01");
+  });
+
+  test("leaves code fences and inline code alone, images use raw", () => {
+    const md =
+      "## cli-v1.0.0\n```ts\nconst x = a[0](b)\n```\nuse `[x](y)` and ![img](shot.png) and [doc](d.md)\n";
+    expect(
+      changelogSection(md, "cli-v1.0.0", { repoUrl: "https://github.com/o/r" })
+    ).toBe(
+      "```ts\nconst x = a[0](b)\n```\nuse `[x](y)` and ![img](https://github.com/o/r/raw/cli-v1.0.0/shot.png) and [doc](https://github.com/o/r/blob/cli-v1.0.0/d.md)"
+    );
+  });
+});
+
 describe("latestRelease", () => {
   test("skips Unreleased and returns tag, version and date", () => {
     expect(latestRelease(FIXTURE)).toEqual({

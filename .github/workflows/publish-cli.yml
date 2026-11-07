@@ -294,6 +294,7 @@ jobs:
             echo "::warning::release notes extraction failed; using generated notes"
             : > "$notes"
           }
+          [ -s "$notes" ] || echo "::warning::no CHANGELOG.md section for $TAG; using generated notes"
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             if [ -s "$notes" ]; then
               notes_args=(--notes-file "$notes")
