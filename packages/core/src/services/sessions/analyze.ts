@@ -322,7 +322,11 @@ const snapshotTurn = (args: {
   }
 };
 
-/** Evict growable content on a compaction, then fold the event's tokens. */
+/**
+ * Compaction rewrites history: clear every content bucket. CC re-attaches
+ * listings/memory after the summary, so they are re-counted. Memory is reset
+ * on the same grounds as `files`; its re-attachment is not yet confirmed.
+ */
 const foldNonTurnEvent = (
   ws: WalkState,
   e: ParsedSession["events"][number]
@@ -334,6 +338,8 @@ const foldNonTurnEvent = (
     ws.cat.tool_results = 0;
     ws.cat.prompts = 0;
     ws.cat.files = 0;
+    ws.cat.listings = 0;
+    ws.cat.memory = 0;
     ws.cat.other = 0;
     ws.edits = [];
   }
