@@ -104,11 +104,10 @@ export const lastFactMsOf = (facts: readonly StatsFact[]): number | null => {
 
 /**
  * True when no fact in the shard can fall inside a window starting at
- * `fromMs`, so reading it would fold nothing. An entry from an older index has
- * no `lastFactMs` and is never skipped.
+ * `fromMs`, so reading it would fold nothing.
  */
 export const isPastWindow = (entry: CacheEntry, fromMs: number): boolean =>
-  typeof entry.lastFactMs === "number" && entry.lastFactMs < fromMs;
+  entry.lastFactMs !== null && entry.lastFactMs < fromMs;
 
 /** True when a cached entry still describes the file on disk. */
 export const isFresh = (args: {

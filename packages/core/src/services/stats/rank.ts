@@ -28,6 +28,13 @@ export const SESSION_REF_CAP = 50;
 /** Chars a sample line is clipped to after redaction. */
 export const SAMPLE_LINE_MAX = 160;
 
+/**
+ * Chars a sample line keeps before it ships: as much as a fact's command holds,
+ * so the ship-time redaction sees a whole token before the clip to
+ * `SAMPLE_LINE_MAX`.
+ */
+export const SAMPLE_POOL_LINE_MAX = 400;
+
 /** Decimal places every emitted float is rounded to. */
 export const FLOAT_DIGITS = 2;
 

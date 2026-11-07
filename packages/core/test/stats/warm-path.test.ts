@@ -109,6 +109,36 @@ describe("shipped lines from stale facts", () => {
   });
 });
 
+describe("shipped lines from stale facts, secret at the clip", () => {
+  test("a secret that straddles the sample clip ships masked, not cut", () => {
+    // The key starts before the clip and ends after it.
+    const filler = "x ".repeat(70);
+    const sig = `${filler}${SECRET}`;
+    const facts = [0, 1, 2].map((seq) =>
+      bashFact({
+        seq,
+        cmd: `${filler}${SECRET}`,
+        job: "wait/poll",
+        err: true,
+        failed: true,
+        sig,
+      })
+    );
+    const out = shipped({
+      ctx: contextOf(),
+      facts,
+      drills: [
+        { table: "time", key: "wait/poll" },
+        { table: "wait", key: "all" },
+        { table: "fail", key: "flag:Bash" },
+        { table: "cluster", key: clusterKeyOf(sig) },
+      ],
+    });
+    expect(out.includes("REDACTED")).toBe(true);
+    expect(out.includes(SECRET.slice(0, 16))).toBe(false);
+  });
+});
+
 /** The real redactor, counting every call into it. */
 const countingRedactor = () => {
   const base = makeRedactor({ enabled: true });

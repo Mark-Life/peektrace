@@ -102,11 +102,6 @@ describe("window skip predicate", () => {
     expect(isPastWindow(withLast(null), at(T2))).toBe(false);
     expect(isPastWindow(withLast(0), at(T1))).toBe(true);
   });
-
-  test("an entry from an older index is never skipped", () => {
-    const { lastFactMs: _, ...old } = withLast(0);
-    expect(isPastWindow(old as CacheEntry, at(T1))).toBe(false);
-  });
 });
 
 let root = "";

@@ -302,7 +302,7 @@ describe("stats window skip", () => {
       Effect.gen(function* () {
         yield* client.stats.refresh({});
         corruptShards();
-        // Reading a corrupt shard fails the pass, so success means no read.
+        // A read would re-extract and rewrite the shard, so unchanged bodies mean no read.
         const narrow = yield* client.stats.report({ days: 1 });
         expect(narrow.corpus.transcripts).toBe(0);
         expect(shardBodies()).toEqual(["not json", "not json"]);

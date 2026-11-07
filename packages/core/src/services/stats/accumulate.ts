@@ -6,10 +6,11 @@
  * its rows in `finish`. It never reads a file, never sorts by hand — ordering
  * comes from `rank.ts` — and never mints a string without `ctx.redact`.
  *
- * Fact text is already redacted at extract time, so `add` only collapses and
- * clips a line (`sampleLine`). Redaction runs once more on what ships: the
- * picked samples (`samplesOf`) and the drill hits (`redactHits`). That bounds
- * redactor calls by output size, not by fact count.
+ * Fact text is already redacted at extract time, so `add` only collapses a
+ * line (`sampleLine`). Redaction runs once more on what ships: the picked
+ * samples (`samplesOf`) and the drill hits (`redactHits`), and the clip to
+ * `SAMPLE_LINE_MAX` comes after it, so a token is never cut before a rule sees
+ * it. That bounds redactor calls by output size, not by fact count.
  *
  * `add` is called once per fact and must be synchronous: the walk folds inside
  * `Effect.sync`, so an accumulator that wants IO belongs in the service, not
@@ -24,7 +25,7 @@ import {
   DEFAULT_SAMPLE_CAP,
   pickSamples,
   round,
-  SAMPLE_LINE_MAX,
+  SAMPLE_POOL_LINE_MAX,
   sortedRecord,
 } from "./rank";
 import type { Redactor } from "./redact";
@@ -108,9 +109,9 @@ export const defaultOptions = (redact: Redactor): AccumulatorOptions => ({
   drill: null,
 });
 
-/** A fact's text as a sample line: collapsed and clipped, not yet re-redacted. */
+/** A fact's text as a sample line: collapsed, not yet re-redacted or clipped. */
 export const sampleLine = (s: string): string =>
-  clip(collapseWs(s), SAMPLE_LINE_MAX);
+  clip(collapseWs(s), SAMPLE_POOL_LINE_MAX);
 
 /** Build a sample ref from a fact and one sample line. */
 export const sampleOf = (fact: CallFact, line: string): SampleRef => ({
