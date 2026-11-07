@@ -1,0 +1,122 @@
+/** `peektrace sessions export [<id>]` — one session as HTML, Markdown or JSON.
+ *
+ * Fetches the parsed session over the shared RPC client (in-process or
+ * `--remote`), redacted by default, and renders it with the pure core
+ * renderers. Output goes to stdout, or to `--out <path>`.
+ */
+import { extname } from "node:path";
+import { Args, Command, Options } from "@effect/cli";
+import { FileSystem } from "@effect/platform";
+import {
+  EXPORT_FORMATS,
+  type ExportFormat,
+  renderExport,
+} from "@workspace/core";
+import { Console, Effect, Option } from "effect";
+import {
+  type GlobalsAccessor,
+  localJsonOpt,
+  localReadOnlyOpt,
+  withClient,
+} from "../client";
+import { cwdOpt, parentOpt } from "./sessions";
+import { resolveCwd, resolveTargetId } from "./sessions-filter";
+
+const FORMAT_BY_EXTENSION: Readonly<Record<string, ExportFormat>> = {
+  ".html": "html",
+  ".htm": "html",
+  ".md": "md",
+  ".markdown": "md",
+  ".json": "json",
+};
+
+/** `--format` if given, else JSON for `--json`, else the `--out` extension, else Markdown. */
+export const pickFormat = (input: {
+  readonly format: ExportFormat | undefined;
+  readonly json: boolean;
+  readonly out: string | undefined;
+}): ExportFormat => {
+  if (input.format !== undefined) {
+    return input.format;
+  }
+  if (input.json) {
+    return "json";
+  }
+  const ext = input.out === undefined ? "" : extname(input.out).toLowerCase();
+  return FORMAT_BY_EXTENSION[ext] ?? "md";
+};
+
+const formatOpt = Options.choice("format", EXPORT_FORMATS).pipe(
+  Options.withDescription(
+    "Output format: html|md|json (default: from --json or the --out extension, else md)"
+  ),
+  Options.optional
+);
+const outOpt = Options.text("out").pipe(
+  Options.withDescription("Write to this file instead of stdout"),
+  Options.optional
+);
+const noRedactOpt = Options.boolean("no-redact").pipe(
+  Options.withDescription(
+    "Keep secrets and home paths in the output (redacted by default)"
+  )
+);
+const latestOpt = Options.boolean("latest").pipe(
+  Options.withDescription("Export the newest session of any agent")
+);
+
+export const makeSessionsExport = (globals: GlobalsAccessor) =>
+  Command.make(
+    "export",
+    {
+      id: Args.text({ name: "id" }).pipe(
+        Args.withDescription("Session id, short id, or transcript path"),
+        Args.optional
+      ),
+      format: formatOpt,
+      out: outOpt,
+      noRedact: noRedactOpt,
+      latest: latestOpt,
+      cwd: cwdOpt,
+      parent: parentOpt,
+      json: localJsonOpt,
+      readOnly: localReadOnlyOpt,
+    },
+    ({ id, format, out, noRedact, latest, cwd, parent, json, readOnly }) =>
+      Effect.gen(function* () {
+        const g = yield* globals({ json, readOnly });
+        const parentId = Option.getOrUndefined(parent);
+        const redact = !noRedact;
+        const session = yield* withClient(g, (client) =>
+          Effect.gen(function* () {
+            const target = yield* resolveTargetId(client, {
+              id: Option.getOrUndefined(id),
+              latest,
+              cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
+              parent: parentId,
+            });
+            return yield* client.sessions.get({
+              id: target,
+              redact,
+              ...(parentId === undefined ? {} : { parent: parentId }),
+            });
+          })
+        );
+        const outPath = Option.getOrUndefined(out);
+        const text = renderExport(
+          pickFormat({
+            format: Option.getOrUndefined(format),
+            json: g.json,
+            out: outPath,
+          }),
+          session,
+          { exportedAt: new Date().toISOString(), redacted: redact }
+        );
+        if (outPath === undefined) {
+          return yield* Console.log(text.trimEnd());
+        }
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.writeFileString(outPath, text);
+        yield* Console.error(`Wrote ${outPath}`);
+      })
+  );

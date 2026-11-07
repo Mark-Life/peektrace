@@ -1,6 +1,9 @@
 /** Pure client-side filtering for `sessions ls`: `--since`, `--cwd`, sort, `--limit`. */
 import { resolve } from "node:path";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
+import { Effect } from "effect";
+import type { PeektraceClient } from "../client";
+import { CliUserError } from "../errors";
 
 const RELATIVE = /^(\d+)([hdw])$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+(?:Z|[+-]\d{2}:?\d{2})?)?$/;
@@ -193,3 +196,21 @@ export const pickTarget = (
   const plan = planTarget(request);
   return plan._tag === "Newest" ? newestTarget(plan.cwd, headers) : plan;
 };
+
+/** The session id a command runs on. Lists sessions over RPC only when the
+ * request asks for the newest one. Fails with a `CliUserError` on bad input. */
+export const resolveTargetId = (
+  client: PeektraceClient,
+  request: TargetRequest
+) =>
+  Effect.gen(function* () {
+    const plan = planTarget(request);
+    const target =
+      plan._tag === "Newest"
+        ? newestTarget(plan.cwd, yield* client.sessions.list({}))
+        : plan;
+    if (target._tag === "Invalid") {
+      return yield* new CliUserError({ message: target.message });
+    }
+    return target.id;
+  });

@@ -1,4 +1,5 @@
-/** `peektrace sessions` subcommands: `ls` and `analyze`.
+/** `peektrace sessions` subcommands: `ls` and `analyze` (`export` lives in
+ * `sessions-export.ts`).
  *
  * Both run against the shared RPC client (in-process or `--remote`). Tables go to
  * stdout by default. `analyze --json` emits the raw RPC payload; `ls --json`
@@ -34,10 +35,9 @@ import {
 } from "../render";
 import { peakFractionOf, verdict } from "../verdict";
 import {
-  newestTarget,
   parseSince,
-  planTarget,
   resolveCwd,
+  resolveTargetId,
   selectSessions,
 } from "./sessions-filter";
 
@@ -61,7 +61,7 @@ const sinceOpt = Options.text("since").pipe(
   ),
   Options.optional
 );
-const cwdOpt = Options.text("cwd").pipe(
+export const cwdOpt = Options.text("cwd").pipe(
   Options.withDescription(
     "Only sessions run in this directory or below (path on this machine)"
   ),
@@ -72,7 +72,7 @@ const limitOpt = Options.integer("limit").pipe(
   Options.withDefault(DEFAULT_LIMIT)
 );
 
-const parentOpt = Options.text("parent").pipe(
+export const parentOpt = Options.text("parent").pipe(
   Options.withDescription(
     "Parent session id, when <id> is a subagent transcript (agent-*)"
   ),
@@ -232,16 +232,12 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
         const parentId = Option.getOrUndefined(parent);
         const a = yield* withClient(g, (client) =>
           Effect.gen(function* () {
-            const plan = planTarget({ ...request, parent: parentId });
-            const target =
-              plan._tag === "Newest"
-                ? newestTarget(plan.cwd, yield* client.sessions.list({}))
-                : plan;
-            if (target._tag === "Invalid") {
-              return yield* new CliUserError({ message: target.message });
-            }
+            const target = yield* resolveTargetId(client, {
+              ...request,
+              parent: parentId,
+            });
             return yield* client.sessions.analyze({
-              id: target.id,
+              id: target,
               ...(parentId === undefined ? {} : { parent: parentId }),
             });
           })
