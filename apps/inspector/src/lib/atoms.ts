@@ -5,7 +5,9 @@
  * (`memory.create/update/delete`) are intentionally left to the Memory phase,
  * which will use `PeektraceClient.mutation(tag)`.
  */
+import { Atom, Result } from "@effect-atom/atom-react";
 import { PeektraceClient } from "./client";
+import { sharedHeadersAtom } from "./share-headers";
 
 /** Live capability matrix (`capabilities.list`). */
 export const capabilitiesAtom = PeektraceClient.query(
@@ -21,6 +23,19 @@ export const allVaultsAtom = PeektraceClient.query(
 
 /** Lightweight session headers (`sessions.list`) — used by the Sessions UI. */
 export const sessionsListAtom = PeektraceClient.query("sessions.list", {});
+
+/** `sessionsListAtom` with structural sharing: unchanged headers keep their
+ *  identity across reloads, and a reload with equal data notifies nobody. Read
+ *  this one in the UI; refresh `sessionsListAtom`. */
+export const sessionHeadersAtom = sharedHeadersAtom(sessionsListAtom);
+
+/** One header by id, `undefined` until listed. Changes identity only when that
+ *  session's header changes. */
+export const sessionHeaderAtom = Atom.family((id: string) =>
+  Atom.map(sessionHeadersAtom, (result) =>
+    Result.isSuccess(result) ? result.value.find((h) => h.id === id) : undefined
+  )
+);
 
 /** Current user settings file (`settings.get`) — used by the Settings UI. */
 export const settingsAtom = PeektraceClient.query("settings.get", undefined);
