@@ -166,11 +166,13 @@ describe("computeRoots multi-source config", () => {
     expect(new Set(sourcesOf(claude).map((s) => s.id)).size).toBe(4);
   });
 
-  test("derives codex/opencode extra roots per layout", () => {
+  test("derives codex/opencode/pi extra roots per layout", () => {
     const roots = computeRoots({}, HOME, {
       roots: {
         codex: [{ path: "/work/.codex", label: "work" }],
         opencode: [{ path: "/work/oc", label: "work" }],
+        // A blank path is skipped.
+        pi: [{ path: "/work/pi-extra" }, { path: "  " }],
       },
     });
     expect(sourcesOf(roots.codex)[1]?.projectsRoot).toBe(
@@ -178,6 +180,11 @@ describe("computeRoots multi-source config", () => {
     );
     // OpenCode's transcript root IS the data dir.
     expect(sourcesOf(roots.opencode)[1]?.projectsRoot).toBe("/work/oc");
+    expect(sourcesOf(roots.pi).map((s) => s.projectsRoot)).toEqual([
+      "/home/u/.pi/agent/sessions",
+      "/work/pi-extra/agent/sessions",
+    ]);
+    expect(sourcesOf(roots.pi)[1]?.label).toBe("pi-extra");
   });
 });
 

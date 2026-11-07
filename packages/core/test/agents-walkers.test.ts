@@ -1,50 +1,15 @@
-import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BunFileSystem } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
-import {
-  AgentRegistry,
-  AgentRegistryLive,
-  computeRoots,
-  sourcesOf,
-} from "../src/services/agents";
+import { AgentRegistry, AgentRegistryLive } from "../src/services/agents";
+import { writeGoodDb } from "./fixtures/opencode-db";
 
 const CODEX_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const PI_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const OC_ID = "ses_demo1";
-
-/** OpenCode on-disk `session`/`message`/`part` DDL (mirrors opencode-reader.test.ts). */
-const SESSION_DDL =
-  "CREATE TABLE session (id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, title TEXT, version TEXT, model TEXT, agent TEXT, cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, time_created INTEGER, time_updated INTEGER)";
-const MESSAGE_DDL =
-  "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
-const PART_DDL =
-  "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
-
-const writeOpencodeDb = (path: string) => {
-  const db = new Database(path);
-  db.exec(SESSION_DDL);
-  db.exec(MESSAGE_DDL);
-  db.exec(PART_DDL);
-  db.query(
-    "INSERT INTO session (id, directory, title, time_created, time_updated) VALUES (?, ?, ?, ?, ?)"
-  ).run(OC_ID, "/demo/project", "Demo session", 1000, 2000);
-  db.query(
-    "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)"
-  ).run(
-    "m1",
-    OC_ID,
-    1500,
-    JSON.stringify({ role: "user", time: { created: 1500 } })
-  );
-  db.query(
-    "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)"
-  ).run("p1", "m1", OC_ID, 1501, JSON.stringify({ type: "text", text: "hi" }));
-  db.close();
-};
 
 let base = "";
 let ocData = "";
@@ -75,7 +40,7 @@ beforeAll(() => {
   writeFileSync(join(pi, "plain.jsonl"), "{}\n");
   ocData = join(base, "opencode");
   mkdirSync(ocData, { recursive: true });
-  writeOpencodeDb(join(ocData, "opencode.db"));
+  writeGoodDb(join(ocData, "opencode.db"), OC_ID, "/demo/project");
   mkdirSync(join(base, "pt"), { recursive: true });
   process.env.PEEKTRACE_DIR = join(base, "pt");
   process.env.PEEKTRACE_CODEX_SESSIONS = join(base, "codex");
@@ -199,18 +164,4 @@ describe("AgentRegistry opencode", () => {
         expect([unknown.text, unknown.sizeBytes]).toEqual(["", 0]);
       })
     ));
-});
-
-describe("computeRoots pi extra roots", () => {
-  test("derives agent/sessions under the extra home; blank paths are skipped", () => {
-    const roots = computeRoots({}, "/home/u", {
-      roots: { pi: [{ path: "/work/pi-extra" }, { path: "  " }] },
-    });
-    const sources = sourcesOf(roots.pi);
-    expect(sources.map((s) => s.projectsRoot)).toEqual([
-      "/home/u/.pi/agent/sessions",
-      "/work/pi-extra/agent/sessions",
-    ]);
-    expect(sources[1]?.label).toBe("pi-extra");
-  });
 });

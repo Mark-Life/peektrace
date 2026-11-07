@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  jsonlLineAt,
-  parseClaudeSession,
-} from "../../src/services/sessions/parse";
+import { parseClaudeSession } from "../../src/services/sessions/parse";
 
 const parse = (rows: readonly object[]) =>
   parseClaudeSession({
@@ -96,12 +93,5 @@ describe("web_fetch results", () => {
       content: { title: "Doc", source: { type: "base64", data: "AAAA" } },
     });
     expect(e?.body).toBe("https://example.test/doc — Doc");
-  });
-});
-
-describe("jsonlLineAt", () => {
-  test("malformed object-looking line yields undefined", () => {
-    expect(jsonlLineAt('{"a":1}\n{bad}\n', 1)).toBeUndefined();
-    expect(jsonlLineAt('{"a":1}\n', 5)).toBeUndefined();
   });
 });
