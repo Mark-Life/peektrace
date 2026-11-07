@@ -105,9 +105,9 @@ Declared on the root command; apply to every subcommand:
 Flags are declared on the root command, so place them **before** the subcommand
 (`peektrace --json memory ls`, `peektrace --read-only memory rm ...`). `--json`
 and `--read-only` also work after the subcommand on `sessions`, `memory` and
-`stats` commands (`peektrace sessions ls --json`). `serve` and `tui` take
-`--read-only` only; `doctor` and `upgrade` take neither. `--pretty`, `--remote`,
-`--otel` and `--no-telemetry` go before the subcommand.
+`stats` commands (`peektrace sessions ls --json`), except `stats prompt`, which
+always prints text. `doctor` also takes both. Put `--remote`, `--otel` and
+`--no-telemetry` before the subcommand.
 
 ## Commands
 

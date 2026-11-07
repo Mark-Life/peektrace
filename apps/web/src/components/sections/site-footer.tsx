@@ -25,7 +25,7 @@ const LINKS: readonly FooterLink[] = [
 const BOTTOM_NOTES: readonly string[] = [
   "loopback only",
   "not a cloud service",
-  "no account, no cloud",
+  "no account",
   "your transcripts stay on your machine",
 ];
 

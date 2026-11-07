@@ -48,6 +48,7 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -146,7 +147,7 @@ const stageVariant = (t: Target, version: string, producedBinary: string) => {
 };
 
 /** Stage the main `dist-npm/peektrace/` wrapper: package.json + shim + postinstall. */
-const stageWrapper = async (version: string) => {
+const stageWrapper = (version: string) => {
   const pkgDir = join(DIST_NPM, "peektrace");
   mkdirSync(pkgDir, { recursive: true });
 
@@ -176,13 +177,9 @@ const stageWrapper = async (version: string) => {
   chmodSync(shim, EXECUTABLE_MODE);
   cpSync(join(NPM_SRC, "postinstall.js"), join(pkgDir, "postinstall.js"));
 
-  const rootReadme = Bun.file(ROOT_README);
-  if (!(await rootReadme.exists())) {
-    throw new Error(`Root README not found at ${ROOT_README}`);
-  }
   writeFileSync(
     join(pkgDir, "README.md"),
-    npmReadme(await rootReadme.text(), `cli-v${version}`)
+    npmReadme(readFileSync(ROOT_README, "utf8"), `cli-v${version}`)
   );
   console.log(`Staged peektrace wrapper (${pkgDir})`);
 };
@@ -197,7 +194,7 @@ const main = async () => {
     const produced = compileTarget(t);
     stageVariant(t, version, produced);
   }
-  await stageWrapper(version);
+  stageWrapper(version);
 
   console.log(`\nDone. Publishable packages staged under ${DIST_NPM}`);
   console.log(

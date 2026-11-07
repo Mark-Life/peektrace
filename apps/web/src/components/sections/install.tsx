@@ -71,6 +71,21 @@ const COMMANDS: RefEntry[] = [
     name: "memory rm <project> <name>",
     desc: "delete an entry (blocked under --read-only)",
   },
+  { name: "tui", desc: "terminal UI for browsing sessions" },
+  {
+    name: "stats [--days --agent --limit]",
+    desc: "rank what fails and what costs time across all sessions",
+  },
+  { name: "stats drill", desc: "evidence behind one finding" },
+  { name: "stats refresh", desc: "rebuild the stats index" },
+  {
+    name: "stats prompt",
+    desc: "print a prompt to hand the report to an agent",
+  },
+  {
+    name: "upgrade [--check]",
+    desc: "update to the latest release, or only check for one",
+  },
   {
     name: "doctor",
     desc: "write a redacted support bundle (--last, --interesting-only, --out)",

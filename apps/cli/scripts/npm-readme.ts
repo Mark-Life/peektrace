@@ -3,6 +3,7 @@
 const REPO = "Mark-Life/peektrace";
 const CUT_HEADING = /^# Develop\s*$/m;
 const IMAGE_LINE = /^\s*!\[[^\]]*\]\([^)]*\)\s*$/gm;
+const TRAILING_RULE = /\n*---$/;
 const LEADING_DOT_SLASH = /^\.?\//;
 const RELATIVE_LINK = /\]\((?!https?:|#|mailto:)([^)\s]+)\)/g;
 
@@ -22,6 +23,7 @@ export const npmReadme = (rootMd: string, ref: string) => {
         `](https://github.com/${REPO}/blob/${ref}/${path.replace(LEADING_DOT_SLASH, "")})`
     )
     .replace(/\n{3,}/g, "\n\n")
-    .trimEnd();
+    .trimEnd()
+    .replace(TRAILING_RULE, "");
   return `${body}\n\n---\n\nSource: https://github.com/${REPO}\n\nLicense: MIT\n`;
 };

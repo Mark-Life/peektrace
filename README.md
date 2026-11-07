@@ -72,7 +72,8 @@ it. Check yours with `npm audit signatures`.
 
 If you see "could not locate a platform binary", your platform has no prebuilt
 binary: reinstall, or build from source. To run an explicit binary, set
-`PEEKTRACE_BIN_PATH=/path/to/peektrace`.
+`PEEKTRACE_BIN_PATH=/path/to/peektrace` (on Windows,
+`$env:PEEKTRACE_BIN_PATH` pointing at `peektrace.exe`).
 
 There is no desktop download yet. Anything claiming otherwise under the name
 `peektrace` is not published by this project.
@@ -115,7 +116,7 @@ per-session.
 ## Stats
 
 Rank what fails and what costs time across every session on the machine, not one
-at a time. Findings come sorted by cheapest fix first — the run below caught 561
+at a time. Findings come sorted by cheapest fix first — one run caught 561
 of 603 lint invocations piping into `head`, so the exit code belonged to the pipe
 and every failure read as a pass.
 
@@ -183,7 +184,8 @@ against a running server. Root flags go **before** the subcommand: `--json`
 (raw JSON instead of tables), `--pretty` (aligned instead of tab-separated),
 `--read-only` (refuse mutating commands), `--remote <url>`, `--otel`,
 `--no-telemetry`. `--json` and `--read-only` also work after the subcommand on
-`sessions`, `memory` and `stats` commands.
+`sessions`, `memory`, `stats` (not `stats prompt`) and `doctor`. Put `--remote`
+before the subcommand.
 
 ```sh
 peektrace sessions ls [--agent <id>] [--project <name>] [--since <when>] [--cwd <path>] [--limit <n>]

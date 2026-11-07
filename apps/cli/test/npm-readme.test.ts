@@ -56,6 +56,10 @@ describe("npmReadme (root README)", async () => {
     expect(out).toContain("npx peektrace");
     expect(out).toContain("PEEKTRACE_BIN_PATH");
   });
+  test("ends with a single rule before the footer", () => {
+    expect(out).not.toContain("---\n\n---");
+    expect(out).toContain("\n\n---\n\nSource: ");
+  });
   test("names all four agents", () => {
     for (const name of ["Claude Code", "Codex", "Pi", "OpenCode"]) {
       expect(out).toContain(name);
