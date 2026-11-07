@@ -10,6 +10,10 @@
  * path differs (a hash collision), or `EXTRACTOR_VERSION` moved. Everything else
  * is read back, so a rerun over an unchanged corpus parses nothing.
  *
+ * A pass over every agent replaces the index and deletes shards it no longer
+ * names, so deleted transcripts stop costing disk. A narrower pass (one agent,
+ * one session) merges: it replaces only the paths it walked and keeps the rest.
+ *
  * Beside it, `~/.peektrace/rule-lines.json` holds when each memory line was
  * first seen (`rule-dates.ts`). It is history, not derived data, so it sits
  * outside the cache dir and `clear` keeps it.
@@ -81,6 +85,32 @@ export const isFresh = (args: {
   );
 };
 
+/**
+ * The index to commit after a pass. A full pass knows every transcript, so its
+ * entries are the whole index. A narrower pass drops each path it walked (a
+ * file that was skipped or not cacheable keeps no stale entry), then adds what
+ * it wrote, leaving every path outside its scope untouched.
+ */
+export const mergeIndex = (args: {
+  readonly prev: ReadonlyMap<string, CacheEntry>;
+  readonly entries: readonly CacheEntry[];
+  readonly scanned: ReadonlySet<string>;
+  readonly full: boolean;
+}): readonly CacheEntry[] => {
+  const { prev, entries, scanned, full } = args;
+  if (full) {
+    return entries;
+  }
+  const next = new Map(prev);
+  for (const path of scanned) {
+    next.delete(path);
+  }
+  for (const entry of entries) {
+    next.set(entry.path, entry);
+  }
+  return [...next.values()];
+};
+
 /** Per-file fact cache, keyed on path + mtime + size + extractor version. */
 export interface StatsCacheShape {
   /** Drop the whole cache dir. */
@@ -97,6 +127,8 @@ export interface StatsCacheShape {
   readonly load: () => Effect.Effect<ReadonlyMap<string, CacheEntry>>;
   /** The memory-line ledger, or an empty one when absent or unreadable. */
   readonly loadLines: () => Effect.Effect<LineLedger>;
+  /** Delete every shard not named in `keep`. Never fails: a miss is retried. */
+  readonly prune: (keep: ReadonlySet<string>) => Effect.Effect<void>;
   /** Facts of one cached transcript. Fails only on a corrupt shard. */
   readonly read: (
     entry: CacheEntry
@@ -162,7 +194,8 @@ const parseShard = (raw: string): readonly StatsFact[] => {
   return out;
 };
 
-const makeCache = (args: {
+/** Build the cache over `root`. The live layer picks `root` from the env. */
+export const makeCache = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly root: string;
 }): StatsCacheShape => {
@@ -243,7 +276,32 @@ const makeCache = (args: {
       Effect.asVoid
     );
 
-  return { root, load, loadLines, read, write, commit, commitLines, clear };
+  const prune: StatsCacheShape["prune"] = (keep) =>
+    fs.readDirectory(shardsDir).pipe(
+      Effect.flatMap((names) =>
+        Effect.forEach(
+          names.filter((n) => n.endsWith(".jsonl") && !keep.has(n)),
+          (n) =>
+            fs
+              .remove(join(shardsDir, n))
+              .pipe(Effect.orElseSucceed(() => undefined)),
+          { discard: true }
+        )
+      ),
+      Effect.orElseSucceed(() => undefined)
+    );
+
+  return {
+    root,
+    load,
+    loadLines,
+    read,
+    write,
+    commit,
+    commitLines,
+    clear,
+    prune,
+  };
 };
 
 /** Live layer: the cache dir resolves at layer construction, never at import. */
