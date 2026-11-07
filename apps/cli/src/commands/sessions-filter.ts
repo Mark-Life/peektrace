@@ -116,3 +116,46 @@ export const selectSessions = <
   const rows = limit === 0 ? kept : kept.slice(0, limit);
   return { rows, hidden: kept.length - rows.length };
 };
+
+export interface TargetRequest {
+  /** Absolute `--cwd` directory, already resolved. */
+  readonly cwd?: string | undefined;
+  readonly id?: string | undefined;
+  readonly latest: boolean;
+}
+
+export type Target =
+  | { readonly _tag: "Id"; readonly id: string }
+  | { readonly _tag: "Newest"; readonly id: string }
+  | { readonly _tag: "Invalid"; readonly message: string };
+
+/** Pick the session `analyze` runs on: an explicit id, or the newest header
+ * (optionally under `--cwd`). Invalid combinations and empty matches carry a message. */
+export const pickTarget = (
+  { id, latest, cwd }: TargetRequest,
+  headers: readonly Pick<SessionHeader, "cwd" | "id" | "updatedAt">[]
+): Target => {
+  const wantsNewest = latest || cwd !== undefined;
+  if (id !== undefined && wantsNewest) {
+    return {
+      _tag: "Invalid",
+      message: "Pass either a session id or --latest/--cwd, not both.",
+    };
+  }
+  if (id !== undefined) {
+    return { _tag: "Id", id };
+  }
+  if (!wantsNewest) {
+    return {
+      _tag: "Invalid",
+      message: "Pass a session id, --latest, or --cwd <dir>.",
+    };
+  }
+  const [newest] = selectSessions(headers, { limit: 1, cwd }).rows;
+  return newest
+    ? { _tag: "Newest", id: newest.id }
+    : {
+        _tag: "Invalid",
+        message: `No sessions found${cwd === undefined ? "" : ` under ${cwd}`}.`,
+      };
+};
