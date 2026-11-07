@@ -24,6 +24,8 @@ describe("jsonlLineAt", () => {
     const gappy = '{"a":1}\n\n  \n{"b":2}\n{"c":';
     expect(jsonlLineAt(gappy, 1)).toEqual({ b: 2 });
     expect(jsonlLineAt(gappy, 2)).toBeUndefined();
+    // An object-looking line that is not valid JSON yields undefined.
+    expect(jsonlLineAt('{"a":1}\n{bad}\n', 1)).toBeUndefined();
   });
 });
 

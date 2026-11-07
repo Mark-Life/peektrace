@@ -18,6 +18,7 @@ import {
   resolveDataDir,
 } from "../../src/services/sessions/opencode/reader";
 import { opencodeParser } from "../../src/services/sessions/parsers/opencode";
+import { createOpencodeSchema, writeGoodDb } from "../fixtures/opencode-db";
 
 let dataDir: string;
 const prevEnv = process.env.PEEKTRACE_OPENCODE_DATA;
@@ -28,43 +29,6 @@ const DOCTORED_COLUMN = 9_999_999_999;
 
 const writeJson = (path: string, value: unknown) =>
   writeFileSync(path, JSON.stringify(value), "utf8");
-
-/** The on-disk `session`/`message`/`part` DDL, shared by every test DB. */
-const SESSION_DDL =
-  "CREATE TABLE session (id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, title TEXT, version TEXT, model TEXT, agent TEXT, cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, time_created INTEGER, time_updated INTEGER)";
-const MESSAGE_DDL =
-  "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
-const PART_DDL =
-  "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
-
-/** Build a standalone opencode DB holding one healthy text-only session. */
-const writeGoodDb = (path: string, id: string, directory: string) => {
-  const db = new Database(path);
-  db.exec(SESSION_DDL);
-  db.exec(MESSAGE_DDL);
-  db.exec(PART_DDL);
-  db.query(
-    "INSERT INTO session (id, directory, title, time_created, time_updated) VALUES (?, ?, ?, ?, ?)"
-  ).run(id, directory, "Good session", 1000, 2000);
-  db.query(
-    "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)"
-  ).run(
-    `${id}-m`,
-    id,
-    1500,
-    JSON.stringify({ role: "user", time: { created: 1500 } })
-  );
-  db.query(
-    "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)"
-  ).run(
-    `${id}-p`,
-    `${id}-m`,
-    id,
-    1501,
-    JSON.stringify({ type: "text", text: `hi from ${id}` })
-  );
-  db.close();
-};
 
 /** Run `fn` against a fresh temp data dir, cleaning it up afterward. */
 const withTempDir = (fn: (dir: string) => void) => {
@@ -85,9 +49,7 @@ beforeAll(() => {
   process.env.PEEKTRACE_OPENCODE_DATA = dataDir;
 
   const db = new Database(join(dataDir, "opencode.db"));
-  db.exec(SESSION_DDL);
-  db.exec(MESSAGE_DDL);
-  db.exec(PART_DDL);
+  createOpencodeSchema(db);
   db.query(
     "INSERT INTO session (id, directory, title, model, agent, tokens_input, tokens_cache_read, time_created, time_updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).run(
