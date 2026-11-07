@@ -56,22 +56,46 @@ its optionalDependencies resolve. See `scripts/build-npm.ts` and
 Both Linux binaries (x64 and arm64) run headless and are built against glibc;
 `scripts/install.sh` picks the right one from `uname -m`.
 
-`peektrace serve` binds loopback (`127.0.0.1`)
-only by default — nothing is exposed off-box and there is **no auth**. Reach it
-over an SSH tunnel:
+`peektrace serve` binds loopback (`127.0.0.1`) by default, so nothing is exposed
+off-box. The recommended setup is an SSH tunnel. Run plain
+`peektrace serve --no-open` on the server (no token, writes keep working), then
+forward the same port locally:
 
 ```sh
 ssh -N -L 4321:127.0.0.1:4321 user@server   # then open http://127.0.0.1:4321
 ```
 
-To bind the network directly, pass `--host` (peektrace warns at startup):
+Use the same port on both sides. The server only accepts the `Host` it is bound
+to, so a different local port gets a 403. If the server auto-picked another port
+(see its startup output), forward that one.
+
+To bind the network directly, pass `--host`:
 
 ```sh
-peektrace serve --host 0.0.0.0                # no auth — firewall yourself
+peektrace serve --host 0.0.0.0 --no-open
 ```
 
-Only expose it behind a trusted firewall/private network; consider pairing with
-`--read-only`. The default stays loopback-only.
+A non-loopback bind requires a token. The server prints an `Open:` URL like
+`http://127.0.0.1:4321/?token=...`; from another machine replace the host with
+the server's address. The first visit sets an HttpOnly cookie and redirects the
+token out of the URL. Scripts can send `Authorization: Bearer <token>`. Every
+route needs the token, `/health` included.
+
+- The token is random per start. Set `PEEKTRACE_TOKEN` (32+ characters) to keep
+  one across restarts. The URL is always printed, so it also reaches logs and
+  the systemd journal.
+- It is read-only unless you pass `--allow-write`. `--read-only` always wins.
+- It is plain HTTP: a network sniffer sees the token. Cookies are not isolated
+  by port, so other HTTP services on the same host receive the cookie. Prefer
+  the tunnel, or a private network such as a tailnet.
+
+Reach an authed server from another CLI with the env var (argv shows in `ps`):
+
+```sh
+PEEKTRACE_TOKEN=... peektrace --remote http://server:4321 sessions ls
+```
+
+Pasting the printed `?token=` URL into `--remote` also works.
 
 If `peektrace tui` fails with `Failed to open library ... failed to map segment
 from shared object`, `/tmp` is mounted `noexec` — the TUI extracts OpenTUI's
@@ -98,7 +122,7 @@ Declared on the root command; apply to every subcommand:
 | `--json` | Emit the raw RPC payload as JSON instead of rendered tables (output commands only) |
 | `--pretty` | Render aligned tables instead of the default compact tab-separated output |
 | `--read-only` | Safe mode — refuse any mutating command up-front (e.g. `memory rm`) before the write path is reached |
-| `--remote <url>` | Target a running `peektrace serve` over HTTP instead of in-process |
+| `--remote <url>` | Target a running `peektrace serve` over HTTP instead of in-process. Token from `PEEKTRACE_TOKEN` or a `?token=` URL |
 | `--otel` | Log Effect spans to **stderr** as `[otel] <span> <ms> ok/fail {attrs}` (also enabled by the `PEEKTRACE_OTEL` env var). Off by default → no-op tracer, zero startup cost |
 | `--no-telemetry` | Disable the local run log for this invocation (also via `PEEKTRACE_NO_TELEMETRY`). The local run log is **on by default** and writes one event per run to local SQLite — see [Local run log & privacy](#local-run-log--privacy) |
 
@@ -123,6 +147,8 @@ roots for the server's lifetime so Memory + Sessions auto-refresh
 | --- | --- | --- |
 | `--port <n>` | `4321` | Port to bind. Scans up to 20 ports from `<n>` and binds the first free one; if all 20 are busy — or the port is invalid or permission-denied — it exits with a clean one-line error (no stack trace) |
 | `--open` / `--no-open` | `--open` | Open the default browser on start; `--no-open` to skip |
+| `--host <iface>` | `127.0.0.1` | Interface to bind. Any non-loopback host requires a token and is read-only unless `--allow-write` |
+| `--allow-write` | off | Allow writes on a non-loopback `--host` (`--read-only` still wins) |
 
 ```sh
 peektrace serve --no-open --port 4789
@@ -150,7 +176,8 @@ in the web app.
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `--port <n>` | `4321` | Port for the sibling web server (same auto-scan as `serve`) |
-| `--host <iface>` | `127.0.0.1` | Interface to bind the web server (loopback by default) |
+| `--host <iface>` | `127.0.0.1` | Interface to bind the web server (loopback by default). Non-loopback needs a token and is read-only unless `--allow-write` |
+| `--allow-write` | off | Allow writes on a non-loopback `--host` |
 | `--open` / `--no-open` | `--open` | Also open the web app in a browser on start |
 
 ```sh
