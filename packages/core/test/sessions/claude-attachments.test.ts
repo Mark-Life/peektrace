@@ -58,6 +58,13 @@ describe("metadata-only attachments", () => {
     });
   }
 
+  test("a metadata type with rendered text counts that text", () => {
+    const text = "<system-reminder>goal: ship it</system-reminder>";
+    const e = ev({ type: "goals", items: ["ship it"] }, text);
+    expect(e?.tokensEst).toBe(estTokens(text));
+    expect(e?.loadedCategory).toBeDefined();
+  });
+
   const hook = (extra: Record<string, unknown>) => ({
     type: "hook_success",
     command: "echo done",
@@ -231,6 +238,16 @@ describe("queued prompts", () => {
     ]);
     expect(p.events[1]?.promptOrigin).toBe("harness");
     expect(analyze(p).userMessageCount).toBe(1);
+  });
+
+  test("a queued prompt keeps its promptSource", () => {
+    const e = attachmentEvent({
+      o: queued({ prompt: queuedText, promptSource: "sdk" }, shown),
+      base,
+      seen: {},
+    });
+    expect(e?.promptOrigin).toBe("sdk");
+    expect(e?.promptSource).toBe("sdk");
   });
 
   test("an array prompt joins its text blocks", () => {

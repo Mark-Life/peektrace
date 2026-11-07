@@ -5,7 +5,7 @@
  * `prompt_snapshot` attachments hold the system prompt and tool definitions and
  * become `system-prompt` events instead of plain attachments.
  */
-import { claudePromptOrigin, promptLabel } from "./prompt-origin";
+import { promptEvent } from "./prompt-origin";
 import type { LoadedCategory, TimelineEvent } from "./schema";
 import {
   type PromptSection,
@@ -29,7 +29,7 @@ const str = (v: unknown): string => {
 };
 
 /** Types Claude Code keeps in the transcript but never sends to the model. */
-export const METADATA_ONLY: ReadonlySet<string> = new Set([
+const METADATA_ONLY: ReadonlySet<string> = new Set([
   "structured_output",
   "deferred_tools_record",
   "credential_org",
@@ -69,7 +69,7 @@ const CONTEXT_HOOK_EVENTS: ReadonlySet<string> = new Set([
 
 /** Whether the attachment never reaches the model. A `hook_success` without
  *  `hookEvent` (older lines) still counts. */
-export const isMetadataOnly = (a: Raw) => {
+const isMetadataOnly = (a: Raw) => {
   const t = String(a.type ?? "");
   if (t === "hook_success") {
     return (
@@ -316,23 +316,17 @@ const queuedPromptEvent = (args: {
   if (text === "") {
     return null;
   }
-  const origin = claudePromptOrigin(a, text);
-  const label =
-    origin === "human" || origin === "sdk"
-      ? undefined
-      : promptLabel(origin, text);
   return {
-    index: base.index,
-    kind: "user-prompt",
-    isSidechain: base.isSidechain,
-    title: label?.title ?? "Queued message",
-    preview: label?.preview ?? firstLine(text),
-    body: text,
-    tokensEst: queuedTokens({ o, a, text }),
-    promptOrigin: origin,
+    ...promptEvent({
+      o: a,
+      index: base.index,
+      ts: base.ts,
+      isSidechain: base.isSidechain,
+      text,
+      title: "Queued message",
+      tokensEst: queuedTokens({ o, a, text }),
+    }),
     attachmentType: "queued_command",
-    ...(a.isMeta === true ? { isMeta: true } : {}),
-    ...(base.ts === undefined ? {} : { ts: base.ts }),
   };
 };
 
@@ -353,8 +347,10 @@ export const attachmentEvent = (args: {
       return queued;
     }
   }
-  const body = renderedBody(o) ?? structuredBody(a);
-  const metadata = isMetadataOnly(a);
+  const shown = renderedBody(o);
+  const body = shown ?? structuredBody(a);
+  // Rendered text reached the model, so it costs tokens whatever the type.
+  const metadata = shown === undefined && isMetadataOnly(a);
   return {
     index: base.index,
     kind: "attachment",

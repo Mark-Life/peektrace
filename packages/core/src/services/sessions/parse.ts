@@ -8,7 +8,7 @@ import {
   toolResultImageRefs,
 } from "./images";
 import { measureTokens } from "./measure";
-import { claudePromptOrigin, promptLabel } from "./prompt-origin";
+import { promptEvent } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 import {
@@ -122,39 +122,6 @@ const applyMeta = (meta: Meta, o: RawLine, ts: string | undefined) => {
   if (typeof o.version === "string") {
     meta.version = o.version;
   }
-};
-
-/** A prompt event, titled after whoever wrote it. */
-const promptEvent = (args: {
-  readonly o: RawLine;
-  readonly index: number;
-  readonly ts: string | undefined;
-  readonly isSidechain: boolean;
-  readonly text: string;
-  readonly title: string;
-}): TimelineEvent => {
-  const { o, index, ts, isSidechain, text } = args;
-  const origin = claudePromptOrigin(o, text);
-  const label =
-    origin === "human" || origin === "sdk"
-      ? undefined
-      : promptLabel(origin, text);
-  return {
-    index,
-    kind: "user-prompt",
-    isSidechain,
-    title: label?.title ?? args.title,
-    preview: label?.preview ?? firstLine(text),
-    body: text,
-    tokensEst: estTokens(text),
-    promptOrigin: origin,
-    ...opt("ts", ts),
-    ...opt("isMeta", o.isMeta === true ? true : undefined),
-    ...opt(
-      "promptSource",
-      typeof o.promptSource === "string" ? o.promptSource : undefined
-    ),
-  };
 };
 
 /** Build a tool_result / text event from a user content block. */

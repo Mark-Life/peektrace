@@ -8,6 +8,7 @@
  * read, explicit fields first.
  */
 import type { PromptOrigin, TimelineEvent } from "./schema";
+import { estTokens, firstLine } from "./tokens";
 
 type Raw = Record<string, unknown>;
 
@@ -106,4 +107,38 @@ export const promptLabel = (
     default:
       return { title: "User prompt" };
   }
+};
+
+/** A `user-prompt` event, titled after whoever wrote it. `title` is used when
+ *  the origin has no label of its own; `tokensEst` defaults to the text's. */
+export const promptEvent = (args: {
+  readonly o: Raw;
+  readonly index: number;
+  readonly ts: string | undefined;
+  readonly isSidechain: boolean;
+  readonly text: string;
+  readonly title: string;
+  readonly tokensEst?: number;
+}): TimelineEvent => {
+  const { o, index, ts, isSidechain, text } = args;
+  const origin = claudePromptOrigin(o, text);
+  const label =
+    origin === "human" || origin === "sdk"
+      ? undefined
+      : promptLabel(origin, text);
+  return {
+    index,
+    kind: "user-prompt",
+    isSidechain,
+    title: label?.title ?? args.title,
+    preview: label?.preview ?? firstLine(text),
+    body: text,
+    tokensEst: args.tokensEst ?? estTokens(text),
+    promptOrigin: origin,
+    ...(ts === undefined ? {} : { ts }),
+    ...(o.isMeta === true ? { isMeta: true } : {}),
+    ...(typeof o.promptSource === "string"
+      ? { promptSource: o.promptSource }
+      : {}),
+  };
 };
