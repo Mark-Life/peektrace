@@ -3,11 +3,7 @@
 import { expect, test } from "bun:test";
 import { Atom, Registry, Result } from "@effect-atom/atom-react";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
-import {
-  isHeaderUpdate,
-  sharedHeadersAtom,
-  shareHeaders,
-} from "../src/lib/share-headers";
+import { sharedHeadersAtom, shareHeaders } from "../src/lib/share-headers";
 
 const header = (
   id: string,
@@ -70,14 +66,6 @@ test("added, removed and reordered headers", () => {
   expect(reordered).not.toBe(prev);
   expect(reordered.map((h) => h.id)).toEqual(["c", "a", "b"]);
   expect(reordered[0]).toBe(prev[2]);
-});
-
-test("a first load is not a header update; a replacement is", () => {
-  const a = header("a");
-  expect(isHeaderUpdate(undefined, a)).toBe(false);
-  expect(isHeaderUpdate(a, a)).toBe(false);
-  expect(isHeaderUpdate(a, undefined)).toBe(false);
-  expect(isHeaderUpdate(a, header("a", { messageCount: 3 }))).toBe(true);
 });
 
 test("the shared atom notifies nobody on an equal refresh", () => {

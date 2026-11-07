@@ -50,17 +50,17 @@ const versionAtom = (scope: keyof WatchVersions) =>
   );
 
 /** Memory-scope version: bumps when a memory `.md` changes on disk. */
-export const memoryVersionAtom = versionAtom("memory");
+const memoryVersionAtom = versionAtom("memory");
 
 /** Sessions-scope version: bumps when a session `.jsonl` changes on disk. */
-export const sessionsVersionAtom = versionAtom("sessions");
+const sessionsVersionAtom = versionAtom("sessions");
 
 /** "Pause live": holds every refresh until resumed. In memory on purpose — a
  *  forgotten, persisted pause would look like a broken app. */
 export const livePausedAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 /** Memory version as applied: gated by pause. */
-export const settledMemoryVersionAtom = settledAtom({
+const settledMemoryVersionAtom = settledAtom({
   paused: livePausedAtom,
   source: memoryVersionAtom,
   timing: MEMORY_SETTLE,

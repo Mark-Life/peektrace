@@ -19,7 +19,7 @@ import {
 } from "@workspace/ui/components/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
 import { PauseIcon, PlayIcon } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   livePausedAtom,
   liveWaitingAtom,
@@ -45,7 +45,9 @@ const liveMode = (paused: boolean, waiting: boolean) => {
   return waiting ? "waiting" : "paused";
 };
 
-/** The dot, label and toggle, with no data wiring. */
+/** The dot, label and toggle, with no data wiring. The toggle keeps one fixed
+ *  name and reports its state through `aria-pressed`; while paused, the label
+ *  is its description, so "updates waiting" reaches screen readers too. */
 export const WatchStatusView = ({
   mode,
   syncing,
@@ -56,7 +58,8 @@ export const WatchStatusView = ({
   readonly onToggle: () => void;
 }) => {
   const paused = mode !== "live";
-  const action = paused ? "Resume live updates" : "Pause live updates";
+  const labelId = useId();
+  const hint = paused ? "Resume live updates" : "Pause live updates";
   const Icon = paused ? PlayIcon : PauseIcon;
   return (
     <div
@@ -66,11 +69,11 @@ export const WatchStatusView = ({
       data-testid="watch-status"
     >
       <span
-        aria-hidden="true"
         className="flex items-center gap-1.5"
         title="Peektrace re-reads a file as soon as an agent writes it"
       >
         <span
+          aria-hidden="true"
           className={cn(
             "size-1.5 rounded-full transition-colors duration-500",
             paused && "border border-muted-foreground",
@@ -78,18 +81,20 @@ export const WatchStatusView = ({
           )}
         />
         <span
+          aria-hidden={paused ? undefined : "true"}
           className={cn(
             "whitespace-nowrap transition-opacity duration-500",
             paused || syncing ? "opacity-100" : "opacity-0"
           )}
         >
-          {LABEL[mode]}
+          <span id={labelId}>{LABEL[mode]}</span>
         </span>
       </span>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            aria-label={action}
+            aria-describedby={paused ? labelId : undefined}
+            aria-label="Pause live updates"
             aria-pressed={paused}
             data-testid="watch-pause"
             onClick={onToggle}
@@ -99,7 +104,7 @@ export const WatchStatusView = ({
             <Icon />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="bottom">{action}</TooltipContent>
+        <TooltipContent side="bottom">{hint}</TooltipContent>
       </Tooltip>
     </div>
   );

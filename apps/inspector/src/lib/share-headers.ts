@@ -11,7 +11,7 @@ import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { Option } from "effect";
 
 /** Field-by-field equality. Every `SessionHeader` field is a primitive. */
-export const sameHeader = (a: SessionHeader, b: SessionHeader) => {
+const sameHeader = (a: SessionHeader, b: SessionHeader) => {
   const keys = Object.keys(a) as (keyof SessionHeader)[];
   return (
     keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k])
@@ -35,13 +35,6 @@ export const shareHeaders = (
     shared.length === prev.length && shared.every((h, i) => h === prev[i]);
   return unchanged ? prev : shared;
 };
-
-/** True when a header was replaced by a newer version of itself. A first load
- *  (`undefined` to a header) is not an update. */
-export const isHeaderUpdate = (
-  prev: SessionHeader | undefined,
-  next: SessionHeader | undefined
-) => prev !== undefined && next !== undefined && prev !== next;
 
 /**
  * Derive a shared view of a `sessions.list` result. A refresh in flight is not

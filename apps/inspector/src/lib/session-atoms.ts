@@ -13,22 +13,15 @@
  * transcript stays mounted while the newer analysis is in flight.
  */
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
-import { useEffect, useMemo, useRef } from "react";
-import { sessionHeaderAtom } from "./atoms";
+import { useMemo } from "react";
 import { PeektraceClient } from "./client";
-import { isHeaderUpdate } from "./share-headers";
 import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
-
-const noop = () => undefined;
 
 /**
  * Build a memoized `sessions.analyze` atom for one session id + redact flag, and
- * re-validate it when that session changes on disk, so a live transcript grows
- * by appending rows rather than going stale.
- *
- * A listed top-level session re-analyses only when its own list header changes,
- * so writes to other sessions cost the open transcript nothing. A subagent, or a
- * session the list does not carry, falls back to the settled sessions version.
+ * re-validate it on each settled sessions bump, so a live transcript grows by
+ * appending rows rather than going stale. The settled version also covers
+ * subagent transcripts, which feed the parent's analysis but not its header.
  */
 export const useAnalyzedSession = ({
   id,
@@ -50,21 +43,6 @@ export const useAnalyzedSession = ({
     [id, parent, redact]
   );
   const refresh = useAtomRefresh(atom);
-  const header = useAtomValue(sessionHeaderAtom(id));
-  const tracked = parent === null && header !== undefined;
-
-  const seenHeader = useRef(header);
-  useEffect(() => {
-    const prev = seenHeader.current;
-    seenHeader.current = header;
-    if (parent === null && isHeaderUpdate(prev, header)) {
-      refresh();
-    }
-  }, [header, parent, refresh]);
-
-  useOnVersionBump(
-    useAtomValue(settledSessionsVersionAtom),
-    tracked ? noop : refresh
-  );
+  useOnVersionBump(useAtomValue(settledSessionsVersionAtom), refresh);
   return atom;
 };
