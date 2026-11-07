@@ -39,22 +39,11 @@ const prev = new Map([
 ]);
 
 describe("mergeIndex", () => {
-  test("a full pass replaces the index", () => {
-    const next = mergeIndex({
-      prev,
-      entries: [entry("/a/1.jsonl", 5)],
-      scanned: new Set(["/a/1.jsonl"]),
-      full: true,
-    });
-    expect(byPath(next)).toEqual({ "/a/1.jsonl": 5 });
-  });
-
   test("a scoped pass keeps paths outside its scope", () => {
     const next = mergeIndex({
       prev,
       entries: [entry("/b/1.jsonl", 7), entry("/b/2.jsonl", 2)],
       scanned: new Set(["/b/1.jsonl", "/b/2.jsonl"]),
-      full: false,
     });
     expect(byPath(next)).toEqual({
       "/a/1.jsonl": 1,
@@ -69,7 +58,6 @@ describe("mergeIndex", () => {
       prev,
       entries: [],
       scanned: new Set(["/b/1.jsonl"]),
-      full: false,
     });
     expect(byPath(next)).toEqual({ "/a/1.jsonl": 1, "/a/2.jsonl": 1 });
   });

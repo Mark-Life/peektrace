@@ -86,8 +86,7 @@ export const isFresh = (args: {
 };
 
 /**
- * The index to commit after a pass. A full pass knows every transcript, so its
- * entries are the whole index. A narrower pass drops each path it walked (a
+ * The index to commit after a scoped pass. Drops each path the pass walked (a
  * file that was skipped or not cacheable keeps no stale entry), then adds what
  * it wrote, leaving every path outside its scope untouched.
  */
@@ -95,12 +94,8 @@ export const mergeIndex = (args: {
   readonly prev: ReadonlyMap<string, CacheEntry>;
   readonly entries: readonly CacheEntry[];
   readonly scanned: ReadonlySet<string>;
-  readonly full: boolean;
 }): readonly CacheEntry[] => {
-  const { prev, entries, scanned, full } = args;
-  if (full) {
-    return entries;
-  }
+  const { prev, entries, scanned } = args;
   const next = new Map(prev);
   for (const path of scanned) {
     next.delete(path);

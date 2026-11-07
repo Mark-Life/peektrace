@@ -345,15 +345,17 @@ const runPass = (args: {
 
     if (useCache) {
       // Only a pass over every agent may replace the index and prune shards.
-      // A narrower one merges into a fresh read, so a concurrent writer's
-      // entries survive and other agents' shards stay warm.
+      // A narrower one merges, so other agents' shards stay warm. It re-reads
+      // the index first, which narrows (but does not close) the race with a
+      // concurrent writer.
       const full = isFullScope({ agents, only, scope });
-      const next = mergeIndex({
-        prev: full ? index : yield* cache.load(),
-        entries,
-        scanned: new Set(refs.map((ref) => ref.path)),
-        full,
-      });
+      const next = full
+        ? entries
+        : mergeIndex({
+            prev: yield* cache.load(),
+            entries,
+            scanned: new Set(refs.map((ref) => ref.path)),
+          });
       yield* cache.commit(next).pipe(Effect.orElseSucceed(() => undefined));
       if (full) {
         yield* cache.prune(new Set(next.map((e) => e.shard)));
