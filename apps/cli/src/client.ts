@@ -18,6 +18,7 @@ import {
   makeInProcessClient,
 } from "@workspace/rpc";
 import { Effect } from "effect";
+import { CliUserError, isRpcClientError, remoteErrorMessage } from "./errors";
 
 /**
  * Per-subcommand `--json` twin of the root flag. Declaring it locally means a
@@ -75,9 +76,15 @@ export const withClient = <A, E>(
   use: (client: PeektraceClient) => Effect.Effect<A, E>
 ) => {
   if (globals.remote !== undefined) {
-    return createPeektraceClient(globals.remote).pipe(
+    const url = globals.remote;
+    return createPeektraceClient(url).pipe(
       Effect.flatMap(use),
-      Effect.scoped
+      Effect.scoped,
+      Effect.mapError((e) =>
+        isRpcClientError(e)
+          ? new CliUserError({ message: remoteErrorMessage(url, e) })
+          : e
+      )
     );
   }
   return makeInProcessClient().pipe(

@@ -60,3 +60,32 @@ export const formatCliError = (error: unknown): string => {
       return typeof e.message === "string" ? e.message : `Error: ${e._tag}`;
   }
 };
+
+const isRecord = (u: unknown): u is Record<string, unknown> =>
+  typeof u === "object" && u !== null;
+
+/** Structural guard for the `@effect/rpc` transport error. */
+export const isRpcClientError = (u: unknown): u is Tagged =>
+  isTagged(u) && u._tag === "RpcClientError";
+
+/** Pull the most specific detail out of a nested transport error. */
+const transportDetail = (error: unknown): string => {
+  if (!isRecord(error)) {
+    return String(error);
+  }
+  const inner = isRecord(error.cause) ? error.cause : undefined;
+  const root = inner && isRecord(inner.cause) ? inner.cause : undefined;
+  if (root && typeof root.code === "string") {
+    return root.code;
+  }
+  const response =
+    inner && isRecord(inner.response) ? inner.response : undefined;
+  if (response && typeof response.status === "number") {
+    return `HTTP ${response.status}`;
+  }
+  return typeof error.message === "string" ? error.message : "unknown error";
+};
+
+/** One-line message for a failed `--remote` transport call. */
+export const remoteErrorMessage = (url: string, error: unknown): string =>
+  `Remote request to ${url} failed (${transportDetail(error)}). Check that \`peektrace serve\` is running there.`;
