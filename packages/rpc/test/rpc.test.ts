@@ -180,6 +180,16 @@ describe("sessions", () => {
       })
     ));
 
+  test("list filters by agent", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const claude = yield* client.sessions.list({ agent: "claude" });
+        expect(claude.map((h) => h.id)).toEqual([SESSION_ID]);
+        const codex = yield* client.sessions.list({ agent: "codex" });
+        expect(codex).toHaveLength(0);
+      })
+    ));
+
   test("get folds the subagent transcript", () =>
     withClient((client) =>
       Effect.gen(function* () {

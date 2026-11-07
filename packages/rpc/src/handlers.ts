@@ -231,7 +231,7 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
           "watch.poll": () => watch.versions,
           "sessions.list": ({ project, agent }) =>
             sessions
-              .list()
+              .list(agent ? { agent } : undefined)
               .pipe(
                 Effect.map((headers) =>
                   headers.filter(
