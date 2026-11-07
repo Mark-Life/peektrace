@@ -511,16 +511,8 @@ const promptSeenFor = (ctx: LineCtx) => {
 };
 
 /** Handle one `attachment` line. */
-const handleAttachment = (
-  ctx: LineCtx & { readonly skipSystemPrompt: boolean }
-) => {
-  const { o, index, ts, isSidechain, state, skipSystemPrompt } = ctx;
-  if (
-    skipSystemPrompt &&
-    (o.attachment as RawLine | undefined)?.type === "prompt_snapshot"
-  ) {
-    return;
-  }
+const handleAttachment = (ctx: LineCtx) => {
+  const { o, index, ts, isSidechain, state } = ctx;
   const ev = attachmentEvent({
     o,
     base: { index, ts, isSidechain },
@@ -636,7 +628,14 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
         }
         break;
       case "attachment":
-        handleAttachment({ ...ctx, skipSystemPrompt });
+        if (
+          !(
+            skipSystemPrompt &&
+            (o.attachment as RawLine | undefined)?.type === "prompt_snapshot"
+          )
+        ) {
+          handleAttachment(ctx);
+        }
         break;
       case "user":
         handleUser(ctx);
