@@ -12,6 +12,7 @@ import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { tokenLabel } from "@workspace/core/services/sessions/tokens";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
+import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
 import { useMemo } from "react";
@@ -62,6 +63,12 @@ const bandLabel = (e: TranscriptRowRef["e"]) => {
   return e.kind === "summary" ? "rolling summary" : e.title.toLowerCase();
 };
 
+/** A system prompt body is `## section` blocks and, under tools, one `### tool`
+ *  each: set the sections apart as labelled dividers and each tool on its own
+ *  rule, so forty tool definitions do not run together. */
+const PROMPT_SECTIONS =
+  "[&_h2]:mt-5 [&_h2]:border-b [&_h2]:pb-1 [&_h2]:font-mono [&_h2]:text-[11px] [&_h2]:text-muted-foreground [&_h2]:uppercase [&_h2]:tracking-wide [&_h3]:mt-4 [&_h3]:border-t [&_h3]:border-dashed [&_h3]:pt-3 [&_h3]:font-mono [&_h3]:text-sm";
+
 const BAND_ICON = {
   compaction: ScissorsIcon,
   "system-prompt": SettingsIcon,
@@ -108,7 +115,10 @@ const Band = ({
         {open ? (
           <div className="mt-1 flex flex-col gap-1 text-left">
             <Markdown
-              className="max-h-[28rem] overflow-auto text-xs"
+              className={cn(
+                "max-h-[28rem] overflow-auto text-xs",
+                e.kind === "system-prompt" && PROMPT_SECTIONS
+              )}
               text={e.body}
             />
             <RawToggle body={e.body} />
