@@ -24,6 +24,7 @@ import {
   type AgentRoots,
 } from "@workspace/core";
 import type { FindingFormat } from "@workspace/core/services/stats/findings";
+import { StatsProgress } from "@workspace/core/services/stats/progress";
 import { statsPrompt } from "@workspace/core/services/stats/prompts";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Clock, Effect, Layer } from "effect";
@@ -267,23 +268,28 @@ const fixedClock: Clock.Clock = {
 const withClient = <A, E>(
   use: (
     client: Effect.Effect.Success<ReturnType<typeof makeInProcessClient>>
-  ) => Effect.Effect<A, E, never>
-): Promise<A> =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      const client = yield* makeInProcessClient();
-      return yield* use(client);
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(
-        makeHandlersLayer({
-          agents: Layer.succeed(AgentRegistry, makeAgents(root)),
-          fileSystem: BunFileSystem.layer,
-        })
-      ),
-      Effect.withClock(fixedClock)
-    ) as Effect.Effect<A, E, never>
+  ) => Effect.Effect<A, E, never>,
+  onFile?: (done: number, total: number) => void
+): Promise<A> => {
+  const run = Effect.gen(function* () {
+    const client = yield* makeInProcessClient();
+    return yield* use(client);
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(
+      makeHandlersLayer({
+        agents: Layer.succeed(AgentRegistry, makeAgents(root)),
+        fileSystem: BunFileSystem.layer,
+      })
+    ),
+    Effect.withClock(fixedClock)
   );
+  // Provided outside the handlers layer, the way the CLI wraps a command.
+  const withProgress = onFile
+    ? run.pipe(Effect.provideService(StatsProgress, { onFile }))
+    : run;
+  return Effect.runPromise(withProgress as Effect.Effect<A, E, never>);
+};
 
 /** Plain spelling: these tests pin what a prompt names, not how it formats. */
 const FORMAT: FindingFormat = {
@@ -555,6 +561,29 @@ describe("stats.markers", () => {
         expect(marked.markers).toHaveLength(0);
       })
     ));
+});
+
+describe("stats progress", () => {
+  test("a progress hook provided around the client sees every transcript", async () => {
+    const calls: [number, number][] = [];
+    await withClient(
+      (client) => client.stats.refresh({ force: true }),
+      (done, total) => calls.push([done, total])
+    );
+    expect(calls).toEqual([
+      [1, 2],
+      [2, 2],
+    ]);
+  });
+
+  test("a narrowed pass counts only its own transcript", async () => {
+    const calls: [number, number][] = [];
+    await withClient(
+      (client) => client.stats.markers({ sid: SID }),
+      (done, total) => calls.push([done, total])
+    );
+    expect(calls).toEqual([[1, 1]]);
+  });
 });
 
 describe("stats.refresh", () => {
