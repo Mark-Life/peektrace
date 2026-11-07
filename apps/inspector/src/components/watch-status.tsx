@@ -1,4 +1,5 @@
-/** The quiet freshness indicator, and the home of the watch poll.
+/** The quiet freshness indicator, the "Pause live" toggle, and the home of the
+ * watch poll.
  *
  * Polling and the refresh fan-out live here rather than in `App` so a disk change
  * re-renders one dot instead of the whole tree (a 260-row transcript re-rendering
@@ -9,16 +10,107 @@
  * Layout is fixed: the label is always present and only its opacity changes, so
  * a sync never shifts the header.
  */
+import { useAtom, useAtomValue } from "@effect-atom/atom-react";
+import { Button } from "@workspace/ui/components/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
+import { PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useWatchRefresh } from "../lib/watch-atoms";
+import {
+  livePausedAtom,
+  liveWaitingAtom,
+  useWatchRefresh,
+} from "../lib/watch-atoms";
 
 /** How long the dot stays lit after a bump (ms) — long enough to notice. */
 const FLASH_MS = 1200;
 
-/** Small "syncing" dot, lit briefly whenever a watched scope changes on disk. */
+/** Live updates flowing, paused with nothing new, or paused with changes held. */
+export type LiveMode = "live" | "paused" | "waiting";
+
+const LABEL: Record<LiveMode, string> = {
+  live: "syncing",
+  paused: "paused",
+  waiting: "paused · updates waiting",
+};
+
+const liveMode = (paused: boolean, waiting: boolean) => {
+  if (!paused) {
+    return "live";
+  }
+  return waiting ? "waiting" : "paused";
+};
+
+/** The dot, label and toggle, with no data wiring. */
+export const WatchStatusView = ({
+  mode,
+  syncing,
+  onToggle,
+}: {
+  readonly mode: LiveMode;
+  readonly syncing: boolean;
+  readonly onToggle: () => void;
+}) => {
+  const paused = mode !== "live";
+  const action = paused ? "Resume live updates" : "Pause live updates";
+  const Icon = paused ? PlayIcon : PauseIcon;
+  return (
+    <div
+      className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs"
+      data-live={mode}
+      data-syncing={syncing ? "true" : "false"}
+      data-testid="watch-status"
+    >
+      <span
+        aria-hidden="true"
+        className="flex items-center gap-1.5"
+        title="Peektrace re-reads a file as soon as an agent writes it"
+      >
+        <span
+          className={cn(
+            "size-1.5 rounded-full transition-colors duration-500",
+            paused && "border border-muted-foreground",
+            !paused && syncing ? "bg-primary" : "bg-transparent"
+          )}
+        />
+        <span
+          className={cn(
+            "whitespace-nowrap transition-opacity duration-500",
+            paused || syncing ? "opacity-100" : "opacity-0"
+          )}
+        >
+          {LABEL[mode]}
+        </span>
+      </span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            aria-label={action}
+            aria-pressed={paused}
+            data-testid="watch-pause"
+            onClick={onToggle}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <Icon />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">{action}</TooltipContent>
+      </Tooltip>
+    </div>
+  );
+};
+
+/** Small "syncing" dot, lit briefly whenever a watched scope changes on disk,
+ *  next to a toggle that pauses every live refresh. */
 export const WatchStatus = () => {
   const bumps = useWatchRefresh();
+  const [paused, setPaused] = useAtom(livePausedAtom);
+  const waiting = useAtomValue(liveWaitingAtom);
   const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
@@ -31,27 +123,10 @@ export const WatchStatus = () => {
   }, [bumps]);
 
   return (
-    <span
-      aria-hidden="true"
-      className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs"
-      data-syncing={syncing ? "true" : "false"}
-      data-testid="watch-status"
-      title="Peektrace re-reads a file as soon as an agent writes it"
-    >
-      <span
-        className={cn(
-          "size-1.5 rounded-full transition-colors duration-500",
-          syncing ? "bg-primary" : "bg-transparent"
-        )}
-      />
-      <span
-        className={cn(
-          "transition-opacity duration-500",
-          syncing ? "opacity-100" : "opacity-0"
-        )}
-      >
-        syncing
-      </span>
-    </span>
+    <WatchStatusView
+      mode={liveMode(paused, waiting)}
+      onToggle={() => setPaused((p) => !p)}
+      syncing={syncing}
+    />
   );
 };
