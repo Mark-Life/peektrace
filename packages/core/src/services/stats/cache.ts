@@ -18,6 +18,11 @@
  * first seen (`rule-dates.ts`). It is history, not derived data, so it sits
  * outside the cache dir and `clear` keeps it.
  *
+ * Each entry records `lastFactMs`, the newest fact time in its shard. A fresh
+ * shard whose every fact predates the window is not read at all; it still
+ * counts as cached and keeps its index entry, so a narrow `--days` run never
+ * drops or prunes it.
+ *
  * Shards are always redacted, because `extract.ts` redacts at mint time. A
  * caller asking for raw text bypasses the cache instead of writing raw text
  * down. Aggregation still runs over every shard on every report: one new file
@@ -43,6 +48,11 @@ const SHARD_HASH_LEN = 16;
 /** One cached transcript summary. */
 export interface CacheEntry {
   readonly extractorVersion: number;
+  /**
+   * Newest fact time in the shard, in epoch ms. Null when any fact is undated,
+   * because an undated fact counts as inside every window. 0 for no facts.
+   */
+  readonly lastFactMs: number | null;
   readonly mtimeMs: number;
   readonly path: string;
   readonly rows: number;
@@ -68,6 +78,37 @@ const hashPath = (s: string): string =>
  */
 export const isCacheable = (stat: FileStat): boolean =>
   stat.size > 0 || stat.mtimeMs > 0;
+
+/** A fact's own time in epoch ms, or null when it is undated or unparsable. */
+export const factMs = (fact: StatsFact): number | null => {
+  const ts = fact.row === "session" ? fact.startedAt : fact.ts;
+  if (ts === null) {
+    return null;
+  }
+  const ms = Date.parse(ts);
+  return Number.isNaN(ms) ? null : ms;
+};
+
+/** Newest fact time, or null as soon as one fact is undated. */
+export const lastFactMsOf = (facts: readonly StatsFact[]): number | null => {
+  let last = 0;
+  for (const fact of facts) {
+    const ms = factMs(fact);
+    if (ms === null) {
+      return null;
+    }
+    last = Math.max(last, ms);
+  }
+  return last;
+};
+
+/**
+ * True when no fact in the shard can fall inside a window starting at
+ * `fromMs`, so reading it would fold nothing. An entry from an older index has
+ * no `lastFactMs` and is never skipped.
+ */
+export const isPastWindow = (entry: CacheEntry, fromMs: number): boolean =>
+  typeof entry.lastFactMs === "number" && entry.lastFactMs < fromMs;
 
 /** True when a cached entry still describes the file on disk. */
 export const isFresh = (args: {
@@ -230,6 +271,7 @@ export const makeCache = (args: {
         size: stat.size,
         shard,
         rows: facts.length,
+        lastFactMs: lastFactMsOf(facts),
         extractorVersion: EXTRACTOR_VERSION,
       } satisfies CacheEntry),
       Effect.mapError(failed(path))
