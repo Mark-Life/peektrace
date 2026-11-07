@@ -228,6 +228,10 @@ export const TimelineEvent = Schema.Struct({
   images: Schema.optional(Schema.Array(ImageRef)),
   loadedCategory: Schema.optional(LoadedCategory),
   contextEdit: Schema.optional(ContextEdit),
+  /** Context size before a compaction, from Claude's `compact_boundary`. */
+  compactPreTokens: Schema.optional(Schema.Number),
+  /** Context size right after a compaction, from Claude's `compact_boundary`. */
+  compactPostTokens: Schema.optional(Schema.Number),
 });
 export type TimelineEvent = typeof TimelineEvent.Type;
 
@@ -240,6 +244,13 @@ export const Turn = Schema.Struct({
   inputTokens: Schema.Number,
   cacheReadTokens: Schema.Number,
   cacheCreationTokens: Schema.Number,
+  /**
+   * Cache writes with a 1-hour TTL (`usage.cache_creation`). With the 5-minute
+   * count it sums to `cacheCreationTokens` when reported; absent on old transcripts.
+   */
+  cacheCreation1hTokens: Schema.optional(Schema.Number),
+  /** Cache writes with a 5-minute TTL; see `cacheCreation1hTokens`. */
+  cacheCreation5mTokens: Schema.optional(Schema.Number),
   outputTokens: Schema.Number,
   /**
    * The thinking share of `outputTokens`, from `usage.output_tokens_details`.
@@ -364,10 +375,18 @@ export const ParsedSession = Schema.Struct({
   /**
    * Authoritative context-window size read straight from the transcript
    * (Codex `model_context_window`); `analyze` prefers it over the inferred
-   * default and flips `contextWindowInferred` off. Absent for agents whose
-   * transcripts don't record it (Claude, Pi).
+   * default and flips `contextWindowInferred` off. Claude sets it to 1M when a
+   * `cost-state` line bills a `[1m]` model id; Pi guesses it from the model id.
    */
   nativeContextWindow: Schema.optional(Schema.Number),
+  /** Record types the parser does not know, with line counts. Set only when non-empty. */
+  unknownRecordTypes: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.Number })
+  ),
+  /** `system` subtypes the parser does not know, with line counts. Set only when non-empty. */
+  unknownSystemSubtypes: Schema.optional(
+    Schema.Record({ key: Schema.String, value: Schema.Number })
+  ),
 });
 export type ParsedSession = typeof ParsedSession.Type;
 

@@ -4,6 +4,7 @@
  * event timeline or running budget analysis.
  */
 import type { AgentId } from "../agent-id";
+import { isRealModel } from "./claude-records";
 import type { SessionHeader } from "./schema";
 
 interface RawLine {
@@ -49,7 +50,8 @@ const applyLine = (acc: HeaderAcc, o: RawLine) => {
   if (
     !acc.model &&
     o.type === "assistant" &&
-    typeof o.message?.model === "string"
+    typeof o.message?.model === "string" &&
+    isRealModel(o.message.model)
   ) {
     acc.model = o.message.model;
   }

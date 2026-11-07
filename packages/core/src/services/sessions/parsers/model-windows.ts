@@ -6,6 +6,11 @@
  * `claude-opus-4-8`, `qwen/qwen3.6-27b`, `z-ai/glm-5.2`), matched longest-first
  * so more specific families win. This is intentionally a small, low-confidence
  * heuristic — not authoritative context like Codex's `model_context_window`.
+ *
+ * Anthropic ids: a bare id gets the API default of 200k; 1M only when the id
+ * carries the `[1m]` opt-in suffix, the form Claude Code bills 1M calls under.
+ * The Claude parser does not fall back to this table: a guess here would mark
+ * the window as known and hide that it was inferred.
  */
 
 const K128 = 128_000;
@@ -17,8 +22,9 @@ const M1 = 1_000_000;
 
 /** Ordered [needle, window] pairs; first case-insensitive substring hit wins. */
 const WINDOWS: ReadonlyArray<readonly [string, number]> = [
+  ["[1m]", M1],
   ["claude-opus", K200],
-  ["claude-sonnet", M1],
+  ["claude-sonnet", K200],
   ["claude-haiku", K200],
   ["claude", K200],
   ["gpt-5", K258],

@@ -34,6 +34,19 @@ export const serverToolCounts = (usage: Record<string, unknown>) => {
   };
 };
 
+/**
+ * The 1-hour vs 5-minute split of a call's cache writes. Keeps a reported 0,
+ * so "none written" stays distinct from "not reported".
+ */
+export const cacheWriteSplit = (usage: Record<string, unknown>) => {
+  const split = (usage.cache_creation ?? {}) as Record<string, unknown>;
+  const num = (v: unknown) => (typeof v === "number" ? v : undefined);
+  return {
+    ...opt("cacheCreation1hTokens", num(split.ephemeral_1h_input_tokens)),
+    ...opt("cacheCreation5mTokens", num(split.ephemeral_5m_input_tokens)),
+  };
+};
+
 /** Max of two optional counts; undefined only when both are. */
 const maxOf = (a: number | undefined, b: number | undefined) => {
   if (a === undefined) {

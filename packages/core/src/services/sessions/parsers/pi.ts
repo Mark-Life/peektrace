@@ -453,14 +453,20 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
     }
   });
 
-  const nativeContextWindow = windowForModel(meta.lastModel);
+  const turns = [...state.turnsById.values()];
+  const guess = windowForModel(meta.lastModel);
+  // A call larger than the guessed window proves the guess wrong.
+  const nativeContextWindow =
+    guess !== undefined && turns.every((t) => t.contextTokens <= guess)
+      ? guess
+      : undefined;
   return measureTokens({
     provider: "pi",
     sessionId: meta.sessionId ?? sessionId,
     path,
     models: [...state.models],
     events: state.events,
-    turns: [...state.turnsById.values()],
+    turns,
     compactionIndexes: state.compactionIndexes,
     subagents: [],
     ...opt("cwd", meta.cwd),

@@ -1,6 +1,16 @@
 /** Parse a Claude Code JSONL transcript into a normalized ParsedSession. */
 import { attachmentEvent, type PromptSeen } from "./claude-attachments";
 import {
+  bump,
+  type CompactTokens,
+  compactMetaOf,
+  countsRecord,
+  hasOneMillionKey,
+  isRealModel,
+  KNOWN_IGNORED_TYPES,
+  KNOWN_SYSTEM_SUBTYPES,
+} from "./claude-records";
+import {
   imageMarker,
   imageRef,
   isImageBlock,
@@ -12,6 +22,7 @@ import { promptEvent } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 import {
+  cacheWriteSplit,
   mergeStreamedUsage,
   opt,
   serverToolCounts,
@@ -26,6 +37,7 @@ type MutTurn = Omit<Turn, "eventIndexes"> & { eventIndexes: number[] };
 
 const WHITESPACE = /\s+/g;
 const TOOL_RESULT_SUFFIX = /_tool_result$/;
+const ONE_MILLION = 1_000_000;
 
 /** Parse JSONL text into raw lines, skipping blanks and malformed rows. */
 export const parseJsonl = (text: string): RawLine[] => {
@@ -84,9 +96,15 @@ interface ParseState {
   readonly compactionIndexes: number[];
   readonly events: TimelineEvent[];
   readonly models: Set<string>;
+  /** A `cost-state` line billed a `[1m]` model id. */
+  oneMillion: boolean;
+  /** Token counts of the last `compact_boundary`, for the next summary. */
+  pendingCompact: CompactTokens | undefined;
   /** Prompt parts already shown, per thread (main or one subagent). */
   readonly promptSeen: Map<string, PromptSeen>;
   readonly turnsById: Map<string, MutTurn>;
+  readonly unknownSubtypes: Map<string, number>;
+  readonly unknownTypes: Map<string, number>;
 }
 
 /** Mutable session-level metadata gathered while scanning lines. */
@@ -357,8 +375,10 @@ const handleUser = (ctx: LineCtx) => {
   const msg = (o.message ?? {}) as Record<string, unknown>;
   const content = msg.content;
   const isCompact = o.isCompactSummary === true;
+  const compactTokens = isCompact ? state.pendingCompact : undefined;
   if (isCompact) {
     state.compactionIndexes.push(index);
+    state.pendingCompact = undefined;
   }
   if (typeof content === "string") {
     state.events.push(
@@ -373,6 +393,7 @@ const handleUser = (ctx: LineCtx) => {
             tokensEst: estTokens(content),
             ...opt("ts", ts),
             ...opt("isMeta", o.isMeta === true ? true : undefined),
+            ...compactTokens,
           }
         : promptEvent({
             o,
@@ -425,7 +446,7 @@ const registerTurn = (args: {
     state.turnsById.set(requestId, mergeStreamedUsage(prev, args.usage));
     return;
   }
-  if (contextTokens > 0 && countable) {
+  if (contextTokens > 0 && countable && isRealModel(model)) {
     state.turnsById.set(requestId, {
       requestId,
       model,
@@ -433,6 +454,7 @@ const registerTurn = (args: {
       inputTokens,
       cacheReadTokens: cacheRead,
       cacheCreationTokens: cacheCreate,
+      ...cacheWriteSplit(args.usage),
       outputTokens: usage.output_tokens ?? 0,
       eventIndexes: [],
       ...opt("ts", ts),
@@ -450,7 +472,9 @@ const handleAssistant = (
   const { o, index, ts, isSidechain, state, includeSidechainTurns } = ctx;
   const msg = (o.message ?? {}) as Record<string, unknown>;
   const model = String(msg.model ?? "unknown");
-  state.models.add(model);
+  if (isRealModel(model)) {
+    state.models.add(model);
+  }
   const requestId =
     typeof o.requestId === "string" ? o.requestId : `line-${index}`;
   registerTurn({
@@ -527,6 +551,14 @@ const handleAttachment = (ctx: LineCtx) => {
 const handleSystem = (ctx: LineCtx) => {
   const { o, index, ts, isSidechain, state } = ctx;
   const text = str(o.content ?? o.subtype ?? "");
+  if (o.subtype === "compact_boundary") {
+    state.pendingCompact = compactMetaOf(o);
+  } else if (
+    typeof o.subtype === "string" &&
+    !KNOWN_SYSTEM_SUBTYPES.has(o.subtype)
+  ) {
+    bump(state.unknownSubtypes, o.subtype);
+  }
   state.events.push({
     index,
     kind: "system",
@@ -606,7 +638,11 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     turnsById: new Map(),
     compactionIndexes: [],
     models: new Set(),
+    oneMillion: false,
+    pendingCompact: undefined,
     promptSeen: new Map(),
+    unknownSubtypes: new Map(),
+    unknownTypes: new Map(),
   };
   const meta: Meta = {};
 
@@ -649,7 +685,17 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
       case "system":
         handleSystem(ctx);
         break;
+      case "cost-state":
+        state.oneMillion ||= hasOneMillionKey(o);
+        break;
       default:
+        if (
+          typeof o.type === "string" &&
+          type &&
+          !KNOWN_IGNORED_TYPES.has(type)
+        ) {
+          bump(state.unknownTypes, type);
+        }
         break;
     }
   });
@@ -670,5 +716,8 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
+    ...opt("nativeContextWindow", state.oneMillion ? ONE_MILLION : undefined),
+    ...opt("unknownRecordTypes", countsRecord(state.unknownTypes)),
+    ...opt("unknownSystemSubtypes", countsRecord(state.unknownSubtypes)),
   });
 };
