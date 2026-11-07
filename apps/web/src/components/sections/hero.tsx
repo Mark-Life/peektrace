@@ -11,7 +11,7 @@ const INSTALL_COMMAND =
 const PLATFORM_FACTS = [
   "One binary",
   "macOS · Linux · Windows",
-  "No Node, npm, or Bun",
+  "No Node needed",
 ];
 
 /**
@@ -54,8 +54,8 @@ export const Hero = () => (
         </p>
 
         <p className="max-w-xl text-muted-foreground">
-          Works on Claude Code, Codex, and Pi. Reads the transcripts already on
-          your disk.
+          Works on Claude Code, Codex, Pi, and OpenCode. Reads the transcripts
+          already on your disk.
         </p>
 
         <div className="flex flex-wrap gap-3">

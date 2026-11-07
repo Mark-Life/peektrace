@@ -64,7 +64,8 @@ export const BudgetForensics = () => (
 
       <p className="mt-6 font-mono text-muted-foreground text-xs">
         Full-fidelity attribution for Claude. Ground-truth usage for Codex
-        (authoritative window) and Pi (model-inferred window).
+        (authoritative window), Pi (model-inferred window) and OpenCode
+        (session-level totals, model-inferred window).
       </p>
     </div>
   </section>

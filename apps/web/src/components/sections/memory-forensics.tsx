@@ -129,8 +129,8 @@ export const MemoryForensics = () => (
       </div>
 
       <p className="mt-6 font-mono text-muted-foreground text-xs">
-        Memory is a Claude-only surface today. Codex and Pi sessions are
-        supported; per-project memory dirs are Claude markdown only.
+        Memory is a Claude-only surface today. Codex, Pi and OpenCode sessions
+        are supported; per-project memory dirs are Claude markdown only.
       </p>
     </div>
   </section>

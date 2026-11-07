@@ -89,8 +89,8 @@ const ReferenceRow = ({ name, desc }: RefEntry) => (
 );
 
 /**
- * Install & first run: the native one-liner installer (the only distribution
- * channel — Peektrace is not on npm and ships no desktop app), a numbered
+ * Install & first run: the native one-liner installer, the npm route
+ * (`npx peektrace`, no desktop app yet), a numbered
  * quickstart, and a man-page-style command reference.
  */
 export const Install = () => (
@@ -181,8 +181,9 @@ export const Install = () => (
       <Alert className="mt-8" variant="default">
         <Info aria-hidden="true" />
         <AlertDescription>
-          Not on npm, no desktop download — the native installer is the only
-          channel. It also works read-only over an SSH tunnel to a headless VPS:{" "}
+          Two channels: the native installer, or npm if you have Node. No
+          desktop download yet. Peektrace also works read-only over an SSH
+          tunnel to a headless VPS:{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-foreground">
             peektrace --remote http://127.0.0.1:4321 sessions ls
           </code>

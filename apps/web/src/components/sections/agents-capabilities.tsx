@@ -32,11 +32,11 @@ const AGENTS: readonly Agent[] = [
 const ROWS: readonly CapabilityRow[] = [
   {
     feature: "Session browsing",
-    levels: ["Supported", "Supported", "Supported", "Planned"],
+    levels: ["Supported", "Supported", "Supported", "Supported"],
   },
   {
     feature: "Context-debug forensics",
-    levels: ["Supported", "Partial", "Partial", "Planned"],
+    levels: ["Supported", "Partial", "Partial", "Partial"],
   },
   {
     feature: "Memory view",
@@ -67,7 +67,7 @@ const LEGEND: readonly SupportLevel[] = [
 const FOOTNOTES: readonly string[] = [
   "Codex: ground-truth usage + authoritative context window; no on-disk memory attribution.",
   "Pi: ground-truth usage with a model-inferred window.",
-  "OpenCode: identity tracked; transcripts not yet listable.",
+  "OpenCode: session-level ground-truth token totals; per-turn usage may be estimated and the window is inferred from the model.",
 ];
 
 /** Colored support pill rendered as an outline Badge overridden per level. */
