@@ -29,6 +29,7 @@ import {
 import { DEFAULT_ROW_LIMIT } from "../../src/services/stats/rank";
 import { makeRedactor } from "../../src/services/stats/redact";
 import type { BashFact, WaitShape } from "../../src/services/stats/schema";
+import { ranBins } from "../../src/services/stats/shell-lex";
 
 const redact = makeRedactor({ enabled: true });
 
@@ -70,6 +71,7 @@ const bashFact = (line: Line, seq: number): BashFact => {
     outChars: 0,
     side: false,
     cmd,
+    ran: ranBins(cmd),
     bin: cmd.split(WORDS)[0] ?? "",
     family: cmd,
     job,

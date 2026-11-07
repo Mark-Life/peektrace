@@ -58,7 +58,7 @@ import {
   type Split,
   type StatsFact,
 } from "../schema";
-import { binName, commandIndex, splitSegments, tokenize } from "../shell-lex";
+import { binName } from "../shell-lex";
 import { CAUSES, GIT_DIFF_OUTPUT, globValue, PATH_FILES } from "./causes";
 import { hitCauseOf, makePairer, type RetryPair } from "./pairing";
 import type { CauseCounts, CoverSince, RuleCover } from "./rules";
@@ -403,14 +403,6 @@ const fixOf = (
   return spec.fix;
 };
 
-/** The binaries a command runs, one per top-level segment, by basename. */
-const ranBins = (cmd: string): readonly string[] =>
-  splitSegments(cmd).segments.flatMap((segment) => {
-    const words = tokenize(segment).map((w) => w.text);
-    const word = words[commandIndex(words)];
-    return word === undefined ? [] : [binName(word)];
-  });
-
 /** Keep the later of `at`'s current value and the call's time. */
 const latest = (at: Map<string, number>, bin: string, fact: CallFact): void => {
   const ms = fact.ts === null ? Number.NaN : Date.parse(fact.ts);
@@ -590,7 +582,7 @@ export const makeCauseTable: (
   /** A shell call that ran with no not-found proves its binaries are there. */
   const noteRan = (fact: CallFact, cause: CauseId | null): void => {
     if (isBashFact(fact) && !fact.err && cause !== "command-not-found") {
-      for (const bin of ranBins(fact.cmd)) {
+      for (const bin of fact.ran) {
         latest(lastRan, bin, fact);
       }
     }

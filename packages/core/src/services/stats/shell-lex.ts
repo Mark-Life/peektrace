@@ -544,3 +544,17 @@ export const unescaped = (
   }
   return { text, from };
 };
+
+/**
+ * The binaries a command runs, one per top-level segment, by basename. Each
+ * appears once, in first-run order.
+ */
+export const ranBins = (cmd: string): readonly string[] => [
+  ...new Set(
+    splitSegments(cmd).segments.flatMap((segment) => {
+      const words = tokenize(segment).map((w) => w.text);
+      const word = words[commandIndex(words)];
+      return word === undefined ? [] : [binName(word)];
+    })
+  ),
+];

@@ -11,6 +11,7 @@ import type {
   SessionFact,
   ToolFact,
 } from "../../src/services/stats/schema";
+import { ranBins } from "../../src/services/stats/shell-lex";
 
 export const redact = makeRedactor({ enabled: true });
 
@@ -68,11 +69,13 @@ export const toolFact = (over: Partial<ToolFact>): ToolFact => ({
   ...over,
 });
 
+/** `ran` follows `cmd` unless set, as extraction would fill it. */
 export const bashFact = (over: Partial<BashFact>): BashFact => ({
   ...toolFact({}),
   row: "bash",
   tool: "Bash",
   cmd: "true",
+  ran: ranBins(over.cmd ?? "true"),
   bin: "true",
   family: "true",
   job: "other",
