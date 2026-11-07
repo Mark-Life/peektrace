@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { changelogSection, latestRelease } from "./changelog";
 
@@ -110,6 +111,18 @@ describe("changelogSection edge cases", () => {
   });
 });
 
+describe("link rewriting", () => {
+  test("rewrites links whose text is inline code, skips code spans", () => {
+    const md =
+      "## cli-v1.0.0\nsee [`docs/a.md`](docs/a.md), [b](b.md) and `[x](y)`\n";
+    expect(
+      changelogSection(md, "cli-v1.0.0", { repoUrl: "https://github.com/o/r" })
+    ).toBe(
+      "see [`docs/a.md`](https://github.com/o/r/blob/cli-v1.0.0/docs/a.md), [b](https://github.com/o/r/blob/cli-v1.0.0/b.md) and `[x](y)`"
+    );
+  });
+});
+
 describe("latestRelease", () => {
   test("skips Unreleased and returns tag, version and date", () => {
     expect(latestRelease(FIXTURE)).toEqual({
@@ -130,9 +143,11 @@ describe("latestRelease", () => {
   });
 });
 
-const run = (...args: string[]) => {
+const run = (args: string[], repo?: string) => {
   const { GITHUB_REPOSITORY: _repo, ...env } = process.env;
-  return Bun.spawnSync([process.execPath, SCRIPT, ...args], { env });
+  return Bun.spawnSync([process.execPath, SCRIPT, ...args], {
+    env: repo ? { ...env, GITHUB_REPOSITORY: repo } : env,
+  });
 };
 
 describe("release-notes script", () => {
@@ -140,20 +155,36 @@ describe("release-notes script", () => {
     const markdown = readFileSync(REPO_CHANGELOG, "utf8");
     const latest = latestRelease(markdown);
     expect(latest).toBeDefined();
-    const result = run(latest?.tag ?? "");
+    const result = run([latest?.tag ?? ""]);
     expect(result.exitCode).toBe(0);
-    const expected = changelogSection(markdown, latest?.tag ?? "");
+    const expected = changelogSection(markdown, latest?.tag ?? "", {
+      repoUrl: "https://github.com/Mark-Life/peektrace",
+    });
     expect(expected).toBeTruthy();
     expect(result.stdout.toString().trim()).toBe(expected ?? "");
   });
 
   test("prints nothing for an unknown tag", () => {
-    const result = run("cli-v999.0.0");
+    const result = run(["cli-v999.0.0"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout.toString()).toBe("");
   });
 
   test("exits 1 without a tag", () => {
-    expect(run().exitCode).toBe(1);
+    expect(run([]).exitCode).toBe(1);
+  });
+
+  test("uses GITHUB_REPOSITORY for rewritten links", () => {
+    const dir = mkdtempSync(join(tmpdir(), "release-notes-"));
+    try {
+      const file = join(dir, "CHANGELOG.md");
+      writeFileSync(file, "## cli-v1.0.0\n[`a.md`](a.md)\n");
+      const result = run(["cli-v1.0.0", file], "acme/widget");
+      expect(result.stdout.toString().trim()).toBe(
+        "[`a.md`](https://github.com/acme/widget/blob/cli-v1.0.0/a.md)"
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

@@ -9,7 +9,7 @@ const LEADING_DOT_SLASH = /^\.?\//;
 const STARTS_WITH_DIGIT = /^\d/;
 const HEADING_PREFIX = "## ";
 const FENCE = /^\s*(`{3,}|~{3,})/;
-const INLINE_CODE_SPLIT = /(`[^`]*`)/;
+const INLINE_CODE = /`[^`]*`/g;
 const RELATIVE_LINK =
   /(!?)\[([^\]]*)\]\((?!https?:|#|mailto:|\/\/)([^)\s]+)\)/g;
 
@@ -66,19 +66,18 @@ export interface ChangelogLinks {
   readonly tag: string;
 }
 
-const absolutizeLine = (line: string, { repoUrl, tag }: ChangelogLinks) =>
-  line
-    .split(INLINE_CODE_SPLIT)
-    .map((part, index) =>
-      index % 2 === 1
-        ? part
-        : part.replace(
-            RELATIVE_LINK,
-            (_, bang: string, text: string, path: string) =>
-              `${bang}[${text}](${repoUrl}/${bang ? "raw" : "blob"}/${tag}/${path.replace(LEADING_DOT_SLASH, "")})`
-          )
-    )
-    .join("");
+const absolutizeLine = (line: string, { repoUrl, tag }: ChangelogLinks) => {
+  const spans = [...line.matchAll(INLINE_CODE)].map(
+    (match) => [match.index, match.index + match[0].length] as const
+  );
+  return line.replace(
+    RELATIVE_LINK,
+    (whole, bang: string, text: string, path: string, offset: number) =>
+      spans.some(([from, to]) => offset >= from && offset < to)
+        ? whole
+        : `${bang}[${text}](${repoUrl}/${bang ? "raw" : "blob"}/${tag}/${path.replace(LEADING_DOT_SLASH, "")})`
+  );
+};
 
 /** Rewrites relative links outside code fences and inline code spans. */
 const absolutizeLinks = (body: string, links: ChangelogLinks) => {

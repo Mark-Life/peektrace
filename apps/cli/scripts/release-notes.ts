@@ -5,12 +5,14 @@
  *   bun apps/cli/scripts/release-notes.ts <tag> [changelog-path]
  *
  * A missing section prints nothing and exits 0 so the caller can fall back to
- * generated notes. Bad arguments or an unreadable file exit 1. When
- * GITHUB_REPOSITORY is set, relative links are rewritten to blob URLs at the tag.
+ * generated notes. Bad arguments or an unreadable file exit 1. Relative links are rewritten to blob URLs at the tag, in the repo named by
+ * GITHUB_REPOSITORY (default: the peektrace repo).
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { changelogSection } from "./changelog";
+
+const DEFAULT_REPO = "Mark-Life/peektrace";
 
 const [tag, file = join(import.meta.dir, "../../../CHANGELOG.md")] =
   process.argv.slice(2);
@@ -21,12 +23,10 @@ if (!tag) {
 }
 
 try {
-  const repo = process.env.GITHUB_REPOSITORY;
-  const section = changelogSection(
-    readFileSync(file, "utf8"),
-    tag,
-    repo ? { repoUrl: `https://github.com/${repo}` } : undefined
-  );
+  const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO;
+  const section = changelogSection(readFileSync(file, "utf8"), tag, {
+    repoUrl: `https://github.com/${repo}`,
+  });
   if (section) {
     process.stdout.write(`${section}\n`);
   }

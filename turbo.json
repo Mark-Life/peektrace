@@ -10,7 +10,12 @@
     },
     "web#build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*", "$TURBO_ROOT$/CHANGELOG.md"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*",
+        "$TURBO_ROOT$/CHANGELOG.md",
+        "$TURBO_ROOT$/apps/cli/scripts/changelog.ts"
+      ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "build:binary": {
