@@ -59,6 +59,14 @@ import { CAUSES, SHELL_TOOLS } from "./causes";
 const PIPED_EXIT_CODE = "piped-exit-code";
 
 /**
+ * biome / eslint diagnostic carrying a file:line:col, plus biome's summary.
+ * The lookbehind pins the path to the start of its run, so a long run of path
+ * chars is tried once instead of once per start offset.
+ */
+export const LINT_RE =
+  /(?:(?<![\w./-])[\w./-]+:\d+:\d+\s+lint\/[a-z]+\/\w+|\bFound \d+ errors?\b)/;
+
+/**
  * One entry per failure shape. Each pattern keys on a token a tool only prints
  * when something is wrong, never on an English word the agent could have echoed.
  * `lint` and `test` are the two that needed care: a bare `/lint\//` matched a
@@ -72,7 +80,7 @@ const SIGNATURES = [
   {
     id: "lint",
     label: "lint diagnostic",
-    re: /(?:[\w./-]+:\d+:\d+\s+lint\/[a-z]+\/\w+|\bFound \d+ errors?\b)/,
+    re: LINT_RE,
   },
   // vitest / jest / bun test summaries. Every count must be non-zero.
   {
