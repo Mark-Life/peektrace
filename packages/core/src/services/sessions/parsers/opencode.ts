@@ -16,7 +16,7 @@
  * like Pi.
  */
 import { measureTokens } from "../measure";
-import { parseJsonl } from "../parse";
+import { parseJsonl, scanJsonl } from "../parse";
 import type {
   ParsedSession,
   SessionHeader,
@@ -515,14 +515,9 @@ export const buildOpencodeHeader = ({
 }: BuildHeaderArgs): SessionHeader => {
   const acc: HeaderAcc = {};
   let messageCount = 0;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim()) {
-      continue;
-    }
-    let line: RawLine;
-    try {
-      line = JSON.parse(raw) as RawLine;
-    } catch {
+  const { rows, malformed } = scanJsonl(text);
+  for (const line of rows) {
+    if (!line || typeof line !== "object") {
       continue;
     }
     const kind = str(line.kind);
@@ -545,6 +540,7 @@ export const buildOpencodeHeader = ({
     ...opt("model", acc.model),
     ...opt("title", acc.title),
     ...opt("startedAt", acc.startedAt),
+    ...opt("malformedLines", malformed > 0 ? malformed : undefined),
   };
 };
 

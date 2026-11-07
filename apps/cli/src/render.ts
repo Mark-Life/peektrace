@@ -117,3 +117,7 @@ export const shortId = (id: string): string => id.split("-")[0] ?? id;
 
 /** Pretty-printed JSON for `--json` output. */
 export const json = (value: unknown): string => JSON.stringify(value, null, 2);
+
+/** Notice for listed transcripts that failed to read. */
+export const unreadableNotice = (n: number) =>
+  `${n} ${n === 1 ? "session" : "sessions"} could not be read`;

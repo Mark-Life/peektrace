@@ -8,7 +8,7 @@
  */
 import { FileSystem } from "@effect/platform";
 import { Context, Effect, Layer } from "effect";
-import { AGENT_IDS, type AgentId } from "../agent-id";
+import type { AgentId } from "../agent-id";
 import {
   AgentRegistry,
   type AgentRegistryShape,
@@ -20,10 +20,10 @@ import { SessionNotFoundError, TranscriptParseError } from "./errors";
 import {
   type HeaderCache,
   LIST_CONCURRENCY,
-  listAgentHeaders,
   makeHeaderCache,
 } from "./header-cache";
 import { imageAt } from "./images";
+import { type ListFilter, listSessions, supportedAgents } from "./listing";
 import { jsonlLineAt, parseClaudeSession, parseJsonl } from "./parse";
 import { PARSERS } from "./parsers";
 import { redactParsed, redactSession } from "./redact";
@@ -36,7 +36,7 @@ import {
 import type {
   AnalyzedSession,
   ParsedSession,
-  SessionHeader,
+  SessionListing,
   SubagentRef,
 } from "./schema";
 import {
@@ -56,10 +56,7 @@ export interface ParseRequest {
   readonly redact?: boolean;
 }
 
-/** Options accepted by `list`. */
-export interface ListFilter {
-  readonly agent?: AgentId;
-}
+export type { ListFilter } from "./listing";
 
 /** Options accepted by `image`. */
 export interface ImageRequest {
@@ -105,11 +102,10 @@ export interface SessionsServiceShape {
   >;
   /**
    * Lightweight headers for every supported agent's transcripts, or one
-   * agent's when `filter.agent` is set. Unchanged files reuse cached headers.
+   * agent's when `filter.agent` is set, plus the transcripts that could not
+   * be read. Unchanged files reuse cached headers.
    */
-  readonly list: (
-    filter?: ListFilter
-  ) => Effect.Effect<readonly SessionHeader[]>;
+  readonly list: (filter?: ListFilter) => Effect.Effect<SessionListing>;
   /** Full parse of one transcript, folding in subagent transcripts (Claude). */
   readonly parse: (
     req: ParseRequest
@@ -136,7 +132,6 @@ const parseSubagent = (args: {
 }): Effect.Effect<SubagentRef> => {
   const { fs, stub, link } = args;
   return fs.readFileString(stub.path).pipe(
-    Effect.orElseSucceed(() => ""),
     Effect.map((text) => {
       const parsed = parseClaudeSession({
         text,
@@ -153,7 +148,18 @@ const parseSubagent = (args: {
         turns: parsed.turns.length,
         peakContextTokens,
       } satisfies SubagentRef;
-    })
+    }),
+    Effect.catchAll((e) =>
+      Effect.logDebug("subagent unreadable").pipe(
+        Effect.annotateLogs({ path: stub.path, reason: e.message }),
+        Effect.as<SubagentRef>({
+          ...link(stub),
+          turns: 0,
+          peakContextTokens: 0,
+          unreadable: true,
+        })
+      )
+    )
   );
 };
 
@@ -161,10 +167,6 @@ const parseSubagent = (args: {
 interface Resolution extends SessionFileRef {
   readonly agent: AgentId;
 }
-
-/** The agents that have a parser, in matrix order. */
-const supportedAgents = (agents: AgentRegistryShape): readonly AgentId[] =>
-  AGENT_IDS.filter((id) => agents.roots(id).supported && PARSERS[id]);
 
 /** Infer the owning agent of a direct `.jsonl` path from its containing root
  * (any of the agent's sources, so a second account's path resolves too). */
@@ -313,7 +315,12 @@ const foldClaudeSubagents = (args: {
     Effect.map(
       (subagents) => ({ ...parsed, subagents }) satisfies ParsedSession
     ),
-    Effect.orElseSucceed(() => parsed)
+    Effect.catchAll((e) =>
+      Effect.logDebug("subagents not folded").pipe(
+        Effect.annotateLogs({ id, reason: e._tag }),
+        Effect.as(parsed)
+      )
+    )
   );
 };
 
@@ -495,18 +502,7 @@ const makeService = (args: {
   const { fs, agents, cache } = args;
 
   const list: SessionsServiceShape["list"] = (filter) =>
-    Effect.forEach(
-      supportedAgents(agents).filter(
-        (agent) => !filter?.agent || agent === filter.agent
-      ),
-      (agent) => listAgentHeaders({ fs, agents, cache, agent }),
-      { concurrency: LIST_CONCURRENCY }
-    ).pipe(
-      Effect.map((groups) => groups.flat()),
-      Effect.withSpan("Sessions.list", {
-        attributes: filter?.agent ? { agent: filter.agent } : {},
-      })
-    );
+    listSessions({ fs, agents, cache, ...(filter ? { filter } : {}) });
 
   const parse: SessionsServiceShape["parse"] = ({
     id,

@@ -172,6 +172,16 @@ describe("sessions", () => {
       })
     ));
 
+  test("listing matches list and reports no unreadable sessions", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const headers = yield* client.sessions.list({});
+        const listing = yield* client.sessions.listing({});
+        expect(listing.headers).toEqual(headers);
+        expect(listing.unreadable).toEqual([]);
+      })
+    ));
+
   test("list filters by project", () =>
     withClient((client) =>
       Effect.gen(function* () {

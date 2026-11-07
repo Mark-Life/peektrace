@@ -34,6 +34,7 @@ import {
   FsLive,
   MemoryService,
   MemoryServiceLive,
+  type SessionListing,
   SessionsService,
   SessionsServiceLive,
   SettingsService,
@@ -54,6 +55,7 @@ import {
   PathOutsideRootError,
   PeektraceRpcs,
   SessionNotFoundError,
+  type SessionsListPayload,
   SettingsWriteError,
   StatsRowNotFoundError,
   StatsScanError,
@@ -214,6 +216,19 @@ const readOnlyRefusal = () =>
     })
   );
 
+/** Keep the listing rows that match the `sessions.list` project/agent filter. */
+const filterListing = (
+  listing: SessionListing,
+  { project, agent }: typeof SessionsListPayload.Type
+): SessionListing => {
+  const keep = (row: { readonly project: string; readonly agent: AgentId }) =>
+    (!project || row.project === project) && (!agent || row.agent === agent);
+  return {
+    headers: listing.headers.filter(keep),
+    unreadable: listing.unreadable.filter(keep),
+  };
+};
+
 /** Handler layer factory: requires the core services in context. */
 const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
   PeektraceRpcs.toLayer(
@@ -229,18 +244,16 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
         {
           "capabilities.list": () => caps.list(),
           "watch.poll": () => watch.versions,
-          "sessions.list": ({ project, agent }) =>
+          "sessions.list": (filter) =>
             sessions
-              .list(agent ? { agent } : undefined)
+              .list(filter.agent ? { agent: filter.agent } : undefined)
               .pipe(
-                Effect.map((headers) =>
-                  headers.filter(
-                    (header) =>
-                      (!project || header.project === project) &&
-                      (!agent || header.agent === agent)
-                  )
-                )
+                Effect.map((listing) => filterListing(listing, filter).headers)
               ),
+          "sessions.listing": (filter) =>
+            sessions
+              .list(filter.agent ? { agent: filter.agent } : undefined)
+              .pipe(Effect.map((listing) => filterListing(listing, filter))),
           "sessions.get": ({ id, parent, redact }) =>
             wire(
               sessions.parse({

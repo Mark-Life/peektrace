@@ -87,7 +87,8 @@ describe("SessionsService.list (lazy headers)", () => {
     run(
       Effect.gen(function* () {
         const svc = yield* SessionsService;
-        const headers = yield* svc.list();
+        const { headers, unreadable } = yield* svc.list();
+        expect(unreadable).toEqual([]);
         expect(headers).toHaveLength(1);
         const h = headers[0];
         expect(h.id).toBe(SESSION_ID);
@@ -97,7 +98,7 @@ describe("SessionsService.list (lazy headers)", () => {
         expect(h.gitBranch).toBe("main");
         expect(h.model).toBe("claude-opus-4");
         expect(h.title).toBe("Refactor auth module");
-        expect(h.messageCount).toBe(10);
+        expect(h.messageCount).toBe(7);
         expect(h.sizeBytes).toBeGreaterThan(0);
         expect(h.startedAt).toBe("2026-06-01T10:00:00.000Z");
       })

@@ -10,8 +10,13 @@ import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
 import { redactText } from "@workspace/core";
-import { TelemetryStore, TelemetryStoreLive } from "@workspace/telemetry";
+import {
+  TelemetryStore,
+  TelemetryStoreLive,
+  type WideEvent,
+} from "@workspace/telemetry";
 import { Console, Effect, Option } from "effect";
+import { unreadableNotice } from "../render";
 
 const DEFAULT_LAST = 200;
 const MIN_ENTROPY = 3.5;
@@ -87,6 +92,21 @@ const redactJson = (v: unknown, key?: string): unknown => {
   return v;
 };
 
+/**
+ * Unreadable-transcript count from the newest `Sessions.list` span in the
+ * events (newest first), or 0 when no listing was recorded.
+ */
+export const lastUnreadableCount = (events: readonly WideEvent[]) => {
+  for (const event of events) {
+    const span = event.spans.find((s) => s.name === "Sessions.list");
+    if (span) {
+      const n = span.attributes.unreadable;
+      return typeof n === "number" ? n : 0;
+    }
+  }
+  return 0;
+};
+
 /** `doctor` — write a redacted telemetry bundle to disk for support. */
 export const makeDoctor = () =>
   Command.make(
@@ -110,6 +130,12 @@ export const makeDoctor = () =>
         );
         yield* fs.writeFileString(path, JSON.stringify(bundle, null, 2));
         yield* Console.log(`Wrote ${bundle.count} events → ${path}`);
+        const unreadable = lastUnreadableCount(events);
+        if (unreadable > 0) {
+          yield* Console.log(
+            `${unreadableNotice(unreadable)} (last sessions list)`
+          );
+        }
         yield* Console.log("Email this file to 108@mark-life.com");
       }).pipe(Effect.provide(TelemetryStoreLive))
   );

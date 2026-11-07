@@ -25,6 +25,7 @@ import {
   shortId,
   table,
   tokens,
+  unreadableNotice,
 } from "../render";
 import { parseSince, resolveCwd, selectSessions } from "./sessions-filter";
 
@@ -110,12 +111,15 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
             message: `Invalid --since "${since.value}". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).`,
           });
         }
-        const headers = yield* withClient(g, (client) =>
-          client.sessions.list({
+        const { headers, unreadable } = yield* withClient(g, (client) =>
+          client.sessions.listing({
             ...(Option.isSome(project) ? { project: project.value } : {}),
             ...(agentId === undefined ? {} : { agent: agentId }),
           })
         );
+        if (unreadable.length > 0) {
+          yield* Console.error(unreadableNotice(unreadable.length));
+        }
         const { rows: picked, hidden } = selectSessions(headers, {
           limit,
           since: sinceMs,

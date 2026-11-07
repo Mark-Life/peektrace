@@ -232,7 +232,7 @@ describe("buildPiHeader", () => {
     expect(h.cwd).toBe("/Users/demo/proj");
     // First model seen is the initial model_change (qwen).
     expect(h.model).toBe("qwen/qwen3.6-27b");
-    expect(h.messageCount).toBe(11);
+    expect(h.messageCount).toBe(5);
     expect(h.startedAt).toBe("2026-07-06T13:05:02.897Z");
     expect(h.sizeBytes).toBeGreaterThan(0);
   });
@@ -248,6 +248,7 @@ describe("buildPiHeader", () => {
     });
     expect(h.id).toBe("h");
     expect(h.model).toBeUndefined();
-    expect(h.messageCount).toBe(3);
+    expect(h.messageCount).toBe(0);
+    expect(h.malformedLines).toBe(2);
   });
 });

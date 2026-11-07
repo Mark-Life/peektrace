@@ -74,7 +74,8 @@ describe("defensive JSONL parsing", () => {
     expect(header.id).toBe("h");
     // No parseable model/title, but the header is still well-formed.
     expect(header.model).toBeUndefined();
-    expect(header.messageCount).toBe(3);
+    expect(header.messageCount).toBe(0);
+    expect(header.malformedLines).toBe(2);
   });
 });
 

@@ -45,21 +45,32 @@ type MutTurn = Omit<Turn, "eventIndexes"> & { eventIndexes: number[] };
 const WHITESPACE = /\s+/g;
 const ONE_MILLION = 1_000_000;
 
-/** Parse JSONL text into raw lines, skipping blanks and malformed rows. */
-export const parseJsonl = (text: string): RawLine[] => {
-  const out: RawLine[] = [];
+/**
+ * Parse JSONL text into raw lines, skipping blanks and malformed rows.
+ * `malformed` counts bad rows except the last non-blank one, which is the
+ * partial write of a live session rather than damage.
+ */
+export const scanJsonl = (text: string) => {
+  const rows: RawLine[] = [];
+  let bad = 0;
+  let lastBad = false;
   for (const line of text.split("\n")) {
     if (!line.trim()) {
       continue;
     }
     try {
-      out.push(JSON.parse(line) as RawLine);
+      rows.push(JSON.parse(line) as RawLine);
+      lastBad = false;
     } catch {
-      /* tolerate a partial last line of a live session */
+      bad += 1;
+      lastBad = true;
     }
   }
-  return out;
+  return { rows, malformed: lastBad ? bad - 1 : bad };
 };
+
+/** Parse JSONL text into raw lines, skipping blanks and malformed rows. */
+export const parseJsonl = (text: string): RawLine[] => scanJsonl(text).rows;
 
 /**
  * Line `n` as `parseJsonl` numbers it, parsing only that line. A line counts

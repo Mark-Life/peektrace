@@ -1,5 +1,6 @@
 /** Lightweight Codex list header: scans raw rollout lines without building a
  * timeline. */
+import { scanJsonl } from "../parse";
 import type { SessionHeader } from "../schema";
 import type { BuildHeaderArgs } from "./types";
 
@@ -59,6 +60,16 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
+/** A user or assistant `message` item (developer/system items excluded). */
+const isMessage = (line: RawLine) => {
+  const payload = asObj(line.payload);
+  return (
+    line.type === "response_item" &&
+    payload?.type === "message" &&
+    (payload.role === "user" || payload.role === "assistant")
+  );
+};
+
 /**
  * Build a lightweight Codex list header from raw rollout text. Scans lines for
  * cwd/branch/model/timestamps without constructing a timeline; the project name
@@ -73,16 +84,15 @@ export const buildCodexHeader = ({
   mtimeMs,
 }: BuildHeaderArgs): SessionHeader => {
   const acc: HeaderAcc = {};
+  const { rows, malformed } = scanJsonl(text);
   let messageCount = 0;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim()) {
+  for (const line of rows) {
+    if (!line || typeof line !== "object") {
       continue;
     }
-    messageCount += 1;
-    try {
-      applyHeaderLine(acc, JSON.parse(raw) as RawLine);
-    } catch {
-      /* tolerate a partial last line of a live rollout */
+    applyHeaderLine(acc, line);
+    if (isMessage(line)) {
+      messageCount += 1;
     }
   }
 
@@ -98,5 +108,6 @@ export const buildCodexHeader = ({
     ...opt("gitBranch", acc.gitBranch),
     ...opt("model", acc.model),
     ...opt("startedAt", acc.startedAt),
+    ...opt("malformedLines", malformed > 0 ? malformed : undefined),
   };
 };

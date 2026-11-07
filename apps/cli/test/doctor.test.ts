@@ -70,3 +70,45 @@ describe("doctor export", () => {
     expect(bundle.events[0]?.attributes.argv).toBe("sessions ls");
   });
 });
+
+describe("doctor unreadable count", () => {
+  const event = (ts: number, spans: { name: string; unreadable?: number }[]) =>
+    ({
+      id: `e${ts}`,
+      traceId: `t${ts}`,
+      ts,
+      kind: "rpc",
+      name: "sessions.listing",
+      appVersion: "0.0.1",
+      platform: "test",
+      durationMs: 1,
+      attributes: {},
+      spans: spans.map(({ name, unreadable }) => ({
+        name,
+        durationMs: 1,
+        attributes: unreadable === undefined ? {} : { unreadable },
+      })),
+      outcome: "success",
+    }) as const;
+
+  test("reads the newest Sessions.list span", async () => {
+    const { lastUnreadableCount } = await import("../src/commands/doctor");
+    const events = [
+      event(3, [{ name: "Sessions.parse" }]),
+      event(2, [{ name: "Sessions.list", unreadable: 2 }]),
+      event(1, [{ name: "Sessions.list", unreadable: 5 }]),
+    ];
+    expect(lastUnreadableCount(events)).toBe(2);
+  });
+
+  test("is 0 when the newest listing read everything or none was recorded", async () => {
+    const { lastUnreadableCount } = await import("../src/commands/doctor");
+    expect(
+      lastUnreadableCount([
+        event(2, [{ name: "Sessions.list", unreadable: 0 }]),
+        event(1, [{ name: "Sessions.list", unreadable: 4 }]),
+      ])
+    ).toBe(0);
+    expect(lastUnreadableCount([event(1, [{ name: "Sessions.get" }])])).toBe(0);
+  });
+});

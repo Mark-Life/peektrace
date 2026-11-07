@@ -5,13 +5,15 @@
  */
 import type { AgentId } from "../agent-id";
 import { isRealModel } from "./claude-records";
+import { scanJsonl } from "./parse";
 import type { SessionHeader } from "./schema";
 
 interface RawLine {
   readonly aiTitle?: unknown;
   readonly cwd?: unknown;
   readonly gitBranch?: unknown;
-  readonly message?: { readonly model?: unknown };
+  readonly message?: { readonly id?: unknown; readonly model?: unknown };
+  readonly requestId?: unknown;
   readonly timestamp?: unknown;
   readonly type?: unknown;
 }
@@ -26,12 +28,17 @@ interface HeaderAcc {
   updatedAt?: string;
 }
 
-const parseLine = (line: string): RawLine | null => {
-  try {
-    return JSON.parse(line) as RawLine;
-  } catch {
-    return null;
+/**
+ * Identity of one assistant API message. Claude writes one response as one line
+ * per content block, sharing a `requestId` (as `parse.ts` groups turns).
+ */
+const assistantKey = (o: RawLine, index: number) => {
+  if (typeof o.requestId === "string") {
+    return `req-${o.requestId}`;
   }
+  return typeof o.message?.id === "string"
+    ? `msg-${o.message.id}`
+    : `line-${index}`;
 };
 
 /** Fold one raw line's header-relevant fields into the accumulator. */
@@ -74,24 +81,28 @@ export const buildHeader = (args: {
 }): SessionHeader => {
   const { text, id, slug, path, sizeBytes, mtimeMs } = args;
   const acc: HeaderAcc = {};
-  let messageCount = 0;
-  for (const raw of text.split("\n")) {
-    if (!raw.trim()) {
-      continue;
+  const assistants = new Set<string>();
+  let users = 0;
+  const { rows, malformed } = scanJsonl(text);
+  rows.forEach((row, index) => {
+    if (!row || typeof row !== "object") {
+      return;
     }
-    messageCount += 1;
-    const o = parseLine(raw);
-    if (o) {
-      applyLine(acc, o);
+    const o = row as RawLine;
+    applyLine(acc, o);
+    if (o.type === "user") {
+      users += 1;
+    } else if (o.type === "assistant") {
+      assistants.add(assistantKey(o, index));
     }
-  }
+  });
 
   return {
     id,
     agent: "claude" as AgentId,
     path,
     project: slug,
-    messageCount,
+    messageCount: users + assistants.size,
     sizeBytes,
     updatedAt: acc.updatedAt ?? new Date(mtimeMs).toISOString(),
     ...(acc.cwd ? { cwd: acc.cwd } : {}),
@@ -99,5 +110,6 @@ export const buildHeader = (args: {
     ...(acc.model ? { model: acc.model } : {}),
     ...(acc.title ? { title: acc.title } : {}),
     ...(acc.startedAt ? { startedAt: acc.startedAt } : {}),
+    ...(malformed > 0 ? { malformedLines: malformed } : {}),
   };
 };
