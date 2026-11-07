@@ -174,6 +174,7 @@ const renderNode = ({
       <ChatTurnRule
         ctxFrac={a.contextWindow > 0 ? turn.contextTokens / a.contextWindow : 0}
         dumbZone={a.dumbZoneFraction}
+        effort={turn.effort}
         model={turn.model}
         outputTokens={turn.outputTokens}
         thinkingTokens={turn.thinkingTokens}

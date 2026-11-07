@@ -336,6 +336,7 @@ const plural = (n: number, one: string, many: string) =>
 export const ChatTurnRule = ({
   ctxFrac,
   dumbZone,
+  effort,
   model,
   outputTokens,
   thinkingTokens,
@@ -346,6 +347,7 @@ export const ChatTurnRule = ({
 }: {
   readonly ctxFrac: number;
   readonly dumbZone: number;
+  readonly effort: string | undefined;
   readonly model: string;
   readonly outputTokens: number;
   readonly thinkingTokens: number | undefined;
@@ -360,7 +362,8 @@ export const ChatTurnRule = ({
   >
     <div className="h-px flex-1 bg-border" />
     <span>
-      turn {turn} · {model} · ctx {fmtK(tokens)}{" "}
+      turn {turn} · {model}
+      {effort ? ` · ${effort} effort` : ""} · ctx {fmtK(tokens)}{" "}
       <span className={ZONE_CLASSES[zoneOf({ dumbZone, frac: ctxFrac })].text}>
         ({fmtPct(ctxFrac)})
       </span>{" "}
