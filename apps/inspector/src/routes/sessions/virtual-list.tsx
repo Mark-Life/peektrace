@@ -24,11 +24,19 @@ import {
   useState,
 } from "react";
 import { useScrollRoot } from "../../lib/scroll-root";
-import { keepIndex, splitPinned } from "../../lib/virtual-range";
+import {
+  keepIndex,
+  splitPinned,
+  type VirtualListHandle,
+} from "../../lib/virtual-range";
 
 /** Items drawn past each edge of the screen: enough that a fast scroll or a
  *  Tab press rarely reaches an unmounted block. */
 const OVERSCAN = 10;
+
+/** Lists up to this long mount every item, so browser find-in-page and
+ *  screen-reader browse mode still reach the whole transcript. */
+const FULL_RENDER_MAX = 150;
 
 /** A viewport to plan the first render against, before the pane is measured. */
 const FALLBACK_HEIGHT = 900;
@@ -37,13 +45,6 @@ const initialRect = () => ({
   height: typeof window === "undefined" ? FALLBACK_HEIGHT : window.innerHeight,
   width: 0,
 });
-
-/** What a parent can do with a mounted list. */
-export interface VirtualListHandle {
-  /** The drawn element of item `index`, or null when it is not mounted. */
-  readonly elementAt: (index: number) => HTMLElement | null;
-  readonly scrollToIndex: (index: number, align: "start" | "center") => void;
-}
 
 /** Where the list starts inside the scroll pane's content, kept current as
  *  anything above it (verdict, timeline, banners) changes height. */
@@ -135,12 +136,6 @@ export const VirtualList = <T,>({
 }) => {
   const root = useScrollRoot();
   const [list, setList] = useState<HTMLUListElement | null>(null);
-  // The handle outlives renders, so it reads the element through a ref.
-  const listRef = useRef<HTMLUListElement | null>(null);
-  const attach = useCallback((el: HTMLUListElement | null) => {
-    listRef.current = el;
-    setList(el);
-  }, []);
   const scrollMargin = useScrollMargin(root, list);
   const focused = useFocusedIndex(list);
   const count = items.length;
@@ -165,7 +160,7 @@ export const VirtualList = <T,>({
     getItemKey,
     getScrollElement: () => root,
     initialRect: initialRect(),
-    overscan: OVERSCAN,
+    overscan: count <= FULL_RENDER_MAX ? count : OVERSCAN,
     rangeExtractor,
     scrollMargin,
     useFlushSync: false,
@@ -175,12 +170,11 @@ export const VirtualList = <T,>({
     ref,
     () => ({
       elementAt: (index) =>
-        listRef.current?.querySelector<HTMLElement>(
-          `:scope > [data-index="${index}"]`
-        ) ?? null,
+        list?.querySelector<HTMLElement>(`:scope > [data-index="${index}"]`) ??
+        null,
       scrollToIndex: (index, align) => v.scrollToIndex(index, { align }),
     }),
-    [v]
+    [v, list]
   );
 
   const lastMeasureKey = useRef(measureKey);
@@ -205,11 +199,22 @@ export const VirtualList = <T,>({
     }
   }, [measureKey, list, v, scrollMargin]);
 
-  const { flow, pinned } = splitPinned(v.getVirtualItems());
+  const drawn = v.getVirtualItems();
+  const { flow, pinned } = splitPinned(drawn);
   const top = (flow[0]?.start ?? scrollMargin) - scrollMargin;
 
-  const item = (it: VirtualItem, style?: CSSProperties) => {
+  // One keyed array for every drawn item: a block that moves between the run
+  // and the pinned slot keeps its DOM node, and with it the focus.
+  const item = (it: VirtualItem) => {
     const value = items[it.index];
+    const style: CSSProperties | undefined = pinned.includes(it)
+      ? {
+          left: 0,
+          position: "absolute",
+          right: 0,
+          top: it.start - scrollMargin,
+        }
+      : undefined;
     return value === undefined ? null : (
       <li
         aria-posinset={it.index + 1}
@@ -229,18 +234,10 @@ export const VirtualList = <T,>({
     <ul
       className={cn("relative", className)}
       data-testid={testId}
-      ref={attach}
+      ref={setList}
       style={{ height: v.getTotalSize(), paddingTop: top }}
     >
-      {flow.map((it) => item(it))}
-      {pinned.map((it) =>
-        item(it, {
-          left: 0,
-          position: "absolute",
-          right: 0,
-          top: it.start - scrollMargin,
-        })
-      )}
+      {drawn.map(item)}
     </ul>
   );
 };

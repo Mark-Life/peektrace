@@ -35,6 +35,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
 import { filterRows, searchIndex } from "../../lib/history-filter";
@@ -101,6 +102,8 @@ export const SessionHistory = ({
   const marks = useToolMarks(sid);
   const activeMark = useHashParam("mark");
   const callId = useHashParam("call");
+  // Lives here, not in a layout, so switching layouts does not land again.
+  const jumpDone = useRef<string | null>(null);
 
   // A conversation has one order — its own. The persisted sort is left alone, so
   // switching back to the table restores the column sort it had.
@@ -181,7 +184,11 @@ export const SessionHistory = ({
   const allOpen =
     expandAll ||
     (allIds.length > 0 && allIds.every((id) => view.isExpanded(id)));
+  // Re-measures every block only on a bulk action, not when `allOpen` flips
+  // because one block was opened by hand or the filter changed.
+  const [bulkKey, setBulkKey] = useState(0);
   const toggleAll = () => {
+    setBulkKey((k) => k + 1);
     if (allOpen) {
       setHashParam("expand", null);
       view.setExpanded([]);
@@ -324,9 +331,11 @@ export const SessionHistory = ({
             a={a}
             activeMark={activeMark}
             allOpen={allOpen}
+            bulkKey={bulkKey}
             callId={callId}
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
+            jumpDone={jumpDone}
             marks={marks}
             onToggle={onToggle}
             queryActive={deferredQuery.length > 0}
@@ -337,10 +346,11 @@ export const SessionHistory = ({
         ) : (
           <TranscriptTable
             a={a}
-            allOpen={allOpen}
+            bulkKey={bulkKey}
             callId={callId}
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
+            jumpDone={jumpDone}
             onSort={prefs.setSort}
             onToggle={onToggle}
             rows={visible}

@@ -272,9 +272,11 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       a={SESSION}
       activeMark={null}
       allOpen={false}
+      bulkKey={0}
       callId="t1"
       crossEvtIdx={9}
       isOpen={() => false}
+      jumpDone={{ current: null }}
       marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
@@ -289,10 +291,11 @@ test("both transcripts mount as lists before the page has scrolled", () => {
   const table = renderToStaticMarkup(
     <TranscriptTable
       a={SESSION}
-      allOpen={false}
+      bulkKey={0}
       callId={null}
       crossEvtIdx={9}
       isOpen={() => false}
+      jumpDone={{ current: null }}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
@@ -303,6 +306,8 @@ test("both transcripts mount as lists before the page has scrolled", () => {
   );
   expect(table).toContain('data-testid="table-transcript"');
   expect(table).toContain(`aria-setsize="${ROWS.length}"`);
+  // A short transcript mounts every row, so find-in-page reaches all of it.
+  expect(countOf(table, "data-index=")).toBe(ROWS.length);
   expect(table).toContain('data-testid="history-event"');
 });
 
@@ -310,10 +315,11 @@ test("token sort shows window share, hides the divider, marks the header", () =>
   const html = renderToStaticMarkup(
     <TranscriptTable
       a={SESSION}
-      allOpen={false}
+      bulkKey={0}
       callId={null}
       crossEvtIdx={9}
       isOpen={() => false}
+      jumpDone={{ current: null }}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
@@ -331,10 +337,11 @@ test("token sort shows window share, hides the divider, marks the header", () =>
 test("empty filters read the same in both layouts", () => {
   const props = {
     a: SESSION,
-    allOpen: false,
+    bulkKey: 0,
     callId: null,
     crossEvtIdx: -1,
     isOpen: () => false,
+    jumpDone: { current: null },
     onToggle: noop,
     rows: [],
     tools: indexTools(SESSION),
@@ -344,6 +351,7 @@ test("empty filters read the same in both layouts", () => {
     <TranscriptChat
       {...props}
       activeMark={null}
+      allOpen={false}
       marks={NO_MARKS}
       queryActive={false}
     />

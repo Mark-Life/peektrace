@@ -2,7 +2,11 @@
 
 import { describe, expect, test } from "bun:test";
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import { filterRows, searchIndex } from "../src/lib/history-filter";
+import {
+  filterRows,
+  rowIndexOfCall,
+  searchIndex,
+} from "../src/lib/history-filter";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   body: "",
@@ -47,5 +51,31 @@ describe("filterRows", () => {
     const [row] = run("tool-call", "");
     expect(row?.pos).toBe(2);
     expect(row?.e).toBe(EVENTS[2] as TimelineEvent);
+  });
+});
+
+describe("rowIndexOfCall", () => {
+  const refs = (events: readonly TimelineEvent[]) =>
+    events.map((e, pos) => ({ e, pos }));
+  const paired = refs([
+    evt({ kind: "user-prompt" }),
+    evt({ kind: "tool-result", toolUseId: "a" }),
+    evt({ kind: "tool-call", toolUseId: "a" }),
+  ]);
+
+  test("prefers the call row over its result", () => {
+    expect(rowIndexOfCall(paired, "a")).toBe(2);
+  });
+
+  test("falls back to the result when the filter hides the call", () => {
+    const resultOnly = refs([
+      evt({ kind: "user-prompt" }),
+      evt({ kind: "tool-result", toolUseId: "a" }),
+    ]);
+    expect(rowIndexOfCall(resultOnly, "a")).toBe(1);
+  });
+
+  test("returns -1 for an id no row has", () => {
+    expect(rowIndexOfCall(paired, "missing")).toBe(-1);
   });
 });

@@ -15,7 +15,7 @@ import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { type RefObject, useMemo, useRef } from "react";
 import {
   buildChatPlan,
   type ChatNode,
@@ -30,6 +30,7 @@ import type { ToolIndex } from "../../lib/tool-event";
 import { toolNameOf, toolState } from "../../lib/tool-event";
 import { estimateChatNode } from "../../lib/transcript-estimate";
 import { useVirtualJump } from "../../lib/virtual-jump";
+import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ChatContextRun } from "./chat-context-run";
 import {
   ChatBand,
@@ -40,7 +41,7 @@ import {
 } from "./chat-message";
 import { ChatNotice } from "./chat-notice";
 import { ChatToolCard } from "./chat-tool-card";
-import { VirtualList, type VirtualListHandle } from "./virtual-list";
+import { VirtualList } from "./virtual-list";
 
 /** What a band says about its event: compaction and summary are fixed notices,
  *  a system prompt reads its own title (first prompt vs. a later update). */
@@ -256,9 +257,11 @@ export const TranscriptChat = ({
   a,
   activeMark,
   allOpen,
+  bulkKey,
   callId,
   crossEvtIdx,
   isOpen,
+  jumpDone,
   marks,
   onToggle,
   queryActive,
@@ -270,9 +273,13 @@ export const TranscriptChat = ({
   /** The detector id the reader arrived with, highlighted where it applies. */
   readonly activeMark: string | null;
   readonly allOpen: boolean;
+  /** Bumped by expand or collapse all, when every height changes at once. */
+  readonly bulkKey: number;
   readonly callId: string | null;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** The call link already landed on, shared by both layouts. */
+  readonly jumpDone: RefObject<string | null>;
   /** Stats marks for this session, keyed by tool-use id. */
   readonly marks: ToolMarks;
   readonly onToggle: (id: string, open: boolean) => void;
@@ -289,6 +296,7 @@ export const TranscriptChat = ({
   const keys = useMemo(() => chatNodeKeys(plan), [plan]);
   const list = useRef<VirtualListHandle>(null);
   useVirtualJump({
+    done: jumpDone,
     index: callId === null ? -1 : planIndexOfCall(plan, callId),
     list,
     target: callId,
@@ -309,7 +317,7 @@ export const TranscriptChat = ({
       itemClassName="pb-3"
       items={plan}
       keys={keys}
-      measureKey={allOpen}
+      measureKey={bulkKey}
       ref={list}
       render={(n) => (
         <ChatNodeView

@@ -38,3 +38,10 @@ export const splitPinned = <T extends { readonly index: number }>(
   }
   return { flow: [...items], pinned: [] };
 };
+
+/** What a parent can do with a mounted virtual list. */
+export interface VirtualListHandle {
+  /** The drawn element of item `index`, or null when it is not mounted. */
+  readonly elementAt: (index: number) => HTMLElement | null;
+  readonly scrollToIndex: (index: number, align: "start" | "center") => void;
+}

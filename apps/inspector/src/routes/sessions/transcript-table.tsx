@@ -33,8 +33,9 @@ import {
 } from "@workspace/ui/components/collapsible";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo, useMemo, useRef } from "react";
+import { memo, type RefObject, useMemo, useRef } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
+import { rowIndexOfCall } from "../../lib/history-filter";
 import {
   type HistorySort,
   type HistorySortKey,
@@ -53,12 +54,13 @@ import {
 import { estimateTableRow } from "../../lib/transcript-estimate";
 import { sameEvent } from "../../lib/transcript-row";
 import { useVirtualJump } from "../../lib/virtual-jump";
+import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 import { EventBody } from "./event-body";
 import { EventImages } from "./event-images";
 import { ToolPaneView, ToolResultView } from "./tool-panes";
 import { SortHeader } from "./transcript-sort-header";
-import { VirtualList, type VirtualListHandle } from "./virtual-list";
+import { VirtualList } from "./virtual-list";
 
 /** Decimal places for the per-event window-share percent (token sort only). */
 const PCT_DECIMALS = 2;
@@ -307,23 +309,16 @@ export const TableRowView = ({
   );
 };
 
-/** The row that shows tool call `id`: the call itself, else its result. */
-const rowIndexOfCall = (rows: readonly TranscriptRowRef[], id: string) => {
-  const call = rows.findIndex(
-    ({ e }) => e.kind === "tool-call" && e.toolUseId === id
-  );
-  return call >= 0 ? call : rows.findIndex(({ e }) => e.toolUseId === id);
-};
-
 /** The bordered list of event rows, with the dumb-zone divider inline. Only
  *  the rows near the screen are mounted; `callId` is the tool call a link
  *  asked to land on. */
 export const TranscriptTable = ({
   a,
-  allOpen,
+  bulkKey,
   callId,
   crossEvtIdx,
   isOpen,
+  jumpDone,
   onSort,
   onToggle,
   rows,
@@ -332,10 +327,13 @@ export const TranscriptTable = ({
   turns,
 }: {
   readonly a: AnalyzedSession;
-  readonly allOpen: boolean;
+  /** Bumped by expand or collapse all, when every height changes at once. */
+  readonly bulkKey: number;
   readonly callId: string | null;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** The call link already landed on, shared by both layouts. */
+  readonly jumpDone: RefObject<string | null>;
   readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
   /** Rows already in `sort` order. */
@@ -361,6 +359,7 @@ export const TranscriptTable = ({
   );
   const list = useRef<VirtualListHandle>(null);
   useVirtualJump({
+    done: jumpDone,
     index: callId === null ? -1 : rowIndexOfCall(rows, callId),
     list,
     target: callId,
@@ -381,7 +380,7 @@ export const TranscriptTable = ({
         }
         items={rows}
         keys={keys}
-        measureKey={allOpen}
+        measureKey={bulkKey}
         ref={list}
         render={(row) => (
           <TableRowView
