@@ -52,6 +52,12 @@ export {
   type StatsServiceShape,
 } from "./service";
 export { splitSegments, stripHeredocs, tokenize } from "./shell-lex";
+export * from "./usage-schema";
+export {
+  DEFAULT_USAGE_DAYS,
+  makeUsage,
+  type UsageRequest,
+} from "./usage-service";
 export {
   classifyParts,
   foldCorpus,

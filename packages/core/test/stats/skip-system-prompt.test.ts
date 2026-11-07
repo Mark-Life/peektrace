@@ -56,6 +56,14 @@ describe("stats facts with skipSystemPrompt", () => {
   test("are identical with and without the system-prompt events", () => {
     const lean = factsWith(true);
     expect(lean).toEqual(factsWith(false));
-    expect(lean.map((f) => f.row)).toEqual(["session", "bash", "bash", "tool"]);
+    expect(lean.map((f) => f.row)).toEqual([
+      "session",
+      "bash",
+      "bash",
+      "tool",
+      "usage",
+      "usage",
+      "usage",
+    ]);
   });
 });

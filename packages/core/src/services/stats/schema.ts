@@ -241,11 +241,32 @@ export const BashFact = Schema.Struct({
 });
 export type BashFact = typeof BashFact.Type;
 
+/** One model call's usage. `row` leads, so a shard line opens `{"row":"usage"`. */
+export const UsageFact = Schema.Struct({
+  row: Schema.Literal("usage"),
+  ...factFields,
+  /** ISO time of the call's first line, or null when the transcript records none. */
+  ts: Schema.NullOr(Schema.String),
+  /** The transcript's request id for the call. */
+  req: Schema.String,
+  model: Schema.String,
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  cacheCreationTokens: Schema.Number,
+});
+export type UsageFact = typeof UsageFact.Type;
+
 /** One line of a cache shard. `row` is the discriminator. */
-export const StatsFact = Schema.Union(SessionFact, ToolFact, BashFact);
+export const StatsFact = Schema.Union(
+  SessionFact,
+  ToolFact,
+  BashFact,
+  UsageFact
+);
 export type StatsFact = typeof StatsFact.Type;
 
-/** Facts that carry a `seq` and a duration: everything but the session row. */
+/** Facts that carry a `seq` and a duration: the tool and bash rows. */
 export type CallFact = ToolFact | BashFact;
 
 /** True for a bash row. The one narrowing every detector needs. */
@@ -254,7 +275,7 @@ export const isBashFact = (fact: StatsFact): fact is BashFact =>
 
 /** True for a tool-or-bash row, i.e. anything with `seq` and `durSec`. */
 export const isCallFact = (fact: StatsFact): fact is CallFact =>
-  fact.row !== "session";
+  fact.row === "tool" || fact.row === "bash";
 
 /** One row of the fail table. */
 export const FailRow = Schema.Struct({
