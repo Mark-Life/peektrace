@@ -150,22 +150,22 @@ const HEADERS = [
 
 test("pickTarget: explicit id wins, newest otherwise", () => {
   expect(pickTarget({ id: "x", latest: false }, [])).toEqual({
-    _tag: "Id",
+    _tag: "Picked",
     id: "x",
   });
   expect(pickTarget({ latest: true }, HEADERS)).toEqual({
-    _tag: "Newest",
+    _tag: "Picked",
     id: "nocwd",
   });
 });
 
 test("pickTarget: --cwd implies latest and scopes the pick", () => {
   expect(pickTarget({ latest: false, cwd: "/w/a" }, HEADERS)).toEqual({
-    _tag: "Newest",
+    _tag: "Picked",
     id: "old",
   });
   expect(pickTarget({ latest: true, cwd: "/w" }, HEADERS)).toEqual({
-    _tag: "Newest",
+    _tag: "Picked",
     id: "new",
   });
 });
@@ -176,6 +176,17 @@ test("pickTarget: conflicts, missing selector and empty matches are invalid", ()
     "Invalid"
   );
   expect(pickTarget({ latest: false }, HEADERS)._tag).toBe("Invalid");
+  expect(pickTarget({ latest: true, parent: "p" }, HEADERS)).toEqual({
+    _tag: "Invalid",
+    message: "--parent needs an explicit subagent id.",
+  });
+  expect(pickTarget({ id: "--cwd", latest: true }, HEADERS)).toEqual({
+    _tag: "Invalid",
+    message: "Missing value for --cwd.",
+  });
+  expect(pickTarget({ id: "x", latest: false, parent: "p" }, [])._tag).toBe(
+    "Picked"
+  );
   expect(pickTarget({ latest: true }, [])).toEqual({
     _tag: "Invalid",
     message: "No sessions found.",

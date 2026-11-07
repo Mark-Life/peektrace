@@ -23,3 +23,10 @@ test("skipsTelemetry only for the statusline command", () => {
   );
   expect(skipsTelemetry(argv("sessions", "analyze", "statusline"))).toBe(false);
 });
+
+test("skipsTelemetry sees statusline after value flags", () => {
+  expect(skipsTelemetry(argv("--log-level", "debug", "statusline"))).toBe(true);
+  expect(firstPositional(argv("--completions", "zsh", "sessions"))).toBe(
+    "sessions"
+  );
+});

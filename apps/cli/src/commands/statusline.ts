@@ -7,7 +7,7 @@
  * server runs on the same machine.
  */
 import { Command, Options } from "@effect/cli";
-import { Console, Duration, Effect, Schema } from "effect";
+import { Console, Duration, Effect, Schema, Stream } from "effect";
 import { type GlobalsAccessor, withClient } from "../client";
 import { finalFractionOf, verdict } from "../verdict";
 
@@ -17,20 +17,27 @@ const MAX_STDIN_BYTES = 1_000_000;
 const MAX_PERCENT = 999;
 const PERCENT = 100;
 
-/** The subset of Claude Code's statusline payload we read; other fields are ignored. */
-export const StatuslineInput = Schema.Struct({
-  session_id: Schema.optional(Schema.String),
-  transcript_path: Schema.optional(Schema.String),
-  cwd: Schema.optional(Schema.String),
-  context_window: Schema.optional(
-    Schema.Struct({ context_window_size: Schema.optional(Schema.Number) })
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The subset of Claude Code's statusline payload we read; other fields are ignored.
+ * JSON `null` counts as absent so one null field cannot sink the whole decode. */
+const StatuslineInput = Schema.Struct({
+  session_id: Schema.optionalWith(Schema.String, { nullable: true }),
+  transcript_path: Schema.optionalWith(Schema.String, { nullable: true }),
+  context_window: Schema.optionalWith(
+    Schema.Struct({
+      context_window_size: Schema.optionalWith(Schema.Number, {
+        nullable: true,
+      }),
+    }),
+    { nullable: true }
   ),
 });
 
 const decodeInput = Schema.decodeUnknown(Schema.parseJson(StatuslineInput));
 
 /** Format the one-line output from the current context fill. */
-export const formatStatusline = (
+const formatStatusline = (
   a: Parameters<typeof finalFractionOf>[0] & {
     readonly dumbZoneFraction: number;
   }
@@ -40,37 +47,24 @@ export const formatStatusline = (
   return `ctx ${shown}% ${verdict(fill, a.dumbZoneFraction)}`;
 };
 
-/** Read stdin up to `MAX_STDIN_BYTES`. Cancelling the fiber cancels the reader so a
+/** Read stdin up to `MAX_STDIN_BYTES`. Interrupting the fiber cancels the reader, so a
  * held-open pipe cannot keep the process alive. A TTY yields an empty string. */
-const readStdin = Effect.async<string>((resume) => {
-  if (process.stdin.isTTY) {
-    resume(Effect.succeed(""));
-    return;
-  }
-  const reader = Bun.stdin.stream().getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  let size = 0;
-  const pump = (): void => {
-    reader
-      .read()
-      .then(({ done, value }) => {
-        if (value) {
-          size += value.byteLength;
-          text += decoder.decode(value, { stream: true });
-        }
-        if (done || size >= MAX_STDIN_BYTES) {
-          reader.cancel().catch(() => undefined);
-          resume(Effect.succeed(text));
-          return;
-        }
-        pump();
-      })
-      .catch(() => resume(Effect.succeed(text)));
-  };
-  pump();
-  return Effect.promise(() => reader.cancel().catch(() => undefined));
-});
+const readStdin = process.stdin.isTTY
+  ? Effect.succeed("")
+  : Stream.fromReadableStream(
+      () => Bun.stdin.stream(),
+      (e) => e
+    ).pipe(
+      Stream.mapAccum(0, (size, chunk) => [
+        size + chunk.byteLength,
+        { chunk, size: size + chunk.byteLength },
+      ]),
+      Stream.takeUntil(({ size }) => size >= MAX_STDIN_BYTES),
+      Stream.map(({ chunk }) => chunk),
+      Stream.decodeText(),
+      Stream.mkString,
+      Effect.catchAll(() => Effect.succeed(""))
+    );
 
 const timeoutOpt = Options.integer("timeout").pipe(
   Options.withDescription(
@@ -85,15 +79,19 @@ export const makeStatusline = (globals: GlobalsAccessor) =>
     Effect.gen(function* () {
       const g = yield* globals();
       const input = yield* readStdin.pipe(Effect.flatMap(decodeInput));
-      const id = input.transcript_path ?? input.session_id;
-      if (id === undefined) {
+      const sessionId =
+        input.session_id && UUID.test(input.session_id)
+          ? input.session_id
+          : undefined;
+      const id = input.transcript_path || sessionId;
+      if (!id) {
         return FALLBACK;
       }
       const window = input.context_window?.context_window_size;
       const a = yield* withClient(g, (client) =>
         client.sessions.analyze({
           id,
-          ...(window !== undefined && window > 0 ? { window } : {}),
+          ...(window && window > 0 ? { window } : {}),
         })
       );
       return formatStatusline(a);

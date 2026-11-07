@@ -180,21 +180,23 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
           latest,
           cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
         };
-        const needsList = request.id === undefined;
-        const headers = needsList
-          ? yield* withClient(g, (client) => client.sessions.list({}))
-          : [];
-        const target = pickTarget(request, headers);
-        if (target._tag === "Invalid") {
-          return yield* new CliUserError({ message: target.message });
-        }
+        const needsList =
+          request.id === undefined && (latest || request.cwd !== undefined);
+        const parentId = Option.getOrUndefined(parent);
         const a = yield* withClient(g, (client) =>
-          client.sessions.analyze({
-            id: target.id,
-            ...Option.match(parent, {
-              onNone: () => ({}),
-              onSome: (p) => ({ parent: p }),
-            }),
+          Effect.gen(function* () {
+            const headers = needsList ? yield* client.sessions.list({}) : [];
+            const target = pickTarget(
+              { ...request, parent: parentId },
+              headers
+            );
+            if (target._tag === "Invalid") {
+              return yield* new CliUserError({ message: target.message });
+            }
+            return yield* client.sessions.analyze({
+              id: target.id,
+              ...(parentId === undefined ? {} : { parent: parentId }),
+            });
           })
         );
         if (g.json) {

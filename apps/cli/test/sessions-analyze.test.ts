@@ -113,7 +113,7 @@ test("--latest picks the newest session of any agent", () => {
   expect(sessionOf(out)).toBe(CODEX_ID);
 }, 60_000);
 
-test("--latest ignores a newer subagent transcript", () => {
+test("--cwd ignores a newer subagent transcript", () => {
   const { code, out } = run("--cwd", MID_CWD, "--json");
   expect(code).toBe(0);
   const a = JSON.parse(out) as {
@@ -160,8 +160,22 @@ test("an explicit id still works, with --json before or after it", () => {
   expect(sessionOf(run(OLD_ID, "--json").out)).toBe(OLD_ID);
 }, 60_000);
 
+test("--parent without an id fails instead of looking up the newest id", () => {
+  const { code, err } = run("--latest", "--parent", OLD_ID);
+  expect(code).toBe(1);
+  expect(err).toContain("--parent needs an explicit subagent id");
+}, 60_000);
+
+test("a flag missing its value is reported, not taken as the id", () => {
+  for (const args of [["--cwd"], ["--latest", "--cwd"]]) {
+    const { code, err } = run(...args);
+    expect(code).toBe(1);
+    expect(err).toContain("Missing value for --cwd");
+  }
+}, 60_000);
+
 test("--latest --json parses as flags, not a positional", () => {
-  const { code, out } = run("--latest", "--json");
+  const { code, out } = run("--json", "--latest");
   expect(code).toBe(0);
   expect(() => JSON.parse(out)).not.toThrow();
 }, 60_000);

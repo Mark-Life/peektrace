@@ -32,7 +32,6 @@ export const claudeLines = (opts: {
   readonly at: string;
   readonly contextTokens: number;
   readonly cwd: string;
-  readonly model?: string;
 }) => [
   {
     type: "user",
@@ -46,7 +45,7 @@ export const claudeLines = (opts: {
     timestamp: opts.at,
     requestId: "req-1",
     message: {
-      model: opts.model ?? "claude-opus-4-1",
+      model: "claude-opus-4-1",
       content: [{ type: "text", text: "hi" }],
       usage: {
         input_tokens: opts.contextTokens,
