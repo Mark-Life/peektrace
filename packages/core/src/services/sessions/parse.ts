@@ -13,6 +13,7 @@ import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
 import {
   mergeStreamedUsage,
+  opt,
   serverToolCounts,
   thinkingTokensOf,
 } from "./usage";
@@ -25,13 +26,6 @@ type MutTurn = Omit<Turn, "eventIndexes"> & { eventIndexes: number[] };
 
 const WHITESPACE = /\s+/g;
 const TOOL_RESULT_SUFFIX = /_tool_result$/;
-
-/** Spread helper that drops a key when its value is undefined (exactOptional safe). */
-const opt = <K extends string, V>(
-  key: K,
-  value: V | undefined
-): Partial<Record<K, V>> =>
-  value === undefined ? {} : ({ [key]: value } as Record<K, V>);
 
 /** Parse JSONL text into raw lines, skipping blanks and malformed rows. */
 export const parseJsonl = (text: string): RawLine[] => {

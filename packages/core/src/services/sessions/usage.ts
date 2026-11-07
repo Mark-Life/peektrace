@@ -8,7 +8,7 @@ type StreamedUsage = Pick<
 >;
 
 /** Spread helper that drops a key when its value is undefined (exactOptional safe). */
-const opt = <K extends string, V>(
+export const opt = <K extends string, V>(
   key: K,
   value: V | undefined
 ): Partial<Record<K, V>> =>
