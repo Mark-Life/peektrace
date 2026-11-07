@@ -1,8 +1,8 @@
 # Peektrace Inspector (`apps/inspector`)
 
 Vite + React 19 + Tailwind v4 UI for Peektrace — a loopback-only forensic
-inspector for Claude Code memories, sessions, and the capability matrix. State
-is wired with [`@effect-atom/atom-react`](https://github.com/tim-smart/effect-atom)
+inspector for Claude Code, Codex, Pi and OpenCode sessions, stats, Claude
+memory, and the capability matrix. State is wired with [`@effect-atom/atom-react`](https://github.com/tim-smart/effect-atom)
 over the typed `@workspace/rpc` Effect-RPC contract.
 
 ## Layout
