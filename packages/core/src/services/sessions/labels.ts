@@ -66,3 +66,20 @@ export const contextEditNote = (e: TimelineEvent) => {
     ? `${head}.`
     : `${head} (~${edit.originalTokensEst} tok):\n\n${edit.original}`;
 };
+
+const MS_PER_SECOND = 1000;
+
+/** Thinking time as a short label: `850ms`, `4.2s`, `73s`. */
+export const fmtThinkingMs = (ms: number) => {
+  if (ms < MS_PER_SECOND) {
+    return `${Math.round(ms)}ms`;
+  }
+  const s = ms / MS_PER_SECOND;
+  return s < 10 ? `${s.toFixed(1)}s` : `${Math.round(s)}s`;
+};
+
+/** What to say about a thinking block whose text the transcript did not keep. */
+export const thinkingNote = (e: TimelineEvent) =>
+  e.tokensMeasured === undefined
+    ? "Thinking content is not stored in the transcript (only a signature). Its token cost is in the timeline 'thinking' band."
+    : `Thinking text is not stored in the transcript (only a signature). Usage reports ${e.tokensMeasured} thinking tokens for it; they stay in the context window on later turns.`;

@@ -94,7 +94,7 @@ const CAT_META: Record<BudgetKey, CatMeta> = {
     short: "Thinking",
     color: "#db61a2",
     estimated: true,
-    note: "derived from output_tokens − visible text",
+    note: "usage thinking_tokens where logged, else output_tokens − visible text",
   },
   other: {
     label: "Other injected (reminders, hooks, notifications)",
@@ -295,8 +295,17 @@ const snapshotTurn = (args: {
   }
   ws.lastSnapReq = requestId;
   const size = sizes.get(requestId);
-  const tt = size?.visible ?? 0;
-  const thinking = Math.max(0, turn.outputTokens - tt);
+  // Usage that reports the thinking share splits output exactly; older
+  // transcripts fall back to output minus the estimated visible text.
+  const reported =
+    turn.thinkingTokens === undefined
+      ? undefined
+      : Math.min(turn.thinkingTokens, turn.outputTokens);
+  const tt =
+    reported === undefined
+      ? (size?.visible ?? 0)
+      : turn.outputTokens - reported;
+  const thinking = reported ?? Math.max(0, turn.outputTokens - tt);
   ws.cat.assistant_text += tt;
   ws.retainedThinking += thinking;
   let prev = { visible: tt, thinking };

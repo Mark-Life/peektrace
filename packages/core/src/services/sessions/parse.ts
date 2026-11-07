@@ -177,71 +177,97 @@ const userBlockEvent = (args: {
   return null;
 };
 
-/** Build an assistant content event (thinking / text / tool_use). */
-const assistantBlockEvent = (args: {
-  readonly block: Record<string, unknown>;
+/** Position fields every event from one assistant line carries. */
+interface AssistantBase {
   readonly index: number;
-  readonly ts: string | undefined;
   readonly isSidechain: boolean;
   readonly requestId: string;
+  readonly ts?: string;
+}
+
+type Block = Record<string, unknown>;
+
+/** The `tool_use_id` a result block answers, spread-ready. */
+const answers = (block: Block) =>
+  opt(
+    "toolUseId",
+    typeof block.tool_use_id === "string" ? block.tool_use_id : undefined
+  );
+
+const advisorResultEvent = (
+  base: AssistantBase,
+  block: Block
+): TimelineEvent => {
+  const result = (block.content ?? {}) as Block;
+  const redacted = result.type === "advisor_redacted_result";
+  const text = redacted
+    ? "(advisor response encrypted, not stored in transcript)"
+    : str(result.text ?? result);
+  return {
+    ...base,
+    kind: "tool-result",
+    title: "advisor result",
+    preview: firstLine(text),
+    body: text,
+    tokensEst: redacted ? 0 : estTokens(text),
+    ...answers(block),
+  };
+};
+
+/** Build an assistant content event (thinking / text / tool_use). */
+const assistantBlockEvent = (args: {
+  readonly block: Block;
+  readonly base: AssistantBase;
+  readonly thinkingDurationMs: number | undefined;
 }): TimelineEvent | null => {
-  const { block, index, ts, isSidechain, requestId } = args;
-  const base = { index, requestId, isSidechain, ...opt("ts", ts) };
-  if (block?.type === "thinking") {
-    const text = str(block.thinking);
-    return {
-      ...base,
-      kind: "assistant-thinking",
-      title: "Thinking",
-      preview: text ? firstLine(text) : "(content not stored in transcript)",
-      body: text,
-      tokensEst: estTokens(text),
-    };
+  const { block, base } = args;
+  switch (block?.type) {
+    case "thinking":
+    case "redacted_thinking": {
+      const text = str(block.thinking);
+      return {
+        ...base,
+        kind: "assistant-thinking",
+        title: "Thinking",
+        preview: text ? firstLine(text) : "(content not stored in transcript)",
+        body: text,
+        tokensEst: estTokens(text),
+        ...opt("thinkingDurationMs", args.thinkingDurationMs),
+      };
+    }
+    case "text": {
+      const text = str(block.text);
+      return {
+        ...base,
+        kind: "assistant-text",
+        title: "Assistant",
+        preview: firstLine(text),
+        body: text,
+        tokensEst: estTokens(text),
+      };
+    }
+    case "tool_use":
+    case "server_tool_use": {
+      const inputStr = JSON.stringify(block.input ?? {}, null, 2);
+      return {
+        ...base,
+        kind: "tool-call",
+        title: String(block.name ?? "tool"),
+        preview: firstLine(inputStr.replace(WHITESPACE, " ")),
+        body: inputStr,
+        tokensEst: estTokens(inputStr),
+        toolName: String(block.name ?? "tool"),
+        ...opt(
+          "toolUseId",
+          typeof block.id === "string" ? block.id : undefined
+        ),
+      };
+    }
+    case "advisor_tool_result":
+      return advisorResultEvent(base, block);
+    default:
+      return null;
   }
-  if (block?.type === "text") {
-    const text = str(block.text);
-    return {
-      ...base,
-      kind: "assistant-text",
-      title: "Assistant",
-      preview: firstLine(text),
-      body: text,
-      tokensEst: estTokens(text),
-    };
-  }
-  if (block?.type === "tool_use" || block?.type === "server_tool_use") {
-    const inputStr = JSON.stringify(block.input ?? {}, null, 2);
-    return {
-      ...base,
-      kind: "tool-call",
-      title: String(block.name ?? "tool"),
-      preview: firstLine(inputStr.replace(WHITESPACE, " ")),
-      body: inputStr,
-      tokensEst: estTokens(inputStr),
-      toolName: String(block.name ?? "tool"),
-      ...opt("toolUseId", typeof block.id === "string" ? block.id : undefined),
-    };
-  }
-  if (block?.type === "advisor_tool_result") {
-    const result = (block.content ?? {}) as Record<string, unknown>;
-    const redacted = result.type === "advisor_redacted_result";
-    const text = redacted
-      ? "(advisor response encrypted, not stored in transcript)"
-      : str(result.text ?? result);
-    return {
-      ...base,
-      kind: "tool-result",
-      title: "advisor result",
-      preview: firstLine(text),
-      body: text,
-      tokensEst: redacted ? 0 : estTokens(text),
-      ...opt(
-        "toolUseId",
-        typeof block.tool_use_id === "string" ? block.tool_use_id : undefined
-      ),
-    };
-  }
-  return null;
 };
 
 /** Handle one `user` line, appending its events. */
@@ -288,16 +314,26 @@ const handleUser = (ctx: LineCtx) => {
   }
 };
 
+/** The thinking share of a call's output tokens, when usage reports it. */
+const thinkingTokensOf = (usage: Record<string, unknown>) => {
+  const details = usage.output_tokens_details as
+    | Record<string, unknown>
+    | undefined;
+  const n = details?.thinking_tokens;
+  return typeof n === "number" ? n : undefined;
+};
+
 /** Register the turn for an assistant line, if it should count toward the curve. */
 const registerTurn = (args: {
   readonly state: ParseState;
   readonly requestId: string;
   readonly model: string;
   readonly ts: string | undefined;
-  readonly usage: Record<string, number>;
+  readonly usage: Record<string, unknown>;
   readonly countable: boolean;
 }) => {
-  const { state, requestId, model, ts, usage, countable } = args;
+  const { state, requestId, model, ts, countable } = args;
+  const usage = args.usage as Record<string, number>;
   const inputTokens = usage.input_tokens ?? 0;
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cacheCreate = usage.cache_creation_input_tokens ?? 0;
@@ -313,6 +349,7 @@ const registerTurn = (args: {
       outputTokens: usage.output_tokens ?? 0,
       eventIndexes: [],
       ...opt("ts", ts),
+      ...opt("thinkingTokens", thinkingTokensOf(args.usage)),
     });
   }
 };
@@ -332,17 +369,18 @@ const handleAssistant = (
     requestId,
     model,
     ts,
-    usage: (msg.usage ?? {}) as Record<string, number>,
+    usage: (msg.usage ?? {}) as Record<string, unknown>,
     countable: includeSidechainTurns || !isSidechain,
   });
   const turn = state.turnsById.get(requestId);
   for (const block of (msg.content ?? []) as Record<string, unknown>[]) {
     const ev = assistantBlockEvent({
       block,
-      index,
-      ts,
-      isSidechain,
-      requestId,
+      base: { index, requestId, isSidechain, ...opt("ts", ts) },
+      thinkingDurationMs:
+        typeof o.thinkingDurationMs === "number"
+          ? o.thinkingDurationMs
+          : undefined,
     });
     if (ev) {
       state.events.push(ev);
@@ -411,6 +449,46 @@ const handleSystem = (ctx: LineCtx) => {
   });
 };
 
+/**
+ * Give thinking blocks the size usage reports for them. A call's
+ * `thinking_tokens` goes to its thinking blocks, split by text length (evenly
+ * when no text was stored), so a signature-only block still shows its real cost.
+ */
+const measureThinking = (
+  events: readonly TimelineEvent[],
+  turns: readonly MutTurn[]
+): TimelineEvent[] => {
+  const byReq = new Map<string, number[]>();
+  events.forEach((e, pos) => {
+    if (e.kind === "assistant-thinking" && e.requestId) {
+      byReq.set(e.requestId, [...(byReq.get(e.requestId) ?? []), pos]);
+    }
+  });
+  const measured = new Map<number, number>();
+  for (const turn of turns) {
+    const positions = byReq.get(turn.requestId);
+    const reported = turn.thinkingTokens;
+    if (reported === undefined || !positions) {
+      continue;
+    }
+    const weights = positions.map((pos) => events[pos]?.tokensEst ?? 0);
+    const total = weights.reduce((a, b) => a + b, 0);
+    let left = reported;
+    positions.forEach((pos, i) => {
+      const last = i === positions.length - 1;
+      const share =
+        total > 0 ? (weights[i] ?? 0) / total : 1 / positions.length;
+      const n = last ? left : Math.round(reported * share);
+      measured.set(pos, n);
+      left -= n;
+    });
+  }
+  return events.map((e, pos) => {
+    const tokensMeasured = measured.get(pos);
+    return tokensMeasured === undefined ? e : { ...e, tokensMeasured };
+  });
+};
+
 export interface ParseClaudeArgs {
   /** Count `isSidechain` turns toward the curve (on only for a subagent's own file). */
   readonly includeSidechainTurns?: boolean;
@@ -471,13 +549,14 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     }
   });
 
+  const turns = [...state.turnsById.values()];
   return measureTokens({
     provider: "claude-code",
     sessionId,
     path,
     models: [...state.models],
-    events: state.events,
-    turns: [...state.turnsById.values()],
+    events: measureThinking(state.events, turns),
+    turns,
     compactionIndexes: state.compactionIndexes,
     subagents: [],
     ...opt("cwd", meta.cwd),

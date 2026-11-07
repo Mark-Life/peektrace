@@ -1,12 +1,12 @@
 /** Unit tests for the pure session-history decode helpers. */
 import { describe, expect, test } from "bun:test";
+import { thinkingNote } from "@workspace/core/services/sessions/labels";
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
 import {
   decodeBody,
-  THINKING_NOTE,
   turnTags,
   visibleEvents,
 } from "../src/tui/screens/history-decode";
@@ -73,8 +73,17 @@ describe("decodeBody — tool-result", () => {
 
 describe("decodeBody — thinking / prose", () => {
   test("empty thinking → note", () => {
-    const d = decodeBody(evt({ kind: "assistant-thinking", body: "  " }));
-    expect(d).toEqual({ lang: "plain", content: "", note: THINKING_NOTE });
+    const e = evt({ kind: "assistant-thinking", body: "  " });
+    expect(decodeBody(e)).toEqual({
+      lang: "plain",
+      content: "",
+      note: thinkingNote(e),
+    });
+  });
+
+  test("empty thinking with measured tokens → note names the count", () => {
+    const e = evt({ kind: "assistant-thinking", body: "", tokensMeasured: 41 });
+    expect(decodeBody(e).note).toContain("41 thinking tokens");
   });
 
   test("non-empty thinking → plain body", () => {
