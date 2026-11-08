@@ -8,7 +8,7 @@ import type {
   StatsReport,
 } from "@workspace/core/services/stats/schema";
 import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
-import { renderReport } from "../src/commands/stats";
+import { renderReport } from "../src/commands/stats-render";
 
 const causeRow = (over: Partial<CauseRow>): CauseRow => ({
   key: "cause:zsh-glob-flag",

@@ -6,6 +6,7 @@ import { Command, Options } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
 import type { GlobalsAccessor } from "./client";
 import { makeDoctor } from "./commands/doctor";
+import { makeMcp } from "./commands/mcp";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
@@ -99,6 +100,7 @@ export const command = peektrace.pipe(
     makeStatusline(globals),
     makeServe(globals),
     makeTui(globals),
+    makeMcp(globals),
     makeDoctor(),
     makeUpgrade(),
   ])

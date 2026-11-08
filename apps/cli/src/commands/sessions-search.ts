@@ -4,7 +4,7 @@
  * sessions first, redacted by default. `--json` emits the raw RPC result.
  */
 import { Args, Command, Options } from "@effect/cli";
-import type { SearchSession } from "@workspace/core";
+import type { SearchSession, SessionSearchResult } from "@workspace/core";
 import { Console, Effect, Option } from "effect";
 import { parseAgent } from "../agent-scope";
 import {
@@ -18,24 +18,27 @@ import { clipToWidth, json, shortId, table, unreadableNotice } from "../render";
 import { SESSIONS_SEARCH_SUMMARY } from "../summaries";
 import {
   agentOpt,
+  type LsInputNames,
   noRedactOpt,
   parseLsBounds,
   projectOpt,
   sinceOpt,
 } from "./sessions";
 
-const DEFAULT_LIMIT = 20;
+export const SEARCH_DEFAULT_LIMIT = 20;
+const SEARCH_FLAGS: LsInputNames = { limit: "--limit", since: "--since" };
 
 const limitOpt = Options.integer("limit").pipe(
   Options.withDescription("Max sessions, newest first (0 = all)"),
-  Options.withDefault(DEFAULT_LIMIT)
+  Options.withDefault(SEARCH_DEFAULT_LIMIT)
 );
 
 /** Validate the query, `--limit` and `--since`; `--since` becomes an ISO time. */
-const parseSearchArgs = (
+export const parseSearchArgs = (
   q: string,
   limit: number,
-  since: Option.Option<string>
+  since: Option.Option<string>,
+  names = SEARCH_FLAGS
 ) =>
   Effect.gen(function* () {
     if (q.trim() === "") {
@@ -43,7 +46,7 @@ const parseSearchArgs = (
         message: "Give a non-empty search text.",
       });
     }
-    const ms = yield* parseLsBounds(limit, since);
+    const ms = yield* parseLsBounds(limit, since, names);
     return ms === undefined ? undefined : new Date(ms).toISOString();
   });
 
@@ -71,6 +74,24 @@ const sessionRows = (s: SearchSession, pretty: boolean) =>
       : BLANK),
     `L${hit.line}  ${hit.snippet}`,
   ]);
+
+/** The hits table: one row per hit, session columns on the first. */
+export const renderSearch = (
+  sessions: SessionSearchResult["sessions"],
+  compact: boolean,
+  maxWidth?: number
+) =>
+  table(
+    ["SESSION", "AGENT", "PROJECT", "UPDATED", "MATCHES", "SNIPPET"],
+    sessions.flatMap((s) => sessionRows(s, !compact)),
+    { compact, ...(maxWidth ? { maxWidth } : {}) }
+  );
+
+export const noMatchesNotice = (result: SessionSearchResult) =>
+  `no matches in ${result.scannedSessions} sessions`;
+
+export const truncatedNotice = (names = SEARCH_FLAGS) =>
+  `more sessions match, use ${names.limit} 0 to show all`;
 
 export const makeSessionsSearch = (globals: GlobalsAccessor) =>
   Command.make(
@@ -120,27 +141,13 @@ export const makeSessionsSearch = (globals: GlobalsAccessor) =>
           return yield* Console.log(json(result));
         }
         if (result.sessions.length === 0) {
-          return yield* Console.error(
-            `no matches in ${result.scannedSessions} sessions`
-          );
+          return yield* Console.error(noMatchesNotice(result));
         }
-        const rows = result.sessions.flatMap((s) => sessionRows(s, !g.compact));
         yield* Console.log(
-          table(
-            ["SESSION", "AGENT", "PROJECT", "UPDATED", "MATCHES", "SNIPPET"],
-            rows,
-            {
-              compact: g.compact,
-              ...(process.stdout.columns
-                ? { maxWidth: process.stdout.columns }
-                : {}),
-            }
-          )
+          renderSearch(result.sessions, g.compact, process.stdout.columns)
         );
         if (result.truncated) {
-          yield* Console.error(
-            "more sessions match, use --limit 0 to show all"
-          );
+          yield* Console.error(truncatedNotice());
         }
       })
   ).pipe(Command.withDescription(SESSIONS_SEARCH_SUMMARY));
