@@ -342,7 +342,9 @@ on every save; `.editorconfig` covers other editors.
 bun run --filter=peektrace build:binary
 ```
 
-The result serves with zero external files. CI publishes it on `cli-v*` tags,
+The result serves with zero external files. Linux builds strip debug info from
+OpenTUI's native library (needs `llvm-strip`; see
+[`docs/binary-size.md`](docs/binary-size.md)). CI publishes it on `cli-v*` tags,
 feeding the installers in `scripts/` and the npm packages. The same binary is the
 sidecar inside the undistributed desktop app.
 

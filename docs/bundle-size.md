@@ -94,6 +94,8 @@ are gone from `packages/ui`: `@base-ui/react`, `cmdk`, `date-fns`,
 
 ## What is left, in order of size
 
+For the size of the compiled CLI binary, see [`binary-size.md`](binary-size.md).
+
 | Eager chunk | gzip | Verdict |
 |---|---:|---|
 | `vendor-effect` | 101.6 KiB | Load-bearing. `Schema` + `SchemaAST` + `ParseResult` (64 KiB minified) decode every RPC response, and the sessions list is the first thing fetched. |
