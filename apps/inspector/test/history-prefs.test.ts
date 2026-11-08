@@ -14,13 +14,19 @@ test("defaults to chat, transcript order, no filters", () => {
     mode: "chat",
     sort: { key: "order", dir: "asc" },
     kind: "all",
-    query: "",
   });
 });
 
 test("non-object stored values fall back to defaults", () => {
   expect(normalizeHistoryPrefs(null)).toBe(DEFAULT_HISTORY_PREFS);
   expect(normalizeHistoryPrefs("table")).toBe(DEFAULT_HISTORY_PREFS);
+});
+
+test("a stored search query is dropped, so it cannot filter another session", () => {
+  expect(normalizeHistoryPrefs({ kind: "tool-call", query: "grep" })).toEqual({
+    ...DEFAULT_HISTORY_PREFS,
+    kind: "tool-call",
+  });
 });
 
 test("valid fields survive, bad ones reset per field", () => {
@@ -36,7 +42,6 @@ test("valid fields survive, bad ones reset per field", () => {
     mode: "table",
     sort: { key: "tokens", dir: "desc" },
     kind: "all",
-    query: "grep",
   });
   expect(normalizeHistoryPrefs({ mode: "grid", sort: "name" })).toEqual(
     DEFAULT_HISTORY_PREFS

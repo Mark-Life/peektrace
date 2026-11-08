@@ -2,8 +2,9 @@
  *
  * The shell owns everything shared — search, the type filter, the redaction
  * toggle and its banner, expand-all, and the single `visible` array — then hands
- * the identical rows to either renderer. Layout, sort and filters come from the
- * history prefs shared across sessions. The chat layout is the default, the
+ * the identical rows to either renderer. Layout, sort and the type filter come
+ * from the history prefs shared across sessions; the search query belongs to
+ * this view and clears when another session opens. The chat layout is the default, the
  * readable pass; the dense table is the forensic answer ("what did this cost,
  * in what order") over the same events. Keeping the filtering here is what
  * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
@@ -12,7 +13,6 @@
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
-import { Input } from "@workspace/ui/components/input";
 import {
   Select,
   SelectContent,
@@ -29,10 +29,23 @@ import {
   ShieldAlertIcon,
   TableIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
 import { useHistoryPrefs } from "../../lib/history-prefs";
-import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
+import {
+  type StepDir,
+  searchIndexOf,
+  stepHit,
+  visibleRows,
+} from "../../lib/history-search";
+import { DEFAULT_HISTORY_SORT } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollToCall, useToolMarks } from "../../lib/session-markers";
 import {
@@ -41,6 +54,8 @@ import {
   subagentCollapseId,
 } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
+import { cardOf, useSearchHighlight } from "../../lib/use-search-highlight";
+import { HistorySearch } from "./history-search";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
 import { TranscriptTable } from "./transcript-table";
@@ -86,7 +101,20 @@ export const SessionHistory = ({
 }) => {
   const { redacted } = view.state;
   const prefs = useHistoryPrefs();
-  const { query, kind, sort, mode } = prefs;
+  const { kind, sort, mode } = prefs;
+  // Like browser find: the query and current hit belong to this session and
+  // reset when another one opens (this view stays mounted across sessions).
+  const [query, setQuery] = useState("");
+  const [currentId, setCurrentId] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  const [querySid, setQuerySid] = useState(sid);
+  if (querySid !== sid) {
+    setQuerySid(sid);
+    setQuery("");
+    setCurrentId(null);
+  }
+  const deferredQuery = useDeferredValue(query);
+  const searchIndex = useMemo(() => searchIndexOf(a.events), [a.events]);
   const turns = useMemo(() => turnNumbers(a), [a]);
   const tools = useMemo(() => indexTools(a), [a]);
   // Stats marks are an annotation on the same calls the tables counted; a
@@ -106,44 +134,46 @@ export const SessionHistory = ({
         )
       : -1;
 
-  const visible = useMemo(() => {
-    const rows = a.events
-      .map((e, pos) => ({ e, pos }))
-      .filter(({ e }) => e.kind !== "system")
-      .filter(({ e }) => kind === "all" || e.kind === kind)
-      .filter(({ e }) => {
-        if (query.length === 0) {
-          return true;
-        }
-        const hay = `${e.title} ${e.preview}`.toLowerCase();
-        return hay.includes(query.toLowerCase());
-      });
-    return sortRows(rows, effectiveSort);
-  }, [a.events, kind, query, effectiveSort]);
+  const visible = useMemo(
+    () =>
+      visibleRows({
+        events: a.events,
+        index: searchIndex,
+        kind,
+        query: deferredQuery,
+        sort: effectiveSort,
+      }),
+    [a.events, searchIndex, kind, deferredQuery, effectiveSort]
+  );
 
   useScrollToCall(callId, visible);
-  // A stats link names a call the saved search or type filter can hide: say
+  // A stats link names a call the search or type filter can hide: say
   // so, rather than leave the reader at the top of the transcript.
   const callHidden =
     callId !== null &&
     a.events.some((e) => e.toolUseId === callId) &&
     !visible.some(({ e }) => e.toolUseId === callId);
   const showCall = () => {
-    prefs.setQuery("");
+    setQuery("");
     prefs.setKind("all");
   };
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
   // shareable link; individual rows persist in the per-session set instead.
   const expandAll = useHashParam("expand") === "all";
+  const transcriptIds = useMemo(
+    () =>
+      mode === "chat"
+        ? chatIdsOf(visible)
+        : visible.map(({ pos }) => eventCollapseId(pos)),
+    [mode, visible]
+  );
   const allIds = useMemo(
     () => [
-      ...(mode === "chat"
-        ? chatIdsOf(visible)
-        : visible.map(({ pos }) => eventCollapseId(pos))),
+      ...transcriptIds,
       ...a.subagents.map((s) => subagentCollapseId(s.id)),
     ],
-    [mode, visible, a.subagents]
+    [transcriptIds, a.subagents]
   );
 
   const isOpen = (id: string) => expandAll || view.isExpanded(id);
@@ -172,6 +202,54 @@ export const SessionHistory = ({
     },
     [expandAll, view.setExpanded, view.toggleExpanded]
   );
+
+  // The search filters the list, so every drawn card is a hit; the current one
+  // is tracked by id so a live append keeps it, and falls back to none when a
+  // layout or kind change drops it.
+  const searching = deferredQuery.length > 0;
+  const hits = searching ? transcriptIds : [];
+  const currentIdx = currentId === null ? -1 : hits.indexOf(currentId);
+  const liveCurrent = currentIdx < 0 ? null : currentId;
+  const onQuery = (next: string) => {
+    setQuery(next);
+    setCurrentId(null);
+  };
+  const onStep = (dir: StepDir) => {
+    const next = stepHit({ current: liveCurrent, dir, hits });
+    if (next === null) {
+      return;
+    }
+    if (!isOpen(next)) {
+      onToggle(next, true);
+    }
+    setCurrentId(next);
+    setStep((n) => n + 1);
+  };
+
+  const transcriptRef = useRef<HTMLDivElement>(null);
+  useSearchHighlight({
+    containerRef: transcriptRef,
+    currentId: liveCurrent,
+    ids: transcriptIds,
+    query: deferredQuery,
+  });
+  const scrollIdsRef = useRef(transcriptIds);
+  useEffect(() => {
+    scrollIdsRef.current = transcriptIds;
+  }, [transcriptIds]);
+  // `step` re-runs this when Enter lands on the same lone hit again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: step is the trigger
+  useEffect(() => {
+    const container = transcriptRef.current;
+    if (container === null || liveCurrent === null) {
+      return;
+    }
+    cardOf({
+      container,
+      id: liveCurrent,
+      ids: scrollIdsRef.current,
+    })?.scrollIntoView({ block: "center" });
+  }, [liveCurrent, step]);
 
   const allOpen =
     expandAll ||
@@ -227,12 +305,13 @@ export const SessionHistory = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Input
-          className="max-w-xs"
-          data-testid="history-search"
-          onChange={(e) => prefs.setQuery(e.target.value)}
-          placeholder="Search history…"
-          value={query}
+        <HistorySearch
+          count={hits.length}
+          current={currentIdx}
+          onClear={() => onQuery("")}
+          onQuery={onQuery}
+          onStep={onStep}
+          query={query}
         />
         <Select onValueChange={prefs.setKind} value={kind}>
           <SelectTrigger className="w-40" data-testid="history-kind-filter">
@@ -310,33 +389,35 @@ export const SessionHistory = ({
         </div>
       ) : null}
 
-      {mode === "chat" ? (
-        <TranscriptChat
-          a={a}
-          activeMark={activeMark}
-          allOpen={allOpen}
-          crossEvtIdx={crossEvtIdx}
-          isOpen={isOpen}
-          marks={marks}
-          onToggle={onToggle}
-          queryActive={query.length > 0}
-          rows={visible}
-          tools={tools}
-          turns={turns}
-        />
-      ) : (
-        <TranscriptTable
-          a={a}
-          crossEvtIdx={crossEvtIdx}
-          isOpen={isOpen}
-          onSort={prefs.setSort}
-          onToggle={onToggle}
-          rows={visible}
-          sort={sort}
-          tools={tools}
-          turns={turns}
-        />
-      )}
+      <div ref={transcriptRef}>
+        {mode === "chat" ? (
+          <TranscriptChat
+            a={a}
+            activeMark={activeMark}
+            allOpen={allOpen}
+            crossEvtIdx={crossEvtIdx}
+            isOpen={isOpen}
+            marks={marks}
+            onToggle={onToggle}
+            queryActive={searching}
+            rows={visible}
+            tools={tools}
+            turns={turns}
+          />
+        ) : (
+          <TranscriptTable
+            a={a}
+            crossEvtIdx={crossEvtIdx}
+            isOpen={isOpen}
+            onSort={prefs.setSort}
+            onToggle={onToggle}
+            rows={visible}
+            sort={sort}
+            tools={tools}
+            turns={turns}
+          />
+        )}
+      </div>
 
       <Subagents a={a} isOpen={isOpen} onToggle={onToggle} parent={sid} />
     </section>
