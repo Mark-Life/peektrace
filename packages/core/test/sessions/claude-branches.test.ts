@@ -75,6 +75,28 @@ describe("parseClaudeSession: rewinds", () => {
     expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r3"]);
   });
 
+  test("keeps billed usage of the abandoned branch in offBranchTurns", () => {
+    const p = parse([
+      user("u1", null, "first"),
+      assistant({ uuid: "a1", parentUuid: "u1", requestId: "r1", ctx: 100 }),
+      user("u2", "a1", "second"),
+      assistant({ uuid: "a2", parentUuid: "u2", requestId: "r2", ctx: 900 }),
+      user("u2b", "a1", "second, edited"),
+      assistant({ uuid: "a3", parentUuid: "u2b", requestId: "r3", ctx: 200 }),
+    ]);
+    expect(p.offBranchTurns?.map((t) => t.requestId)).toEqual(["r2"]);
+    expect(p.offBranchTurns?.[0]?.cacheReadTokens).toBe(900);
+    expect(p.offBranchTurns?.[0]?.eventIndexes).toEqual([]);
+  });
+
+  test("sets no offBranchTurns without a rewind", () => {
+    const p = parse([
+      user("u1", null, "first"),
+      assistant({ uuid: "a1", parentUuid: "u1", requestId: "r1", ctx: 100 }),
+    ]);
+    expect(p.offBranchTurns).toBeUndefined();
+  });
+
   test("drops tool calls and results on the dead branch", () => {
     const p = parse([
       user("u1", null, "first"),

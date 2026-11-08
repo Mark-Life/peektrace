@@ -2,6 +2,15 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import { type AgentRegistryShape, sourcesOf } from "../agents";
+import {
+  AGENTS_FILES,
+  CLAUDE_FILES,
+  capMemory,
+  LOCAL_FILE,
+  nestedWorktree,
+  outsideWorktree,
+  projectDirs,
+} from "./context-dirs";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
 import { estTokens } from "./tokens";
@@ -11,7 +20,6 @@ const BYTES_PER_TOKEN = 4;
 const SUBAGENT_FILE = /^agent-.*\.jsonl$/;
 const JSONL_EXT = /\.jsonl$/;
 const SLASHES = /\/+/g;
-const TRAILING_SLASH = /\/$/;
 const WORKFLOW_RUN = "wf_";
 
 /** A resolved transcript location plus its optional subagents dir. */
@@ -438,47 +446,8 @@ const claudeSourcePaths = (
   };
 };
 
-/** Claude Code reads only the head of `memory/MEMORY.md`. */
-const MEMORY_MAX_LINES = 200;
-const MEMORY_MAX_BYTES = 25_000;
-
-/** Files Claude Code loads from each project dir and its ancestors. */
-const PROJECT_FILES = ["CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"];
-
 /**
- * `cwd` and its ancestors, farthest first. Stops at the user's home (included)
- * for a dir under it, else before `/`, as Claude Code skips the root.
- */
-const projectDirs = (cwd: string, userHome: string | null) => {
-  const start = cwd.replace(SLASHES, "/").replace(TRAILING_SLASH, "");
-  const stop =
-    userHome !== null && start.startsWith(`${userHome}/`) ? userHome : null;
-  const out: string[] = [];
-  for (let d = start; d !== "" && d !== "/"; ) {
-    out.push(d);
-    if (d === stop) {
-      break;
-    }
-    d = d.slice(0, d.lastIndexOf("/"));
-  }
-  return out.reverse();
-};
-
-/** First 200 lines / 25,000 bytes of a text, as Claude Code injects it. */
-const capMemory = (text: string) => {
-  const lines = text.split("\n");
-  const head =
-    lines.length > MEMORY_MAX_LINES
-      ? lines.slice(0, MEMORY_MAX_LINES).join("\n")
-      : text;
-  const bytes = new TextEncoder().encode(head);
-  return bytes.length > MEMORY_MAX_BYTES
-    ? new TextDecoder().decode(bytes.slice(0, MEMORY_MAX_BYTES))
-    : head;
-};
-
-/**
- * Gather the CLAUDE.md / CLAUDE.local.md / MEMORY.md files Claude Code injects
+ * Gather the CLAUDE.md / AGENTS.md / CLAUDE.local.md / MEMORY.md files Claude Code injects
  * into the system prompt for `cwd`, used to attribute the system+tools residual.
  */
 export const gatherOnDiskContextFiles = (args: {
@@ -510,24 +479,35 @@ export const gatherOnDiskContextFiles = (args: {
     );
 
     if (cwd) {
-      const userHome = home.endsWith("/.claude") ? dirname(home) : null;
+      const dirs = projectDirs(cwd);
+      const tree = yield* nestedWorktree({ fs, dirs });
       // The home's `.claude/CLAUDE.md` is the global file, read above.
-      const seen = new Set([join(home, "CLAUDE.md")]);
-      for (const dir of projectDirs(cwd, userHome)) {
-        for (const name of PROJECT_FILES) {
-          const path = join(dir, name);
-          if (!seen.has(path)) {
-            seen.add(path);
-            push(
-              yield* readContextFile({
-                fs,
-                path,
-                label: path,
-                scope: "project",
-              })
-            );
-          }
-        }
+      const globalFile = join(home, "CLAUDE.md");
+      const pathsFor = (names: readonly string[]) =>
+        dirs.flatMap((dir) =>
+          [
+            ...(outsideWorktree(dir, tree)
+              ? []
+              : names.map((n) => join(dir, n))),
+            join(dir, LOCAL_FILE),
+          ].filter((path) => path !== globalFile)
+        );
+      // Claude Code's default `claude-md-or-agents-md`: a project with no
+      // CLAUDE file of its own reads AGENTS.md where CLAUDE.md would be.
+      const claudePaths = pathsFor(CLAUDE_FILES);
+      const isClaudeProject = yield* Effect.reduce(
+        claudePaths,
+        false,
+        (found, path) =>
+          found
+            ? Effect.succeed(true)
+            : fs.exists(path).pipe(Effect.orElseSucceed(() => false))
+      );
+      const paths = isClaudeProject ? claudePaths : pathsFor(AGENTS_FILES);
+      for (const path of paths) {
+        push(
+          yield* readContextFile({ fs, path, label: path, scope: "project" })
+        );
       }
 
       const memPath = join(

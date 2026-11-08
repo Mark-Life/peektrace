@@ -173,7 +173,7 @@ const handleUser = (args: {
 
 /** Register the turn for an assistant line when its usage occupies context. */
 const registerTurn = (args: {
-  readonly state: ParseState;
+  readonly state: Pick<ParseState, "turnsById">;
   readonly requestId: string;
   readonly model: string;
   readonly ts: string | undefined;
@@ -191,6 +191,27 @@ const registerTurn = (args: {
       eventIndexes: [],
       ...opt("ts", ts),
     }),
+  });
+};
+
+/** Register the billed usage of an assistant entry off the active branch. */
+const keepOffBranchUsage = (args: {
+  readonly line: RawLine;
+  readonly index: number;
+  readonly ts: string | undefined;
+  readonly offBranch: Map<string, MutTurn>;
+}) => {
+  const { line, index, ts, offBranch } = args;
+  const msg = (line.message ?? {}) as RawLine;
+  if (line.type !== "message" || msg.role !== "assistant") {
+    return;
+  }
+  registerTurn({
+    state: { turnsById: offBranch },
+    requestId: typeof line.id === "string" ? line.id : `line-${index}`,
+    model: String(msg.model ?? "unknown"),
+    ts,
+    usage: (msg.usage ?? {}) as Record<string, number>,
   });
 };
 
@@ -393,8 +414,9 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   };
   const meta: Meta = {};
 
+  const offBranch = new Map<string, MutTurn>();
   const lines = parseJsonl(text);
-  // Entries off the active branch keep only session-wide meta.
+  // Entries off the active branch keep session-wide meta and billed usage.
   const live = activeBranch(lines);
   const onBranch = (i: number) => live === null || live.has(i);
   const edits = collectPiEdits(lines, onBranch);
@@ -421,6 +443,7 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
       return;
     }
     if (!onBranch(index)) {
+      keepOffBranchUsage({ line, index, ts, offBranch });
       return;
     }
     switch (type) {
@@ -458,6 +481,9 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   });
 
   const turns = [...state.turnsById.values()];
+  const offBranchTurns = [...offBranch.values()].filter(
+    (t) => !state.turnsById.has(t.requestId)
+  );
   const guess = windowForModel(meta.lastModel);
   // A call larger than the guessed window proves the guess wrong.
   const nativeContextWindow =
@@ -479,6 +505,10 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", nativeContextWindow),
+    ...opt(
+      "offBranchTurns",
+      offBranchTurns.length > 0 ? offBranchTurns : undefined
+    ),
   });
 };
 

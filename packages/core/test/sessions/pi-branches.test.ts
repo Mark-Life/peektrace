@@ -72,6 +72,21 @@ describe("parsePiSession: tree sessions", () => {
     expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a3"]);
   });
 
+  test("keeps billed usage off the active branch in offBranchTurns", () => {
+    const p = parse([
+      HEADER,
+      user("u1", null, "first"),
+      assistant("a1", "u1", 100),
+      user("u2", "a1", "second"),
+      assistant("a2", "u2", 900),
+      user("u3", "a1", "second, again"),
+      assistant("a3", "u3", 200),
+    ]);
+    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a3"]);
+    expect(p.offBranchTurns?.map((t) => t.requestId)).toEqual(["a2"]);
+    expect(p.offBranchTurns?.[0]?.cacheReadTokens).toBe(900);
+  });
+
   test("falls back to file order when entries have no parentId", () => {
     const p = parse([
       HEADER,
