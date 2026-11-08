@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
+  describeTool,
   findStripTool,
   STRIP_TOOL_ENV,
   stripNativeLib,
@@ -54,37 +55,27 @@ const bundle = async (
       (await stat(f)).size < 1_000_000 ? readFile(f, "utf8") : ""
     )
   );
-  return { files, text: texts.join("\n"), success: result.success };
+  const main = result.outputs.find((o) => o.kind === "entry-point")?.path;
+  return { files, main, text: texts.join("\n"), success: result.success };
 };
 
 describe("stubTreeSitterAssets", () => {
   const entry = join(FIXTURES, "entry.js");
 
   test("drops OpenTUI grammars and queries, keeps worker and other wasm", async () => {
-    const { files, text } = await bundle(
-      entry,
-      [stubTreeSitterAssets()],
-      "ts-on"
-    );
-    const contents = await Promise.all(
-      files.map((f) => readFile(f, "utf8").catch(() => ""))
-    );
-    const all = contents.join("\n");
-    expect(all).not.toContain("wasm-grammar-marker");
-    expect(all).not.toContain("(query-marker)");
-    expect(all).toContain("worker-marker");
-    expect(all).toContain("other-wasm-marker");
+    const { text } = await bundle(entry, [stubTreeSitterAssets()], "ts-on");
+    expect(text).not.toContain("wasm-grammar-marker");
+    expect(text).not.toContain("(query-marker)");
+    expect(text).toContain("worker-marker");
+    expect(text).toContain("other-wasm-marker");
     expect(text).toContain(
       "tree-sitter assets are not bundled in the peektrace binary"
     );
   });
 
   test("without the plugin the assets are bundled", async () => {
-    const { files } = await bundle(entry, [], "ts-off");
-    const all = (
-      await Promise.all(files.map((f) => readFile(f, "utf8").catch(() => "")))
-    ).join("\n");
-    expect(all).toContain("wasm-grammar-marker");
+    const { text } = await bundle(entry, [], "ts-off");
+    expect(text).toContain("wasm-grammar-marker");
   });
 
   test("matches importers with Windows separators", () => {
@@ -107,15 +98,8 @@ describe("stubTreeSitterAssets", () => {
   });
 
   test("the stubbed lazy loader throws a clear error", async () => {
-    const outdir = join(scratch, "ts-run");
-    const result = await Bun.build({
-      entrypoints: [entry],
-      outdir,
-      plugins: [stubTreeSitterAssets()],
-      target: "bun",
-    });
-    const main = result.outputs.find((o) => o.kind === "entry-point");
-    const mod = await import(main?.path ?? "");
+    const { main } = await bundle(entry, [stubTreeSitterAssets()], "ts-run");
+    const mod = await import(main ?? "");
     await expect(mod.result.loadGrammar()).rejects.toThrow(GRAMMAR_ERROR);
     await expect(mod.result.loadQuery()).rejects.toThrow(QUERY_ERROR);
     expect(await mod.result.loadOther()).toBeDefined();
@@ -193,10 +177,6 @@ describe("stripNativeLib", () => {
   const fakeLib = async (name: string) => {
     const dir = join(scratch, `${name}-pkg`);
     await mkdir(dir, { recursive: true });
-    await writeFile(
-      join(dir, "package.json"),
-      '{"name":"@synthetic/native","version":"1.2.3"}'
-    );
     const lib = join(dir, "libopentui.so");
     await writeFile(lib, "original-bytes");
     return lib;
@@ -324,4 +304,23 @@ describe("stripNativeLib on the real OpenTUI library", () => {
       expect(await sha256(lib)).toBe(before.sha);
     }
   );
+});
+
+describe("describeTool", () => {
+  test("picks the version line, not the first line", async () => {
+    const file = join(scratch, "multi-version-tool");
+    await writeFile(
+      file,
+      '#!/bin/sh\necho "fake-llvm, compatible with GNU strip"\necho "Synthetic LLVM version 19.0.0"\n'
+    );
+    await chmod(file, 0o755);
+    expect(describeTool(file)).toBe(`${file} (Synthetic LLVM version 19.0.0)`);
+  });
+
+  test("falls back to the first line without a version line", async () => {
+    const file = join(scratch, "plain-tool");
+    await writeFile(file, '#!/bin/sh\necho "plain-tool 2.1"\n');
+    await chmod(file, 0o755);
+    expect(describeTool(file)).toBe(`${file} (plain-tool 2.1)`);
+  });
 });

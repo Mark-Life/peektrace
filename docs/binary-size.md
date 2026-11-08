@@ -2,7 +2,7 @@
 
 `peektrace` is a `bun build --compile` binary for five targets (macOS arm64 and
 x64, Linux arm64 and x64, Windows x64). Two build plugins in
-`apps/cli/src/build-plugins.ts` make the Linux binaries smaller.
+`apps/cli/src/build-plugins.ts` make the binaries smaller (the tree-sitter stub on all five targets, the strip on Linux).
 
 ## Result
 
@@ -32,7 +32,7 @@ top of it:
 - the bundled JS of the CLI,
 - the built inspector UI (see [`bundle-size.md`](bundle-size.md)),
 - OpenTUI's native library (`libopentui.so`, `.dylib` or `.dll`),
-- OpenTUI's tree-sitter grammars and queries (`.wasm`, `.scm`) and its parser worker.
+- OpenTUI's parser worker. Its tree-sitter grammars and queries (`.wasm`, `.scm`) are stubbed out.
 
 ## Plugins
 

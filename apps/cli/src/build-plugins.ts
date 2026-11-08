@@ -130,9 +130,13 @@ export const findStripTool = (
 };
 
 /** First line of `<tool> --version`, for the build log. */
+/** Tools like llvm-strip print the version on a later line. */
+const VERSION_LINE = /version/i;
+
 export const describeTool = (tool: string) => {
   const result = spawnSync(tool, ["--version"], { encoding: "utf8" });
-  const line = result.stdout?.split("\n")[0]?.trim();
+  const lines = result.stdout?.split("\n") ?? [];
+  const line = (lines.find((l) => VERSION_LINE.test(l)) ?? lines[0])?.trim();
   return line ? `${tool} (${line})` : tool;
 };
 
@@ -224,7 +228,7 @@ const TREE_SITTER_ASSET = /\.(wasm|scm)$/;
 
 /**
  * Drop OpenTUI's tree-sitter grammars (`.wasm`) and queries (`.scm`) from the
- * bundle, about 3.5 MB. They are only loaded by OpenTUI's `<code>` and
+ * bundle (see docs/binary-size.md). They are only loaded by OpenTUI's `<code>` and
  * `<markdown>` renderables; peektrace highlights with `@workspace/core/highlight`
  * instead. Remove this plugin before adopting those renderables.
  *
