@@ -8,6 +8,9 @@
  * the detail. Without the fold a schema rejection splits one row per missing
  * field; without the literal the row says a property was missing and not which.
  *
+ * A key routes drills, so it is redacted on `add`, before the clip, and the
+ * row and the drill match both use that redacted key.
+ *
  * Rows rank by rows spanned, then sessions, then the key. Never by cluster
  * count: the six masks move the count in both directions at once, so it
  * measures the masks rather than the corpus.
@@ -127,7 +130,7 @@ export const makeClusterTable: AccumulatorFactory<readonly ClusterRow[]> = (
       if (!(isCallFact(fact) && fact.sig)) {
         return;
       }
-      const key = clusterKeyOf(fact.sig);
+      const key = clusterKeyOf(fact.sig, opts.redact.text);
       const cluster = clusterFor(key);
       addToTally({
         tally: cluster.tally,

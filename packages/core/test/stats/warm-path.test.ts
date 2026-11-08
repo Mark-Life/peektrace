@@ -49,6 +49,10 @@ describe("ran bins", () => {
   });
 });
 
+/** The key a cluster row ships, which is the key a drill sends back. */
+const shippedKey = (sig: string) =>
+  makeRedactor({ enabled: true }).text(clusterKeyOf(sig));
+
 /** Every table that samples fact text, each with a drill on one key. */
 const tablesOf = (redact: Redactor, drill: AccumulatorOptions["drill"]) => {
   const opts = { ...defaultOptions(redact), drill };
@@ -75,8 +79,7 @@ const shipped = (args: {
       out.push(table.finish(ctx), table.drill(ctx));
     }
   }
-  // Row keys are match keys, not shipped text, so they are left out.
-  return JSON.stringify(out, (k, v) => (k === "key" ? undefined : v));
+  return JSON.stringify(out);
 };
 
 describe("shipped lines from stale facts", () => {
@@ -100,7 +103,7 @@ describe("shipped lines from stale facts", () => {
         { table: "time", key: "wait/poll" },
         { table: "wait", key: "all" },
         { table: "fail", key: "flag:Bash" },
-        { table: "cluster", key: clusterKeyOf(sig) },
+        { table: "cluster", key: shippedKey(sig) },
       ],
     });
     expect(out.includes("example.test")).toBe(true);
@@ -131,7 +134,7 @@ describe("shipped lines from stale facts, secret at the clip", () => {
         { table: "time", key: "wait/poll" },
         { table: "wait", key: "all" },
         { table: "fail", key: "flag:Bash" },
-        { table: "cluster", key: clusterKeyOf(sig) },
+        { table: "cluster", key: shippedKey(sig) },
       ],
     });
     expect(out.includes("REDACTED")).toBe(true);
@@ -139,30 +142,36 @@ describe("shipped lines from stale facts, secret at the clip", () => {
   });
 });
 
-/** The real redactor, counting every call into it. */
+/**
+ * The real redactor, counting the distinct strings sent to it. Its memo makes a
+ * repeat a map lookup, so distinct inputs are what costs a `redactText` run.
+ */
 const countingRedactor = () => {
   const base = makeRedactor({ enabled: true });
-  let calls = 0;
+  const seen = new Set<string>();
+  const count = (s: string | null | undefined) => {
+    seen.add(s ?? "");
+  };
   const redact: Redactor = {
     enabled: true,
     text: (s) => {
-      calls += 1;
+      count(s);
       return base.text(s);
     },
     line: (s, max) => {
-      calls += 1;
+      count(s);
       return base.line(s, max);
     },
     nullable: (s) => {
-      calls += 1;
+      count(s);
       return base.nullable(s);
     },
   };
-  return { redact, calls: () => calls };
+  return { redact, calls: () => seen.size };
 };
 
 describe("redaction cost", () => {
-  test("redactor calls follow what ships, not the fact count", () => {
+  test("redactor work follows what ships, not the fact count", () => {
     const FACTS = 5000;
     const { redact, calls } = countingRedactor();
     const facts = Array.from({ length: FACTS }, (_, seq) =>

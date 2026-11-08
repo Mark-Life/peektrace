@@ -253,13 +253,16 @@ export const makeCache = (args: {
       Effect.orElseSucceed(() => new Map<string, CacheEntry>())
     );
 
-  const read: StatsCacheShape["read"] = (entry) =>
-    fs
-      .readFileString(join(shardsDir, entry.shard))
-      .pipe(
-        Effect.map(parseShard),
-        Effect.mapError(failed(join(shardsDir, entry.shard)))
-      );
+  const read: StatsCacheShape["read"] = (entry) => {
+    const path = join(shardsDir, entry.shard);
+    // A parse throw must stay a typed failure, so the caller re-extracts.
+    return fs.readFileString(path).pipe(
+      Effect.mapError(failed(path)),
+      Effect.flatMap((raw) =>
+        Effect.try({ try: () => parseShard(raw), catch: failed(path) })
+      )
+    );
+  };
 
   const write: StatsCacheShape["write"] = ({ ref, stat, facts }) => {
     if (!isCacheable(stat)) {
