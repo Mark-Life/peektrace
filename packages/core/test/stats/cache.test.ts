@@ -21,6 +21,7 @@ import {
   makeCache,
   mergeIndex,
 } from "../../src/services/stats/cache";
+import { StatsCacheError } from "../../src/services/stats/errors";
 import { EXTRACTOR_VERSION } from "../../src/services/stats/schema";
 import { bashFact, sessionFact } from "./facts";
 
@@ -136,5 +137,31 @@ describe("prune", () => {
     root = mkdtempSync(join(tmpdir(), "peektrace-cache-"));
     await runPrune(new Set());
     expect(existsSync(join(root, "shards"))).toBe(false);
+  });
+});
+
+/** Read one shard body back through the cache, flipped so a failure is the value. */
+const readFlipped = (body: string) => {
+  root = mkdtempSync(join(tmpdir(), "peektrace-cache-"));
+  const target = entry("s.jsonl");
+  mkdirSync(join(root, "shards"), { recursive: true });
+  writeFileSync(join(root, "shards", target.shard), body);
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      return yield* Effect.flip(makeCache({ fs, root }).read(target));
+    }).pipe(Effect.provide(BunFileSystem.layer))
+  );
+};
+
+describe("read", () => {
+  test("a shard that is not json fails typed, not as a defect", async () => {
+    expect(await readFlipped("not json")).toBeInstanceOf(StatsCacheError);
+  });
+
+  test("a shard cut mid-line fails typed, not as a defect", async () => {
+    const line = JSON.stringify(bashFact({}));
+    const body = `${line}\n${line.slice(0, line.length / 2)}`;
+    expect(await readFlipped(body)).toBeInstanceOf(StatsCacheError);
   });
 });

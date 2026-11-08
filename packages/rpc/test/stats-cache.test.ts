@@ -302,7 +302,8 @@ describe("stats window skip", () => {
       Effect.gen(function* () {
         yield* client.stats.refresh({});
         corruptShards();
-        // A read would re-extract and rewrite the shard, so unchanged bodies mean no read.
+        // A read re-extracts and rewrites a corrupt shard (see "corrupt shard"),
+        // so unchanged bodies mean no read.
         const narrow = yield* client.stats.report({ days: 1 });
         expect(narrow.corpus.transcripts).toBe(0);
         expect(shardBodies()).toEqual(["not json", "not json"]);
@@ -329,6 +330,21 @@ describe("stats window skip", () => {
           const warm = yield* client.stats.report({ days });
           expect(warm).toEqual(cold);
         }
+      })
+    ));
+});
+
+describe("corrupt shard", () => {
+  test("a corrupt shard is re-extracted and rewritten, not a failed pass", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        yield* client.stats.refresh({});
+        corruptShards();
+        const wide = yield* client.stats.refresh({});
+        expect(wide.extracted).toBe(2);
+        expect(shardBodies()).not.toContain("not json");
+        const again = yield* client.stats.refresh({});
+        expect(again.cached).toBe(2);
       })
     ));
 });
