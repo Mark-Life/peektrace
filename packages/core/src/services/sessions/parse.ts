@@ -17,6 +17,7 @@ import {
   serverResultEvent,
   str,
 } from "./claude-server-results";
+import { turnsCost } from "./cost";
 import {
   imageMarker,
   imageRef,
@@ -112,6 +113,8 @@ interface ParseState {
   pendingCompact: CompactTokens | undefined;
   /** Prompt parts already shown, per thread (main or one subagent). */
   readonly promptSeen: Map<string, PromptSeen>;
+  /** Inline `isSidechain` turns left out of `turnsById`; priced apart. */
+  readonly sidechainById: Map<string, MutTurn>;
   readonly turnsById: Map<string, MutTurn>;
   readonly unknownSubtypes: Map<string, number>;
   readonly unknownTypes: Map<string, number>;
@@ -343,13 +346,14 @@ const registerTurn = (args: {
   const cacheRead = usage.cache_read_input_tokens ?? 0;
   const cacheCreate = usage.cache_creation_input_tokens ?? 0;
   const contextTokens = inputTokens + cacheRead + cacheCreate;
-  const prev = state.turnsById.get(requestId);
+  const target = countable ? state.turnsById : state.sidechainById;
+  const prev = target.get(requestId);
   if (prev) {
-    state.turnsById.set(requestId, mergeStreamedUsage(prev, args.usage));
+    target.set(requestId, mergeStreamedUsage(prev, args.usage));
     return;
   }
-  if (contextTokens > 0 && countable && isRealModel(model)) {
-    state.turnsById.set(requestId, {
+  if (contextTokens > 0 && isRealModel(model)) {
+    target.set(requestId, {
       requestId,
       model,
       contextTokens,
@@ -538,6 +542,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
   const state: ParseState = {
     events: [],
     turnsById: new Map(),
+    sidechainById: new Map(),
     compactionIndexes: [],
     models: new Set(),
     oneMillion: false,
@@ -599,6 +604,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
   });
 
   const turns = [...state.turnsById.values()];
+  const sidechain = [...state.sidechainById.values()];
   return measureTokens({
     provider: "claude-code",
     sessionId,
@@ -617,5 +623,9 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     ...opt("nativeContextWindow", state.oneMillion ? ONE_MILLION : undefined),
     ...opt("unknownRecordTypes", countsRecord(state.unknownTypes)),
     ...opt("unknownSystemSubtypes", countsRecord(state.unknownSubtypes)),
+    ...opt(
+      "sidechainCost",
+      sidechain.length > 0 ? turnsCost(sidechain) : undefined
+    ),
   });
 };

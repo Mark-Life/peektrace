@@ -5,10 +5,10 @@
  */
 import type { AgentId } from "../agent-id";
 import { isRealModel } from "./claude-records";
-import { type CostTurn, headerCost } from "./cost";
+import { type CostTurn, turnsCost } from "./cost";
 import { scanJsonl } from "./parse";
 import type { SessionHeader } from "./schema";
-import { cacheWriteSplit } from "./usage";
+import { cacheWriteSplit, mergeStreamedUsage, num } from "./usage";
 
 interface RawLine {
   readonly aiTitle?: unknown;
@@ -16,7 +16,6 @@ interface RawLine {
   readonly gitBranch?: unknown;
   readonly isCompactSummary?: unknown;
   readonly isMeta?: unknown;
-  readonly isSidechain?: unknown;
   readonly message?: {
     readonly content?: unknown;
     readonly model?: unknown;
@@ -63,12 +62,11 @@ const isNotUserWritten = (o: RawLine) => {
   );
 };
 
-const count = (v: unknown) => (typeof v === "number" ? v : 0);
-
 /**
  * Fold one assistant line's usage into its request, the way `parse.ts` builds
  * turns: input and cache counts as first seen, output as the streamed max.
- * Sidechain lines and non-real models are skipped.
+ * Inline sidechain lines count too, as `analyze` prices them. Non-real models
+ * are skipped.
  */
 const applyUsage = (args: {
   readonly turns: Map<string, CostTurn>;
@@ -78,24 +76,21 @@ const applyUsage = (args: {
   const { turns, key, o } = args;
   const usage = o.message?.usage;
   const model = o.message?.model;
-  if (o.isSidechain === true || !usage || typeof usage !== "object") {
+  if (!usage || typeof usage !== "object") {
     return;
   }
   const u = usage as Record<string, unknown>;
   const prev = turns.get(key);
   if (prev) {
-    turns.set(key, {
-      ...prev,
-      outputTokens: Math.max(prev.outputTokens, count(u.output_tokens)),
-    });
+    turns.set(key, mergeStreamedUsage(prev, u));
     return;
   }
   const turn: CostTurn = {
     model: typeof model === "string" ? model : "unknown",
-    inputTokens: count(u.input_tokens),
-    cacheReadTokens: count(u.cache_read_input_tokens),
-    cacheCreationTokens: count(u.cache_creation_input_tokens),
-    outputTokens: count(u.output_tokens),
+    inputTokens: num(u.input_tokens) ?? 0,
+    cacheReadTokens: num(u.cache_read_input_tokens) ?? 0,
+    cacheCreationTokens: num(u.cache_creation_input_tokens) ?? 0,
+    outputTokens: num(u.output_tokens) ?? 0,
     ...cacheWriteSplit(u),
   };
   const context =
@@ -178,6 +173,6 @@ export const buildHeader = (args: {
     ...(acc.title ? { title: acc.title } : {}),
     ...(acc.startedAt ? { startedAt: acc.startedAt } : {}),
     ...(malformed > 0 ? { malformedLines: malformed } : {}),
-    ...headerCost([...turns.values()]),
+    ...turnsCost([...turns.values()]),
   };
 };

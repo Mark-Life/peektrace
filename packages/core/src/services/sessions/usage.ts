@@ -17,6 +17,10 @@ export const opt = <K extends string, V>(
 /** A number, or `undefined` for anything else. */
 export const num = (v: unknown) => (typeof v === "number" ? v : undefined);
 
+/** A number above 0, or `undefined`. */
+export const positive = (v: unknown) =>
+  typeof v === "number" && v > 0 ? v : undefined;
+
 /** The thinking share of a call's output tokens, when usage reports it. */
 export const thinkingTokensOf = (usage: Record<string, unknown>) => {
   const details = usage.output_tokens_details as
@@ -29,8 +33,6 @@ export const thinkingTokensOf = (usage: Record<string, unknown>) => {
 /** Server tool counts a call reports, keeping only the ones it actually used. */
 export const serverToolCounts = (usage: Record<string, unknown>) => {
   const counts = (usage.server_tool_use ?? {}) as Record<string, unknown>;
-  const positive = (v: unknown) =>
-    typeof v === "number" && v > 0 ? v : undefined;
   return {
     ...opt("webSearchRequests", positive(counts.web_search_requests)),
     ...opt("webFetchRequests", positive(counts.web_fetch_requests)),

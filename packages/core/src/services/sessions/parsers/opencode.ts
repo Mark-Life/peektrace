@@ -15,6 +15,8 @@
  * context window is left unset — `analyze` infers it from the model, exactly
  * like Pi.
  */
+import { turnCost } from "../../pricing";
+import { turnsCost } from "../cost";
 import { measureTokens } from "../measure";
 import { parseJsonl, scanJsonl } from "../parse";
 import type {
@@ -24,6 +26,7 @@ import type {
   Turn,
 } from "../schema";
 import { estTokens, firstLine } from "../tokens";
+import { positive } from "../usage";
 import type { BuildHeaderArgs, ParseSessionArgs, SessionParser } from "./types";
 
 /** A raw dialect line, untyped. */
@@ -58,10 +61,6 @@ const str = (v: unknown): string => {
 
 /** Read a numeric field, defaulting to 0 when absent/non-numeric. */
 const num = (v: unknown): number => (typeof v === "number" ? v : 0);
-
-/** A number above 0, or `undefined`. OpenCode writes 0 when it has no price. */
-const positive = (v: unknown): number | undefined =>
-  typeof v === "number" && v > 0 ? v : undefined;
 
 /** Basename of a POSIX path (last non-empty segment), or "". */
 const basename = (p: string | undefined): string =>
@@ -317,17 +316,23 @@ const turnForMessage = (args: {
   const cacheCreationTokens = num(cache?.write);
   const groundContext = inputTokens + cacheReadTokens + cacheCreationTokens;
   const contextTokens = groundContext > 0 ? groundContext : contextRunning;
+  const billed = { model, inputTokens, cacheReadTokens, cacheCreationTokens };
+  // OpenCode writes 0 when it has no price. Its `output` excludes reasoning,
+  // which bills at the output rate.
+  const costUsd =
+    positive(msg.cost) ??
+    turnCost({
+      ...billed,
+      outputTokens: outputTokens + num(tokens?.reasoning),
+    });
   return {
+    ...billed,
     requestId,
-    model,
     contextTokens,
-    inputTokens,
-    cacheReadTokens,
-    cacheCreationTokens,
     outputTokens,
     eventIndexes: [],
     ...opt("ts", ts),
-    ...opt("costUsd", positive(msg.cost)),
+    ...opt("costUsd", costUsd),
   };
 };
 
@@ -521,6 +526,8 @@ const applyHeaderSession = (acc: HeaderAcc, line: RawLine) => {
  * Build a lightweight OpenCode list header from dialect text. The first line is
  * the `session` header, so meta is read cheaply; `messageCount` counts the
  * `message` lines and the project name is the directory basename (or the slug).
+ * Cost is the session's own when above 0, else its messages priced as in
+ * `analyze`.
  */
 export const buildOpencodeHeader = ({
   text,
@@ -532,18 +539,30 @@ export const buildOpencodeHeader = ({
 }: BuildHeaderArgs): SessionHeader => {
   const acc: HeaderAcc = {};
   let messageCount = 0;
+  const turns: MutTurn[] = [];
   const { rows, malformed } = scanJsonl(text);
-  for (const line of rows) {
+  rows.forEach((line, index) => {
     if (!line || typeof line !== "object") {
-      continue;
+      return;
     }
     const kind = str(line.kind);
     if (kind === "session") {
       applyHeaderSession(acc, line);
     } else if (kind === "message") {
       messageCount += 1;
+      if (str(line.role) === "assistant") {
+        turns.push(
+          turnForMessage({
+            msg: line,
+            index,
+            ts: undefined,
+            sessionModel: acc.model,
+            contextRunning: 0,
+          })
+        );
+      }
     }
-  }
+  });
 
   return {
     id,
@@ -558,7 +577,9 @@ export const buildOpencodeHeader = ({
     ...opt("title", acc.title),
     ...opt("startedAt", acc.startedAt),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
-    ...opt("costUsd", acc.costUsd),
+    ...(acc.costUsd === undefined
+      ? turnsCost(turns)
+      : { costUsd: acc.costUsd }),
   };
 };
 

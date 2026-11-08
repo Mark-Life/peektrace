@@ -21,7 +21,7 @@ export interface ModelPrice {
 }
 
 /** One rate card, with the higher tier a long prompt bills at. */
-export interface PriceCard extends ModelPrice {
+interface PriceCard extends ModelPrice {
   /** Whole request bills at `rates` when its prompt exceeds `overTokens`. */
   readonly long?: { readonly overTokens: number; readonly rates: ModelPrice };
   readonly provider: "anthropic" | "openai";
@@ -37,17 +37,21 @@ export type CostTokens = Pick<
   | "outputTokens"
 >;
 
-/** What a model id resolved to. */
-export interface PriceMatch {
-  readonly card?: PriceCard;
-  /** Table key that matched, e.g. `opus-4-8`. */
-  readonly key?: string;
-  /** False when no card matched; `rates` are then all zero. */
-  readonly priced: boolean;
-  readonly rates: ModelPrice;
-}
+/** What a model id resolved to: a card and its table key, or zero rates. */
+type PriceMatch =
+  | {
+      /** Table key that matched, e.g. `opus-4-8`. */
+      readonly key: string;
+      readonly priced: true;
+      readonly rates: PriceCard;
+    }
+  | {
+      readonly key?: undefined;
+      readonly priced: false;
+      readonly rates: ModelPrice;
+    };
 
-export const PRICES_CHECKED = "2026-11-08";
+const PRICES_CHECKED = "2026-11-08";
 
 const MILLION = 1e6;
 const HAIKU_LONG_OVER = 100_000;
@@ -328,11 +332,13 @@ const CARDS: readonly (readonly [string, PriceCard])[] = [
 ];
 
 /** Longest key first, so `opus-4-1` wins over `opus-4`. */
-export const PRICE_CARDS = [...CARDS].sort((a, b) => b[0].length - a[0].length);
+const PRICE_CARDS = [...CARDS].sort((a, b) => b[0].length - a[0].length);
 
 /**
- * Newest generation per Anthropic family, tried last so an unseen generation
- * still gets a figure. Counted as priced.
+ * Newest generation per Anthropic family, for a bare alias such as
+ * `claude-opus` or `sonnet-latest`. An id that names any version the table
+ * lacks (`claude-3-opus`, `claude-opus-4-1-thinking`, an unseen `opus-6`)
+ * stays unpriced rather than borrowing another generation's rates.
  */
 const FAMILY_FALLBACK: readonly (readonly [string, string])[] = [
   ["opus", "opus-5-5"],
@@ -344,9 +350,11 @@ const FAMILY_FALLBACK: readonly (readonly [string, string])[] = [
 
 const BOUNDARY = new Set(["/", ".", "-", "_", ":"]);
 
+const SUFFIX = String.raw`(?:-\d{8}|-\d{4}-\d{2}-\d{2}|@\d{8}|-v\d+(?::\d+)?|-latest)`;
 /** Date stamps, Bedrock versions and `-latest` that may trail a model key. */
-const ALLOWED_SUFFIX =
-  /^(?:-\d{8}|-\d{4}-\d{2}-\d{2}|@\d{8}|-v\d+(?::\d+)?|-latest)*$/;
+const ALLOWED_SUFFIX = new RegExp(`^${SUFFIX}*$`);
+const TRAILING_SUFFIX = new RegExp(`${SUFFIX}*$`);
+const DIGIT = /\d/;
 
 /** True when `key` sits on a boundary in `id` and only allowed suffixes follow. */
 const keyMatches = (id: string, key: string) => {
@@ -361,12 +369,26 @@ const keyMatches = (id: string, key: string) => {
   return false;
 };
 
+/** The family a bare, version-free alias names, e.g. `opus` for `claude-opus-latest`. */
+const aliasFamily = (dashed: string) => {
+  const stem = dashed.replace(TRAILING_SUFFIX, "");
+  if (DIGIT.test(stem)) {
+    return;
+  }
+  return FAMILY_FALLBACK.find(([family]) => {
+    const at = stem.length - family.length;
+    return (
+      stem.endsWith(family) && (at === 0 || BOUNDARY.has(stem.charAt(at - 1)))
+    );
+  });
+};
+
 const cardByKey = new Map(PRICE_CARDS);
 
 /**
  * Match a model id to its rate card: the most specific generation key first,
- * then the Anthropic family fallback. Anything else is unpriced with zero
- * rates, so the caller can name it instead of guessing.
+ * then a bare family alias. Anything else is unpriced with zero rates, so the
+ * caller can name it instead of guessing.
  */
 export const priceFor = (modelId: string): PriceMatch => {
   const raw = modelId.trim().toLowerCase().replace("[1m]", "");
@@ -374,14 +396,13 @@ export const priceFor = (modelId: string): PriceMatch => {
   for (const [key, card] of PRICE_CARDS) {
     const id = card.provider === "anthropic" ? dashed : raw;
     if (keyMatches(id, key)) {
-      return { priced: true, rates: card, key, card };
+      return { priced: true, rates: card, key };
     }
   }
-  for (const [family, key] of FAMILY_FALLBACK) {
-    const card = cardByKey.get(key);
-    if (card && raw.includes(family)) {
-      return { priced: true, rates: card, key, card };
-    }
+  const alias = aliasFamily(dashed);
+  const card = alias && cardByKey.get(alias[1]);
+  if (alias && card) {
+    return { priced: true, rates: card, key: alias[1] };
   }
   return { priced: false, rates: ZERO };
 };
@@ -406,7 +427,7 @@ export const estimateCost = (tokens: CostTokens, rates: ModelPrice): number => {
 };
 
 /** A turn that billed nothing, e.g. Claude's `<synthetic>` placeholders. */
-export const isZeroUsage = (t: CostTokens) =>
+const isZeroUsage = (t: CostTokens) =>
   t.inputTokens === 0 &&
   t.outputTokens === 0 &&
   t.cacheReadTokens === 0 &&
@@ -423,10 +444,11 @@ export const turnCost = (
   if (isZeroUsage(turn)) {
     return 0;
   }
-  const { card } = priceFor(turn.model);
-  if (!card) {
+  const match = priceFor(turn.model);
+  if (!match.priced) {
     return;
   }
+  const card = match.rates;
   const prompt =
     turn.inputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
   const rates =

@@ -273,7 +273,17 @@ export const Turn = Schema.Struct({
 export type Turn = typeof Turn.Type;
 
 /** A spawned subagent transcript discovered on disk. */
+/** The cost of a list of turns at list price. */
+export const TurnsCost = Schema.Struct({
+  /** Estimated USD of the priced turns; absent when none is priced. */
+  costUsd: Schema.optional(Schema.Number),
+  /** Model ids in these turns with no rate card. Set only when non-empty. */
+  unpricedModels: Schema.optional(Schema.Array(Schema.String)),
+});
+export type TurnsCost = typeof TurnsCost.Type;
+
 export const SubagentRef = Schema.Struct({
+  ...TurnsCost.fields,
   id: Schema.String,
   agentType: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
@@ -296,10 +306,6 @@ export const SubagentRef = Schema.Struct({
   parentAgentId: Schema.optional(Schema.String),
   /** The transcript could not be read; `turns` and the peak are then 0. */
   unreadable: Schema.optional(Schema.Literal(true)),
-  /** Estimated USD of this agent's priced turns; absent when none is priced. */
-  costUsd: Schema.optional(Schema.Number),
-  /** Model ids in this agent's turns with no rate card. Set only when non-empty. */
-  unpricedModels: Schema.optional(Schema.Array(Schema.String)),
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
@@ -400,6 +406,11 @@ export const ParsedSession = Schema.Struct({
   ),
   /** USD the agent itself recorded for the session (OpenCode); set only when above 0. */
   nativeCostUsd: Schema.optional(Schema.Number),
+  /**
+   * Cost of `isSidechain` turns written inline in the main transcript, which
+   * `turns` leaves out. Set only when there are any.
+   */
+  sidechainCost: Schema.optional(TurnsCost),
 });
 export type ParsedSession = typeof ParsedSession.Type;
 
@@ -410,12 +421,14 @@ export const SessionCost = Schema.Struct({
    * fully unpriced session never reads as $0.
    */
   totalUsd: Schema.optional(Schema.Number),
-  /** The subagents' share of `totalUsd`; set only when above 0. */
+  /** The subagents' (and inline sidechains') share of `totalUsd`; set only when above 0. */
   subagentsUsd: Schema.optional(Schema.Number),
   /** `agent` when the main figure came from the transcript itself. */
   source: Schema.Literal("estimate", "agent"),
   /** Model ids left out of the figure for lack of a rate card. Set only when non-empty. */
   unpricedModels: Schema.optional(Schema.Array(Schema.String)),
+  /** Subagents whose transcript could not be read, so `totalUsd` leaves them out. */
+  unreadableSubagents: Schema.optional(Schema.Number),
 });
 export type SessionCost = typeof SessionCost.Type;
 
@@ -471,10 +484,11 @@ export const SessionHeader = Schema.Struct({
   sourceLabel: Schema.optional(Schema.String),
   /** Malformed lines other than a partial last line; set only when above 0. */
   malformedLines: Schema.optional(Schema.Number),
-  /** USD of the main transcript (no subagents); absent when nothing is priced. */
-  costUsd: Schema.optional(Schema.Number),
-  /** Some turn's model has no rate card, so `costUsd` is a floor. */
-  costUnpriced: Schema.optional(Schema.Literal(true)),
+  /**
+   * USD of the main transcript (no subagent files); absent when nothing is
+   * priced. `unpricedModels` set means the figure is a floor.
+   */
+  ...TurnsCost.fields,
 });
 export type SessionHeader = typeof SessionHeader.Type;
 

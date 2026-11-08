@@ -146,7 +146,7 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
           h.project,
           h.model ?? "-",
           String(h.messageCount),
-          `${usdCell(h.costUsd)}${h.costUnpriced ? "*" : ""}`,
+          `${usdCell(h.costUsd)}${h.unpricedModels ? "*" : ""}`,
           bytes(h.sizeBytes),
           h.updatedAt ?? "-",
           h.title ?? "-",
@@ -168,10 +168,13 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
             { compact: g.compact }
           )
         );
-        if (picked.some((h) => h.costUnpriced)) {
+        if (picked.some((h) => h.costUsd !== undefined)) {
           yield* Console.error(
-            "* some models unpriced; EST COST covers the main transcript only"
+            "EST COST covers the main transcript only, without subagents"
           );
+        }
+        if (picked.some((h) => h.unpricedModels)) {
+          yield* Console.error("* some models unpriced: the figure is too low");
         }
         yield* hint;
       })
@@ -192,10 +195,14 @@ const costRows = (
   const fromAgent = cost?.source === "agent" && cost.totalUsd !== undefined;
   const subagents = cost?.subagentsUsd ?? 0;
   const unpriced = cost?.unpricedModels ?? [];
+  const unreadable = cost?.unreadableSubagents ?? 0;
   return [
     ["est. cost", fromAgent ? `${total} (${provider})` : total],
     ...(subagents > 0 ? [["  subagents", usdCell(subagents)]] : []),
     ...(unpriced.length > 0 ? [["unpriced models", unpriced.join(", ")]] : []),
+    ...(unreadable > 0
+      ? [["unreadable subagents", `${unreadable} (not in est. cost)`]]
+      : []),
   ];
 };
 

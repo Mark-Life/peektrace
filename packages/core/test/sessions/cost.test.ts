@@ -9,10 +9,13 @@ import {
   turnCost,
 } from "../../src/services/pricing";
 import { analyze } from "../../src/services/sessions/analyze";
-import { subagentCost } from "../../src/services/sessions/cost";
+import { turnsCost } from "../../src/services/sessions/cost";
 import { buildHeader } from "../../src/services/sessions/header";
 import { parseClaudeSession } from "../../src/services/sessions/parse";
-import { parseOpencodeSession } from "../../src/services/sessions/parsers/opencode";
+import {
+  buildOpencodeHeader,
+  parseOpencodeSession as parseOpencode,
+} from "../../src/services/sessions/parsers/opencode";
 import { buildPiHeader } from "../../src/services/sessions/parsers/pi-header";
 
 const line = (o: Record<string, unknown>) => JSON.stringify(o);
@@ -58,6 +61,34 @@ const turn = (
   ...tokens,
 });
 
+/** OpenCode session whose own cost is `cost`, one gpt-5.5 call with reasoning. */
+const opencodeText = (cost: number) =>
+  [
+    line({
+      kind: "session",
+      id: "ses_x",
+      directory: "/synthetic/proj",
+      model: { id: "gpt-5.5", providerID: "openai" },
+      cost,
+    }),
+    line({
+      kind: "message",
+      role: "assistant",
+      id: "m1",
+      modelID: "gpt-5.5",
+      cost: 0,
+      tokens: {
+        input: 1000,
+        output: 100,
+        reasoning: 900,
+        cache: { read: 0, write: 0 },
+      },
+    }),
+  ].join("\n");
+
+/** gpt-5.5: 1000 input at $5 plus (100 output + 900 reasoning) at $30, per million. */
+const OPENCODE_EST = (1000 * 5 + 1000 * 30) / 1e6;
+
 const HEADER_ARGS = {
   id: "s",
   slug: "demo",
@@ -79,10 +110,22 @@ describe("price table keyed by generation", () => {
     expect(priceFor("claude-opus-4-20250514").rates.input).toBe(15);
   });
 
-  test("an unseen opus generation falls back to the opus family, not opus-4", () => {
-    const match = priceFor("claude-opus-4-9");
-    expect(match.priced).toBe(true);
-    expect(match.key).toBe("opus-5-5");
+  test("a bare family alias gets the family's newest card", () => {
+    expect(priceFor("claude-opus").key).toBe("opus-5-5");
+    expect(priceFor("anthropic/claude-sonnet-latest").key).toBe("sonnet-5-5");
+  });
+
+  test("an id naming a version the table lacks stays unpriced", () => {
+    for (const id of [
+      "claude-opus-4-9",
+      "claude-opus-4-1-thinking",
+      "claude-sonnet-4-6-fast",
+      "claude-3-opus-20240229",
+      "claude-3-5-haiku-20241022",
+      "claude-3-7-sonnet-latest",
+    ]) {
+      expect(priceFor(id).priced).toBe(false);
+    }
   });
 
   test("sonnet 5.5 is $2/$10", () => {
@@ -187,9 +230,47 @@ describe("AnalyzedSession cost", () => {
     expect(a.cost?.subagentsUsd).toBeCloseTo(0.5, 6);
   });
 
+  test("an unreadable subagent is counted, not silently dropped", () => {
+    const p = claudeSession(usage(1_000_000), "claude-opus-4-8");
+    const a = analyze({
+      ...p,
+      subagents: [
+        {
+          id: "agent-a",
+          path: "/synthetic/agent-a.jsonl",
+          turns: 0,
+          peakContextTokens: 0,
+          unreadable: true,
+        },
+      ],
+    });
+    expect(a.cost?.totalUsd).toBeCloseTo(5, 6);
+    expect(a.cost?.unreadableSubagents).toBe(1);
+  });
+
+  test("inline sidechain turns are priced into the subagent share", () => {
+    const sidechain = line({
+      type: "assistant",
+      requestId: "r9",
+      isSidechain: true,
+      message: { model: "claude-sonnet-4-5", usage: usage(1_000_000) },
+    });
+    const p = parseClaudeSession({
+      text: [claudeText(usage(1_000_000), "claude-sonnet-4-5"), sidechain].join(
+        "\n"
+      ),
+      path: "/synthetic/s.jsonl",
+      sessionId: "s",
+    });
+    expect(p.turns).toHaveLength(1);
+    const a = analyze(p);
+    expect(a.cost?.totalUsd).toBeCloseTo(6, 6);
+    expect(a.cost?.subagentsUsd).toBeCloseTo(3, 6);
+  });
+
   test("a subagent's cost fields come from its turns", () => {
     expect(
-      subagentCost([
+      turnsCost([
         turn("claude-opus-4-8", { inputTokens: 1_000_000 }),
         turn("example-model-1", { inputTokens: 5 }),
       ])
@@ -225,7 +306,7 @@ describe("AnalyzedSession cost", () => {
       import.meta.dir,
       "../fixtures/sessions-opencode/session-fixture.jsonl"
     );
-    const p = parseOpencodeSession({
+    const p = parseOpencode({
       text: readFileSync(fixture, "utf8"),
       path: `${fixture}#ses_test123`,
       sessionId: "fallback-id",
@@ -235,10 +316,23 @@ describe("AnalyzedSession cost", () => {
     expect(a.cost?.source).toBe("agent");
     expect(a.cost?.totalUsd).toBe(0.01);
   });
+
+  test("OpenCode with no recorded cost bills reasoning at the output rate", () => {
+    const a = analyze(
+      parseOpencode({
+        text: opencodeText(0),
+        path: "/synthetic/oc.jsonl#ses_x",
+        sessionId: "ses_x",
+      })
+    );
+    expect(a.cost?.source).toBe("estimate");
+    expect(a.turns[0]?.costUsd).toBeCloseTo(OPENCODE_EST, 8);
+    expect(a.cost?.totalUsd).toBeCloseTo(OPENCODE_EST, 8);
+  });
 });
 
 describe("header cost", () => {
-  test("Claude: one request streamed over two lines counts once", () => {
+  test("Claude: one request streamed over two lines counts once; inline sidechains count", () => {
     const assistant = (output: number, text: string) =>
       line({
         type: "assistant",
@@ -261,8 +355,8 @@ describe("header cost", () => {
         "\n"
       ),
     });
-    expect(h.costUsd).toBeCloseTo(5 + 25, 6);
-    expect(h.costUnpriced).toBeUndefined();
+    expect(h.costUsd).toBeCloseTo(5 + 25 + 5, 6);
+    expect(h.unpricedModels).toBeUndefined();
   });
 
   test("Claude: an unpriced model sets the flag", () => {
@@ -271,7 +365,7 @@ describe("header cost", () => {
       text: claudeText(usage(1000), "example-model-1"),
     });
     expect(h.costUsd).toBeUndefined();
-    expect(h.costUnpriced).toBe(true);
+    expect(h.unpricedModels).toEqual(["example-model-1"]);
   });
 
   test("Pi: a repeated message id counts once", () => {
@@ -290,5 +384,15 @@ describe("header cost", () => {
       text: [message, message].join("\n"),
     });
     expect(h.costUsd).toBeCloseTo(3, 6);
+  });
+
+  test("OpenCode: session cost wins, else messages priced like analyze", () => {
+    const args = { ...HEADER_ARGS, path: "/synthetic/oc.jsonl#ses_x" };
+    expect(
+      buildOpencodeHeader({ ...args, text: opencodeText(0.5) }).costUsd
+    ).toBe(0.5);
+    expect(
+      buildOpencodeHeader({ ...args, text: opencodeText(0) }).costUsd
+    ).toBeCloseTo(OPENCODE_EST, 8);
   });
 });

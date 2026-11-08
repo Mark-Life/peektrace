@@ -209,10 +209,10 @@ id, agent, project, model, message count, estimated cost, size, updated, title.
 Rows are sorted newest first and capped at 30; a hint on stderr says how many
 were hidden.
 
-`EST COST` is the main transcript at API list price, without subagents
-(`sessions analyze` adds them). A `*` means some models have no rate card, so
-the figure is too low. OpenCode shows its own recorded cost. Codex shows `-`
-for now.
+`EST COST` is the main transcript at API list price, without subagent files
+(`sessions analyze` adds them); a note on stderr says so. A `*` means some
+models have no rate card, so the figure is too low. OpenCode shows its own
+recorded cost, else its messages at list price. Codex shows `-` for now.
 
 | Flag | Effect |
 | --- | --- |

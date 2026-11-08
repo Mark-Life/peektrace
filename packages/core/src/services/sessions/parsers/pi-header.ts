@@ -1,7 +1,8 @@
 /** Lightweight Pi list header: scans raw lines without building a timeline. */
-import { type CostTurn, headerCost } from "../cost";
+import { type CostTurn, turnsCost } from "../cost";
 import { scanJsonl } from "../parse";
 import type { SessionHeader } from "../schema";
+import { num } from "../usage";
 import type { BuildHeaderArgs } from "./types";
 
 type RawLine = Record<string, unknown>;
@@ -54,8 +55,6 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
-const count = (v: unknown) => (typeof v === "number" ? v : 0);
-
 /**
  * Record the usage of one assistant `message` line, the way `pi.ts` builds
  * turns: first line per id, and only when its usage occupies context.
@@ -73,10 +72,10 @@ const applyUsage = (
   const usage = (msg.usage ?? {}) as RawLine;
   const turn: CostTurn = {
     model: String(msg.model ?? "unknown"),
-    inputTokens: count(usage.input),
-    cacheReadTokens: count(usage.cacheRead),
-    cacheCreationTokens: count(usage.cacheWrite),
-    outputTokens: count(usage.output),
+    inputTokens: num(usage.input) ?? 0,
+    cacheReadTokens: num(usage.cacheRead) ?? 0,
+    cacheCreationTokens: num(usage.cacheWrite) ?? 0,
+    outputTokens: num(usage.output) ?? 0,
   };
   const context =
     turn.inputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
@@ -125,6 +124,6 @@ export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
     ...opt("startedAt", acc.startedAt),
     ...opt("title", acc.title),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
-    ...headerCost([...turns.values()]),
+    ...turnsCost([...turns.values()]),
   };
 };

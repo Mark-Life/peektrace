@@ -16,7 +16,7 @@ import {
   sourcesOf,
 } from "../agents";
 import { analyze } from "./analyze";
-import { subagentCost } from "./cost";
+import { turnsCost } from "./cost";
 import { SessionNotFoundError, TranscriptParseError } from "./errors";
 import {
   type HeaderCache,
@@ -148,7 +148,7 @@ const parseSubagent = (args: {
         ...link(stub, parsed.startedAt),
         turns: parsed.turns.length,
         peakContextTokens,
-        ...subagentCost(parsed.turns),
+        ...turnsCost(parsed.turns),
       } satisfies SubagentRef;
     }),
     Effect.catchAll((e) =>

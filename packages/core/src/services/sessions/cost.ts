@@ -3,28 +3,11 @@
  * unless the agent recorded its own (OpenCode), which then wins.
  */
 import { type CostTokens, turnCost } from "../pricing";
-import type { ParsedSession, SessionCost, SubagentRef, Turn } from "./schema";
+import type { ParsedSession, SessionCost, Turn, TurnsCost } from "./schema";
 import { opt } from "./usage";
 
 /** What a turn needs to be priced. */
 export type CostTurn = CostTokens & Pick<Turn, "model" | "costUsd">;
-
-/** Sum of the priced turns, and the models that had no rate card. */
-const foldTurns = (turns: readonly CostTurn[]) => {
-  let usd: number | undefined;
-  const unpriced = new Set<string>();
-  for (const t of turns) {
-    const cost = t.costUsd ?? turnCost(t);
-    if (cost === undefined) {
-      unpriced.add(t.model);
-    } else {
-      usd = (usd ?? 0) + cost;
-    }
-  }
-  return { usd, unpriced: [...unpriced].sort() };
-};
-
-const nonEmpty = <T>(xs: readonly T[]) => (xs.length > 0 ? xs : undefined);
 
 /** Set `costUsd` on each turn, keeping a cost the parser already read. */
 export const priceTurns = <T extends CostTurn>(turns: readonly T[]) =>
@@ -32,57 +15,70 @@ export const priceTurns = <T extends CostTurn>(turns: readonly T[]) =>
     t.costUsd === undefined ? { ...t, ...opt("costUsd", turnCost(t)) } : t
   );
 
-/** The cost fields of one subagent, from its parsed turns. */
-export const subagentCost = (
-  turns: readonly CostTurn[]
-): Pick<SubagentRef, "costUsd" | "unpricedModels"> => {
-  const { usd, unpriced } = foldTurns(turns);
+/** Sum of already-priced turns; a turn with no `costUsd` names its model. */
+const sumPriced = (
+  turns: readonly Pick<Turn, "model" | "costUsd">[]
+): TurnsCost => {
+  let usd: number | undefined;
+  const unpriced = new Set<string>();
+  for (const t of turns) {
+    if (t.costUsd === undefined) {
+      unpriced.add(t.model);
+    } else {
+      usd = (usd ?? 0) + t.costUsd;
+    }
+  }
   return {
     ...opt("costUsd", usd),
-    ...opt("unpricedModels", nonEmpty(unpriced)),
+    ...opt(
+      "unpricedModels",
+      unpriced.size > 0 ? [...unpriced].sort() : undefined
+    ),
   };
 };
 
-/** The cost fields of a list header, from the main transcript's turns. */
-export const headerCost = (turns: readonly CostTurn[]) => {
-  const { usd, unpriced } = foldTurns(turns);
-  return {
-    ...opt("costUsd", usd),
-    ...opt("costUnpriced", unpriced.length > 0 ? (true as const) : undefined),
-  };
-};
+/** Cost fields of a turn list: a list header, a subagent, inline sidechains. */
+export const turnsCost = (turns: readonly CostTurn[]) =>
+  sumPriced(priceTurns(turns));
 
 /**
- * A session's cost: the agent's own figure when it recorded one above 0, else
- * the sum of priced turns; plus every subagent's cost. Absent when there is
- * nothing to price or report.
+ * A session's cost from its priced turns: the agent's own figure when it
+ * recorded one above 0, else the sum of priced turns; plus inline sidechain
+ * turns and every subagent. Absent when there is nothing to price or report.
  */
 export const sessionCost = (
-  p: Pick<ParsedSession, "nativeCostUsd" | "subagents">,
-  turns: readonly CostTurn[]
+  p: Pick<ParsedSession, "nativeCostUsd" | "subagents" | "sidechainCost">,
+  pricedTurns: readonly Pick<Turn, "model" | "costUsd">[]
 ): SessionCost | undefined => {
-  const own = foldTurns(turns);
+  const own = sumPriced(pricedTurns);
   const native = p.nativeCostUsd;
-  const main = native ?? own.usd;
-  const subagents = p.subagents.filter((s) => s.costUsd !== undefined);
-  const subagentsUsd = subagents.reduce((n, s) => n + (s.costUsd ?? 0), 0);
-  const unpriced = new Set(native === undefined ? own.unpriced : []);
-  for (const s of p.subagents) {
-    for (const m of s.unpricedModels ?? []) {
+  const main = native ?? own.costUsd;
+  const parts = [p.sidechainCost, ...p.subagents].filter(
+    (c): c is TurnsCost => c !== undefined
+  );
+  const subagentsUsd = parts.reduce((n, c) => n + (c.costUsd ?? 0), 0);
+  const unpriced = new Set(native === undefined ? own.unpricedModels : []);
+  for (const c of parts) {
+    for (const m of c.unpricedModels ?? []) {
       unpriced.add(m);
     }
   }
+  const unreadable = p.subagents.filter((s) => s.unreadable).length;
   const total =
-    main === undefined && subagents.length === 0
+    main === undefined && !parts.some((c) => c.costUsd !== undefined)
       ? undefined
       : (main ?? 0) + subagentsUsd;
-  if (total === undefined && unpriced.size === 0) {
+  if (total === undefined && unpriced.size === 0 && unreadable === 0) {
     return;
   }
   return {
     source: native === undefined ? "estimate" : "agent",
     ...opt("totalUsd", total),
     ...opt("subagentsUsd", subagentsUsd > 0 ? subagentsUsd : undefined),
-    ...opt("unpricedModels", nonEmpty([...unpriced].sort())),
+    ...opt(
+      "unpricedModels",
+      unpriced.size > 0 ? [...unpriced].sort() : undefined
+    ),
+    ...opt("unreadableSubagents", unreadable > 0 ? unreadable : undefined),
   };
 };
