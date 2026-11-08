@@ -19,6 +19,7 @@ import {
   ZONE_CLASSES,
   zoneOf,
 } from "../lib/session-format";
+import type { SessionJump } from "../lib/session-jump";
 
 /** Short id prefix shown in the metadata line. */
 const ID_PREFIX = 8;
@@ -75,6 +76,48 @@ const CostValue = ({
   );
 };
 
+/** A summary chip. Given `onJump` it is a button that shows the place it
+ *  names in the transcript; without it, a plain badge. */
+const JumpChip = ({
+  children,
+  className,
+  jump,
+  label,
+  onJump,
+  testId,
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly jump: SessionJump;
+  readonly label: string;
+  readonly onJump: ((j: SessionJump) => void) | undefined;
+  readonly testId: string;
+}) =>
+  onJump ? (
+    <Badge
+      asChild
+      className={cn(
+        "min-h-6 cursor-pointer hover:bg-muted focus-visible:outline-none",
+        className
+      )}
+      variant="outline"
+    >
+      <button
+        aria-label={label}
+        data-testid={testId}
+        onClick={() => onJump(jump)}
+        title={label}
+        type="button"
+      >
+        {children}
+      </button>
+    </Badge>
+  ) : (
+    <Badge className={className} variant="outline">
+      {children}
+    </Badge>
+  );
+
 /** The peak gauge track: fill width = peak fraction, dumb-zone tick overlaid. */
 const PeakGauge = ({ a }: { readonly a: AnalyzedSession }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
@@ -102,8 +145,16 @@ const PeakGauge = ({ a }: { readonly a: AnalyzedSession }) => {
   );
 };
 
-/** Verdict header card: title, health badge, gauge, and metadata grid. */
-export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
+/** Verdict header card: title, health badge, gauge, and metadata grid. With
+ *  `onJump`, the dumb-zone, compaction and subagent chips jump to the
+ *  transcript. */
+export const VerdictHeader = ({
+  a,
+  onJump,
+}: {
+  readonly a: AnalyzedSession;
+  readonly onJump?: (j: SessionJump) => void;
+}) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
   const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
   const cacheFrac = a.peakContextTokens
@@ -175,21 +226,39 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
           {a.contextWindowInferred ? " (assumed)" : ""}
         </Badge>
         {a.dumbZoneCrossTurn >= 0 ? (
-          <Badge className={ZONE_CLASSES.bad.text} variant="outline">
+          <JumpChip
+            className={ZONE_CLASSES.bad.text}
+            jump={{ kind: "turn", turn: a.dumbZoneCrossTurn + 1 }}
+            label={`Jump to turn ${a.dumbZoneCrossTurn + 1} in history`}
+            onJump={onJump}
+            testId="chip-dumbzone"
+          >
             entered dumb zone @ turn {a.dumbZoneCrossTurn + 1}
-          </Badge>
+          </JumpChip>
         ) : (
           <Badge className={ZONE_CLASSES.ok.text} variant="outline">
             stayed in smart zone
           </Badge>
         )}
         {a.compactionTurns.length > 0 ? (
-          <Badge variant="outline">
+          <JumpChip
+            jump={{ kind: "compaction" }}
+            label="Jump to the first compaction in history"
+            onJump={onJump}
+            testId="chip-compaction"
+          >
             {a.compactionTurns.length} compaction(s)
-          </Badge>
+          </JumpChip>
         ) : null}
         {a.subagents.length > 0 ? (
-          <Badge variant="outline">{a.subagents.length} subagent(s)</Badge>
+          <JumpChip
+            jump={{ kind: "subagent" }}
+            label="Jump to the first subagent in history"
+            onJump={onJump}
+            testId="chip-subagents"
+          >
+            {a.subagents.length} subagent(s)
+          </JumpChip>
         ) : null}
         {a.webSearchRequests > 0 ? (
           <Badge data-testid="web-searches" variant="outline">

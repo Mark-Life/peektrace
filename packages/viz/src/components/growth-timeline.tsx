@@ -10,6 +10,7 @@ import type {
 } from "@workspace/core/services/sessions/schema";
 import { cn } from "@workspace/ui/lib/utils";
 import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
+import { markerProps, TimelineHitLayer } from "./growth-timeline-hit";
 
 const GEOM = { W: 1000, H: 440, L: 76, R: 18, T: 22, B: 46 } as const;
 const HATCHED = new Set(["system_tools", "unattributed"]);
@@ -104,6 +105,12 @@ interface GrowthTimelineProps {
    * drawing readable and let the chart scroll sideways instead.
    */
   readonly minWidth?: number;
+  /**
+   * Optional: called with the 1-based turn the reader clicked or picked from a
+   * marker. Set, the chart shows a hover guide and its dumb-zone and peak
+   * markers become keyboard buttons; unset, it is a static picture.
+   */
+  readonly onTurn?: (turn: number) => void;
 }
 
 /** The inline-SVG stacked-area context-growth timeline. */
@@ -111,6 +118,7 @@ export const GrowthTimeline = ({
   a,
   maxWidth,
   minWidth,
+  onTurn,
 }: GrowthTimelineProps) => {
   const { W, H, L, R, T, B } = GEOM;
   const plotW = W - L - R;
@@ -140,6 +148,10 @@ export const GrowthTimeline = ({
   const peakX = x(a.peakTurnIndex);
   const peakY = y(a.peakContextTokens);
   const crossX = a.dumbZoneCrossTurn >= 0 ? x(a.dumbZoneCrossTurn) : 0;
+  const marker = (turn: number) =>
+    onTurn
+      ? markerProps({ label: `Jump to turn ${turn} in history`, onTurn, turn })
+      : {};
 
   return (
     <section
@@ -155,7 +167,7 @@ export const GrowthTimeline = ({
           className={cn("w-full", maxWidth !== undefined && "mx-auto")}
           data-testid="timeline-svg"
           preserveAspectRatio="xMidYMid meet"
-          role="img"
+          role={onTurn ? "group" : "img"}
           style={{
             maxWidth: maxWidth === undefined ? undefined : `${maxWidth}px`,
             minWidth: minWidth === undefined ? undefined : `${minWidth}px`,
@@ -296,7 +308,10 @@ export const GrowthTimeline = ({
 
           {/* dumb-zone first crossing */}
           {a.dumbZoneCrossTurn >= 0 ? (
-            <g data-testid="timeline-cross">
+            <g
+              data-testid="timeline-cross"
+              {...marker(a.dumbZoneCrossTurn + 1)}
+            >
               <line
                 stroke="rgba(248,81,73,0.9)"
                 x1={crossX.toFixed(1)}
@@ -322,7 +337,7 @@ export const GrowthTimeline = ({
           ) : null}
 
           {/* peak marker */}
-          <g data-testid="timeline-peak">
+          <g data-testid="timeline-peak" {...marker(a.peakTurnIndex + 1)}>
             <path
               className="fill-foreground"
               d={`M ${peakX.toFixed(1)} ${(peakY - OFF.peak).toFixed(1)} L ${(peakX + OFF.peak).toFixed(1)} ${peakY.toFixed(1)} L ${peakX.toFixed(1)} ${(peakY + OFF.peak).toFixed(1)} L ${(peakX - OFF.peak).toFixed(1)} ${peakY.toFixed(1)} Z`}
@@ -367,6 +382,18 @@ export const GrowthTimeline = ({
               </text>
             ) : null
           )}
+
+          {onTurn ? (
+            <TimelineHitLayer
+              left={L}
+              onTurn={onTurn}
+              plotH={plotH}
+              plotW={plotW}
+              snaps={snaps}
+              top={T}
+              x={x}
+            />
+          ) : null}
         </svg>
       </div>
 
