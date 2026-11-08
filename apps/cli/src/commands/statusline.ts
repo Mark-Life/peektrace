@@ -10,6 +10,7 @@ import { Command, Options } from "@effect/cli";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Console, Duration, Effect, Option, Schema, Stream } from "effect";
 import { type GlobalsAccessor, withClient } from "../client";
+import { STATUSLINE_SUMMARY } from "../summaries";
 import { finalFractionOf, verdict } from "../verdict";
 
 export const FALLBACK = "ctx --";
@@ -111,4 +112,4 @@ export const makeStatusline = (globals: GlobalsAccessor) =>
       Effect.catchAllCause(() => Effect.succeed(FALLBACK)),
       Effect.flatMap(Console.log)
     )
-  );
+  ).pipe(Command.withDescription(STATUSLINE_SUMMARY));

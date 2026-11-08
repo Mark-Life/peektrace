@@ -45,6 +45,12 @@ import {
 import { CliUserError } from "../errors";
 import { hms, json, percent, shortId, table, tokens } from "../render";
 import { splitRemote } from "../serve-auth";
+import {
+  STATS_DRILL_SUMMARY,
+  STATS_PROMPT_SUMMARY,
+  STATS_REFRESH_SUMMARY,
+  STATS_SUMMARY,
+} from "../summaries";
 import { agentOpt, forceOpt, scopeOf } from "./stats-options";
 import { withScanProgress } from "./stats-progress";
 import { makeStatsUsage } from "./stats-usage";
@@ -456,7 +462,7 @@ const makeStatsDrill = (globals: GlobalsAccessor) =>
           )}`
         );
       })
-  );
+  ).pipe(Command.withDescription(STATS_DRILL_SUMMARY));
 
 /** `stats prompt` — the investigation prompt for the report or one row, the
  * same text the inspector's "Copy prompt" buttons copy, so an agent in a
@@ -525,7 +531,7 @@ const makeStatsPrompt = (globals: GlobalsAccessor) =>
         }
         return yield* Console.log(text);
       })
-  );
+  ).pipe(Command.withDescription(STATS_PROMPT_SUMMARY));
 
 /** `stats refresh` — re-extract the fact cache without computing a report. */
 const makeStatsRefresh = (globals: GlobalsAccessor) =>
@@ -563,7 +569,7 @@ const makeStatsRefresh = (globals: GlobalsAccessor) =>
           )
         );
       })
-  );
+  ).pipe(Command.withDescription(STATS_REFRESH_SUMMARY));
 
 /** Run the report and print it in the caller's chosen form. */
 const runReport = (args: {
@@ -607,6 +613,7 @@ export const makeStats = (globals: GlobalsAccessor) =>
         });
       })
   ).pipe(
+    Command.withDescription(STATS_SUMMARY),
     Command.withSubcommands([
       makeStatsDrill(globals),
       makeStatsPrompt(globals),

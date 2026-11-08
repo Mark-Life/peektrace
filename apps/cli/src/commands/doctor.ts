@@ -17,6 +17,7 @@ import {
 } from "@workspace/telemetry";
 import { Console, Effect, Option } from "effect";
 import { unreadableNotice } from "../render";
+import { DOCTOR_SUMMARY } from "../summaries";
 
 const DEFAULT_LAST = 200;
 const MIN_ENTROPY = 3.5;
@@ -65,8 +66,7 @@ const lastOpt = Options.integer("last").pipe(
   Options.withDefault(DEFAULT_LAST)
 );
 const interestingOpt = Options.boolean("interesting-only").pipe(
-  Options.withDescription("Only errors/slow events"),
-  Options.withDefault(false)
+  Options.withDescription("Only errors/slow events")
 );
 const outOpt = Options.text("out").pipe(
   Options.withDescription("Output path for the bundle"),
@@ -137,4 +137,4 @@ export const makeDoctor = () =>
         }
         yield* Console.log("Email this file to 108@mark-life.com");
       }).pipe(Effect.provide(TelemetryStoreLive))
-  );
+  ).pipe(Command.withDescription(DOCTOR_SUMMARY));

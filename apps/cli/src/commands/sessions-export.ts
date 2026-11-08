@@ -21,6 +21,7 @@ import {
   withClient,
 } from "../client";
 import { CliUserError } from "../errors";
+import { SESSIONS_EXPORT_SUMMARY } from "../summaries";
 import { cwdOpt, parentOpt } from "./sessions";
 import { resolveCwd, resolveTargetId } from "./sessions-filter";
 
@@ -148,4 +149,4 @@ export const makeSessionsExport = (globals: GlobalsAccessor) =>
         );
         yield* Console.error(`Wrote ${outPath}`);
       })
-  );
+  ).pipe(Command.withDescription(SESSIONS_EXPORT_SUMMARY));
