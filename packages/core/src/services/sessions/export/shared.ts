@@ -43,12 +43,14 @@ const WSL_HOME = new RegExp(
 /** Claude project slugs: `-home-<user>-...`, `C--Users-<user>-...`.
  * Pi slugs add a `--` frame and keep dots: `--home-<user>-work--`. */
 const HOME_SLUG = new RegExp(
-  `(?<![${WORD}-])(?:-(?:home|users)|[A-Za-z]--users)-[${WORD}@]+`,
-  "giu"
+  `(?<![${WORD}-])(?:-(?:home|Users)|[A-Za-z]--[Uu]sers)-[${WORD}@]+`,
+  "gu"
 );
+/** Pi slugs (`--home-<user>-...--`). The closing `--` keeps CLI flags such as
+ * `--home-dir` out. */
 const PI_HOME_SLUG = new RegExp(
-  `(?<![${WORD}])--(?:(?:home|users)|[A-Za-z]--users)-[${WORD}@]+`,
-  "giu"
+  `(?<![${WORD}])--(?:home|Users|[A-Za-z]--[Uu]sers)-[${WORD}@]+(?=[${WORD}@.-]*--(?![${WORD}@.-]))`,
+  "gu"
 );
 
 const SEPARATORS = /[\\/]+/;

@@ -81,6 +81,19 @@ const URL_SCHEME = /https?:/;
 const opts = { exportedAt: "2026-02-02T00:00:00.000Z", redacted: true };
 
 describe("collapseHomePaths", () => {
+  test("leaves CLI flags that look like home slugs alone", () => {
+    for (const text of [
+      "pip install --home-page=x",
+      "gpg --home-dir ./g",
+      "tool --users-list --users-file a.csv",
+      "flag --Users-only",
+      "and -users-x",
+    ]) {
+      expect(collapseHomePaths(text)).toBe(text);
+      expect(collapseHomePaths(text, "/home/jane-doe")).toBe(text);
+    }
+  });
+
   test("collapses home prefixes on both OSes", () => {
     expect(collapseHomePaths("/home/x/a.ts")).toBe("~/a.ts");
     expect(collapseHomePaths("/Users/x")).toBe("~");
@@ -155,8 +168,6 @@ describe("collapseHomePaths: known home", () => {
     expect(collapseHomePaths("C--Users-jane-doe-work", home)).toBe("-~-work");
     expect(collapseHomePaths("c--users-jane-doe-work", home)).toBe("-~-work");
     expect(collapseHomePaths("c--Users-jane-doe-work")).toBe("-~-doe-work");
-    expect(collapseHomePaths("c--USERS-jane-work")).toBe("-~-work");
-    expect(collapseHomePaths("-HOME-jane-work")).toBe("-~-work");
   });
   test("collapses Pi slugs", () => {
     expect(collapseHomePaths("--home-jane-doe-work--", UNIX)).toBe(
