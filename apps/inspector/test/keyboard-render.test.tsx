@@ -88,4 +88,13 @@ describe("skip links", () => {
     expect(open.match(SKIP)).toHaveLength(2);
     expect(open).toContain("Skip to session");
   });
+
+  test("drop below the window buttons under an inset titlebar", () => {
+    expect(renderToStaticMarkup(<SkipLinks sessionOpen={false} />)).toContain(
+      "focus:top-2"
+    );
+    const inset = renderToStaticMarkup(<SkipLinks inset sessionOpen={false} />);
+    expect(inset).toContain("focus:top-10");
+    expect(inset).not.toContain("focus:top-2");
+  });
 });

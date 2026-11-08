@@ -1,4 +1,6 @@
 /** Skip links: the first Tab stops on the page, hidden until focused. */
+import { cn } from "@workspace/ui/lib/utils";
+import { hasInsetTitlebar } from "../lib/host";
 import {
   focusLandmark,
   MAIN_CONTENT_ID,
@@ -7,40 +9,69 @@ import {
 import { useSelectedSessionId } from "../lib/routes";
 
 const SKIP_CLASS =
-  "sr-only rounded-md bg-background px-3 py-2 font-medium text-sm shadow-md ring-2 ring-ring focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50";
+  "sr-only rounded-md bg-background px-3 py-2 font-medium text-sm shadow-md ring-2 ring-ring focus:not-sr-only focus:fixed focus:left-2 focus:z-50";
+
+/** Focus the first of `targets` on the page. The session detail only exists
+ *  once the list has loaded, so its link falls back to the main content. */
+const focusFirst = (targets: readonly string[]) => {
+  const found = targets.find((id) => document.getElementById(id) !== null);
+  if (found !== undefined) {
+    focusLandmark(found);
+  }
+};
 
 const SkipLink = ({
+  inset,
   label,
-  target,
+  targets,
 }: {
+  readonly inset: boolean;
   readonly label: string;
-  readonly target: string;
+  readonly targets: readonly string[];
 }) => (
   <button
-    className={SKIP_CLASS}
+    className={cn(
+      SKIP_CLASS,
+      // Clear the macOS window buttons that overlay the top-left corner.
+      inset ? "focus:top-10" : "focus:top-2"
+    )}
     data-testid="skip-link"
-    onClick={() => focusLandmark(target)}
+    onClick={() => focusFirst(targets)}
     type="button"
   >
     {label}
   </button>
 );
 
-/** "Skip to content", plus "Skip to session" while one is open. */
+/** "Skip to content", plus "Skip to session" while one is open. `inset` is
+ *  true when native window buttons overlay the top of the page. */
 export const SkipLinks = ({
+  inset = false,
   sessionOpen,
 }: {
+  readonly inset?: boolean;
   readonly sessionOpen: boolean;
 }) => (
   <>
-    <SkipLink label="Skip to content" target={MAIN_CONTENT_ID} />
+    <SkipLink
+      inset={inset}
+      label="Skip to content"
+      targets={[MAIN_CONTENT_ID]}
+    />
     {sessionOpen ? (
-      <SkipLink label="Skip to session" target={SESSION_DETAIL_ID} />
+      <SkipLink
+        inset={inset}
+        label="Skip to session"
+        targets={[SESSION_DETAIL_ID, MAIN_CONTENT_ID]}
+      />
     ) : null}
   </>
 );
 
-/** `SkipLinks` wired to the router. */
+/** `SkipLinks` wired to the router and the host window. */
 export const ShellSkipLinks = () => (
-  <SkipLinks sessionOpen={useSelectedSessionId() !== null} />
+  <SkipLinks
+    inset={hasInsetTitlebar()}
+    sessionOpen={useSelectedSessionId() !== null}
+  />
 );

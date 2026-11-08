@@ -99,6 +99,12 @@ export const SHORTCUTS = [
 
 export type ShortcutId = (typeof SHORTCUTS)[number]["id"];
 
+/** Ids `useShortcut` may bind: the `global` scope. */
+export type GlobalShortcutId = Extract<
+  (typeof SHORTCUTS)[number],
+  { scope: "global" }
+>["id"];
+
 export const shortcutOf = (id: ShortcutId): Shortcut => {
   const found = SHORTCUTS.find((s) => s.id === id);
   if (!found) {
@@ -157,22 +163,24 @@ const CODE_KEY: Record<string, readonly [string, string]> = {
 };
 
 const ASCII = /^[ -~]$/;
+const ALNUM = /^[a-z0-9]$/;
 
 /** Single characters some shortcut is bound to. */
 const BOUND = new Set<string>(
   SHORTCUTS.flatMap((s) => s.keys).filter((k) => k.length === 1)
 );
 
-/** The key as the table names it. Single letters are lowercased. A character
+/** The key as the table names it. Single letters are lowercased. A symbol
  *  no shortcut binds (`.` from the Slash key on a Russian layout, `+` from
  *  BracketRight on German) falls back to the physical key, and so does a
- *  non-Latin letter. */
+ *  non-Latin letter. A Latin letter or digit never does: Dvorak types `z` on
+ *  the Slash key. */
 export const keyOf = (ev: Pick<KeyEventLike, "code" | "key" | "shiftKey">) => {
   if (ev.key.length !== 1) {
     return ev.key;
   }
   const typed = ASCII.test(ev.key) ? ev.key.toLowerCase() : null;
-  if (typed !== null && BOUND.has(typed)) {
+  if (typed !== null && (BOUND.has(typed) || ALNUM.test(typed))) {
     return typed;
   }
   const pair = CODE_KEY[ev.code];
@@ -242,16 +250,12 @@ export const matchesShortcut = (id: ShortcutId, ev: KeyEventLike) =>
  * so a new closure on every render does not re-register the listener.
  */
 export const useShortcut = (
-  id: ShortcutId,
-  handler: (ev: KeyboardEvent) => void,
-  enabled = true
+  id: GlobalShortcutId,
+  handler: (ev: KeyboardEvent) => void
 ) => {
   const latest = useRef(handler);
   latest.current = handler;
   useEffect(() => {
-    if (!enabled) {
-      return;
-    }
     const onKeyDown = (ev: KeyboardEvent) => {
       if (!(shortcutAllowed(ev) && matchesShortcut(id, ev))) {
         return;
@@ -261,5 +265,5 @@ export const useShortcut = (
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [id, enabled]);
+  }, [id]);
 };

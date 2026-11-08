@@ -38,7 +38,7 @@ import { hasInsetTitlebar } from "../lib/host";
 import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
 import { ScrollRootContext } from "../lib/scroll-root";
-import { ThemeToggle } from "../lib/theme";
+import { ThemeToggle, useThemeShortcut } from "../lib/theme";
 import { ShortcutsButton, ShortcutsDialog } from "./shortcuts-dialog";
 import { ShellSkipLinks } from "./skip-links";
 import { WatchStatus } from "./watch-status";
@@ -152,6 +152,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const active = NAV_ITEMS.find((item) => item.id === route);
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  useThemeShortcut();
   return (
     <SidebarProvider
       className="h-dvh min-h-0"

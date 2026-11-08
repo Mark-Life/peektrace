@@ -73,6 +73,17 @@ describe("layouts that type other characters on the bound keys", () => {
     );
   });
 
+  test("Dvorak: a letter on the Slash key stays a letter", () => {
+    expect(keyOf(press({ key: "z", code: "Slash" }))).toBe("z");
+    expect(keyOf(press({ key: "Z", code: "Slash", shiftKey: true }))).toBe("z");
+    expect(matchesShortcut("search", press({ key: "z", code: "Slash" }))).toBe(
+      false
+    );
+    expect(matchesShortcut("help", press({ key: "Z", code: "Slash" }))).toBe(
+      false
+    );
+  });
+
   test("an unbound character off the remapped keys reads as typed", () => {
     expect(keyOf(press({ key: ".", code: "Period" }))).toBe(".");
   });

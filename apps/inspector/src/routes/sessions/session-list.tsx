@@ -47,7 +47,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { memo, useMemo, useState } from "react";
+import { memo, useId, useMemo, useState } from "react";
 import {
   AGENT_LABEL,
   ANY,
@@ -61,7 +61,7 @@ import {
 } from "../../lib/session-filters";
 import { ariaKeys } from "../../lib/shortcuts";
 import { DateRangeFilter } from "./date-range-filter";
-import { useListRoving } from "./use-list-roving";
+import { useListRoving, useListSearch } from "./use-list-roving";
 
 /** Per-harness chip tint, so a rail of mixed sessions is scannable at a glance.
  * Unknown agents fall through to the plain `outline` badge. */
@@ -153,15 +153,22 @@ const Truncated = ({
   </Tooltip>
 );
 
+const ROW_KEYS = (["listDown", "listUp", "listFirst", "listLast"] as const)
+  .map(ariaKeys)
+  .join(" ");
+
 /** One session row in the rail; highlighted when it is the active selection. */
 const SessionRowView = ({
   h,
   active,
+  hintId,
   onOpen,
   tabbable,
 }: {
   readonly h: SessionHeader;
   readonly active: boolean;
+  /** Id of the hint that says how to move between rows. */
+  readonly hintId: string;
   readonly onOpen: (id: string) => void;
   /** The list's one Tab stop. */
   readonly tabbable: boolean;
@@ -169,6 +176,8 @@ const SessionRowView = ({
   <Item asChild size="sm" variant="outline">
     <button
       aria-current={active ? "true" : undefined}
+      aria-describedby={hintId}
+      aria-keyshortcuts={ROW_KEYS}
       className={cn(
         "text-left",
         active
@@ -228,6 +237,46 @@ const SessionRowView = ({
 
 /** Memoized: list reloads keep unchanged headers as the same objects, and\n *  moving the Tab stop re-renders only the two rows it touches. */
 const SessionRow = memo(SessionRowView);
+
+/** The rows: one Tab stop, moved by the list keys. Owns the roving state, so
+ *  a focus move re-renders only this and the rows it touches. */
+const SessionRows = ({
+  rows,
+  selectedId,
+  onOpen,
+}: {
+  readonly rows: readonly SessionHeader[];
+  readonly selectedId: string | null;
+  readonly onOpen: (id: string) => void;
+}) => {
+  const ids = useMemo(() => rows.map((h) => h.id), [rows]);
+  const roving = useListRoving({ ids, selectedId });
+  const hintId = useId();
+  return (
+    <>
+      <p className="sr-only" id={hintId}>
+        Arrow keys or J and K move between sessions.
+      </p>
+      <ul
+        aria-label="Sessions"
+        className="flex w-full flex-col gap-2"
+        {...roving.group}
+      >
+        {rows.map((h) => (
+          <li key={h.id}>
+            <SessionRow
+              active={h.id === selectedId}
+              h={h}
+              hintId={hintId}
+              onOpen={onOpen}
+              tabbable={h.id === roving.stop}
+            />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+};
 
 /** Shown when every session is filtered out; the action clears all facets. */
 const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
@@ -299,11 +348,14 @@ const SessionListView = ({
   );
 
   const active = activeCount(filters);
-  const ids = useMemo(() => rows.map((h) => h.id), [rows]);
-  const roving = useListRoving({ ids, selectedId });
+  const search = useListSearch();
 
   return (
-    <div className="flex flex-col gap-3" data-testid="session-list">
+    <div
+      className="flex flex-col gap-3"
+      data-testid="session-list"
+      ref={search.root}
+    >
       <InputGroup>
         <InputGroupAddon>
           <SearchIcon />
@@ -313,9 +365,9 @@ const SessionListView = ({
           aria-label="Search sessions"
           data-testid="session-search"
           onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
-          onKeyDown={roving.onSearchKeyDown}
+          onKeyDown={search.onSearchKeyDown}
           placeholder="Search by title…"
-          ref={roving.search}
+          ref={search.search}
           value={filters.query}
         />
         {filters.query.length > 0 ? (
@@ -398,22 +450,7 @@ const SessionListView = ({
       {rows.length === 0 ? (
         <NoMatches onReset={() => setFilters(NO_FILTERS)} />
       ) : (
-        <ul
-          aria-label="Sessions"
-          className="flex w-full flex-col gap-2"
-          {...roving.group}
-        >
-          {rows.map((h) => (
-            <li key={h.id}>
-              <SessionRow
-                active={h.id === selectedId}
-                h={h}
-                onOpen={onOpen}
-                tabbable={h.id === roving.stop}
-              />
-            </li>
-          ))}
-        </ul>
+        <SessionRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
       )}
     </div>
   );

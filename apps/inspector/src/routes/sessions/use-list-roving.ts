@@ -1,5 +1,5 @@
 /** Keyboard reach for the session rail: the rows are one Tab stop, arrows and
- * j / k move between them, `/` jumps to search. */
+ * j / k move between them, `/` jumps to search and ↓ leaves it for the rows. */
 import {
   type FocusEvent,
   type KeyboardEvent,
@@ -17,7 +17,19 @@ const rowIdOf = (target: EventTarget | null) =>
       null)
     : null;
 
-/** `ids` in display order; `selectedId` is the open session. */
+const ROW_STOP = '[data-session-id][tabindex="0"]';
+
+const focusEl = (el: HTMLElement | null | undefined) => {
+  el?.focus({ preventScroll: true });
+  el?.scrollIntoView({ block: "nearest" });
+};
+
+const rowEl = (list: HTMLElement | null, id: string) =>
+  list?.querySelector<HTMLElement>(`[data-session-id="${CSS.escape(id)}"]`);
+
+/** Roving focus over the rows. `ids` in display order; `selectedId` is the
+ *  open session. Lives in the rows' own component, so a focus move does not
+ *  re-render the filters above them. */
 export const useListRoving = ({
   ids,
   selectedId,
@@ -26,7 +38,6 @@ export const useListRoving = ({
   readonly selectedId: string | null;
 }) => {
   const group = useRef<HTMLUListElement>(null);
-  const search = useRef<HTMLInputElement>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   // Opening a session from anywhere makes it the stop; closing one keeps it.
   const [seenSelected, setSeenSelected] = useState(selectedId);
@@ -43,11 +54,7 @@ export const useListRoving = ({
 
   const focusRow = (id: string) => {
     setFocusedId(id);
-    const el = group.current?.querySelector<HTMLElement>(
-      `[data-session-id="${CSS.escape(id)}"]`
-    );
-    el?.focus({ preventScroll: true });
-    el?.scrollIntoView({ block: "nearest" });
+    focusEl(rowEl(group.current, id));
   };
 
   useEffect(() => {
@@ -63,9 +70,10 @@ export const useListRoving = ({
     const lost = active === null || active === document.body;
     const next = ids[Math.min(lastIndex.current, ids.length - 1)];
     if (inside.current && lost && next !== undefined) {
-      focusRow(next);
+      setFocusedId(next);
+      focusEl(rowEl(group.current, next));
     }
-  });
+  }, [focusedId, ids]);
 
   const onKeyDown = (ev: KeyboardEvent) => {
     const id = rowIdOf(ev.target);
@@ -100,10 +108,23 @@ export const useListRoving = ({
     }
   };
 
+  return {
+    group: { onBlur, onFocus, onKeyDown, ref: group },
+    stop,
+  };
+};
+
+/** The search box: `/` focuses it from anywhere, ↓ moves to the rows' Tab
+ *  stop inside `root`. */
+export const useListSearch = () => {
+  const root = useRef<HTMLDivElement>(null);
+  const search = useRef<HTMLInputElement>(null);
+
   const onSearchKeyDown = (ev: KeyboardEvent) => {
-    if (ev.key === "ArrowDown" && stop !== null) {
+    const row = root.current?.querySelector<HTMLElement>(ROW_STOP);
+    if (ev.key === "ArrowDown" && row) {
       ev.preventDefault();
-      focusRow(stop);
+      focusEl(row);
     }
   };
 
@@ -117,10 +138,5 @@ export const useListRoving = ({
     target?.focus();
   });
 
-  return {
-    group: { onBlur, onFocus, onKeyDown, ref: group },
-    onSearchKeyDown,
-    search,
-    stop,
-  };
+  return { onSearchKeyDown, root, search };
 };
