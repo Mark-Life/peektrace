@@ -58,6 +58,8 @@ import {
 } from "../../lib/tool-event";
 import { estimateTableRow } from "../../lib/transcript-estimate";
 import { sameEvent } from "../../lib/transcript-row";
+import { tableTurnStops } from "../../lib/turn-nav";
+import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
@@ -379,6 +381,11 @@ export const TranscriptTable = ({
     list,
     target: jump?.key ?? null,
   });
+  const stops = useMemo(
+    () => tableTurnStops({ rows, sort, turns }),
+    [rows, sort, turns]
+  );
+  useTurnNav({ list, stops });
 
   return (
     <div className="rounded-md border border-border">

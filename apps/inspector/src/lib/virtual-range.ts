@@ -44,4 +44,7 @@ export interface VirtualListHandle {
   /** The drawn element of item `index`, or null when it is not mounted. */
   readonly elementAt: (index: number) => HTMLElement | null;
   readonly scrollToIndex: (index: number, align: "start" | "center") => void;
+  /** Where the reader is: the focused item while it is on screen, else the
+   *  item at the top of the pane, or -1 when the list starts below the top. */
+  readonly topIndex: () => number;
 }
