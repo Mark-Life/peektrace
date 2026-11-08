@@ -20,8 +20,9 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { cn } from "@workspace/ui/lib/utils";
 import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
-import { lazy, Suspense } from "react";
+import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
 import { sessionHeadersAtom } from "../lib/atoms";
+import { SESSION_DETAIL_ID } from "../lib/landmarks";
 import { ResultView } from "../lib/result-view";
 import {
   closeSession,
@@ -73,12 +74,54 @@ const NoSelection = () => (
   </Empty>
 );
 
+/** Below this width only one pane shows at a time. */
+const NARROW = "(max-width: 47.99rem)";
+
+/**
+ * On a narrow screen, opening a session hides the rail and Back hides the
+ * detail, which would drop focus to `<body>`. Move it to the pane now shown:
+ * the detail, or the rail's Tab stop. Wide screens keep focus in the rail so
+ * j / k keeps browsing.
+ */
+const useNarrowFocusHandoff = ({
+  detail,
+  list,
+  selected,
+}: {
+  readonly detail: RefObject<HTMLElement | null>;
+  readonly list: RefObject<HTMLDivElement | null>;
+  readonly selected: string | null;
+}) => {
+  const prev = useRef(selected);
+  useEffect(() => {
+    const was = prev.current;
+    prev.current = selected;
+    if (was === selected || !window.matchMedia(NARROW).matches) {
+      return;
+    }
+    const active = document.activeElement;
+    const lost = active === null || active === document.body;
+    if (selected !== null && (lost || list.current?.contains(active))) {
+      detail.current?.focus();
+      return;
+    }
+    if (selected === null && (lost || detail.current?.contains(active))) {
+      list.current
+        ?.querySelector<HTMLElement>('[data-session-id][tabindex="0"]')
+        ?.focus();
+    }
+  }, [selected, detail, list]);
+};
+
 /** Sessions section route: responsive master-detail. */
 export const SessionsRoute = () => {
   const result = useAtomValue(sessionHeadersAtom);
   const selected = useSelectedSessionId();
   // A subagent opens through its parent, which is what the rail lists.
   const parent = useHashParam("parent");
+  const listPane = useRef<HTMLDivElement>(null);
+  const detailPane = useRef<HTMLElement>(null);
+  useNarrowFocusHandoff({ detail: detailPane, list: listPane, selected });
 
   return (
     <div className="flex flex-col">
@@ -103,6 +146,7 @@ export const SessionsRoute = () => {
                   "md:scrollbar-gutter-stable md:sticky md:top-6 md:max-h-[calc(100dvh-3rem)] md:w-80 md:shrink-0 md:self-start md:overflow-y-auto md:pr-1",
                   selected ? "hidden md:block" : "block"
                 )}
+                ref={listPane}
               >
                 <SessionList
                   headers={headers}
@@ -110,11 +154,15 @@ export const SessionsRoute = () => {
                   selectedId={parent ?? selected}
                 />
               </div>
-              <div
+              <section
+                aria-label="Session detail"
                 className={cn(
-                  "min-w-0 flex-1",
+                  "min-w-0 flex-1 outline-none",
                   selected ? "block" : "hidden md:block"
                 )}
+                id={SESSION_DETAIL_ID}
+                ref={detailPane}
+                tabIndex={-1}
               >
                 {selected ? (
                   <Suspense fallback={<DetailFallback />}>
@@ -128,7 +176,7 @@ export const SessionsRoute = () => {
                 ) : (
                   <NoSelection />
                 )}
-              </div>
+              </section>
             </div>
           )
         }

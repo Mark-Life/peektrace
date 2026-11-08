@@ -7,12 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { HISTORY_SEARCH_ID } from "../../lib/landmarks";
 import { rovingStop, stepIndex } from "../../lib/roving";
 import { keyOf, shortcutAllowed, useShortcut } from "../../lib/shortcuts";
-
-/** The search box on screen when the rail is hidden (a session is open on a
- *  narrow screen). */
-const HISTORY_SEARCH_ID = "history-search";
 
 const rowIdOf = (target: EventTarget | null) =>
   target instanceof Element
@@ -109,6 +106,7 @@ export const useListRoving = ({
   };
 
   useShortcut("search", () => {
+    // The rail is hidden while a session is open on a narrow screen.
     const own = search.current;
     const target =
       own && own.offsetParent !== null
