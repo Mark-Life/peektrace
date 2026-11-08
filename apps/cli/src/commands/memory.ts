@@ -15,6 +15,11 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { bytes, json, table } from "../render";
+import {
+  MEMORY_LS_SUMMARY,
+  MEMORY_RM_SUMMARY,
+  MEMORY_SHOW_SUMMARY,
+} from "../summaries";
 
 const projectArg = Args.text({ name: "project" }).pipe(Args.optional);
 const projectReq = Args.text({ name: "project" });
@@ -66,7 +71,7 @@ export const makeMemoryLs = (globals: GlobalsAccessor) =>
             })
         );
       })
-  );
+  ).pipe(Command.withDescription(MEMORY_LS_SUMMARY));
 
 /** `memory show <project> <name>` — print one entry's frontmatter + body. */
 export const makeMemoryShow = (globals: GlobalsAccessor) =>
@@ -108,7 +113,7 @@ export const makeMemoryShow = (globals: GlobalsAccessor) =>
         );
         return yield* Console.log(`${meta}\n\n${entry.body}`);
       })
-  );
+  ).pipe(Command.withDescription(MEMORY_SHOW_SUMMARY));
 
 /** `memory rm <project> <name>` — delete; refused under `--read-only`. */
 export const makeMemoryRm = (globals: GlobalsAccessor) =>
@@ -142,4 +147,4 @@ export const makeMemoryRm = (globals: GlobalsAccessor) =>
                 .join("\n")}`;
         return yield* Console.log(`Deleted ${result.slug}; ${dangling}`);
       })
-  );
+  ).pipe(Command.withDescription(MEMORY_RM_SUMMARY));

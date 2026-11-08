@@ -8,120 +8,25 @@
  * parent command's parsed config; `sessions`, `memory` and `stats` leaf commands
  * also accept them locally, after the subcommand.
  */
-import { Command, Options, ValidationError } from "@effect/cli";
+import { CliConfig, Command, HelpDoc, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
-import { Console, Effect, Layer, Option } from "effect";
-import { skipsTelemetry } from "./argv";
-import type { GlobalsAccessor } from "./client";
-import { makeDoctor } from "./commands/doctor";
-import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
-import { makeServe } from "./commands/serve";
-import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
-import { makeSessionsExport } from "./commands/sessions-export";
-import { makeStats } from "./commands/stats";
-import { makeStatusline } from "./commands/statusline";
-import { makeTui } from "./commands/tui";
-import { makeUpgrade } from "./commands/upgrade";
-import { DESCRIPTION } from "./description";
+import { Console, Effect, Layer } from "effect";
+import { isRootHelp, skipsTelemetry } from "./argv";
+import { command } from "./cli-tree";
 import { formatCliError } from "./errors";
+import { rootHelpDoc } from "./help";
 import { otelEnabled, tracingLayer } from "./tracing";
 import { APP_VERSION } from "./version";
 
 export { APP_VERSION } from "./version";
 
-const jsonOpt = Options.boolean("json").pipe(
-  Options.withDescription("Emit raw JSON instead of rendered tables")
-);
-const readOnlyOpt = Options.boolean("read-only").pipe(
-  Options.withDescription("Refuse any mutating command (safe mode)")
-);
-const prettyOpt = Options.boolean("pretty").pipe(
-  Options.withDescription(
-    "Render aligned tables instead of the default compact tab-separated output"
-  )
-);
-const remoteOpt = Options.text("remote").pipe(
-  Options.withDescription(
-    "Target a running `peektrace serve` over HTTP (token from PEEKTRACE_TOKEN or a ?token= URL)"
-  ),
-  Options.optional
-);
-const otelOpt = Options.boolean("otel").pipe(
-  Options.withDescription(
-    "Log Effect spans to stderr (also enabled by PEEKTRACE_OTEL)"
-  )
-);
-const telemetryOpt = Options.boolean("telemetry", {
-  negationNames: ["no-telemetry"],
-}).pipe(
-  Options.withDescription(
-    "Persist local wide-event telemetry (default on; --no-telemetry to disable)"
-  ),
-  Options.withDefault(true)
-);
-
-/** Root command — carries the global flags; prints a banner when run bare. */
-const peektrace = Command.make(
-  "peektrace",
-  {
-    json: jsonOpt,
-    readOnly: readOnlyOpt,
-    remote: remoteOpt,
-    otel: otelOpt,
-    telemetry: telemetryOpt,
-    pretty: prettyOpt,
-  },
-  () =>
-    Console.log(
-      `Peektrace — ${DESCRIPTION}\n` +
-        "Try: peektrace serve | tui | sessions ls | memory ls | stats"
-    )
-).pipe(Command.withDescription(DESCRIPTION));
-
-/** Resolve the parent command's parsed global flags inside any subcommand,
- * OR-ing subcommand-local `--json`/`--read-only` onto the parent values. */
-const globals: GlobalsAccessor = (local) =>
-  Effect.map(peektrace, (config) => ({
-    json: config.json || (local?.json ?? false),
-    readOnly: config.readOnly || (local?.readOnly ?? false),
-    remote: Option.getOrUndefined(config.remote),
-    compact: !config.pretty,
-  }));
-
-const sessions = Command.make("sessions").pipe(
-  Command.withSubcommands([
-    makeSessionsLs(globals),
-    makeSessionsAnalyze(globals),
-    makeSessionsExport(globals),
-  ])
-);
-
-const memory = Command.make("memory").pipe(
-  Command.withSubcommands([
-    makeMemoryLs(globals),
-    makeMemoryShow(globals),
-    makeMemoryRm(globals),
-  ])
-);
-
-const command = peektrace.pipe(
-  Command.withSubcommands([
-    sessions,
-    memory,
-    makeStats(globals),
-    makeStatusline(globals),
-    makeServe(globals),
-    makeTui(globals),
-    makeDoctor(),
-    makeUpgrade(),
-  ])
-);
-
 const cli = Command.run(command, {
   name: "Peektrace",
   version: APP_VERSION,
 });
+
+const printRootHelp = Console.log(HelpDoc.toAnsiText(rootHelpDoc(APP_VERSION)));
 
 // One tracer slot is chosen at boot from raw argv (flags are also parsed by
 // @effect/cli, but the tracer layer must be picked before dispatch). Telemetry
@@ -168,7 +73,9 @@ const handleCliError = (error: unknown) =>
     process.exitCode = 1;
   });
 
-cli(argv).pipe(
+const program = isRootHelp(argv) ? printRootHelp : cli(argv);
+
+program.pipe(
   Effect.withSpan("cli", {
     attributes: {
       "peektrace.root": true,
@@ -177,6 +84,7 @@ cli(argv).pipe(
     },
   }),
   Effect.provide(BunContext.layer),
+  Effect.provide(CliConfig.layer({ showBuiltIns: false })),
   Effect.provide(tracing),
   Effect.catchAll(handleCliError),
   BunRuntime.runMain

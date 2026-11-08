@@ -33,6 +33,7 @@ import {
   unreadableNotice,
   usdCell,
 } from "../render";
+import { SESSIONS_ANALYZE_SUMMARY, SESSIONS_LS_SUMMARY } from "../summaries";
 import { peakFractionOf, verdict } from "../verdict";
 import {
   parseSince,
@@ -178,7 +179,7 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
         }
         yield* hint;
       })
-  );
+  ).pipe(Command.withDescription(SESSIONS_LS_SUMMARY));
 
 const latestOpt = Options.boolean("latest").pipe(
   Options.withDescription(
@@ -277,4 +278,4 @@ export const makeSessionsAnalyze = (globals: GlobalsAccessor) =>
         });
         return yield* Console.log(`${summary}\n\n${budget}`);
       })
-  );
+  ).pipe(Command.withDescription(SESSIONS_ANALYZE_SUMMARY));

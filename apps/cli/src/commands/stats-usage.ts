@@ -17,6 +17,7 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { json, table, tokens } from "../render";
+import { STATS_USAGE_SUMMARY } from "../summaries";
 import { agentOpt, forceOpt, scopeOf } from "./stats-options";
 import { withScanProgress } from "./stats-progress";
 
@@ -192,4 +193,4 @@ export const makeStatsUsage = (globals: GlobalsAccessor) =>
           g.json ? json(report) : renderUsage(report, g.compact)
         );
       })
-  );
+  ).pipe(Command.withDescription(STATS_USAGE_SUMMARY));

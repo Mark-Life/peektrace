@@ -25,6 +25,7 @@ import {
   findFreePort,
   openBrowser,
 } from "../serve-core";
+import { TUI_SUMMARY } from "../summaries";
 import { runTui } from "../tui/index";
 import { makeTuiBridge, type TuiEnv } from "../tui/runtime";
 
@@ -147,4 +148,4 @@ export const makeTui = (globals: GlobalsAccessor) =>
           )
         );
       })
-  );
+  ).pipe(Command.withDescription(TUI_SUMMARY));

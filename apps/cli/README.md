@@ -154,6 +154,8 @@ always prints text. Put `--remote`, `--otel` and
 
 ## Commands
 
+`peektrace --help` lists every command. `peektrace <command> --help` shows its flags.
+
 ### `serve` — the headline
 
 Boots a loopback Bun HTTP server that mounts the Effect-RPC handler at

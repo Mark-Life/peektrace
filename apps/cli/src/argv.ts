@@ -20,3 +20,8 @@ export const firstPositional = (argv: readonly string[]) => {
 /** Commands that run on every status-bar refresh and must not write telemetry. */
 export const skipsTelemetry = (argv: readonly string[]) =>
   firstPositional(argv) === "statusline";
+
+/** True for `peektrace --help` / `-h` with no subcommand (the owned root page). */
+export const isRootHelp = (argv: readonly string[]) =>
+  firstPositional(argv) === undefined &&
+  argv.slice(2).some((arg) => arg === "--help" || arg === "-h");

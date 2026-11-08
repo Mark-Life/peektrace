@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { firstPositional, skipsTelemetry } from "../src/argv";
+import { firstPositional, isRootHelp, skipsTelemetry } from "../src/argv";
 
 const argv = (...rest: readonly string[]) => ["bun", "index.ts", ...rest];
 
@@ -29,4 +29,15 @@ test("skipsTelemetry sees statusline after value flags", () => {
   expect(firstPositional(argv("--completions", "zsh", "sessions"))).toBe(
     "sessions"
   );
+});
+
+test("isRootHelp is true only for help without a subcommand", () => {
+  expect(isRootHelp(argv("--help"))).toBe(true);
+  expect(isRootHelp(argv("-h"))).toBe(true);
+  expect(isRootHelp(argv("--remote", "http://x:1", "--help"))).toBe(true);
+  expect(isRootHelp(argv("--log-level", "debug", "--help"))).toBe(true);
+  expect(isRootHelp(argv("--json", "-h"))).toBe(true);
+  expect(isRootHelp(argv("stats", "--help"))).toBe(false);
+  expect(isRootHelp(argv("sessions", "-h"))).toBe(false);
+  expect(isRootHelp(argv())).toBe(false);
 });
