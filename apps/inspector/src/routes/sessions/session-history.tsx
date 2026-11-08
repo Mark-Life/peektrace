@@ -23,6 +23,7 @@ import {
 import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
 import {
+  ArrowUpIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   MessagesSquareIcon,
@@ -30,6 +31,8 @@ import {
   TableIcon,
 } from "lucide-react";
 import {
+  type CSSProperties,
+  type RefObject,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -39,6 +42,8 @@ import {
 } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
 import { filterRows, searchIndex } from "../../lib/history-filter";
+import { type HistoryJump, isHiddenJump } from "../../lib/history-jump";
+import { useStickyHeight, useSubagentsJump } from "../../lib/history-landing";
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
@@ -81,13 +86,64 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
+/** Says a link or a summary jump points at something the search or type
+ *  filter hides, with the way to show it. */
+const HiddenNote = ({
+  hidden,
+  onClear,
+}: {
+  readonly hidden: "call" | "jump" | false;
+  readonly onClear: () => void;
+}) =>
+  hidden ? (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
+      data-testid="history-call-hidden"
+    >
+      <span>
+        {hidden === "call"
+          ? "The call this link points to is hidden by the search or type filter."
+          : "The place you jumped to is hidden by the search or type filter."}
+      </span>
+      <Button
+        className="h-6 px-2 text-xs"
+        onClick={onClear}
+        size="sm"
+        variant="outline"
+      >
+        Clear filters
+      </Button>
+    </div>
+  ) : null;
+
+/** Keeps the warning in sight once the banner has scrolled away. */
+const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
+  redacted ? null : (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-destructive/60 bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive text-xs"
+      data-testid="sticky-redaction-off"
+    >
+      <ShieldAlertIcon className="size-3.5" />
+      Redaction off
+    </span>
+  );
+
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
   a,
+  jump,
+  onSummary,
+  sectionRef,
   sid,
   view,
 }: {
   readonly a: AnalyzedSession;
+  /** Where the summary asked to go, if anywhere. */
+  readonly jump: HistoryJump | null;
+  /** Scrolls back up to the summary. */
+  readonly onSummary: () => void;
+  /** The section element, for jumps from outside it. */
+  readonly sectionRef: RefObject<HTMLElement | null>;
   /** The session id, for the marker query — `AnalyzedSession` carries none. */
   readonly sid: string;
   readonly view: SessionView;
@@ -104,6 +160,10 @@ export const SessionHistory = ({
   const callId = useHashParam("call");
   // Lives here, not in a layout, so switching layouts does not land again.
   const jumpDone = useRef<string | null>(null);
+  const chipDone = useRef<string | null>(null);
+  const [bar, setBar] = useState<HTMLDivElement | null>(null);
+  const stickyHeight = useStickyHeight(bar);
+  useSubagentsJump({ done: chipDone, jump, section: sectionRef });
 
   // A conversation has one order — its own. The persisted sort is left alone, so
   // switching back to the table restores the column sort it had.
@@ -136,6 +196,19 @@ export const SessionHistory = ({
     callId !== null &&
     a.events.some((e) => e.toolUseId === callId) &&
     !visible.some(({ e }) => e.toolUseId === callId);
+  // A summary jump the filters hide gets the same note, until it has landed.
+  const allRows = useMemo(
+    () => a.events.map((e, pos) => ({ e, pos })),
+    [a.events]
+  );
+  const jumpHidden = isHiddenJump({
+    all: allRows,
+    jump,
+    landed: chipDone.current,
+    sort: effectiveSort,
+    turns,
+    visible,
+  });
   const showCall = () => {
     prefs.setQuery("");
     prefs.setKind("all");
@@ -184,6 +257,7 @@ export const SessionHistory = ({
   const allOpen =
     expandAll ||
     (allIds.length > 0 && allIds.every((id) => view.isExpanded(id)));
+  const expandLabel = allOpen ? "Collapse all" : "Expand all";
   // Re-measures every block only on a bulk action, not when `allOpen` flips
   // because one block was opened by hand or the filter changed.
   const [bulkKey, setBulkKey] = useState(0);
@@ -198,9 +272,16 @@ export const SessionHistory = ({
   };
 
   return (
-    <section className="flex flex-col gap-3" data-testid="session-history">
+    <section
+      className="flex flex-col gap-3 [&_[data-tool-use-id]]:scroll-mt-(--history-sticky) [&_li]:scroll-mt-(--history-sticky)"
+      data-testid="session-history"
+      ref={sectionRef}
+      style={{ "--history-sticky": `${stickyHeight}px` } as CSSProperties}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold text-base">Full history</h2>
+        <h2 className="font-semibold text-base outline-none" tabIndex={-1}>
+          Full history
+        </h2>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground" id="redact-toggle-label">
             Reveal secrets
@@ -238,16 +319,23 @@ export const SessionHistory = ({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div
+        className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur sm:gap-3"
+        data-testid="history-toolbar"
+        ref={setBar}
+      >
         <Input
-          className="max-w-xs"
+          className="min-w-40 flex-1 sm:max-w-xs"
           data-testid="history-search"
           onChange={(e) => prefs.setQuery(e.target.value)}
           placeholder="Search history…"
           value={query}
         />
         <Select onValueChange={prefs.setKind} value={kind}>
-          <SelectTrigger className="w-40" data-testid="history-kind-filter">
+          <SelectTrigger
+            className="w-36 sm:w-40"
+            data-testid="history-kind-filter"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -258,7 +346,7 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
-        <span className="text-muted-foreground text-xs">
+        <span className="hidden text-muted-foreground text-xs sm:inline">
           {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
           dumb zone
         </span>
@@ -288,6 +376,7 @@ export const SessionHistory = ({
         </fieldset>
         {allIds.length > 0 ? (
           <Button
+            aria-label={expandLabel}
             data-testid="history-expand-all"
             onClick={toggleAll}
             size="sm"
@@ -298,29 +387,26 @@ export const SessionHistory = ({
             ) : (
               <ChevronsUpDownIcon className="size-3.5" />
             )}
-            {allOpen ? "Collapse all" : "Expand all"}
+            <span className="hidden sm:inline">{expandLabel}</span>
           </Button>
         ) : null}
+        <RedactionOffBadge redacted={redacted} />
+        <Button
+          aria-label="Back to summary"
+          data-testid="history-to-summary"
+          onClick={onSummary}
+          size="icon-sm"
+          title="Back to summary"
+          variant="ghost"
+        >
+          <ArrowUpIcon className="size-3.5" />
+        </Button>
       </div>
 
-      {callHidden ? (
-        <div
-          className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
-          data-testid="history-call-hidden"
-        >
-          <span>
-            The call this link points to is hidden by the search or type filter.
-          </span>
-          <Button
-            className="h-6 px-2 text-xs"
-            onClick={showCall}
-            size="sm"
-            variant="outline"
-          >
-            Clear filters
-          </Button>
-        </div>
-      ) : null}
+      <HiddenNote
+        hidden={callHidden ? "call" : jumpHidden && "jump"}
+        onClear={showCall}
+      />
 
       <div
         aria-busy={stale}
@@ -333,13 +419,16 @@ export const SessionHistory = ({
             allOpen={allOpen}
             bulkKey={bulkKey}
             callId={callId}
+            chipDone={chipDone}
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
+            jump={jump}
             jumpDone={jumpDone}
             marks={marks}
             onToggle={onToggle}
             queryActive={deferredQuery.length > 0}
             rows={visible}
+            stickyHeight={stickyHeight}
             tools={tools}
             turns={turns}
           />
@@ -348,13 +437,16 @@ export const SessionHistory = ({
             a={a}
             bulkKey={bulkKey}
             callId={callId}
+            chipDone={chipDone}
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
+            jump={jump}
             jumpDone={jumpDone}
             onSort={prefs.setSort}
             onToggle={onToggle}
             rows={visible}
             sort={sort}
+            stickyHeight={stickyHeight}
             tools={tools}
             turns={turns}
           />

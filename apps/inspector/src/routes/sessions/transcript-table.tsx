@@ -37,6 +37,11 @@ import { memo, type RefObject, useMemo, useRef } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
 import { rowIndexOfCall } from "../../lib/history-filter";
 import {
+  alignOf,
+  type HistoryJump,
+  rowIndexOfTarget,
+} from "../../lib/history-jump";
+import {
   type HistorySort,
   type HistorySortKey,
   nextSort,
@@ -67,7 +72,10 @@ const PCT_DECIMALS = 2;
 
 /** Turn-number gutter, shared by every transcript row. */
 const TurnGutter = ({ turn }: { readonly turn: number }) => (
-  <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
+  <span
+    className="w-8 shrink-0 font-mono text-muted-foreground text-xs"
+    data-turn={turn}
+  >
     t{turn}
   </span>
 );
@@ -318,13 +326,16 @@ export const TranscriptTable = ({
   a,
   bulkKey,
   callId,
+  chipDone,
   crossEvtIdx,
   isOpen,
+  jump,
   jumpDone,
   onSort,
   onToggle,
   rows,
   sort,
+  stickyHeight,
   tools,
   turns,
 }: {
@@ -332,8 +343,12 @@ export const TranscriptTable = ({
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
   readonly callId: string | null;
+  /** The summary jump already landed on, shared by both layouts. */
+  readonly chipDone: RefObject<string | null>;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** Where the summary asked to go, if anywhere. */
+  readonly jump: HistoryJump | null;
   /** The call link already landed on, shared by both layouts. */
   readonly jumpDone: RefObject<string | null>;
   readonly onSort: (next: HistorySort) => void;
@@ -341,6 +356,8 @@ export const TranscriptTable = ({
   /** Rows already in `sort` order. */
   readonly rows: readonly TranscriptRowRef[];
   readonly sort: HistorySort;
+  /** Height of the sticky toolbar a jump must land below. */
+  readonly stickyHeight: number;
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
@@ -365,6 +382,20 @@ export const TranscriptTable = ({
     index: callId === null ? -1 : rowIndexOfCall(rows, callId),
     list,
     target: callId,
+  });
+  useVirtualJump({
+    align: jump ? alignOf(jump.target) : "start",
+    done: chipDone,
+    index: jump
+      ? rowIndexOfTarget({
+          ordered: showDivider,
+          rows,
+          target: jump.target,
+          turns,
+        })
+      : -1,
+    list,
+    target: jump?.key ?? null,
   });
 
   return (
@@ -396,6 +427,7 @@ export const TranscriptTable = ({
             turn={turns[row.pos] ?? 0}
           />
         )}
+        scrollPaddingStart={stickyHeight}
         testId="table-transcript"
       />
       {rows.length === 0 ? (

@@ -24,6 +24,11 @@ import {
   planIndexOfCall,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
+import {
+  alignOf,
+  type HistoryJump,
+  planIndexOfTarget,
+} from "../../lib/history-jump";
 import type { ToolMarks } from "../../lib/session-markers";
 import { chatCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
@@ -264,13 +269,16 @@ export const TranscriptChat = ({
   allOpen,
   bulkKey,
   callId,
+  chipDone,
   crossEvtIdx,
   isOpen,
+  jump,
   jumpDone,
   marks,
   onToggle,
   queryActive,
   rows,
+  stickyHeight,
   tools,
   turns,
 }: {
@@ -281,8 +289,12 @@ export const TranscriptChat = ({
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
   readonly callId: string | null;
+  /** The summary jump already landed on, shared by both layouts. */
+  readonly chipDone: RefObject<string | null>;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** Where the summary asked to go, if anywhere. */
+  readonly jump: HistoryJump | null;
   /** The call link already landed on, shared by both layouts. */
   readonly jumpDone: RefObject<string | null>;
   /** Stats marks for this session, keyed by tool-use id. */
@@ -291,6 +303,8 @@ export const TranscriptChat = ({
   /** A search is running: chip clusters must not fold a match out of sight. */
   readonly queryActive: boolean;
   readonly rows: readonly TranscriptRowRef[];
+  /** Height of the sticky toolbar a jump must land below. */
+  readonly stickyHeight: number;
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
@@ -305,6 +319,13 @@ export const TranscriptChat = ({
     index: callId === null ? -1 : planIndexOfCall(plan, callId),
     list,
     target: callId,
+  });
+  useVirtualJump({
+    align: jump ? alignOf(jump.target) : "start",
+    done: chipDone,
+    index: jump ? planIndexOfTarget(plan, jump.target) : -1,
+    list,
+    target: jump?.key ?? null,
   });
 
   if (rows.length === 0) {
@@ -337,6 +358,7 @@ export const TranscriptChat = ({
           tools={tools}
         />
       )}
+      scrollPaddingStart={stickyHeight}
       testId="chat-transcript"
     />
   );

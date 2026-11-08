@@ -7,14 +7,17 @@
  * `redact` flag, which re-fetches the analysis with raw bodies.
  */
 import { useAtomValue } from "@effect-atom/atom-react";
+import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
-import { ArrowLeftIcon } from "lucide-react";
-import { memo, useMemo } from "react";
+import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
+import { memo, useCallback, useMemo, useRef } from "react";
+import { jumpKey, resolveJump, useHistoryJump } from "../../lib/history-jump";
 import { ResultView } from "../../lib/result-view";
 import { openSession } from "../../lib/routes";
+import { useScrollRoot } from "../../lib/scroll-root";
 import { useAnalyzedSession } from "../../lib/session-atoms";
 import { useSessionView } from "../../lib/session-view";
 import { TranscriptSourceContext } from "../../lib/transcript-source";
@@ -56,29 +59,70 @@ const SessionDetailView = ({
   const atom = useAnalyzedSession({ id, parent, redact: view.state.redacted });
   const result = useAtomValue(atom);
   const source = useMemo(() => ({ id, parent }), [id, parent]);
+  const root = useScrollRoot();
+  const history = useRef<HTMLElement>(null);
+  const jumpButton = useRef<HTMLButtonElement>(null);
+  const { req, seq, request } = useHistoryJump();
+  const onTurn = useCallback(
+    (turn: number) => request({ kind: "turn", turn }),
+    [request]
+  );
+
+  const toHistory = () => {
+    const section = history.current;
+    section?.scrollIntoView({ block: "start" });
+    section?.querySelector("h2")?.focus({ preventScroll: true });
+  };
+  const toSummary = useCallback(() => {
+    root?.scrollTo({ top: 0 });
+    jumpButton.current?.focus({ preventScroll: true });
+  }, [root]);
+  const jumpOf = (a: AnalyzedSession) => {
+    const target = req === null ? null : resolveJump(a, req);
+    return target === null ? null : { key: jumpKey(target, seq), target };
+  };
 
   return (
     <div className="flex flex-col gap-4" data-testid="session-detail">
-      <Button
-        className="w-fit md:hidden"
-        data-testid="session-back"
-        onClick={onBack}
-        size="sm"
-        variant="ghost"
-      >
-        <ArrowLeftIcon className="size-4" /> Back to sessions
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          className="w-fit md:hidden"
+          data-testid="session-back"
+          onClick={onBack}
+          size="sm"
+          variant="ghost"
+        >
+          <ArrowLeftIcon className="size-4" /> Back to sessions
+        </Button>
+        <Button
+          className="w-fit"
+          data-testid="jump-to-history"
+          onClick={toHistory}
+          ref={jumpButton}
+          size="sm"
+          variant="ghost"
+        >
+          Jump to history <ArrowDownIcon className="size-4" />
+        </Button>
+      </div>
       {parent === null ? null : <ParentNote parent={parent} />}
       <ResultView result={result}>
         {(a) => (
           <div className="flex flex-col gap-4">
-            <VerdictHeader a={a} />
+            <VerdictHeader a={a} onJump={request} />
             <ExportButtons a={a} redacted={view.state.redacted} />
             <BudgetBar a={a} />
-            <GrowthTimeline a={a} />
+            <GrowthTimeline a={a} onTurn={onTurn} />
             <LoadedArtifacts a={a} />
             <TranscriptSourceContext.Provider value={source}>
-              <SessionHistory a={a} sid={id} view={view} />
+              <SessionHistory
+                a={a}
+                jump={jumpOf(a)}
+                onSummary={toSummary}
+                sectionRef={history}
+                sid={id}
+                view={view}
+              />
             </TranscriptSourceContext.Provider>
           </div>
         )}

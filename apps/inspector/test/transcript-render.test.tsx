@@ -14,6 +14,8 @@ import type {
   TimelineEvent,
   Turn,
 } from "@workspace/core/services/sessions/schema";
+import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
+import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildChatPlan, chatNodeKeys } from "../src/lib/chat-lane";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
@@ -277,13 +279,16 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       allOpen={false}
       bulkKey={0}
       callId="t1"
+      chipDone={{ current: null }}
       crossEvtIdx={9}
       isOpen={() => false}
+      jump={null}
       jumpDone={{ current: null }}
       marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
       rows={ROWS}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -296,13 +301,16 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       a={SESSION}
       bulkKey={0}
       callId={null}
+      chipDone={{ current: null }}
       crossEvtIdx={9}
       isOpen={() => false}
+      jump={null}
       jumpDone={{ current: null }}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
       sort={DEFAULT_HISTORY_SORT}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -323,13 +331,16 @@ test("token sort shows window share, hides the divider, marks the header", () =>
       a={SESSION}
       bulkKey={0}
       callId={null}
+      chipDone={{ current: null }}
       crossEvtIdx={9}
       isOpen={() => false}
+      jump={null}
       jumpDone={{ current: null }}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
       sort={{ key: "tokens", dir: "desc" }}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -346,10 +357,13 @@ test("empty filters read the same in both layouts", () => {
     bulkKey: 0,
     callId: null,
     crossEvtIdx: -1,
+    chipDone: { current: null },
     isOpen: () => false,
+    jump: null,
     jumpDone: { current: null },
     onToggle: noop,
     rows: [],
+    stickyHeight: 0,
     tools: indexTools(SESSION),
     turns: TURNS,
   };
@@ -387,4 +401,53 @@ test("a stats marker lands on the card its detector counted", () => {
   expect(countOf(html, 'data-testid="stats-marker"')).toBe(1);
   expect(html).toContain('data-detector="piped-exit-code"');
   expect(html).toContain("silent fail");
+});
+
+/** A summary worth jumping from: a crossing, a compaction, a subagent, and
+ *  two plotted turns. */
+const SUMMARY = {
+  ...SESSION,
+  compactionTurns: [1],
+  snapshots: [0, 1].map((turnIndex) => ({
+    ctx: 40_000,
+    outputTokens: 0,
+    slices: {},
+    turnIndex,
+  })),
+  subagents: [
+    { id: "agent-1", path: "sub.jsonl", peakContextTokens: 0, turns: 1 },
+  ],
+} satisfies AnalyzedSession;
+
+test("summary chips are jump buttons only when the host can jump", () => {
+  const live = renderToStaticMarkup(
+    <VerdictHeader a={SUMMARY} onJump={noop} />
+  );
+  expect(countOf(live, "<button")).toBe(3);
+  for (const id of ["chip-dumbzone", "chip-compaction", "chip-subagents"]) {
+    expect(live).toContain(`data-testid="${id}"`);
+  }
+  expect(live).toContain('aria-label="Jump to turn 2 in history"');
+  const plain = renderToStaticMarkup(<VerdictHeader a={SUMMARY} />);
+  expect(countOf(plain, "<button")).toBe(0);
+  expect(plain).toContain("entered dumb zone @ turn 2");
+});
+
+test("the timeline takes clicks and focus only when the host can jump", () => {
+  const live = renderToStaticMarkup(
+    <GrowthTimeline a={SUMMARY} onTurn={noop} />
+  );
+  expect(live).toContain('data-testid="timeline-hit-area"');
+  expect(countOf(live, 'role="button"')).toBe(2);
+  expect(countOf(live, 'tabindex="0"')).toBe(2);
+  expect(live).toContain('role="group"');
+  const plain = renderToStaticMarkup(<GrowthTimeline a={SUMMARY} />);
+  expect(plain).not.toContain("timeline-hit");
+  expect(plain).not.toContain('role="button"');
+  expect(plain).toContain('role="img"');
+});
+
+test("turn rules and table gutters carry their turn number", () => {
+  expect(chatHtml({ open: false })).toContain('data-turn="2"');
+  expect(tableHtml(() => false)).toContain('data-turn="1"');
 });
