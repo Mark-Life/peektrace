@@ -9,6 +9,7 @@ import {
   MEMORY_SHOW_SUMMARY,
   SERVE_SUMMARY,
   SESSIONS_ANALYZE_SUMMARY,
+  SESSIONS_EXPORT_SUMMARY,
   SESSIONS_LS_SUMMARY,
   STATS_DRILL_SUMMARY,
   STATS_PROMPT_SUMMARY,
@@ -26,6 +27,7 @@ export const COMMAND_ROWS = [
   { path: "tui", summary: TUI_SUMMARY },
   { path: "sessions ls", summary: SESSIONS_LS_SUMMARY },
   { path: "sessions analyze", summary: SESSIONS_ANALYZE_SUMMARY },
+  { path: "sessions export", summary: SESSIONS_EXPORT_SUMMARY },
   { path: "stats", summary: STATS_SUMMARY },
   { path: "stats drill", summary: STATS_DRILL_SUMMARY },
   { path: "stats prompt", summary: STATS_PROMPT_SUMMARY },
@@ -56,7 +58,7 @@ export const ROOT_FLAGS = {
   },
   remote: {
     usage: "--remote <url>",
-    description: "Target a running `peektrace serve` over HTTP",
+    description: "Use `peektrace serve` over HTTP (PEEKTRACE_TOKEN)",
   },
   otel: {
     usage: "--otel",
