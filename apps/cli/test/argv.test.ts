@@ -1,5 +1,10 @@
 import { expect, test } from "bun:test";
-import { firstPositional, isRootHelp, skipsTelemetry } from "../src/argv";
+import {
+  firstPositional,
+  helpGroup,
+  isRootHelp,
+  skipsTelemetry,
+} from "../src/argv";
 
 const argv = (...rest: readonly string[]) => ["bun", "index.ts", ...rest];
 
@@ -44,4 +49,18 @@ test("isRootHelp is true only for help without a subcommand", () => {
   expect(isRootHelp(argv("--completions=zsh", "--help"))).toBe(false);
   expect(isRootHelp(argv("--help=true"))).toBe(true);
   expect(isRootHelp(argv())).toBe(false);
+});
+
+test("helpGroup names a group only for `<group> --help` with no deeper command", () => {
+  const groups = ["sessions", "memory"];
+  expect(helpGroup(argv("sessions", "--help"), groups)).toBe("sessions");
+  expect(helpGroup(argv("--json", "memory", "-h"), groups)).toBe("memory");
+  expect(helpGroup(argv("--help", "sessions"), groups)).toBe("sessions");
+  expect(helpGroup(argv("sessions", "ls", "--help"), groups)).toBeUndefined();
+  expect(helpGroup(argv("stats", "--help"), groups)).toBeUndefined();
+  expect(helpGroup(argv("sessions"), groups)).toBeUndefined();
+  expect(helpGroup(argv("--help"), groups)).toBeUndefined();
+  expect(
+    helpGroup(argv("sessions", "--completions", "zsh", "--help"), groups)
+  ).toBeUndefined();
 });

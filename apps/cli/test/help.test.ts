@@ -1,7 +1,7 @@
 /** `--help` surface: owned root page, per-command descriptions, completion scripts. */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { COMMAND_ROWS, ROOT_FLAGS } from "../src/help";
+import { COMMAND_ROWS, GROUP_PATHS, ROOT_FLAGS } from "../src/help";
 import { ENTRY, envFor, makeHome, removeHome } from "./support/synthetic-home";
 
 const LIST_COMMANDS = join(import.meta.dir, "support", "list-commands.ts");
@@ -26,7 +26,6 @@ const run = async (args: readonly string[]) => {
 const stripAnsi = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, "");
 
 /** Group commands only dispatch to subcommands, so they have no row. */
-const GROUP_PATHS = ["sessions", "memory"];
 
 /** Options the lib adds itself; everything else at the root must be in ROOT_FLAGS. */
 const LIB_FLAGS = new Set([
@@ -180,11 +179,24 @@ describe("command pages", () => {
     });
   }
 
-  test("a flag-less group page still renders", async () => {
-    const { stdout, code } = await run(["sessions", "--help"]);
-    expect(code).toBe(0);
-    expect(stripAnsi(stdout)).toContain("List and analyze sessions");
-  });
+  for (const group of GROUP_PATHS) {
+    test(`${group} --help lists its rows within 100 columns`, async () => {
+      const { stdout, code } = await run([group, "--help"]);
+      expect(code).toBe(0);
+      const text = stripAnsi(stdout);
+      const rows = COMMAND_ROWS.filter((row) =>
+        row.path.startsWith(`${group} `)
+      );
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(text).toContain(row.path.slice(group.length + 1));
+        expect(text).toContain(row.summary);
+      }
+      for (const line of text.split("\n")) {
+        expect(line.length).toBeLessThanOrEqual(100);
+      }
+    });
+  }
 });
 
 describe("built-ins still work", () => {

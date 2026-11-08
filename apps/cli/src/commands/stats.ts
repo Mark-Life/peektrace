@@ -50,7 +50,6 @@ import {
   STATS_PROMPT_SUMMARY,
   STATS_REFRESH_SUMMARY,
   STATS_SUMMARY,
-  STATS_USAGE_SUMMARY,
 } from "../summaries";
 import { agentOpt, forceOpt, scopeOf } from "./stats-options";
 import { withScanProgress } from "./stats-progress";

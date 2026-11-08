@@ -1,4 +1,7 @@
-/** The command tree. Kept free of boot side effects so tests can import it. */
+/** The command tree. Kept free of boot side effects so tests can import it.
+ * Global flags `--json` and `--read-only` are read from the root command's parsed
+ * config; `sessions`, `memory` and `stats` leaf commands also accept them locally,
+ * after the subcommand. */
 import { Command, Options } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
 import type { GlobalsAccessor } from "./client";

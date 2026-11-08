@@ -17,8 +17,7 @@ export const STATS_DRILL_SUMMARY = "Show the evidence behind one finding";
 export const STATS_PROMPT_SUMMARY =
   "Print a prompt to hand the report to an agent";
 export const STATS_REFRESH_SUMMARY = "Rebuild the stats index";
-export const STATS_USAGE_SUMMARY =
-  "Show token and cost usage over time";
+export const STATS_USAGE_SUMMARY = "Show token and cost usage over time";
 export const STATS_SUMMARY =
   "Rank what fails and what costs time across all sessions";
 export const STATUSLINE_SUMMARY =

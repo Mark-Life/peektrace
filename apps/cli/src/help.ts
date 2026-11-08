@@ -7,10 +7,12 @@ import {
   MEMORY_LS_SUMMARY,
   MEMORY_RM_SUMMARY,
   MEMORY_SHOW_SUMMARY,
+  MEMORY_SUMMARY,
   SERVE_SUMMARY,
   SESSIONS_ANALYZE_SUMMARY,
   SESSIONS_EXPORT_SUMMARY,
   SESSIONS_LS_SUMMARY,
+  SESSIONS_SUMMARY,
   STATS_DRILL_SUMMARY,
   STATS_PROMPT_SUMMARY,
   STATS_REFRESH_SUMMARY,
@@ -115,6 +117,38 @@ const descriptionLines = () => {
   lines.push(line);
   return lines.map((text) => `${INDENT}${text}`).join("\n");
 };
+
+/** Group commands: they only dispatch to subcommands, so they have no row. */
+export const GROUP_PATHS = ["sessions", "memory"] as const;
+
+const GROUP_SUMMARIES = {
+  sessions: SESSIONS_SUMMARY,
+  memory: MEMORY_SUMMARY,
+} as const satisfies Record<(typeof GROUP_PATHS)[number], string>;
+
+/** Owned page for a group command, built from the rows under its prefix. */
+export const groupHelpDoc = (
+  group: keyof typeof GROUP_SUMMARIES,
+  version: string
+) =>
+  HelpDoc.blocks([
+    HelpDoc.h1(`Peektrace ${version}`),
+    HelpDoc.h1("USAGE"),
+    HelpDoc.p(`${INDENT}peektrace [global flags] ${group} <command>`),
+    HelpDoc.h1("DESCRIPTION"),
+    HelpDoc.p(Span.text(`${INDENT}${GROUP_SUMMARIES[group]}`)),
+    HelpDoc.h1("COMMANDS"),
+    HelpDoc.p(
+      Span.text(
+        pad(
+          COMMAND_ROWS.filter((row) => row.path.startsWith(`${group} `)).map(
+            (row) => [row.path.slice(group.length + 1), row.summary]
+          )
+        )
+      )
+    ),
+    HelpDoc.p(`Run peektrace ${group} <command> --help for its flags.`),
+  ]);
 
 export const rootHelpDoc = (version: string) =>
   HelpDoc.blocks([

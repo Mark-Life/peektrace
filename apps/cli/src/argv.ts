@@ -43,3 +43,33 @@ export const isRootHelp = (argv: readonly string[]) => {
   }
   return first === undefined || args.indexOf(first) > helpAt;
 };
+
+/** The group named by `<group> --help` (help flag anywhere, no deeper subcommand),
+ * or undefined. These pages are owned because the lib pads them to the widest usage line. */
+export const helpGroup = <G extends string>(
+  argv: readonly string[],
+  groups: readonly G[]
+): G | undefined => {
+  const args = argv.slice(2);
+  if (
+    args.some((arg) => flagName(arg) === "--completions") ||
+    !args.some(isHelpFlag)
+  ) {
+    return;
+  }
+  const first = firstPositional(argv);
+  const group = groups.find((name) => name === first);
+  if (group === undefined) {
+    return;
+  }
+  const positionals: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    if (VALUE_FLAGS.has(arg)) {
+      i++;
+    } else if (!arg.startsWith("-")) {
+      positionals.push(arg);
+    }
+  }
+  return positionals.length === 1 ? group : undefined;
+};

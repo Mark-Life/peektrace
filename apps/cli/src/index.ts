@@ -4,18 +4,16 @@
  *
  * One binary, two execution modes per command: in-process (default; provisions the
  * core layers directly) and `--remote <url>` (HTTP client against a running
- * `peektrace serve`). Global flags `--json` and `--read-only` are read from this
- * parent command's parsed config; `sessions`, `memory` and `stats` leaf commands
- * also accept them locally, after the subcommand.
+ * `peektrace serve`). The command tree lives in `cli-tree.ts`.
  */
 import { CliConfig, Command, HelpDoc, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
 import { Console, Effect, Layer } from "effect";
-import { isRootHelp, skipsTelemetry } from "./argv";
+import { helpGroup, isRootHelp, skipsTelemetry } from "./argv";
 import { command } from "./cli-tree";
 import { formatCliError } from "./errors";
-import { rootHelpDoc } from "./help";
+import { GROUP_PATHS, groupHelpDoc, rootHelpDoc } from "./help";
 import { otelEnabled, tracingLayer } from "./tracing";
 import { APP_VERSION } from "./version";
 
@@ -73,7 +71,17 @@ const handleCliError = (error: unknown) =>
     process.exitCode = 1;
   });
 
-const program = isRootHelp(argv) ? printRootHelp : cli(argv);
+const selectProgram = () => {
+  if (isRootHelp(argv)) {
+    return printRootHelp;
+  }
+  const group = helpGroup(argv, GROUP_PATHS);
+  return group === undefined
+    ? cli(argv)
+    : Console.log(HelpDoc.toAnsiText(groupHelpDoc(group, APP_VERSION)));
+};
+
+const program = selectProgram();
 
 program.pipe(
   Effect.withSpan("cli", {
