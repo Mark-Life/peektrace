@@ -2,6 +2,160 @@
 
 ## Unreleased
 
+### Added
+
+- **`peektrace mcp`** (#153), a stdio MCP server for Claude Code, Codex and
+  other clients, with five read-only tools: `stats_report`, `stats_drill`,
+  `sessions_list`, `sessions_search` and `sessions_analyze`. Each returns the
+  same text as its CLI command, or the `--json` payload with
+  `format: "json"`. Redaction cannot be turned off from a tool call, and
+  memory and settings writes are blocked. It runs locally only and adds
+  about 12 KB to the binary. The README shows the client config.
+- **Search across sessions** (#154). `peektrace sessions search <q>` (and the
+  `sessions.search` RPC) scans transcripts newest first and prints one row
+  per matching session, with up to 3 snippets and the full match count. The
+  query is a case-insensitive phrase matched against text fields only, so
+  ids, paths and other metadata never match. Snippets are redacted by
+  default, and the query never reaches telemetry. Flags: `--agent`,
+  `--project`, `--since`, `--limit` (default 20) and `--no-redact`.
+- **Export a session** (#141). `peektrace sessions export` writes HTML,
+  Markdown or JSON, to a file with `--out` or to stdout. Secrets are replaced
+  and home directories collapse to `~` unless `--no-redact` is passed, and
+  the transcript's path is never written. HTML is a single file with inline
+  CSS and no scripts. JSON is a versioned format. The inspector gets matching
+  download buttons.
+- **Estimated API cost per session** (#138). `sessions ls` has an `EST COST`
+  column and `sessions analyze` an `est. cost` row, priced from list prices
+  per model generation. 1-hour cache writes are priced at their own rate, and
+  long-prompt tiers apply per call. A model with no known price adds nothing
+  and is named, so the figure is marked as too low instead of guessed. The
+  stats corpus panel uses the same table.
+- **Usage over time** (#132). `peektrace stats usage --by day|month|block`
+  totals tokens and cost per day, per month or per Claude 5-hour block, with
+  `--days`, `--agent`, `--tz` and `--json`, and a `stats.usage` RPC. Each call
+  is priced on its own and deduplicated by request id. A warm run takes about
+  2.3 s. There is no inspector chart yet.
+- **Analyze the current session and show it in a status line** (#129).
+  `sessions analyze --latest` and `--cwd <dir>` pick the newest session
+  without an id. `peektrace statusline` reads Claude Code's status line JSON
+  and prints one line such as `ctx 42% Healthy`, from current fill, so a
+  `/compact` clears a "Rotting" label. On any failure it prints `ctx --` and
+  exits 0.
+- **`sessions ls` lists every agent and filters** (#120). `--agent` takes
+  `claude`, `codex`, `pi`, `opencode` or `all` (default), and the table gains
+  an `agent` column. New `--since` (date or `12h`/`7d`/`2w`), `--cwd` and
+  `--limit` (default 30, `0` for all). Rows are sorted newest first, and a
+  cut list says how many rows are hidden on stderr. Breaking for scripts: the
+  new column shifts TSV indexes, and `--json` is sorted and capped at 30 too.
+- **Workflow subagents link to their Workflow call** (#125). Agents started by
+  the Workflow tool used to show as loose subagents. They now carry the call
+  that launched them, their run id, phase and phase index, and nested agents
+  keep their parent agent.
+
+### Changed
+
+- **Non-loopback binds require a token** (#130). `serve --host 0.0.0.0` (and
+  `tui --host`) used to expose every transcript, and writes, to anyone who
+  could reach the port. Every route now needs a token, random per start or
+  set with `PEEKTRACE_TOKEN`. The printed `?token=` URL sets a cookie in the
+  browser; scripts send `Authorization: Bearer`. These binds are read-only
+  unless `--allow-write` is passed. `--remote` accepts a token URL or
+  `PEEKTRACE_TOKEN`. Loopback is unchanged. Traffic is still plain HTTP, so
+  the docs recommend `ssh -L` or a tailnet.
+- **History follows the live branch** (#144). After a Claude rewind, the
+  abandoned prompt's rows no longer show as turns the model saw, though their
+  billed calls still count in tokens and cost. Pi tree sessions follow the
+  active branch, so off-branch entries and `context_edit`s drop out.
+- **Context files load like Claude Code** (#144): the global CLAUDE.md and
+  user rules, then each directory down to the cwd (`CLAUDE.md`,
+  `.claude/CLAUDE.md`, `.claude/rules`, `CLAUDE.local.md`), with AGENTS.md
+  only when there is no CLAUDE file. Only `memory/MEMORY.md` loads, capped
+  at 200 lines and 25,000 characters, so memory is no longer overcounted.
+- **Attachments the model never sees cost zero** (#124). Metadata-only
+  Claude attachments (`structured_output`, `deferred_tools_record` and
+  others) used to count their raw JSON as context. More reminder types are
+  categorized as reminders, and a prompt typed while the agent was busy shows
+  as a user prompt and counts as a user message.
+- **`<synthetic>` is not a model** (#128). It no longer appears in model
+  lists, headers or stats, though its error text stays in the timeline. A
+  `[1m]` model key sets the 1M context window. The parser also reads the
+  1-hour vs 5-minute cache-write split and compaction sizes, and counts
+  record types it does not know.
+- **`MSGS` counts messages, not lines** (#127). Claude writes one line per
+  content block, so one reply used to count several times. Sessions that
+  fail to read no longer vanish silently: `sessions ls` and `doctor` print
+  how many could not be read.
+- **`--help` describes every command** (#151). The root page lists each
+  command with a one-line summary, global options and examples, and drops
+  from 144 to 51 lines. Subcommand pages no longer show `--wizard` or a
+  doubled "optional" note.
+- **Context chips open in place** (#71). An opened chip grows into a card
+  where it sits in the run, with chips before it above and chips after it
+  below, so the load order holds. Its header is the chip, with the
+  attachment type and token count; clicking it folds the card back. Opened
+  bodies used to stack under the whole cluster in click order.
+- **The inspector bundles Geist and Geist Mono** (#72) instead of relying on
+  system fonts, so it looks the same on every OS. On Linux without the usual
+  fonts, monospace labels fell back to DejaVu and sat above their icons. The
+  fonts ship inside the binary, about 150 KB in total, and nothing is
+  fetched from the network. Geist covers Cyrillic too.
+- **GitHub release notes come from this changelog** (#131), and the website
+  footer shows the latest version. The npm page, CLI banner, READMEs and
+  website describe the current product, including OpenCode, npm installs and
+  Stats (#123).
+- Stats shards re-extract once (extractor version 13): output tokens,
+  user-message counts, models, usage rows and live branches changed.
+
+### Fixed
+
+- **Streamed Claude replies keep their final output tokens** (#117). Claude
+  writes one line per content block with a growing `output_tokens`, and only
+  the first, smallest count was kept, so output and thinking were
+  under-counted, most of all on subagent turns.
+- **Compaction no longer double counts listings** (#118). Listings
+  re-attached after the summary were added to the old count, and memory
+  loaded before a compaction stayed in the breakdown after it.
+- **Redacted output keeps no part of a dashed username** (#162). A project
+  slug such as `-home-jane-doe-work` came out as `-~-doe-work` in
+  `sessions search` and `sessions export`. The known home now collapses
+  exactly, and Pi slugs and lowercase Windows paths collapse too.
+- **Stats redacts cluster keys and survives a corrupt shard** (#139). A
+  shard written under older redaction rules could ship a secret in a cluster
+  row's key. One corrupt or truncated shard used to fail the whole pass; it
+  is now re-extracted.
+- **`serve` no longer hangs at startup** (#156) when a client connects to
+  its port during the port probe, such as a browser tab still polling after
+  a restart. This covers `tui` too.
+- **Remote errors and the update hint** (#121). A wrong `--remote` URL prints
+  one line that names the URL and the fix, not a stack of internals. npm,
+  pnpm and bun installs are told to run `npm i -g peektrace@latest`, and dev
+  builds skip the update check. The sessions table shows the dumb-zone turn
+  1-based or `never`, and estimated tokens no longer print as long floats.
+
+### Performance
+
+- **Session lists are cached** (#122). Each list re-read and re-parsed every
+  transcript. Headers are now reused while a file's size and mtime match, and
+  an agent filter reads only that agent's files. On a ~480-session corpus a
+  repeat list drops from about 800 ms to about 40 ms, and peak memory from
+  942 MB to 547 MB. A cold list costs the same.
+- **A scoped stats run keeps the cache warm** (#119). After
+  `stats --agent codex`, the next full `stats` ran cold (20.2 s); it now
+  stays warm (5.4 s). Shards of deleted transcripts are removed, and a scoped
+  `refresh --force` leaves other agents cached.
+- **Warm stats skips repeated work** (#133). Binaries are stored at
+  extraction, redaction runs only on what ships, and shards with nothing
+  inside `--days` are not read. Warm `--days 60` drops from 5.3 s to 3.5 s,
+  `--days 7` from 2.6 s to 1.9 s.
+- **Cold stats is faster and shows progress** (#126). A failure-detector
+  regex was quadratic on long paths, and stats no longer renders system
+  prompt tools it never reads: about 5% faster (22.0 s to 20.9 s). On a
+  terminal it prints `scanning N/M transcripts…` after 250 ms.
+- **Smaller Linux binaries** (#149). The bundled native library is stripped
+  of debug info and unused tree-sitter assets are left out: linux-x64 drops
+  from 116.2 MB to 102.9 MB (-11.5%), 41.2 MB to 38.1 MB gzipped. The upgrade
+  from v0.11.0 may fall back to a full download.
+
 ## cli-v0.11.0 — 2026-11-07
 
 ### Added
