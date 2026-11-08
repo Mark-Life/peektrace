@@ -63,52 +63,75 @@ export const NO_FILTERS: Filters = {
 /** Shape of a calendar day key. */
 const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Hash key per text or facet filter. */
-const FACET_KEYS = {
-  q: "query",
-  agent: "agent",
-  project: "project",
-  branch: "branch",
-  model: "model",
-  source: "source",
-} as const satisfies Partial<Record<ListKey, keyof Filters>>;
+/** A `YYYY-MM-DD` hash value as a local day, or `undefined` if malformed or
+ * not a real calendar day (`2026-02-31` would otherwise roll into March). */
+const dayParam = (value: string | null) => {
+  if (value === null || !DAY_KEY.test(value)) {
+    return;
+  }
+  const day = fromDayKey(value);
+  return day && toDayKey(day) === value ? day : undefined;
+};
 
-/** A `YYYY-MM-DD` hash value as a local day, or `undefined` if malformed. */
-const dayParam = (value: string | null) =>
-  value !== null && DAY_KEY.test(value) && !Number.isNaN(Date.parse(value))
-    ? fromDayKey(value)
-    : undefined;
-
-/** The range in `from`/`to`; a `to` without a valid `from` is ignored. */
+/** The range in `from`/`to`; a `to` without a valid `from` is ignored. A
+ * missing `to` reads as a one-day range, and a reversed pair is swapped. */
 const rangeFromParams = (params: URLSearchParams): DateRange | undefined => {
   const from = dayParam(params.get("from"));
-  return from ? { from, to: dayParam(params.get("to")) } : undefined;
+  if (!from) {
+    return;
+  }
+  const to = dayParam(params.get("to")) ?? from;
+  return to < from ? { from: to, to: from } : { from, to };
 };
+
+/** Hash value, or the default when the key is missing or empty. */
+const orDefault = (params: URLSearchParams, key: ListKey, fallback: string) =>
+  params.get(key) || fallback;
 
 /** Filters read from hash params; a missing or empty key is the default. */
-export const filtersFromParams = (params: URLSearchParams) => {
-  const facets = Object.fromEntries(
-    Object.entries(FACET_KEYS).map(([key, field]) => [
-      field,
-      params.get(key) || NO_FILTERS[field],
-    ])
-  ) as Omit<Filters, "range">;
-  return { ...facets, range: rangeFromParams(params) };
+export const filtersFromParams = (params: URLSearchParams): Filters => ({
+  query: orDefault(params, "q", NO_FILTERS.query),
+  agent: orDefault(params, "agent", NO_FILTERS.agent),
+  project: orDefault(params, "project", NO_FILTERS.project),
+  branch: orDefault(params, "branch", NO_FILTERS.branch),
+  model: orDefault(params, "model", NO_FILTERS.model),
+  source: orDefault(params, "source", NO_FILTERS.source),
+  range: rangeFromParams(params),
+});
+
+/** `value`, or `null` when it is the default, so defaults stay out of the URL. */
+const orNull = (value: string, fallback: string) =>
+  value === fallback ? null : value;
+
+/** The `from`/`to` hash values of a range; `to` only when it is a later day. */
+const rangeToParams = (range: DateRange | undefined) => {
+  const from = range?.from ? toDayKey(range.from) : null;
+  const to = from && range?.to ? toDayKey(range.to) : null;
+  return { from, to: to !== null && from !== null && to > from ? to : null };
 };
 
-/** Filters as hash params; a default maps to `null` so it stays out of the
- * URL, and `to` is written only when it is a later day than `from`. */
-export const filtersToParams = (f: Filters) => {
-  const from = f.range?.from ? toDayKey(f.range.from) : null;
-  const to = from && f.range?.to ? toDayKey(f.range.to) : null;
-  const facets = Object.fromEntries(
-    Object.entries(FACET_KEYS).map(([key, field]) => [
-      key,
-      f[field] === NO_FILTERS[field] ? null : f[field],
-    ])
-  ) as Record<keyof typeof FACET_KEYS, string | null>;
-  return { ...facets, from, to: to === from ? null : to };
-};
+/** Hash params for the filters in `f`; only the keys present in `f` are set. */
+export const filtersToParams = (
+  f: Partial<Filters>
+): Partial<Record<ListKey, string | null>> => ({
+  ...(f.query === undefined ? {} : { q: orNull(f.query, NO_FILTERS.query) }),
+  ...(f.agent === undefined
+    ? {}
+    : { agent: orNull(f.agent, NO_FILTERS.agent) }),
+  ...(f.project === undefined
+    ? {}
+    : { project: orNull(f.project, NO_FILTERS.project) }),
+  ...(f.branch === undefined
+    ? {}
+    : { branch: orNull(f.branch, NO_FILTERS.branch) }),
+  ...(f.model === undefined
+    ? {}
+    : { model: orNull(f.model, NO_FILTERS.model) }),
+  ...(f.source === undefined
+    ? {}
+    : { source: orNull(f.source, NO_FILTERS.source) }),
+  ...("range" in f ? rangeToParams(f.range) : {}),
+});
 
 /** A filter option: `value` is matched against the header, `label` is shown. */
 export interface FilterOption {

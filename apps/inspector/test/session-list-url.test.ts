@@ -22,6 +22,7 @@ const {
   markedSessionHash,
   navigate,
   openSession,
+  openSessionMarked,
   openSubagent,
   setHashParam,
   setHashParams,
@@ -93,4 +94,16 @@ test("an unchanged hash is not written again", () => {
   setHashParam("q", "alpha");
   setHashParams({ branch: null });
   expect(replaces).toBe(0);
+});
+
+test("opening a session from stats keeps the remembered list filters", () => {
+  navigate("stats");
+  openSessionMarked({ id: "id-0001", parent: null, mark: "retry" });
+  expect(params().get("id")).toBe("id-0001");
+  expect(params().get("mark")).toBe("retry");
+  expect(params().get("q")).toBe("alpha");
+  navigate("stats");
+  navigate("sessions");
+  expect(params().get("q")).toBe("alpha");
+  expect(params().get("agent")).toBe("codex");
 });

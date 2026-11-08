@@ -2,6 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
+import { addToRange } from "react-day-picker";
 import {
   activeDays,
   filtersFromParams,
@@ -352,16 +353,47 @@ describe("filters in the hash", () => {
       range: { from: day, to: day },
     });
     expect(params.get("to")).toBeNull();
-    expect(back.range).toEqual({ from: day, to: undefined });
+    expect(back.range).toEqual({ from: day, to: day });
   });
 
-  test("a from-only range round-trips", () => {
+  test("a from-only range reads back as that one day", () => {
     const from = new Date(2026, 2, 4);
     expect(
       roundTrip({ ...NO_FILTERS, range: { from, to: undefined } }).back.range
-    ).toEqual({
-      from,
-      to: undefined,
+    ).toEqual({ from, to: from });
+  });
+
+  test("clicking the picked day again clears the range after a round trip", () => {
+    const day = new Date(2026, 0, 5);
+    const picked = roundTrip({
+      ...NO_FILTERS,
+      range: addToRange(day, undefined),
+    }).back.range;
+    expect(addToRange(day, picked)).toBeUndefined();
+  });
+
+  test("a reversed range is swapped", () => {
+    expect(
+      filtersFromParams(new URLSearchParams("from=2026-01-09&to=2026-01-02"))
+        .range
+    ).toEqual({ from: new Date(2026, 0, 2), to: new Date(2026, 0, 9) });
+  });
+
+  test("an impossible calendar day is rejected, not rolled over", () => {
+    expect(
+      filtersFromParams(new URLSearchParams("from=2026-02-31")).range
+    ).toBeUndefined();
+    expect(
+      filtersFromParams(new URLSearchParams("from=2026-01-02&to=2026-02-30"))
+        .range
+    ).toEqual({ from: new Date(2026, 0, 2), to: new Date(2026, 0, 2) });
+  });
+
+  test("a partial patch writes only the keys it names", () => {
+    expect(filtersToParams({ agent: "codex" })).toEqual({ agent: "codex" });
+    expect(filtersToParams({ range: undefined })).toEqual({
+      from: null,
+      to: null,
     });
   });
 

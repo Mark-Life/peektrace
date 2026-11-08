@@ -38,7 +38,7 @@ export interface HashLocation {
 let cache: { readonly raw: string; readonly loc: HashLocation } | null = null;
 
 /** Hash keys that hold the session list filters. */
-export const LIST_KEYS = [
+const LIST_KEYS = [
   "q",
   "agent",
   "project",
@@ -126,18 +126,25 @@ export const navigate = (section: RouteId) => {
   );
 };
 
-/** The current list filters plus `extra`, for a hash that keeps the rail as is. */
-const withList = (extra: Record<string, string>) => {
-  const params = listParams(parseHash().params);
-  for (const [key, value] of Object.entries(extra)) {
+/** `base` with every key of `extra` set over it. */
+const merged = (base: URLSearchParams, extra: URLSearchParams) => {
+  const params = new URLSearchParams(base);
+  for (const [key, value] of extra) {
     params.set(key, value);
   }
   return params;
 };
 
+/** The current list filters plus `extra`, for a hash that keeps the rail as is. */
+const withList = (extra: URLSearchParams) =>
+  merged(listParams(parseHash().params), extra);
+
 /** Open a session in the sessions section — pushes a shareable history entry. */
 export const openSession = (id: string) => {
-  window.location.hash = buildHash("sessions", withList({ id }));
+  window.location.hash = buildHash(
+    "sessions",
+    withList(new URLSearchParams({ id }))
+  );
 };
 
 /** A session to open: a nested transcript also names the session it ran under. */
@@ -157,33 +164,39 @@ type MarkedTarget = SessionTarget & {
   readonly call?: string | null;
 };
 
-/**
- * The hash a stats row opens, carrying the detector id that sent you there so
- * the transcript can highlight the calls behind the number, and `call=<id>`
- * so it scrolls to the one meant. Marks render only in the chat layout, so
- * `view=chat` overrides a stored table preference.
- */
-export const markedSessionHash = (target: MarkedTarget) => {
+/** Query for a marked target: the session, its mark and call, chat view. */
+const markedParams = (target: MarkedTarget) => {
   const params = targetParams(target);
   params.set("mark", target.mark);
   if (target.call !== undefined && target.call !== null) {
     params.set("call", target.call);
   }
   params.set("view", "chat");
-  return buildHash("sessions", params);
+  return params;
 };
 
-/** Open a session from a stats row, marked by the row's detector. */
+/**
+ * The hash a stats row links to, carrying the detector id that sent you there
+ * so the transcript can highlight the calls behind the number, and `call=<id>`
+ * so it scrolls to the one meant. Marks render only in the chat layout, so
+ * `view=chat` overrides a stored table preference. Carries no list filters.
+ */
+export const markedSessionHash = (target: MarkedTarget) =>
+  buildHash("sessions", markedParams(target));
+
+/** Open a session from a stats row, marked by the row's detector. The list
+ *  filters last seen on the sessions section come along, so they are kept. */
 export const openSessionMarked = (target: MarkedTarget) => {
-  window.location.hash = markedSessionHash(target);
+  parseHash();
+  window.location.hash = buildHash(
+    "sessions",
+    merged(lastList, markedParams(target))
+  );
 };
 
 /** Open a subagent transcript through the session it ran under. */
-export const openSubagent = ({ id, parent }: SessionTarget) => {
-  window.location.hash = buildHash(
-    "sessions",
-    withList(parent === null ? { id } : { id, parent })
-  );
+export const openSubagent = (target: SessionTarget) => {
+  window.location.hash = buildHash("sessions", withList(targetParams(target)));
 };
 
 /** Clear the selected session without adding a history entry (in-app Back).
