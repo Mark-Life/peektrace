@@ -235,7 +235,8 @@ const SessionRowView = ({
   </Item>
 );
 
-/** Memoized: list reloads keep unchanged headers as the same objects, and\n *  moving the Tab stop re-renders only the two rows it touches. */
+/** Memoized: list reloads keep unchanged headers as the same objects, and
+ *  moving the Tab stop re-renders only the two rows it touches. */
 const SessionRow = memo(SessionRowView);
 
 /** The rows: one Tab stop, moved by the list keys. Owns the roving state, so

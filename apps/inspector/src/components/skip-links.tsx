@@ -9,7 +9,7 @@ import {
 import { useSelectedSessionId } from "../lib/routes";
 
 const SKIP_CLASS =
-  "sr-only rounded-md bg-background px-3 py-2 font-medium text-sm shadow-md ring-2 ring-ring focus:not-sr-only focus:fixed focus:left-2 focus:z-50";
+  "sr-only rounded-md bg-background font-medium text-sm shadow-md ring-2 ring-ring focus:not-sr-only focus:fixed focus:left-2 focus:z-50 focus:px-3 focus:py-2";
 
 /** Focus the first of `targets` on the page. The session detail only exists
  *  once the list has loaded, so its link falls back to the main content. */
