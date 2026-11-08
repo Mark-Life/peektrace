@@ -24,7 +24,7 @@ export const DETECTOR_VERSION = 2;
  * Bumped when `extract.ts` or any fact column changes. Part of the cache key:
  * a shard written by an older extractor is re-extracted, never read back.
  */
-export const EXTRACTOR_VERSION = 12;
+export const EXTRACTOR_VERSION = 13;
 
 /** Where a transcript sits in the session tree. */
 export const TranscriptKind = Schema.Literal(
@@ -241,11 +241,33 @@ export const BashFact = Schema.Struct({
 });
 export type BashFact = typeof BashFact.Type;
 
+/** One model call's usage. `row` leads, so a shard line opens `{"row":"usage"`. */
+export const UsageFact = Schema.Struct({
+  row: Schema.Literal("usage"),
+  sid: factFields.sid,
+  agent: factFields.agent,
+  /** ISO time of the call's first line, or null when the transcript records none. */
+  ts: Schema.NullOr(Schema.String),
+  /** The transcript's request id for the call. */
+  req: Schema.String,
+  model: Schema.String,
+  inputTokens: Schema.Number,
+  outputTokens: Schema.Number,
+  cacheReadTokens: Schema.Number,
+  cacheCreationTokens: Schema.Number,
+});
+export type UsageFact = typeof UsageFact.Type;
+
 /** One line of a cache shard. `row` is the discriminator. */
-export const StatsFact = Schema.Union(SessionFact, ToolFact, BashFact);
+export const StatsFact = Schema.Union(
+  SessionFact,
+  ToolFact,
+  BashFact,
+  UsageFact
+);
 export type StatsFact = typeof StatsFact.Type;
 
-/** Facts that carry a `seq` and a duration: everything but the session row. */
+/** Facts that carry a `seq` and a duration: the tool and bash rows. */
 export type CallFact = ToolFact | BashFact;
 
 /** True for a bash row. The one narrowing every detector needs. */
@@ -254,7 +276,7 @@ export const isBashFact = (fact: StatsFact): fact is BashFact =>
 
 /** True for a tool-or-bash row, i.e. anything with `seq` and `durSec`. */
 export const isCallFact = (fact: StatsFact): fact is CallFact =>
-  fact.row !== "session";
+  fact.row === "tool" || fact.row === "bash";
 
 /** One row of the fail table. */
 export const FailRow = Schema.Struct({
@@ -616,6 +638,7 @@ export const RefreshSummary = Schema.Struct({
   extracted: Schema.Number,
   cached: Schema.Number,
   skipped: Schema.Array(Schema.String),
+  /** Session, tool and bash rows read; usage rows are left out. */
   facts: Schema.Number,
 });
 export type RefreshSummary = typeof RefreshSummary.Type;

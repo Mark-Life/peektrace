@@ -29,14 +29,15 @@ import {
   sortedRecord,
 } from "./rank";
 import type { Redactor } from "./redact";
-import type {
-  CallFact,
-  CorpusSummary,
-  DrillHit,
-  DrillTable,
-  SampleRef,
-  StatsFact,
-  StatsWindow,
+import {
+  type CallFact,
+  type CorpusSummary,
+  type DrillHit,
+  type DrillTable,
+  isCallFact,
+  type SampleRef,
+  type StatsFact,
+  type StatsWindow,
 } from "./schema";
 
 /**
@@ -265,7 +266,9 @@ export const makeCorpusTotals = (): CorpusTotals => {
         addSession(fact);
         return;
       }
-      addCall(fact);
+      if (isCallFact(fact)) {
+        addCall(fact);
+      }
     },
     finish: () => ({
       transcripts,

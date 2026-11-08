@@ -74,6 +74,8 @@ import {
   type StatsReport,
   type StatsWindow,
 } from "./schema";
+import type { UsageReport } from "./usage-schema";
+import { makeUsage, type UsageRequest } from "./usage-service";
 import { foldCorpus, listCorpus, statOf, type TranscriptRef } from "./walk";
 
 /** Days of history a report covers when the caller names none. */
@@ -151,6 +153,10 @@ export interface StatsServiceShape {
   readonly report: (
     req: ReportRequest
   ) => Effect.Effect<StatsReport, StatsScanError>;
+  /** Tokens and estimated cost per day, month or 5-hour block. */
+  readonly usage: (
+    req: UsageRequest
+  ) => Effect.Effect<UsageReport, StatsScanError>;
 }
 
 /** Cross-session friction stats. */
@@ -356,7 +362,8 @@ const runPass = (args: {
           if (!inWindow(fact, fromMs, toMs)) {
             continue;
           }
-          facts += 1;
+          // Usage rows are not calls, so `facts` leaves them out.
+          facts += Number(fact.row !== "usage");
           for (const sink of sinks) {
             sink.add(fact);
           }
@@ -759,7 +766,21 @@ const makeService = (args: {
       } satisfies RefreshSummary;
     }).pipe(Effect.withSpan("Stats.refresh"));
 
-  return { drill, markers, refresh, report };
+  const usage = makeUsage({
+    pass: (p) =>
+      runPass({
+        ...p,
+        agents,
+        cache,
+        fs,
+        progress,
+        redact: makeRedactor({ enabled: true }),
+        scope: scopeOf(agents, p.agents),
+        useCache: true,
+      }),
+  });
+
+  return { drill, markers, refresh, report, usage };
 };
 
 /** Live layer: depends on AgentRegistry, the platform FileSystem and the cache. */

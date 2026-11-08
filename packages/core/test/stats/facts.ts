@@ -10,6 +10,7 @@ import type {
   CorpusSummary,
   SessionFact,
   ToolFact,
+  UsageFact,
 } from "../../src/services/stats/schema";
 import { ranBins } from "../../src/services/stats/shell-lex";
 
@@ -111,5 +112,19 @@ export const sessionFact = (over: Partial<SessionFact>): SessionFact => ({
   cacheCreationTokens: 0,
   maxContextTokens: 0,
   firstTurnCacheCreation: 0,
+  ...over,
+});
+
+export const usageFact = (over: Partial<UsageFact>): UsageFact => ({
+  row: "usage",
+  sid: "s1",
+  agent: "claude",
+  ts: "2026-08-01T00:00:00.000Z",
+  req: "req_1",
+  model: "claude-sonnet-4-5",
+  inputTokens: 100,
+  outputTokens: 50,
+  cacheReadTokens: 0,
+  cacheCreationTokens: 0,
   ...over,
 });

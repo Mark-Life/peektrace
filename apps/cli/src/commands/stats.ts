@@ -12,7 +12,7 @@
  * rows it is printed beside.
  */
 import { Command, Options } from "@effect/cli";
-import { AGENT_IDS, type AgentId } from "@workspace/core";
+import type { AgentId } from "@workspace/core";
 import { RETRY_WINDOW } from "@workspace/core/services/stats/detectors/retry-gates";
 import {
   type FindingFormat,
@@ -35,7 +35,6 @@ import type {
   TimeRow,
 } from "@workspace/core/services/stats/schema";
 import { Console, Effect, Option } from "effect";
-import { parseAgent } from "../agent-scope";
 import {
   type Globals,
   type GlobalsAccessor,
@@ -46,7 +45,9 @@ import {
 import { CliUserError } from "../errors";
 import { hms, json, percent, shortId, table, tokens } from "../render";
 import { splitRemote } from "../serve-auth";
+import { agentOpt, forceOpt, scopeOf } from "./stats-options";
 import { withScanProgress } from "./stats-progress";
+import { makeStatsUsage } from "./stats-usage";
 
 /** Chars of a row label or fix a cell keeps. Keys are never clipped: they route. */
 const CELL_MAX = 72;
@@ -58,18 +59,9 @@ const daysOpt = Options.integer("days").pipe(
   Options.withDescription("History window in days (default 60)"),
   Options.optional
 );
-const agentOpt = Options.text("agent").pipe(
-  Options.withDescription(`Agent to scan: ${AGENT_IDS.join("|")}|all`),
-  Options.optional
-);
 const limitOpt = Options.integer("limit").pipe(
   Options.withDescription("Rows kept per table (default 20)"),
   Options.optional
-);
-const forceOpt = Options.boolean("force").pipe(
-  Options.withDescription(
-    "Ignore cached shards and re-extract every transcript"
-  )
 );
 
 /** Per-job advice. Deliberately toolchain-generic: it is read next to any corpus. */
@@ -355,14 +347,6 @@ export const renderReport = (report: StatsReport, compact: boolean): string =>
     footer(report),
   ].join("\n");
 
-/** Resolve `--agent` to core's scope: absent or `all` scans every agent. */
-const scopeOf = (agent: Option.Option<string>) =>
-  parseAgent(agent).pipe(
-    Effect.map((id): { agents?: readonly AgentId[] } =>
-      id === undefined ? {} : { agents: [id] }
-    )
-  );
-
 /** The window/limit half of a request, with absent flags left to core's defaults. */
 const windowOf = (
   days: Option.Option<number>,
@@ -600,7 +584,7 @@ const runReport = (args: {
     );
   });
 
-/** `stats` — the two ranked tables, plus `drill` and `refresh`. */
+/** `stats` — the ranked tables, plus `drill`, `prompt`, `refresh` and `usage`. */
 export const makeStats = (globals: GlobalsAccessor) =>
   Command.make(
     "stats",
@@ -627,5 +611,6 @@ export const makeStats = (globals: GlobalsAccessor) =>
       makeStatsDrill(globals),
       makeStatsPrompt(globals),
       makeStatsRefresh(globals),
+      makeStatsUsage(globals),
     ])
   );

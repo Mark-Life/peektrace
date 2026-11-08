@@ -469,6 +469,58 @@ describe("stats.report", () => {
     ));
 });
 
+describe("stats.usage", () => {
+  test("buckets every model call by day, matching the report's tokens", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const usage = yield* client.stats.usage({ by: "day", days: 60 });
+        const report = yield* client.stats.report({ days: WIDE });
+        const kinds = report.cost.filter((row) => row.key.startsWith("kind:"));
+        expect(usage.schemaVersion).toBe("peektrace-stats-usage/v1");
+        expect(usage.generatedAt).toBe(FIXED_MS);
+        expect(usage.tz).toBe("UTC");
+        expect(usage.rows.map((row) => row.key)).toEqual(["2026-06-01"]);
+        expect(usage.totals.inputTokens).toBe(
+          kinds.reduce((n, row) => n + row.inputTokens, 0)
+        );
+        expect(usage.totals.usd).toBeGreaterThan(0);
+      })
+    ));
+
+  test("blocks open at the UTC hour of the first call", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const usage = yield* client.stats.usage({ by: "block", days: 60 });
+        expect(usage.rows).toHaveLength(1);
+        expect(usage.rows[0]?.block?.startIso).toBe("2026-06-01T10:00:00.000Z");
+        expect(usage.rows[0]?.block?.active).toBe(false);
+      })
+    ));
+
+  test("a second call reads the cache and prints the same bytes", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const first = yield* client.stats.usage({ by: "month", days: 365 });
+        const second = yield* client.stats.usage({ by: "month", days: 365 });
+        expect(JSON.stringify(second)).toBe(JSON.stringify(first));
+        expect(first.rows.map((row) => row.key)).toEqual(["2026-06"]);
+      })
+    ));
+
+  test("an unknown time zone is a typed scan failure", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const result = yield* Effect.either(
+          client.stats.usage({ by: "day", tz: "Mars/Olympus" })
+        );
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("StatsScanError");
+        }
+      })
+    ));
+});
+
 describe("stats.drill", () => {
   test("expands the rows behind a fail key", () =>
     withClient((client) =>

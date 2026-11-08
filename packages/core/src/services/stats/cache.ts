@@ -223,7 +223,12 @@ const parseShard = (raw: string): readonly StatsFact[] => {
       continue;
     }
     const fact = JSON.parse(line) as StatsFact;
-    if (fact.row === "session" || fact.row === "tool" || fact.row === "bash") {
+    if (
+      fact.row === "session" ||
+      fact.row === "tool" ||
+      fact.row === "bash" ||
+      fact.row === "usage"
+    ) {
       out.push(fact);
     }
   }

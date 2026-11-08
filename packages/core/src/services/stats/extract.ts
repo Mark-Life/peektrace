@@ -14,7 +14,7 @@
  * output, so a later cap on stored text cannot lose a failure.
  */
 import { isUserAuthored } from "../sessions/prompt-origin";
-import type { ParsedSession, TimelineEvent } from "../sessions/schema";
+import type { ParsedSession, TimelineEvent, Turn } from "../sessions/schema";
 import {
   CAUSES,
   type CauseHit,
@@ -28,7 +28,13 @@ import { classifyJob, isBackgrounded, isCapped } from "./detectors/timing";
 import { declaredDelaySec, waitShape } from "./detectors/waiting";
 import { round } from "./rank";
 import type { Redactor } from "./redact";
-import type { BashFact, SessionFact, StatsFact, ToolFact } from "./schema";
+import type {
+  BashFact,
+  SessionFact,
+  StatsFact,
+  ToolFact,
+  UsageFact,
+} from "./schema";
 import { ranBins } from "./shell-lex";
 import type { TranscriptRef } from "./walk";
 
@@ -195,6 +201,20 @@ const sessionFactOf = (args: {
   };
 };
 
+/** One model call's usage, 1:1 with a parsed turn. The usage view filters. */
+const usageFactOf = (identity: Identity, turn: Turn): UsageFact => ({
+  row: "usage",
+  sid: identity.sid,
+  agent: identity.agent,
+  ts: turn.ts ?? null,
+  req: turn.requestId,
+  model: turn.model,
+  inputTokens: turn.inputTokens,
+  outputTokens: turn.outputTokens,
+  cacheReadTokens: turn.cacheReadTokens,
+  cacheCreationTokens: turn.cacheCreationTokens,
+});
+
 /**
  * Clip each failing segment on its own, so a clip never splits two. The
  * detector already cut them from redacted text; this pass catches what the
@@ -307,7 +327,8 @@ const callFactOf = (args: {
 
 /**
  * Facts for one transcript: the session row first, then every joined call in
- * emit order. Nothing else in the service reads a `TimelineEvent`.
+ * emit order, then one usage row per model call. Nothing else in the service
+ * reads a `TimelineEvent`.
  */
 export const extractFacts = (args: {
   readonly ref: TranscriptRef;
@@ -370,5 +391,6 @@ export const extractFacts = (args: {
       toolCalls: calls.length,
     }),
     ...calls,
+    ...parsed.turns.map((turn) => usageFactOf(identity, turn)),
   ];
 };

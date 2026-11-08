@@ -38,13 +38,14 @@ import {
   topKey,
   uniqSorted,
 } from "../rank";
-import type {
-  ContextRow,
-  CostRow,
-  FanoutRow,
-  SessionFact,
-  StatsFact,
-  WebRepeatRow,
+import {
+  type ContextRow,
+  type CostRow,
+  type FanoutRow,
+  isCallFact,
+  type SessionFact,
+  type StatsFact,
+  type WebRepeatRow,
 } from "../schema";
 
 /** Model recorded for a session whose transcript names none. */
@@ -494,6 +495,9 @@ export const makeCorpusPanels: AccumulatorFactory<CorpusPanels> = () => {
     add: (fact) => {
       if (fact.row === "session") {
         addSession(fact);
+        return;
+      }
+      if (!isCallFact(fact)) {
         return;
       }
       if (fact.run !== null) {
