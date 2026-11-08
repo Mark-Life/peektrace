@@ -1,15 +1,15 @@
 /** Full history: one filtered event list, two readings of it.
  *
  * The shell owns everything shared — search, the type filter, the redaction
- * toggle and its banner, expand-all, and the single `visible` array — then hands
- * the identical rows to either renderer. Layout, sort and the type filter come
- * from the history prefs shared across sessions; the search query belongs to
- * this view and clears when another session opens. The chat layout is the
- * default, the readable pass; the dense table is the forensic answer ("what
- * did this cost, in what order") over the same events. Keeping the filtering here is what
- * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
- * behind a persistent "review before sharing" banner; the reveal toggle
- * re-fetches with `redact:false` (handled by the parent atom).
+ * toggle and its banner, expand-all, and the single `visible` array — then
+ * hands the identical rows to either renderer. Layout, sort and the type
+ * filter come from the history prefs shared across sessions; the search query
+ * belongs to this view and clears when another session opens. The chat layout
+ * is the default, the readable pass; the dense table is the forensic answer
+ * ("what did this cost, in what order") over the same events. Keeping the
+ * filtering here is what stops the two from drifting apart. The transcript is
+ * REDACTED BY DEFAULT behind a persistent "review before sharing" banner; the
+ * reveal toggle re-fetches with `redact:false` (handled by the parent atom).
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
@@ -61,6 +61,7 @@ const KIND_OPTIONS = [
 ] as const;
 
 const NO_HITS: readonly string[] = [];
+const NO_INDEX: readonly string[] = [];
 
 /** Map every event to the 1-based turn it belongs to (for grouping). */
 const turnNumbers = (a: AnalyzedSession): number[] => {
@@ -93,7 +94,13 @@ export const SessionHistory = ({
   const prefs = useHistoryPrefs();
   const { kind, sort, mode } = prefs;
   const { query, deferredQuery, setQuery } = useSearchQuery(sid);
-  const searchIndex = useMemo(() => searchIndexOf(a.events), [a.events]);
+  // Built only while searching: a live append rebuilds every event, and an
+  // idle viewer should not pay for an index nobody reads.
+  const searching = deferredQuery.length > 0;
+  const searchIndex = useMemo(
+    () => (searching ? searchIndexOf(a.events) : NO_INDEX),
+    [a.events, searching]
+  );
   const turns = useMemo(() => turnNumbers(a), [a]);
   const tools = useMemo(() => indexTools(a), [a]);
   // Stats marks are an annotation on the same calls the tables counted; a
@@ -183,13 +190,12 @@ export const SessionHistory = ({
   );
 
   // The search filters the list, so every drawn card is a hit.
-  const searching = deferredQuery.length > 0;
   const search = useSearchStepper({
     hits: searching ? transcriptIds : NO_HITS,
     isOpen,
     onToggle,
     query: deferredQuery,
-    resetKey: `${sid}\n${query}`,
+    resetKey: query,
   });
 
   const allOpen =
@@ -245,13 +251,15 @@ export const SessionHistory = ({
         )}
       </div>
 
-      {/* Pinned while searching, so the counter and step controls stay in reach
-          as stepping scrolls the transcript. */}
+      {/* Only the search row is pinned while searching, so the counter and
+          step controls stay in reach as stepping scrolls the transcript. The
+          padding is constant so typing does not shift the layout. */}
       <div
         className={cn(
-          "flex flex-wrap items-center gap-3",
-          query.length > 0 &&
-            "sticky top-0 z-10 -mx-1 border-border border-b bg-background px-1 py-2"
+          "-mx-1 -my-1 border-b px-1 py-1",
+          query.length > 0
+            ? "sticky top-0 z-10 border-border bg-background"
+            : "border-transparent"
         )}
       >
         <HistorySearch
@@ -260,8 +268,11 @@ export const SessionHistory = ({
           onClear={() => setQuery("")}
           onQuery={setQuery}
           onStep={search.onStep}
+          pending={query !== deferredQuery}
           query={query}
         />
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
         <Select onValueChange={prefs.setKind} value={kind}>
           <SelectTrigger className="w-40" data-testid="history-kind-filter">
             <SelectValue />
@@ -345,9 +356,9 @@ export const SessionHistory = ({
             activeMark={activeMark}
             allOpen={allOpen}
             crossEvtIdx={crossEvtIdx}
-            isOpen={isOpen}
+            isOpen={search.isOpen}
             marks={marks}
-            onToggle={onToggle}
+            onToggle={search.onToggle}
             queryActive={searching}
             rows={visible}
             tools={tools}
@@ -357,9 +368,9 @@ export const SessionHistory = ({
           <TranscriptTable
             a={a}
             crossEvtIdx={crossEvtIdx}
-            isOpen={isOpen}
+            isOpen={search.isOpen}
             onSort={prefs.setSort}
-            onToggle={onToggle}
+            onToggle={search.onToggle}
             rows={visible}
             sort={sort}
             tools={tools}

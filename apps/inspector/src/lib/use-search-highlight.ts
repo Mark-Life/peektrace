@@ -22,8 +22,9 @@ const registry = () =>
 
 /**
  * The rendered card for collapse id `id`. Chat cards carry the id as their DOM
- * id; table rows do not, so take the row at the id's place in `ids` (one
- * `history-event` node per row, in render order).
+ * id; an opened context chip carries it on its header, so take the enclosing
+ * chip card. Table rows carry no id: take the row at the id's place in `ids`
+ * (one `history-event` node per row, in render order).
  */
 export const cardOf = ({
   container,
@@ -35,7 +36,10 @@ export const cardOf = ({
   readonly ids: readonly string[];
 }) => {
   if (!id.startsWith("event:")) {
-    return container.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`);
+    const el = container.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`);
+    return (
+      el?.closest<HTMLElement>('[data-testid="chat-chip-card"]') ?? el ?? null
+    );
   }
   const at = ids.indexOf(id);
   return at < 0
@@ -43,6 +47,25 @@ export const cardOf = ({
     : (container.querySelectorAll<HTMLElement>('[data-testid="history-event"]')[
         at
       ] ?? null);
+};
+
+/** The element holding the first rendered match of `needle` in `card`, or the
+ *  card itself when no text matches (the hit is in a collapsed part). Scrolling
+ *  this element also scrolls the card's own overflow boxes. */
+export const firstHitIn = ({
+  card,
+  needle,
+}: {
+  readonly card: HTMLElement;
+  readonly needle: string;
+}) => {
+  const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    if (textRanges(node.nodeValue ?? "", needle).length > 0) {
+      return node.parentElement ?? card;
+    }
+  }
+  return card;
 };
 
 const paint = ({

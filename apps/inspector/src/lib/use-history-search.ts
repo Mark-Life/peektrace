@@ -3,28 +3,51 @@
  * Like browser find, the query belongs to one session view and resets when
  * another session opens (the history view stays mounted across sessions).
  * Filtering reads the deferred query, so typing stays responsive on long
- * transcripts.
+ * transcripts. Stepping never writes the persisted open-row state: the card
+ * it opens stays open only while it is the current hit.
  */
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { type StepDir, stepHit } from "./history-search";
-import { cardOf, useSearchHighlight } from "./use-search-highlight";
+import { cardOf, firstHitIn, useSearchHighlight } from "./use-search-highlight";
+
+interface QueryState {
+  readonly query: string;
+  readonly sid: string;
+}
+
+/** The query state for session `sid`: kept for the same session, cleared for
+ *  another one. */
+export const queryStateFor = (state: QueryState, sid: string): QueryState =>
+  state.sid === sid ? state : { query: "", sid };
 
 /** The search box value, cleared whenever `sid` changes. */
 export const useSearchQuery = (sid: string) => {
-  const [query, setQuery] = useState("");
-  const [querySid, setQuerySid] = useState(sid);
-  if (querySid !== sid) {
-    setQuerySid(sid);
-    setQuery("");
+  const [state, setState] = useState<QueryState>({ query: "", sid });
+  const next = queryStateFor(state, sid);
+  if (next !== state) {
+    setState(next);
   }
-  return { deferredQuery: useDeferredValue(query), query, setQuery };
+  const setQuery = useCallback(
+    (query: string) => setState((s) => ({ ...s, query })),
+    []
+  );
+  const deferredQuery = useDeferredValue(next.query);
+  return { deferredQuery, query: next.query, setQuery };
 };
 
 /**
- * Step through `hits` (collapse ids in render order): open the card, scroll it
- * to the middle and paint it as current. The current hit is tracked by id so a
- * live append keeps it; it falls back to none when the id leaves `hits` (a
- * layout or kind change) or `resetKey` changes (a new query or session).
+ * Step through `hits` (collapse ids in render order): open the card, scroll its
+ * first match to the middle and paint it as current. The current hit is
+ * tracked by id so a live append keeps it; it falls back to none when the id
+ * leaves `hits` (a layout or kind change) or `resetKey` changes (a new query).
+ * Render with the returned `isOpen` / `onToggle`, which add the card the
+ * stepper opened on top of the persisted state.
  */
 export const useSearchStepper = ({
   hits,
@@ -41,45 +64,68 @@ export const useSearchStepper = ({
   readonly resetKey: string;
 }) => {
   const [currentId, setCurrentId] = useState<string | null>(null);
-  const [step, setStep] = useState(0);
+  /** The current hit, when it was closed before the step landed on it. */
+  const [openedId, setOpenedId] = useState<string | null>(null);
   const [key, setKey] = useState(resetKey);
   if (key !== resetKey) {
     setKey(resetKey);
     setCurrentId(null);
+    setOpenedId(null);
   }
   const current = currentId === null ? -1 : hits.indexOf(currentId);
   const liveId = current < 0 ? null : currentId;
+  const liveOpened = liveId !== null && openedId === liveId ? openedId : null;
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
 
   const onStep = (dir: StepDir) => {
     const next = stepHit({ current: liveId, dir, hits });
     if (next === null) {
       return;
     }
-    if (!isOpen(next)) {
-      onToggle(next, true);
-    }
+    setOpenedId(isOpen(next) ? null : next);
     setCurrentId(next);
-    setStep((n) => n + 1);
+    // The step's render commits before the next frame, so the card is open.
+    cancelAnimationFrame(frameRef.current);
+    frameRef.current = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      const card =
+        container === null ? null : cardOf({ container, id: next, ids: hits });
+      if (card !== null) {
+        firstHitIn({ card, needle: query.toLowerCase() }).scrollIntoView({
+          block: "center",
+        });
+      }
+    });
   };
 
-  const containerRef = useRef<HTMLDivElement>(null);
   useSearchHighlight({ containerRef, currentId: liveId, ids: hits, query });
 
-  const hitsRef = useRef(hits);
+  // Rows are memoized on the toggle handler: read the opened id through a ref
+  // so a step does not hand every row a new handler.
+  const openedRef = useRef(liveOpened);
   useEffect(() => {
-    hitsRef.current = hits;
-  }, [hits]);
-  // `step` re-runs this when Enter lands on the same lone hit again.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: step is the trigger
-  useEffect(() => {
-    const container = containerRef.current;
-    if (container === null || liveId === null) {
-      return;
-    }
-    cardOf({ container, id: liveId, ids: hitsRef.current })?.scrollIntoView({
-      block: "center",
-    });
-  }, [liveId, step]);
+    openedRef.current = liveOpened;
+  }, [liveOpened]);
+  const onToggleOpen = useCallback(
+    (id: string, open: boolean) => {
+      if (id === openedRef.current) {
+        setOpenedId(null);
+      }
+      onToggle(id, open);
+    },
+    [onToggle]
+  );
+  const isOpenNow = (id: string) => id === liveOpened || isOpen(id);
 
-  return { containerRef, count: hits.length, current, onStep };
+  return {
+    containerRef,
+    count: hits.length,
+    current,
+    isOpen: isOpenNow,
+    onStep,
+    onToggle: onToggleOpen,
+  };
 };

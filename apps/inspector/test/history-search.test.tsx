@@ -14,7 +14,11 @@ import {
 } from "../src/lib/history-search";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import { DEFAULT_SESSION_VIEW } from "../src/lib/session-view";
-import { HistorySearch } from "../src/routes/sessions/history-search";
+import { queryStateFor } from "../src/lib/use-history-search";
+import {
+  HistorySearch,
+  searchKeyAction,
+} from "../src/routes/sessions/history-search";
 import { SessionHistory } from "../src/routes/sessions/session-history";
 
 const evt = (
@@ -125,12 +129,18 @@ test("text whose lowercase changes length gets no ranges", () => {
   expect(textRanges("İ zephyr", "zephyr")).toEqual([]);
 });
 
-const bar = (over: { query: string; count: number; current: number }) =>
+const bar = (over: {
+  query: string;
+  count: number;
+  current: number;
+  pending?: boolean;
+}) =>
   renderToStaticMarkup(
     <HistorySearch
       onClear={() => undefined}
       onQuery={() => undefined}
       onStep={() => undefined}
+      pending={false}
       {...over}
     />
   );
@@ -158,9 +168,21 @@ test("no hits disables stepping", () => {
   expect(tagOf(html, "history-search-prev")).toContain('disabled=""');
 });
 
+test("while the filter catches up the counter is blank, not 'No matches'", () => {
+  const html = bar({ count: 0, current: -1, pending: true, query: "zephyr" });
+  expect(html).not.toContain("No matches");
+  expect(html).toMatch(EMPTY_COUNT);
+  expect(tagOf(html, "history-match-count")).toContain('aria-busy="true"');
+  expect(tagOf(html, "history-search-next")).toContain('disabled=""');
+});
+
 test("an empty query shows no count and no step buttons", () => {
   const html = bar({ count: 0, current: -1, query: "" });
   expect(html).toMatch(EMPTY_COUNT);
+  // Visually hidden, not display:none, so the live region stays announced.
+  const counter = tagOf(html, "history-match-count");
+  expect(counter).toContain("sr-only");
+  expect(counter).not.toContain("hidden");
   expect(html).not.toContain("history-search-next");
   expect(html).not.toContain("history-search-clear");
 });
@@ -195,7 +217,31 @@ const session = (events: readonly TimelineEvent[]) =>
     userMessageCount: 0,
   }) satisfies AnalyzedSession;
 
-test("a fresh history view starts unfiltered", () => {
+const KEY = { isComposing: false, keyCode: 0, shiftKey: false };
+
+test("Enter steps, Shift+Enter steps back, Escape clears", () => {
+  expect(searchKeyAction({ ...KEY, key: "Enter" })).toBe("next");
+  expect(searchKeyAction({ ...KEY, key: "Enter", shiftKey: true })).toBe(
+    "prev"
+  );
+  expect(searchKeyAction({ ...KEY, key: "Escape" })).toBe("clear");
+  expect(searchKeyAction({ ...KEY, key: "a" })).toBeNull();
+});
+
+test("Enter that confirms an IME candidate does not step", () => {
+  expect(
+    searchKeyAction({ ...KEY, isComposing: true, key: "Enter" })
+  ).toBeNull();
+  expect(searchKeyAction({ ...KEY, key: "Enter", keyCode: 229 })).toBeNull();
+});
+
+test("the query clears when another session opens, and stays for the same one", () => {
+  const typed = { query: "zephyr", sid: "s-one" };
+  expect(queryStateFor(typed, "s-one")).toBe(typed);
+  expect(queryStateFor(typed, "s-two")).toEqual({ query: "", sid: "s-two" });
+});
+
+test("a history view renders unfiltered with an empty search box", () => {
   const view = {
     isExpanded: () => false,
     setExpanded: () => undefined,
