@@ -39,7 +39,7 @@ top of it:
 **`stripNativeLib`** (Linux targets only). The `@opentui/core-linux-*` libraries
 ship with DWARF debug info: 13.7 MB, of which about 9.8 MB is debug data. The
 plugin strips a copy with `--strip-debug` and embeds that. It keeps `.dynsym`,
-which `dlopen` needs. The cache is `apps/cli/dist/.native-cache/`. The original
+which `dlopen` needs. The copy goes to `apps/cli/dist/.native/<target>/`. The original
 in `node_modules` is never changed, because the package manager hardlinks it
 across installs.
 
@@ -76,7 +76,7 @@ the publish workflow, the workflow drops it and clients download the full file.
 ```sh
 cd apps/cli
 BUN_TARGET=bun-linux-x64 bun run src/build.ts
-stat -c %s dist/bun-linux-x64/peektrace
+wc -c < dist/bun-linux-x64/peektrace
 gzip -9 -c dist/bun-linux-x64/peektrace | wc -c
 ```
 

@@ -1,4 +1,4 @@
-// Synthetic stand-in for @opentui/core: lazy tree-sitter assets, a worker, a native lib.
+// Synthetic stand-in for @opentui/core: lazy tree-sitter assets and a worker.
 export const loadGrammar = () =>
   import("./assets/lang.wasm", { with: { type: "file" } });
 export const loadQuery = () =>

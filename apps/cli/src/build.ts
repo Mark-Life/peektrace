@@ -188,7 +188,13 @@ const compileBinary = async (
       ...(isLinux
         ? [
             stripNativeLib({
-              cacheDir: join(CLI_ROOT, "dist", ".native-cache"),
+              output: join(
+                CLI_ROOT,
+                "dist",
+                ".native",
+                target,
+                "libopentui.so"
+              ),
               required: process.env[STRIP_REQUIRED_ENV] === "1",
               tool,
             }),

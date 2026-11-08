@@ -10,7 +10,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import {
   findStripTool,
   STRIP_TOOL_ENV,
@@ -87,6 +87,25 @@ describe("stubTreeSitterAssets", () => {
     expect(all).toContain("wasm-grammar-marker");
   });
 
+  test("matches importers with Windows separators", () => {
+    type Resolve = (args: { importer: string; path: string }) => unknown;
+    let resolver: Resolve | undefined;
+    stubTreeSitterAssets().setup({
+      onLoad: () => undefined,
+      onResolve: (_options: unknown, fn: Resolve) => {
+        resolver = fn;
+      },
+    } as unknown as Bun.PluginBuilder);
+    const resolve = (importer: string) =>
+      resolver?.({ importer, path: "./lang.wasm" });
+    expect(resolve("C:\\x\\node_modules\\@opentui\\core\\index.js")).toEqual({
+      namespace: "opentui-no-tree-sitter",
+      path: "./lang.wasm",
+    });
+    expect(resolve("/x/node_modules/@opentui/core/index.js")).toBeDefined();
+    expect(resolve("/x/node_modules/other/index.js")).toBeUndefined();
+  });
+
   test("the stubbed lazy loader throws a clear error", async () => {
     const outdir = join(scratch, "ts-run");
     const result = await Bun.build({
@@ -133,6 +152,30 @@ describe("findStripTool", () => {
       findStripTool("bun-linux-arm64", { PATH: join(scratch, "empty-path") })
     ).toBeUndefined();
   });
+
+  test("brew is looked up on the given PATH only", async () => {
+    const dir = join(scratch, "path-brew");
+    const prefix = join(scratch, "brew-prefix");
+    await mkdir(join(prefix, "bin"), { recursive: true });
+    await writeFile(join(prefix, "bin", "llvm-strip"), "");
+    const brew = join(dir, "brew");
+    await mkdir(dir, { recursive: true });
+    await writeFile(brew, `#!/bin/sh\necho ${prefix}\n`);
+    await chmod(brew, 0o755);
+    expect(findStripTool("bun-linux-arm64", { PATH: dir })).toBe(
+      join(prefix, "bin", "llvm-strip")
+    );
+    const hostPath = `${dir}:${process.env.PATH ?? ""}`;
+    const saved = process.env.PATH;
+    process.env.PATH = hostPath;
+    try {
+      expect(
+        findStripTool("bun-linux-arm64", { PATH: join(scratch, "empty-path") })
+      ).toBeUndefined();
+    } finally {
+      process.env.PATH = saved;
+    }
+  });
 });
 
 describe("stripNativeLib", () => {
@@ -170,7 +213,7 @@ describe("stripNativeLib", () => {
         entry,
         [
           stripNativeLib({
-            cacheDir: join(scratch, "c1"),
+            output: join(scratch, "c1", "lib.so"),
             tool: join(scratch, "nope"),
           }),
         ],
@@ -183,49 +226,48 @@ describe("stripNativeLib", () => {
     expect(warnings.join("\n")).toContain("unstripped");
   });
 
-  test("required mode fails the build", async () => {
+  test("required mode fails the build with a clear plugin error", async () => {
     const lib = await fakeLib("required");
     const entry = await makeEntry("required-entry", lib);
-    await expect(
-      bundle(
-        entry,
-        [
-          stripNativeLib({
-            cacheDir: join(scratch, "c2"),
-            required: true,
-            tool: undefined,
-          }),
-        ],
-        "required-out"
-      )
-    ).rejects.toThrow();
+    const error = await bundle(
+      entry,
+      [
+        stripNativeLib({
+          output: join(scratch, "c2", "lib.so"),
+          required: true,
+          tool: undefined,
+        }),
+      ],
+      "required-out"
+    ).catch((e: unknown) => e);
+    const messages = ((error as AggregateError).errors ?? []).map(
+      (e: Error) => e.message
+    );
+    expect(messages).toContain(
+      "no strip tool found (PEEKTRACE_STRIP_REQUIRED=1)"
+    );
   });
 
-  test("strips to the cache, reuses it, and leaves the original alone", async () => {
+  test("embeds a stripped copy and leaves the original alone", async () => {
     const dir = join(scratch, "fake-tool");
     await mkdir(dir, { recursive: true });
     const tool = await writeFakeStrip(dir, "fake-strip");
-    const lib = await fakeLib("cached");
+    const lib = await fakeLib("stripped");
     const before = await sha256(lib);
-    const entry = await makeEntry("cached-entry", lib);
-    const cacheDir = join(scratch, "c3");
+    const entry = await makeEntry("stripped-entry", lib);
+    const output = join(scratch, "c3", "nested", "lib.so");
     const out = await bundle(
       entry,
-      [stripNativeLib({ cacheDir, tool })],
-      "cached-out"
+      [stripNativeLib({ output, tool })],
+      "stripped-out"
     );
     expect(out.success).toBe(true);
-    const [cached] = await Array.fromAsync(
-      new Bun.Glob("*.so").scan({ absolute: true, cwd: cacheDir })
-    );
-    expect(basename(cached ?? "")).toStartWith("_synthetic_native-1.2.3-14-");
+    expect((await readFile(output, "utf8")).endsWith("STRIPPED")).toBe(true);
+    const emitted = out.files.find((f) => f.endsWith(".so"));
     expect(
-      (await readFile(cached as string, "utf8")).endsWith("STRIPPED")
+      (await readFile(emitted as string, "utf8")).endsWith("STRIPPED")
     ).toBe(true);
     expect(await sha256(lib)).toBe(before);
-    const mtime = (await stat(cached as string)).mtimeMs;
-    await bundle(entry, [stripNativeLib({ cacheDir, tool })], "cached-out2");
-    expect((await stat(cached as string)).mtimeMs).toBe(mtime);
   });
 });
 
@@ -252,7 +294,7 @@ const realTool = findStripTool(`bun-linux-${arch}`);
 
 describe("stripNativeLib on the real OpenTUI library", () => {
   test.skipIf(!(realLib && realTool))(
-    "shrinks a copy and leaves node_modules untouched",
+    "embeds a shrunk copy and leaves node_modules untouched",
     async () => {
       const lib = realLib as string;
       const before = { sha: await sha256(lib), size: (await stat(lib)).size };
@@ -263,24 +305,19 @@ describe("stripNativeLib on the real OpenTUI library", () => {
         entry,
         `export const lib = await import(${JSON.stringify(lib)}, { with: { type: "file" } });\n`
       );
-      const cacheDir = join(dir, "cache");
+      const output = join(dir, "out", "libopentui.so");
       const out = await bundle(
         entry,
-        [stripNativeLib({ cacheDir, tool: realTool })],
+        [stripNativeLib({ output, tool: realTool })],
         "real-out"
       );
       expect(out.success).toBe(true);
-      const [stripped] = await Array.fromAsync(
-        new Bun.Glob("*.so").scan({ cwd: cacheDir, absolute: true })
-      );
-      expect(stripped).toBeDefined();
-      expect((await stat(stripped as string)).size).toBeLessThan(
-        before.size / 2
-      );
+      const stripped = (await stat(output)).size;
+      expect(stripped).toBeLessThan(before.size / 2);
+      const emitted = out.files.find((f) => f.endsWith(".so"));
+      expect((await stat(emitted as string)).size).toBe(stripped);
       const magic = Buffer.from(
-        await Bun.file(stripped as string)
-          .slice(0, 4)
-          .arrayBuffer()
+        await Bun.file(output).slice(0, 4).arrayBuffer()
       );
       expect(magic.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))).toBe(true);
       expect((await stat(lib)).size).toBe(before.size);
