@@ -6,20 +6,26 @@
  * size) with subagent drill-down. The redaction toggle flips the atom's
  * `redact` flag, which re-fetches the analysis with raw bodies.
  */
-import { useAtomValue } from "@effect-atom/atom-react";
+import { Result, useAtomValue } from "@effect-atom/atom-react";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
-import { memo, useCallback, useMemo, useRef } from "react";
-import { jumpKey, resolveJump, useHistoryJump } from "../../lib/history-jump";
+import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import {
+  type JumpLanding,
+  type JumpRequest,
+  jumpKey,
+  resolveJump,
+  useHistoryJump,
+} from "../../lib/history-jump";
 import { ResultView } from "../../lib/result-view";
 import { openSession } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useAnalyzedSession } from "../../lib/session-atoms";
-import { useSessionView } from "../../lib/session-view";
+import { type SessionView, useSessionView } from "../../lib/session-view";
 import { TranscriptSourceContext } from "../../lib/transcript-source";
 import { ExportButtons } from "./export-button";
 import { LoadedArtifacts } from "./loaded-artifacts";
@@ -44,6 +50,46 @@ const ParentNote = ({ parent }: { readonly parent: string }) => (
   </div>
 );
 
+/** The history, with the jump resolved once per analysis and request: the
+ *  resolve walks every event, and a fresh object would re-run the landing
+ *  effects on each render. */
+const History = ({
+  a,
+  id,
+  landing,
+  onSummary,
+  req,
+  sectionRef,
+  seq,
+  view,
+}: {
+  readonly a: AnalyzedSession;
+  readonly id: string;
+  readonly landing: JumpLanding;
+  readonly onSummary: () => void;
+  readonly req: JumpRequest | null;
+  readonly sectionRef: RefObject<HTMLElement | null>;
+  readonly seq: number;
+  readonly view: SessionView;
+}) => {
+  const jump = useMemo(() => {
+    const target = req === null ? null : resolveJump(a, req);
+    return target === null ? null : { key: jumpKey(target, seq), target };
+  }, [a, req, seq]);
+  return (
+    <SessionHistory
+      a={a}
+      jump={jump}
+      jumpFromLink={req?.kind === "call"}
+      landing={landing}
+      onSummary={onSummary}
+      sectionRef={sectionRef}
+      sid={id}
+      view={view}
+    />
+  );
+};
+
 /** The full debug view for one session id; `onBack` returns to the list. A
  * `parent` means `id` is a subagent transcript, resolved through that session. */
 const SessionDetailView = ({
@@ -62,7 +108,7 @@ const SessionDetailView = ({
   const root = useScrollRoot();
   const history = useRef<HTMLElement>(null);
   const jumpButton = useRef<HTMLButtonElement>(null);
-  const { req, seq, request } = useHistoryJump();
+  const { landing, req, seq, request } = useHistoryJump();
   const onTurn = useCallback(
     (turn: number) => request({ kind: "turn", turn }),
     [request]
@@ -77,10 +123,6 @@ const SessionDetailView = ({
     root?.scrollTo({ top: 0 });
     jumpButton.current?.focus({ preventScroll: true });
   }, [root]);
-  const jumpOf = (a: AnalyzedSession) => {
-    const target = req === null ? null : resolveJump(a, req);
-    return target === null ? null : { key: jumpKey(target, seq), target };
-  };
 
   return (
     <div className="flex flex-col gap-4" data-testid="session-detail">
@@ -94,16 +136,18 @@ const SessionDetailView = ({
         >
           <ArrowLeftIcon className="size-4" /> Back to sessions
         </Button>
-        <Button
-          className="w-fit"
-          data-testid="jump-to-history"
-          onClick={toHistory}
-          ref={jumpButton}
-          size="sm"
-          variant="ghost"
-        >
-          Jump to history <ArrowDownIcon className="size-4" />
-        </Button>
+        {Result.isSuccess(result) ? (
+          <Button
+            className="w-fit"
+            data-testid="jump-to-history"
+            onClick={toHistory}
+            ref={jumpButton}
+            size="sm"
+            variant="ghost"
+          >
+            Jump to history <ArrowDownIcon className="size-4" />
+          </Button>
+        ) : null}
       </div>
       {parent === null ? null : <ParentNote parent={parent} />}
       <ResultView result={result}>
@@ -115,12 +159,14 @@ const SessionDetailView = ({
             <GrowthTimeline a={a} onTurn={onTurn} />
             <LoadedArtifacts a={a} />
             <TranscriptSourceContext.Provider value={source}>
-              <SessionHistory
+              <History
                 a={a}
-                jump={jumpOf(a)}
+                id={id}
+                landing={landing}
                 onSummary={toSummary}
+                req={req}
                 sectionRef={history}
-                sid={id}
+                seq={seq}
                 view={view}
               />
             </TranscriptSourceContext.Provider>

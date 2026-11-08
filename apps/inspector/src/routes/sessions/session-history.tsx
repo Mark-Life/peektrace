@@ -31,7 +31,6 @@ import {
   TableIcon,
 } from "lucide-react";
 import {
-  type CSSProperties,
   type RefObject,
   useCallback,
   useDeferredValue,
@@ -42,11 +41,21 @@ import {
 } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
 import { filterRows, searchIndex } from "../../lib/history-filter";
-import { type HistoryJump, isHiddenJump } from "../../lib/history-jump";
-import { useStickyHeight, useSubagentsJump } from "../../lib/history-landing";
+import {
+  type HistoryJump,
+  isHiddenJump,
+  type JumpLanding,
+  rowIndexOfTarget,
+} from "../../lib/history-jump";
+import {
+  useScrollPadding,
+  useStickyHeight,
+  useSubagentsJump,
+} from "../../lib/history-landing";
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
+import { useScrollRoot } from "../../lib/scroll-root";
 import { useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
@@ -54,6 +63,7 @@ import {
   subagentCollapseId,
 } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
+import { HiddenNote } from "./hidden-note";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
 import { TranscriptTable } from "./transcript-table";
@@ -86,36 +96,6 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
-/** Says a link or a summary jump points at something the search or type
- *  filter hides, with the way to show it. */
-const HiddenNote = ({
-  hidden,
-  onClear,
-}: {
-  readonly hidden: "call" | "jump" | false;
-  readonly onClear: () => void;
-}) =>
-  hidden ? (
-    <div
-      className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
-      data-testid="history-call-hidden"
-    >
-      <span>
-        {hidden === "call"
-          ? "The call this link points to is hidden by the search or type filter."
-          : "The place you jumped to is hidden by the search or type filter."}
-      </span>
-      <Button
-        className="h-6 px-2 text-xs"
-        onClick={onClear}
-        size="sm"
-        variant="outline"
-      >
-        Clear filters
-      </Button>
-    </div>
-  ) : null;
-
 /** Keeps the warning in sight once the banner has scrolled away. */
 const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
   redacted ? null : (
@@ -132,6 +112,8 @@ const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
 export const SessionHistory = ({
   a,
   jump,
+  jumpFromLink,
+  landing,
   onSummary,
   sectionRef,
   sid,
@@ -140,6 +122,9 @@ export const SessionHistory = ({
   readonly a: AnalyzedSession;
   /** Where the summary asked to go, if anywhere. */
   readonly jump: HistoryJump | null;
+  /** The jump came from a stats link (`call=`), not the summary. */
+  readonly jumpFromLink: boolean;
+  readonly landing: JumpLanding;
   /** Scrolls back up to the summary. */
   readonly onSummary: () => void;
   /** The section element, for jumps from outside it. */
@@ -157,13 +142,15 @@ export const SessionHistory = ({
   // failed or pending marker query leaves the transcript exactly as it was.
   const marks = useToolMarks(sid);
   const activeMark = useHashParam("mark");
-  const callId = useHashParam("call");
-  // Lives here, not in a layout, so switching layouts does not land again.
-  const jumpDone = useRef<string | null>(null);
-  const chipDone = useRef<string | null>(null);
   const [bar, setBar] = useState<HTMLDivElement | null>(null);
   const stickyHeight = useStickyHeight(bar);
-  useSubagentsJump({ done: chipDone, jump, section: sectionRef });
+  useScrollPadding(useScrollRoot(), stickyHeight);
+  useSubagentsJump({
+    done: landing.done,
+    jump,
+    onLand: landing.onLand,
+    section: sectionRef,
+  });
 
   // A conversation has one order — its own. The persisted sort is left alone, so
   // switching back to the table restores the column sort it had.
@@ -190,24 +177,26 @@ export const SessionHistory = ({
     [a.events, hay, kind, deferredQuery, effectiveSort]
   );
 
-  // A stats link names a call the saved search or type filter can hide: say
-  // so, rather than leave the reader at the top of the transcript.
-  const callHidden =
-    callId !== null &&
-    a.events.some((e) => e.toolUseId === callId) &&
-    !visible.some(({ e }) => e.toolUseId === callId);
-  // A summary jump the filters hide gets the same note, until it has landed.
-  const allRows = useMemo(
-    () => a.events.map((e, pos) => ({ e, pos })),
-    [a.events]
+  // A jump the saved search or type filter hides gets a note, rather than
+  // leave the reader at the top of the transcript.
+  const jumpIndex = useMemo(
+    () =>
+      jump === null
+        ? -1
+        : rowIndexOfTarget({
+            ordered:
+              effectiveSort.key === "order" && effectiveSort.dir === "asc",
+            rows: visible,
+            target: jump.target,
+            turns,
+          }),
+    [jump, visible, effectiveSort, turns]
   );
   const jumpHidden = isHiddenJump({
-    all: allRows,
+    filtered: deferredQuery.length > 0 || kind !== "all",
+    index: jumpIndex,
     jump,
-    landed: chipDone.current,
-    sort: effectiveSort,
-    turns,
-    visible,
+    landed: landing.landed,
   });
   const showCall = () => {
     prefs.setQuery("");
@@ -273,10 +262,9 @@ export const SessionHistory = ({
 
   return (
     <section
-      className="flex flex-col gap-3 [&_[data-tool-use-id]]:scroll-mt-(--history-sticky) [&_li]:scroll-mt-(--history-sticky)"
+      className="flex flex-col gap-3"
       data-testid="session-history"
       ref={sectionRef}
-      style={{ "--history-sticky": `${stickyHeight}px` } as CSSProperties}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -326,7 +314,7 @@ export const SessionHistory = ({
       </div>
 
       <div
-        className="@container sticky top-0 z-10 -mx-1 flex flex-wrap items-center @2xl:gap-3 gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur"
+        className="@container top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
         data-testid="history-toolbar"
         ref={setBar}
       >
@@ -406,7 +394,7 @@ export const SessionHistory = ({
       </div>
 
       <HiddenNote
-        hidden={callHidden ? "call" : jumpHidden && "jump"}
+        hidden={jumpHidden && (jumpFromLink ? "call" : "jump")}
         onClear={showCall}
       />
 
@@ -420,12 +408,10 @@ export const SessionHistory = ({
             activeMark={activeMark}
             allOpen={allOpen}
             bulkKey={bulkKey}
-            callId={callId}
-            chipDone={chipDone}
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
             jump={jump}
-            jumpDone={jumpDone}
+            landing={landing}
             marks={marks}
             onToggle={onToggle}
             queryActive={deferredQuery.length > 0}
@@ -438,12 +424,10 @@ export const SessionHistory = ({
           <TranscriptTable
             a={a}
             bulkKey={bulkKey}
-            callId={callId}
-            chipDone={chipDone}
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
             jump={jump}
-            jumpDone={jumpDone}
+            landing={landing}
             onSort={prefs.setSort}
             onToggle={onToggle}
             rows={visible}

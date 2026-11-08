@@ -148,10 +148,216 @@ export const GrowthTimeline = ({
   const peakX = x(a.peakTurnIndex);
   const peakY = y(a.peakContextTokens);
   const crossX = a.dumbZoneCrossTurn >= 0 ? x(a.dumbZoneCrossTurn) : 0;
-  const marker = (turn: number) =>
+  const marker = (turn: number, label: string) =>
     onTurn
-      ? markerProps({ label: `Jump to turn ${turn} in history`, onTurn, turn })
+      ? markerProps({ label: `${label}: jump to it in history`, onTurn, turn })
       : {};
+
+  // Only the two markers are for assistive tech; the rest is the picture.
+  const plot = (
+    <>
+      {/* biome-ignore lint/a11y/noAriaHiddenOnFocusable: an SVG group with no tabindex is not focusable; the picture is hidden, the markers below are not */}
+      <g aria-hidden="true">
+        {/* dumb-zone danger band + boundary */}
+        <rect
+          data-testid="timeline-dumbzone"
+          fill="rgba(248,81,73,0.10)"
+          height={(dzY - T).toFixed(1)}
+          width={plotW}
+          x={L}
+          y={T}
+        />
+        <line
+          stroke="rgba(248,81,73,0.7)"
+          strokeDasharray="4 3"
+          x1={L}
+          x2={W - R}
+          y1={dzY.toFixed(1)}
+          y2={dzY.toFixed(1)}
+        />
+        <text
+          className="fill-red-400"
+          fontSize="11"
+          textAnchor="end"
+          x={W - R}
+          y={(dzY - OFF.label).toFixed(1)}
+        >
+          DUMB ZONE · {Math.round(a.dumbZoneFraction * PERCENT)}% ={" "}
+          {fmtK(a.dumbZoneFraction * win)}
+        </text>
+
+        {/* 200K ghost ceiling */}
+        {win > CEIL_200K ? (
+          <>
+            <line
+              stroke="rgba(255,255,255,0.25)"
+              strokeDasharray="2 4"
+              x1={L}
+              x2={W - R}
+              y1={y(CEIL_200K).toFixed(1)}
+              y2={y(CEIL_200K).toFixed(1)}
+            />
+            <text
+              className="fill-muted-foreground"
+              fontSize="10"
+              x={L + OFF.axisLabelY}
+              y={(y(CEIL_200K) - OFF.ceilLabel).toFixed(1)}
+            >
+              200K-model ceiling
+            </text>
+          </>
+        ) : null}
+
+        {/* gridlines + y labels */}
+        {grid.map((f) => {
+          const yy = y(f * win);
+          return (
+            <g key={f}>
+              <line
+                stroke="rgba(255,255,255,0.07)"
+                x1={L}
+                x2={W - R}
+                y1={yy.toFixed(1)}
+                y2={yy.toFixed(1)}
+              />
+              <text
+                className="fill-muted-foreground"
+                fontSize="10"
+                textAnchor="end"
+                x={L - OFF.axisLabelX}
+                y={(yy + OFF.axisLabelY).toFixed(1)}
+              >
+                {fmtK(f * win)}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* stacked areas */}
+        {areas.map((ar) => (
+          <path
+            d={ar.d}
+            fill={ar.color}
+            fillOpacity={ar.hatch ? AREA_OPACITY.hatch : AREA_OPACITY.flat}
+            key={ar.key}
+          >
+            <title>{CAT_META[ar.key as keyof typeof CAT_META].label}</title>
+          </path>
+        ))}
+        {areas
+          .filter((ar) => ar.hatch)
+          .map((ar) => (
+            <path d={ar.d} fill="url(#tl-hatch)" key={`h-${ar.key}`} />
+          ))}
+
+        {/* true-total silhouette */}
+        <path
+          d={silhouette}
+          fill="none"
+          stroke="rgba(255,255,255,0.85)"
+          strokeWidth="1.5"
+        />
+
+        {/* compaction cliffs */}
+        {a.compactionTurns.map((ti) => (
+          <line
+            key={`c-${ti}`}
+            stroke="rgba(210,153,34,0.9)"
+            strokeDasharray="3 2"
+            x1={x(ti).toFixed(1)}
+            x2={x(ti).toFixed(1)}
+            y1={T}
+            y2={T + plotH}
+          />
+        ))}
+
+        {/* per-turn dots */}
+        {snaps.map((s, i) => (
+          <circle
+            cx={x(i).toFixed(1)}
+            cy={y(s.ctx).toFixed(1)}
+            fill="rgba(255,255,255,0.9)"
+            key={s.turnIndex}
+            r={Math.min(
+              DOT.maxR,
+              DOT.baseR + s.outputTokens / DOT.tokensPerPx
+            ).toFixed(1)}
+          />
+        ))}
+
+        {/* x ticks */}
+        {snaps.map((s, i) =>
+          i % Math.max(1, Math.ceil(n / MAX_X_TICKS)) === 0 ? (
+            <text
+              className="fill-muted-foreground"
+              fontSize="10"
+              key={`t-${s.turnIndex}`}
+              textAnchor="middle"
+              x={x(i).toFixed(1)}
+              y={(T + plotH + OFF.xTick).toFixed(1)}
+            >
+              {i + 1}
+            </text>
+          ) : null
+        )}
+      </g>
+      {/* dumb-zone first crossing */}
+      {a.dumbZoneCrossTurn >= 0 ? (
+        <g
+          data-testid="timeline-cross"
+          {...marker(
+            a.dumbZoneCrossTurn + 1,
+            `Entered dumb zone at turn ${a.dumbZoneCrossTurn + 1}`
+          )}
+        >
+          <line
+            stroke="rgba(248,81,73,0.9)"
+            x1={crossX.toFixed(1)}
+            x2={crossX.toFixed(1)}
+            y1={T}
+            y2={T + plotH}
+          />
+          <circle
+            cx={crossX.toFixed(1)}
+            cy={y(snaps[a.dumbZoneCrossTurn]?.ctx ?? 0).toFixed(1)}
+            fill="#f85149"
+            r="4"
+          />
+          <text
+            className="fill-red-400"
+            fontSize="10"
+            x={(crossX + OFF.cross).toFixed(1)}
+            y={(T + plotH - OFF.label).toFixed(1)}
+          >
+            entered @ turn {a.dumbZoneCrossTurn + 1}
+          </text>
+        </g>
+      ) : null}
+
+      {/* peak marker */}
+      <g
+        data-testid="timeline-peak"
+        {...marker(
+          a.peakTurnIndex + 1,
+          `Peak ${fmtK(a.peakContextTokens)} at turn ${a.peakTurnIndex + 1}`
+        )}
+      >
+        <path
+          className="fill-foreground"
+          d={`M ${peakX.toFixed(1)} ${(peakY - OFF.peak).toFixed(1)} L ${(peakX + OFF.peak).toFixed(1)} ${peakY.toFixed(1)} L ${peakX.toFixed(1)} ${(peakY + OFF.peak).toFixed(1)} L ${(peakX - OFF.peak).toFixed(1)} ${peakY.toFixed(1)} Z`}
+        />
+        <text
+          className="fill-foreground"
+          fontSize="11"
+          textAnchor="middle"
+          x={peakX.toFixed(1)}
+          y={(peakY - OFF.peakLabel).toFixed(1)}
+        >
+          peak {fmtK(a.peakContextTokens)}
+        </text>
+      </g>
+    </>
+  );
 
   return (
     <section
@@ -163,7 +369,7 @@ export const GrowthTimeline = ({
       </div>
       <div className="overflow-x-auto">
         <svg
-          aria-label="Context growth over turns"
+          aria-label={`Context growth over ${a.turnCount} turns, peak ${fmtK(a.peakContextTokens)} at turn ${a.peakTurnIndex + 1}`}
           className={cn("w-full", maxWidth !== undefined && "mx-auto")}
           data-testid="timeline-svg"
           preserveAspectRatio="xMidYMid meet"
@@ -193,196 +399,6 @@ export const GrowthTimeline = ({
             </pattern>
           </defs>
 
-          {/* dumb-zone danger band + boundary */}
-          <rect
-            data-testid="timeline-dumbzone"
-            fill="rgba(248,81,73,0.10)"
-            height={(dzY - T).toFixed(1)}
-            width={plotW}
-            x={L}
-            y={T}
-          />
-          <line
-            stroke="rgba(248,81,73,0.7)"
-            strokeDasharray="4 3"
-            x1={L}
-            x2={W - R}
-            y1={dzY.toFixed(1)}
-            y2={dzY.toFixed(1)}
-          />
-          <text
-            className="fill-red-400"
-            fontSize="11"
-            textAnchor="end"
-            x={W - R}
-            y={(dzY - OFF.label).toFixed(1)}
-          >
-            DUMB ZONE · {Math.round(a.dumbZoneFraction * PERCENT)}% ={" "}
-            {fmtK(a.dumbZoneFraction * win)}
-          </text>
-
-          {/* 200K ghost ceiling */}
-          {win > CEIL_200K ? (
-            <>
-              <line
-                stroke="rgba(255,255,255,0.25)"
-                strokeDasharray="2 4"
-                x1={L}
-                x2={W - R}
-                y1={y(CEIL_200K).toFixed(1)}
-                y2={y(CEIL_200K).toFixed(1)}
-              />
-              <text
-                className="fill-muted-foreground"
-                fontSize="10"
-                x={L + OFF.axisLabelY}
-                y={(y(CEIL_200K) - OFF.ceilLabel).toFixed(1)}
-              >
-                200K-model ceiling
-              </text>
-            </>
-          ) : null}
-
-          {/* gridlines + y labels */}
-          {grid.map((f) => {
-            const yy = y(f * win);
-            return (
-              <g key={f}>
-                <line
-                  stroke="rgba(255,255,255,0.07)"
-                  x1={L}
-                  x2={W - R}
-                  y1={yy.toFixed(1)}
-                  y2={yy.toFixed(1)}
-                />
-                <text
-                  className="fill-muted-foreground"
-                  fontSize="10"
-                  textAnchor="end"
-                  x={L - OFF.axisLabelX}
-                  y={(yy + OFF.axisLabelY).toFixed(1)}
-                >
-                  {fmtK(f * win)}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* stacked areas */}
-          {areas.map((ar) => (
-            <path
-              d={ar.d}
-              fill={ar.color}
-              fillOpacity={ar.hatch ? AREA_OPACITY.hatch : AREA_OPACITY.flat}
-              key={ar.key}
-            >
-              <title>{CAT_META[ar.key as keyof typeof CAT_META].label}</title>
-            </path>
-          ))}
-          {areas
-            .filter((ar) => ar.hatch)
-            .map((ar) => (
-              <path d={ar.d} fill="url(#tl-hatch)" key={`h-${ar.key}`} />
-            ))}
-
-          {/* true-total silhouette */}
-          <path
-            d={silhouette}
-            fill="none"
-            stroke="rgba(255,255,255,0.85)"
-            strokeWidth="1.5"
-          />
-
-          {/* compaction cliffs */}
-          {a.compactionTurns.map((ti) => (
-            <line
-              key={`c-${ti}`}
-              stroke="rgba(210,153,34,0.9)"
-              strokeDasharray="3 2"
-              x1={x(ti).toFixed(1)}
-              x2={x(ti).toFixed(1)}
-              y1={T}
-              y2={T + plotH}
-            />
-          ))}
-
-          {/* dumb-zone first crossing */}
-          {a.dumbZoneCrossTurn >= 0 ? (
-            <g
-              data-testid="timeline-cross"
-              {...marker(a.dumbZoneCrossTurn + 1)}
-            >
-              <line
-                stroke="rgba(248,81,73,0.9)"
-                x1={crossX.toFixed(1)}
-                x2={crossX.toFixed(1)}
-                y1={T}
-                y2={T + plotH}
-              />
-              <circle
-                cx={crossX.toFixed(1)}
-                cy={y(snaps[a.dumbZoneCrossTurn]?.ctx ?? 0).toFixed(1)}
-                fill="#f85149"
-                r="4"
-              />
-              <text
-                className="fill-red-400"
-                fontSize="10"
-                x={(crossX + OFF.cross).toFixed(1)}
-                y={(T + plotH - OFF.label).toFixed(1)}
-              >
-                entered @ turn {a.dumbZoneCrossTurn + 1}
-              </text>
-            </g>
-          ) : null}
-
-          {/* peak marker */}
-          <g data-testid="timeline-peak" {...marker(a.peakTurnIndex + 1)}>
-            <path
-              className="fill-foreground"
-              d={`M ${peakX.toFixed(1)} ${(peakY - OFF.peak).toFixed(1)} L ${(peakX + OFF.peak).toFixed(1)} ${peakY.toFixed(1)} L ${peakX.toFixed(1)} ${(peakY + OFF.peak).toFixed(1)} L ${(peakX - OFF.peak).toFixed(1)} ${peakY.toFixed(1)} Z`}
-            />
-            <text
-              className="fill-foreground"
-              fontSize="11"
-              textAnchor="middle"
-              x={peakX.toFixed(1)}
-              y={(peakY - OFF.peakLabel).toFixed(1)}
-            >
-              peak {fmtK(a.peakContextTokens)}
-            </text>
-          </g>
-
-          {/* per-turn dots */}
-          {snaps.map((s, i) => (
-            <circle
-              cx={x(i).toFixed(1)}
-              cy={y(s.ctx).toFixed(1)}
-              fill="rgba(255,255,255,0.9)"
-              key={s.turnIndex}
-              r={Math.min(
-                DOT.maxR,
-                DOT.baseR + s.outputTokens / DOT.tokensPerPx
-              ).toFixed(1)}
-            />
-          ))}
-
-          {/* x ticks */}
-          {snaps.map((s, i) =>
-            i % Math.max(1, Math.ceil(n / MAX_X_TICKS)) === 0 ? (
-              <text
-                className="fill-muted-foreground"
-                fontSize="10"
-                key={`t-${s.turnIndex}`}
-                textAnchor="middle"
-                x={x(i).toFixed(1)}
-                y={(T + plotH + OFF.xTick).toFixed(1)}
-              >
-                {i + 1}
-              </text>
-            ) : null
-          )}
-
           {onTurn ? (
             <TimelineHitLayer
               left={L}
@@ -392,8 +408,12 @@ export const GrowthTimeline = ({
               snaps={snaps}
               top={T}
               x={x}
-            />
-          ) : null}
+            >
+              {plot}
+            </TimelineHitLayer>
+          ) : (
+            plot
+          )}
         </svg>
       </div>
 

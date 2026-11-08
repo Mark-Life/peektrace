@@ -21,6 +21,7 @@ import { buildChatPlan, chatNodeKeys } from "../src/lib/chat-lane";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import type { ToolMarks } from "../src/lib/session-markers";
 import { indexTools } from "../src/lib/tool-event";
+import { HiddenNote } from "../src/routes/sessions/hidden-note";
 import {
   ChatNodeView,
   TranscriptChat,
@@ -166,6 +167,11 @@ const TURNS = EVENTS.map((e) => {
 
 /** No stats markers: the transcript renders the same with or without them. */
 const NO_MARKS: ToolMarks = new Map();
+const LANDING = {
+  done: { current: null },
+  landed: null,
+  onLand: () => undefined,
+};
 
 const noop = () => {
   // collapse state is not exercised by a static render
@@ -278,12 +284,10 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       activeMark={null}
       allOpen={false}
       bulkKey={0}
-      callId="t1"
-      chipDone={{ current: null }}
       crossEvtIdx={9}
       isOpen={() => false}
       jump={null}
-      jumpDone={{ current: null }}
+      landing={LANDING}
       marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
@@ -300,12 +304,10 @@ test("both transcripts mount as lists before the page has scrolled", () => {
     <TranscriptTable
       a={SESSION}
       bulkKey={0}
-      callId={null}
-      chipDone={{ current: null }}
       crossEvtIdx={9}
       isOpen={() => false}
       jump={null}
-      jumpDone={{ current: null }}
+      landing={LANDING}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
@@ -330,12 +332,10 @@ test("token sort shows window share, hides the divider, marks the header", () =>
     <TranscriptTable
       a={SESSION}
       bulkKey={0}
-      callId={null}
-      chipDone={{ current: null }}
       crossEvtIdx={9}
       isOpen={() => false}
       jump={null}
-      jumpDone={{ current: null }}
+      landing={LANDING}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
@@ -355,12 +355,10 @@ test("empty filters read the same in both layouts", () => {
   const props = {
     a: SESSION,
     bulkKey: 0,
-    callId: null,
     crossEvtIdx: -1,
-    chipDone: { current: null },
     isOpen: () => false,
     jump: null,
-    jumpDone: { current: null },
+    landing: LANDING,
     onToggle: noop,
     rows: [],
     stickyHeight: 0,
@@ -427,7 +425,10 @@ test("summary chips are jump buttons only when the host can jump", () => {
   for (const id of ["chip-dumbzone", "chip-compaction", "chip-subagents"]) {
     expect(live).toContain(`data-testid="${id}"`);
   }
-  expect(live).toContain('aria-label="Jump to turn 2 in history"');
+  // The visible text is the name; the jump hint follows for screen readers.
+  expect(live).not.toContain("aria-label=");
+  expect(live).toContain("1 compaction(s)");
+  expect(live).toContain(", jump to the first in history");
   const plain = renderToStaticMarkup(<VerdictHeader a={SUMMARY} />);
   expect(countOf(plain, "<button")).toBe(0);
   expect(plain).toContain("entered dumb zone @ turn 2");
@@ -441,6 +442,10 @@ test("the timeline takes clicks and focus only when the host can jump", () => {
   expect(countOf(live, 'role="button"')).toBe(2);
   expect(countOf(live, 'tabindex="0"')).toBe(2);
   expect(live).toContain('role="group"');
+  // Two markers, told apart by name; the rest is hidden from assistive tech.
+  expect(live).toContain('aria-label="Entered dumb zone at turn 2: jump');
+  expect(live).toContain('aria-label="Peak ');
+  expect(live).toContain('aria-hidden="true"');
   const plain = renderToStaticMarkup(<GrowthTimeline a={SUMMARY} />);
   expect(plain).not.toContain("timeline-hit");
   expect(plain).not.toContain('role="button"');
@@ -450,4 +455,20 @@ test("the timeline takes clicks and focus only when the host can jump", () => {
 test("turn rules and table gutters carry their turn number", () => {
   expect(chatHtml({ open: false })).toContain('data-turn="2"');
   expect(tableHtml(() => false)).toContain('data-turn="1"');
+});
+
+test("the hidden note says which kind of jump the filters hide", () => {
+  const call = renderToStaticMarkup(
+    <HiddenNote hidden="call" onClear={noop} />
+  );
+  expect(call).toContain('data-testid="history-call-hidden"');
+  expect(call).toContain("The call this link points to");
+  const jump = renderToStaticMarkup(
+    <HiddenNote hidden="jump" onClear={noop} />
+  );
+  expect(jump).toContain('data-testid="history-jump-hidden"');
+  expect(jump).toContain("The place you jumped to");
+  expect(
+    renderToStaticMarkup(<HiddenNote hidden={false} onClear={noop} />)
+  ).toBe("");
 });

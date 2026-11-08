@@ -1,12 +1,15 @@
 /** The pointer layer of the growth timeline: a hover guide with the turn under
  *  the pointer, and a click that reports that turn.
  *
- * Hover state lives here, not in the chart, so moving the pointer re-renders
- * one line and one label instead of every area, dot and tick.
+ * The layer wraps the plot instead of covering it, so pointer events from the
+ * areas and markers bubble up to it: the area tooltips still show, and a
+ * marker click reports its own turn and stops there. Hover state lives here,
+ * not in the chart, and the plot comes in as `children`, so moving the pointer
+ * re-renders one line and one label instead of every area, dot and tick.
  */
 import type { TurnSnapshot } from "@workspace/core/services/sessions/schema";
-import type { KeyboardEvent, MouseEvent } from "react";
-import { useState } from "react";
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { useRef, useState } from "react";
 import { fmtK } from "../lib/session-format";
 import { turnAtX } from "../lib/timeline-hit";
 
@@ -15,7 +18,9 @@ const LABEL_GAP = 6;
 /** Label baseline below the plot top, in viewBox px. */
 const LABEL_DROP = 12;
 
-/** Props a keyboard-reachable marker needs to jump to `turn`. */
+/** Props a marker needs to jump to `turn` by mouse or keyboard. The click
+ *  stops at the marker, so the layer under it does not also report the
+ *  snapshot nearest the pointer. */
 export const markerProps = ({
   label,
   onTurn,
@@ -27,7 +32,10 @@ export const markerProps = ({
 }) => ({
   "aria-label": label,
   className: "cursor-pointer",
-  onClick: () => onTurn(turn),
+  onClick: (ev: MouseEvent) => {
+    ev.stopPropagation();
+    onTurn(turn);
+  },
   onKeyDown: (ev: KeyboardEvent) => {
     if (ev.key === "Enter" || ev.key === " ") {
       ev.preventDefault();
@@ -38,8 +46,9 @@ export const markerProps = ({
   tabIndex: 0,
 });
 
-/** A transparent rect over the plot that tracks the pointer. */
+/** Tracks the pointer over `children` and reports the turn it clicks. */
 export const TimelineHitLayer = ({
+  children,
   left,
   onTurn,
   plotH,
@@ -48,6 +57,7 @@ export const TimelineHitLayer = ({
   top,
   x,
 }: {
+  readonly children: ReactNode;
   readonly left: number;
   readonly onTurn: (turn: number) => void;
   readonly plotH: number;
@@ -57,23 +67,53 @@ export const TimelineHitLayer = ({
   readonly x: (i: number) => number;
 }) => {
   const [hover, setHover] = useState(-1);
+  const area = useRef<SVGRectElement>(null);
   // The snapshot count is read on every event, so a live session growing
-  // under a still pointer maps to the current list.
-  const indexAt = (ev: MouseEvent<SVGRectElement>) => {
-    const box = ev.currentTarget.getBoundingClientRect();
-    if (box.width <= 0) {
+  // under a still pointer maps to the current list. -1 outside the plot.
+  const indexAt = (ev: MouseEvent) => {
+    const box = area.current?.getBoundingClientRect();
+    if (!box || box.width <= 0) {
       return -1;
     }
-    const px = left + ((ev.clientX - box.left) / box.width) * plotW;
-    return turnAtX({ left, n: snaps.length, plotW, px });
+    const frac = (ev.clientX - box.left) / box.width;
+    if (frac < 0 || frac > 1) {
+      return -1;
+    }
+    return turnAtX({ left, n: snaps.length, plotW, px: left + frac * plotW });
   };
   const snap = hover >= 0 ? snaps[hover] : undefined;
   const hx = snap ? x(hover) : 0;
   const rightHalf = hx > left + plotW / 2;
   return (
-    <g data-testid="timeline-hit">
+    // biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only shortcut; the dumb-zone and peak markers are the keyboard path
+    <g
+      data-testid="timeline-hit"
+      onClick={(ev) => {
+        const s = snaps[indexAt(ev)];
+        if (s) {
+          onTurn(s.turnIndex + 1);
+        }
+      }}
+      onPointerLeave={() => setHover(-1)}
+      onPointerMove={(ev) => {
+        const i = indexAt(ev);
+        setHover((prev) => (prev === i ? prev : i));
+      }}
+    >
+      <rect
+        className="cursor-pointer"
+        data-testid="timeline-hit-area"
+        fill="transparent"
+        height={plotH}
+        ref={area}
+        width={plotW}
+        x={left}
+        y={top}
+      />
+      {children}
       {snap ? (
-        <g pointerEvents="none">
+        // biome-ignore lint/a11y/noAriaHiddenOnFocusable: an SVG group with no tabindex is not focusable; this hides the hover label from screen readers
+        <g aria-hidden="true" pointerEvents="none">
           <line
             stroke="currentColor"
             strokeOpacity="0.5"
@@ -93,27 +133,6 @@ export const TimelineHitLayer = ({
           </text>
         </g>
       ) : null}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only shortcut; the dumb-zone and peak markers are the keyboard path */}
-      <rect
-        className="cursor-pointer"
-        data-testid="timeline-hit-area"
-        fill="transparent"
-        height={plotH}
-        onClick={(ev) => {
-          const s = snaps[indexAt(ev)];
-          if (s) {
-            onTurn(s.turnIndex + 1);
-          }
-        }}
-        onPointerLeave={() => setHover(-1)}
-        onPointerMove={(ev) => {
-          const i = indexAt(ev);
-          setHover((prev) => (prev === i ? prev : i));
-        }}
-        width={plotW}
-        x={left}
-        y={top}
-      />
     </g>
   );
 };

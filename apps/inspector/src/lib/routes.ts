@@ -165,15 +165,27 @@ export const useHashParam = (key: string) =>
     () => null
   );
 
-/** Set (or, when `value` is null, clear) one query param on the current hash,
- *  preserving the other params, without adding a history entry. */
-export const setHashParam = (key: string, value: string | null) => {
+/** One query param from the current hash, read once, or null. */
+export const readHashParam = (key: string) => parseHash().params.get(key);
+
+/** Set (or, where a value is null, clear) query params on the current hash,
+ *  preserving the others, without adding a history entry. */
+export const setHashParams = (
+  entries: Readonly<Record<string, string | null>>
+) => {
   const loc = parseHash();
   const params = new URLSearchParams(loc.params);
-  if (value === null) {
-    params.delete(key);
-  } else {
-    params.set(key, value);
+  for (const [key, value] of Object.entries(entries)) {
+    if (value === null) {
+      params.delete(key);
+    } else {
+      params.set(key, value);
+    }
   }
   replaceHash(buildHash(loc.section, params));
 };
+
+/** Set (or, when `value` is null, clear) one query param on the current hash,
+ *  preserving the other params, without adding a history entry. */
+export const setHashParam = (key: string, value: string | null) =>
+  setHashParams({ [key]: value });

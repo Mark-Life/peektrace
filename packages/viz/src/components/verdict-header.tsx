@@ -77,19 +77,21 @@ const CostValue = ({
 };
 
 /** A summary chip. Given `onJump` it is a button that shows the place it
- *  names in the transcript; without it, a plain badge. */
+ *  names in the transcript; without it, a plain badge. The visible text stays
+ *  the button's name, so its counts are read out and voice control matches
+ *  it; `hint` follows it for screen readers and as the tooltip. */
 const JumpChip = ({
   children,
   className,
+  hint,
   jump,
-  label,
   onJump,
   testId,
 }: {
   readonly children: ReactNode;
   readonly className?: string;
+  readonly hint: string;
   readonly jump: SessionJump;
-  readonly label: string;
   readonly onJump: ((j: SessionJump) => void) | undefined;
   readonly testId: string;
 }) =>
@@ -103,13 +105,13 @@ const JumpChip = ({
       variant="outline"
     >
       <button
-        aria-label={label}
         data-testid={testId}
         onClick={() => onJump(jump)}
-        title={label}
+        title={hint}
         type="button"
       >
         {children}
+        <span className="sr-only">, {hint}</span>
       </button>
     </Badge>
   ) : (
@@ -228,8 +230,8 @@ export const VerdictHeader = ({
         {a.dumbZoneCrossTurn >= 0 ? (
           <JumpChip
             className={ZONE_CLASSES.bad.text}
+            hint="jump to that turn in history"
             jump={{ kind: "turn", turn: a.dumbZoneCrossTurn + 1 }}
-            label={`Jump to turn ${a.dumbZoneCrossTurn + 1} in history`}
             onJump={onJump}
             testId="chip-dumbzone"
           >
@@ -242,8 +244,8 @@ export const VerdictHeader = ({
         )}
         {a.compactionTurns.length > 0 ? (
           <JumpChip
+            hint="jump to the first in history"
             jump={{ kind: "compaction" }}
-            label="Jump to the first compaction in history"
             onJump={onJump}
             testId="chip-compaction"
           >
@@ -252,8 +254,8 @@ export const VerdictHeader = ({
         ) : null}
         {a.subagents.length > 0 ? (
           <JumpChip
+            hint="jump to the first in history"
             jump={{ kind: "subagent" }}
-            label="Jump to the first subagent in history"
             onJump={onJump}
             testId="chip-subagents"
           >

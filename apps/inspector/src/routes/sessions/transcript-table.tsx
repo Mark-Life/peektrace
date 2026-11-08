@@ -33,12 +33,12 @@ import {
 } from "@workspace/ui/components/collapsible";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo, type RefObject, useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
-import { rowIndexOfCall } from "../../lib/history-filter";
 import {
   alignOf,
   type HistoryJump,
+  type JumpLanding,
   rowIndexOfTarget,
 } from "../../lib/history-jump";
 import {
@@ -320,17 +320,15 @@ const TableRowViewBody = ({
 export const TableRowView = memo(TableRowViewBody);
 
 /** The bordered list of event rows, with the dumb-zone divider inline. Only
- *  the rows near the screen are mounted; `callId` is the tool call a link
- *  asked to land on. */
+ *  the rows near the screen are mounted; `jump` is the place a link or the
+ *  summary asked to land on. */
 export const TranscriptTable = ({
   a,
   bulkKey,
-  callId,
-  chipDone,
   crossEvtIdx,
   isOpen,
   jump,
-  jumpDone,
+  landing,
   onSort,
   onToggle,
   rows,
@@ -342,15 +340,12 @@ export const TranscriptTable = ({
   readonly a: AnalyzedSession;
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
-  readonly callId: string | null;
-  /** The summary jump already landed on, shared by both layouts. */
-  readonly chipDone: RefObject<string | null>;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
-  /** Where the summary asked to go, if anywhere. */
+  /** Where a link or the summary asked to go, if anywhere. */
   readonly jump: HistoryJump | null;
-  /** The call link already landed on, shared by both layouts. */
-  readonly jumpDone: RefObject<string | null>;
+  /** How far the jump got, shared by both layouts. */
+  readonly landing: JumpLanding;
   readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
   /** Rows already in `sort` order. */
@@ -378,14 +373,8 @@ export const TranscriptTable = ({
   );
   const list = useRef<VirtualListHandle>(null);
   useVirtualJump({
-    done: jumpDone,
-    index: callId === null ? -1 : rowIndexOfCall(rows, callId),
-    list,
-    target: callId,
-  });
-  useVirtualJump({
     align: jump ? alignOf(jump.target) : "start",
-    done: chipDone,
+    done: landing.done,
     index: jump
       ? rowIndexOfTarget({
           ordered: showDivider,
@@ -395,6 +384,7 @@ export const TranscriptTable = ({
         })
       : -1,
     list,
+    onLand: landing.onLand,
     target: jump?.key ?? null,
   });
 

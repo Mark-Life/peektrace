@@ -1,5 +1,5 @@
-/** Summary jumps: what a chip or timeline click resolves to, and where each
- *  layout finds it. */
+/** Transcript jumps: what a chip, timeline click or stats link resolves to,
+ *  and where each layout finds it. */
 
 import { describe, expect, test } from "bun:test";
 import type {
@@ -10,16 +10,11 @@ import { buildChatPlan, type TranscriptRowRef } from "../src/lib/chat-lane";
 import {
   isHiddenJump,
   jumpKey,
-  parseTurnParam,
-  planIndexOfCompaction,
   planIndexOfTarget,
-  planIndexOfTurn,
   resolveJump,
-  rowIndexOfCompaction,
   rowIndexOfTarget,
-  rowIndexOfTurn,
+  seedRequest,
 } from "../src/lib/history-jump";
-import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
   body: "",
@@ -52,27 +47,60 @@ const EVENTS: readonly TimelineEvent[] = [
   }),
   evt({ index: 4, kind: "tool-result", requestId: "r2", toolUseId: "spawn" }),
   evt({ index: 5, kind: "user-prompt", requestId: "r3" }),
-  evt({ index: 6, requestId: "r3" }),
+  evt({
+    index: 6,
+    kind: "tool-call",
+    requestId: "r3",
+    toolName: "Task",
+    toolUseId: "late",
+  }),
 ];
 const TURNS = [1, 1, 2, 2, 2, 3, 3];
 const ROWS: readonly TranscriptRowRef[] = EVENTS.map((e, pos) => ({ e, pos }));
 const planOf = (rows: readonly TranscriptRowRef[]) =>
   buildChatPlan({ crossEvtIdx: -1, rows, turns: TURNS });
 const withoutTurn = (n: number) => ROWS.filter(({ pos }) => TURNS[pos] !== n);
+const planOfTurn = (plan: ReturnType<typeof planOf>, turn: number) =>
+  planIndexOfTarget(plan, { kind: "turn", turn });
+const rowOfTurn = ({
+  n,
+  ordered,
+  rows,
+}: {
+  readonly n: number;
+  readonly ordered: boolean;
+  readonly rows: readonly TranscriptRowRef[];
+}) =>
+  rowIndexOfTarget({
+    ordered,
+    rows,
+    target: { kind: "turn", turn: n },
+    turns: TURNS,
+  });
 
 const SESSION = {
   compactionTurns: [1],
   events: EVENTS,
   subagents: [sub({ toolUseId: "spawn" })],
+  turnCount: 3,
 };
 
 describe("resolveJump", () => {
-  test("a turn stays a turn; turn 0 is no place", () => {
+  test("a turn the session has stays a turn; others are no place", () => {
     expect(resolveJump(SESSION, { kind: "turn", turn: 2 })).toEqual({
       kind: "turn",
       turn: 2,
     });
     expect(resolveJump(SESSION, { kind: "turn", turn: 0 })).toBeNull();
+    expect(resolveJump(SESSION, { kind: "turn", turn: 4 })).toBeNull();
+  });
+
+  test("a link's call resolves only when it is in this transcript", () => {
+    expect(resolveJump(SESSION, { id: "spawn", kind: "call" })).toEqual({
+      id: "spawn",
+      kind: "call",
+    });
+    expect(resolveJump(SESSION, { id: "gone", kind: "call" })).toBeNull();
   });
 
   test("compaction lands on the event, or on its turn when there is none", () => {
@@ -100,6 +128,19 @@ describe("resolveJump", () => {
     expect(
       resolveJump({ ...SESSION, subagents: [sub()] }, { kind: "subagent" })
     ).toEqual({ kind: "subagents" });
+    // Listed in file order, not spawn order: the earliest spawn wins.
+    expect(
+      resolveJump(
+        {
+          ...SESSION,
+          subagents: [
+            sub({ id: "agent-b", toolUseId: "late" }),
+            sub({ toolUseId: "spawn" }),
+          ],
+        },
+        { kind: "subagent" }
+      )
+    ).toEqual({ id: "spawn", kind: "call" });
     // A nested agent's call lives in its parent's transcript, not this one.
     expect(
       resolveJump(
@@ -122,25 +163,36 @@ test("the jump key changes with every request", () => {
   );
 });
 
-test("the turn URL param takes positive integers only", () => {
-  expect(parseTurnParam("12")).toBe(12);
-  expect(parseTurnParam(null)).toBeNull();
-  expect(parseTurnParam("0")).toBeNull();
-  expect(parseTurnParam("1.5")).toBeNull();
-  expect(parseTurnParam("x")).toBeNull();
+test("a page load seeds from turn=, else call=", () => {
+  expect(seedRequest({ call: null, turn: "12" })).toEqual({
+    kind: "turn",
+    turn: 12,
+  });
+  expect(seedRequest({ call: "c1", turn: "12" })).toEqual({
+    kind: "turn",
+    turn: 12,
+  });
+  expect(seedRequest({ call: "c1", turn: null })).toEqual({
+    id: "c1",
+    kind: "call",
+  });
+  for (const turn of ["0", "1.5", "x"]) {
+    expect(seedRequest({ call: null, turn })).toBeNull();
+  }
+  expect(seedRequest({ call: null, turn: null })).toBeNull();
 });
 
 describe("chat plan", () => {
   test("a turn lands on its rule", () => {
     const plan = planOf(ROWS);
-    const i = planIndexOfTurn(plan, 2);
+    const i = planOfTurn(plan, 2);
     expect(plan[i]).toEqual({ turn: 2, type: "turn" });
   });
 
   test("a filtered-away turn falls through to the next shown one", () => {
     const plan = planOf(withoutTurn(2));
-    expect(plan[planIndexOfTurn(plan, 2)]).toEqual({ turn: 3, type: "turn" });
-    expect(planIndexOfTurn(planOf(withoutTurn(3)), 3)).toBe(-1);
+    expect(plan[planOfTurn(plan, 2)]).toEqual({ turn: 3, type: "turn" });
+    expect(planOfTurn(planOf(withoutTurn(3)), 3)).toBe(-1);
   });
 
   test("an interleaved turn lands on its first rule", () => {
@@ -151,19 +203,20 @@ describe("chat plan", () => {
     expect(plan.filter((n) => n.type === "turn" && n.turn === 1)).toHaveLength(
       2
     );
-    expect(planIndexOfTurn(plan, 1)).toBe(0);
+    expect(planOfTurn(plan, 1)).toBe(0);
   });
 
   test("compaction and call targets find their nodes", () => {
     const plan = planOf(ROWS);
-    const c = planIndexOfCompaction(plan);
+    const c = planIndexOfTarget(plan, { kind: "compaction" });
     expect(plan[c]?.type).toBe("band");
     const call = planIndexOfTarget(plan, { id: "spawn", kind: "call" });
     expect(plan[call]?.type).toBe("tool");
     expect(planIndexOfTarget(plan, { kind: "subagents" })).toBe(-1);
     expect(
-      planIndexOfCompaction(
-        planOf(ROWS.filter(({ e }) => e.kind !== "compaction"))
+      planIndexOfTarget(
+        planOf(ROWS.filter(({ e }) => e.kind !== "compaction")),
+        { kind: "compaction" }
       )
     ).toBe(-1);
   });
@@ -171,21 +224,24 @@ describe("chat plan", () => {
 
 describe("table rows", () => {
   test("a turn lands on its first row", () => {
-    expect(
-      rowIndexOfTurn({ n: 3, ordered: true, rows: ROWS, turns: TURNS })
-    ).toBe(5);
+    expect(rowOfTurn({ n: 3, ordered: true, rows: ROWS })).toBe(5);
   });
 
   test("the later-turn fallback only applies in forward order", () => {
     const rows = withoutTurn(2);
-    expect(rowIndexOfTurn({ n: 2, ordered: true, rows, turns: TURNS })).toBe(2);
-    expect(rowIndexOfTurn({ n: 2, ordered: false, rows, turns: TURNS })).toBe(
-      -1
-    );
+    expect(rowOfTurn({ n: 2, ordered: true, rows })).toBe(2);
+    expect(rowOfTurn({ n: 2, ordered: false, rows })).toBe(-1);
   });
 
   test("compaction and call targets find their rows", () => {
-    expect(rowIndexOfCompaction(ROWS)).toBe(2);
+    expect(
+      rowIndexOfTarget({
+        ordered: true,
+        rows: ROWS,
+        target: { kind: "compaction" },
+        turns: TURNS,
+      })
+    ).toBe(2);
     expect(
       rowIndexOfTarget({
         ordered: true,
@@ -199,38 +255,22 @@ describe("table rows", () => {
 
 describe("isHiddenJump", () => {
   const jump = { key: "compaction@1", target: { kind: "compaction" } } as const;
-  const base = {
-    all: ROWS,
-    landed: null,
-    sort: DEFAULT_HISTORY_SORT,
-    turns: TURNS,
-  };
-  const noCompaction = ROWS.filter(({ e }) => e.kind !== "compaction");
+  const base = { filtered: true, index: -1, jump, landed: null };
 
   test("a target the filters hide is reported until it lands", () => {
-    expect(isHiddenJump({ ...base, jump, visible: noCompaction })).toBe(true);
-    expect(
-      isHiddenJump({ ...base, jump, landed: jump.key, visible: noCompaction })
-    ).toBe(false);
-    expect(isHiddenJump({ ...base, jump, visible: ROWS })).toBe(false);
+    expect(isHiddenJump(base)).toBe(true);
+    expect(isHiddenJump({ ...base, landed: jump.key })).toBe(false);
+    expect(isHiddenJump({ ...base, index: 2 })).toBe(false);
   });
 
-  test("a target the session never had, or the subagents list, is not", () => {
-    expect(
-      isHiddenJump({
-        ...base,
-        all: noCompaction,
-        jump,
-        visible: noCompaction,
-      })
-    ).toBe(false);
+  test("no filter, the subagents list, or no jump is never hidden", () => {
+    expect(isHiddenJump({ ...base, filtered: false })).toBe(false);
     expect(
       isHiddenJump({
         ...base,
         jump: { key: "subagents@1", target: { kind: "subagents" } },
-        visible: [],
       })
     ).toBe(false);
-    expect(isHiddenJump({ ...base, jump: null, visible: [] })).toBe(false);
+    expect(isHiddenJump({ ...base, jump: null })).toBe(false);
   });
 });
