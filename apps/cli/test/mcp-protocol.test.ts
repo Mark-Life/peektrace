@@ -121,13 +121,14 @@ describe("envelope", () => {
 });
 
 describe("tools", () => {
-  test("lists the four read-only tools with object schemas", async () => {
+  test("lists the five read-only tools with object schemas", async () => {
     const r = await send(request(7, "tools/list"));
     const tools = r?.result?.tools ?? [];
     const names = tools.map((t) => t.name);
     expect(names).toEqual(
       expect.arrayContaining([
         "sessions_list",
+        "sessions_search",
         "sessions_analyze",
         "stats_report",
         "stats_drill",

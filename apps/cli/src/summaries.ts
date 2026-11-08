@@ -26,7 +26,7 @@ export const STATUSLINE_SUMMARY =
   "Print one-line context health for a status line";
 export const TUI_SUMMARY = "Browse sessions in a terminal UI";
 export const MCP_SUMMARY =
-  "Run a stdio MCP server with read-only session and stats tools";
+  "Serve read-only session and stats tools over stdio MCP";
 export const UPGRADE_SUMMARY =
   "Upgrade the installed binary to the latest release";
 export const SESSIONS_SUMMARY = "List and analyze sessions";

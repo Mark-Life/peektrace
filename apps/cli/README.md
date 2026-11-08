@@ -372,11 +372,12 @@ machine.
 ### `mcp` — MCP server for agents
 
 Runs a stdio MCP server, so an agent can query peektrace without shelling
-out. It serves four read-only tools:
+out. It serves five read-only tools:
 
 | Tool | Same as |
 | --- | --- |
 | `sessions_list` | `sessions ls` (`agent`, `project`, `since`, `cwd`, `limit`) |
+| `sessions_search` | `sessions search` (`q`, `agent`, `project`, `since`, `limit`) |
 | `sessions_analyze` | `sessions analyze` (`id`, `latest`, `cwd`, `parent`) |
 | `stats_report` | `stats` (`days`, `limit`, `agent`) |
 | `stats_drill` | `stats drill` (`table`, `key`, `days`, `limit`, `agent`, `offset`, `pageSize`) |

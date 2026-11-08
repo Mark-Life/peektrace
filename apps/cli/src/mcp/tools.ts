@@ -16,10 +16,17 @@ import {
   renderSessionList,
 } from "../commands/sessions";
 import { resolveCwd, type TargetMessages } from "../commands/sessions-filter";
+import {
+  noMatchesNotice,
+  parseSearchArgs,
+  renderSearch,
+  SEARCH_DEFAULT_LIMIT,
+  truncatedNotice,
+} from "../commands/sessions-search";
 import { scopeOf } from "../commands/stats-options";
 import { renderDrill, renderReport } from "../commands/stats-render";
 import { CliUserError } from "../errors";
-import { json } from "../render";
+import { json, unreadableNotice } from "../render";
 import { defineTool, type McpTool } from "./protocol";
 
 const describe = (description: string) => ({ description });
@@ -46,6 +53,22 @@ const Cwd = Schema.optional(
   Schema.String.annotations(
     describe(
       "Only sessions run in this directory or below; `~` is the home dir, relative paths resolve against the server's cwd"
+    )
+  )
+);
+
+const Project = Schema.optional(
+  Schema.String.annotations(
+    describe(
+      "Project name (Claude/Pi slug, or cwd basename for Codex/OpenCode)"
+    )
+  )
+);
+
+const Since = Schema.optional(
+  Schema.String.annotations(
+    describe(
+      "Only sessions updated since: ISO date (2026-01-31, UTC) or relative 7d, 12h, 2w"
     )
   )
 );
@@ -83,20 +106,8 @@ const sessionsList = defineTool({
     "List local coding-agent sessions (Claude Code, Codex, Pi, OpenCode), newest first: id, agent, project, model, message count, estimated cost, size, update time and title. Use an id with sessions_analyze.",
   input: Schema.Struct({
     agent: AgentScope,
-    project: Schema.optional(
-      Schema.String.annotations(
-        describe(
-          "Project name (Claude/Pi slug, or cwd basename for Codex/OpenCode)"
-        )
-      )
-    ),
-    since: Schema.optional(
-      Schema.String.annotations(
-        describe(
-          "Only sessions updated since: ISO date (2026-01-31, UTC) or relative 7d, 12h, 2w"
-        )
-      )
-    ),
+    project: Project,
+    since: Since,
     cwd: Cwd,
     limit: Schema.optional(
       Count.annotations(
@@ -130,6 +141,55 @@ const sessionsList = defineTool({
       }
       const { text, notes } = renderSessionList(list.picked, true);
       return { text, notes: listNotes(list, notes, LS_INPUTS) };
+    }),
+});
+
+const sessionsSearch = defineTool({
+  name: "sessions_search",
+  description:
+    "Find sessions whose transcript contains a phrase (case-insensitive, literal), newest first. Returns each session's id, agent, project, update time, match count and the first matching lines as redacted snippets. Use an id with sessions_analyze.",
+  input: Schema.Struct({
+    q: Schema.String.annotations(describe("Text to find")),
+    agent: AgentScope,
+    project: Project,
+    since: Since,
+    limit: Schema.optional(
+      Count.annotations(
+        describe(
+          `Max sessions, newest first (default ${SEARCH_DEFAULT_LIMIT}, 0 = all)`
+        )
+      )
+    ),
+    format: Format,
+  }),
+  run: (client: PeektraceClient, input) =>
+    Effect.gen(function* () {
+      const limit = input.limit ?? SEARCH_DEFAULT_LIMIT;
+      const since = yield* parseSearchArgs(
+        input.q,
+        limit,
+        Option.fromNullable(input.since),
+        LS_INPUTS
+      );
+      const result = yield* client.sessions.search({
+        q: input.q,
+        limit,
+        agent: input.agent === "all" ? undefined : input.agent,
+        project: input.project,
+        since,
+      });
+      const notes = [
+        ...(result.unreadable > 0 ? [unreadableNotice(result.unreadable)] : []),
+        ...(result.truncated ? [truncatedNotice(LS_INPUTS)] : []),
+      ];
+      if (input.format === "json") {
+        return { text: json(result), notes };
+      }
+      const text =
+        result.sessions.length === 0
+          ? noMatchesNotice(result)
+          : renderSearch(result.sessions, true);
+      return { text, notes };
     }),
 });
 
@@ -218,6 +278,7 @@ const statsDrill = defineTool({
 /** Every tool the server lists, in display order. */
 export const TOOLS: readonly McpTool<PeektraceClient>[] = [
   sessionsList,
+  sessionsSearch,
   sessionsAnalyze,
   statsReport,
   statsDrill,

@@ -137,6 +137,51 @@ describe("sessions_list", () => {
   });
 });
 
+describe("sessions_search", () => {
+  test("finds both synthetic sessions as a compact hits table", async () => {
+    const r = await call("sessions_search", { q: "HELLO" });
+    expect(r.isError).toBeUndefined();
+    expect(textOf(r)).toStartWith("session\tagent\tproject");
+    expect(textOf(r)).toContain("44444444");
+    expect(textOf(r)).toContain("55555555");
+    expect(textOf(r)).toContain("hello");
+  });
+
+  test("no match says how many sessions were scanned", async () => {
+    const r = await call("sessions_search", { q: "zz-no-such-text-zz" });
+    expect(r.isError).toBeUndefined();
+    expect(textOf(r)).toBe("no matches in 2 sessions");
+  });
+
+  test("format json parses; the truncation hint is its own block", async () => {
+    const r = await call("sessions_search", {
+      q: "hello",
+      limit: 1,
+      format: "json",
+    });
+    const result = JSON.parse(r.content[0]?.text ?? "") as {
+      sessions: { id: string }[];
+      truncated: boolean;
+    };
+    expect(result.sessions.map((s) => s.id)).toEqual([ID]);
+    expect(result.truncated).toBe(true);
+    expect(r.content[1]?.text).toBe(
+      "more sessions match, use limit: 0 to show all"
+    );
+  });
+
+  test("a blank query is a tool error", async () => {
+    const r = await call("sessions_search", { q: "  " });
+    expect(r.isError).toBe(true);
+    expect(textOf(r)).toBe("Give a non-empty search text.");
+  });
+
+  test("a missing q is rejected by the input schema", async () => {
+    const r = await call("sessions_search");
+    expect(r.isError).toBe(true);
+  });
+});
+
 describe("sessions_analyze", () => {
   test("latest:true renders the verdict row", async () => {
     const r = await call("sessions_analyze", { latest: true });

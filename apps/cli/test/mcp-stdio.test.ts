@@ -75,6 +75,7 @@ test("mcp answers initialize, tools/list and tools/call over stdio", async () =>
       "stats_report",
       "stats_drill",
       "sessions_list",
+      "sessions_search",
       "sessions_analyze",
     ])
   );
