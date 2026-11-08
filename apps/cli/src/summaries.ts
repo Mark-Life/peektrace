@@ -13,6 +13,8 @@ export const SESSIONS_ANALYZE_SUMMARY =
   "Show context forensics for one session";
 export const SESSIONS_EXPORT_SUMMARY =
   "Export one session to HTML, Markdown or JSON";
+export const SESSIONS_SEARCH_SUMMARY =
+  "Find sessions by text, redacted by default";
 export const STATS_DRILL_SUMMARY = "Show the evidence behind one finding";
 export const STATS_PROMPT_SUMMARY =
   "Print a prompt to hand the report to an agent";

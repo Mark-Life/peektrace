@@ -15,6 +15,7 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { clipToWidth, json, shortId, table, unreadableNotice } from "../render";
+import { SESSIONS_SEARCH_SUMMARY } from "../summaries";
 import {
   agentOpt,
   noRedactOpt,
@@ -142,4 +143,4 @@ export const makeSessionsSearch = (globals: GlobalsAccessor) =>
           );
         }
       })
-  );
+  ).pipe(Command.withDescription(SESSIONS_SEARCH_SUMMARY));
