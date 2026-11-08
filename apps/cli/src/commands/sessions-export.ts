@@ -57,6 +57,8 @@ const writeFailure = (e: PlatformError) => {
       return "the directory does not exist";
     case "PermissionDenied":
       return "permission denied";
+    case "BadResource":
+      return "the path is a directory";
     default:
       return e.reason;
   }

@@ -23,12 +23,12 @@ const ESCAPES: Record<string, string> = {
 };
 
 /** Escape text for HTML element content and quoted attribute values. */
-export const escapeHtml = (text: string) =>
+const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => ESCAPES[c] ?? c);
 
 const CSS = `
-:root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--mute:#666;--line:#ddd;--card:#f6f6f6;--user:#e8f0fe}
-@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e8e8e8;--mute:#999;--line:#333;--card:#1e1e1e;--user:#1c2a44}}
+:root{color-scheme:light dark;--bg:#fff;--fg:#1a1a1a;--mute:#666;--line:#ddd;--card:#f6f6f6;--user:#e8f0fe;--err:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#141414;--fg:#e8e8e8;--mute:#999;--line:#333;--card:#1e1e1e;--user:#1c2a44;--err:#ff8a80}}
 body{margin:0 auto;max-width:56rem;padding:1.5rem;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
 h1{font-size:1.4rem;margin:0 0 .5rem}
 dl{display:grid;grid-template-columns:max-content 1fr;gap:.15rem 1rem;color:var(--mute);margin:0 0 1.5rem}
@@ -39,7 +39,7 @@ dt{font-weight:600}dd{margin:0;overflow-wrap:anywhere}
 summary{cursor:pointer;color:var(--mute);font-size:.85rem}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:.4rem 0 0;font:13px/1.45 ui-monospace,monospace}
 .note{color:var(--mute);font-style:italic;font-size:.85rem}
-.err summary{color:#c0392b}
+.err summary{color:var(--err)}
 `;
 
 const meta = (d: ExportDoc) =>

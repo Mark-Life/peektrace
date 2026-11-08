@@ -74,6 +74,8 @@ const session: ParsedSession = {
 
 const EVENT_HANDLER_ATTR = /<[^>]+\son\w+=/;
 const EXTERNAL_ATTR = /<[^>]*\s(?:src|href)=/;
+const DARK_ERR_VAR = /prefers-color-scheme:dark[^}]*--err:/;
+const BARE_FENCE = /^```$/m;
 const URL_SCHEME = /https?:/;
 
 const opts = { exportedAt: "2026-02-02T00:00:00.000Z", redacted: true };
@@ -125,6 +127,27 @@ describe("collapseHomePaths", () => {
   });
 });
 
+describe("collapseHomePaths: other layouts and names", () => {
+  test("/var/home and WSL UNC paths", () => {
+    expect(collapseHomePaths("/var/home/alice/x")).toBe("~/x");
+    expect(collapseHomePaths("\\\\wsl.localhost\\Ubuntu\\home\\alice\\x")).toBe(
+      "~\\x"
+    );
+    expect(collapseHomePaths("\\\\wsl$\\Ubuntu\\home\\alice\\x")).toBe("~\\x");
+  });
+  test("non-ASCII user names collapse in full", () => {
+    expect(collapseHomePaths("/Users/\u00D3lafur/x")).toBe("~/x");
+    expect(collapseHomePaths("C:\\Users\\\u00C1d\u00E1m\\x")).toBe("~\\x");
+    expect(collapseHomePaths("/home/\u0438\u0432\u0430\u043D/x")).toBe("~/x");
+    expect(collapseHomePaths("/Users/Jos\u00E9/x")).toBe("~/x");
+    expect(collapseHomePaths("C:\\Users\\Zo\u00EB\\proj")).toBe("~\\proj");
+    expect(collapseHomePaths("-Users-Jos\u00E9-proj")).toBe("-~-proj");
+  });
+  test("names with three or more words", () => {
+    expect(collapseHomePaths("/Users/John Smith Jr/x")).toBe("~/x");
+  });
+});
+
 describe("fenceFor", () => {
   test("is longer than any backtick run in the body", () => {
     expect(fenceFor("plain")).toBe("```");
@@ -135,9 +158,9 @@ describe("fenceFor", () => {
 
 describe("markdown", () => {
   const md = renderMarkdown(session, opts);
-  test("headings follow event order, empty events are skipped", () => {
+  test("headings count the exported events, empty ones are skipped", () => {
     const order = [...md.matchAll(/^### (\d+)\./gm)].map((m) => m[1]);
-    expect(order).toEqual(["1", "3", "4", "5", "6", "7"]);
+    expect(order).toEqual(["1", "2", "3", "4", "5", "6"]);
     expect(md.startsWith("# Demo <session>")).toBe(true);
   });
   test("a body holding a fence gets a longer fence", () => {
@@ -206,6 +229,36 @@ describe("markdown fences and notes", () => {
     expect((head?.match(/^```/gm) ?? []).length % 2).toBe(0);
     expect(tail).toContain("second prompt");
   });
+  test("an inline code span starting a line is not a fence", () => {
+    const md = withEvents([
+      ev(
+        0,
+        "assistant-text",
+        "```inline``` is how you write a code span.\nDone."
+      ),
+      ev(1, "user-prompt", "SECOND visible?"),
+    ]);
+    expect(md).not.toMatch(BARE_FENCE);
+  });
+  test("an unclosed HTML comment does not swallow later turns", () => {
+    const md = withEvents([
+      ev(0, "assistant-text", "Add this:\n\n<!-- TODO"),
+      ev(1, "user-prompt", "THIRD"),
+    ]);
+    expect(md).toContain("<!-- TODO\n-->\n\n### 2. User");
+    const closed = withEvents([ev(0, "assistant-text", "<!-- a -->\nx")]);
+    expect(closed).not.toContain("\n-->\n\n");
+  });
+  test("headings number events by position, not source line", () => {
+    const md = withEvents([
+      ev(5, "user-prompt", "a"),
+      ev(5, "assistant-text", "b"),
+      ev(9, "assistant-text", "c"),
+    ]);
+    expect(md).toContain("### 1. User");
+    expect(md).toContain("### 2. Assistant");
+    expect(md).toContain("### 3. Assistant");
+  });
   test("balanced fences are left alone", () => {
     const body = "a\n```ts\nx\n```\nb";
     expect(withEvents([ev(0, "assistant-text", body)])).toContain(`${body}\n`);
@@ -247,6 +300,14 @@ describe("html", () => {
     expect(html).not.toContain("secret-transcript");
     expect(html).not.toContain("agent-a.jsonl");
     expect(html).not.toContain("/home/demo");
+  });
+});
+
+describe("html dark mode", () => {
+  test("error summary color is a variable with a dark value", () => {
+    const html = renderHtml(session, opts);
+    expect(html).toContain(".err summary{color:var(--err)}");
+    expect(html).toMatch(DARK_ERR_VAR);
   });
 });
 

@@ -278,15 +278,15 @@ private. Transcript file paths are never exported. Images appear as
 | Flag | Default | Effect |
 | --- | --- | --- |
 | `--format html\|md\|json` | see below | Output format |
-| `--out <path>` | stdout | Write to this file (overwrites) and print `Wrote <path>` to stderr |
+| `--out <path>` | stdout | Write to this file (overwrites) and print `Wrote <path>` to stderr; `-` is stdout |
 | `--no-redact` | redacted | Keep secrets and home paths |
 | `--latest`, `--cwd <dir>` | | Pick the newest session, as in `sessions analyze` |
 | `--parent <id>` | | Parent session when `<id>` is a subagent transcript |
 
 Without `--format`: `--json` gives JSON, else the `--out` extension decides
 (`.html`, `.md`, `.json`), else Markdown. Redaction covers provider-format
-secrets and `/home/<user>`, `/Users/<user>` and `C:\Users\<user>` paths, which
-become `~`. The HTML file is self-contained: no script, no external loads.
+secrets and `/home/<user>`, `/Users/<user>`, `C:\Users\<user>` and WSL home paths
+(user names may have spaces or non-ASCII letters), which become `~`. The HTML file is self-contained: no script, no external loads.
 `--read-only` does not block `--out`; it writes your file, not agent data.
 
 ```sh

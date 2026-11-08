@@ -14,15 +14,18 @@ import {
   whoOf,
 } from "./shared";
 
-const heading = (e: ExportEvent) => {
+const heading = (e: ExportEvent, position: number) => {
   const tail = tailOf(e);
-  return `### ${e.index + 1}. ${oneLine(whoOf(e), LABEL_MAX)}${tail ? ` (${tail})` : ""}`;
+  return `### ${position}. ${oneLine(whoOf(e), LABEL_MAX)}${tail ? ` (${tail})` : ""}`;
 };
 
 const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 
-/** The body with any code fence it leaves open closed, so later headings
- * stay outside the code block. */
+const COMMENT_OPEN = "<!--";
+const COMMENT_LINE = /^ {0,3}<!--/;
+
+/** The body with any code fence or HTML comment it leaves open closed, so
+ * later headings stay outside it. */
 const closeOpenFence = (body: string) => {
   let open: string | undefined;
   for (const line of body.split("\n")) {
@@ -32,7 +35,10 @@ const closeOpenFence = (body: string) => {
     }
     const [, run = "", info = ""] = m;
     if (open === undefined) {
-      open = run;
+      // A backtick run with a backtick in its info string is an inline span.
+      if (!(run.startsWith("`") && info.includes("`"))) {
+        open = run;
+      }
     } else if (
       run.startsWith(open[0] ?? "") &&
       run.length >= open.length &&
@@ -44,8 +50,28 @@ const closeOpenFence = (body: string) => {
   return open === undefined ? body : `${body}\n${open}`;
 };
 
-const eventBlock = (e: ExportEvent) => {
-  const parts = [heading(e)];
+/** Close the last line-start `<!--` that has no `-->` after it. Skipped when
+ * the body ends inside a code fence, where comments are plain text. */
+const closeOpenComment = (body: string) => {
+  const lines = body.split("\n");
+  const start = lines.map((l) => COMMENT_LINE.test(l)).lastIndexOf(true);
+  if (start === -1) {
+    return body;
+  }
+  const rest = lines.slice(start).join("\n");
+  const afterOpen = rest.slice(
+    rest.indexOf(COMMENT_OPEN) + COMMENT_OPEN.length
+  );
+  return afterOpen.includes("-->") ? body : `${body}\n-->`;
+};
+
+const closeOpenBlocks = (body: string) => {
+  const fenced = closeOpenFence(body);
+  return fenced === body ? closeOpenComment(body) : fenced;
+};
+
+const eventBlock = (e: ExportEvent, i: number) => {
+  const parts = [heading(e, i + 1)];
   if (e.role === "other" && e.title !== "" && e.title !== e.label) {
     parts.push(`*${oneLine(e.title)}*`);
   }
@@ -56,7 +82,7 @@ const eventBlock = (e: ExportEvent) => {
     const fence = fenceFor(e.body);
     parts.push(`${fence}\n${e.body}\n${fence}`);
   } else {
-    parts.push(closeOpenFence(e.body));
+    parts.push(closeOpenBlocks(e.body));
   }
   return parts.join("\n\n");
 };

@@ -3,35 +3,22 @@
 import {
   EXPORT_FORMATS,
   type ExportFormat,
-  renderExport,
 } from "@workspace/core/services/sessions/export/index";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
 import { DownloadIcon } from "lucide-react";
-
-const MIME: Record<ExportFormat, string> = {
-  html: "text/html",
-  md: "text/markdown",
-  json: "application/json",
-};
-
-const SHORT_ID_LENGTH = 8;
+import { exportFile } from "../../lib/export-file";
 
 const download = (
   a: AnalyzedSession,
   format: ExportFormat,
   redacted: boolean
 ) => {
-  const text = renderExport(format, a, {
-    exportedAt: new Date().toISOString(),
-    redacted,
-  });
-  const url = URL.createObjectURL(
-    new Blob([text], { type: `${MIME[format]};charset=utf-8` })
-  );
+  const file = exportFile(a, format, redacted);
+  const url = URL.createObjectURL(new Blob([file.text], { type: file.type }));
   const link = document.createElement("a");
   link.href = url;
-  link.download = `session-${a.sessionId.slice(0, SHORT_ID_LENGTH)}.${format}`;
+  link.download = file.name;
   link.click();
   URL.revokeObjectURL(url);
 };

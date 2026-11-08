@@ -8,7 +8,7 @@ import { renderHtml } from "./html";
 import { renderMarkdown } from "./markdown";
 import { type ExportFormat, type ExportOptions, prepareExport } from "./shared";
 
-export { escapeHtml, renderHtml } from "./html";
+export { renderHtml } from "./html";
 export { renderMarkdown } from "./markdown";
 export {
   collapseHomePaths,
@@ -39,23 +39,7 @@ export const renderJson = (session: ParsedSession, opts: ExportOptions) => {
         cwd: d.cwd,
         startedAt: d.startedAt,
         endedAt: d.endedAt,
-        events: d.events.map((e) => ({
-          index: e.index,
-          kind: e.kind,
-          ts: e.ts,
-          label: e.label,
-          title: e.title,
-          body: e.body,
-          toolName: e.toolName,
-          toolUseId: e.toolUseId,
-          isError: e.isError,
-          isMeta: e.isMeta,
-          isSidechain: e.isSidechain,
-          promptOrigin: e.promptOrigin,
-          tokensEst: e.tokensEst,
-          tokensMeasured: e.tokensMeasured,
-          contextEdit: e.contextEdit,
-        })),
+        events: d.events.map(({ role: _role, note: _note, ...e }) => e),
         subagents: d.subagents,
       },
     },

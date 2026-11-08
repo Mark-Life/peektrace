@@ -4,7 +4,7 @@
  */
 import { clip, collapseWs } from "../../stats/rank";
 import { contextEditNote, eventBadgeLabel, thinkingNote } from "../labels";
-import type { ParsedSession, TimelineEvent } from "../schema";
+import type { ParsedSession, SubagentRef, TimelineEvent } from "../schema";
 
 export const EXPORT_FORMATS = ["html", "md", "json"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
@@ -16,22 +16,32 @@ export interface ExportOptions {
   readonly redacted: boolean;
 }
 
-const NAME = /[\w@-]+(?:\.[\w@-]+)*/.source;
-/** Up to two words when a path separator follows: `John Smith` in `\Users\John Smith\x`. */
-const SPACED_NAME = `(?:${NAME}(?: ${NAME})?(?=[\\\\/])|${NAME})`;
-const NOT_AFTER_WORD = "(?<![\\w.])";
+const WORD = "\\p{L}\\p{M}\\p{N}_";
+const NAME = `[${WORD}@-]+(?:\\.[${WORD}@-]+)*`;
+/** Words joined by single spaces when a path separator follows:
+ * `John Smith Jr` in `\Users\John Smith Jr\x`. */
+const SPACED_NAME = `(?:${NAME}(?: ${NAME})*(?=[\\\\/])|${NAME})`;
+const NOT_AFTER_WORD = `(?<![${WORD}.])`;
 
-const UNIX_PATH = `\\/(?:home\\/${NAME}|Users\\/${SPACED_NAME})`;
-const UNIX_HOME = new RegExp(`(?<![\\w./])${UNIX_PATH}`, "g");
+const UNIX_PATH = `(?:\\/var)?\\/(?:home\\/${NAME}|Users\\/${SPACED_NAME})`;
+const UNIX_HOME = new RegExp(`(?<![${WORD}./])${UNIX_PATH}`, "gu");
 /** Behind a slash or `://file` (`file:///home/x`): keep that slash. */
-const URI_HOME = new RegExp(`(?<=\\/|:\\/\\/file)${UNIX_PATH}`, "g");
+const URI_HOME = new RegExp(`(?<=\\/|:\\/\\/file)${UNIX_PATH}`, "gu");
 /** `C:\Users\x`, `C:/Users/x`, `/mnt/c/Users/x`, `/c/Users/x`; any letter case. */
 const WINDOWS_HOME = new RegExp(
   `${NOT_AFTER_WORD}(?:[A-Za-z]:(?:\\\\{1,2}|\\/)|\\/(?:mnt\\/)?[A-Za-z]\\/)users(?:\\\\{1,2}|\\/)${SPACED_NAME}`,
-  "gi"
+  "giu"
+);
+/** `\\wsl.localhost\<distro>\home\<user>` and the older `\\wsl$\...` form. */
+const WSL_HOME = new RegExp(
+  `\\\\{2,4}wsl(?:\\.localhost|\\$)\\\\{1,2}[^\\s\\\\/]+\\\\{1,2}home\\\\{1,2}${NAME}`,
+  "giu"
 );
 /** Claude project slugs: `-home-<user>-...`, `C--Users-<user>-...`. */
-const HOME_SLUG = /(?<![\w-])(?:-(?:home|Users)|[A-Za-z]--Users)-[\w@]+/g;
+const HOME_SLUG = new RegExp(
+  `(?<![${WORD}-])(?:-(?:home|Users)|[A-Za-z]--Users)-[${WORD}@]+`,
+  "gu"
+);
 
 /** Replace the home directory prefix (`/home/<user>`, `/Users/<user>`,
  * `C:\Users\<user>`, WSL and `file://` forms, project slugs) with `~`,
@@ -43,6 +53,7 @@ export const collapseHomePaths = (text: string) =>
     .replace(URI_HOME, "/~")
     .replace(UNIX_HOME, "~")
     .replace(WINDOWS_HOME, "~")
+    .replace(WSL_HOME, "~")
     .replace(HOME_SLUG, "-~");
 
 const MIN_FENCE = 3;
@@ -57,7 +68,22 @@ export const fenceFor = (body: string) => {
   return "`".repeat(Math.max(MIN_FENCE, longest + 1));
 };
 
-export interface ExportEvent {
+export interface ExportEvent
+  extends Pick<
+    TimelineEvent,
+    | "index"
+    | "isError"
+    | "isMeta"
+    | "isSidechain"
+    | "kind"
+    | "promptOrigin"
+    | "title"
+    | "tokensEst"
+    | "tokensMeasured"
+    | "toolName"
+    | "toolUseId"
+    | "ts"
+  > {
   readonly body: string;
   readonly contextEdit?:
     | {
@@ -65,34 +91,23 @@ export interface ExportEvent {
         readonly original?: string | undefined;
       }
     | undefined;
-  readonly index: number;
-  readonly isError?: boolean | undefined;
-  readonly isMeta?: boolean | undefined;
-  readonly isSidechain?: boolean | undefined;
-  readonly kind: TimelineEvent["kind"];
   readonly label: string;
   /** Explains a context edit or missing thinking text. */
   readonly note?: string | undefined;
-  readonly promptOrigin?: TimelineEvent["promptOrigin"];
   /** `user` and `assistant` render as chat messages, the rest collapsed. */
   readonly role: "user" | "assistant" | "other";
-  readonly title: string;
-  readonly tokensEst: number;
-  readonly tokensMeasured?: number | undefined;
-  readonly toolName?: string | undefined;
-  readonly toolUseId?: string | undefined;
-  readonly ts?: string | undefined;
 }
 
-export interface ExportSubagent {
-  readonly agentType?: string | undefined;
-  readonly description?: string | undefined;
-  readonly id: string;
-  readonly peakContextTokens: number;
-  readonly turns: number;
-  readonly unreadable?: true | undefined;
-  readonly workflowPhase?: string | undefined;
-}
+export type ExportSubagent = Pick<
+  SubagentRef,
+  | "agentType"
+  | "description"
+  | "id"
+  | "peakContextTokens"
+  | "turns"
+  | "unreadable"
+  | "workflowPhase"
+>;
 
 export interface ExportDoc {
   readonly cwd?: string | undefined;
@@ -211,20 +226,22 @@ export const oneLine = (text: string, max = LINE_MAX) =>
 
 /** Header rows (label, value) shared by the Markdown and HTML renderers. */
 export const metaRows = (d: ExportDoc) =>
-  [
-    ["Session", d.sessionId],
-    ["Provider", d.provider],
-    ["Models", d.models.join(", ")],
-    ["Branch", d.gitBranch],
-    ["Directory", d.cwd],
-    ["Started", d.startedAt],
-    ["Ended", d.endedAt],
+  (
     [
-      "Exported",
-      `${d.exportedAt} (${d.redacted ? "redacted" : "not redacted"})`,
-    ],
-  ].flatMap(([label, value]) =>
-    label === undefined || value === undefined || value === ""
+      ["Session", d.sessionId],
+      ["Provider", d.provider],
+      ["Models", d.models.join(", ")],
+      ["Branch", d.gitBranch],
+      ["Directory", d.cwd],
+      ["Started", d.startedAt],
+      ["Ended", d.endedAt],
+      [
+        "Exported",
+        `${d.exportedAt} (${d.redacted ? "redacted" : "not redacted"})`,
+      ],
+    ] as const satisfies readonly (readonly [string, string | undefined])[]
+  ).flatMap(([label, value]) =>
+    value === undefined || value === ""
       ? []
       : [[label, oneLine(value, NOTE_MAX)] as const]
   );
