@@ -214,12 +214,12 @@ describe("serve token handling", () => {
       }
       if (status !== 200) {
         proc.kill();
+        await proc.exited;
         const err = await new Response(proc.stderr).text();
         throw new Error(
           `serve on 127.0.0.1:${port} never answered /health (last status ${status}, exit ${proc.exitCode}):\n${err}`
         );
       }
-      expect(status).toBe(200);
     } finally {
       proc.kill();
     }
