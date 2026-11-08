@@ -3,6 +3,7 @@ import {
   buildSnippet,
   matchTranscript,
   queryPatterns,
+  redactDisplay,
 } from "../../src/services/sessions/search-match";
 
 const lines = (...rows: readonly unknown[]) =>
@@ -308,5 +309,23 @@ describe("snippet safety", () => {
       const { snippet } = snippetOf(t, "walrus5");
       expect(snippet.isWellFormed()).toBe(true);
     }
+  });
+});
+
+describe("redaction with a known home", () => {
+  test("a dashed username leaves no tail", () => {
+    const home = "/home/jane-doe";
+    expect(redactDisplay("-home-jane-doe-work", home)).toBe("-~-work");
+    expect(redactDisplay("-home-jane-doe-work")).toBe("-~-doe-work");
+    const text = lines({ text: "see -home-jane-doe-work needle" });
+    const hit = matchTranscript({
+      text,
+      q: "needle",
+      redact: true,
+      maxHits: 3,
+      home,
+    });
+    expect(hit.hits[0]?.snippet).toContain("-~-work");
+    expect(hit.hits[0]?.snippet).not.toContain("doe");
   });
 });

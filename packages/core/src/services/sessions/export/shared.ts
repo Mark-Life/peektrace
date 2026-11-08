@@ -12,6 +12,9 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 export interface ExportOptions {
   /** ISO time stamped into the output; passed in so renderers stay pure. */
   readonly exportedAt: string;
+  /** The real home directory. Collapsed exactly, so a dashed username cannot
+   * leak through a project slug. */
+  readonly home?: string | undefined;
   /** The input was already redacted; home paths are then collapsed to `~`. */
   readonly redacted: boolean;
 }
@@ -43,18 +46,71 @@ const HOME_SLUG = new RegExp(
   "gu"
 );
 
+const SEPARATORS = /[\\/]+/;
+const TRAILING_SEPARATORS = /[\\/]+$/;
+const DRIVE = /^[A-Za-z]:/;
+const DASHES = /-/g;
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** How Claude names a project directory: every non-alphanumeric becomes `-`. */
+const slugOf = (path: string) => path.replace(/[^a-zA-Z0-9]/g, "-");
+
+interface HomeMatchers {
+  readonly path: RegExp;
+  readonly slug: RegExp;
+  readonly uri: RegExp;
+}
+
+const homeMatchers = new Map<string, HomeMatchers | undefined>();
+
+const buildHomeMatchers = (home: string): HomeMatchers | undefined => {
+  const segments = home.split(SEPARATORS).filter((seg) => seg !== "");
+  const slug = slugOf(home.replace(TRAILING_SEPARATORS, ""));
+  if (segments.length < 2 || slug.replace(DASHES, "") === "") {
+    return;
+  }
+  const sep = home.includes("\\") ? "(?:\\\\{1,2}|\\/)" : "\\/";
+  const lead = home.startsWith("/") ? "\\/" : "";
+  const body = `${lead}${segments.map(escapeRe).join(sep)}`;
+  const flags = DRIVE.test(home) ? "giu" : "gu";
+  const tail = `(?![${WORD}-])`;
+  return {
+    path: new RegExp(`(?<![${WORD}./])${body}${tail}`, flags),
+    uri: new RegExp(`(?<=\\/|:\\/\\/file)${body}${tail}`, flags),
+    slug: new RegExp(`(?<![${WORD}-])${escapeRe(slug)}(?![a-zA-Z0-9])`, "gu"),
+  };
+};
+
+const matchersFor = (home: string) => {
+  if (!homeMatchers.has(home)) {
+    homeMatchers.set(home, buildHomeMatchers(home));
+  }
+  return homeMatchers.get(home);
+};
+
 /** Replace the home directory prefix (`/home/<user>`, `/Users/<user>`,
  * `C:\Users\<user>`, WSL and `file://` forms, project slugs) with `~`,
- * anywhere in the text. Machine independent. Best effort: a route such as
- * `/home/dashboard` also collapses, and a hyphenated username in a slug keeps
- * its tail. */
-export const collapseHomePaths = (text: string) =>
-  text
+ * anywhere in the text. Machine independent. When `home` is known it is
+ * collapsed exactly first, in path and slug form. Without it the match is
+ * best effort: a route such as `/home/dashboard` also collapses, and a
+ * hyphenated username in a slug keeps its tail. */
+export const collapseHomePaths = (text: string, home?: string) => {
+  const exact = home === undefined ? undefined : matchersFor(home);
+  const known =
+    exact === undefined
+      ? text
+      : text
+          .replace(exact.uri, "/~")
+          .replace(exact.path, "~")
+          .replace(exact.slug, "-~");
+  return known
     .replace(URI_HOME, "/~")
     .replace(UNIX_HOME, "~")
     .replace(WINDOWS_HOME, "~")
     .replace(WSL_HOME, "~")
     .replace(HOME_SLUG, "-~");
+};
 
 const MIN_FENCE = 3;
 const BACKTICK_RUN = /`+/g;
@@ -183,9 +239,11 @@ const prepareEvent = (
  * Drops transcript paths and image refs; skips events with no text. */
 export const prepareExport = (
   session: ParsedSession,
-  { exportedAt, redacted }: ExportOptions
+  { exportedAt, redacted, home }: ExportOptions
 ): ExportDoc => {
-  const clean = redacted ? collapseHomePaths : (text: string) => text;
+  const clean = redacted
+    ? (text: string) => collapseHomePaths(text, home)
+    : (text: string) => text;
   const events = session.events.flatMap((raw) => {
     const e = prepareEvent(raw, clean);
     return e ? [e] : [];

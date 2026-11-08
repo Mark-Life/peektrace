@@ -4,6 +4,7 @@
  * Transcripts load a few at a time and the scan stops once `limit + 1`
  * sessions matched, so a common phrase in recent sessions reads little.
  */
+import { homedir } from "node:os";
 import type { FileSystem } from "@effect/platform";
 import { Effect, Ref, Stream } from "effect";
 import type { AgentRegistryShape, SessionFileRef } from "../agents";
@@ -52,7 +53,13 @@ const scanOne = (args: {
         Ref.update(counters.scanned, (n) => n + 1).pipe(
           Effect.zipRight(Ref.update(counters.bytes, (n) => n + text.length)),
           Effect.as(
-            matchTranscript({ text, q, redact, maxHits: HITS_PER_SESSION })
+            matchTranscript({
+              text,
+              q,
+              redact,
+              maxHits: HITS_PER_SESSION,
+              home: homedir(),
+            })
           )
         )
       ),
@@ -62,11 +69,15 @@ const scanOne = (args: {
           : {
               id: header.id,
               agent: header.agent,
-              project: redact ? redactDisplay(header.project) : header.project,
+              project: redact
+                ? redactDisplay(header.project, homedir())
+                : header.project,
               ...(header.title === undefined
                 ? {}
                 : {
-                    title: redact ? redactDisplay(header.title) : header.title,
+                    title: redact
+                      ? redactDisplay(header.title, homedir())
+                      : header.title,
                   }),
               ...(header.updatedAt === undefined
                 ? {}
@@ -96,7 +107,7 @@ export const searchSessions = (args: {
   const inProject = (name: string) =>
     project === undefined ||
     name === project ||
-    (redact && redactDisplay(name) === project);
+    (redact && redactDisplay(name, homedir()) === project);
   const sinceMs = req.since === undefined ? Number.NaN : Date.parse(req.since);
   if (q.trim() === "") {
     return Effect.succeed({

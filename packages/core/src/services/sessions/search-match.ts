@@ -176,16 +176,18 @@ const cut = (s: string, at: number, len: number) => {
 };
 
 /** Redact secrets and home paths in free text. */
-export const redactDisplay = (s: string) => collapseHomePaths(redactText(s));
+export const redactDisplay = (s: string, home?: string) =>
+  collapseHomePaths(redactText(s), home);
 
 /** Snippet around the first match of `pattern` in `text`, redacted when asked. */
 export const buildSnippet = (args: {
   readonly text: string;
   readonly pattern: RegExp;
   readonly redact: boolean;
+  readonly home?: string | undefined;
 }): Pick<SearchHit, "snippet" | "matchStart" | "matchEnd"> => {
-  const { text, pattern, redact } = args;
-  const window = collapse(redact ? redactDisplay(text) : text);
+  const { text, pattern, redact, home } = args;
+  const window = collapse(redact ? redactDisplay(text, home) : text);
   const found = pattern.exec(window);
   if (found === null) {
     const mid = Math.floor(window.length / 2);
@@ -211,8 +213,9 @@ export const matchTranscript = (args: {
   readonly q: string;
   readonly redact: boolean;
   readonly maxHits: number;
+  readonly home?: string | undefined;
 }): LineMatches => {
-  const { text, q, redact, maxHits } = args;
+  const { text, q, redact, maxHits, home } = args;
   const none = { hits: [], matchCount: 0 } satisfies LineMatches;
   if (words(q).length === 0) {
     return none;
@@ -243,6 +246,7 @@ export const matchTranscript = (args: {
       text: content,
       pattern,
       redact,
+      home,
     });
     if (!seen.has(snippet.snippet)) {
       seen.add(snippet.snippet);

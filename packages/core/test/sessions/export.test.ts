@@ -127,6 +127,58 @@ describe("collapseHomePaths", () => {
   });
 });
 
+describe("collapseHomePaths: known home", () => {
+  const UNIX = "/home/jane-doe";
+  const WIN = "C:\\Users\\jane-doe";
+  test("without a home a dashed username leaks in slugs only", () => {
+    expect(collapseHomePaths("-home-jane-doe-work")).toBe("-~-doe-work");
+    expect(collapseHomePaths("C--Users-jane-doe-work")).toBe("-~-doe-work");
+    expect(collapseHomePaths("/home/jane-doe/x")).toBe("~/x");
+    expect(collapseHomePaths("C:\\Users\\jane-doe\\x")).toBe("~\\x");
+  });
+  test("collapses the unix home and its slug exactly", () => {
+    expect(collapseHomePaths("-home-jane-doe-work", UNIX)).toBe("-~-work");
+    expect(collapseHomePaths("-home-jane-doe", UNIX)).toBe("-~");
+    expect(collapseHomePaths("/home/jane-doe/x", UNIX)).toBe("~/x");
+    expect(collapseHomePaths("file:///home/jane-doe/x", UNIX)).toBe(
+      "file:///~/x"
+    );
+  });
+  test("collapses the Windows home and its slug exactly", () => {
+    expect(collapseHomePaths("C--Users-jane-doe-work", WIN)).toBe("-~-work");
+    expect(collapseHomePaths("C:\\Users\\jane-doe\\x", WIN)).toBe("~\\x");
+    expect(collapseHomePaths("C:/Users/jane-doe/x", WIN)).toBe("~/x");
+    expect(collapseHomePaths("c:\\users\\jane-doe\\x", WIN)).toBe("~\\x");
+  });
+  test("leaves no part of the username", () => {
+    const text = "-home-jane-doe-work /home/jane-doe/a";
+    expect(collapseHomePaths(text, UNIX)).not.toContain("doe");
+    expect(collapseHomePaths(text, UNIX)).not.toContain("jane");
+  });
+  test("does not touch longer names or a trailing separator home", () => {
+    expect(collapseHomePaths("/home/jane-doer/x", UNIX)).toBe("~/x");
+    expect(collapseHomePaths("-home-jane-doe-work", `${UNIX}/`)).toBe(
+      "-~-work"
+    );
+  });
+  test("renders exports with the home", () => {
+    const session = {
+      sessionId: "s",
+      provider: "claude",
+      models: [],
+      title: "-home-jane-doe-work",
+      events: [],
+      subagents: [],
+    } as unknown as Parameters<typeof renderJson>[0];
+    const out = renderJson(session, {
+      exportedAt: "2026-01-01T00:00:00Z",
+      redacted: true,
+      home: UNIX,
+    });
+    expect(out).not.toContain("doe");
+  });
+});
+
 describe("collapseHomePaths: other layouts and names", () => {
   test("/var/home and WSL UNC paths", () => {
     expect(collapseHomePaths("/var/home/alice/x")).toBe("~/x");
