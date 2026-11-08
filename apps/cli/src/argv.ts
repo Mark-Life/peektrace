@@ -21,13 +21,19 @@ export const firstPositional = (argv: readonly string[]) => {
 export const skipsTelemetry = (argv: readonly string[]) =>
   firstPositional(argv) === "statusline";
 
-const isHelpFlag = (arg: string) => arg === "--help" || arg === "-h";
+/** Flag name without an `=value` suffix. */
+const flagName = (arg: string) => arg.split("=")[0] ?? arg;
+
+const isHelpFlag = (arg: string) => {
+  const name = flagName(arg);
+  return name === "--help" || name === "-h";
+};
 
 /** True when `--help` / `-h` comes before any subcommand (the owned root page).
  * `--completions` wins over help, as in the lib. */
 export const isRootHelp = (argv: readonly string[]) => {
   const args = argv.slice(2);
-  if (args.includes("--completions")) {
+  if (args.some((arg) => flagName(arg) === "--completions")) {
     return false;
   }
   const first = firstPositional(argv);

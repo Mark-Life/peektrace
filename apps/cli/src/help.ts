@@ -65,6 +65,8 @@ export const ROOT_FLAGS = {
   telemetry: {
     usage: "--no-telemetry",
     description: "Local wide-event telemetry (on by default)",
+    /** Help-page text; the shared description reads wrong next to `usage`. */
+    page: "Disable local wide-event telemetry (on by default)",
   },
 } as const;
 
@@ -75,11 +77,6 @@ const BUILTIN_FLAGS = [
   { usage: "-v, --version", description: "Print the version" },
   { usage: "-h, --help", description: "Show help" },
 ] as const;
-
-/** Page text for flags whose shared option description reads wrong next to `usage`. */
-const PAGE_DESCRIPTIONS: Partial<Record<keyof typeof ROOT_FLAGS, string>> = {
-  telemetry: "Disable local wide-event telemetry (on by default)",
-};
 
 const EXAMPLES = [
   "peektrace serve",
@@ -132,12 +129,11 @@ export const rootHelpDoc = (version: string) =>
     HelpDoc.p(
       Span.text(
         pad([
-          ...Object.entries(ROOT_FLAGS).map(
-            ([key, flag]) =>
+          ...Object.values(ROOT_FLAGS).map(
+            (flag) =>
               [
                 flag.usage,
-                PAGE_DESCRIPTIONS[key as keyof typeof ROOT_FLAGS] ??
-                  flag.description,
+                "page" in flag ? flag.page : flag.description,
               ] as const
           ),
           ...BUILTIN_FLAGS.map(

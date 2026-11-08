@@ -8,10 +8,10 @@ const LIST_COMMANDS = join(import.meta.dir, "support", "list-commands.ts");
 
 let home = "";
 
-const run = async (args: readonly string[], stdin?: string) => {
+const run = async (args: readonly string[]) => {
   const proc = Bun.spawn(["bun", ENTRY, ...args], {
     env: { ...envFor(home), PEEKTRACE_NO_UPDATE_CHECK: "1" },
-    stdin: stdin === undefined ? "ignore" : new Blob([stdin]),
+    stdin: "ignore",
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -58,6 +58,18 @@ const rootOptionNames = (script: string) => {
 
 const OPTION_START = /\n(?=--)/;
 
+const zshScripts = new Map<string, string>();
+const completions = async (shell: string) => {
+  const cached = zshScripts.get(shell);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const { stdout, code } = await run(["--completions", shell]);
+  expect(code).toBe(0);
+  zshScripts.set(shell, stdout);
+  return stdout;
+};
+
 const count = (text: string, needle: string) => text.split(needle).length - 1;
 
 beforeAll(() => {
@@ -98,7 +110,7 @@ describe("root help", () => {
   }
 
   test("every real root option appears on the page", async () => {
-    const { stdout } = await run(["--completions", "zsh"]);
+    const stdout = await completions("zsh");
     const real = rootOptionNames(stdout).filter((name) => !LIB_FLAGS.has(name));
     expect(real.length).toBeGreaterThan(0);
     expect(new Set(real)).toEqual(
@@ -120,8 +132,20 @@ describe("root help", () => {
     expect(stdout).toContain("#compdef peektrace");
   });
 
+  test("--completions=zsh wins over --help", async () => {
+    const { stdout, code } = await run(["--completions=zsh", "--help"]);
+    expect(code).toBe(0);
+    expect(stdout).toContain("#compdef peektrace");
+  });
+
+  test("--help=true shows the owned page", async () => {
+    const { stdout, code } = await run(["--help=true"]);
+    expect(code).toBe(0);
+    expect(stripAnsi(stdout)).toContain("GLOBAL OPTIONS");
+  });
+
   test("completions do not call the positive telemetry flag a disable", async () => {
-    const { stdout } = await run(["--completions", "zsh"]);
+    const stdout = await completions("zsh");
     expect(stdout).not.toContain("Disable local wide-event telemetry");
   });
 
@@ -174,8 +198,7 @@ describe("built-ins still work", () => {
 
   for (const shell of ["bash", "zsh"] as const) {
     test(`--completions ${shell} emits a script ${shell} accepts`, async () => {
-      const { stdout, code } = await run(["--completions", shell]);
-      expect(code).toBe(0);
+      const stdout = await completions(shell);
       expect(stdout.trim().length).toBeGreaterThan(0);
       if (Bun.which(shell) === null) {
         return;

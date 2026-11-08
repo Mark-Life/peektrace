@@ -41,5 +41,7 @@ test("isRootHelp is true only for help without a subcommand", () => {
   expect(isRootHelp(argv("sessions", "-h"))).toBe(false);
   expect(isRootHelp(argv("--help", "sessions"))).toBe(true);
   expect(isRootHelp(argv("--completions", "zsh", "--help"))).toBe(false);
+  expect(isRootHelp(argv("--completions=zsh", "--help"))).toBe(false);
+  expect(isRootHelp(argv("--help=true"))).toBe(true);
   expect(isRootHelp(argv())).toBe(false);
 });
