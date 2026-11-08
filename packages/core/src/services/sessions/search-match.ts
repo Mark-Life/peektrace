@@ -6,7 +6,7 @@
  */
 
 import { escapeRe } from "../stats/detectors/causes";
-import { collapseHomePaths } from "./export/shared";
+import { homeCollapser } from "./export/shared";
 import { redactText } from "./redact";
 import type { SearchHit } from "./search-schema";
 
@@ -176,16 +176,20 @@ const cut = (s: string, at: number, len: number) => {
 };
 
 /** Redact secrets and home paths in free text. */
-export const redactDisplay = (s: string) => collapseHomePaths(redactText(s));
+export const redactDisplay = (
+  s: string,
+  collapsePaths: (text: string) => string = homeCollapser()
+) => collapsePaths(redactText(s));
 
 /** Snippet around the first match of `pattern` in `text`, redacted when asked. */
 export const buildSnippet = (args: {
   readonly text: string;
   readonly pattern: RegExp;
   readonly redact: boolean;
+  readonly collapsePaths?: ((text: string) => string) | undefined;
 }): Pick<SearchHit, "snippet" | "matchStart" | "matchEnd"> => {
-  const { text, pattern, redact } = args;
-  const window = collapse(redact ? redactDisplay(text) : text);
+  const { text, pattern, redact, collapsePaths } = args;
+  const window = collapse(redact ? redactDisplay(text, collapsePaths) : text);
   const found = pattern.exec(window);
   if (found === null) {
     const mid = Math.floor(window.length / 2);
@@ -211,8 +215,9 @@ export const matchTranscript = (args: {
   readonly q: string;
   readonly redact: boolean;
   readonly maxHits: number;
+  readonly collapsePaths?: ((text: string) => string) | undefined;
 }): LineMatches => {
-  const { text, q, redact, maxHits } = args;
+  const { text, q, redact, maxHits, collapsePaths } = args;
   const none = { hits: [], matchCount: 0 } satisfies LineMatches;
   if (words(q).length === 0) {
     return none;
@@ -243,6 +248,7 @@ export const matchTranscript = (args: {
       text: content,
       pattern,
       redact,
+      collapsePaths,
     });
     if (!seen.has(snippet.snippet)) {
       seen.add(snippet.snippet);

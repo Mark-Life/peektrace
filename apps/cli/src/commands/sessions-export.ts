@@ -4,6 +4,7 @@
  * `--remote`), redacted by default, and renders it with the pure core
  * renderers. Output goes to stdout, or to `--out <path>`.
  */
+import { homedir } from "node:os";
 import { extname } from "node:path";
 import { Args, Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
@@ -128,7 +129,11 @@ export const makeSessionsExport = (globals: GlobalsAccessor) =>
             out: outPath,
           }),
           session,
-          { exportedAt: new Date().toISOString(), redacted: redact }
+          {
+            exportedAt: new Date().toISOString(),
+            redacted: redact,
+            home: homedir(),
+          }
         );
         if (outPath === undefined) {
           return yield* Console.log(text.trimEnd());
