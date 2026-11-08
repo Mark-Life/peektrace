@@ -118,6 +118,8 @@ const run = (args: readonly string[], sub = "prompt", timeout = 0) => {
     code: proc.exitCode,
     err: proc.stderr.toString(),
     out: proc.stdout.toString(),
+    // The CLI exits 0 on SIGTERM, so a killed run looks like a success.
+    timedOut: proc.exitedDueToTimeout === true,
   };
 };
 
@@ -199,12 +201,13 @@ test("a --remote URL with ?token= never reaches the prompt text", async () => {
     const remote = `http://127.0.0.1:${port}/?token=SECRETVALUE`;
     const deadline = Date.now() + 70_000;
     const attempt = () =>
-      run(["--days", "7", "--remote", remote], "prompt", 10_000);
+      run(["--days", "7", "--remote", remote], "prompt", 30_000);
     let result = attempt();
-    while (result.code !== 0 && Date.now() < deadline) {
+    while ((result.code !== 0 || result.timedOut) && Date.now() < deadline) {
       await Bun.sleep(200);
       result = attempt();
     }
+    expect(result.timedOut).toBe(false);
     expect(result.code).toBe(0);
     expect(result.out).toContain(`http://127.0.0.1:${port}`);
     expect(result.out).not.toContain("token=");
