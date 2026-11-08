@@ -17,10 +17,12 @@ import {
   HIT_HIGHLIGHT,
 } from "../../lib/use-search-highlight";
 
+// Cards sit in `content-visibility: auto` wrappers, which clip paint: the
+// outline is drawn inside the card so it stays visible.
 const HIGHLIGHT_CSS = `
 ::highlight(${HIT_HIGHLIGHT}) { background-color: rgb(250 204 21 / 0.35); }
 ::highlight(${CURRENT_HIGHLIGHT}) { background-color: rgb(249 115 22 / 0.85); color: #000; }
-[${CURRENT_ATTR}] { outline: 2px solid rgb(249 115 22 / 0.8); outline-offset: 2px; border-radius: 0.375rem; }
+[${CURRENT_ATTR}] { outline: 2px solid rgb(249 115 22 / 0.8); outline-offset: -2px; border-radius: 0.75rem; }
 `;
 
 export const HistorySearch = ({

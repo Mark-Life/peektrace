@@ -4,9 +4,9 @@
  * toggle and its banner, expand-all, and the single `visible` array — then hands
  * the identical rows to either renderer. Layout, sort and the type filter come
  * from the history prefs shared across sessions; the search query belongs to
- * this view and clears when another session opens. The chat layout is the default, the
- * readable pass; the dense table is the forensic answer ("what did this cost,
- * in what order") over the same events. Keeping the filtering here is what
+ * this view and clears when another session opens. The chat layout is the
+ * default, the readable pass; the dense table is the forensic answer ("what
+ * did this cost, in what order") over the same events. Keeping the filtering here is what
  * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
  * behind a persistent "review before sharing" banner; the reveal toggle
  * re-fetches with `redact:false` (handled by the parent atom).
@@ -29,22 +29,10 @@ import {
   ShieldAlertIcon,
   TableIcon,
 } from "lucide-react";
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
 import { useHistoryPrefs } from "../../lib/history-prefs";
-import {
-  type StepDir,
-  searchIndexOf,
-  stepHit,
-  visibleRows,
-} from "../../lib/history-search";
+import { searchIndexOf, visibleRows } from "../../lib/history-search";
 import { DEFAULT_HISTORY_SORT } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollToCall, useToolMarks } from "../../lib/session-markers";
@@ -54,7 +42,7 @@ import {
   subagentCollapseId,
 } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
-import { cardOf, useSearchHighlight } from "../../lib/use-search-highlight";
+import { useSearchQuery, useSearchStepper } from "../../lib/use-history-search";
 import { HistorySearch } from "./history-search";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
@@ -71,6 +59,8 @@ const KIND_OPTIONS = [
   { value: "assistant-thinking", label: "Thinking" },
   { value: "attachment", label: "Attachments" },
 ] as const;
+
+const NO_HITS: readonly string[] = [];
 
 /** Map every event to the 1-based turn it belongs to (for grouping). */
 const turnNumbers = (a: AnalyzedSession): number[] => {
@@ -102,18 +92,7 @@ export const SessionHistory = ({
   const { redacted } = view.state;
   const prefs = useHistoryPrefs();
   const { kind, sort, mode } = prefs;
-  // Like browser find: the query and current hit belong to this session and
-  // reset when another one opens (this view stays mounted across sessions).
-  const [query, setQuery] = useState("");
-  const [currentId, setCurrentId] = useState<string | null>(null);
-  const [step, setStep] = useState(0);
-  const [querySid, setQuerySid] = useState(sid);
-  if (querySid !== sid) {
-    setQuerySid(sid);
-    setQuery("");
-    setCurrentId(null);
-  }
-  const deferredQuery = useDeferredValue(query);
+  const { query, deferredQuery, setQuery } = useSearchQuery(sid);
   const searchIndex = useMemo(() => searchIndexOf(a.events), [a.events]);
   const turns = useMemo(() => turnNumbers(a), [a]);
   const tools = useMemo(() => indexTools(a), [a]);
@@ -203,53 +182,15 @@ export const SessionHistory = ({
     [expandAll, view.setExpanded, view.toggleExpanded]
   );
 
-  // The search filters the list, so every drawn card is a hit; the current one
-  // is tracked by id so a live append keeps it, and falls back to none when a
-  // layout or kind change drops it.
+  // The search filters the list, so every drawn card is a hit.
   const searching = deferredQuery.length > 0;
-  const hits = searching ? transcriptIds : [];
-  const currentIdx = currentId === null ? -1 : hits.indexOf(currentId);
-  const liveCurrent = currentIdx < 0 ? null : currentId;
-  const onQuery = (next: string) => {
-    setQuery(next);
-    setCurrentId(null);
-  };
-  const onStep = (dir: StepDir) => {
-    const next = stepHit({ current: liveCurrent, dir, hits });
-    if (next === null) {
-      return;
-    }
-    if (!isOpen(next)) {
-      onToggle(next, true);
-    }
-    setCurrentId(next);
-    setStep((n) => n + 1);
-  };
-
-  const transcriptRef = useRef<HTMLDivElement>(null);
-  useSearchHighlight({
-    containerRef: transcriptRef,
-    currentId: liveCurrent,
-    ids: transcriptIds,
+  const search = useSearchStepper({
+    hits: searching ? transcriptIds : NO_HITS,
+    isOpen,
+    onToggle,
     query: deferredQuery,
+    resetKey: `${sid}\n${query}`,
   });
-  const scrollIdsRef = useRef(transcriptIds);
-  useEffect(() => {
-    scrollIdsRef.current = transcriptIds;
-  }, [transcriptIds]);
-  // `step` re-runs this when Enter lands on the same lone hit again.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: step is the trigger
-  useEffect(() => {
-    const container = transcriptRef.current;
-    if (container === null || liveCurrent === null) {
-      return;
-    }
-    cardOf({
-      container,
-      id: liveCurrent,
-      ids: scrollIdsRef.current,
-    })?.scrollIntoView({ block: "center" });
-  }, [liveCurrent, step]);
 
   const allOpen =
     expandAll ||
@@ -304,13 +245,21 @@ export const SessionHistory = ({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      {/* Pinned while searching, so the counter and step controls stay in reach
+          as stepping scrolls the transcript. */}
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-3",
+          query.length > 0 &&
+            "sticky top-0 z-10 -mx-1 border-border border-b bg-background px-1 py-2"
+        )}
+      >
         <HistorySearch
-          count={hits.length}
-          current={currentIdx}
-          onClear={() => onQuery("")}
-          onQuery={onQuery}
-          onStep={onStep}
+          count={search.count}
+          current={search.current}
+          onClear={() => setQuery("")}
+          onQuery={setQuery}
+          onStep={search.onStep}
           query={query}
         />
         <Select onValueChange={prefs.setKind} value={kind}>
@@ -389,7 +338,7 @@ export const SessionHistory = ({
         </div>
       ) : null}
 
-      <div ref={transcriptRef}>
+      <div ref={search.containerRef}>
         {mode === "chat" ? (
           <TranscriptChat
             a={a}
