@@ -51,6 +51,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { setHashParams, useListQuery } from "../../lib/routes";
 import { ariaKeys } from "../../lib/shortcuts";
 import { DateRangeFilter } from "./date-range-filter";
 import {
@@ -61,6 +62,8 @@ import {
   distinct,
   type FilterOption,
   type Filters,
+  filtersFromParams,
+  filtersToParams,
   fmtStamp,
   isLive,
   matches,
@@ -114,6 +117,13 @@ const rootFontPx = () => {
 const toOptions = (values: readonly string[]): readonly FilterOption[] =>
   values.map((v) => ({ value: v, label: v }));
 
+/** `options`, plus `value` itself when a shared link names one not loaded here,
+ * so the trigger shows it instead of going blank. */
+const withCurrent = (options: readonly FilterOption[], value: string) =>
+  value === ANY || options.some((o) => o.value === value)
+    ? options
+    : [...options, { value, label: value }];
+
 /** A labelled filter `Select` over `all` + the option values. */
 const FilterSelect = ({
   label,
@@ -134,7 +144,7 @@ const FilterSelect = ({
     </SelectTrigger>
     <SelectContent>
       <SelectItem value={ANY}>{label}: all</SelectItem>
-      {options.map((o) => (
+      {withCurrent(options, value).map((o) => (
         <SelectItem key={o.value} value={o.value}>
           {o.label}
         </SelectItem>
@@ -428,6 +438,19 @@ const VirtualRows = ({
   );
 };
 
+/** The list filters, read from and written to the hash so they survive
+ * reload, Back and leaving the section. Writes replace the history entry. */
+const useListFilters = () => {
+  const query = useListQuery();
+  const filters = useMemo(
+    () => filtersFromParams(new URLSearchParams(query)),
+    [query]
+  );
+  const patch = (next: Partial<Filters>) =>
+    setHashParams(filtersToParams({ ...filters, ...next }));
+  return [filters, patch] as const;
+};
+
 /** The filter controls + a compact, virtualized session list; rows call `onOpen`. */
 const SessionListView = ({
   headers,
@@ -438,11 +461,11 @@ const SessionListView = ({
   readonly selectedId: string | null;
   readonly onOpen: (id: string) => void;
 }) => {
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [filters, patch] = useListFilters();
   const set =
     <K extends keyof Filters>(key: K) =>
     (v: Filters[K]) =>
-      setFilters((prev) => ({ ...prev, [key]: v }));
+      patch({ [key]: v });
 
   const agents = useMemo(
     () => toOptions(distinct(headers, (h) => h.agent)),
@@ -489,7 +512,7 @@ const SessionListView = ({
           aria-keyshortcuts={ariaKeys("search")}
           aria-label="Search sessions"
           data-testid="session-search"
-          onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
+          onChange={(e) => patch({ query: e.target.value })}
           onKeyDown={search.onSearchKeyDown}
           placeholder="Search by title…"
           ref={search.search}
@@ -500,7 +523,7 @@ const SessionListView = ({
             <InputGroupButton
               aria-label="Clear search"
               data-testid="session-search-clear"
-              onClick={() => setFilters((p) => ({ ...p, query: "" }))}
+              onClick={() => patch({ query: "" })}
               size="icon-xs"
             >
               <XIcon />
@@ -562,7 +585,7 @@ const SessionListView = ({
           <Button
             className="h-6 px-2 text-xs"
             data-testid="session-filters-clear"
-            onClick={() => setFilters(NO_FILTERS)}
+            onClick={() => patch(NO_FILTERS)}
             size="sm"
             variant="ghost"
           >
@@ -573,7 +596,7 @@ const SessionListView = ({
       </div>
 
       {rows.length === 0 ? (
-        <NoMatches onReset={() => setFilters(NO_FILTERS)} />
+        <NoMatches onReset={() => patch(NO_FILTERS)} />
       ) : (
         <VirtualRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
       )}

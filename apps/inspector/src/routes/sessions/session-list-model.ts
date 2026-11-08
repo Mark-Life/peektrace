@@ -1,7 +1,8 @@
 /** Pure helpers behind the session rail: filtering, ordering and row labels. */
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import type { DateRange } from "react-day-picker";
-import { toDayKey } from "./date-range-filter";
+import type { ListKey } from "../../lib/routes";
+import { fromDayKey, toDayKey } from "./date-range-filter";
 
 /** Human-readable label per agent id for the badge. */
 export const AGENT_LABEL: Record<string, string> = {
@@ -59,6 +60,56 @@ export const NO_FILTERS: Filters = {
   source: ANY,
 };
 
+/** Shape of a calendar day key. */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Hash key per text or facet filter. */
+const FACET_KEYS = {
+  q: "query",
+  agent: "agent",
+  project: "project",
+  branch: "branch",
+  model: "model",
+  source: "source",
+} as const satisfies Partial<Record<ListKey, keyof Filters>>;
+
+/** A `YYYY-MM-DD` hash value as a local day, or `undefined` if malformed. */
+const dayParam = (value: string | null) =>
+  value !== null && DAY_KEY.test(value) && !Number.isNaN(Date.parse(value))
+    ? fromDayKey(value)
+    : undefined;
+
+/** The range in `from`/`to`; a `to` without a valid `from` is ignored. */
+const rangeFromParams = (params: URLSearchParams): DateRange | undefined => {
+  const from = dayParam(params.get("from"));
+  return from ? { from, to: dayParam(params.get("to")) } : undefined;
+};
+
+/** Filters read from hash params; a missing or empty key is the default. */
+export const filtersFromParams = (params: URLSearchParams) => {
+  const facets = Object.fromEntries(
+    Object.entries(FACET_KEYS).map(([key, field]) => [
+      field,
+      params.get(key) || NO_FILTERS[field],
+    ])
+  ) as Omit<Filters, "range">;
+  return { ...facets, range: rangeFromParams(params) };
+};
+
+/** Filters as hash params; a default maps to `null` so it stays out of the
+ * URL, and `to` is written only when it is a later day than `from`. */
+export const filtersToParams = (f: Filters) => {
+  const from = f.range?.from ? toDayKey(f.range.from) : null;
+  const to = from && f.range?.to ? toDayKey(f.range.to) : null;
+  const facets = Object.fromEntries(
+    Object.entries(FACET_KEYS).map(([key, field]) => [
+      key,
+      f[field] === NO_FILTERS[field] ? null : f[field],
+    ])
+  ) as Record<keyof typeof FACET_KEYS, string | null>;
+  return { ...facets, from, to: to === from ? null : to };
+};
+
 /** A filter option: `value` is matched against the header, `label` is shown. */
 export interface FilterOption {
   readonly label: string;
@@ -78,9 +129,6 @@ export const distinct = (
   pick: (h: SessionHeader) => string | undefined
 ): readonly string[] =>
   [...new Set(headers.map(pick).filter((v): v is string => Boolean(v)))].sort();
-
-/** Shape of a calendar day key. */
-const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `YYYY-MM-DD` of an ISO timestamp, or `""` when it does not start with a
  * real calendar day. */

@@ -4,6 +4,8 @@ import { describe, expect, test } from "bun:test";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import {
   activeDays,
+  filtersFromParams,
+  filtersToParams,
   isLive,
   LIVE_MS,
   matches,
@@ -301,5 +303,89 @@ describe("date range", () => {
       "Last activity Nov 1, 09:00"
     );
     expect(stampTitle(header())).toBe("unknown time");
+  });
+});
+
+describe("filters in the hash", () => {
+  /** Filters encoded the way the list writes them, then read back. */
+  const roundTrip = (f: Parameters<typeof filtersToParams>[0]) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filtersToParams(f))) {
+      if (value !== null) {
+        params.set(key, value);
+      }
+    }
+    return {
+      params,
+      back: filtersFromParams(new URLSearchParams(params.toString())),
+    };
+  };
+
+  test("defaults stay out of the URL", () => {
+    expect(
+      Object.values(filtersToParams(NO_FILTERS)).every((v) => v === null)
+    ).toBe(true);
+    expect(filtersFromParams(new URLSearchParams())).toEqual(NO_FILTERS);
+  });
+
+  test("every facet survives a round trip", () => {
+    const f = {
+      query: "fix auth & retry",
+      agent: "codex",
+      project: "/work/app",
+      branch: "feat/x",
+      model: "m-1",
+      source: "box",
+      range: { from: new Date(2026, 0, 2), to: new Date(2026, 0, 9) },
+    };
+    const { params, back } = roundTrip(f);
+    expect(params.get("q")).toBe("fix auth & retry");
+    expect(params.get("from")).toBe("2026-01-02");
+    expect(params.get("to")).toBe("2026-01-09");
+    expect(back).toEqual(f);
+  });
+
+  test("a one-day range writes only from", () => {
+    const day = new Date(2026, 2, 4);
+    const { params, back } = roundTrip({
+      ...NO_FILTERS,
+      range: { from: day, to: day },
+    });
+    expect(params.get("to")).toBeNull();
+    expect(back.range).toEqual({ from: day, to: undefined });
+  });
+
+  test("a from-only range round-trips", () => {
+    const from = new Date(2026, 2, 4);
+    expect(
+      roundTrip({ ...NO_FILTERS, range: { from, to: undefined } }).back.range
+    ).toEqual({
+      from,
+      to: undefined,
+    });
+  });
+
+  test("malformed dates fall back to no range", () => {
+    expect(
+      filtersFromParams(new URLSearchParams("from=abc")).range
+    ).toBeUndefined();
+    expect(
+      filtersFromParams(new URLSearchParams("from=2026-13-xx")).range
+    ).toBeUndefined();
+    expect(
+      filtersFromParams(new URLSearchParams("from=2026-13-01")).range
+    ).toBeUndefined();
+  });
+
+  test("a to without a from is ignored", () => {
+    expect(
+      filtersFromParams(new URLSearchParams("to=2026-01-02")).range
+    ).toBeUndefined();
+  });
+
+  test("an empty value reads as the default", () => {
+    expect(filtersFromParams(new URLSearchParams("q=&agent=")).agent).toBe(
+      NO_FILTERS.agent
+    );
   });
 });
