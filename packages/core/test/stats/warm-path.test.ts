@@ -142,30 +142,36 @@ describe("shipped lines from stale facts, secret at the clip", () => {
   });
 });
 
-/** The real redactor, counting every call into it. */
+/**
+ * The real redactor, counting the distinct strings sent to it. Its memo makes a
+ * repeat a map lookup, so distinct inputs are what costs a `redactText` run.
+ */
 const countingRedactor = () => {
   const base = makeRedactor({ enabled: true });
-  let calls = 0;
+  const seen = new Set<string>();
+  const count = (s: string | null | undefined) => {
+    seen.add(s ?? "");
+  };
   const redact: Redactor = {
     enabled: true,
     text: (s) => {
-      calls += 1;
+      count(s);
       return base.text(s);
     },
     line: (s, max) => {
-      calls += 1;
+      count(s);
       return base.line(s, max);
     },
     nullable: (s) => {
-      calls += 1;
+      count(s);
       return base.nullable(s);
     },
   };
-  return { redact, calls: () => calls };
+  return { redact, calls: () => seen.size };
 };
 
 describe("redaction cost", () => {
-  test("redactor calls follow what ships, not the fact count", () => {
+  test("redactor work follows what ships, not the fact count", () => {
     const FACTS = 5000;
     const { redact, calls } = countingRedactor();
     const facts = Array.from({ length: FACTS }, (_, seq) =>

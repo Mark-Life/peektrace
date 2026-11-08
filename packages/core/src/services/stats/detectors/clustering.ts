@@ -8,8 +8,8 @@
  * the detail. Without the fold a schema rejection splits one row per missing
  * field; without the literal the row says a property was missing and not which.
  *
- * A key routes drills, so it is redacted once per distinct key on `add`, and
- * the row and the drill match both use that redacted key.
+ * A key routes drills, so it is redacted on `add`, before the clip, and the
+ * row and the drill match both use that redacted key.
  *
  * Rows rank by rows spanned, then sessions, then the key. Never by cluster
  * count: the six masks move the count in both directions at once, so it
@@ -108,19 +108,6 @@ export const makeClusterTable: AccumulatorFactory<readonly ClusterRow[]> = (
   const tallies = new Map<string, Tally>();
   const drilled: CallFact[] = [];
   const wanted = opts.drill?.table === "cluster" ? opts.drill.key : null;
-  const keys = new Map<string, string>();
-
-  /** Redacted cluster key, memoised: one redactor call per distinct key. */
-  const keyOf = (sig: string) => {
-    const raw = clusterKeyOf(sig);
-    const hit = keys.get(raw);
-    if (hit !== undefined) {
-      return hit;
-    }
-    const key = opts.redact.text(raw);
-    keys.set(raw, key);
-    return key;
-  };
 
   const clusterFor = (key: string): Cluster => {
     const found = clusters.get(key);
@@ -143,7 +130,7 @@ export const makeClusterTable: AccumulatorFactory<readonly ClusterRow[]> = (
       if (!(isCallFact(fact) && fact.sig)) {
         return;
       }
-      const key = keyOf(fact.sig);
+      const key = clusterKeyOf(fact.sig, opts.redact.text);
       const cluster = clusterFor(key);
       addToTally({
         tally: cluster.tally,

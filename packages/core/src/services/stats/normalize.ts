@@ -394,15 +394,19 @@ const VALIDATION_LIST = /^(.{6,80}?):\s+(?:[\w./#[\]-]{1,60}|<path>|<n>):\s+\S/;
 /**
  * Fold a signature to its cluster key. This is the one place a quoted literal is
  * masked: the fact keeps the name so a sample line can print it, and the table
- * groups every rejection of the same shape into one row.
+ * groups every rejection of the same shape into one row. `redact` runs before
+ * the clip, so a secret is never cut where the redactor can no longer match it.
  */
-export const clusterKeyOf = (sig: string) => {
+export const clusterKeyOf = (
+  sig: string,
+  redact: (text: string) => string = (text) => text
+) => {
   const masked = collapseWhitespace(sig.replace(QUOTED, "<str>"));
   if (EXIT_CODE.test(masked)) {
-    return masked.slice(0, SIG_MAX);
+    return redact(masked).slice(0, SIG_MAX);
   }
   const list = VALIDATION_LIST.exec(masked);
-  return (list?.[1] ? `${list[1]}:` : masked).slice(0, SIG_MAX);
+  return redact(list?.[1] ? `${list[1]}:` : masked).slice(0, SIG_MAX);
 };
 
 /** The quoted literals a cluster key masked away, in the order they appeared. */

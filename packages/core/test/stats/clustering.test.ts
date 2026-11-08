@@ -356,6 +356,20 @@ describe("a secret in a stored signature", () => {
     expect(hits.map((h) => h.sid)).toEqual(["r1", "r2"]);
     expect(hits.some((h) => h.line.includes(secret))).toBe(false);
   });
+
+  test("is redacted before the key is clipped", () => {
+    // Each `''` grows by three chars when masked, pushing the token across the clip.
+    const text = `Exit code 1\n${"'' ".repeat(10)}${"x".repeat(99)} ${secret}`;
+    const sig = sigOf("Bash", text) ?? "";
+    expect(sig).toContain(secret);
+    expect(clusterKeyOf(sig).includes(secret)).toBe(false);
+    const [row] = cluster([["Bash", text, "r1"]]).rows;
+    expect(row?.key).not.toContain("ghp_");
+    const hits = cluster([["Bash", text, "r1"]], {
+      drill: { table: "cluster", key: row?.key ?? "" },
+    }).drill();
+    expect(hits.map((h) => h.sid)).toEqual(["r1"]);
+  });
 });
 
 describe("the command side of the same vocabulary", () => {

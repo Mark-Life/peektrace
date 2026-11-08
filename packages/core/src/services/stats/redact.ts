@@ -14,8 +14,8 @@
  * sample lines and drill hits, so a shard written under older rules is still
  * caught. Per fact, a detector only collapses and clips; redacting there would
  * cost one call per fact for lines that never ship. Cluster keys are the one
- * exception: they route drills, so they are redacted once per distinct key on
- * `add`.
+ * exception: they route drills, so they are redacted on `add`; the memo keeps
+ * that to one call per distinct key.
  *
  * Redaction is on by default. `redact: false` is a live re-extract that bypasses
  * the cache entirely, so an unredacted string is never written down.
