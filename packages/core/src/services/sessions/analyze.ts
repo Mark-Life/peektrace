@@ -14,6 +14,7 @@ import {
   tokensAt,
   tokensBefore,
 } from "./context-edits";
+import { priceTurns, sessionCost } from "./cost";
 import { isUserAuthored } from "./prompt-origin";
 import type {
   AnalyzedSession,
@@ -483,8 +484,12 @@ export const analyze = (
       ? new Date(p.endedAt).getTime() - new Date(p.startedAt).getTime()
       : undefined;
 
+  const pricedTurns = priceTurns(turns);
+  const cost = sessionCost(p, pricedTurns);
+
   return {
     ...p,
+    turns: pricedTurns,
     contextWindow,
     contextWindowInferred,
     peakContextTokens: peak.peakContextTokens,
@@ -506,6 +511,7 @@ export const analyze = (
     webSearchRequests: sumTurns(turns, (t) => t.webSearchRequests),
     webFetchRequests: sumTurns(turns, (t) => t.webFetchRequests),
     ...(durationMs === undefined ? {} : { durationMs }),
+    ...(cost === undefined ? {} : { cost }),
   };
 };
 

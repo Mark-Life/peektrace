@@ -23,9 +23,10 @@
  *
  * Cost rolls tokens up by session kind, by model and by project. Every dollar
  * figure is an ESTIMATE: no transcript records per-call tokens, the rates are
- * published list prices, and a model id with no rate card is priced at sonnet
- * rates and named in a caveat rather than hidden.
+ * published list prices, and a model id with no rate card adds nothing and is
+ * named in a caveat rather than hidden.
  */
+import { estimateCost, priceFor, pricingEcho } from "../../pricing";
 import type { AccumulatorFactory, FinishContext } from "../accumulate";
 import {
   compareKeyed,
@@ -33,7 +34,6 @@ import {
   round,
   share,
   sortBy,
-  sortedRecord,
   sum,
   topKey,
   uniqSorted,
@@ -46,31 +46,6 @@ import type {
   StatsFact,
   WebRepeatRow,
 } from "../schema";
-
-/** USD per million tokens for one model family. */
-export interface ModelPrice {
-  readonly cacheRead: number;
-  readonly cacheWrite: number;
-  readonly input: number;
-  readonly output: number;
-}
-
-/**
- * Published list prices per million tokens, checked 2026-08-10. No batch
- * discount, no long-context tier, no account terms. Cache reads and cache
- * writes bill separately from plain input.
- */
-export const DEFAULT_PRICING: Readonly<Record<string, ModelPrice>> = {
-  haiku: { input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.1 },
-  opus: { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5 },
-  sonnet: { input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.3 },
-};
-
-/** Family names tried as substrings of a model id. */
-const FAMILIES = ["opus", "sonnet", "haiku"] as const;
-
-/** Family used when a model id matches nothing. Such ids are named in a caveat. */
-const FALLBACK_FAMILY = "sonnet";
 
 /** Model recorded for a session whose transcript names none. */
 const UNKNOWN_MODEL = "(unknown)";
@@ -107,45 +82,6 @@ type Tokens = Pick<
   CostRow,
   "cacheCreationTokens" | "cacheReadTokens" | "inputTokens" | "outputTokens"
 >;
-
-/** Which rate card a model id resolved to. */
-interface PriceMatch {
-  /** False when the id matched nothing and fell back to the sonnet family. */
-  readonly priced: boolean;
-  readonly rates: ModelPrice;
-}
-
-/**
- * Match a model id to its rates: exact table key first, then a family substring
- * (`opus`, `sonnet`, `haiku`), then the sonnet fallback with `priced: false` so
- * the caller can name the id as a guess.
- */
-export const priceFor = (modelId: string): PriceMatch => {
-  const id = modelId.trim().toLowerCase();
-  const exact = DEFAULT_PRICING[id];
-  if (exact) {
-    return { rates: exact, priced: true };
-  }
-  for (const family of FAMILIES) {
-    const rates = DEFAULT_PRICING[family];
-    if (id.includes(family) && rates) {
-      return { rates, priced: true };
-    }
-  }
-  const fallback = DEFAULT_PRICING[FALLBACK_FAMILY];
-  return {
-    rates: fallback ?? { input: 0, output: 0, cacheWrite: 0, cacheRead: 0 },
-    priced: false,
-  };
-};
-
-/** Estimated USD for one token block at one rate card. */
-export const estimateCost = (tokens: Tokens, rates: ModelPrice): number =>
-  (tokens.inputTokens * rates.input +
-    tokens.outputTokens * rates.output +
-    tokens.cacheReadTokens * rates.cacheRead +
-    tokens.cacheCreationTokens * rates.cacheWrite) /
-  MILLION;
 
 const noTokens = (): Tokens => ({
   inputTokens: 0,
@@ -273,22 +209,6 @@ const pct = (part: number, total: number): string =>
 
 /** An estimate, always marked as one. Never a locale format. */
 const usd = (n: number): string => `~$${n.toFixed(2)} est`;
-
-/** The rate table, echoed so a reader can check what produced the estimate. */
-const pricingEcho = (): string => {
-  const rows = sortedRecord(
-    Object.entries(DEFAULT_PRICING).map(
-      ([family, r]) =>
-        [
-          family,
-          `${r.input}/${r.output}/${r.cacheWrite}/${r.cacheRead}`,
-        ] as const
-    )
-  );
-  return Object.entries(rows)
-    .map(([family, rates]) => `${family} ${rates}`)
-    .join("; ");
-};
 
 /** Note the rows a cap hid, so a capped table never reads as the whole corpus. */
 const noteDropped = (args: {
@@ -525,11 +445,11 @@ export const makeCorpusPanels: AccumulatorFactory<CorpusPanels> = () => {
     }
 
     ctx.caveat(
-      `Cost is an ESTIMATE, not a measurement: no transcript records per-call tokens. Rates per million tokens (input/output/cacheWrite/cacheRead USD): ${pricingEcho()}`
+      `Cost is an ESTIMATE, not a measurement: no transcript records per-call tokens. Rates per million tokens (input/output/cacheWrite/cacheRead USD): ${pricingEcho(byModel.keys())}`
     );
     if (unpriced.size > 0) {
       ctx.caveat(
-        `Cost: ${unpriced.size} model ids have no rate card and are estimated at ${FALLBACK_FAMILY} rates — ${uniqSorted(unpriced).join(", ")}`
+        `Cost: ${unpriced.size} model ids have no rate card and are left out of the cost — ${uniqSorted(unpriced).join(", ")}`
       );
     }
     if (multiModel > 0) {

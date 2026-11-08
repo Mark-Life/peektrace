@@ -10,13 +10,9 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { estimateCost, priceFor } from "../../src/services/pricing";
 import type { FinishContext } from "../../src/services/stats/accumulate";
-import {
-  DEFAULT_PRICING,
-  estimateCost,
-  makeCorpusPanels,
-  priceFor,
-} from "../../src/services/stats/detectors/corpus";
+import { makeCorpusPanels } from "../../src/services/stats/detectors/corpus";
 import { DEFAULT_ROW_LIMIT } from "../../src/services/stats/rank";
 import { makeRedactor } from "../../src/services/stats/redact";
 import type {
@@ -268,19 +264,20 @@ describe("duplicate web fetches", () => {
 });
 
 describe("pricing", () => {
-  test("a model id resolves through its family", () => {
-    expect(priceFor("claude-opus-4-8").rates).toBe(DEFAULT_PRICING.opus);
+  test("a model id resolves to its generation", () => {
+    expect(priceFor("claude-opus-4-8").rates.input).toBe(5);
     expect(priceFor("claude-haiku-4-5-20251001").priced).toBe(true);
   });
 
-  test("an unknown id is priced at sonnet rates and says so", () => {
+  test("an unknown id is unpriced with zero rates", () => {
     const match = priceFor("<synthetic>");
     expect(match.priced).toBe(false);
-    expect(match.rates).toBe(DEFAULT_PRICING.sonnet);
+    expect(match.rates.input).toBe(0);
+    expect(match.rates.output).toBe(0);
   });
 
   test("cache reads and cache writes bill apart from input", () => {
-    const rates = DEFAULT_PRICING.sonnet ?? priceFor("sonnet").rates;
+    const rates = priceFor("claude-sonnet-4-6").rates;
     const usd = estimateCost(
       {
         inputTokens: 1e6,
@@ -334,17 +331,17 @@ describe("cost", () => {
   test("the report echoes the rate table that produced the estimate", () => {
     const { caveats } = run(COST);
     const note = caveatWith(caveats, "ESTIMATE");
-    expect(note).toContain("opus 15/75/18.75/1.5");
-    expect(note).toContain("sonnet 3/15/3.75/0.3");
+    expect(note).toContain("opus-5 5/25/6.25/0.5");
+    expect(note).toContain("haiku-4-5 1/5/1.25/0.1");
   });
 
   test("an unpriced model is labelled and named, never absorbed silently", () => {
     const { caveats, panels } = run([
-      session({ sid: "x", models: ["gpt-5-codex"], outputTokens: 1000 }),
+      session({ sid: "x", models: ["example-model-1"], outputTokens: 1000 }),
     ]);
-    const row = panels.cost.find((r) => r.key === "model:gpt-5-codex");
+    const row = panels.cost.find((r) => r.key === "model:example-model-1");
     expect(row?.label).toContain("(unpriced)");
-    expect(caveatWith(caveats, "no rate card")).toContain("gpt-5-codex");
+    expect(caveatWith(caveats, "no rate card")).toContain("example-model-1");
   });
 
   test("a two-model session splits evenly and still totals its own tokens", () => {

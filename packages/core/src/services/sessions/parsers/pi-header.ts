@@ -1,6 +1,8 @@
 /** Lightweight Pi list header: scans raw lines without building a timeline. */
+import { type CostTurn, turnsCost } from "../cost";
 import { scanJsonl } from "../parse";
 import type { SessionHeader } from "../schema";
+import { num } from "../usage";
 import type { BuildHeaderArgs } from "./types";
 
 type RawLine = Record<string, unknown>;
@@ -53,6 +55,57 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
+/** Token counts one Pi call's `usage` reports; a missing count reads 0. */
+const piCallTokens = (usage: RawLine) => {
+  const inputTokens = num(usage.input) ?? 0;
+  const cacheReadTokens = num(usage.cacheRead) ?? 0;
+  const cacheCreationTokens = num(usage.cacheWrite) ?? 0;
+  return {
+    contextTokens: inputTokens + cacheReadTokens + cacheCreationTokens,
+    inputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    outputTokens: num(usage.output) ?? 0,
+  };
+};
+
+/**
+ * Add the turn for one assistant message: the first line per id wins, and
+ * only when its prompt occupies context. `make` builds the turn. `pi.ts` and
+ * the list header both fold through here, so their costs agree.
+ */
+export const foldPiUsage = <T>(args: {
+  readonly turns: Map<string, T>;
+  readonly key: string;
+  readonly usage: RawLine;
+  readonly make: (tokens: ReturnType<typeof piCallTokens>) => T;
+}) => {
+  const { turns, key, usage, make } = args;
+  const tokens = piCallTokens(usage);
+  if (!turns.has(key) && tokens.contextTokens > 0) {
+    turns.set(key, make(tokens));
+  }
+};
+
+/** Record the usage of one assistant `message` line, as `pi.ts` does. */
+const applyUsage = (
+  turns: Map<string, CostTurn>,
+  line: RawLine,
+  index: number
+) => {
+  const msg = (line.message ?? {}) as RawLine;
+  if (line.type !== "message" || msg.role !== "assistant") {
+    return;
+  }
+  const model = String(msg.model ?? "unknown");
+  foldPiUsage({
+    turns,
+    key: typeof line.id === "string" ? line.id : `line-${index}`,
+    usage: (msg.usage ?? {}) as RawLine,
+    make: (tokens) => ({ model, ...tokens }),
+  });
+};
+
 /** A user or assistant `message` line (tool results, bash, system excluded). */
 const isMessage = (line: RawLine) => {
   const role = ((line.message ?? {}) as RawLine).role;
@@ -68,15 +121,17 @@ export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
   const acc: HeaderAcc = {};
   const { rows, malformed } = scanJsonl(text);
   let messageCount = 0;
-  for (const line of rows) {
+  const turns = new Map<string, CostTurn>();
+  rows.forEach((line, index) => {
     if (!line || typeof line !== "object") {
-      continue;
+      return;
     }
     applyHeaderLine(acc, line);
+    applyUsage(turns, line, index);
     if (isMessage(line)) {
       messageCount += 1;
     }
-  }
+  });
 
   return {
     id,
@@ -91,5 +146,6 @@ export const buildPiHeader = (args: BuildHeaderArgs): SessionHeader => {
     ...opt("startedAt", acc.startedAt),
     ...opt("title", acc.title),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
+    ...turnsCost([...turns.values()]),
   };
 };

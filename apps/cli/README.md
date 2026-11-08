@@ -205,8 +205,14 @@ packaging isn't yet wired up for them) is not yet validated for the TUI.
 ### `sessions ls` — list sessions
 
 Lightweight headers (lazy — bodies are not parsed), across every agent. Columns:
-id, agent, project, model, message count, size, updated, title. Rows are sorted
-newest first and capped at 30; a hint on stderr says how many were hidden.
+id, agent, project, model, message count, estimated cost, size, updated, title.
+Rows are sorted newest first and capped at 30; a hint on stderr says how many
+were hidden.
+
+`EST COST` is the main transcript at API list price, without subagent files
+(`sessions analyze` adds them); a note on stderr says so. A `*` means some
+models have no rate card, so the figure is too low. OpenCode shows its own
+recorded cost, else its messages at list price. Codex shows `-` for now.
 
 | Flag | Effect |
 | --- | --- |
@@ -232,6 +238,11 @@ peektrace sessions ls --project -Users-me-myrepo --json
 Reproduces the `session-report` math headlessly: verdict
 (Healthy/Degrading/Rotting), peak context vs window, final context, turn / tool
 counts, the dumb-zone crossing turn (1-based, or `never`, in the table; `--json` keeps the 0-based turn, `-1` for none), and the budget-at-peak partition.
+
+`est. cost` is the session at API list price (`~$1.23`), subagents included
+and also shown on their own row. Models with no rate card are left out and
+listed under `unpriced models`. When OpenCode recorded its own cost, that
+figure is shown instead, marked `(opencode)`.
 
 ```sh
 peektrace sessions analyze <session-uuid>

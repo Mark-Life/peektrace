@@ -15,6 +15,8 @@
  * context window is left unset — `analyze` infers it from the model, exactly
  * like Pi.
  */
+import { turnCost } from "../../pricing";
+import { turnsCost } from "../cost";
 import { measureTokens } from "../measure";
 import { parseJsonl, scanJsonl } from "../parse";
 import type {
@@ -24,6 +26,7 @@ import type {
   Turn,
 } from "../schema";
 import { estTokens, firstLine } from "../tokens";
+import { positive } from "../usage";
 import type { BuildHeaderArgs, ParseSessionArgs, SessionParser } from "./types";
 
 /** A raw dialect line, untyped. */
@@ -275,6 +278,10 @@ interface Meta {
   cwd?: string;
   /** ISO of the last message seen — the endedAt fallback when no session end. */
   lastMessageAt?: string;
+  /** Own `cost` of each assistant message that billed tokens; see `agentCost`. */
+  readonly messageCosts: (number | undefined)[];
+  /** The session's own `cost`, when above 0. */
+  nativeCostUsd?: number;
   /** ISO(timeUpdated) from the session line — authoritative when present. */
   sessionEndedAt?: string;
   sessionId?: string;
@@ -311,17 +318,47 @@ const turnForMessage = (args: {
   const cacheCreationTokens = num(cache?.write);
   const groundContext = inputTokens + cacheReadTokens + cacheCreationTokens;
   const contextTokens = groundContext > 0 ? groundContext : contextRunning;
+  const billed = { model, inputTokens, cacheReadTokens, cacheCreationTokens };
+  // OpenCode writes 0 when it has no price. Its `output` excludes reasoning,
+  // which bills at the output rate.
+  const costUsd =
+    positive(msg.cost) ??
+    turnCost({
+      ...billed,
+      outputTokens: outputTokens + num(tokens?.reasoning),
+    });
   return {
+    ...billed,
     requestId,
-    model,
     contextTokens,
-    inputTokens,
-    cacheReadTokens,
-    cacheCreationTokens,
     outputTokens,
     eventIndexes: [],
     ...opt("ts", ts),
+    ...opt("costUsd", costUsd),
   };
+};
+
+/** True when a turn billed any token. */
+const billedTokens = (t: MutTurn) =>
+  t.inputTokens + t.cacheReadTokens + t.cacheCreationTokens + t.outputTokens >
+  0;
+
+/**
+ * The agent's own figure: the session `cost` when above 0, else the sum of
+ * message costs when every message that billed tokens carries one. A partial
+ * set returns `undefined`, so the session stays an estimate.
+ */
+const agentCost = (
+  sessionCost: number | undefined,
+  messageCosts: readonly (number | undefined)[]
+) => {
+  if (sessionCost !== undefined) {
+    return sessionCost;
+  }
+  if (messageCosts.length === 0 || messageCosts.includes(undefined)) {
+    return;
+  }
+  return messageCosts.reduce<number>((n, c) => n + (c ?? 0), 0);
 };
 
 /** Fold one message line + establish the cursor for its following parts. */
@@ -358,6 +395,9 @@ const applyMessage = (args: {
     });
     turns.push(turn);
     cursor.turn = turn;
+    if (billedTokens(turn)) {
+      meta.messageCosts.push(positive(msg.cost));
+    }
   }
 };
 
@@ -414,6 +454,10 @@ const applySession = (meta: Meta, line: RawLine, models: Set<string>) => {
   if (updated) {
     meta.sessionEndedAt = updated;
   }
+  const cost = positive(line.cost);
+  if (cost !== undefined) {
+    meta.nativeCostUsd = cost;
+  }
 };
 
 /**
@@ -429,7 +473,7 @@ export const parseOpencodeSession = ({
   const turns: MutTurn[] = [];
   const models = new Set<string>();
   const compactionIndexes: number[] = [];
-  const meta: Meta = {};
+  const meta: Meta = { messageCosts: [] };
   const cursor: Cursor = {
     role: "",
     contextRunning: 0,
@@ -466,11 +510,13 @@ export const parseOpencodeSession = ({
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.sessionEndedAt ?? meta.lastMessageAt),
+    ...opt("nativeCostUsd", agentCost(meta.nativeCostUsd, meta.messageCosts)),
   });
 };
 
 /** Mutable header fields gathered from the leading `session` line. */
 interface HeaderAcc {
+  costUsd?: number;
   cwd?: string;
   model?: string;
   startedAt?: string;
@@ -498,12 +544,18 @@ const applyHeaderSession = (acc: HeaderAcc, line: RawLine) => {
   if (updated) {
     acc.updatedAt = updated;
   }
+  const cost = positive(line.cost);
+  if (cost !== undefined) {
+    acc.costUsd = cost;
+  }
 };
 
 /**
  * Build a lightweight OpenCode list header from dialect text. The first line is
  * the `session` header, so meta is read cheaply; `messageCount` counts the
  * `message` lines and the project name is the directory basename (or the slug).
+ * Cost is the agent's own figure (see `agentCost`), else its messages priced
+ * as in `analyze`.
  */
 export const buildOpencodeHeader = ({
   text,
@@ -515,19 +567,35 @@ export const buildOpencodeHeader = ({
 }: BuildHeaderArgs): SessionHeader => {
   const acc: HeaderAcc = {};
   let messageCount = 0;
+  const turns: MutTurn[] = [];
+  const messageCosts: (number | undefined)[] = [];
   const { rows, malformed } = scanJsonl(text);
-  for (const line of rows) {
+  rows.forEach((line, index) => {
     if (!line || typeof line !== "object") {
-      continue;
+      return;
     }
     const kind = str(line.kind);
     if (kind === "session") {
       applyHeaderSession(acc, line);
     } else if (kind === "message") {
       messageCount += 1;
+      if (str(line.role) === "assistant") {
+        const turn = turnForMessage({
+          msg: line,
+          index,
+          ts: undefined,
+          sessionModel: acc.model,
+          contextRunning: 0,
+        });
+        turns.push(turn);
+        if (billedTokens(turn)) {
+          messageCosts.push(positive(line.cost));
+        }
+      }
     }
-  }
+  });
 
+  const own = agentCost(acc.costUsd, messageCosts);
   return {
     id,
     agent: "opencode",
@@ -541,6 +609,7 @@ export const buildOpencodeHeader = ({
     ...opt("title", acc.title),
     ...opt("startedAt", acc.startedAt),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
+    ...(own === undefined ? turnsCost(turns) : { costUsd: own }),
   };
 };
 

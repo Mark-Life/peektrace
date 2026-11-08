@@ -4,7 +4,8 @@
  * event timeline or running budget analysis.
  */
 import type { AgentId } from "../agent-id";
-import { isRealModel } from "./claude-records";
+import { foldClaudeUsage, isRealModel } from "./claude-records";
+import { type CostTurn, turnsCost } from "./cost";
 import { scanJsonl } from "./parse";
 import type { SessionHeader } from "./schema";
 
@@ -14,7 +15,11 @@ interface RawLine {
   readonly gitBranch?: unknown;
   readonly isCompactSummary?: unknown;
   readonly isMeta?: unknown;
-  readonly message?: { readonly content?: unknown; readonly model?: unknown };
+  readonly message?: {
+    readonly content?: unknown;
+    readonly model?: unknown;
+    readonly usage?: unknown;
+  };
   readonly requestId?: unknown;
   readonly timestamp?: unknown;
   readonly type?: unknown;
@@ -54,6 +59,24 @@ const isNotUserWritten = (o: RawLine) => {
         (b as { type?: unknown }).type === "tool_result"
     )
   );
+};
+
+/** Fold one assistant line's usage the way `parse.ts` does, inline
+ * sidechain lines included: `analyze` prices those too. */
+const applyUsage = (turns: Map<string, CostTurn>, key: string, o: RawLine) => {
+  const usage = o.message?.usage;
+  if (!usage || typeof usage !== "object") {
+    return;
+  }
+  const model = o.message?.model;
+  const name = typeof model === "string" ? model : "unknown";
+  foldClaudeUsage({
+    turns,
+    key,
+    model: name,
+    usage: usage as Record<string, unknown>,
+    make: (tokens) => ({ model: name, ...tokens }),
+  });
 };
 
 /** Fold one raw line's header-relevant fields into the accumulator. */
@@ -97,6 +120,7 @@ export const buildHeader = (args: {
   const { text, id, slug, path, sizeBytes, mtimeMs } = args;
   const acc: HeaderAcc = {};
   const assistants = new Set<string>();
+  const turns = new Map<string, CostTurn>();
   let users = 0;
   const { rows, malformed } = scanJsonl(text);
   rows.forEach((row, index) => {
@@ -108,7 +132,9 @@ export const buildHeader = (args: {
     if (o.type === "user" && !isNotUserWritten(o)) {
       users += 1;
     } else if (o.type === "assistant") {
-      assistants.add(assistantKey(o, index));
+      const key = assistantKey(o, index);
+      assistants.add(key);
+      applyUsage(turns, key, o);
     }
   });
 
@@ -126,5 +152,6 @@ export const buildHeader = (args: {
     ...(acc.title ? { title: acc.title } : {}),
     ...(acc.startedAt ? { startedAt: acc.startedAt } : {}),
     ...(malformed > 0 ? { malformedLines: malformed } : {}),
+    ...turnsCost([...turns.values()]),
   };
 };
