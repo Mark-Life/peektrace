@@ -6,12 +6,16 @@
  * two widths: at 100 columns the wide columns are on screen, at 80 they are
  * dropped rather than overflowing.
  */
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { StatsReport } from "@workspace/core/services/stats/schema";
 import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
+import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
+import { SETTLE_TEST_TIMEOUT_MS, settleFor } from "./support/settle";
+
+setDefaultTimeout(SETTLE_TEST_TIMEOUT_MS);
 
 const report = (): StatsReport =>
   ({
@@ -168,23 +172,6 @@ const makeBridge = () => {
   return { bridge, calls };
 };
 
-/** Poll for `needle` while advancing the timer queue `waitForFrame` skips. */
-const settleFor = async (
-  setup: Awaited<ReturnType<typeof testRender>>,
-  needle: string,
-  rounds = 40
-): Promise<string> => {
-  for (let i = 0; i < rounds; i++) {
-    await setup.renderOnce();
-    const frame = setup.captureCharFrame();
-    if (frame.includes(needle)) {
-      return frame;
-    }
-    await new Promise((r) => setTimeout(r, 30));
-  }
-  return setup.captureCharFrame();
-};
-
 const widest = (frame: string): number =>
   Math.max(...frame.split("\n").map((line) => line.trimEnd().length));
 
@@ -199,7 +186,7 @@ test("both ranked tables render with their ranking keys at 100 columns", async (
   );
   try {
     await setup.waitForFrame((v) => v.includes("Peektrace"));
-    await setup.mockInput.typeText("5");
+    await act(() => setup.mockInput.typeText("5"));
     const frame = await settleFor(setup, "WHAT COSTS TIME");
     expect(frame).toContain("FIX FIRST");
     expect(frame).toContain("ranked by sessions spanned");
@@ -227,12 +214,11 @@ test("a watch bump marks the report stale and never rescans the corpus", async (
   );
   try {
     await setup.waitForFrame((v) => v.includes("Peektrace"));
-    await setup.mockInput.typeText("5");
+    await act(() => setup.mockInput.typeText("5"));
     await settleFor(setup, "WHAT COSTS TIME");
-    const after = await settleFor(setup, "● stale", 120);
+    await settleFor(setup, "● stale", 6000);
     expect(calls.watch).toBeGreaterThan(1);
     expect(calls.report).toBe(1);
-    expect(after).toContain("● stale");
   } finally {
     setup.renderer.destroy();
   }
@@ -250,7 +236,7 @@ test("80 columns drops the wide columns instead of overflowing", async () => {
   try {
     // At 80 columns the shell header already sheds its labels, brand included.
     await setup.waitForFrame((v) => v.includes("loopback"));
-    await setup.mockInput.typeText("5");
+    await act(() => setup.mockInput.typeText("5"));
     const frame = await settleFor(setup, "WHAT COSTS TIME");
     expect(frame).toContain("WHAT FAILS");
     expect(frame).not.toContain("WHERE");

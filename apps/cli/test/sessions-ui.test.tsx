@@ -4,7 +4,7 @@
  * the card list + selection→detail wiring through a fake bridge, using
  * `@opentui/react/test-utils`.
  */
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { act } from "react";
@@ -12,6 +12,9 @@ import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
 import { BridgeProvider } from "../src/tui/runtime";
 import { SessionHistory } from "../src/tui/screens/sessions-history";
+import { SETTLE_TEST_TIMEOUT_MS, settleFor } from "./support/settle";
+
+setDefaultTimeout(SETTLE_TEST_TIMEOUT_MS);
 
 const ESC = String.fromCharCode(27);
 
@@ -241,25 +244,6 @@ const fakeBridge: TuiBridge = {
   }) as TuiBridge["run"],
 };
 
-/**
- * Poll for `needle` while advancing the timer queue — the two-hop
- * list→analyze async chain needs real macrotasks that `waitForFrame` skips.
- */
-const settleFor = async (
-  setup: Awaited<ReturnType<typeof testRender>>,
-  needle: string
-): Promise<string> => {
-  for (let i = 0; i < 40; i++) {
-    await setup.renderOnce();
-    const frame = setup.captureCharFrame();
-    if (frame.includes(needle)) {
-      return frame;
-    }
-    await new Promise((r) => setTimeout(r, 30));
-  }
-  return setup.captureCharFrame();
-};
-
 test("session cards render and keyboard selection drives the detail", async () => {
   const setup = await testRender(
     <App bridge={fakeBridge} onQuit={() => undefined} />,
@@ -270,7 +254,6 @@ test("session cards render and keyboard selection drives the detail", async () =
     const first = await settleFor(setup, "Analyzed-a");
     expect(first).toContain("Alpha");
     expect(first).toContain("Beta");
-    expect(first).toContain("Analyzed-a");
     // Header rows stay intact (regression: fixed rows must not collapse and
     // overlap when the card scrollbox grows).
     expect(first).toContain("filter (press /)");
@@ -279,8 +262,7 @@ test("session cards render and keyboard selection drives the detail", async () =
     await act(() => {
       setup.mockInput.pressArrow("down");
     });
-    const second = await settleFor(setup, "Analyzed-b");
-    expect(second).toContain("Analyzed-b");
+    await settleFor(setup, "Analyzed-b");
   } finally {
     setup.renderer.destroy();
   }
