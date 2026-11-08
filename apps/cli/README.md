@@ -102,6 +102,25 @@ from shared object`, `/tmp` is mounted `noexec` — the TUI extracts OpenTUI's
 native library there before loading it. Point `TMPDIR` at an exec-capable
 directory (`TMPDIR=~/.cache/peektrace peektrace tui`). `serve` is unaffected.
 
+## Building the binary
+
+```sh
+bun run --filter=peektrace build:binary   # host target, or set BUN_TARGET
+```
+
+Linux builds embed a debug-stripped copy of OpenTUI's native library (about
+10 MB smaller). Stripping needs `llvm-strip` (Homebrew `llvm`, or any LLVM
+install). On a Linux host of the same arch, GNU `strip` also works. Without a
+tool the build warns and embeds the unstripped library. Never edits
+`node_modules`.
+
+| Env var | Effect |
+| --- | --- |
+| `PEEKTRACE_STRIP` | Path of the strip tool to use instead of auto-detection |
+| `PEEKTRACE_STRIP_REQUIRED=1` | Fail the build instead of warning when stripping is not possible (the release workflow sets this) |
+
+Details and measured sizes: [`docs/binary-size.md`](../../docs/binary-size.md).
+
 ## Execution modes
 
 Every command runs one of two ways:
