@@ -49,6 +49,10 @@ describe("ran bins", () => {
   });
 });
 
+/** The key a cluster row ships, which is the key a drill sends back. */
+const shippedKey = (sig: string) =>
+  makeRedactor({ enabled: true }).text(clusterKeyOf(sig));
+
 /** Every table that samples fact text, each with a drill on one key. */
 const tablesOf = (redact: Redactor, drill: AccumulatorOptions["drill"]) => {
   const opts = { ...defaultOptions(redact), drill };
@@ -75,8 +79,7 @@ const shipped = (args: {
       out.push(table.finish(ctx), table.drill(ctx));
     }
   }
-  // Row keys are match keys, not shipped text, so they are left out.
-  return JSON.stringify(out, (k, v) => (k === "key" ? undefined : v));
+  return JSON.stringify(out);
 };
 
 describe("shipped lines from stale facts", () => {
@@ -100,7 +103,7 @@ describe("shipped lines from stale facts", () => {
         { table: "time", key: "wait/poll" },
         { table: "wait", key: "all" },
         { table: "fail", key: "flag:Bash" },
-        { table: "cluster", key: clusterKeyOf(sig) },
+        { table: "cluster", key: shippedKey(sig) },
       ],
     });
     expect(out.includes("example.test")).toBe(true);
@@ -131,7 +134,7 @@ describe("shipped lines from stale facts, secret at the clip", () => {
         { table: "time", key: "wait/poll" },
         { table: "wait", key: "all" },
         { table: "fail", key: "flag:Bash" },
-        { table: "cluster", key: clusterKeyOf(sig) },
+        { table: "cluster", key: shippedKey(sig) },
       ],
     });
     expect(out.includes("REDACTED")).toBe(true);

@@ -13,7 +13,9 @@
  * can re-expose a secret the fact carried in a redacted span, and the picked
  * sample lines and drill hits, so a shard written under older rules is still
  * caught. Per fact, a detector only collapses and clips; redacting there would
- * cost one call per fact for lines that never ship.
+ * cost one call per fact for lines that never ship. Cluster keys are the one
+ * exception: they route drills, so they are redacted once per distinct key on
+ * `add`.
  *
  * Redaction is on by default. `redact: false` is a live re-extract that bypasses
  * the cache entirely, so an unredacted string is never written down.

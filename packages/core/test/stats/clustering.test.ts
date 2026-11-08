@@ -334,6 +334,30 @@ describe("the table itself", () => {
   });
 });
 
+describe("a secret in a stored signature", () => {
+  // Built at runtime so no scanner flags the fixture as a real token.
+  const secret = ["ghp_", "AbCdEfGh".repeat(5).slice(0, 36)].join("");
+  const leaky: readonly (readonly [string, string, string])[] = [
+    ["Bash", `Exit code 1\nauth failed for ${secret}`, "r1"],
+    ["Bash", `Exit code 1\nauth failed for ${secret}`, "r2"],
+  ];
+
+  test("never reaches the row key", () => {
+    const [row] = cluster(leaky).rows;
+    expect(row?.key).not.toContain(secret);
+    expect(row?.label).not.toContain(secret);
+  });
+
+  test("the shipped key still drills back to its calls", () => {
+    const [row] = cluster(leaky).rows;
+    const hits = cluster(leaky, {
+      drill: { table: "cluster", key: row?.key ?? "" },
+    }).drill();
+    expect(hits.map((h) => h.sid)).toEqual(["r1", "r2"]);
+    expect(hits.some((h) => h.line.includes(secret))).toBe(false);
+  });
+});
+
 describe("the command side of the same vocabulary", () => {
   test("flags collapse but the task name does not", () => {
     expect(normalizeCommand("bun run typecheck --filter web").family).toBe(
