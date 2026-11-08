@@ -9,7 +9,7 @@ import {
   turnCost,
 } from "../../src/services/pricing";
 import { analyze } from "../../src/services/sessions/analyze";
-import { turnsCost } from "../../src/services/sessions/cost";
+import { costNotes, fmtUsd, turnsCost } from "../../src/services/sessions/cost";
 import { buildHeader } from "../../src/services/sessions/header";
 import { parseClaudeSession } from "../../src/services/sessions/parse";
 import {
@@ -501,5 +501,30 @@ describe("header cost", () => {
       piSession.cost?.totalUsd ?? Number.NaN,
       10
     );
+  });
+});
+
+describe("cost formatting", () => {
+  test("fmtUsd rounds to cents and marks sub-cent spend", () => {
+    expect(fmtUsd(0)).toBe("~$0.00");
+    expect(fmtUsd(0.001)).toBe("<$0.01");
+    expect(fmtUsd(1.234)).toBe("~$1.23");
+  });
+
+  test("costNotes lists only the qualifiers that are set", () => {
+    expect(costNotes({ source: "estimate", totalUsd: 1 })).toEqual([]);
+    expect(
+      costNotes({
+        source: "estimate",
+        totalUsd: 1,
+        subagentsUsd: 0.25,
+        unpricedModels: ["mystery-a", "mystery-b"],
+        unreadableSubagents: 2,
+      })
+    ).toEqual([
+      "subagents ~$0.25",
+      "unpriced: mystery-a, mystery-b",
+      "2 subagent(s) unreadable",
+    ]);
   });
 });

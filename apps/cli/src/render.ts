@@ -3,6 +3,7 @@
  * Kept side-effect-free (return strings) so commands stay declarative and the
  * formatters are unit-testable. No color codes — plain text for pipe-friendliness.
  */
+import { fmtUsd } from "@workspace/core/services/sessions/cost";
 
 /** Right-pad `value` to `width` with spaces. */
 const pad = (value: string, width: number): string =>
@@ -85,15 +86,9 @@ export const tokens = (value: number): string => {
     : `${(n / MILLION).toFixed(DECIMALS)}M`;
 };
 
-const CENT = 0.005;
-
 /** An estimated USD figure: `~$1.23`, `<$0.01` below a cent, `-` when absent. */
-export const usdCell = (n: number | undefined): string => {
-  if (n === undefined) {
-    return "-";
-  }
-  return n > 0 && n < CENT ? "<$0.01" : `~$${n.toFixed(2)}`;
-};
+export const usdCell = (n: number | undefined): string =>
+  n === undefined ? "-" : fmtUsd(n);
 
 /** Dumb-zone cross turn for display: 1-based like the inspector, `never` for -1. */
 export const crossTurnCell = (n: number): string =>

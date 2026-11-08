@@ -82,3 +82,20 @@ export const sessionCost = (
     ...opt("unreadableSubagents", unreadable > 0 ? unreadable : undefined),
   };
 };
+
+const CENT = 0.005;
+
+/** An estimated USD figure: `~$1.23`, or `<$0.01` below half a cent. */
+export const fmtUsd = (n: number) =>
+  n > 0 && n < CENT ? "<$0.01" : `~$${n.toFixed(2)}`;
+
+/** Notes that qualify a session cost: subagents share, unpriced models, unreadable subagents. */
+export const costNotes = (cost: SessionCost) => [
+  ...(cost.subagentsUsd ? [`subagents ${fmtUsd(cost.subagentsUsd)}`] : []),
+  ...(cost.unpricedModels?.length
+    ? [`unpriced: ${cost.unpricedModels.join(", ")}`]
+    : []),
+  ...(cost.unreadableSubagents
+    ? [`${cost.unreadableSubagents} subagent(s) unreadable`]
+    : []),
+];

@@ -2,8 +2,10 @@
  *
  * A health word (Healthy / Degrading / Rotting) derived from peak context vs
  * window, the peak gauge with its dumb-zone marker, and the headline metadata
- * grid (peak, turns, system tax, dumb-zone dwell).
+ * grid (peak, turns, system tax, output, dumb-zone dwell, cache, and the
+ * estimated cost when the session has one).
  */
+import { costNotes, fmtUsd } from "@workspace/core/services/sessions/cost";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
@@ -44,6 +46,36 @@ const Meta = ({
     <div className="wrap-anywhere mt-0.5 text-sm">{children}</div>
   </div>
 );
+
+/**
+ * Cost cell value as visible text: total (or `—` when nothing is priced), who
+ * reported it, and the notes that qualify it.
+ */
+const CostValue = ({
+  cost,
+  provider,
+}: {
+  readonly cost: NonNullable<AnalyzedSession["cost"]>;
+  readonly provider: string;
+}) => {
+  const notes = [
+    ...(cost.source === "agent"
+      ? [`reported by ${PROVIDER_LABEL[provider] ?? provider}`]
+      : []),
+    ...costNotes(cost),
+  ];
+  return (
+    <span
+      data-testid="session-cost"
+      title={cost.source === "estimate" ? "Estimate at list price" : undefined}
+    >
+      {cost.totalUsd === undefined ? "—" : fmtUsd(cost.totalUsd)}
+      {notes.length > 0 ? (
+        <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
+      ) : null}
+    </span>
+  );
+};
 
 /** The peak gauge track: fill width = peak fraction, dumb-zone tick overlaid. */
 const PeakGauge = ({ a }: { readonly a: AnalyzedSession }) => {
@@ -128,6 +160,11 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
         </Meta>
         <Meta k="System + tools tax">{fmt(a.systemOverheadTokens)}</Meta>
         <Meta k="Output">{fmt(a.totalOutputTokens)}</Meta>
+        {a.cost ? (
+          <Meta k="Est. cost">
+            <CostValue cost={a.cost} provider={a.provider} />
+          </Meta>
+        ) : null}
         <Meta k="Dumb-zone dwell">
           {a.dumbZoneTurns}/{a.turnCount}
         </Meta>
