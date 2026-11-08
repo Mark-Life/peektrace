@@ -8,7 +8,8 @@ import {
 } from "@workspace/ui/components/tooltip";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
-import { type ReactNode, useEffect } from "react";
+import type { ReactNode } from "react";
+import { ariaKeys, keyLabel, shortcutOf, useShortcut } from "./shortcuts";
 import { type Appearance, nextThemePress } from "./theme-modes";
 
 /**
@@ -35,23 +36,9 @@ const ICONS: Record<Appearance, typeof SunIcon> = {
   dark: MoonIcon,
 };
 
-/** Returns true when focus is inside a field where typing should win over shortcuts. */
-const isTypingTarget = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = target.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  );
-};
-
 /**
  * Flips light <-> dark from what is on screen, storing "system" when the flip
- * lands on the OS appearance. Also bound to the `D` shortcut.
+ * lands on the OS appearance. Also bound to the `theme` shortcut.
  */
 export const ThemeToggle = ({
   iconOnly = false,
@@ -64,22 +51,7 @@ export const ThemeToggle = ({
   const { resolvedTheme, systemTheme, setTheme } = useTheme();
   const { appearance, store } = nextThemePress({ resolvedTheme, systemTheme });
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== "d" ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        isTypingTarget(event.target)
-      ) {
-        return;
-      }
-      setTheme(store);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [store, setTheme]);
+  useShortcut("theme", () => setTheme(store));
 
   // Icon and label name the appearance the next press produces.
   const Icon = ICONS[appearance];
@@ -89,6 +61,7 @@ export const ThemeToggle = ({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
+          aria-keyshortcuts={ariaKeys("theme")}
           aria-label={label}
           onClick={() => setTheme(store)}
           size={iconOnly ? "icon-sm" : "sm"}
@@ -100,7 +73,9 @@ export const ThemeToggle = ({
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-1.5" side="right">
         {label}
-        <Kbd>D</Kbd>
+        {shortcutOf("theme").keys.map((key) => (
+          <Kbd key={key}>{keyLabel({ key, mac: false })}</Kbd>
+        ))}
       </TooltipContent>
     </Tooltip>
   );
