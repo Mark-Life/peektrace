@@ -89,6 +89,16 @@
   command with a one-line summary, global options and examples, and drops
   from 144 to 51 lines. Subcommand pages no longer show `--wizard` or a
   doubled "optional" note.
+- **Context chips open in place** (#71). An opened chip grows into a card
+  where it sits in the run, with chips before it above and chips after it
+  below, so the load order holds. Its header is the chip, with the
+  attachment type and token count; clicking it folds the card back. Opened
+  bodies used to stack under the whole cluster in click order.
+- **The inspector bundles Geist and Geist Mono** (#72) instead of relying on
+  system fonts, so it looks the same on every OS. On Linux without the usual
+  fonts, monospace labels fell back to DejaVu and sat above their icons. The
+  fonts ship inside the binary, about 150 KB in total, and nothing is
+  fetched from the network. Geist covers Cyrillic too.
 - **GitHub release notes come from this changelog** (#131), and the website
   footer shows the latest version. The npm page, CLI banner, READMEs and
   website describe the current product, including OpenCode, npm installs and
