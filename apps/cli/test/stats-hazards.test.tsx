@@ -13,10 +13,9 @@ import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
 import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
-import { settleFor } from "./support/settle";
+import { SETTLE_TEST_TIMEOUT_MS, settleFor } from "./support/settle";
 
-// Lets settleFor's deadline throw, with its frame, before bun's test timeout.
-setDefaultTimeout(10_000);
+setDefaultTimeout(SETTLE_TEST_TIMEOUT_MS);
 
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
@@ -232,7 +231,6 @@ test("no escape sequence from a transcript reaches the drill overlay", async () 
     const frame = await settleFor(setup, "rm -rf / tail");
     expect(frame).not.toContain(ESC);
     expect(frame).not.toContain(BEL);
-    expect(frame).toContain("rm -rf / tail");
     expect(widest(frame)).toBeLessThanOrEqual(WIDE);
   } finally {
     setup.renderer.destroy();

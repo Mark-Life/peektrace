@@ -13,10 +13,9 @@ import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
 import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
-import { settleFor } from "./support/settle";
+import { SETTLE_TEST_TIMEOUT_MS, settleFor } from "./support/settle";
 
-// Lets settleFor's deadline throw, with its frame, before bun's test timeout.
-setDefaultTimeout(10_000);
+setDefaultTimeout(SETTLE_TEST_TIMEOUT_MS);
 
 const report = (): StatsReport =>
   ({
@@ -217,10 +216,9 @@ test("a watch bump marks the report stale and never rescans the corpus", async (
     await setup.waitForFrame((v) => v.includes("Peektrace"));
     await act(() => setup.mockInput.typeText("5"));
     await settleFor(setup, "WHAT COSTS TIME");
-    const after = await settleFor(setup, "● stale", 6000);
+    await settleFor(setup, "● stale", 6000);
     expect(calls.watch).toBeGreaterThan(1);
     expect(calls.report).toBe(1);
-    expect(after).toContain("● stale");
   } finally {
     setup.renderer.destroy();
   }

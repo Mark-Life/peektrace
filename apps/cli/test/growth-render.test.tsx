@@ -4,13 +4,15 @@
  * and asserts the stacked-column chart renders (axis labels, block bars, legend)
  * without overlapping or overflowing.
  */
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
-import { settleFor } from "./support/settle";
+import { SETTLE_TEST_TIMEOUT_MS, settleFor } from "./support/settle";
+
+setDefaultTimeout(SETTLE_TEST_TIMEOUT_MS);
 
 const CTXS = [30_000, 80_000, 140_000, 190_000, 160_000];
 
@@ -117,7 +119,6 @@ test("`g` toggles the analysis pane to the growth chart", async () => {
     await act(() => setup.mockInput.typeText("g"));
     const frame = await settleFor(setup, "Context growth");
     // Chart chrome present: header, a y-axis token label, block bars, legend.
-    expect(frame).toContain("Context growth");
     expect(frame).toContain("200.0K");
     expect(frame).toContain("█");
     expect(frame).toContain("Tool results");
