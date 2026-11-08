@@ -20,7 +20,7 @@ export const STATS_USAGE_SUMMARY =
 export const STATS_SUMMARY =
   "Rank what fails and what costs time across all sessions";
 export const STATUSLINE_SUMMARY =
-  "Print one-line context health for the Claude Code status line";
+  "Print one-line context health for a status line";
 export const TUI_SUMMARY = "Browse sessions in a terminal UI";
 export const UPGRADE_SUMMARY =
   "Upgrade the installed binary to the latest release";

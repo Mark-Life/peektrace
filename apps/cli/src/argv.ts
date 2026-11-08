@@ -21,7 +21,19 @@ export const firstPositional = (argv: readonly string[]) => {
 export const skipsTelemetry = (argv: readonly string[]) =>
   firstPositional(argv) === "statusline";
 
-/** True for `peektrace --help` / `-h` with no subcommand (the owned root page). */
-export const isRootHelp = (argv: readonly string[]) =>
-  firstPositional(argv) === undefined &&
-  argv.slice(2).some((arg) => arg === "--help" || arg === "-h");
+const isHelpFlag = (arg: string) => arg === "--help" || arg === "-h";
+
+/** True when `--help` / `-h` comes before any subcommand (the owned root page).
+ * `--completions` wins over help, as in the lib. */
+export const isRootHelp = (argv: readonly string[]) => {
+  const args = argv.slice(2);
+  if (args.includes("--completions")) {
+    return false;
+  }
+  const first = firstPositional(argv);
+  const helpAt = args.findIndex(isHelpFlag);
+  if (helpAt < 0) {
+    return false;
+  }
+  return first === undefined || args.indexOf(first) > helpAt;
+};

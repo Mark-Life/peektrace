@@ -1,7 +1,7 @@
 /** `--help` surface: owned root page, per-command descriptions, completion scripts. */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { COMMAND_ROWS, GROUP_PATHS, ROOT_FLAGS } from "../src/help";
+import { COMMAND_ROWS, ROOT_FLAGS } from "../src/help";
 import { ENTRY, envFor, makeHome, removeHome } from "./support/synthetic-home";
 
 const LIST_COMMANDS = join(import.meta.dir, "support", "list-commands.ts");
@@ -25,6 +25,37 @@ const run = async (args: readonly string[], stdin?: string) => {
 // biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape
 const stripAnsi = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, "");
 
+/** Group commands only dispatch to subcommands, so they have no row. */
+const GROUP_PATHS = ["sessions", "memory"];
+
+/** Options the lib adds itself; everything else at the root must be in ROOT_FLAGS. */
+const LIB_FLAGS = new Set([
+  "--completions",
+  "--log-level",
+  "-h",
+  "--help",
+  "--wizard",
+  "--version",
+  "--telemetry",
+]);
+
+const ROOT_OPTION_LINE = /^ {8}'(?:\([^)]*\))?(--?[a-z-]+)\[/;
+
+/** Root option names from the zsh script: the first `_arguments` block. */
+const rootOptionNames = (script: string) => {
+  const names: string[] = [];
+  const lines = script.split("\n");
+  const start = lines.findIndex((line) => line.includes("_arguments "));
+  for (const line of lines.slice(start + 1)) {
+    const match = line.match(ROOT_OPTION_LINE);
+    if (match?.[1] === undefined) {
+      break;
+    }
+    names.push(match[1]);
+  }
+  return names;
+};
+
 const OPTION_START = /\n(?=--)/;
 
 const count = (text: string, needle: string) => text.split(needle).length - 1;
@@ -37,11 +68,20 @@ afterAll(() => {
 });
 
 describe("root help", () => {
-  for (const args of [["--help"], ["-h"], ["--json", "--help"]]) {
+  const helpTexts = new Map<string, string>();
+  for (const args of [
+    ["--help"],
+    ["-h"],
+    ["--json", "--help"],
+    ["--help", "sessions"],
+  ]) {
     test(`peektrace ${args.join(" ")} lists every command compactly`, async () => {
       const { stdout, code } = await run(args);
       expect(code).toBe(0);
       const text = stripAnsi(stdout);
+      helpTexts.set(args.join(" "), text);
+      expect(text).toContain("Peektrace");
+      expect(text).toContain("GLOBAL OPTIONS");
       for (const row of COMMAND_ROWS) {
         expect(text).toContain(row.path);
         expect(text).toContain(row.summary);
@@ -52,18 +92,37 @@ describe("root help", () => {
       const lines = text.split("\n");
       expect(lines.length).toBeLessThanOrEqual(55);
       for (const line of lines) {
-        expect(line.length).toBeLessThanOrEqual(100);
+        expect(line.length).toBeLessThanOrEqual(80);
       }
     });
   }
 
-  test("every root flag appears on the page", async () => {
-    const { stdout } = await run(["--help"]);
-    const text = stripAnsi(stdout);
+  test("every real root option appears on the page", async () => {
+    const { stdout } = await run(["--completions", "zsh"]);
+    const real = rootOptionNames(stdout).filter((name) => !LIB_FLAGS.has(name));
+    expect(real.length).toBeGreaterThan(0);
+    expect(new Set(real)).toEqual(
+      new Set(Object.values(ROOT_FLAGS).map((flag) => flag.usage.split(" ")[0]))
+    );
+    const text = helpTexts.get("--help") ?? "";
+    expect(text).not.toBe("");
+    for (const name of real) {
+      expect(text).toContain(name);
+    }
     for (const flag of Object.values(ROOT_FLAGS)) {
       expect(text).toContain(flag.usage);
-      expect(text).toContain(flag.description);
     }
+  });
+
+  test("--completions wins over --help", async () => {
+    const { stdout, code } = await run(["--completions", "zsh", "--help"]);
+    expect(code).toBe(0);
+    expect(stdout).toContain("#compdef peektrace");
+  });
+
+  test("completions do not call the positive telemetry flag a disable", async () => {
+    const { stdout } = await run(["--completions", "zsh"]);
+    expect(stdout).not.toContain("Disable local wide-event telemetry");
   });
 
   test("rows match the real command tree", async () => {

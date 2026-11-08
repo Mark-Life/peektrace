@@ -20,9 +20,6 @@ import {
   UPGRADE_SUMMARY,
 } from "./summaries";
 
-/** Group commands: they only dispatch to subcommands, so they have no row. */
-export const GROUP_PATHS = ["sessions", "memory"] as const;
-
 /** Every runnable command, in display order. */
 export const COMMAND_ROWS = [
   { path: "serve", summary: SERVE_SUMMARY },
@@ -42,7 +39,8 @@ export const COMMAND_ROWS = [
   { path: "upgrade", summary: UPGRADE_SUMMARY },
 ] as const;
 
-/** Root flags: `name` is the option name, `usage` what the page prints. */
+/** Root flags: `usage` is what the page prints, `description` the option text
+ * shared with completion scripts. */
 export const ROOT_FLAGS = {
   json: {
     usage: "--json",
@@ -54,8 +52,7 @@ export const ROOT_FLAGS = {
   },
   pretty: {
     usage: "--pretty",
-    description:
-      "Render aligned tables instead of compact tab-separated output",
+    description: "Render aligned tables, not tab-separated text",
   },
   remote: {
     usage: "--remote <url>",
@@ -63,11 +60,11 @@ export const ROOT_FLAGS = {
   },
   otel: {
     usage: "--otel",
-    description: "Log Effect spans to stderr (also enabled by PEEKTRACE_OTEL)",
+    description: "Log Effect spans to stderr (or set PEEKTRACE_OTEL)",
   },
   telemetry: {
     usage: "--no-telemetry",
-    description: "Disable local wide-event telemetry (on by default)",
+    description: "Local wide-event telemetry (on by default)",
   },
 } as const;
 
@@ -78,6 +75,11 @@ const BUILTIN_FLAGS = [
   { usage: "-v, --version", description: "Print the version" },
   { usage: "-h, --help", description: "Show help" },
 ] as const;
+
+/** Page text for flags whose shared option description reads wrong next to `usage`. */
+const PAGE_DESCRIPTIONS: Partial<Record<keyof typeof ROOT_FLAGS, string>> = {
+  telemetry: "Disable local wide-event telemetry (on by default)",
+};
 
 const EXAMPLES = [
   "peektrace serve",
@@ -94,15 +96,25 @@ const pad = (rows: readonly (readonly [string, string])[]) => {
     .join("\n");
 };
 
-/** Split the description at the first colon so no line passes 100 columns. */
+const MAX_WIDTH = 80;
+
+/** Word-wrap the description so no line passes 80 columns. */
 const descriptionLines = () => {
-  const at = DESCRIPTION.indexOf(": ");
-  if (at < 0) {
-    return `${INDENT}${DESCRIPTION}`;
+  const lines: string[] = [];
+  let line = "";
+  for (const word of DESCRIPTION.split(" ")) {
+    if (
+      line !== "" &&
+      INDENT.length + line.length + 1 + word.length > MAX_WIDTH
+    ) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = line === "" ? word : `${line} ${word}`;
+    }
   }
-  const head = `${DESCRIPTION.slice(0, at)}.`;
-  const tail = DESCRIPTION.slice(at + 2);
-  return `${INDENT}${head}\n${INDENT}${tail.charAt(0).toUpperCase()}${tail.slice(1)}`;
+  lines.push(line);
+  return lines.map((text) => `${INDENT}${text}`).join("\n");
 };
 
 export const rootHelpDoc = (version: string) =>
@@ -119,12 +131,19 @@ export const rootHelpDoc = (version: string) =>
     HelpDoc.h1("GLOBAL OPTIONS"),
     HelpDoc.p(
       Span.text(
-        pad(
-          [...Object.values(ROOT_FLAGS), ...BUILTIN_FLAGS].map((flag) => [
-            flag.usage,
-            flag.description,
-          ])
-        )
+        pad([
+          ...Object.entries(ROOT_FLAGS).map(
+            ([key, flag]) =>
+              [
+                flag.usage,
+                PAGE_DESCRIPTIONS[key as keyof typeof ROOT_FLAGS] ??
+                  flag.description,
+              ] as const
+          ),
+          ...BUILTIN_FLAGS.map(
+            (flag) => [flag.usage, flag.description] as const
+          ),
+        ])
       )
     ),
     HelpDoc.h1("EXAMPLES"),
