@@ -15,6 +15,8 @@ const MIME: Record<ExportFormat, string> = {
   json: "application/json",
 };
 
+const SHORT_ID_LENGTH = 8;
+
 const download = (
   a: AnalyzedSession,
   format: ExportFormat,
@@ -29,7 +31,7 @@ const download = (
   );
   const link = document.createElement("a");
   link.href = url;
-  link.download = `session-${a.sessionId.slice(0, 8)}.${format}`;
+  link.download = `session-${a.sessionId.slice(0, SHORT_ID_LENGTH)}.${format}`;
   link.click();
   URL.revokeObjectURL(url);
 };
@@ -41,10 +43,18 @@ export const ExportButtons = ({
   readonly a: AnalyzedSession;
   readonly redacted: boolean;
 }) => (
-  <div className="flex items-center gap-1" data-testid="session-export">
-    <DownloadIcon className="size-3.5 text-muted-foreground" />
+  <fieldset
+    className="m-0 flex min-w-0 items-center gap-1 border-0 p-0"
+    data-testid="session-export"
+  >
+    <legend className="sr-only">Export session</legend>
+    <DownloadIcon
+      aria-hidden="true"
+      className="size-3.5 text-muted-foreground"
+    />
     {EXPORT_FORMATS.map((format) => (
       <Button
+        aria-label={`Export as ${format}`}
         key={format}
         onClick={() => download(a, format, redacted)}
         size="sm"
@@ -53,5 +63,5 @@ export const ExportButtons = ({
         {format}
       </Button>
     ))}
-  </div>
+  </fieldset>
 );
