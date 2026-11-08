@@ -30,15 +30,19 @@ const focusCard = (card: HTMLElement) => {
  * the id the link names; `index` is where it sits in the list now, or -1 when
  * a filter hides it, in which case the jump waits until it is shown. Reading
  * on from there is left alone. Inside the drawn item, a tool card is what gets
- * centred and focused. `done` belongs to the caller, so a view that remounts
- * (a layout switch) does not land on the same target again.
+ * placed and focused. `align` is where it lands: centred (the default) or at
+ * the top, below anything sticky (the item's `scroll-margin-top`). `done`
+ * belongs to the caller, so a view that remounts (a layout switch) does not
+ * land on the same target again.
  */
 export const useVirtualJump = ({
+  align = "center",
   done,
   index,
   list,
   target,
 }: {
+  readonly align?: "start" | "center";
   readonly done: RefObject<string | null>;
   readonly index: number;
   readonly list: RefObject<VirtualListHandle | null>;
@@ -55,7 +59,7 @@ export const useVirtualJump = ({
       return;
     }
     done.current = target;
-    list.current.scrollToIndex(index, "center");
+    list.current.scrollToIndex(index, align);
     let frames = 0;
     let raf = 0;
     let landed = false;
@@ -65,7 +69,7 @@ export const useVirtualJump = ({
         landed = true;
         const card =
           item.querySelector<HTMLElement>("[data-tool-use-id]") ?? item;
-        card.scrollIntoView({ block: "center" });
+        card.scrollIntoView({ block: align });
         focusCard(card);
         return;
       }
@@ -80,5 +84,5 @@ export const useVirtualJump = ({
       // A jump cut short (the list changed or the view swapped) runs again.
       done.current = landed ? target : null;
     };
-  }, [target, index, list, done]);
+  }, [target, index, list, done, align]);
 };
