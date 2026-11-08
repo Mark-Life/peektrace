@@ -9,7 +9,7 @@
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
-import { type RefObject, useCallback, useRef, useState } from "react";
+import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 import type { ChatNode, TranscriptRowRef } from "./chat-lane";
 import { planIndexOfCall } from "./chat-lane";
 import { rowIndexOfCall } from "./history-filter";
@@ -74,23 +74,28 @@ export const resolveJump = (
     : { kind: "call", id: spawn.toolUseId };
 };
 
-/** The key one request is known by. */
-export const jumpKey = (target: JumpTarget, seq: number) => {
-  if (target.kind === "turn") {
-    return `turn:${target.turn}@${seq}`;
-  }
-  return target.kind === "call"
-    ? `call:${target.id}@${seq}`
-    : `${target.kind}@${seq}`;
+/** The resolved jump for request number `seq`, or null when the session has
+ *  no such place. `seq` alone keys it: every request bumps it. */
+export const toHistoryJump = (
+  a: Parameters<typeof resolveJump>[0],
+  req: JumpRequest | null,
+  seq: number
+): HistoryJump | null => {
+  const target = req === null ? null : resolveJump(a, req);
+  return target === null ? null : { key: String(seq), target };
 };
 
 /** The turn rule of turn `n`, or the first later one when a filter dropped
- *  every event of `n`. -1 when nothing at or after `n` is shown. */
+ *  every event of `n`. A dumb-zone divider right above the rule is part of
+ *  the landing, so it shows below the sticky bar. -1 when nothing at or
+ *  after `n` is shown. */
 const planIndexOfTurn = (plan: readonly ChatNode[], n: number) => {
   const exact = plan.findIndex((x) => x.type === "turn" && x.turn === n);
-  return exact >= 0
-    ? exact
-    : plan.findIndex((x) => x.type === "turn" && x.turn >= n);
+  const at =
+    exact >= 0
+      ? exact
+      : plan.findIndex((x) => x.type === "turn" && x.turn >= n);
+  return at > 0 && plan[at - 1]?.type === "dumbzone" ? at - 1 : at;
 };
 
 /** The band of the first visible compaction. */
@@ -170,7 +175,7 @@ export const isHiddenJump = ({
   readonly filtered: boolean;
   readonly index: number;
   readonly jump: HistoryJump | null;
-  /** The key of the jump that last landed. */
+  /** The key of the jump that last reached the list. */
   readonly landed: string | null;
 }) =>
   jump !== null &&
@@ -208,11 +213,9 @@ export const seedRequest = ({
 /** How far a jump got. Held above the history, so a remount (a layout switch,
  *  the redaction re-fetch) does not land the same jump again. */
 export interface JumpLanding {
-  /** The key of the jump in flight or landed. */
+  /** The key of the jump in flight or landed. A jump only starts once its
+   *  target is in the list, so this also tells a jump that already landed. */
   readonly done: RefObject<string | null>;
-  /** The key of the jump that last landed. */
-  readonly landed: string | null;
-  readonly onLand: (key: string) => void;
 }
 
 /** The current jump request, seeded from the URL, and how far it got. A stats
@@ -240,7 +243,6 @@ export const useHistoryJump = () => {
     setState((prev) => ({ ...prev, req, seq: prev.seq + 1 }));
   }, []);
   const done = useRef<string | null>(null);
-  const [landed, setLanded] = useState<string | null>(null);
-  const landing: JumpLanding = { done, landed, onLand: setLanded };
+  const landing = useMemo((): JumpLanding => ({ done }), []);
   return { landing, req: state.req, request, seq: state.seq };
 };

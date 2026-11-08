@@ -6,12 +6,14 @@
  * marker click reports its own turn and stops there. Hover state lives here,
  * not in the chart, and the plot comes in as `children`, so moving the pointer
  * re-renders one line and one label instead of every area, dot and tick.
+ * A touch screen has no hover, so there the first tap shows the guide and a
+ * second tap on the same snapshot reports it.
  */
 import type { TurnSnapshot } from "@workspace/core/services/sessions/schema";
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { fmtK } from "../lib/session-format";
-import { turnAtX } from "../lib/timeline-hit";
+import { clickAction, snapIndexAtX } from "../lib/timeline-hit";
 
 /** Gap between the guide line and its label, in viewBox px. */
 const LABEL_GAP = 6;
@@ -68,6 +70,9 @@ export const TimelineHitLayer = ({
 }) => {
   const [hover, setHover] = useState(-1);
   const area = useRef<SVGRectElement>(null);
+  const touch = useRef(false);
+  // The snapshot the last tap showed; a second tap on it jumps.
+  const armed = useRef(-1);
   // The snapshot count is read on every event, so a live session growing
   // under a still pointer maps to the current list. -1 outside the plot.
   const indexAt = (ev: MouseEvent) => {
@@ -79,7 +84,12 @@ export const TimelineHitLayer = ({
     if (frac < 0 || frac > 1) {
       return -1;
     }
-    return turnAtX({ left, n: snaps.length, plotW, px: left + frac * plotW });
+    return snapIndexAtX({
+      left,
+      n: snaps.length,
+      plotW,
+      px: left + frac * plotW,
+    });
   };
   const snap = hover >= 0 ? snaps[hover] : undefined;
   const hx = snap ? x(hover) : 0;
@@ -89,12 +99,31 @@ export const TimelineHitLayer = ({
     <g
       data-testid="timeline-hit"
       onClick={(ev) => {
-        const s = snaps[indexAt(ev)];
-        if (s) {
-          onTurn(s.turnIndex + 1);
+        const i = indexAt(ev);
+        const s = snaps[i];
+        if (!s) {
+          return;
+        }
+        if (
+          clickAction({ armed: armed.current, i, touch: touch.current }) ===
+          "show"
+        ) {
+          armed.current = i;
+          setHover(i);
+          return;
+        }
+        armed.current = -1;
+        onTurn(s.turnIndex + 1);
+      }}
+      onPointerDown={(ev) => {
+        touch.current = ev.pointerType === "touch";
+      }}
+      onPointerLeave={(ev) => {
+        // A lifted finger leaves too; the tapped guide stays up.
+        if (ev.pointerType !== "touch") {
+          setHover(-1);
         }
       }}
-      onPointerLeave={() => setHover(-1)}
       onPointerMove={(ev) => {
         const i = indexAt(ev);
         setHover((prev) => (prev === i ? prev : i));

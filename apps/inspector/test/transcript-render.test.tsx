@@ -167,11 +167,7 @@ const TURNS = EVENTS.map((e) => {
 
 /** No stats markers: the transcript renders the same with or without them. */
 const NO_MARKS: ToolMarks = new Map();
-const LANDING = {
-  done: { current: null },
-  landed: null,
-  onLand: () => undefined,
-};
+const LANDING = { done: { current: null } };
 
 const noop = () => {
   // collapse state is not exercised by a static render
@@ -307,6 +303,7 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       crossEvtIdx={9}
       isOpen={() => false}
       jump={null}
+      jumpIndex={-1}
       landing={LANDING}
       onSort={noop}
       onToggle={noop}
@@ -335,6 +332,7 @@ test("token sort shows window share, hides the divider, marks the header", () =>
       crossEvtIdx={9}
       isOpen={() => false}
       jump={null}
+      jumpIndex={-1}
       landing={LANDING}
       onSort={noop}
       onToggle={noop}
@@ -450,11 +448,6 @@ test("the timeline takes clicks and focus only when the host can jump", () => {
   expect(plain).not.toContain("timeline-hit");
   expect(plain).not.toContain('role="button"');
   expect(plain).toContain('role="img"');
-});
-
-test("turn rules and table gutters carry their turn number", () => {
-  expect(chatHtml({ open: false })).toContain('data-turn="2"');
-  expect(tableHtml(() => false)).toContain('data-turn="1"');
 });
 
 test("the hidden note says which kind of jump the filters hide", () => {

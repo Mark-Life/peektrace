@@ -7,25 +7,18 @@
  * `redact` flag, which re-fetches the analysis with raw bodies.
  */
 import { Result, useAtomValue } from "@effect-atom/atom-react";
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
-import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
-import {
-  type JumpLanding,
-  type JumpRequest,
-  jumpKey,
-  resolveJump,
-  useHistoryJump,
-} from "../../lib/history-jump";
+import { memo, useCallback, useMemo, useRef } from "react";
+import { useHistoryJump } from "../../lib/history-jump";
 import { ResultView } from "../../lib/result-view";
 import { openSession } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useAnalyzedSession } from "../../lib/session-atoms";
-import { type SessionView, useSessionView } from "../../lib/session-view";
+import { useSessionView } from "../../lib/session-view";
 import { TranscriptSourceContext } from "../../lib/transcript-source";
 import { ExportButtons } from "./export-button";
 import { LoadedArtifacts } from "./loaded-artifacts";
@@ -49,46 +42,6 @@ const ParentNote = ({ parent }: { readonly parent: string }) => (
     </Button>
   </div>
 );
-
-/** The history, with the jump resolved once per analysis and request: the
- *  resolve walks every event, and a fresh object would re-run the landing
- *  effects on each render. */
-const History = ({
-  a,
-  id,
-  landing,
-  onSummary,
-  req,
-  sectionRef,
-  seq,
-  view,
-}: {
-  readonly a: AnalyzedSession;
-  readonly id: string;
-  readonly landing: JumpLanding;
-  readonly onSummary: () => void;
-  readonly req: JumpRequest | null;
-  readonly sectionRef: RefObject<HTMLElement | null>;
-  readonly seq: number;
-  readonly view: SessionView;
-}) => {
-  const jump = useMemo(() => {
-    const target = req === null ? null : resolveJump(a, req);
-    return target === null ? null : { key: jumpKey(target, seq), target };
-  }, [a, req, seq]);
-  return (
-    <SessionHistory
-      a={a}
-      jump={jump}
-      jumpFromLink={req?.kind === "call"}
-      landing={landing}
-      onSummary={onSummary}
-      sectionRef={sectionRef}
-      sid={id}
-      view={view}
-    />
-  );
-};
 
 /** The full debug view for one session id; `onBack` returns to the list. A
  * `parent` means `id` is a subagent transcript, resolved through that session. */
@@ -114,10 +67,23 @@ const SessionDetailView = ({
     [request]
   );
 
+  // Scrolled by offset, not `scrollIntoView`: that would honour the pane's
+  // `scroll-padding-top`, kept for the toolbar, which is not stuck up here.
   const toHistory = () => {
     const section = history.current;
-    section?.scrollIntoView({ block: "start" });
-    section?.querySelector("h2")?.focus({ preventScroll: true });
+    if (!section) {
+      return;
+    }
+    if (root) {
+      const top =
+        section.getBoundingClientRect().top -
+        root.getBoundingClientRect().top +
+        root.scrollTop;
+      root.scrollTo({ top });
+    } else {
+      section.scrollIntoView({ block: "start" });
+    }
+    section.querySelector("h2")?.focus({ preventScroll: true });
   };
   const toSummary = useCallback(() => {
     root?.scrollTo({ top: 0 });
@@ -159,14 +125,14 @@ const SessionDetailView = ({
             <GrowthTimeline a={a} onTurn={onTurn} />
             <LoadedArtifacts a={a} />
             <TranscriptSourceContext.Provider value={source}>
-              <History
+              <SessionHistory
                 a={a}
-                id={id}
                 landing={landing}
                 onSummary={toSummary}
                 req={req}
                 sectionRef={history}
                 seq={seq}
+                sid={id}
                 view={view}
               />
             </TranscriptSourceContext.Provider>

@@ -42,10 +42,11 @@ import {
 import { chatIdsOf } from "../../lib/chat-lane";
 import { filterRows, searchIndex } from "../../lib/history-filter";
 import {
-  type HistoryJump,
   isHiddenJump,
   type JumpLanding,
+  type JumpRequest,
   rowIndexOfTarget,
+  toHistoryJump,
 } from "../../lib/history-jump";
 import {
   useScrollPadding,
@@ -53,7 +54,11 @@ import {
   useSubagentsJump,
 } from "../../lib/history-landing";
 import { useHistoryPrefs } from "../../lib/history-prefs";
-import { DEFAULT_HISTORY_SORT, sortRows } from "../../lib/history-sort";
+import {
+  DEFAULT_HISTORY_SORT,
+  isForwardOrder,
+  sortRows,
+} from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useToolMarks } from "../../lib/session-markers";
@@ -111,24 +116,24 @@ const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
   a,
-  jump,
-  jumpFromLink,
   landing,
   onSummary,
+  req,
   sectionRef,
+  seq,
   sid,
   view,
 }: {
   readonly a: AnalyzedSession;
-  /** Where the summary asked to go, if anywhere. */
-  readonly jump: HistoryJump | null;
-  /** The jump came from a stats link (`call=`), not the summary. */
-  readonly jumpFromLink: boolean;
   readonly landing: JumpLanding;
   /** Scrolls back up to the summary. */
   readonly onSummary: () => void;
+  /** Where a stats link or the summary asked to go, if anywhere. */
+  readonly req: JumpRequest | null;
   /** The section element, for jumps from outside it. */
   readonly sectionRef: RefObject<HTMLElement | null>;
+  /** Bumped on every request, so a second click on one chip lands again. */
+  readonly seq: number;
   /** The session id, for the marker query — `AnalyzedSession` carries none. */
   readonly sid: string;
   readonly view: SessionView;
@@ -137,6 +142,9 @@ export const SessionHistory = ({
   const prefs = useHistoryPrefs();
   const { query, kind, sort, mode } = prefs;
   const turns = useMemo(() => turnNumbers(a), [a]);
+  // Resolved once per analysis and request: the resolve walks every event,
+  // and a fresh object would re-run the landing effects on each render.
+  const jump = useMemo(() => toHistoryJump(a, req, seq), [a, req, seq]);
   const tools = useMemo(() => indexTools(a), [a]);
   // Stats marks are an annotation on the same calls the tables counted; a
   // failed or pending marker query leaves the transcript exactly as it was.
@@ -148,7 +156,6 @@ export const SessionHistory = ({
   useSubagentsJump({
     done: landing.done,
     jump,
-    onLand: landing.onLand,
     section: sectionRef,
   });
 
@@ -184,8 +191,7 @@ export const SessionHistory = ({
       jump === null
         ? -1
         : rowIndexOfTarget({
-            ordered:
-              effectiveSort.key === "order" && effectiveSort.dir === "asc",
+            ordered: isForwardOrder(effectiveSort),
             rows: visible,
             target: jump.target,
             turns,
@@ -196,9 +202,9 @@ export const SessionHistory = ({
     filtered: deferredQuery.length > 0 || kind !== "all",
     index: jumpIndex,
     jump,
-    landed: landing.landed,
+    landed: landing.done.current,
   });
-  const showCall = () => {
+  const clearFilters = () => {
     prefs.setQuery("");
     prefs.setKind("all");
   };
@@ -314,7 +320,7 @@ export const SessionHistory = ({
       </div>
 
       <div
-        className="@container top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
+        className="@container top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
         data-testid="history-toolbar"
         ref={setBar}
       >
@@ -394,8 +400,8 @@ export const SessionHistory = ({
       </div>
 
       <HiddenNote
-        hidden={jumpHidden && (jumpFromLink ? "call" : "jump")}
-        onClear={showCall}
+        hidden={jumpHidden && (req?.kind === "call" ? "call" : "jump")}
+        onClear={clearFilters}
       />
 
       <div
@@ -427,6 +433,7 @@ export const SessionHistory = ({
             crossEvtIdx={crossEvtIdx}
             isOpen={isOpen}
             jump={jump}
+            jumpIndex={jumpIndex}
             landing={landing}
             onSort={prefs.setSort}
             onToggle={onToggle}

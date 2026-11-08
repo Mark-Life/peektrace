@@ -75,21 +75,19 @@ const focusCard = (card: HTMLElement) => {
  * placed and focused. `align` is where it lands: centred (the default) or at
  * the top, below anything sticky (the scroll pane's `scroll-padding-top`).
  * `done` belongs to the caller, so a view that remounts (a layout switch) does
- * not land on the same target again; `onLand` hears when it has landed.
+ * not land on the same target again.
  */
 export const useVirtualJump = ({
   align = "center",
   done,
   index,
   list,
-  onLand,
   target,
 }: {
   readonly align?: "start" | "center";
   readonly done: RefObject<string | null>;
   readonly index: number;
   readonly list: RefObject<VirtualListHandle | null>;
-  readonly onLand?: (target: string) => void;
   readonly target: string | null;
 }) => {
   useEffect(() => {
@@ -120,7 +118,6 @@ export const useVirtualJump = ({
         place();
         focusCard(card);
         unsettle = settle(card, place);
-        onLand?.(target);
         return;
       }
       frames += 1;
@@ -135,5 +132,5 @@ export const useVirtualJump = ({
       // A jump cut short (the list changed or the view swapped) runs again.
       done.current = landed ? target : null;
     };
-  }, [target, index, list, done, align, onLand]);
+  }, [target, index, list, done, align]);
 };

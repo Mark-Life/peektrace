@@ -359,7 +359,6 @@ export const ChatTurnRule = ({
   <div
     className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground"
     data-testid="chat-turn-rule"
-    data-turn={turn}
   >
     <div className="h-px flex-1 bg-border" />
     <span>

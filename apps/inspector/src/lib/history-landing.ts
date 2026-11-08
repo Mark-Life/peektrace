@@ -58,12 +58,10 @@ export const useScrollPadding = (root: HTMLElement | null, px: number) => {
 export const useSubagentsJump = ({
   done,
   jump,
-  onLand,
   section,
 }: {
   readonly done: RefObject<string | null>;
   readonly jump: HistoryJump | null;
-  readonly onLand: (key: string) => void;
   readonly section: RefObject<HTMLElement | null>;
 }) => {
   const key = jump?.target.kind === "subagents" ? jump.key : null;
@@ -82,6 +80,5 @@ export const useSubagentsJump = ({
     const heading = box.querySelector<HTMLElement>("h3") ?? box;
     heading.tabIndex = -1;
     heading.focus({ preventScroll: true });
-    onLand(key);
-  }, [key, done, onLand, section]);
+  }, [key, done, section]);
 };

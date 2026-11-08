@@ -39,11 +39,11 @@ import {
   alignOf,
   type HistoryJump,
   type JumpLanding,
-  rowIndexOfTarget,
 } from "../../lib/history-jump";
 import {
   type HistorySort,
   type HistorySortKey,
+  isForwardOrder,
   nextSort,
 } from "../../lib/history-sort";
 import { eventCollapseId } from "../../lib/session-view";
@@ -72,10 +72,7 @@ const PCT_DECIMALS = 2;
 
 /** Turn-number gutter, shared by every transcript row. */
 const TurnGutter = ({ turn }: { readonly turn: number }) => (
-  <span
-    className="w-8 shrink-0 font-mono text-muted-foreground text-xs"
-    data-turn={turn}
-  >
+  <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
     t{turn}
   </span>
 );
@@ -328,6 +325,7 @@ export const TranscriptTable = ({
   crossEvtIdx,
   isOpen,
   jump,
+  jumpIndex,
   landing,
   onSort,
   onToggle,
@@ -344,6 +342,8 @@ export const TranscriptTable = ({
   readonly isOpen: (id: string) => boolean;
   /** Where a link or the summary asked to go, if anywhere. */
   readonly jump: HistoryJump | null;
+  /** The row `jump` lands on; -1 when hidden or there is no jump. */
+  readonly jumpIndex: number;
   /** How far the jump got, shared by both layouts. */
   readonly landing: JumpLanding;
   readonly onSort: (next: HistorySort) => void;
@@ -360,7 +360,7 @@ export const TranscriptTable = ({
   // matters while ranking by tokens — in transcript order it is just noise.
   const showShare = sort.key === "tokens";
   // The divider marks a point in time, so it only reads right in forward order.
-  const showDivider = sort.key === "order" && sort.dir === "asc";
+  const showDivider = isForwardOrder(sort);
   const shareOf = (e: TimelineEvent) =>
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
@@ -375,16 +375,8 @@ export const TranscriptTable = ({
   useVirtualJump({
     align: jump ? alignOf(jump.target) : "start",
     done: landing.done,
-    index: jump
-      ? rowIndexOfTarget({
-          ordered: showDivider,
-          rows,
-          target: jump.target,
-          turns,
-        })
-      : -1,
+    index: jumpIndex,
     list,
-    onLand: landing.onLand,
     target: jump?.key ?? null,
   });
 

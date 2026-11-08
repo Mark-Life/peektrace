@@ -314,7 +314,6 @@ export const TranscriptChat = ({
     done: landing.done,
     index: jump ? planIndexOfTarget(plan, jump.target) : -1,
     list,
-    onLand: landing.onLand,
     target: jump?.key ?? null,
   });
 

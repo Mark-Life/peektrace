@@ -5,7 +5,7 @@
  * edge to the right one (a single snapshot sits in the middle), so the nearest
  * one is a rounded fraction, clamped to the plot. -1 when there is none.
  */
-export const turnAtX = ({
+export const snapIndexAtX = ({
   left,
   n,
   plotW,
@@ -25,3 +25,16 @@ export const turnAtX = ({
   const frac = Math.min(Math.max((px - left) / plotW, 0), 1);
   return Math.round(frac * (n - 1));
 };
+
+/** What a click on snapshot `i` does. A mouse jumps at once; a touch shows
+ *  the guide first (there is no hover), and jumps on a second tap of the same
+ *  snapshot, the one `armed` holds. */
+export const clickAction = ({
+  armed,
+  i,
+  touch,
+}: {
+  readonly armed: number;
+  readonly i: number;
+  readonly touch: boolean;
+}) => (touch && armed !== i ? "show" : "jump");

@@ -9,11 +9,11 @@ import type {
 import { buildChatPlan, type TranscriptRowRef } from "../src/lib/chat-lane";
 import {
   isHiddenJump,
-  jumpKey,
   planIndexOfTarget,
   resolveJump,
   rowIndexOfTarget,
   seedRequest,
+  toHistoryJump,
 } from "../src/lib/history-jump";
 
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
@@ -154,13 +154,13 @@ describe("resolveJump", () => {
   });
 });
 
-test("the jump key changes with every request", () => {
-  const t = { kind: "turn", turn: 3 } as const;
-  expect(jumpKey(t, 1)).not.toBe(jumpKey(t, 2));
-  expect(jumpKey(t, 1)).not.toBe(jumpKey({ kind: "turn", turn: 4 }, 1));
-  expect(jumpKey({ id: "a", kind: "call" }, 1)).not.toBe(
-    jumpKey({ id: "b", kind: "call" }, 1)
+test("each request is its own jump; a missing place is none", () => {
+  const req = { kind: "turn", turn: 3 } as const;
+  expect(toHistoryJump(SESSION, req, 1)?.key).not.toBe(
+    toHistoryJump(SESSION, req, 2)?.key
   );
+  expect(toHistoryJump(SESSION, { kind: "turn", turn: 9 }, 1)).toBeNull();
+  expect(toHistoryJump(SESSION, null, 1)).toBeNull();
 });
 
 test("a page load seeds from turn=, else call=", () => {
@@ -187,6 +187,13 @@ describe("chat plan", () => {
     const plan = planOf(ROWS);
     const i = planOfTurn(plan, 2);
     expect(plan[i]).toEqual({ turn: 2, type: "turn" });
+  });
+
+  test("a turn that crosses into the dumb zone lands on the divider", () => {
+    const plan = buildChatPlan({ crossEvtIdx: 2, rows: ROWS, turns: TURNS });
+    const i = planOfTurn(plan, 2);
+    expect(plan[i]).toEqual({ type: "dumbzone" });
+    expect(plan[i + 1]).toEqual({ turn: 2, type: "turn" });
   });
 
   test("a filtered-away turn falls through to the next shown one", () => {
