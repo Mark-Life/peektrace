@@ -1,7 +1,7 @@
 /** MCP dispatch with no corpus: `handleLine` over the real tool table and a
  * stub tool, one JSON-RPC line in, at most one line out. */
 import { describe, expect, test } from "bun:test";
-import { Effect, Schema } from "effect";
+import { Chunk, Effect, Schema, Stream } from "effect";
 import type { PeektraceClient } from "../src/client";
 import {
   defineTool,
@@ -9,6 +9,7 @@ import {
   handleLine,
   type McpTool,
   PROTOCOL_VERSIONS,
+  requestLines,
 } from "../src/mcp/protocol";
 import { TOOLS } from "../src/mcp/tools";
 
@@ -161,5 +162,25 @@ describe("tools", () => {
       content: [{ type: "text", text: "kaput" }],
       isError: true,
     });
+  });
+});
+
+describe("requestLines", () => {
+  const linesOf = (chunks: readonly Uint8Array[]) =>
+    Effect.runPromise(
+      Stream.runCollect(requestLines(Stream.fromIterable(chunks))).pipe(
+        Effect.map(Chunk.toArray)
+      )
+    );
+
+  test("keeps raw U+2028 and U+2029 inside one request", async () => {
+    // JSON.stringify leaves U+2028/U+2029 raw.
+    const line = JSON.stringify({ k: "a\u2028b\u2029c" });
+    const bytes = new TextEncoder().encode(`${line}\n{"n":2}\r\n`);
+    // Cut inside the 3-byte U+2028 so decoding must span chunks.
+    const cut = bytes.indexOf(0xe2) + 1;
+    const lines = await linesOf([bytes.slice(0, cut), bytes.slice(cut)]);
+    expect(lines).toEqual([line, '{"n":2}']);
+    expect(lines[0]).toContain("\u2028");
   });
 });

@@ -8,6 +8,7 @@ import type { PeektraceClient } from "../client";
 import {
   analyzeSession,
   DEFAULT_LIMIT,
+  type LsInputNames,
   listNotes,
   loadSessionList,
   parseLsBounds,
@@ -15,8 +16,8 @@ import {
   renderSessionList,
 } from "../commands/sessions";
 import { resolveCwd, type TargetMessages } from "../commands/sessions-filter";
-import { renderDrill, renderReport } from "../commands/stats";
 import { scopeOf } from "../commands/stats-options";
+import { renderDrill, renderReport } from "../commands/stats-render";
 import { CliUserError } from "../errors";
 import { json } from "../render";
 import { defineTool, type McpTool } from "./protocol";
@@ -61,7 +62,7 @@ const statsWindow = {
 };
 
 /** Messages worded for tool inputs instead of CLI flags. */
-const LS_INPUTS = { limit: "limit:", since: "since" };
+const LS_INPUTS: LsInputNames = { limit: "limit:", since: "since" };
 const TARGET_MESSAGES: TargetMessages = {
   parentWithoutId: "parent needs an explicit subagent id.",
   idAndNewest: "Pass either id or latest/cwd, not both.",
@@ -186,7 +187,7 @@ const statsReport = defineTool({
 const statsDrill = defineTool({
   name: "stats_drill",
   description:
-    'The calls behind one stats_report row. A DRILL cell `--cause K` maps to {table:"cause", key:"K"}; likewise --fail, --time, --cluster and --wait.',
+    'The calls behind one stats_report row. A DRILL cell `--cause K` maps to {table:"cause", key:"K"}; likewise --fail and --time.',
   input: Schema.Struct({
     table: DrillTable.annotations(describe("Table the key comes from")),
     key: Schema.String.annotations(

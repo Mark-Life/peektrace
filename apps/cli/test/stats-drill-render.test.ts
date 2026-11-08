@@ -5,7 +5,7 @@ import {
   type DrillResult,
   STATS_SCHEMA_VERSION,
 } from "@workspace/core/services/stats/schema";
-import { renderDrill } from "../src/commands/stats";
+import { renderDrill } from "../src/commands/stats-render";
 
 const hit: DrillHit = {
   sid: "s1",

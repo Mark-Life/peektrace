@@ -4,7 +4,15 @@
  * no reply. Pure dispatch only: `handleLine` maps one input line to at most one
  * output line and never does IO, so the stdio loop lives in `commands/mcp.ts`.
  */
-import { Cause, Effect, Either, JSONSchema, ParseResult, Schema } from "effect";
+import {
+  Cause,
+  Effect,
+  Either,
+  JSONSchema,
+  ParseResult,
+  Schema,
+  Stream,
+} from "effect";
 import { CliUserError, formatCliError } from "../errors";
 import { APP_VERSION } from "../version";
 
@@ -25,7 +33,7 @@ export const ErrorCode = {
 
 /** A tool's answer: the main text, plus notes sent as a separate content block
  * so a JSON answer stays parseable. */
-export interface ToolOutput {
+interface ToolOutput {
   readonly notes?: readonly string[];
   readonly text: string;
 }
@@ -187,6 +195,12 @@ const dispatch = <C>(
       );
   }
 };
+
+/** Split raw stdin bytes into request lines on `\n`, `\r\n` or `\r` only. JSON
+ * strings may hold raw U+2028/U+2029, which `node:readline` treats as line
+ * breaks, so it would cut one request in two. */
+export const requestLines = <E, R>(bytes: Stream.Stream<Uint8Array, E, R>) =>
+  bytes.pipe(Stream.decodeText(), Stream.splitLines);
 
 const parseJson = (line: string) =>
   Either.try(() => JSON.parse(line) as unknown);

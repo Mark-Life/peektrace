@@ -80,3 +80,30 @@ test("mcp answers initialize, tools/list and tools/call over stdio", async () =>
   );
   expect(JSON.stringify(byId.get(3)?.result)).toContain("44444444");
 }, 30_000);
+
+test("a raw U+2028 inside a request still gets one reply with its id", async () => {
+  const proc = Bun.spawn(["bun", ENTRY, "mcp"], {
+    env: envFor(home),
+    stdin: "pipe",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  proc.stdin.write(
+    frame(7, "tools/call", {
+      name: "sessions_list",
+      arguments: { "a\u2028b": 1 },
+    })
+  );
+  proc.stdin.end();
+  const out = await new Response(proc.stdout).text();
+  expect(await proc.exited).toBe(0);
+  const replies = out
+    .split("\n")
+    .filter((l) => l.trim() !== "")
+    .map(
+      (l) => JSON.parse(l) as { id: unknown; result?: { isError?: boolean } }
+    );
+  expect(replies).toHaveLength(1);
+  expect(replies[0]?.id).toBe(7);
+  expect(replies[0]?.result?.isError).toBe(true);
+}, 30_000);

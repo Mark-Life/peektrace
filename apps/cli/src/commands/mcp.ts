@@ -5,23 +5,21 @@
  * `rootSpans` records one wide telemetry event per RPC, as `serve` does.
  * Local only: `--remote` is refused.
  */
-import { createInterface } from "node:readline";
 import { Command } from "@effect/cli";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Effect, Logger, Stream } from "effect";
 import type { GlobalsAccessor } from "../client";
 import { CliUserError } from "../errors";
-import { handleLine } from "../mcp/protocol";
+import { handleLine, requestLines } from "../mcp/protocol";
 import { TOOLS } from "../mcp/tools";
 import { MCP_SUMMARY } from "../summaries";
 
 const stdinLines = () =>
-  Stream.fromAsyncIterable(
-    createInterface({
-      input: process.stdin,
-      crlfDelay: Number.POSITIVE_INFINITY,
-    }),
-    (cause) => new CliUserError({ message: `stdin failed: ${String(cause)}` })
+  requestLines(
+    Stream.fromReadableStream(
+      () => Bun.stdin.stream(),
+      (cause) => new CliUserError({ message: `stdin failed: ${String(cause)}` })
+    )
   );
 
 /** One reply per write, resolved once the bytes are handed to the pipe. */
