@@ -7,6 +7,7 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
 import { BridgeProvider } from "../src/tui/runtime";
@@ -86,7 +87,11 @@ test("history expands to a highlighted body and strips ANSI", async () => {
     expect(collapsed.includes(ESC)).toBe(false);
     expect(collapsed).not.toContain("ls -la /tmp");
     // Enter expands the selected (first) item → decoded bash body appears.
-    setup.mockInput.pressEnter();
+    // Key presses become React updates that commit in a later macrotask, so
+    // `act` flushes them before `waitForFrame` checks the frame.
+    await act(() => {
+      setup.mockInput.pressEnter();
+    });
     const expanded = await setup.waitForFrame((v) => v.includes("ls -la /tmp"));
     expect(expanded).toContain("ls -la /tmp");
   } finally {
@@ -122,14 +127,16 @@ test("s sorts the history biggest first and keeps open rows open", async () => {
     expect(ordered.indexOf("Bash tool")).toBeLessThan(
       ordered.indexOf("total 8")
     );
-    // Expand the heavy result row (arrow needs a tick to land before enter).
-    setup.mockInput.pressArrow("down");
-    await new Promise((r) => setTimeout(r, 20));
-    await setup.renderOnce();
-    setup.mockInput.pressEnter();
+    // Expand the heavy result row.
+    await act(() => {
+      setup.mockInput.pressArrow("down");
+    });
+    await act(() => {
+      setup.mockInput.pressEnter();
+    });
     await setup.waitForFrame((v) => v.includes("file.txt"));
     // Size order lifts it above the smaller call, still open, with its share.
-    await setup.mockInput.typeText("s");
+    await act(() => setup.mockInput.typeText("s"));
     const sorted = await setup.waitForFrame((v) => v.includes("~500   0.3%"));
     expect(sorted.indexOf("total 8")).toBeLessThan(sorted.indexOf("Bash tool"));
     expect(sorted).toContain("file.txt");
@@ -269,7 +276,9 @@ test("session cards render and keyboard selection drives the detail", async () =
     expect(first).toContain("filter (press /)");
     expect(first).toContain("agent: all · a to cycle");
     // Arrow-down selects Beta → the detail re-analyzes the new id.
-    setup.mockInput.pressArrow("down");
+    await act(() => {
+      setup.mockInput.pressArrow("down");
+    });
     const second = await settleFor(setup, "Analyzed-b");
     expect(second).toContain("Analyzed-b");
   } finally {
