@@ -53,6 +53,31 @@ describe("keyOf", () => {
   });
 });
 
+describe("layouts that type other characters on the bound keys", () => {
+  test("Russian: the Slash key types . and , but still reads / and ?", () => {
+    expect(keyOf(press({ key: ".", code: "Slash" }))).toBe("/");
+    expect(keyOf(press({ key: ",", code: "Slash", shiftKey: true }))).toBe("?");
+    expect(matchesShortcut("search", press({ key: ".", code: "Slash" }))).toBe(
+      true
+    );
+  });
+
+  test("German: BracketRight types + but reads ]", () => {
+    expect(keyOf(press({ key: "+", code: "BracketRight" }))).toBe("]");
+  });
+
+  test("a bound character typed elsewhere wins over the physical key", () => {
+    expect(keyOf(press({ key: "]", code: "Digit6" }))).toBe("]");
+    expect(keyOf(press({ key: "/", code: "Digit7", shiftKey: true }))).toBe(
+      "/"
+    );
+  });
+
+  test("an unbound character off the remapped keys reads as typed", () => {
+    expect(keyOf(press({ key: ".", code: "Period" }))).toBe(".");
+  });
+});
+
 describe("shortcutAllowed", () => {
   test("a plain key on the page runs", () => {
     expect(shortcutAllowed(press())).toBe(true);
@@ -76,6 +101,21 @@ describe("shortcutAllowed", () => {
         })
       )
     ).toBe(true);
+  });
+
+  test("Mac Option that types a bound key runs, other Option chords do not", () => {
+    const option = (key: string, code: string) =>
+      press({ altKey: true, code, key });
+    expect(shortcutAllowed(option("]", "Digit6"), true)).toBe(true);
+    expect(shortcutAllowed(option("[", "Digit5"), true)).toBe(true);
+    expect(shortcutAllowed(option("∂", "KeyD"), true)).toBe(false);
+    expect(shortcutAllowed(option("]", "Digit6"), false)).toBe(false);
+    expect(
+      shortcutAllowed(
+        press({ altKey: true, ctrlKey: true, code: "Digit6", key: "]" }),
+        true
+      )
+    ).toBe(false);
   });
 
   test("a handled event, a field, or a popup owns the key", () => {

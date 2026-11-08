@@ -1,6 +1,5 @@
 /** Theme provider + toggle, built on `next-themes` (shipped in ui). */
 import { Button } from "@workspace/ui/components/button";
-import { Kbd } from "@workspace/ui/components/kbd";
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +8,8 @@ import {
 import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
 import type { ReactNode } from "react";
-import { ariaKeys, keyLabel, shortcutOf, useShortcut } from "./shortcuts";
+import { ShortcutKeys } from "./shortcut-keys";
+import { ariaKeys, useShortcut } from "./shortcuts";
 import { type Appearance, nextThemePress } from "./theme-modes";
 
 /**
@@ -73,9 +73,7 @@ export const ThemeToggle = ({
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-1.5" side="right">
         {label}
-        {shortcutOf("theme").keys.map((key) => (
-          <Kbd key={key}>{keyLabel({ key, mac: false })}</Kbd>
-        ))}
+        <ShortcutKeys id="theme" />
       </TooltipContent>
     </Tooltip>
   );

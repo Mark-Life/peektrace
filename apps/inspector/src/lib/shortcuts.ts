@@ -149,7 +149,7 @@ export interface KeyEventLike {
   readonly target: unknown;
 }
 
-/** Physical keys read when the layout types a non-Latin character. */
+/** Physical keys read when the layout types a character no shortcut binds. */
 const CODE_KEY: Record<string, readonly [string, string]> = {
   BracketLeft: ["[", "{"],
   BracketRight: ["]", "}"],
@@ -158,27 +158,38 @@ const CODE_KEY: Record<string, readonly [string, string]> = {
 
 const ASCII = /^[ -~]$/;
 
-/** The key as the table names it. Single letters are lowercased; a non-ASCII
- *  character (a Cyrillic layout, say) falls back to the physical key. */
+/** Single characters some shortcut is bound to. */
+const BOUND = new Set<string>(
+  SHORTCUTS.flatMap((s) => s.keys).filter((k) => k.length === 1)
+);
+
+/** The key as the table names it. Single letters are lowercased. A character
+ *  no shortcut binds (`.` from the Slash key on a Russian layout, `+` from
+ *  BracketRight on German) falls back to the physical key, and so does a
+ *  non-Latin letter. */
 export const keyOf = (ev: Pick<KeyEventLike, "code" | "key" | "shiftKey">) => {
   if (ev.key.length !== 1) {
     return ev.key;
   }
-  if (ASCII.test(ev.key)) {
-    return ev.key.toLowerCase();
-  }
-  if (ev.code.startsWith("Key") && ev.code.length === "KeyA".length) {
-    return ev.code.slice("Key".length).toLowerCase();
+  const typed = ASCII.test(ev.key) ? ev.key.toLowerCase() : null;
+  if (typed !== null && BOUND.has(typed)) {
+    return typed;
   }
   const pair = CODE_KEY[ev.code];
   if (pair) {
     return ev.shiftKey ? pair[1] : pair[0];
   }
+  if (typed !== null) {
+    return typed;
+  }
+  if (ev.code.startsWith("Key") && ev.code.length === "KeyA".length) {
+    return ev.code.slice("Key".length).toLowerCase();
+  }
   return ev.key;
 };
 
 /** An element as far as the guards need it. */
-export interface ElementLike {
+interface ElementLike {
   readonly closest?: (selector: string) => unknown;
   readonly isContentEditable?: boolean;
   readonly tagName?: string;
@@ -204,10 +215,13 @@ export const isTypingTarget = (target: unknown) => {
 const KEY_OWNERS =
   "[role=dialog],[role=alertdialog],[role=listbox],[role=menu]";
 
-/** Whether a plain-key shortcut may run for this event. */
-export const shortcutAllowed = (ev: KeyEventLike) => {
+/** Whether a plain-key shortcut may run for this event. On a Mac, Option
+ *  types brackets on many layouts (Option+5 is `[` on German) and reports as
+ *  `altKey`, not AltGraph, so Option is allowed when it typed a bound key. */
+export const shortcutAllowed = (ev: KeyEventLike, mac = isMacPlatform()) => {
   const altGraph = ev.getModifierState?.("AltGraph") === true;
-  if (ev.metaKey || ((ev.ctrlKey || ev.altKey) && !altGraph)) {
+  const option = mac && ev.altKey && !ev.ctrlKey && BOUND.has(ev.key);
+  if (ev.metaKey || ((ev.ctrlKey || ev.altKey) && !(altGraph || option))) {
     return false;
   }
   if (ev.defaultPrevented || isTypingTarget(ev.target)) {

@@ -1,6 +1,6 @@
 /** Roving tabindex for a list: one row is the Tab stop, the arrow keys (and
  * j / k) move focus between rows. */
-import { shortcutOf } from "./shortcuts";
+import { type ShortcutId, shortcutOf } from "./shortcuts";
 
 /** The id that gets `tabIndex=0`: the focused row while it is still listed,
  *  else the selected row, else the first. */
@@ -22,8 +22,18 @@ export const rovingStop = ({
   return ids[0] ?? null;
 };
 
-const has = (id: Parameters<typeof shortcutOf>[0], key: string) =>
-  shortcutOf(id).keys.includes(key);
+/** The focused row after the open session changes from `previous` to
+ *  `selected`: opening one hands the stop to it, closing one keeps the closed
+ *  row as the stop so the reader does not lose their place. */
+export const focusAfterSelect = ({
+  previous,
+  selected,
+}: {
+  readonly previous: string | null;
+  readonly selected: string | null;
+}) => (selected === null ? previous : null);
+
+const has = (id: ShortcutId, key: string) => shortcutOf(id).keys.includes(key);
 
 /** The row `key` moves focus to from `index`, clamped to the list, or null
  *  when the key is not a list key or the list is empty. */

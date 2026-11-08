@@ -1,7 +1,7 @@
 /** One Tab stop for the session list, and how keys move it. */
 
 import { describe, expect, test } from "bun:test";
-import { rovingStop, stepIndex } from "../src/lib/roving";
+import { focusAfterSelect, rovingStop, stepIndex } from "../src/lib/roving";
 
 describe("rovingStop", () => {
   const ids = ["a", "b", "c"];
@@ -18,6 +18,20 @@ describe("rovingStop", () => {
 
   test("an empty list has no stop", () => {
     expect(rovingStop({ ids: [], focusedId: "a", selectedId: "a" })).toBeNull();
+  });
+});
+
+describe("focusAfterSelect", () => {
+  const ids = ["s1", "s200", "s3"];
+
+  test("closing a session keeps it as the stop, not the first row", () => {
+    const focusedId = focusAfterSelect({ previous: "s200", selected: null });
+    expect(rovingStop({ ids, focusedId, selectedId: null })).toBe("s200");
+  });
+
+  test("opening a session hands the stop to it", () => {
+    const focusedId = focusAfterSelect({ previous: "s200", selected: "s3" });
+    expect(rovingStop({ ids, focusedId, selectedId: "s3" })).toBe("s3");
   });
 });
 

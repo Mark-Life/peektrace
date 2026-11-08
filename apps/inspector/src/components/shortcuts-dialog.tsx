@@ -7,17 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog";
-import { Kbd } from "@workspace/ui/components/kbd";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { KeyboardIcon } from "lucide-react";
+import { ShortcutKeys } from "../lib/shortcut-keys";
 import {
   ariaKeys,
   isMacPlatform,
-  keyLabel,
   SHORTCUTS,
   type Shortcut,
   useShortcut,
@@ -29,6 +28,13 @@ const GROUPS: readonly Shortcut["group"][] = [
   "General",
 ];
 
+/** Where a group's keys work, when that is narrower than the whole app. */
+const GROUP_NOTE: Partial<Record<Shortcut["group"], string>> = {
+  Sessions: "Moving and opening work while a session row has focus.",
+  Transcript:
+    "In an open transcript. The table view moves by turn only when sorted by Turn.",
+};
+
 /** The grouped rows, also rendered on their own in tests. */
 export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
   <div className="flex flex-col gap-4" data-testid="shortcuts-list">
@@ -37,6 +43,9 @@ export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
         <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
           {group}
         </h3>
+        {GROUP_NOTE[group] ? (
+          <p className="text-muted-foreground text-xs">{GROUP_NOTE[group]}</p>
+        ) : null}
         <dl className="flex flex-col">
           {SHORTCUTS.filter((s) => s.group === group).map((s) => (
             <div
@@ -46,9 +55,7 @@ export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
             >
               <dt>{s.label}</dt>
               <dd className="flex shrink-0 items-center gap-1">
-                {s.keys.map((key) => (
-                  <Kbd key={key}>{keyLabel({ key, mac })}</Kbd>
-                ))}
+                <ShortcutKeys id={s.id} mac={mac} />
               </dd>
             </div>
           ))}
@@ -73,7 +80,7 @@ export const ShortcutsDialog = ({
         <DialogHeader>
           <DialogTitle>Keyboard shortcuts</DialogTitle>
           <DialogDescription>
-            Single keys work anywhere outside a text field.
+            Single keys do nothing while you type in a text field.
           </DialogDescription>
         </DialogHeader>
         <ShortcutsList mac={isMacPlatform()} />
@@ -105,7 +112,7 @@ export const ShortcutsButton = ({
     </TooltipTrigger>
     <TooltipContent className="flex items-center gap-1.5" side="right">
       Keyboard shortcuts
-      <Kbd>?</Kbd>
+      <ShortcutKeys id="help" />
     </TooltipContent>
   </Tooltip>
 );

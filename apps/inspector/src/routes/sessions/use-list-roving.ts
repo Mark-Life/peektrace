@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { HISTORY_SEARCH_ID } from "../../lib/landmarks";
-import { rovingStop, stepIndex } from "../../lib/roving";
+import { focusAfterSelect, rovingStop, stepIndex } from "../../lib/roving";
 import { keyOf, shortcutAllowed, useShortcut } from "../../lib/shortcuts";
 
 const rowIdOf = (target: EventTarget | null) =>
@@ -28,11 +28,13 @@ export const useListRoving = ({
   const group = useRef<HTMLUListElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  // Opening a session from anywhere makes it the stop again.
+  // Opening a session from anywhere makes it the stop; closing one keeps it.
   const [seenSelected, setSeenSelected] = useState(selectedId);
   if (seenSelected !== selectedId) {
     setSeenSelected(selectedId);
-    setFocusedId(null);
+    setFocusedId(
+      focusAfterSelect({ previous: seenSelected, selected: selectedId })
+    );
   }
   const stop = rovingStop({ focusedId, ids, selectedId });
   /** Focus sits on a row, or sat on one that a filter or reload removed. */

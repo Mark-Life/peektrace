@@ -2,7 +2,6 @@
  * predicates over `SessionHeader` rows. */
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import type { DateRange } from "react-day-picker";
-import { toDayKey } from "../routes/sessions/date-range-filter";
 
 /** Human-readable label per agent id for the badge. */
 export const AGENT_LABEL: Record<string, string> = {
@@ -51,6 +50,13 @@ export const distinct = (
 ): readonly string[] =>
   [...new Set(headers.map(pick).filter((v): v is string => Boolean(v)))].sort();
 
+/** Zero-padded to two digits. */
+const pad = (n: number): string => String(n).padStart(2, "0");
+
+/** Local-calendar `YYYY-MM-DD` of a `Date`: never UTC, so no midnight drift. */
+export const toDayKey = (d: Date): string =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
 /** `YYYY-MM-DD` of an ISO timestamp, or `""`. */
 export const dayOf = (iso: string | undefined): string =>
   iso ? (iso.slice(0, 10) ?? "") : "";
@@ -62,7 +68,7 @@ export const titleOf = (h: SessionHeader): string =>
 
 /** Predicate: the session started on a day inside the picked range. A range with
  * no `to` yet (mid-drag, or a single click) matches that one day. */
-export const inRange = (h: SessionHeader, range: DateRange): boolean => {
+const inRange = (h: SessionHeader, range: DateRange): boolean => {
   if (!range.from) {
     return true;
   }
