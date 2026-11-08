@@ -290,6 +290,7 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
                 ...(redact === undefined ? {} : { redact }),
               })
             ),
+          "sessions.search": (req) => sessions.search(req),
           "memory.allVaults": () => memory.getAllVaults(),
           "memory.projects": () => memory.listProjects(),
           "memory.vault": ({ project }) => memory.getVault(project),

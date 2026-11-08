@@ -61,6 +61,10 @@ const COMMANDS: RefEntry[] = [
     desc: "list session headers (--agent, --project, --since, --cwd, --limit)",
   },
   {
+    name: "sessions search <q>",
+    desc: "find sessions by text, redacted by default (--agent, --project, --since, --limit, --no-redact)",
+  },
+  {
     name: "sessions analyze [<id>]",
     desc: "context forensics for one session (--latest, --cwd)",
   },

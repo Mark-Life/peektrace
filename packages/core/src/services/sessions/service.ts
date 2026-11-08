@@ -40,6 +40,8 @@ import type {
   SessionListing,
   SubagentRef,
 } from "./schema";
+import { searchSessions } from "./search";
+import type { SearchRequest, SessionSearchResult } from "./search-schema";
 import {
   pickWorkflowCall,
   type WorkflowCall,
@@ -114,6 +116,8 @@ export interface SessionsServiceShape {
     ParsedSession,
     SessionNotFoundError | TranscriptParseError
   >;
+  /** Sessions whose text holds a phrase, newest first. */
+  readonly search: (req: SearchRequest) => Effect.Effect<SessionSearchResult>;
 }
 
 /** Multi-agent session ingest + analysis. */
@@ -568,7 +572,10 @@ const makeService = (args: {
       Effect.withSpan("Sessions.image", { attributes: { id, line } })
     );
 
-  return { list, parse, analyze: analyzeReq, image };
+  const search: SessionsServiceShape["search"] = (req) =>
+    searchSessions({ fs, agents, cache, req });
+
+  return { list, parse, analyze: analyzeReq, image, search };
 };
 
 /** Live layer: depends on AgentRegistry + the platform FileSystem. */

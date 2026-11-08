@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
 import {
+  beforeSeparator,
   firstPositional,
   helpGroup,
   isRootHelp,
+  loggableArgv,
   skipsTelemetry,
 } from "../src/argv";
 
@@ -63,4 +65,27 @@ test("helpGroup names a group only for `<group> --help` with no deeper command",
   expect(
     helpGroup(argv("sessions", "--completions", "zsh", "--help"), groups)
   ).toBeUndefined();
+});
+
+test("beforeSeparator stops at a bare --", () => {
+  expect(beforeSeparator(argv("sessions", "search", "--", "--otel"))).toEqual([
+    "bun",
+    "index.ts",
+    "sessions",
+    "search",
+  ]);
+  expect(beforeSeparator(argv("ls", "--otel"))).toContain("--otel");
+});
+
+test("loggableArgv hides the text of a search, keeps flags", () => {
+  const out = loggableArgv(
+    argv("sessions", "search", "secretword", "--agent", "claude", "--", "-v")
+  );
+  expect(out).not.toContain("secretword");
+  expect(out).not.toContain("-v");
+  expect(out).toContain("sessions search");
+  expect(out).toContain("--agent");
+  expect(loggableArgv(argv("sessions", "ls", "--limit", "5"))).toBe(
+    "sessions ls --limit 5"
+  );
 });

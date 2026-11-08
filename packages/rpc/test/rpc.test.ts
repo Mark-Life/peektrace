@@ -223,6 +223,45 @@ describe("sessions", () => {
       })
     ));
 
+  test("search finds a known phrase with its line and a snippet", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const r = yield* client.sessions.search({
+          q: "refactor the AUTH module",
+        });
+        const hit = r.sessions.find((s) => s.id === SESSION_ID);
+        expect(hit?.hits[0]?.line).toBe(1);
+        expect(hit?.hits[0]?.snippet).toContain("refactor the auth module");
+      })
+    ));
+
+  test("search with no match returns an empty result", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const r = yield* client.sessions.search({ q: "no-such-phrase-xyz" });
+        expect(r.sessions).toEqual([]);
+        expect(r.truncated).toBe(false);
+      })
+    ));
+
+  test("search rejects a blank query and a negative limit", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const blank = yield* Effect.exit(client.sessions.search({ q: "  " }));
+        expect(blank._tag).toBe("Failure");
+        const negative = yield* Effect.exit(
+          client.sessions.search({ q: "x", limit: -1 })
+        );
+        expect(negative._tag).toBe("Failure");
+        for (const since of ["7d", "yesterday"]) {
+          const bad = yield* Effect.exit(
+            client.sessions.search({ q: "x", since })
+          );
+          expect(bad._tag).toBe("Failure");
+        }
+      })
+    ));
+
   test("analyze of a missing session fails with the typed wire error", () =>
     withClient((client) =>
       Effect.gen(function* () {

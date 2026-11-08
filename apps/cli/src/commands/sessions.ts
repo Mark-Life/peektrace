@@ -44,19 +44,17 @@ import {
 
 const DEFAULT_LIMIT = 30;
 
-const agentOpt = Options.text("agent").pipe(
-  Options.withDescription(
-    `Agent to list: ${AGENT_IDS.join("|")}|all (default all)`
-  ),
+export const agentOpt = Options.text("agent").pipe(
+  Options.withDescription(`Agent: ${AGENT_IDS.join("|")}|all (default all)`),
   Options.optional
 );
-const projectOpt = Options.text("project").pipe(
+export const projectOpt = Options.text("project").pipe(
   Options.withDescription(
     "Filter sessions by project name (Claude/Pi slug, or cwd basename for Codex/OpenCode). Slugs starting with - need --project=<slug>"
   ),
   Options.optional
 );
-const sinceOpt = Options.text("since").pipe(
+export const sinceOpt = Options.text("since").pipe(
   Options.withDescription(
     "Only sessions updated since: ISO date or date-time (2026-01-31 is UTC midnight; no offset means UTC) or 7d, 12h, 2w"
   ),
@@ -73,6 +71,12 @@ const limitOpt = Options.integer("limit").pipe(
   Options.withDefault(DEFAULT_LIMIT)
 );
 
+export const noRedactOpt = Options.boolean("no-redact").pipe(
+  Options.withDescription(
+    "Keep secrets and home paths in the output (redacted by default)"
+  )
+);
+
 export const parentOpt = Options.text("parent").pipe(
   Options.withDescription(
     "Parent session id, when <id> is a subagent transcript (agent-*)"
@@ -80,9 +84,8 @@ export const parentOpt = Options.text("parent").pipe(
   Options.optional
 );
 
-/** `sessions ls` — list lightweight session headers. */
 /** Validate `--limit` and parse `--since` into epoch ms. */
-const parseLsBounds = (limit: number, since: Option.Option<string>) =>
+export const parseLsBounds = (limit: number, since: Option.Option<string>) =>
   Effect.gen(function* () {
     if (limit < 0) {
       return yield* new CliUserError({

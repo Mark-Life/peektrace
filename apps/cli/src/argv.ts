@@ -73,3 +73,41 @@ export const helpGroup = <G extends string>(
   }
   return positionals.length === 1 ? group : undefined;
 };
+
+/** Args before a bare `--`; after it everything is a positional, never a flag. */
+export const beforeSeparator = (argv: readonly string[]) => {
+  const end = argv.indexOf("--");
+  return end < 0 ? argv : argv.slice(0, end);
+};
+
+/** Subcommands whose positional arguments are free text the user typed. */
+const FREE_TEXT = new Set(["search"]);
+
+/** Index of a free-text subcommand in `args` (without the runtime), or -1. */
+const freeTextIndex = (args: readonly string[]) => {
+  const cmd = args.findIndex((a) => FREE_TEXT.has(a));
+  return args[cmd - 1] === "sessions" ? cmd : -1;
+};
+
+/** True when the command line carries user-typed free text. */
+export const hasFreeText = (argv: readonly string[]) =>
+  freeTextIndex(argv.slice(2)) >= 0;
+
+/**
+ * Argv text safe to store in telemetry: positionals of a free-text command
+ * (`sessions search <q>`) are replaced, flags and their shape stay.
+ */
+export const loggableArgv = (argv: readonly string[]) => {
+  const args = argv.slice(2);
+  const cmd = freeTextIndex(args);
+  const sep = args.indexOf("--");
+  if (cmd < 0) {
+    return args.join(" ");
+  }
+  return args
+    .map((a, i) => {
+      const flag = a.startsWith("-") && (sep < 0 || i < sep);
+      return i > cmd && !flag && a !== "--" ? "<text>" : a;
+    })
+    .join(" ");
+};
