@@ -9,7 +9,12 @@ import {
   turnCost,
 } from "../../src/services/pricing";
 import { analyze } from "../../src/services/sessions/analyze";
-import { costNotes, fmtUsd, turnsCost } from "../../src/services/sessions/cost";
+import {
+  costNotes,
+  costSummary,
+  fmtUsd,
+  turnsCost,
+} from "../../src/services/sessions/cost";
 import { buildHeader } from "../../src/services/sessions/header";
 import { parseClaudeSession } from "../../src/services/sessions/parse";
 import {
@@ -526,5 +531,14 @@ describe("cost formatting", () => {
       "unpriced: mystery-a, mystery-b",
       "2 subagent(s) unreadable",
     ]);
+  });
+
+  test("costSummary dashes an unpriced total and names an agent's own figure", () => {
+    expect(
+      costSummary({ source: "estimate", unpricedModels: ["mystery-a"] }, "X")
+    ).toEqual({ total: "—", notes: ["unpriced: mystery-a"] });
+    expect(costSummary({ source: "agent", totalUsd: 0.5 }, "OpenCode")).toEqual(
+      { total: "~$0.50", notes: ["reported by OpenCode"] }
+    );
   });
 });

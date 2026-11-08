@@ -99,3 +99,15 @@ export const costNotes = (cost: SessionCost) => [
     ? [`${cost.unreadableSubagents} subagent(s) unreadable`]
     : []),
 ];
+
+/**
+ * A session cost as display text: the total (`—` when nothing is priced) and the
+ * notes that qualify it, led by who reported it when the agent did.
+ */
+export const costSummary = (cost: SessionCost, agentLabel: string) => ({
+  total: cost.totalUsd === undefined ? "—" : fmtUsd(cost.totalUsd),
+  notes: [
+    ...(cost.source === "agent" ? [`reported by ${agentLabel}`] : []),
+    ...costNotes(cost),
+  ],
+});

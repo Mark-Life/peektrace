@@ -5,7 +5,7 @@
  * grid (peak, turns, system tax, output, dumb-zone dwell, cache, and the
  * estimated cost when the session has one).
  */
-import { costNotes, fmtUsd } from "@workspace/core/services/sessions/cost";
+import { costSummary } from "@workspace/core/services/sessions/cost";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
@@ -58,18 +58,16 @@ const CostValue = ({
   readonly cost: NonNullable<AnalyzedSession["cost"]>;
   readonly provider: string;
 }) => {
-  const notes = [
-    ...(cost.source === "agent"
-      ? [`reported by ${PROVIDER_LABEL[provider] ?? provider}`]
-      : []),
-    ...costNotes(cost),
-  ];
+  const { total, notes } = costSummary(
+    cost,
+    PROVIDER_LABEL[provider] ?? provider
+  );
   return (
     <span
       data-testid="session-cost"
       title={cost.source === "estimate" ? "Estimate at list price" : undefined}
     >
-      {cost.totalUsd === undefined ? "—" : fmtUsd(cost.totalUsd)}
+      {total}
       {notes.length > 0 ? (
         <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
       ) : null}
