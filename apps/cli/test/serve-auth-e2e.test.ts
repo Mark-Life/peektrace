@@ -19,6 +19,7 @@ const ENTRY = join(import.meta.dirname, "../src/index.ts");
 const PROJECT = "-synthetic-proj";
 const READY_TIMEOUT_MS = 20_000;
 const POLL_MS = 100;
+const FETCH_TIMEOUT_MS = 2000;
 const URL_LINE = /Open:\s+(http:\/\/\S+)/;
 const LONG_TOKEN = "k".repeat(40);
 
@@ -193,18 +194,32 @@ describe("serve token handling", () => {
     const proc = Bun.spawn(serveArgs(port, "127.0.0.1"), {
       env: env({ PEEKTRACE_TOKEN: LONG_TOKEN }),
       stdout: "ignore",
-      stderr: "ignore",
+      stderr: "pipe",
     });
     try {
       const deadline = Date.now() + READY_TIMEOUT_MS;
       let status = 0;
-      while (Date.now() < deadline && status !== 200) {
-        status = await fetch(`http://127.0.0.1:${port}/health`)
+      while (
+        Date.now() < deadline &&
+        status !== 200 &&
+        proc.exitCode === null
+      ) {
+        // Bounded per poll: an unanswered request must not eat the test timeout.
+        status = await fetch(`http://127.0.0.1:${port}/health`, {
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        })
           .then((r) => r.status)
           .catch(() => 0);
         await Bun.sleep(POLL_MS);
       }
-      expect(status).toBe(200);
+      if (status !== 200) {
+        proc.kill();
+        await proc.exited;
+        const err = await new Response(proc.stderr).text();
+        throw new Error(
+          `serve on 127.0.0.1:${port} never answered /health (last status ${status}, exit ${proc.exitCode}):\n${err}`
+        );
+      }
     } finally {
       proc.kill();
     }
