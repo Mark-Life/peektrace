@@ -90,7 +90,7 @@ export const fmtUsd = (n: number) =>
   n > 0 && n < CENT ? "<$0.01" : `~$${n.toFixed(2)}`;
 
 /** Notes that qualify a session cost: subagents share, unpriced models, unreadable subagents. */
-export const costNotes = (cost: SessionCost) => [
+const costNotes = (cost: SessionCost) => [
   ...(cost.subagentsUsd ? [`subagents ${fmtUsd(cost.subagentsUsd)}`] : []),
   ...(cost.unpricedModels?.length
     ? [`unpriced: ${cost.unpricedModels.join(", ")}`]

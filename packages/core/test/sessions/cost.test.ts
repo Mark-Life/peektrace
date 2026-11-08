@@ -10,7 +10,6 @@ import {
 } from "../../src/services/pricing";
 import { analyze } from "../../src/services/sessions/analyze";
 import {
-  costNotes,
   costSummary,
   fmtUsd,
   turnsCost,
@@ -516,17 +515,23 @@ describe("cost formatting", () => {
     expect(fmtUsd(1.234)).toBe("~$1.23");
   });
 
-  test("costNotes lists only the qualifiers that are set", () => {
-    expect(costNotes({ source: "estimate", totalUsd: 1 })).toEqual([]);
+  test("costSummary lists only the qualifiers that are set", () => {
+    expect(costSummary({ source: "estimate", totalUsd: 1 }, "X").notes).toEqual(
+      []
+    );
     expect(
-      costNotes({
-        source: "estimate",
-        totalUsd: 1,
-        subagentsUsd: 0.25,
-        unpricedModels: ["mystery-a", "mystery-b"],
-        unreadableSubagents: 2,
-      })
+      costSummary(
+        {
+          source: "agent",
+          totalUsd: 1,
+          subagentsUsd: 0.25,
+          unpricedModels: ["mystery-a", "mystery-b"],
+          unreadableSubagents: 2,
+        },
+        "OpenCode"
+      ).notes
     ).toEqual([
+      "reported by OpenCode",
       "subagents ~$0.25",
       "unpriced: mystery-a, mystery-b",
       "2 subagent(s) unreadable",
