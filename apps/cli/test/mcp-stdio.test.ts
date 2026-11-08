@@ -1,5 +1,5 @@
 /** `peektrace mcp` over stdio against a throwaway home: initialize, list the
- * tools, call one. Fails until the `mcp` command exists. */
+ * tools, call one. */
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import {
   claudeLines,
@@ -57,12 +57,19 @@ test("mcp answers initialize, tools/list and tools/call over stdio", async () =>
   const replies = out
     .split("\n")
     .filter((l) => l.trim() !== "")
-    .map((l) => JSON.parse(l) as { id?: number; result?: any });
+    .map(
+      (l) =>
+        JSON.parse(l) as {
+          id?: number;
+          result?: {
+            serverInfo?: { name: string };
+            tools?: { name: string }[];
+          };
+        }
+    );
   const byId = new Map(replies.map((r) => [r.id, r]));
   expect(byId.get(1)?.result?.serverInfo?.name).toBe("peektrace");
-  const names = (byId.get(2)?.result?.tools ?? []).map(
-    (t: { name: string }) => t.name
-  );
+  const names = (byId.get(2)?.result?.tools ?? []).map((t) => t.name);
   expect(names).toEqual(
     expect.arrayContaining([
       "stats_report",

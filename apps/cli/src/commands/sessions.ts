@@ -88,12 +88,24 @@ export const parentOpt = Options.text("parent").pipe(
   Options.optional
 );
 
+/** How `sessions ls` messages name the limit and since inputs. */
+export interface LsInputNames {
+  readonly limit: string;
+  readonly since: string;
+}
+
+const LS_FLAGS: LsInputNames = { limit: "--limit", since: "--since" };
+
 /** Validate `--limit` and parse `--since` into epoch ms. */
-export const parseLsBounds = (limit: number, since: Option.Option<string>) =>
+export const parseLsBounds = (
+  limit: number,
+  since: Option.Option<string>,
+  names = LS_FLAGS
+) =>
   Effect.gen(function* () {
     if (limit < 0) {
       return yield* new CliUserError({
-        message: `Invalid --limit ${limit}. Use 0 for all, or a positive number.`,
+        message: `Invalid ${names.limit} ${limit}. Use 0 for all, or a positive number.`,
       });
     }
     const sinceMs = Option.isSome(since)
@@ -101,13 +113,13 @@ export const parseLsBounds = (limit: number, since: Option.Option<string>) =>
       : undefined;
     if (Option.isSome(since) && sinceMs === undefined) {
       return yield* new CliUserError({
-        message: `Invalid --since "${since.value}". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).`,
+        message: `Invalid ${names.since} "${since.value}". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).`,
       });
     }
     return sinceMs;
   });
 
-export interface ListRequest extends SelectOptions {
+interface ListRequest extends SelectOptions {
   readonly agent?: AgentId | undefined;
   readonly project?: string | undefined;
 }
@@ -129,13 +141,22 @@ export const loadSessionList = (
       })
     );
 
-type ListedSession = Effect.Effect.Success<
-  ReturnType<typeof loadSessionList>
->["picked"][number];
+type SessionList = Effect.Effect.Success<ReturnType<typeof loadSessionList>>;
+type ListedSession = SessionList["picked"][number];
 
-/** The "more hidden" hint, when `--limit` cut rows. */
-export const hiddenHint = (hidden: number) =>
-  hidden > 0 ? `${hidden} more hidden, use --limit 0 to show all` : undefined;
+/** The notes that travel with a listing: unreadable count, table notes, then
+ * the "more hidden" hint when the limit cut rows. */
+export const listNotes = (
+  list: Pick<SessionList, "hidden" | "unreadable">,
+  tableNotes: readonly string[],
+  names = LS_FLAGS
+) => [
+  ...(list.unreadable > 0 ? [unreadableNotice(list.unreadable)] : []),
+  ...tableNotes,
+  ...(list.hidden > 0
+    ? [`${list.hidden} more hidden, use ${names.limit} 0 to show all`]
+    : []),
+];
 
 /** The `sessions ls` table, plus the notes the CLI prints to stderr. */
 export const renderSessionList = (
@@ -179,12 +200,8 @@ export const renderSessionList = (
   return { text, notes };
 };
 
-const printNotes = (notes: readonly (string | undefined)[]) =>
-  Effect.forEach(
-    notes.filter((n) => n !== undefined),
-    (n) => Console.error(n),
-    { discard: true }
-  );
+const printNotes = (notes: readonly string[]) =>
+  Effect.forEach(notes, (n) => Console.error(n), { discard: true });
 
 /** `sessions ls` — list lightweight session headers. */
 export const makeSessionsLs = (globals: GlobalsAccessor) =>
@@ -213,17 +230,13 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
             cwd: Option.isSome(cwd) ? resolveCwd(cwd.value) : undefined,
           })
         );
-        if (list.unreadable > 0) {
-          yield* Console.error(unreadableNotice(list.unreadable));
-        }
-        const hint = hiddenHint(list.hidden);
         if (g.json) {
           yield* Console.log(json(list.picked));
-          return yield* printNotes([hint]);
+          return yield* printNotes(listNotes(list, []));
         }
         const { text, notes } = renderSessionList(list.picked, g.compact);
         yield* Console.log(text);
-        yield* printNotes([...notes, hint]);
+        yield* printNotes(listNotes(list, notes));
       })
   ).pipe(Command.withDescription(SESSIONS_LS_SUMMARY));
 

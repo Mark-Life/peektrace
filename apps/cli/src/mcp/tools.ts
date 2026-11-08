@@ -8,15 +8,17 @@ import type { PeektraceClient } from "../client";
 import {
   analyzeSession,
   DEFAULT_LIMIT,
-  hiddenHint,
+  listNotes,
   loadSessionList,
   parseLsBounds,
   renderAnalysis,
   renderSessionList,
 } from "../commands/sessions";
-import { resolveCwd } from "../commands/sessions-filter";
+import { resolveCwd, type TargetMessages } from "../commands/sessions-filter";
 import { renderDrill, renderReport } from "../commands/stats";
-import { json, unreadableNotice } from "../render";
+import { scopeOf } from "../commands/stats-options";
+import { CliUserError } from "../errors";
+import { json } from "../render";
 import { defineTool, type McpTool } from "./protocol";
 
 const describe = (description: string) => ({ description });
@@ -42,7 +44,7 @@ const Positive = Schema.Number.pipe(Schema.int(), Schema.positive());
 const Cwd = Schema.optional(
   Schema.String.annotations(
     describe(
-      "Only sessions run in this directory or below; relative paths resolve against the server's cwd"
+      "Only sessions run in this directory or below; `~` is the home dir, relative paths resolve against the server's cwd"
     )
   )
 );
@@ -58,12 +60,18 @@ const statsWindow = {
   format: Format,
 };
 
-/** Join the tool text with the notes the CLI writes to stderr. */
-const withNotes = (text: string, notes: readonly string[]) =>
-  notes.length === 0 ? text : `${text}\n\n${notes.join("\n")}`;
+/** Messages worded for tool inputs instead of CLI flags. */
+const LS_INPUTS = { limit: "limit:", since: "since" };
+const TARGET_MESSAGES: TargetMessages = {
+  parentWithoutId: "parent needs an explicit subagent id.",
+  idAndNewest: "Pass either id or latest/cwd, not both.",
+  noTarget: "Pass id, latest: true, or cwd.",
+};
+const DRILL_HINT =
+  'drill a row with stats_drill: a DRILL cell `--cause K` is {table:"cause", key:"K"}';
 
-const scopeOf = (agent: AgentId | "all" | undefined) =>
-  agent === undefined || agent === "all" ? {} : { agents: [agent] };
+const agentScope = (agent: AgentId | "all" | undefined) =>
+  scopeOf(Option.fromNullable(agent));
 
 const pick = <T>(format: Format, data: T, text: (d: T) => string) =>
   format === "json" ? json(data) : text(data);
@@ -103,7 +111,8 @@ const sessionsList = defineTool({
       const limit = input.limit ?? DEFAULT_LIMIT;
       const sinceMs = yield* parseLsBounds(
         limit,
-        Option.fromNullable(input.since)
+        Option.fromNullable(input.since),
+        LS_INPUTS
       );
       const list = yield* loadSessionList(client, {
         agent: input.agent === "all" ? undefined : input.agent,
@@ -112,22 +121,14 @@ const sessionsList = defineTool({
         cwd: input.cwd === undefined ? undefined : resolveCwd(input.cwd),
         limit,
       });
-      const notes = [
-        ...(list.unreadable > 0 ? [unreadableNotice(list.unreadable)] : []),
-      ];
-      const hint = hiddenHint(list.hidden);
       if (input.format === "json") {
-        return withNotes(json(list.picked), [
-          ...notes,
-          ...(hint === undefined ? [] : [hint]),
-        ]);
+        return {
+          text: json(list.picked),
+          notes: listNotes(list, [], LS_INPUTS),
+        };
       }
-      const rendered = renderSessionList(list.picked, true);
-      return withNotes(rendered.text, [
-        ...notes,
-        ...rendered.notes,
-        ...(hint === undefined ? [] : [hint]),
-      ]);
+      const { text, notes } = renderSessionList(list.picked, true);
+      return { text, notes: listNotes(list, notes, LS_INPUTS) };
     }),
 });
 
@@ -162,6 +163,7 @@ const sessionsAnalyze = defineTool({
       latest: input.latest ?? false,
       cwd: input.cwd === undefined ? undefined : resolveCwd(input.cwd),
       parent: input.parent,
+      messages: TARGET_MESSAGES,
     }).pipe(
       Effect.map((a) => pick(input.format, a, (d) => renderAnalysis(d, true)))
     ),
@@ -172,16 +174,13 @@ const statsReport = defineTool({
   description:
     "Cross-session friction report: what to fix first, named causes of retries, what fails and what costs time, with suggested rules for CLAUDE.md / AGENTS.md. Each row has a DRILL cell such as `--cause K`; expand it with stats_drill.",
   input: Schema.Struct(statsWindow),
-  run: (client: PeektraceClient, input) =>
-    client.stats
-      .report({
-        ...scopeOf(input.agent),
-        ...(input.days === undefined ? {} : { days: input.days }),
-        ...(input.limit === undefined ? {} : { limit: input.limit }),
-      })
-      .pipe(
-        Effect.map((r) => pick(input.format, r, (d) => renderReport(d, true)))
-      ),
+  run: (client: PeektraceClient, { agent, format, ...window }) =>
+    agentScope(agent).pipe(
+      Effect.flatMap((scope) => client.stats.report({ ...scope, ...window })),
+      Effect.map((r) =>
+        pick(format, r, (d) => renderReport(d, true, DRILL_HINT))
+      )
+    ),
 });
 
 const statsDrill = defineTool({
@@ -201,20 +200,18 @@ const statsDrill = defineTool({
     ),
     ...statsWindow,
   }),
-  run: (client: PeektraceClient, input) =>
-    client.stats
-      .drill({
-        ...scopeOf(input.agent),
-        ...(input.days === undefined ? {} : { days: input.days }),
-        ...(input.limit === undefined ? {} : { limit: input.limit }),
-        ...(input.offset === undefined ? {} : { offset: input.offset }),
-        ...(input.pageSize === undefined ? {} : { pageSize: input.pageSize }),
-        table: input.table,
-        key: input.key,
-      })
-      .pipe(
-        Effect.map((r) => pick(input.format, r, (d) => renderDrill(d, true)))
+  run: (client: PeektraceClient, { agent, format, ...page }) =>
+    agentScope(agent).pipe(
+      Effect.flatMap((scope) => client.stats.drill({ ...scope, ...page })),
+      Effect.catchTag(
+        "StatsRowNotFoundError",
+        (e) =>
+          new CliUserError({
+            message: `No ${e.table} row with key "${e.key}". Run stats_report and copy a DRILL cell.`,
+          })
       ),
+      Effect.map((r) => pick(format, r, (d) => renderDrill(d, true)))
+    ),
 });
 
 /** Every tool the server lists, in display order. */

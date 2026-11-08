@@ -310,13 +310,13 @@ const header = (report: StatsReport): string => {
 };
 
 /** Everything that travels with the numbers, plus the legend for an empty FIX. */
-const footer = (report: StatsReport): string => {
+const footer = (report: StatsReport, drillHint: string): string => {
   const notes = [
     ...report.caveats,
     `FIX '${NO_RULE}' means no rule fired for that row: drill it to read the calls`,
     `PAIRS are failed calls followed within ${RETRY_WINDOW} calls by a similar succeeding call; SESS counts sessions with a pair`,
     "HITS M/S splits hits between main sessions and subagents; PER 1K IN WINDOW M/S is hits per 1,000 calls that could have hit, per side, over the whole window (a RULE rate counts only since its rule line appeared)",
-    "drill a row with: peektrace stats drill <DRILL>",
+    drillHint,
   ];
   const skipped =
     report.skipped.length === 0
@@ -332,7 +332,11 @@ const footer = (report: StatsReport): string => {
 };
 
 /** The whole text report: findings first, then the tables, then the notes. */
-export const renderReport = (report: StatsReport, compact: boolean): string =>
+export const renderReport = (
+  report: StatsReport,
+  compact: boolean,
+  drillHint = "drill a row with: peektrace stats drill <DRILL>"
+) =>
   [
     header(report),
     "",
@@ -351,7 +355,7 @@ export const renderReport = (report: StatsReport, compact: boolean): string =>
     "",
     waitLine(report),
     "",
-    footer(report),
+    footer(report, drillHint),
   ].join("\n");
 
 /** The window/limit half of a request, with absent flags left to core's defaults. */
@@ -364,7 +368,7 @@ const windowOf = (
 });
 
 /** A drill page: one line naming the page, then one row per call. */
-export const renderDrill = (result: DrillResult, compact: boolean): string => {
+export const renderDrill = (result: DrillResult, compact: boolean) => {
   // Only a cause drill pairs its calls with their retries.
   const paired = result.table === "cause";
   const rows = result.hits.map((hit) => [
@@ -378,7 +382,14 @@ export const renderDrill = (result: DrillResult, compact: boolean): string => {
     ...(paired ? [hit.pairLine === null ? "-" : clipCell(hit.pairLine)] : []),
   ]);
   const headers = ["TS", "SESSION", "PROJECT", "TOOL", "DUR", "STATE", "LINE"];
-  return `${result.table} ${result.key}: ${result.hits.length} of ${result.total} calls\n${table(
+  const { offset, total } = result;
+  const count = result.hits.length;
+  const pageOf = () =>
+    count === 0
+      ? `0 of ${total} calls (offset ${offset} is past the end)`
+      : `calls ${offset + 1}-${offset + count} of ${total}`;
+  const shown = offset === 0 ? `${count} of ${total} calls` : pageOf();
+  return `${result.table} ${result.key}: ${shown}\n${table(
     paired ? [...headers, "RETRY"] : headers,
     rows,
     { compact }

@@ -23,19 +23,32 @@ export const ErrorCode = {
   invalidParams: -32_602,
 } as const;
 
+/** A tool's answer: the main text, plus notes sent as a separate content block
+ * so a JSON answer stays parseable. */
+export interface ToolOutput {
+  readonly notes?: readonly string[];
+  readonly text: string;
+}
+
 /** A tool as the server sees it: wire metadata plus a call that decodes its own input. */
 export interface McpTool<C> {
-  readonly call: (client: C, args: unknown) => Effect.Effect<string, unknown>;
+  readonly call: (
+    client: C,
+    args: unknown
+  ) => Effect.Effect<string | ToolOutput, unknown>;
   readonly description: string;
   readonly inputSchema: object;
   readonly name: string;
 }
 
-export interface ToolSpec<C, A, I> {
+interface ToolSpec<C, A, I> {
   readonly description: string;
   readonly input: Schema.Schema<A, I>;
   readonly name: string;
-  readonly run: (client: C, input: A) => Effect.Effect<string, unknown>;
+  readonly run: (
+    client: C,
+    input: A
+  ) => Effect.Effect<string | ToolOutput, unknown>;
 }
 
 /** Build a tool from an Effect Schema input. Unknown keys fail the call, so a
@@ -111,10 +124,18 @@ const listResult = <C>(tools: readonly McpTool<C>[]) => ({
   })),
 });
 
+const contentOf = (out: string | ToolOutput) => {
+  const { text, notes = [] } = typeof out === "string" ? { text: out } : out;
+  return [text, ...(notes.length === 0 ? [] : [notes.join("\n")])].map((t) => ({
+    type: "text",
+    text: t,
+  }));
+};
+
 /** Run a tool; any failure or defect becomes an `isError` result, never a crash. */
 const callTool = <C>(tool: McpTool<C>, client: C, args: unknown) =>
   Effect.suspend(() => tool.call(client, args)).pipe(
-    Effect.map((text) => ({ content: [{ type: "text", text }] })),
+    Effect.map((out) => ({ content: contentOf(out) })),
     Effect.catchAllCause((cause) =>
       Effect.succeed({
         content: [{ type: "text", text: formatCliError(Cause.squash(cause)) }],

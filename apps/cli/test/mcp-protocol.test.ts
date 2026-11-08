@@ -26,10 +26,26 @@ const boom = defineTool({
 
 const handle = handleLine({ tools: [...TOOLS, boom], client: unusedClient });
 
+interface ListedTool {
+  readonly annotations: unknown;
+  readonly inputSchema: {
+    readonly properties: Record<string, unknown>;
+    readonly type: string;
+  };
+  readonly name: string;
+}
+
 interface Reply {
   readonly error?: { readonly code: number; readonly message: string };
   readonly id: number | string | null;
-  readonly result?: any;
+  readonly result?: {
+    readonly capabilities?: unknown;
+    readonly content?: readonly { readonly text: string }[];
+    readonly isError?: boolean;
+    readonly protocolVersion?: string;
+    readonly serverInfo?: { readonly name: string };
+    readonly tools?: readonly ListedTool[];
+  };
 }
 
 const send = async (message: unknown) => {
@@ -51,16 +67,16 @@ describe("initialize", () => {
       request(1, "initialize", { protocolVersion: "2025-03-26" })
     );
     expect(r?.id).toBe(1);
-    expect(r?.result.protocolVersion).toBe("2025-03-26");
-    expect(r?.result.serverInfo.name).toBe("peektrace");
-    expect(r?.result.capabilities).toEqual({ tools: { listChanged: false } });
+    expect(r?.result?.protocolVersion).toBe("2025-03-26");
+    expect(r?.result?.serverInfo?.name).toBe("peektrace");
+    expect(r?.result?.capabilities).toEqual({ tools: { listChanged: false } });
   });
 
   test("falls back to the newest version for an unknown one", async () => {
     const r = await send(
       request(2, "initialize", { protocolVersion: "1999-01-01" })
     );
-    expect(r?.result.protocolVersion).toBe(PROTOCOL_VERSIONS[0]);
+    expect(r?.result?.protocolVersion).toBe(PROTOCOL_VERSIONS[0]);
   });
 });
 
@@ -106,11 +122,7 @@ describe("envelope", () => {
 describe("tools", () => {
   test("lists the four read-only tools with object schemas", async () => {
     const r = await send(request(7, "tools/list"));
-    const tools = r?.result.tools as {
-      annotations: unknown;
-      inputSchema: { properties: Record<string, unknown>; type: string };
-      name: string;
-    }[];
+    const tools = r?.result?.tools ?? [];
     const names = tools.map((t) => t.name);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -139,8 +151,8 @@ describe("tools", () => {
     const r = await send(
       request(8, "tools/call", { name, arguments: { redact: false } })
     );
-    expect(r?.result.isError).toBe(true);
-    expect(r?.result.content[0].text).toContain("redact");
+    expect(r?.result?.isError).toBe(true);
+    expect(r?.result?.content?.[0]?.text).toContain("redact");
   });
 
   test("a defect becomes an isError result", async () => {
