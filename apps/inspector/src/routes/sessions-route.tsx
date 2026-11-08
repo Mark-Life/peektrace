@@ -141,9 +141,11 @@ export const SessionsRoute = () => {
             </Empty>
           ) : (
             <div className="flex flex-col gap-6 md:flex-row md:items-start">
+              {/* Rail height: the viewport less the shell header (h-11) and
+                  the page padding above and below (py-6), so it ends on screen. */}
               <div
                 className={cn(
-                  "md:scrollbar-gutter-stable md:sticky md:top-6 md:max-h-[calc(100dvh-3rem)] md:w-80 md:shrink-0 md:self-start md:overflow-y-auto md:pr-1",
+                  "md:scrollbar-gutter-stable md:sticky md:top-6 md:max-h-[calc(100dvh-5.75rem)] md:w-80 md:shrink-0 md:self-start md:overflow-y-auto md:pr-1",
                   selected ? "hidden md:block" : "block"
                 )}
                 ref={listPane}
