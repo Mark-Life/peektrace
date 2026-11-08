@@ -268,6 +268,7 @@ export const Turn = Schema.Struct({
    * (OpenCode). Absent when the model has no rate card.
    */
   costUsd: Schema.optional(Schema.Number),
+  /** Empty for a billed call on an abandoned branch (Claude rewind, Pi tree branch). */
   eventIndexes: Schema.Array(Schema.Number),
 });
 export type Turn = typeof Turn.Type;
@@ -309,7 +310,7 @@ export const SubagentRef = Schema.Struct({
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
-/** A CLAUDE.md / AGENTS.md / memory file read from disk for residual attribution. */
+/** A CLAUDE.md / CLAUDE.local.md / rules / MEMORY.md file read from disk for residual attribution. */
 export const OnDiskContextFile = Schema.Struct({
   label: Schema.String,
   path: Schema.String,

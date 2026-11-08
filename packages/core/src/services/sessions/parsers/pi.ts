@@ -15,6 +15,7 @@ import { parseJsonl } from "../parse";
 import type { ParsedSession, TimelineEvent, Turn } from "../schema";
 import { estTokens, firstLine } from "../tokens";
 import { windowForModel } from "./model-windows";
+import { activeBranch } from "./pi-branch";
 import {
   type PiBase,
   piBashEvent,
@@ -193,13 +194,17 @@ const registerTurn = (args: {
   });
 };
 
-/** Append events + register the turn for one assistant `message` line. */
+/**
+ * Append events + register the turn for one assistant `message` line. An
+ * entry off the active branch keeps its billed turn but adds no events.
+ */
 const handleAssistant = (args: {
   readonly line: RawLine;
   readonly msg: RawLine;
   readonly index: number;
   readonly ts: string | undefined;
   readonly state: ParseState;
+  readonly offBranch?: boolean;
 }) => {
   const { line, msg, index, ts, state } = args;
   const model = String(msg.model ?? "unknown");
@@ -212,6 +217,9 @@ const handleAssistant = (args: {
     ts,
     usage: (msg.usage ?? {}) as Record<string, unknown>,
   });
+  if (args.offBranch) {
+    return;
+  }
   const turn = state.turnsById.get(requestId);
   const content = Array.isArray(msg.content) ? (msg.content as RawLine[]) : [];
   for (const block of content) {
@@ -222,6 +230,19 @@ const handleAssistant = (args: {
         turn.eventIndexes.push(state.events.length - 1);
       }
     }
+  }
+};
+
+/** An entry off the active branch: only an assistant message's billed turn counts. */
+const handleOffBranch = (args: {
+  readonly line: RawLine;
+  readonly index: number;
+  readonly ts: string | undefined;
+  readonly state: ParseState;
+}) => {
+  const msg = (args.line.message ?? {}) as RawLine;
+  if (args.line.type === "message" && msg.role === "assistant") {
+    handleAssistant({ ...args, msg, offBranch: true });
   }
 };
 
@@ -393,7 +414,10 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   const meta: Meta = {};
 
   const lines = parseJsonl(text);
-  const edits = collectPiEdits(lines);
+  // Entries off the active branch keep session-wide meta and billed usage.
+  const live = activeBranch(lines);
+  const onBranch = (i: number) => live === null || live.has(i);
+  const edits = collectPiEdits(lines, onBranch);
   const editFor = (line: RawLine) =>
     typeof line.id === "string" && isEditable(line)
       ? edits.get(line.id)
@@ -406,10 +430,21 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
       meta.startedAt ??= ts;
       meta.endedAt = ts;
     }
+    if (type === "session") {
+      applySessionLine(meta, line);
+      return;
+    }
+    if (type === "session_info") {
+      if (typeof line.name === "string" && line.name.trim() !== "") {
+        meta.title = line.name;
+      }
+      return;
+    }
+    if (!onBranch(index)) {
+      handleOffBranch({ line, index, ts, state });
+      return;
+    }
     switch (type) {
-      case "session":
-        applySessionLine(meta, line);
-        break;
       case "model_change": {
         if (typeof line.modelId === "string") {
           state.models.add(line.modelId);
@@ -417,11 +452,6 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
         }
         break;
       }
-      case "session_info":
-        if (typeof line.name === "string" && line.name.trim() !== "") {
-          meta.title = line.name;
-        }
-        break;
       case "message":
         foldWithEdit({
           state,

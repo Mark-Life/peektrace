@@ -2,6 +2,8 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import { type AgentRegistryShape, sourcesOf } from "../agents";
+import { capMemory, projectContext } from "./context-dirs";
+import { rulePaths } from "./context-rules";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
 import { estTokens } from "./tokens";
@@ -421,42 +423,6 @@ const readContextFile = (args: {
   );
 };
 
-/** Sum byte sizes of every file under a memory dir, returning [bytes, count]. */
-const sumMemoryDir = (args: {
-  readonly fs: FileSystem.FileSystem;
-  readonly dir: string;
-}): Effect.Effect<readonly [number, number]> => {
-  const { fs, dir } = args;
-  const walk = (d: string): Effect.Effect<readonly [number, number]> =>
-    Effect.gen(function* () {
-      const names = yield* fs
-        .readDirectory(d)
-        .pipe(Effect.orElseSucceed(() => [] as string[]));
-      let bytes = 0;
-      let count = 0;
-      for (const name of names) {
-        const path = join(d, name);
-        const info = yield* fs.stat(path).pipe(
-          Effect.map((s) => s),
-          Effect.orElseSucceed(() => null)
-        );
-        if (!info) {
-          continue;
-        }
-        if (info.type === "Directory") {
-          const [b, c] = yield* walk(path);
-          bytes += b;
-          count += c;
-        } else if (info.type === "File") {
-          bytes += Number(info.size);
-          count += 1;
-        }
-      }
-      return [bytes, count] as const;
-    });
-  return walk(dir);
-};
-
 /** Resolve the home + projectsRoot of the Claude source owning a session id. */
 const claudeSourcePaths = (
   agents: AgentRegistryShape,
@@ -474,8 +440,9 @@ const claudeSourcePaths = (
 };
 
 /**
- * Gather the CLAUDE.md / AGENTS.md / memory files that would be injected into
- * the system prompt for `cwd`, used to attribute the system+tools residual.
+ * Gather the CLAUDE.md / AGENTS.md / CLAUDE.local.md / rules / MEMORY.md files
+ * Claude Code injects into the system prompt for `cwd`, used to attribute the
+ * system+tools residual.
  */
 export const gatherOnDiskContextFiles = (args: {
   readonly fs: FileSystem.FileSystem;
@@ -505,31 +472,34 @@ export const gatherOnDiskContextFiles = (args: {
       })
     );
 
+    for (const path of yield* rulePaths({ fs, dir: join(home, "rules") })) {
+      push(yield* readContextFile({ fs, path, label: path, scope: "global" }));
+    }
+
     if (cwd) {
-      const projectFiles: ReadonlyArray<readonly [string, string]> = [
-        [join(cwd, "CLAUDE.md"), `${cwd}/CLAUDE.md`],
-        [join(cwd, "AGENTS.md"), `${cwd}/AGENTS.md`],
-        [join(cwd, ".claude", "CLAUDE.md"), `${cwd}/.claude/CLAUDE.md`],
-      ];
-      for (const [path, label] of projectFiles) {
-        push(yield* readContextFile({ fs, path, label, scope: "project" }));
+      const project = yield* projectContext({ fs, cwd, home });
+      for (const path of project.paths) {
+        push(
+          yield* readContextFile({ fs, path, label: path, scope: "project" })
+        );
       }
 
-      const memDir = join(projectsRoot, agents.encodeSlug(cwd), "memory");
-      const present = yield* fs
-        .exists(memDir)
-        .pipe(Effect.orElseSucceed(() => false));
-      if (present) {
-        const [bytes, count] = yield* sumMemoryDir({ fs, dir: memDir });
-        if (count > 0) {
-          files.push({
-            label: `memory/ (${count} file${count === 1 ? "" : "s"})`,
-            path: memDir,
-            bytes,
-            tokensEst: Math.round(bytes / BYTES_PER_TOKEN),
-            scope: "memory",
-          });
-        }
+      const memPath = join(
+        projectsRoot,
+        agents.encodeSlug(project.memoryRoot),
+        "memory",
+        "MEMORY.md"
+      );
+      const mem = yield* readContextText({ fs, path: memPath });
+      if (mem) {
+        const text = capMemory(mem.text);
+        files.push({
+          label: "memory/MEMORY.md",
+          path: memPath,
+          bytes: new TextEncoder().encode(text).length,
+          tokensEst: estTokens(text),
+          scope: "memory",
+        });
       }
     }
 
