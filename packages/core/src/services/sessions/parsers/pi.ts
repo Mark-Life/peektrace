@@ -26,7 +26,7 @@ import {
   str,
 } from "./pi-context";
 import { collectPiEdits, foldWithEdit, isEditable } from "./pi-edits";
-import { buildPiHeader } from "./pi-header";
+import { buildPiHeader, foldPiUsage } from "./pi-header";
 import type { ParseSessionArgs, SessionParser } from "./types";
 
 /** A raw JSONL line, untyped. */
@@ -176,26 +176,21 @@ const registerTurn = (args: {
   readonly requestId: string;
   readonly model: string;
   readonly ts: string | undefined;
-  readonly usage: Record<string, number>;
+  readonly usage: Record<string, unknown>;
 }) => {
   const { state, requestId, model, ts, usage } = args;
-  const inputTokens = usage.input ?? 0;
-  const cacheRead = usage.cacheRead ?? 0;
-  const cacheWrite = usage.cacheWrite ?? 0;
-  const contextTokens = inputTokens + cacheRead + cacheWrite;
-  if (!state.turnsById.has(requestId) && contextTokens > 0) {
-    state.turnsById.set(requestId, {
+  foldPiUsage({
+    turns: state.turnsById,
+    key: requestId,
+    usage,
+    make: (tokens) => ({
       requestId,
       model,
-      contextTokens,
-      inputTokens,
-      cacheReadTokens: cacheRead,
-      cacheCreationTokens: cacheWrite,
-      outputTokens: usage.output ?? 0,
+      ...tokens,
       eventIndexes: [],
       ...opt("ts", ts),
-    });
-  }
+    }),
+  });
 };
 
 /** Append events + register the turn for one assistant `message` line. */
@@ -215,7 +210,7 @@ const handleAssistant = (args: {
     requestId,
     model,
     ts,
-    usage: (msg.usage ?? {}) as Record<string, number>,
+    usage: (msg.usage ?? {}) as Record<string, unknown>,
   });
   const turn = state.turnsById.get(requestId);
   const content = Array.isArray(msg.content) ? (msg.content as RawLine[]) : [];

@@ -272,7 +272,6 @@ export const Turn = Schema.Struct({
 });
 export type Turn = typeof Turn.Type;
 
-/** A spawned subagent transcript discovered on disk. */
 /** The cost of a list of turns at list price. */
 export const TurnsCost = Schema.Struct({
   /** Estimated USD of the priced turns; absent when none is priced. */
@@ -282,6 +281,7 @@ export const TurnsCost = Schema.Struct({
 });
 export type TurnsCost = typeof TurnsCost.Type;
 
+/** A spawned subagent transcript discovered on disk. */
 export const SubagentRef = Schema.Struct({
   ...TurnsCost.fields,
   id: Schema.String,
@@ -404,7 +404,10 @@ export const ParsedSession = Schema.Struct({
   unknownSystemSubtypes: Schema.optional(
     Schema.Record({ key: Schema.String, value: Schema.Number })
   ),
-  /** USD the agent itself recorded for the session (OpenCode); set only when above 0. */
+  /**
+   * USD the agent itself recorded (OpenCode): the session's `cost`, else the
+   * sum of message costs when every billed message has one. Set only above 0.
+   */
   nativeCostUsd: Schema.optional(Schema.Number),
   /**
    * Cost of `isSidechain` turns written inline in the main transcript, which
@@ -484,10 +487,9 @@ export const SessionHeader = Schema.Struct({
   sourceLabel: Schema.optional(Schema.String),
   /** Malformed lines other than a partial last line; set only when above 0. */
   malformedLines: Schema.optional(Schema.Number),
-  /**
-   * USD of the main transcript (no subagent files); absent when nothing is
-   * priced. `unpricedModels` set means the figure is a floor.
-   */
+  // Cost of the main transcript, inline sidechain turns included but not
+  // subagent files; absent when nothing is priced. `unpricedModels` set means
+  // the figure is a floor.
   ...TurnsCost.fields,
 });
 export type SessionHeader = typeof SessionHeader.Type;

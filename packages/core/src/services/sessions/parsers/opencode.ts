@@ -278,6 +278,8 @@ interface Meta {
   cwd?: string;
   /** ISO of the last message seen — the endedAt fallback when no session end. */
   lastMessageAt?: string;
+  /** Own `cost` of each assistant message that billed tokens; see `agentCost`. */
+  readonly messageCosts: (number | undefined)[];
   /** The session's own `cost`, when above 0. */
   nativeCostUsd?: number;
   /** ISO(timeUpdated) from the session line — authoritative when present. */
@@ -336,6 +338,29 @@ const turnForMessage = (args: {
   };
 };
 
+/** True when a turn billed any token. */
+const billedTokens = (t: MutTurn) =>
+  t.inputTokens + t.cacheReadTokens + t.cacheCreationTokens + t.outputTokens >
+  0;
+
+/**
+ * The agent's own figure: the session `cost` when above 0, else the sum of
+ * message costs when every message that billed tokens carries one. A partial
+ * set returns `undefined`, so the session stays an estimate.
+ */
+const agentCost = (
+  sessionCost: number | undefined,
+  messageCosts: readonly (number | undefined)[]
+) => {
+  if (sessionCost !== undefined) {
+    return sessionCost;
+  }
+  if (messageCosts.length === 0 || messageCosts.includes(undefined)) {
+    return;
+  }
+  return messageCosts.reduce<number>((n, c) => n + (c ?? 0), 0);
+};
+
 /** Fold one message line + establish the cursor for its following parts. */
 const applyMessage = (args: {
   readonly msg: RawLine;
@@ -370,6 +395,9 @@ const applyMessage = (args: {
     });
     turns.push(turn);
     cursor.turn = turn;
+    if (billedTokens(turn)) {
+      meta.messageCosts.push(positive(msg.cost));
+    }
   }
 };
 
@@ -445,7 +473,7 @@ export const parseOpencodeSession = ({
   const turns: MutTurn[] = [];
   const models = new Set<string>();
   const compactionIndexes: number[] = [];
-  const meta: Meta = {};
+  const meta: Meta = { messageCosts: [] };
   const cursor: Cursor = {
     role: "",
     contextRunning: 0,
@@ -482,7 +510,7 @@ export const parseOpencodeSession = ({
     ...opt("version", meta.version),
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.sessionEndedAt ?? meta.lastMessageAt),
-    ...opt("nativeCostUsd", meta.nativeCostUsd),
+    ...opt("nativeCostUsd", agentCost(meta.nativeCostUsd, meta.messageCosts)),
   });
 };
 
@@ -526,8 +554,8 @@ const applyHeaderSession = (acc: HeaderAcc, line: RawLine) => {
  * Build a lightweight OpenCode list header from dialect text. The first line is
  * the `session` header, so meta is read cheaply; `messageCount` counts the
  * `message` lines and the project name is the directory basename (or the slug).
- * Cost is the session's own when above 0, else its messages priced as in
- * `analyze`.
+ * Cost is the agent's own figure (see `agentCost`), else its messages priced
+ * as in `analyze`.
  */
 export const buildOpencodeHeader = ({
   text,
@@ -540,6 +568,7 @@ export const buildOpencodeHeader = ({
   const acc: HeaderAcc = {};
   let messageCount = 0;
   const turns: MutTurn[] = [];
+  const messageCosts: (number | undefined)[] = [];
   const { rows, malformed } = scanJsonl(text);
   rows.forEach((line, index) => {
     if (!line || typeof line !== "object") {
@@ -551,19 +580,22 @@ export const buildOpencodeHeader = ({
     } else if (kind === "message") {
       messageCount += 1;
       if (str(line.role) === "assistant") {
-        turns.push(
-          turnForMessage({
-            msg: line,
-            index,
-            ts: undefined,
-            sessionModel: acc.model,
-            contextRunning: 0,
-          })
-        );
+        const turn = turnForMessage({
+          msg: line,
+          index,
+          ts: undefined,
+          sessionModel: acc.model,
+          contextRunning: 0,
+        });
+        turns.push(turn);
+        if (billedTokens(turn)) {
+          messageCosts.push(positive(line.cost));
+        }
       }
     }
   });
 
+  const own = agentCost(acc.costUsd, messageCosts);
   return {
     id,
     agent: "opencode",
@@ -577,9 +609,7 @@ export const buildOpencodeHeader = ({
     ...opt("title", acc.title),
     ...opt("startedAt", acc.startedAt),
     ...opt("malformedLines", malformed > 0 ? malformed : undefined),
-    ...(acc.costUsd === undefined
-      ? turnsCost(turns)
-      : { costUsd: acc.costUsd }),
+    ...(own === undefined ? turnsCost(turns) : { costUsd: own }),
   };
 };
 

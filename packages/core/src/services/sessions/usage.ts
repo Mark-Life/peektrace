@@ -2,7 +2,7 @@
 import type { Turn } from "./schema";
 
 /** Turn fields a later streamed line of the same request can raise. */
-type StreamedUsage = Pick<
+export type StreamedUsage = Pick<
   Turn,
   "outputTokens" | "thinkingTokens" | "webSearchRequests" | "webFetchRequests"
 >;

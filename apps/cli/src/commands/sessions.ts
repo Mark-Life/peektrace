@@ -170,7 +170,7 @@ export const makeSessionsLs = (globals: GlobalsAccessor) =>
         );
         if (picked.some((h) => h.costUsd !== undefined)) {
           yield* Console.error(
-            "EST COST covers the main transcript only, without subagents"
+            "EST COST covers the main transcript only, without subagent files"
           );
         }
         if (picked.some((h) => h.unpricedModels)) {

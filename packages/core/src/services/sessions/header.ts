@@ -4,11 +4,10 @@
  * event timeline or running budget analysis.
  */
 import type { AgentId } from "../agent-id";
-import { isRealModel } from "./claude-records";
+import { foldClaudeUsage, isRealModel } from "./claude-records";
 import { type CostTurn, turnsCost } from "./cost";
 import { scanJsonl } from "./parse";
 import type { SessionHeader } from "./schema";
-import { cacheWriteSplit, mergeStreamedUsage, num } from "./usage";
 
 interface RawLine {
   readonly aiTitle?: unknown;
@@ -62,42 +61,22 @@ const isNotUserWritten = (o: RawLine) => {
   );
 };
 
-/**
- * Fold one assistant line's usage into its request, the way `parse.ts` builds
- * turns: input and cache counts as first seen, output as the streamed max.
- * Inline sidechain lines count too, as `analyze` prices them. Non-real models
- * are skipped.
- */
-const applyUsage = (args: {
-  readonly turns: Map<string, CostTurn>;
-  readonly key: string;
-  readonly o: RawLine;
-}) => {
-  const { turns, key, o } = args;
+/** Fold one assistant line's usage the way `parse.ts` does, inline
+ * sidechain lines included: `analyze` prices those too. */
+const applyUsage = (turns: Map<string, CostTurn>, key: string, o: RawLine) => {
   const usage = o.message?.usage;
-  const model = o.message?.model;
   if (!usage || typeof usage !== "object") {
     return;
   }
-  const u = usage as Record<string, unknown>;
-  const prev = turns.get(key);
-  if (prev) {
-    turns.set(key, mergeStreamedUsage(prev, u));
-    return;
-  }
-  const turn: CostTurn = {
-    model: typeof model === "string" ? model : "unknown",
-    inputTokens: num(u.input_tokens) ?? 0,
-    cacheReadTokens: num(u.cache_read_input_tokens) ?? 0,
-    cacheCreationTokens: num(u.cache_creation_input_tokens) ?? 0,
-    outputTokens: num(u.output_tokens) ?? 0,
-    ...cacheWriteSplit(u),
-  };
-  const context =
-    turn.inputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
-  if (context > 0 && isRealModel(turn.model)) {
-    turns.set(key, turn);
-  }
+  const model = o.message?.model;
+  const name = typeof model === "string" ? model : "unknown";
+  foldClaudeUsage({
+    turns,
+    key,
+    model: name,
+    usage: usage as Record<string, unknown>,
+    make: (tokens) => ({ model: name, ...tokens }),
+  });
 };
 
 /** Fold one raw line's header-relevant fields into the accumulator. */
@@ -155,7 +134,7 @@ export const buildHeader = (args: {
     } else if (o.type === "assistant") {
       const key = assistantKey(o, index);
       assistants.add(key);
-      applyUsage({ turns, key, o });
+      applyUsage(turns, key, o);
     }
   });
 

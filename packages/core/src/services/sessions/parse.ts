@@ -5,6 +5,7 @@ import {
   type CompactTokens,
   compactMetaOf,
   countsRecord,
+  foldClaudeUsage,
   hasOneMillionKey,
   isRealModel,
   KNOWN_IGNORED_TYPES,
@@ -29,13 +30,7 @@ import { measureTokens } from "./measure";
 import { promptEvent } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
 import { estTokens, firstLine } from "./tokens";
-import {
-  cacheWriteSplit,
-  mergeStreamedUsage,
-  opt,
-  serverToolCounts,
-  thinkingTokensOf,
-} from "./usage";
+import { opt, serverToolCounts, thinkingTokensOf } from "./usage";
 
 /** A raw JSONL line, untyped. */
 type RawLine = Record<string, unknown>;
@@ -340,35 +335,23 @@ const registerTurn = (args: {
   readonly countable: boolean;
   readonly effort: string | undefined;
 }) => {
-  const { state, requestId, model, ts, countable } = args;
-  const usage = args.usage as Record<string, number>;
-  const inputTokens = usage.input_tokens ?? 0;
-  const cacheRead = usage.cache_read_input_tokens ?? 0;
-  const cacheCreate = usage.cache_creation_input_tokens ?? 0;
-  const contextTokens = inputTokens + cacheRead + cacheCreate;
-  const target = countable ? state.turnsById : state.sidechainById;
-  const prev = target.get(requestId);
-  if (prev) {
-    target.set(requestId, mergeStreamedUsage(prev, args.usage));
-    return;
-  }
-  if (contextTokens > 0 && isRealModel(model)) {
-    target.set(requestId, {
+  const { state, requestId, model, ts, usage } = args;
+  foldClaudeUsage({
+    turns: args.countable ? state.turnsById : state.sidechainById,
+    key: requestId,
+    model,
+    usage,
+    make: (tokens) => ({
       requestId,
       model,
-      contextTokens,
-      inputTokens,
-      cacheReadTokens: cacheRead,
-      cacheCreationTokens: cacheCreate,
-      ...cacheWriteSplit(args.usage),
-      outputTokens: usage.output_tokens ?? 0,
+      ...tokens,
       eventIndexes: [],
       ...opt("ts", ts),
-      ...opt("thinkingTokens", thinkingTokensOf(args.usage)),
-      ...serverToolCounts(args.usage),
+      ...opt("thinkingTokens", thinkingTokensOf(usage)),
+      ...serverToolCounts(usage),
       ...opt("effort", args.effort),
-    });
-  }
+    }),
+  });
 };
 
 /** Handle one `assistant` line: register the turn, append content events. */

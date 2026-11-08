@@ -55,10 +55,39 @@ const applyHeaderLine = (acc: HeaderAcc, line: RawLine) => {
   }
 };
 
+/** Token counts one Pi call's `usage` reports; a missing count reads 0. */
+const piCallTokens = (usage: RawLine) => {
+  const inputTokens = num(usage.input) ?? 0;
+  const cacheReadTokens = num(usage.cacheRead) ?? 0;
+  const cacheCreationTokens = num(usage.cacheWrite) ?? 0;
+  return {
+    contextTokens: inputTokens + cacheReadTokens + cacheCreationTokens,
+    inputTokens,
+    cacheReadTokens,
+    cacheCreationTokens,
+    outputTokens: num(usage.output) ?? 0,
+  };
+};
+
 /**
- * Record the usage of one assistant `message` line, the way `pi.ts` builds
- * turns: first line per id, and only when its usage occupies context.
+ * Add the turn for one assistant message: the first line per id wins, and
+ * only when its prompt occupies context. `make` builds the turn. `pi.ts` and
+ * the list header both fold through here, so their costs agree.
  */
+export const foldPiUsage = <T>(args: {
+  readonly turns: Map<string, T>;
+  readonly key: string;
+  readonly usage: RawLine;
+  readonly make: (tokens: ReturnType<typeof piCallTokens>) => T;
+}) => {
+  const { turns, key, usage, make } = args;
+  const tokens = piCallTokens(usage);
+  if (!turns.has(key) && tokens.contextTokens > 0) {
+    turns.set(key, make(tokens));
+  }
+};
+
+/** Record the usage of one assistant `message` line, as `pi.ts` does. */
 const applyUsage = (
   turns: Map<string, CostTurn>,
   line: RawLine,
@@ -68,20 +97,13 @@ const applyUsage = (
   if (line.type !== "message" || msg.role !== "assistant") {
     return;
   }
-  const key = typeof line.id === "string" ? line.id : `line-${index}`;
-  const usage = (msg.usage ?? {}) as RawLine;
-  const turn: CostTurn = {
-    model: String(msg.model ?? "unknown"),
-    inputTokens: num(usage.input) ?? 0,
-    cacheReadTokens: num(usage.cacheRead) ?? 0,
-    cacheCreationTokens: num(usage.cacheWrite) ?? 0,
-    outputTokens: num(usage.output) ?? 0,
-  };
-  const context =
-    turn.inputTokens + turn.cacheReadTokens + turn.cacheCreationTokens;
-  if (!turns.has(key) && context > 0) {
-    turns.set(key, turn);
-  }
+  const model = String(msg.model ?? "unknown");
+  foldPiUsage({
+    turns,
+    key: typeof line.id === "string" ? line.id : `line-${index}`,
+    usage: (msg.usage ?? {}) as RawLine,
+    make: (tokens) => ({ model, ...tokens }),
+  });
 };
 
 /** A user or assistant `message` line (tool results, bash, system excluded). */

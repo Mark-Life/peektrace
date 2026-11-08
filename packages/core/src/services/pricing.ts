@@ -426,7 +426,7 @@ export const estimateCost = (tokens: CostTokens, rates: ModelPrice): number => {
   );
 };
 
-/** A turn that billed nothing, e.g. Claude's `<synthetic>` placeholders. */
+/** A turn that billed nothing, e.g. an OpenCode message with no token counts. */
 const isZeroUsage = (t: CostTokens) =>
   t.inputTokens === 0 &&
   t.outputTokens === 0 &&

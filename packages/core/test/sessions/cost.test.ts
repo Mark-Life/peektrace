@@ -16,6 +16,7 @@ import {
   buildOpencodeHeader,
   parseOpencodeSession as parseOpencode,
 } from "../../src/services/sessions/parsers/opencode";
+import { parsePiSession } from "../../src/services/sessions/parsers/pi";
 import { buildPiHeader } from "../../src/services/sessions/parsers/pi-header";
 
 const line = (o: Record<string, unknown>) => JSON.stringify(o);
@@ -62,7 +63,7 @@ const turn = (
 });
 
 /** OpenCode session whose own cost is `cost`, one gpt-5.5 call with reasoning. */
-const opencodeText = (cost: number) =>
+const opencodeText = (cost: number, messageCost = 0) =>
   [
     line({
       kind: "session",
@@ -76,7 +77,7 @@ const opencodeText = (cost: number) =>
       role: "assistant",
       id: "m1",
       modelID: "gpt-5.5",
-      cost: 0,
+      cost: messageCost,
       tokens: {
         input: 1000,
         output: 100,
@@ -331,6 +332,42 @@ describe("AnalyzedSession cost", () => {
   });
 });
 
+describe("OpenCode message costs", () => {
+  const parse = (text: string) =>
+    analyze(
+      parseOpencode({ text, path: "/synthetic/oc.jsonl#ses_x", sessionId: "x" })
+    );
+
+  test("every billed message's own cost is the agent's figure", () => {
+    const a = parse(opencodeText(0, 0.5));
+    expect(a.cost).toEqual({ source: "agent", totalUsd: 0.5 });
+  });
+
+  test("a message without its own cost keeps the session an estimate", () => {
+    const priced = opencodeText(0, 0.5);
+    const unpriced = line({
+      kind: "message",
+      role: "assistant",
+      id: "m2",
+      modelID: "gpt-5.5",
+      cost: 0,
+      tokens: { input: 1000, output: 100, reasoning: 900, cache: {} },
+    });
+    const a = parse([priced, unpriced].join("\n"));
+    expect(a.cost?.source).toBe("estimate");
+    expect(a.cost?.totalUsd).toBeCloseTo(0.5 + OPENCODE_EST, 8);
+  });
+
+  test("the list header uses the same figure", () => {
+    const h = buildOpencodeHeader({
+      ...HEADER_ARGS,
+      path: "/synthetic/oc.jsonl#ses_x",
+      text: opencodeText(0, 0.5),
+    });
+    expect(h.costUsd).toBe(0.5);
+  });
+});
+
 describe("header cost", () => {
   test("Claude: one request streamed over two lines counts once; inline sidechains count", () => {
     const assistant = (output: number, text: string) =>
@@ -394,5 +431,75 @@ describe("header cost", () => {
     expect(
       buildOpencodeHeader({ ...args, text: opencodeText(0) }).costUsd
     ).toBeCloseTo(OPENCODE_EST, 8);
+  });
+
+  test("Claude and Pi headers match analyze on the same transcript", () => {
+    const split = {
+      ...usage(2000, 300),
+      cache_read_input_tokens: 50_000,
+      cache_creation_input_tokens: 4000,
+      cache_creation: {
+        ephemeral_1h_input_tokens: 3000,
+        ephemeral_5m_input_tokens: 1000,
+      },
+    };
+    const claude = [
+      claudeText(split, "claude-opus-4-8"),
+      line({
+        type: "assistant",
+        requestId: "r1",
+        message: {
+          model: "claude-opus-4-8",
+          usage: { ...split, output_tokens: 900 },
+        },
+      }),
+      line({
+        type: "assistant",
+        requestId: "r2",
+        isSidechain: true,
+        message: { model: "claude-haiku-4-5", usage: usage(7000, 50) },
+      }),
+      line({
+        type: "assistant",
+        requestId: "r3",
+        message: { model: "<synthetic>", usage: usage(0) },
+      }),
+    ].join("\n");
+    const a = analyze(
+      parseClaudeSession({
+        text: claude,
+        path: "/synthetic/s.jsonl",
+        sessionId: "s",
+      })
+    );
+    expect(buildHeader({ ...HEADER_ARGS, text: claude }).costUsd).toBeCloseTo(
+      a.cost?.totalUsd ?? Number.NaN,
+      10
+    );
+
+    const piMessage = (id: string, input: number) =>
+      line({
+        type: "message",
+        id,
+        timestamp: "2026-01-01T00:00:01Z",
+        message: {
+          role: "assistant",
+          model: "claude-sonnet-4-6",
+          usage: { input, output: 20, cacheRead: 900, cacheWrite: 100 },
+          content: [{ type: "text", text: "ok" }],
+        },
+      });
+    const pi = [
+      piMessage("m1", 500),
+      piMessage("m1", 9999),
+      piMessage("m2", 0),
+    ].join("\n");
+    const piSession = analyze(
+      parsePiSession({ text: pi, path: "/synthetic/p.jsonl", sessionId: "p" })
+    );
+    expect(buildPiHeader({ ...HEADER_ARGS, text: pi }).costUsd).toBeCloseTo(
+      piSession.cost?.totalUsd ?? Number.NaN,
+      10
+    );
   });
 });
