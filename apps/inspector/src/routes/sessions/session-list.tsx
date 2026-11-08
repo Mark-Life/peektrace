@@ -2,7 +2,7 @@
  *
  * Headers are the lightweight `SessionHeader` rows (no body parse). Filters span
  * agent / project / gitBranch / model / start-date range; free-text search matches
- * the title (and id). Rows are `Item`s in an `ItemGroup` so they can live in the
+ * the title (and id). Rows are `Item`s in a list so they can live in the
  * master-detail left rail; the active row is highlighted via `selectedId`. When
  * nothing matches, an `Empty` offers a one-click filter reset.
  */
@@ -29,7 +29,6 @@ import {
   ItemContent,
   ItemDescription,
   ItemFooter,
-  ItemGroup,
   ItemTitle,
 } from "@workspace/ui/components/item";
 import {
@@ -60,7 +59,9 @@ import {
   NO_FILTERS,
   titleOf,
 } from "../../lib/session-filters";
+import { ariaKeys } from "../../lib/shortcuts";
 import { DateRangeFilter } from "./date-range-filter";
+import { useListRoving } from "./use-list-roving";
 
 /** Per-harness chip tint, so a rail of mixed sessions is scannable at a glance.
  * Unknown agents fall through to the plain `outline` badge. */
@@ -157,10 +158,13 @@ const SessionRowView = ({
   h,
   active,
   onOpen,
+  tabbable,
 }: {
   readonly h: SessionHeader;
   readonly active: boolean;
   readonly onOpen: (id: string) => void;
+  /** The list's one Tab stop. */
+  readonly tabbable: boolean;
 }) => (
   <Item asChild size="sm" variant="outline">
     <button
@@ -171,8 +175,10 @@ const SessionRowView = ({
           ? "border-primary/40 bg-primary/10"
           : "hover:bg-muted focus-visible:bg-muted"
       )}
+      data-session-id={h.id}
       data-testid="session-row"
       onClick={() => onOpen(h.id)}
+      tabIndex={tabbable ? 0 : -1}
       type="button"
     >
       <ItemContent className="min-w-0">
@@ -293,6 +299,8 @@ const SessionListView = ({
   );
 
   const active = activeCount(filters);
+  const ids = useMemo(() => rows.map((h) => h.id), [rows]);
+  const roving = useListRoving({ ids, selectedId });
 
   return (
     <div className="flex flex-col gap-3" data-testid="session-list">
@@ -301,9 +309,13 @@ const SessionListView = ({
           <SearchIcon />
         </InputGroupAddon>
         <InputGroupInput
+          aria-keyshortcuts={ariaKeys("search")}
+          aria-label="Search sessions"
           data-testid="session-search"
           onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
+          onKeyDown={roving.onSearchKeyDown}
           placeholder="Search by title…"
+          ref={roving.search}
           value={filters.query}
         />
         {filters.query.length > 0 ? (
@@ -386,16 +398,22 @@ const SessionListView = ({
       {rows.length === 0 ? (
         <NoMatches onReset={() => setFilters(NO_FILTERS)} />
       ) : (
-        <ItemGroup className="gap-2">
+        <ul
+          aria-label="Sessions"
+          className="flex w-full flex-col gap-2"
+          {...roving.group}
+        >
           {rows.map((h) => (
-            <SessionRow
-              active={h.id === selectedId}
-              h={h}
-              key={h.id}
-              onOpen={onOpen}
-            />
+            <li key={h.id}>
+              <SessionRow
+                active={h.id === selectedId}
+                h={h}
+                onOpen={onOpen}
+                tabbable={h.id === roving.stop}
+              />
+            </li>
           ))}
-        </ItemGroup>
+        </ul>
       )}
     </div>
   );
