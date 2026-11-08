@@ -15,13 +15,18 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { Effect } from "effect";
 import {
   type CacheEntry,
+  factMs,
+  isPastWindow,
+  lastFactMsOf,
   makeCache,
   mergeIndex,
 } from "../../src/services/stats/cache";
 import { EXTRACTOR_VERSION } from "../../src/services/stats/schema";
+import { bashFact, sessionFact } from "./facts";
 
 const entry = (path: string, rows = 1): CacheEntry => ({
   extractorVersion: EXTRACTOR_VERSION,
+  lastFactMs: null,
   mtimeMs: 1,
   path,
   rows,
@@ -60,6 +65,42 @@ describe("mergeIndex", () => {
       scanned: new Set(["/b/1.jsonl"]),
     });
     expect(byPath(next)).toEqual({ "/a/1.jsonl": 1, "/a/2.jsonl": 1 });
+  });
+});
+
+describe("window skip predicate", () => {
+  const T1 = "2026-08-01T00:00:00.000Z";
+  const T2 = "2026-08-03T00:00:00.000Z";
+  const at = (iso: string) => Date.parse(iso);
+  const withLast = (lastFactMs: number | null) => ({
+    ...entry("/a/1.jsonl"),
+    lastFactMs,
+  });
+
+  test("factMs reads ts, or startedAt for a session row", () => {
+    expect(factMs(bashFact({ ts: T1 }))).toBe(at(T1));
+    expect(factMs(sessionFact({ startedAt: T2 }))).toBe(at(T2));
+  });
+
+  test("an undated or unparsable fact has no time", () => {
+    expect(factMs(bashFact({ ts: null }))).toBeNull();
+    expect(factMs(bashFact({ ts: "not a date" }))).toBeNull();
+    expect(factMs(sessionFact({ startedAt: null }))).toBeNull();
+  });
+
+  test("lastFactMsOf is the newest time, null once a fact is undated", () => {
+    const dated = [sessionFact({ startedAt: T1 }), bashFact({ ts: T2 })];
+    expect(lastFactMsOf(dated)).toBe(at(T2));
+    expect(lastFactMsOf([...dated, bashFact({ ts: "bad" })])).toBeNull();
+    expect(lastFactMsOf([])).toBe(0);
+  });
+
+  test("only a shard wholly before the window start is skipped", () => {
+    expect(isPastWindow(withLast(at(T1)), at(T2))).toBe(true);
+    expect(isPastWindow(withLast(at(T2)), at(T2))).toBe(false);
+    expect(isPastWindow(withLast(at(T2)), at(T1))).toBe(false);
+    expect(isPastWindow(withLast(null), at(T2))).toBe(false);
+    expect(isPastWindow(withLast(0), at(T1))).toBe(true);
   });
 });
 

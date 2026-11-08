@@ -16,6 +16,7 @@ import type { AccumulatorFactory, FinishContext, Tally } from "../accumulate";
 import {
   addToTally,
   hitOf,
+  sampleLine,
   sampleOf,
   samplesOf,
   tallyFor,
@@ -92,7 +93,7 @@ const rowOf = (args: {
     sessions: tally.sessions.size,
     projects: tally.projects.size,
     totalSec: round(tally.totalSec),
-    samples: samplesOf(tally, ctx.sampleCap),
+    samples: samplesOf(tally, ctx),
   };
 };
 
@@ -131,7 +132,7 @@ export const makeClusterTable: AccumulatorFactory<readonly ClusterRow[]> = (
       addToTally({
         tally: cluster.tally,
         fact,
-        sample: sampleOf(fact, opts.redact.line(fact.sig)),
+        sample: sampleOf(fact, sampleLine(fact.sig)),
       });
       bump(cluster.tools, fact.tool);
       for (const detail of detailsOf(fact.sig)) {

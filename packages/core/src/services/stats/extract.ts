@@ -29,6 +29,7 @@ import { declaredDelaySec, waitShape } from "./detectors/waiting";
 import { round } from "./rank";
 import type { Redactor } from "./redact";
 import type { BashFact, SessionFact, StatsFact, ToolFact } from "./schema";
+import { ranBins } from "./shell-lex";
 import type { TranscriptRef } from "./walk";
 
 /** Chars of command text a fact keeps, after redaction. */
@@ -278,6 +279,7 @@ const callFactOf = (args: {
   }
   const { bin, family } = normalizeCommand(cmd);
   const { job, present } = classifyJob(cmd);
+  const cmdLine = redact.line(cmd, CMD_MAX);
   return {
     ...base,
     row: "bash",
@@ -287,7 +289,8 @@ const callFactOf = (args: {
       detector: scan.detector,
       cause: base.cause,
     }),
-    cmd: redact.line(cmd, CMD_MAX),
+    cmd: cmdLine,
+    ran: ranBins(cmdLine),
     bin,
     family: redact.text(family),
     job,

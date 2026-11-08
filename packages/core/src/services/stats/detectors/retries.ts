@@ -23,6 +23,8 @@ import {
   type FactAccumulator,
   type FinishContext,
   hitOf,
+  redactHits,
+  sampleLine,
   sampleOf,
 } from "../accumulate";
 import {
@@ -32,15 +34,12 @@ import {
   bump,
   type Compare,
   chain,
-  clip,
   cmpStr,
-  collapseWs,
   compareSamples,
   desc,
   pickSamples,
   rank,
   round,
-  SAMPLE_LINE_MAX,
   safeDiv,
   sortBy,
 } from "../rank";
@@ -58,7 +57,7 @@ import {
   type Split,
   type StatsFact,
 } from "../schema";
-import { binName, commandIndex, splitSegments, tokenize } from "../shell-lex";
+import { binName } from "../shell-lex";
 import { CAUSES, GIT_DIFF_OUTPUT, globValue, PATH_FILES } from "./causes";
 import { hitCauseOf, makePairer, type RetryPair } from "./pairing";
 import type { CauseCounts, CoverSince, RuleCover } from "./rules";
@@ -403,14 +402,6 @@ const fixOf = (
   return spec.fix;
 };
 
-/** The binaries a command runs, one per top-level segment, by basename. */
-const ranBins = (cmd: string): readonly string[] =>
-  splitSegments(cmd).segments.flatMap((segment) => {
-    const words = tokenize(segment).map((w) => w.text);
-    const word = words[commandIndex(words)];
-    return word === undefined ? [] : [binName(word)];
-  });
-
 /** Keep the later of `at`'s current value and the call's time. */
 const latest = (at: Map<string, number>, bin: string, fact: CallFact): void => {
   const ms = fact.ts === null ? Number.NaN : Date.parse(fact.ts);
@@ -550,10 +541,9 @@ export const makeCauseTable: (
     if (pair.diff !== null) {
       bump(agg.diffs, `${pair.diff.from}${SEP}${pair.diff.to}`);
     }
-    // Fact text is redacted at extract time; lines are collapsed and clipped
-    // here and re-redacted in `finish`, for the few samples that ship.
-    const failedLine = clip(collapseWs(lineOf(failed)), SAMPLE_LINE_MAX);
-    const retryLine = clip(collapseWs(lineOf(retry)), SAMPLE_LINE_MAX);
+    // Re-redacted in `finish`, for the few samples that ship.
+    const failedLine = sampleLine(lineOf(failed));
+    const retryLine = sampleLine(lineOf(retry));
     agg.pairSamples.push({
       failed: sampleOf(failed, failedLine),
       retry: sampleOf(retry, retryLine),
@@ -590,7 +580,7 @@ export const makeCauseTable: (
   /** A shell call that ran with no not-found proves its binaries are there. */
   const noteRan = (fact: CallFact, cause: CauseId | null): void => {
     if (isBashFact(fact) && !fact.err && cause !== "command-not-found") {
-      for (const bin of ranBins(fact.cmd)) {
+      for (const bin of fact.ran) {
         latest(lastRan, bin, fact);
       }
     }
@@ -614,7 +604,7 @@ export const makeCauseTable: (
     if (isBashFact(fact) && fact.family.startsWith("git diff")) {
       agg.gitDiffHits += 1;
     }
-    const line = clip(collapseWs(lineOf(fact)), SAMPLE_LINE_MAX);
+    const line = sampleLine(lineOf(fact));
     agg.samples.push(sampleOf(fact, line));
     agg.samples = boundPool(agg.samples, pickSamples);
     if (drillKey === causeKeyOf(cause, fact.tool)) {
@@ -778,11 +768,7 @@ export const makeCauseTable: (
   const drill = (): readonly DrillHit[] => {
     settle();
     return sortBy(
-      [...drillHits.values()].map((hit) => ({
-        ...hit,
-        line: opts.redact.line(hit.line),
-        pairLine: hit.pairLine === null ? null : opts.redact.line(hit.pairLine),
-      })),
+      redactHits([...drillHits.values()], opts.redact),
       chain<DrillHit>(
         asc((h) => (h.pairLine === null ? 1 : 0)),
         ascStr((h) => h.ts ?? ""),

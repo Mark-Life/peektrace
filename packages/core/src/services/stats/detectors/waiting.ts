@@ -34,6 +34,8 @@ import {
   type AccumulatorFactory,
   addToTally,
   hitOf,
+  redactHits,
+  sampleLine,
   sampleOf,
   samplesOf,
   type Tally,
@@ -217,7 +219,7 @@ export const makeWaitPanel: AccumulatorFactory<WaitPanel> = (opts) => {
       if (!isBashFact(fact) || fact.job !== WAIT_JOB) {
         return;
       }
-      const line = opts.redact.line(fact.cmd);
+      const line = sampleLine(fact.cmd);
       const sample = sampleOf(fact, line);
       addToTally({ tally: tallyFor(tallies, ALL), fact, sample });
       if (fact.wait !== null) {
@@ -262,10 +264,10 @@ export const makeWaitPanel: AccumulatorFactory<WaitPanel> = (opts) => {
         bgRuns,
         bgSec: round(bgSec),
         bgDeclaredSec: round(bgDeclaredSec),
-        samples: samplesOf(total, ctx.sampleCap),
+        samples: samplesOf(total, ctx),
       };
     },
 
-    drill: () => sortBy(hits, compareDrillHits),
+    drill: (ctx) => sortBy(redactHits(hits, ctx.redact), compareDrillHits),
   };
 };

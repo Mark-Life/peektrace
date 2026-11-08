@@ -28,7 +28,9 @@ import {
 } from "./accumulate";
 import {
   type CacheEntry,
+  factMs,
   isFresh,
+  isPastWindow,
   mergeIndex,
   StatsCache,
   type StatsCacheShape,
@@ -185,12 +187,8 @@ const windowOf = (now: number, days: number): StatsWindow => ({
 
 /** True when a fact's own timestamp sits inside the window, or it has none. */
 const inWindow = (fact: StatsFact, fromMs: number, toMs: number): boolean => {
-  const ts = fact.row === "session" ? fact.startedAt : fact.ts;
-  if (ts === null) {
-    return true;
-  }
-  const t = Date.parse(ts);
-  return Number.isNaN(t) || (t >= fromMs && t <= toMs);
+  const t = factMs(fact);
+  return t === null || (t >= fromMs && t <= toMs);
 };
 
 /** What one transcript contributed to a pass. */
@@ -213,17 +211,23 @@ const factsFor = (args: {
   readonly agents: AgentRegistryShape;
   readonly cache: StatsCacheShape;
   readonly force: boolean;
+  /** Window start: a fresh shard with nothing newer is not read. */
+  readonly fromMs: number;
   readonly fs: FileSystem.FileSystem;
   readonly index: ReadonlyMap<string, CacheEntry>;
   readonly redact: Redactor;
   readonly ref: TranscriptRef;
   readonly useCache: boolean;
 }): Effect.Effect<FileResult> => {
-  const { agents, cache, force, fs, index, redact, ref, useCache } = args;
+  const { agents, cache, force, fromMs, fs, index, redact, ref, useCache } =
+    args;
   return Effect.gen(function* () {
     const stat = yield* statOf({ fs, ref });
     const entry = index.get(ref.path);
     if (useCache && !force && entry && isFresh({ entry, ref, stat })) {
+      if (isPastWindow(entry, fromMs)) {
+        return { facts: [], entry, cached: true, skipped: null };
+      }
       const cached = yield* cache
         .read(entry)
         .pipe(Effect.orElseSucceed(() => null));
@@ -322,7 +326,17 @@ const runPass = (args: {
     yield* foldCorpus({
       refs,
       perFile: (ref) =>
-        factsFor({ agents, cache, force, fs, index, redact, ref, useCache }),
+        factsFor({
+          agents,
+          cache,
+          force,
+          fromMs,
+          fs,
+          index,
+          redact,
+          ref,
+          useCache,
+        }),
       onFile: (result) => {
         done += 1;
         progress?.onFile(done, refs.length);

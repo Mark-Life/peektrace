@@ -2,7 +2,9 @@
  *
  * A temp corpus holds one Claude and one Codex transcript, both synthetic. A
  * pass narrowed to one agent must leave the other agent's shards warm, and a
- * full pass must drop the shard of a transcript that no longer exists.
+ * full pass must drop the shard of a transcript that no longer exists. A
+ * window that starts after every fact of a shard skips reading it, but keeps
+ * its index entry and its shard file.
  */
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
@@ -251,6 +253,82 @@ describe("stats cache across scopes", () => {
         expect(full.cached).toBe(1);
         expect(indexPaths()).toEqual([codexPath()]);
         expect(shardNames()).toHaveLength(1);
+      })
+    ));
+});
+
+/** Overwrite every shard, so a pass that reads one has to re-extract it. */
+const corruptShards = () => {
+  for (const name of shardNames()) {
+    writeFileSync(join(cacheDir(), "shards", name), "not json");
+  }
+};
+
+const shardBodies = () =>
+  shardNames().map((name) =>
+    readFileSync(join(cacheDir(), "shards", name), "utf8")
+  );
+
+describe("stats window skip", () => {
+  test("a narrow full report keeps every index entry and shard", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        yield* client.stats.refresh({});
+        const narrow = yield* client.stats.report({ days: 1 });
+        expect(narrow.corpus.transcripts).toBe(0);
+        expect(indexPaths()).toEqual([claudePath(), codexPath()].sort());
+        expect(shardNames()).toHaveLength(2);
+        const wide = yield* client.stats.refresh({});
+        expect(wide.extracted).toBe(0);
+        expect(wide.cached).toBe(2);
+        expect(wide.facts).toBeGreaterThan(0);
+      })
+    ));
+
+  test("a narrow scoped report keeps every index entry", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        yield* client.stats.refresh({});
+        yield* client.stats.report({ agents: ["claude"], days: 1 });
+        expect(indexPaths()).toEqual([claudePath(), codexPath()].sort());
+        const wide = yield* client.stats.refresh({});
+        expect(wide.extracted).toBe(0);
+        expect(wide.cached).toBe(2);
+      })
+    ));
+
+  test("a shard with nothing in the window is not read", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        yield* client.stats.refresh({});
+        corruptShards();
+        // A read would re-extract and rewrite the shard, so unchanged bodies mean no read.
+        const narrow = yield* client.stats.report({ days: 1 });
+        expect(narrow.corpus.transcripts).toBe(0);
+        expect(shardBodies()).toEqual(["not json", "not json"]);
+        expect(indexPaths()).toEqual([claudePath(), codexPath()].sort());
+      })
+    ));
+
+  test("a cold narrow report still writes shards a wider run reads", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        yield* client.stats.report({ days: 1 });
+        expect(indexPaths()).toEqual([claudePath(), codexPath()].sort());
+        const wide = yield* client.stats.refresh({});
+        expect(wide.extracted).toBe(0);
+        expect(wide.cached).toBe(2);
+      })
+    ));
+
+  test("cold and warm reports match, inside and outside the window", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        for (const days of [1, 60]) {
+          const cold = yield* client.stats.report({ days, force: true });
+          const warm = yield* client.stats.report({ days });
+          expect(warm).toEqual(cold);
+        }
       })
     ));
 });

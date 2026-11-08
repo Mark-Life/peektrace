@@ -23,6 +23,8 @@ import {
   type AccumulatorFactory,
   addToTally,
   hitOf,
+  redactHits,
+  sampleLine,
   sampleOf,
   samplesOf,
   type Tally,
@@ -369,7 +371,7 @@ export const makeTimeTable: AccumulatorFactory<readonly TimeRow[]> = (opts) => {
       if (!isBashFact(fact)) {
         return;
       }
-      const line = opts.redact.line(fact.cmd);
+      const line = sampleLine(fact.cmd);
       addToTally({
         tally: tallyFor(tallies, fact.job),
         fact,
@@ -414,7 +416,7 @@ export const makeTimeTable: AccumulatorFactory<readonly TimeRow[]> = (opts) => {
             cappedSec: round(extra.cappedSec),
             bgRuns: extra.bgRuns,
             bgSec: round(extra.bgSec),
-            samples: samplesOf(tally, ctx.sampleCap),
+            samples: samplesOf(tally, ctx),
           } satisfies TimeRow,
         ];
       });
@@ -430,6 +432,6 @@ export const makeTimeTable: AccumulatorFactory<readonly TimeRow[]> = (opts) => {
       return ranked.rows;
     },
 
-    drill: () => sortBy(hits, compareDrillHits),
+    drill: (ctx) => sortBy(redactHits(hits, ctx.redact), compareDrillHits),
   };
 };
