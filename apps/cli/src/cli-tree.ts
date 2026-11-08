@@ -10,6 +10,7 @@ import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
 import { makeSessionsExport } from "./commands/sessions-export";
+import { makeSessionsSearch } from "./commands/sessions-search";
 import { makeStats } from "./commands/stats";
 import { makeStatusline } from "./commands/statusline";
 import { makeTui } from "./commands/tui";
@@ -75,6 +76,7 @@ export const sessions = Command.make("sessions").pipe(
     makeSessionsLs(globals),
     makeSessionsAnalyze(globals),
     makeSessionsExport(globals),
+    makeSessionsSearch(globals),
   ])
 );
 

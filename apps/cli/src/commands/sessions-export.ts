@@ -22,7 +22,7 @@ import {
 } from "../client";
 import { CliUserError } from "../errors";
 import { SESSIONS_EXPORT_SUMMARY } from "../summaries";
-import { cwdOpt, parentOpt } from "./sessions";
+import { cwdOpt, noRedactOpt, parentOpt } from "./sessions";
 import { resolveCwd, resolveTargetId } from "./sessions-filter";
 
 const FORMAT_BY_EXTENSION: Readonly<Record<string, ExportFormat>> = {
@@ -76,11 +76,6 @@ const outOpt = Options.text("out").pipe(
     "Write to this file instead of stdout (`-` is stdout)"
   ),
   Options.optional
-);
-const noRedactOpt = Options.boolean("no-redact").pipe(
-  Options.withDescription(
-    "Keep secrets and home paths in the output (redacted by default)"
-  )
 );
 const latestOpt = Options.boolean("latest").pipe(
   Options.withDescription("Export the newest session of any agent")

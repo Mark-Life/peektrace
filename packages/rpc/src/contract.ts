@@ -28,6 +28,7 @@ import {
   SessionHeader,
   SessionListing,
 } from "@workspace/core/services/sessions/schema";
+import { SessionSearchResult } from "@workspace/core/services/sessions/search-schema";
 import { PeektraceSettings } from "@workspace/core/services/settings";
 import {
   DrillResult,
@@ -231,6 +232,30 @@ export const SessionAnalyzePayload = Schema.Struct({
   redact: Schema.optional(Schema.Boolean),
 });
 
+/** `sessions.search` arguments. */
+export const SessionsSearchPayload = Schema.Struct({
+  /** Non-blank search text. */
+  q: Schema.String.pipe(
+    Schema.filter((s) => s.trim() !== "", {
+      message: () => "q must not be blank",
+    })
+  ),
+  agent: Schema.optional(AgentId),
+  project: Schema.optional(Schema.String),
+  /** ISO time: only sessions updated at or after it. */
+  since: Schema.optional(
+    Schema.String.pipe(
+      Schema.filter((s) => !Number.isNaN(Date.parse(s)), {
+        message: () => "since must be an ISO time",
+      })
+    )
+  ),
+  /** Max sessions, newest first. Default 20; 0 = all. */
+  limit: Schema.optional(Schema.Int.pipe(Schema.nonNegative())),
+  /** Redact snippets, titles and projects. Default true. */
+  redact: Schema.optional(Schema.Boolean),
+});
+
 /** `memory.vault` selector. */
 export const MemoryVaultPayload = Schema.Struct({
   project: Schema.String,
@@ -362,6 +387,10 @@ export const PeektraceRpcs = RpcGroup.make(
     payload: SessionAnalyzePayload,
     success: AnalyzedSession,
     error: WireError,
+  }),
+  Rpc.make("sessions.search", {
+    payload: SessionsSearchPayload,
+    success: SessionSearchResult,
   }),
   Rpc.make("memory.allVaults", {
     success: AllVaults,

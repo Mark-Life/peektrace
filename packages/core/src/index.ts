@@ -102,6 +102,12 @@ export {
   UserLine,
 } from "./services/sessions/schema";
 export {
+  SearchHit,
+  type SearchRequest,
+  SearchSession,
+  SessionSearchResult,
+} from "./services/sessions/search-schema";
+export {
   type AnalyzeRequest,
   type ListFilter,
   type ParseRequest,

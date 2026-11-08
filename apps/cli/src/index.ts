@@ -10,9 +10,16 @@ import { CliConfig, Command, HelpDoc, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
 import { Console, Effect, Layer } from "effect";
-import { helpGroup, isRootHelp, skipsTelemetry } from "./argv";
+import {
+  beforeSeparator,
+  hasFreeText,
+  helpGroup,
+  isRootHelp,
+  loggableArgv,
+  skipsTelemetry,
+} from "./argv";
 import { command } from "./cli-tree";
-import { formatCliError } from "./errors";
+import { formatCliError, UsageError } from "./errors";
 import { GROUP_PATHS, groupHelpDoc, rootHelpDoc } from "./help";
 import { otelEnabled, tracingLayer } from "./tracing";
 import { APP_VERSION } from "./version";
@@ -32,10 +39,11 @@ const printRootHelp = Console.log(HelpDoc.toAnsiText(rootHelpDoc(APP_VERSION)));
 // `--no-telemetry` (or `PEEKTRACE_NO_TELEMETRY`) opts out; `statusline` never
 // records (it runs on every status-bar refresh). `--otel` becomes the
 // stderr echo. When telemetry is off, `--otel` still drives the console tracer.
+const flagArgs = beforeSeparator(process.argv);
 const telemetryOn =
-  !(process.argv.includes("--no-telemetry") || skipsTelemetry(process.argv)) &&
+  !(flagArgs.includes("--no-telemetry") || skipsTelemetry(process.argv)) &&
   process.env.PEEKTRACE_NO_TELEMETRY == null;
-const echo = otelEnabled(process.argv.includes("--otel"));
+const echo = otelEnabled(flagArgs.includes("--otel"));
 
 /** Pick the single tracer layer: local telemetry when on, else the echo/no-op. */
 const selectTracing = () => {
@@ -50,7 +58,9 @@ const tracing = selectTracing();
 
 // Convenience alias: `-v` behaves like `--version` (@effect/cli has no built-in
 // short alias for it). No subcommand defines `-v`, so the rewrite is unambiguous.
-const argv = process.argv.map((arg) => (arg === "-v" ? "--version" : arg));
+const argv = process.argv.map((arg, i) =>
+  arg === "-v" && i < flagArgs.length ? "--version" : arg
+);
 
 /**
  * Error boundary for expected user-error paths: @effect/cli `ValidationError`
@@ -59,17 +69,40 @@ const argv = process.argv.map((arg) => (arg === "-v" ? "--version" : arg));
  * line to stderr, exit 1). Unexpected defects are NOT caught here, so genuine bugs
  * still surface — only known user errors are made clean.
  */
+const reportCliError = (error: unknown) => {
+  if (ValidationError.isValidationError(error)) {
+    if (!ValidationError.isHelpRequested(error)) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+  process.stderr.write(`${formatCliError(error)}\n`);
+  process.exitCode = 1;
+};
+
+/** `UsageError` was already reported by `scrubUsage`. */
 const handleCliError = (error: unknown) =>
   Effect.sync(() => {
-    if (ValidationError.isValidationError(error)) {
-      if (!ValidationError.isHelpRequested(error)) {
-        process.exitCode = 1;
-      }
-      return;
+    if (!(error instanceof UsageError)) {
+      reportCliError(error);
     }
-    process.stderr.write(`${formatCliError(error)}\n`);
-    process.exitCode = 1;
   });
+
+/**
+ * On free-text commands, report the failure here and hand telemetry a
+ * text-free `UsageError`: validation and user errors quote the user's words.
+ */
+const scrubUsage = <A, E, R>(
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E | UsageError, R> =>
+  hasFreeText(argv)
+    ? effect.pipe(
+        Effect.tapError((error) => Effect.sync(() => reportCliError(error))),
+        Effect.mapError(
+          () => new UsageError({ message: "invalid command line" })
+        )
+      )
+    : effect;
 
 const selectProgram = () => {
   if (isRootHelp(argv)) {
@@ -83,12 +116,12 @@ const selectProgram = () => {
 
 const program = selectProgram();
 
-program.pipe(
+scrubUsage(program).pipe(
   Effect.withSpan("cli", {
     attributes: {
       "peektrace.root": true,
       "peektrace.kind": "cli",
-      argv: argv.slice(2).join(" "),
+      argv: loggableArgv(argv),
     },
   }),
   Effect.provide(BunContext.layer),

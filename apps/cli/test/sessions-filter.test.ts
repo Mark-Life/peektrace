@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { win32 } from "node:path";
+import { byUpdatedDesc } from "@workspace/core/services/sessions/order";
 import {
-  byUpdatedDesc,
   matchesCwd,
   parseSince,
   pickTarget,

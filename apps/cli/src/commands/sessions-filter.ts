@@ -1,6 +1,7 @@
 /** Client-side session selection: `sessions ls` filtering (`--since`, `--cwd`,
  * sort, `--limit`) and target resolution for single-session commands. */
 import { resolve } from "node:path";
+import { byUpdatedDesc, timeOf } from "@workspace/core/services/sessions/order";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { Effect } from "effect";
 import type { PeektraceClient } from "../client";
@@ -65,31 +66,6 @@ export const matchesCwd = (header: Pick<SessionHeader, "cwd">, cwd: string) => {
   }
   const next = have[want.length];
   return have.startsWith(want) && (next === "/" || next === "\\");
-};
-
-const timeOf = (header: Pick<SessionHeader, "updatedAt">) => {
-  const t =
-    header.updatedAt === undefined ? Number.NaN : Date.parse(header.updatedAt);
-  return Number.isNaN(t) ? undefined : t;
-};
-
-/** Newest first; rows with no parseable time last; ties broken by id. */
-export const byUpdatedDesc = (
-  a: Pick<SessionHeader, "id" | "updatedAt">,
-  b: Pick<SessionHeader, "id" | "updatedAt">
-) => {
-  const ta = timeOf(a);
-  const tb = timeOf(b);
-  if (ta !== tb) {
-    if (ta === undefined) {
-      return 1;
-    }
-    if (tb === undefined) {
-      return -1;
-    }
-    return tb - ta;
-  }
-  return a.id.localeCompare(b.id);
 };
 
 export interface SelectOptions {

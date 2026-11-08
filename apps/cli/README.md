@@ -254,6 +254,39 @@ peektrace sessions ls --cwd .
 peektrace sessions ls --project -Users-me-myrepo --json
 ```
 
+### `sessions search <text>` — find sessions by content
+
+Scans the text of every session, across every agent, for a case-insensitive
+phrase. Spaces in the query match any run of whitespace. Newest sessions come
+first, and the scan stops once it has found more than `--limit` sessions.
+Message and tool text counts, including tool input such as file paths. JSON
+keys, ids, git info, model and usage settings and encoded blobs do not. To
+search for text that starts with `-`, put it after `--`:
+`sessions search -- -v`. Each session shows its match count and up to 3
+distinct matches as `L<line>  <snippet>`. `L<line>` is the 1-based line in the
+transcript (for OpenCode, in the text the reader builds). Subagent transcripts
+are not searched.
+
+Snippets, titles and projects are redacted by default (secrets and home paths).
+Redaction is best effort. `--no-redact` keeps the raw text, so treat that output
+as private.
+
+| Flag | Effect |
+| --- | --- |
+| `--agent <id>` | `claude`, `codex`, `pi`, `opencode` or `all` (default `all`) |
+| `--project <name>` | Same as `sessions ls`; the redacted name shown in results works too |
+| `--since <when>` | Same as `sessions ls` |
+| `--limit <n>` | Max sessions (default 20, `0` = all) |
+| `--no-redact` | Keep secrets and home paths |
+
+`--json` prints the raw result: `sessions`, `truncated`, `scannedSessions` and
+`unreadable`. With no match the command exits 0 and says so on stderr.
+
+```sh
+peektrace sessions search "retry backoff"
+peektrace sessions search "ECONNRESET" --agent claude --since 7d --json
+```
+
 ### `sessions analyze [<id>]` — context-budget forensics
 
 Reproduces the `session-report` math headlessly: verdict
