@@ -86,14 +86,17 @@ describe("gatherOnDiskContextFiles", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const agents = yield* AgentRegistry;
-        const files = yield* gatherOnDiskContextFiles({ fs, agents, cwd });
+        const all = yield* gatherOnDiskContextFiles({ fs, agents, cwd });
+        // The ancestor walk reaches host dirs above the temp tree; ignore them.
+        const files = all.filter((f) => f.path.startsWith(base));
+        // AGENTS.md is skipped (the project has a CLAUDE file) and only
+        // memory/MEMORY.md loads, not the rest of memory/.
         expect(files.map((f) => [f.scope, f.bytes])).toEqual([
           ["global", 40],
-          ["project", 13],
           ["project", 6],
-          ["memory", 12],
+          ["memory", 4],
         ]);
-        expect(files.at(-1)?.label).toBe("memory/ (2 files)");
+        expect(files.at(-1)?.label).toBe("memory/MEMORY.md");
       })
     ));
 });
