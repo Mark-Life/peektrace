@@ -5,6 +5,9 @@ import { describe, expect, test } from "bun:test";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { renderToStaticMarkup } from "react-dom/server";
+import { ShortcutsList } from "../src/components/shortcuts-dialog";
+import { SkipLinks } from "../src/components/skip-links";
+import { SHORTCUTS } from "../src/lib/shortcuts";
 import { SessionList } from "../src/routes/sessions/session-list";
 
 const header = (id: string, startedAt: string): SessionHeader => ({
@@ -24,6 +27,8 @@ const HEADERS = [
   header("s3", "2026-01-03T10:00:00Z"),
 ];
 
+const LIST_ITEM = /<li>/g;
+const SKIP = /data-testid="skip-link"/g;
 const TAB_STOP = /<button[^>]*tabindex="0"[^>]*>/g;
 const ROW = /data-testid="session-row"/g;
 
@@ -57,7 +62,30 @@ describe("session list", () => {
   test("rows sit in list items and search names its shortcut", () => {
     const html = renderList(null);
     expect(html).toContain('<ul aria-label="Sessions"');
-    expect(html.match(/<li>/g)).toHaveLength(3);
+    expect(html.match(LIST_ITEM)).toHaveLength(3);
     expect(html).toContain('aria-keyshortcuts="/"');
+  });
+});
+
+describe("shortcuts sheet", () => {
+  test("lists every entry of the table with its keys", () => {
+    const html = renderToStaticMarkup(<ShortcutsList mac={false} />);
+    for (const s of SHORTCUTS) {
+      expect(html).toContain(`data-shortcut="${s.id}"`);
+      expect(html).toContain(s.label);
+    }
+    expect(html).toContain("Ctrl+B");
+    expect(renderToStaticMarkup(<ShortcutsList mac />)).toContain("⌘B");
+  });
+});
+
+describe("skip links", () => {
+  test("skip to content always, skip to session only with one open", () => {
+    const closed = renderToStaticMarkup(<SkipLinks sessionOpen={false} />);
+    expect(closed.match(SKIP)).toHaveLength(1);
+    expect(closed).toContain("Skip to content");
+    const open = renderToStaticMarkup(<SkipLinks sessionOpen />);
+    expect(open.match(SKIP)).toHaveLength(2);
+    expect(open).toContain("Skip to session");
   });
 });
