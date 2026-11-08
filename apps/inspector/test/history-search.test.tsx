@@ -7,6 +7,7 @@ import type {
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   matchLabel,
+  rangesIn,
   searchIndexOf,
   stepHit,
   textRanges,
@@ -127,6 +128,35 @@ test("text whose lowercase changes length gets no ranges", () => {
   // "İ" lowercases to two code units, which would shift every offset after it.
   expect("İ".toLowerCase().length).toBe(2);
   expect(textRanges("İ zephyr", "zephyr")).toEqual([]);
+});
+
+test("ranges across nodes keep DOM order and stop at the cap", () => {
+  const a = { nodeValue: "zephyr zephyr" };
+  const b = { nodeValue: null };
+  const c = { nodeValue: "one zephyr" };
+  expect(rangesIn({ needle: "zephyr", nodes: [a, b, c] })).toEqual([
+    { end: 6, node: a, start: 0 },
+    { end: 13, node: a, start: 7 },
+    { end: 10, node: c, start: 4 },
+  ]);
+  expect(rangesIn({ max: 2, needle: "zephyr", nodes: [a, b, c] })).toEqual([
+    { end: 6, node: a, start: 0 },
+    { end: 13, node: a, start: 7 },
+  ]);
+});
+
+test("ranges read lazily: nodes past the cap are never visited", () => {
+  const seen: number[] = [];
+  function* nodes() {
+    for (let i = 0; i < 5; i += 1) {
+      seen.push(i);
+      yield { nodeValue: "zephyr" };
+    }
+  }
+  expect(rangesIn({ max: 2, needle: "zephyr", nodes: nodes() })).toHaveLength(
+    2
+  );
+  expect(seen).toEqual([0, 1, 2]);
 });
 
 const bar = (over: {

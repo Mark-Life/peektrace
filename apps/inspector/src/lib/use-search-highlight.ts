@@ -7,7 +7,7 @@
  * safe.
  */
 import { type RefObject, useEffect, useRef } from "react";
-import { textRanges } from "./history-search";
+import { rangesIn, textRanges } from "./history-search";
 
 /** Highlight names, matched by the `::highlight()` rules in the search bar. */
 export const HIT_HIGHLIGHT = "peektrace-search";
@@ -68,6 +68,47 @@ export const firstHitIn = ({
   return card;
 };
 
+/** Text nodes under `root` in DOM order, skipping the subtree of `skip`. */
+function* textNodes(root: HTMLElement, skip: HTMLElement | null = null) {
+  const walker = document.createTreeWalker(
+    root,
+    // biome-ignore lint/suspicious/noBitwiseOperators: NodeFilter flags
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        if (node === skip) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return node.nodeType === Node.TEXT_NODE
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_SKIP;
+      },
+    }
+  );
+  for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+    yield node;
+  }
+}
+
+const toHighlight = (
+  ranges: readonly {
+    readonly end: number;
+    readonly node: Node;
+    readonly start: number;
+  }[]
+) => {
+  const out = new Highlight();
+  for (const { end, node, start } of ranges) {
+    const range = new Range();
+    range.setStart(node, start);
+    range.setEnd(node, end);
+    out.add(range);
+  }
+  return out;
+};
+
+/** The current card is painted in full first, so the cap on the rest never
+ *  drops its highlight. */
 const paint = ({
   container,
   current,
@@ -76,26 +117,14 @@ const paint = ({
   readonly container: HTMLElement;
   readonly current: HTMLElement | null;
   readonly needle: string;
-}) => {
-  const hits = new Highlight();
-  const inCurrent = new Highlight();
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let count = 0;
-  for (
-    let node = walker.nextNode();
-    node !== null && count < MAX_RANGES;
-    node = walker.nextNode()
-  ) {
-    for (const [start, end] of textRanges(node.nodeValue ?? "", needle)) {
-      const range = new Range();
-      range.setStart(node, start);
-      range.setEnd(node, end);
-      (current?.contains(node) ? inCurrent : hits).add(range);
-      count += 1;
-    }
-  }
-  return { hits, inCurrent };
-};
+}) => ({
+  hits: toHighlight(
+    rangesIn({ max: MAX_RANGES, needle, nodes: textNodes(container, current) })
+  ),
+  inCurrent: toHighlight(
+    current === null ? [] : rangesIn({ needle, nodes: textNodes(current) })
+  ),
+});
 
 /** Highlight `query` inside `containerRef`, repainting as the DOM changes
  *  (a card opening, a live append). */

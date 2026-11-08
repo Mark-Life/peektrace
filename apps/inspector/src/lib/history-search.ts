@@ -102,3 +102,29 @@ export const textRanges = (text: string, needle: string) => {
   }
   return out;
 };
+
+/** Every match of `needle` across `nodes`, in order, stopping at `max`. */
+export const rangesIn = <N extends { readonly nodeValue: string | null }>({
+  max = Number.POSITIVE_INFINITY,
+  needle,
+  nodes,
+}: {
+  readonly max?: number;
+  readonly needle: string;
+  readonly nodes: Iterable<N>;
+}) => {
+  const out: {
+    readonly end: number;
+    readonly node: N;
+    readonly start: number;
+  }[] = [];
+  for (const node of nodes) {
+    for (const [start, end] of textRanges(node.nodeValue ?? "", needle)) {
+      if (out.length >= max) {
+        return out;
+      }
+      out.push({ end, node, start });
+    }
+  }
+  return out;
+};

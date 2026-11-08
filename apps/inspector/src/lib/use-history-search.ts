@@ -1,7 +1,9 @@
 /** History search state: the per-session query and the current hit.
  *
  * Like browser find, the query belongs to one session view and resets when
- * another session opens (the history view stays mounted across sessions).
+ * another session opens. The route keys the session view by session, so a
+ * switch remounts it with an empty query; the `sid` check is only a guard for
+ * a caller that keeps the view mounted.
  * Filtering reads the deferred query, so typing stays responsive on long
  * transcripts. Stepping never writes the persisted open-row state: the card
  * it opens stays open only while it is the current hit.
@@ -94,7 +96,10 @@ export const useSearchStepper = ({
       const card =
         container === null ? null : cardOf({ container, id: next, ids: hits });
       if (card !== null) {
+        // Jump like browser find: a smooth scroll is slow over long
+        // transcripts and can stop short while skipped cards render.
         firstHitIn({ card, needle: query.toLowerCase() }).scrollIntoView({
+          behavior: "instant",
           block: "center",
         });
       }
