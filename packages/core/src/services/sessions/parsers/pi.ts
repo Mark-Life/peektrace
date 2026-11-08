@@ -173,7 +173,7 @@ const handleUser = (args: {
 
 /** Register the turn for an assistant line when its usage occupies context. */
 const registerTurn = (args: {
-  readonly state: Pick<ParseState, "turnsById">;
+  readonly state: ParseState;
   readonly requestId: string;
   readonly model: string;
   readonly ts: string | undefined;
@@ -194,34 +194,17 @@ const registerTurn = (args: {
   });
 };
 
-/** Register the billed usage of an assistant entry off the active branch. */
-const keepOffBranchUsage = (args: {
-  readonly line: RawLine;
-  readonly index: number;
-  readonly ts: string | undefined;
-  readonly offBranch: Map<string, MutTurn>;
-}) => {
-  const { line, index, ts, offBranch } = args;
-  const msg = (line.message ?? {}) as RawLine;
-  if (line.type !== "message" || msg.role !== "assistant") {
-    return;
-  }
-  registerTurn({
-    state: { turnsById: offBranch },
-    requestId: typeof line.id === "string" ? line.id : `line-${index}`,
-    model: String(msg.model ?? "unknown"),
-    ts,
-    usage: (msg.usage ?? {}) as Record<string, number>,
-  });
-};
-
-/** Append events + register the turn for one assistant `message` line. */
+/**
+ * Append events + register the turn for one assistant `message` line. An
+ * entry off the active branch keeps its billed turn but adds no events.
+ */
 const handleAssistant = (args: {
   readonly line: RawLine;
   readonly msg: RawLine;
   readonly index: number;
   readonly ts: string | undefined;
   readonly state: ParseState;
+  readonly offBranch?: boolean;
 }) => {
   const { line, msg, index, ts, state } = args;
   const model = String(msg.model ?? "unknown");
@@ -234,6 +217,9 @@ const handleAssistant = (args: {
     ts,
     usage: (msg.usage ?? {}) as Record<string, unknown>,
   });
+  if (args.offBranch) {
+    return;
+  }
   const turn = state.turnsById.get(requestId);
   const content = Array.isArray(msg.content) ? (msg.content as RawLine[]) : [];
   for (const block of content) {
@@ -244,6 +230,19 @@ const handleAssistant = (args: {
         turn.eventIndexes.push(state.events.length - 1);
       }
     }
+  }
+};
+
+/** An entry off the active branch: only an assistant message's billed turn counts. */
+const handleOffBranch = (args: {
+  readonly line: RawLine;
+  readonly index: number;
+  readonly ts: string | undefined;
+  readonly state: ParseState;
+}) => {
+  const msg = (args.line.message ?? {}) as RawLine;
+  if (args.line.type === "message" && msg.role === "assistant") {
+    handleAssistant({ ...args, msg, offBranch: true });
   }
 };
 
@@ -414,7 +413,6 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   };
   const meta: Meta = {};
 
-  const offBranch = new Map<string, MutTurn>();
   const lines = parseJsonl(text);
   // Entries off the active branch keep session-wide meta and billed usage.
   const live = activeBranch(lines);
@@ -443,7 +441,7 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
       return;
     }
     if (!onBranch(index)) {
-      keepOffBranchUsage({ line, index, ts, offBranch });
+      handleOffBranch({ line, index, ts, state });
       return;
     }
     switch (type) {
@@ -481,9 +479,6 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
   });
 
   const turns = [...state.turnsById.values()];
-  const offBranchTurns = [...offBranch.values()].filter(
-    (t) => !state.turnsById.has(t.requestId)
-  );
   const guess = windowForModel(meta.lastModel);
   // A call larger than the guessed window proves the guess wrong.
   const nativeContextWindow =
@@ -505,10 +500,6 @@ export const parsePiSession = (args: ParseSessionArgs): ParsedSession => {
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", nativeContextWindow),
-    ...opt(
-      "offBranchTurns",
-      offBranchTurns.length > 0 ? offBranchTurns : undefined
-    ),
   });
 };
 

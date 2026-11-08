@@ -2,15 +2,8 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import { type AgentRegistryShape, sourcesOf } from "../agents";
-import {
-  AGENTS_FILES,
-  CLAUDE_FILES,
-  capMemory,
-  LOCAL_FILE,
-  nestedWorktree,
-  outsideWorktree,
-  projectDirs,
-} from "./context-dirs";
+import { capMemory, projectContext } from "./context-dirs";
+import { rulePaths } from "./context-rules";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
 import { estTokens } from "./tokens";
@@ -447,8 +440,9 @@ const claudeSourcePaths = (
 };
 
 /**
- * Gather the CLAUDE.md / AGENTS.md / CLAUDE.local.md / MEMORY.md files Claude Code injects
- * into the system prompt for `cwd`, used to attribute the system+tools residual.
+ * Gather the CLAUDE.md / AGENTS.md / CLAUDE.local.md / rules / MEMORY.md files
+ * Claude Code injects into the system prompt for `cwd`, used to attribute the
+ * system+tools residual.
  */
 export const gatherOnDiskContextFiles = (args: {
   readonly fs: FileSystem.FileSystem;
@@ -478,33 +472,13 @@ export const gatherOnDiskContextFiles = (args: {
       })
     );
 
+    for (const path of yield* rulePaths({ fs, dir: join(home, "rules") })) {
+      push(yield* readContextFile({ fs, path, label: path, scope: "global" }));
+    }
+
     if (cwd) {
-      const dirs = projectDirs(cwd);
-      const tree = yield* nestedWorktree({ fs, dirs });
-      // The home's `.claude/CLAUDE.md` is the global file, read above.
-      const globalFile = join(home, "CLAUDE.md");
-      const pathsFor = (names: readonly string[]) =>
-        dirs.flatMap((dir) =>
-          [
-            ...(outsideWorktree(dir, tree)
-              ? []
-              : names.map((n) => join(dir, n))),
-            join(dir, LOCAL_FILE),
-          ].filter((path) => path !== globalFile)
-        );
-      // Claude Code's default `claude-md-or-agents-md`: a project with no
-      // CLAUDE file of its own reads AGENTS.md where CLAUDE.md would be.
-      const claudePaths = pathsFor(CLAUDE_FILES);
-      const isClaudeProject = yield* Effect.reduce(
-        claudePaths,
-        false,
-        (found, path) =>
-          found
-            ? Effect.succeed(true)
-            : fs.exists(path).pipe(Effect.orElseSucceed(() => false))
-      );
-      const paths = isClaudeProject ? claudePaths : pathsFor(AGENTS_FILES);
-      for (const path of paths) {
+      const project = yield* projectContext({ fs, cwd, home });
+      for (const path of project.paths) {
         push(
           yield* readContextFile({ fs, path, label: path, scope: "project" })
         );
@@ -512,7 +486,7 @@ export const gatherOnDiskContextFiles = (args: {
 
       const memPath = join(
         projectsRoot,
-        agents.encodeSlug(cwd),
+        agents.encodeSlug(project.memoryRoot),
         "memory",
         "MEMORY.md"
       );

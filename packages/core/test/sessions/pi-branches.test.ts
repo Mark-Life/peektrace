@@ -49,6 +49,10 @@ const parse = (lines: string[]) =>
     slug: "--synthetic-proj--",
   });
 
+/** Request ids of turns on the timeline: abandoned-branch turns have no events. */
+const live = (p: ReturnType<typeof parse>) =>
+  p.turns.filter((t) => t.eventIndexes.length > 0).map((t) => t.requestId);
+
 describe("parsePiSession: tree sessions", () => {
   test("follows the active branch from the leaf", () => {
     const p = parse([
@@ -69,10 +73,10 @@ describe("parsePiSession: tree sessions", () => {
       user("u3", "bs", "second, again"),
       assistant("a3", "u3", 200),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a3"]);
+    expect(live(p)).toEqual(["a1", "a3"]);
   });
 
-  test("keeps billed usage off the active branch in offBranchTurns", () => {
+  test("keeps billed usage off the active branch in turns, with no events", () => {
     const p = parse([
       HEADER,
       user("u1", null, "first"),
@@ -82,9 +86,12 @@ describe("parsePiSession: tree sessions", () => {
       user("u3", "a1", "second, again"),
       assistant("a3", "u3", 200),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a3"]);
-    expect(p.offBranchTurns?.map((t) => t.requestId)).toEqual(["a2"]);
-    expect(p.offBranchTurns?.[0]?.cacheReadTokens).toBe(900);
+    expect(live(p)).toEqual(["a1", "a3"]);
+    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a2", "a3"]);
+    const dead = p.turns.find((t) => t.requestId === "a2");
+    expect(dead?.cacheReadTokens).toBe(900);
+    expect(dead?.eventIndexes).toEqual([]);
+    expect(p.events.some((e) => e.requestId === "a2")).toBe(false);
   });
 
   test("falls back to file order when entries have no parentId", () => {
@@ -95,7 +102,7 @@ describe("parsePiSession: tree sessions", () => {
       user("u2", undefined, "second"),
       assistant("a2", undefined, 200),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a2"]);
+    expect(live(p)).toEqual(["a1", "a2"]);
   });
 
   test("ignores a context_edit on the dead branch", () => {
@@ -118,7 +125,7 @@ describe("parsePiSession: tree sessions", () => {
     const first = p.events.find((e) => e.index === 1);
     expect(first).toBeDefined();
     expect(first?.contextEdit).toBeUndefined();
-    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a3"]);
+    expect(live(p)).toEqual(["a1", "a3"]);
   });
 
   test("falls back to file order when a parent is missing", () => {
@@ -131,7 +138,7 @@ describe("parsePiSession: tree sessions", () => {
       user("u3", "gone", "orphan"),
       assistant("a3", "u3", 200),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a2", "a3"]);
+    expect(live(p)).toEqual(["a1", "a2", "a3"]);
   });
 
   test("a session_info title off the branch still applies", () => {
@@ -150,6 +157,6 @@ describe("parsePiSession: tree sessions", () => {
       assistant("a3", "u3", 200),
     ]);
     expect(p.title).toBe("Synthetic title");
-    expect(p.turns.map((t) => t.requestId)).toEqual(["a1", "a3"]);
+    expect(live(p)).toEqual(["a1", "a3"]);
   });
 });

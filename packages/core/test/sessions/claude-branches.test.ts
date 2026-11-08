@@ -61,6 +61,10 @@ const parse = (lines: string[]) =>
     sessionId: "s",
   });
 
+/** Request ids of turns on the timeline: abandoned-branch turns have no events. */
+const live = (p: ReturnType<typeof parse>) =>
+  p.turns.filter((t) => t.eventIndexes.length > 0).map((t) => t.requestId);
+
 describe("parseClaudeSession: rewinds", () => {
   test("drops the abandoned branch after a rewind", () => {
     const p = parse([
@@ -72,10 +76,10 @@ describe("parseClaudeSession: rewinds", () => {
       user("u2b", "a1", "second, edited"),
       assistant({ uuid: "a3", parentUuid: "u2b", requestId: "r3", ctx: 200 }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r3"]);
+    expect(live(p)).toEqual(["r1", "r3"]);
   });
 
-  test("keeps billed usage of the abandoned branch in offBranchTurns", () => {
+  test("keeps billed usage of the abandoned branch in turns, with no events", () => {
     const p = parse([
       user("u1", null, "first"),
       assistant({ uuid: "a1", parentUuid: "u1", requestId: "r1", ctx: 100 }),
@@ -84,17 +88,11 @@ describe("parseClaudeSession: rewinds", () => {
       user("u2b", "a1", "second, edited"),
       assistant({ uuid: "a3", parentUuid: "u2b", requestId: "r3", ctx: 200 }),
     ]);
-    expect(p.offBranchTurns?.map((t) => t.requestId)).toEqual(["r2"]);
-    expect(p.offBranchTurns?.[0]?.cacheReadTokens).toBe(900);
-    expect(p.offBranchTurns?.[0]?.eventIndexes).toEqual([]);
-  });
-
-  test("sets no offBranchTurns without a rewind", () => {
-    const p = parse([
-      user("u1", null, "first"),
-      assistant({ uuid: "a1", parentUuid: "u1", requestId: "r1", ctx: 100 }),
-    ]);
-    expect(p.offBranchTurns).toBeUndefined();
+    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r2", "r3"]);
+    const dead = p.turns.find((t) => t.requestId === "r2");
+    expect(dead?.cacheReadTokens).toBe(900);
+    expect(dead?.eventIndexes).toEqual([]);
+    expect(p.events.some((e) => e.requestId === "r2")).toBe(false);
   });
 
   test("drops tool calls and results on the dead branch", () => {
@@ -114,7 +112,7 @@ describe("parseClaudeSession: rewinds", () => {
       user("u2b", "a1", "second, edited"),
       assistant({ uuid: "a3", parentUuid: "u2b", requestId: "r3", ctx: 200 }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r3"]);
+    expect(live(p)).toEqual(["r1", "r3"]);
     expect(p.events.filter((e) => e.kind === "tool-result")).toHaveLength(0);
     expect(p.events.filter((e) => e.kind === "tool-call")).toHaveLength(0);
   });
@@ -127,7 +125,7 @@ describe("parseClaudeSession: rewinds", () => {
       user("u2", "a1", "second"),
       assistant({ uuid: "a2", parentUuid: "u2", requestId: "r2", ctx: 150 }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r2"]);
+    expect(live(p)).toEqual(["r1", "r2"]);
   });
 
   test("ignores sidechain prompts sharing a parent", () => {
@@ -148,7 +146,7 @@ describe("parseClaudeSession: rewinds", () => {
       side("s2"),
       assistant({ uuid: "a2", parentUuid: "u2", requestId: "r2", ctx: 150 }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r2"]);
+    expect(live(p)).toEqual(["r1", "r2"]);
   });
 
   test("dead rows still feed session meta", () => {
@@ -171,10 +169,14 @@ describe("parseClaudeSession: rewinds", () => {
         parentUuid: "u2b",
         requestId: "r3",
         timestamp: "2026-01-01T00:00:09Z",
-        message: { model: "claude-opus-9", usage: usage(200), content: [] },
+        message: {
+          model: "claude-opus-9",
+          usage: usage(200),
+          content: [{ type: "text", text: "ok" }],
+        },
       }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r3"]);
+    expect(live(p)).toEqual(["r1", "r3"]);
     expect(p.cwd).toBe("/synthetic/repo");
     expect(p.endedAt).toBe("2026-01-01T00:00:09Z");
   });
@@ -187,7 +189,7 @@ describe("parseClaudeSession: rewinds", () => {
       user("u2b", "a1", "second, edited"),
       assistant({ uuid: "a2", parentUuid: "u2", requestId: "r2", ctx: 150 }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r2"]);
+    expect(live(p)).toEqual(["r1", "r2"]);
   });
 });
 
@@ -217,7 +219,7 @@ describe("parseClaudeSession: tree shapes that are not rewinds", () => {
     ]);
     const results = p.events.filter((e) => e.kind === "tool-result");
     expect(results).toHaveLength(2);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r2"]);
+    expect(live(p)).toEqual(["r1", "r2"]);
   });
 
   test("keeps turns before a compaction (null parentUuid, logicalParentUuid)", () => {
@@ -236,6 +238,6 @@ describe("parseClaudeSession: tree shapes that are not rewinds", () => {
       user("u2", "c1", "after"),
       assistant({ uuid: "a2", parentUuid: "u2", requestId: "r2", ctx: 50 }),
     ]);
-    expect(p.turns.map((t) => t.requestId)).toEqual(["r1", "r2"]);
+    expect(live(p)).toEqual(["r1", "r2"]);
   });
 });

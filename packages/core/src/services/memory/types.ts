@@ -8,8 +8,8 @@ import { Schema } from "effect";
 
 /** MEMORY.md is always-loaded; only the first 200 lines / 25 KB are visible. */
 export const MAX_INDEX_LINES = 200;
-/** Byte cliff for the always-loaded index, as Claude Code applies it. */
-export const MAX_INDEX_BYTES = 25_000;
+/** Byte cliff for the always-loaded index (25 KB = 25 * 1024). */
+export const MAX_INDEX_BYTES = 25_600;
 
 /** Documented frontmatter `type` values; anything else is invalid (SCH03). */
 export const MEMORY_TYPES = [

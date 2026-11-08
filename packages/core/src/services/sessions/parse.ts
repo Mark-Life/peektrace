@@ -27,6 +27,7 @@ import {
   omitImageData,
   toolResultImageRefs,
 } from "./images";
+import { parseJsonl } from "./jsonl";
 import { measureTokens } from "./measure";
 import { promptEvent } from "./prompt-origin";
 import type { ParsedSession, TimelineEvent, Turn } from "./schema";
@@ -42,69 +43,12 @@ type MutTurn = Omit<Turn, "eventIndexes"> & { eventIndexes: number[] };
 const WHITESPACE = /\s+/g;
 const ONE_MILLION = 1_000_000;
 
-/**
- * Parse JSONL text into raw lines, skipping blanks and malformed rows.
- * `malformed` counts bad rows except the last non-blank one, which is the
- * partial write of a live session rather than damage.
- */
-export const scanJsonl = (text: string) => {
-  const rows: RawLine[] = [];
-  let bad = 0;
-  let lastBad = false;
-  for (const line of text.split("\n")) {
-    if (!line.trim()) {
-      continue;
-    }
-    try {
-      rows.push(JSON.parse(line) as RawLine);
-      lastBad = false;
-    } catch {
-      bad += 1;
-      lastBad = true;
-    }
-  }
-  return { rows, malformed: lastBad ? bad - 1 : bad };
-};
-
-/** Parse JSONL text into raw lines, skipping blanks and malformed rows. */
-export const parseJsonl = (text: string): RawLine[] => scanJsonl(text).rows;
-
-/**
- * Line `n` as `parseJsonl` numbers it, parsing only that line. A line counts
- * when it looks like one JSON object; `parseJsonl` also drops a line that only
- * looks complete, so a caller that cannot confirm the result should fall back
- * to the full parse.
- */
-export const jsonlLineAt = (text: string, n: number): unknown => {
-  let seen = 0;
-  let start = 0;
-  while (start <= text.length) {
-    const end = text.indexOf("\n", start);
-    const line = text.slice(start, end < 0 ? text.length : end).trim();
-    if (line.startsWith("{") && line.endsWith("}")) {
-      if (seen === n) {
-        try {
-          return JSON.parse(line) as unknown;
-        } catch {
-          return;
-        }
-      }
-      seen++;
-    }
-    if (end < 0) {
-      return;
-    }
-    start = end + 1;
-  }
-  return;
-};
+export { jsonlLineAt, parseJsonl, scanJsonl } from "./jsonl";
 
 interface ParseState {
   readonly compactionIndexes: number[];
   readonly events: TimelineEvent[];
   readonly models: Set<string>;
-  /** Turns on branches abandoned by a rewind, by request id. */
-  readonly offBranchById: Map<string, MutTurn>;
   /** A `cost-state` line billed a `[1m]` model id. */
   oneMillion: boolean;
   /** Token counts of the last `compact_boundary`, for the next summary. */
@@ -357,51 +301,36 @@ const registerTurn = (args: {
   });
 };
 
-/** Usage fields `registerTurn` needs from one `assistant` line. */
-const assistantCall = (ctx: LineCtx) => {
-  const msg = (ctx.o.message ?? {}) as Record<string, unknown>;
-  return {
-    requestId:
-      typeof ctx.o.requestId === "string"
-        ? ctx.o.requestId
-        : `line-${ctx.index}`,
-    model: String(msg.model ?? "unknown"),
-    ts: ctx.ts,
-    usage: (msg.usage ?? {}) as Record<string, unknown>,
-    effort: typeof ctx.o.effort === "string" ? ctx.o.effort : undefined,
-  };
-};
-
-/** Keep the billed usage of an assistant row on an abandoned branch. */
-const handleOffBranch = (
-  ctx: LineCtx & { readonly includeSidechainTurns: boolean }
-) => {
-  if (ctx.o.type !== "assistant") {
-    return;
-  }
-  registerTurn({
-    ...assistantCall(ctx),
-    state: { ...ctx.state, turnsById: ctx.state.offBranchById },
-    countable: ctx.includeSidechainTurns || !ctx.isSidechain,
-  });
-};
-
-/** Handle one `assistant` line: register the turn, append content events. */
+/**
+ * Handle one `assistant` line: register the turn, append content events.
+ * A row on a rewound branch keeps its billed turn but adds no events.
+ */
 const handleAssistant = (
-  ctx: LineCtx & { readonly includeSidechainTurns: boolean }
+  ctx: LineCtx & {
+    readonly includeSidechainTurns: boolean;
+    readonly offBranch: boolean;
+  }
 ) => {
   const { o, index, ts, isSidechain, state, includeSidechainTurns } = ctx;
   const msg = (o.message ?? {}) as Record<string, unknown>;
-  const call = assistantCall(ctx);
-  const { requestId, model } = call;
+  const model = String(msg.model ?? "unknown");
   if (isRealModel(model)) {
     state.models.add(model);
   }
+  const requestId =
+    typeof o.requestId === "string" ? o.requestId : `line-${index}`;
   registerTurn({
-    ...call,
     state,
+    requestId,
+    model,
+    ts,
+    usage: (msg.usage ?? {}) as Record<string, unknown>,
     countable: includeSidechainTurns || !isSidechain,
+    effort: typeof o.effort === "string" ? o.effort : undefined,
   });
+  if (ctx.offBranch) {
+    return;
+  }
   const turn = state.turnsById.get(requestId);
   for (const block of (msg.content ?? []) as Record<string, unknown>[]) {
     const ev = assistantBlockEvent({
@@ -418,6 +347,13 @@ const handleAssistant = (
     if (turn) {
       turn.eventIndexes.push(state.events.length - 1);
     }
+  }
+};
+
+/** A row on a rewound branch: only an assistant row's billed turn counts. */
+const handleOffBranch = (ctx: Parameters<typeof handleAssistant>[0]) => {
+  if (ctx.o.type === "assistant") {
+    handleAssistant(ctx);
   }
 };
 
@@ -553,7 +489,6 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     events: [],
     turnsById: new Map(),
     sidechainById: new Map(),
-    offBranchById: new Map(),
     compactionIndexes: [],
     models: new Set(),
     oneMillion: false,
@@ -565,7 +500,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
   const meta: Meta = {};
 
   const lines = parseJsonl(text);
-  // Rows abandoned by a rewind feed meta and `offBranchTurns`, never the timeline.
+  // Rows abandoned by a rewind feed meta and billed turns, never the timeline.
   const dead = deadBranchRows(lines);
   lines.forEach((o, index) => {
     const type = typeof o.type === "string" ? o.type : "";
@@ -579,7 +514,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
       state,
     };
     if (dead.has(index)) {
-      handleOffBranch({ ...ctx, includeSidechainTurns });
+      handleOffBranch({ ...ctx, includeSidechainTurns, offBranch: true });
       return;
     }
     switch (type) {
@@ -602,7 +537,7 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
         handleUser(ctx);
         break;
       case "assistant":
-        handleAssistant({ ...ctx, includeSidechainTurns });
+        handleAssistant({ ...ctx, includeSidechainTurns, offBranch: false });
         break;
       case "summary":
         handleSummary(ctx);
@@ -623,9 +558,6 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
 
   const turns = [...state.turnsById.values()];
   const sidechain = [...state.sidechainById.values()];
-  const offBranchTurns = [...state.offBranchById.values()].filter(
-    (t) => !state.turnsById.has(t.requestId)
-  );
   return measureTokens({
     provider: "claude-code",
     sessionId,
@@ -642,10 +574,6 @@ export const parseClaudeSession = (args: ParseClaudeArgs): ParsedSession => {
     ...opt("startedAt", meta.startedAt),
     ...opt("endedAt", meta.endedAt),
     ...opt("nativeContextWindow", state.oneMillion ? ONE_MILLION : undefined),
-    ...opt(
-      "offBranchTurns",
-      offBranchTurns.length > 0 ? offBranchTurns : undefined
-    ),
     ...opt("unknownRecordTypes", countsRecord(state.unknownTypes)),
     ...opt("unknownSystemSubtypes", countsRecord(state.unknownSubtypes)),
     ...opt(

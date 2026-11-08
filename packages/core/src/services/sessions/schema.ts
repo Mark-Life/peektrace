@@ -268,6 +268,7 @@ export const Turn = Schema.Struct({
    * (OpenCode). Absent when the model has no rate card.
    */
   costUsd: Schema.optional(Schema.Number),
+  /** Empty for a billed call on an abandoned branch (Claude rewind, Pi tree branch). */
   eventIndexes: Schema.Array(Schema.Number),
 });
 export type Turn = typeof Turn.Type;
@@ -309,7 +310,7 @@ export const SubagentRef = Schema.Struct({
 });
 export type SubagentRef = typeof SubagentRef.Type;
 
-/** A CLAUDE.md / CLAUDE.local.md / MEMORY.md file read from disk for residual attribution. */
+/** A CLAUDE.md / CLAUDE.local.md / rules / MEMORY.md file read from disk for residual attribution. */
 export const OnDiskContextFile = Schema.Struct({
   label: Schema.String,
   path: Schema.String,
@@ -396,12 +397,6 @@ export const ParsedSession = Schema.Struct({
    * `cost-state` line bills a `[1m]` model id; Pi guesses it from the model id.
    */
   nativeContextWindow: Schema.optional(Schema.Number),
-  /**
-   * Billed calls on branches the user abandoned (Claude rewind, Pi tree
-   * branch). Kept out of `turns` and the timeline, but they still cost tokens.
-   * Set only when non-empty.
-   */
-  offBranchTurns: Schema.optional(Schema.Array(Turn)),
   /** Record types the parser does not know, with line counts. Set only when non-empty. */
   unknownRecordTypes: Schema.optional(
     Schema.Record({ key: Schema.String, value: Schema.Number })
