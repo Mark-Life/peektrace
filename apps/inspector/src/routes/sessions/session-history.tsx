@@ -279,9 +279,15 @@ export const SessionHistory = ({
       style={{ "--history-sticky": `${stickyHeight}px` } as CSSProperties}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold text-base outline-none" tabIndex={-1}>
-          Full history
-        </h2>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="font-semibold text-base outline-none" tabIndex={-1}>
+            Full history
+          </h2>
+          <span className="text-muted-foreground text-xs">
+            {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
+            dumb zone
+          </span>
+        </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground" id="redact-toggle-label">
             Reveal secrets
@@ -320,12 +326,12 @@ export const SessionHistory = ({
       </div>
 
       <div
-        className="sticky top-0 z-10 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur sm:gap-3"
+        className="@container sticky top-0 z-10 -mx-1 flex flex-wrap items-center @2xl:gap-3 gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur"
         data-testid="history-toolbar"
         ref={setBar}
       >
         <Input
-          className="min-w-40 flex-1 sm:max-w-xs"
+          className="min-w-40 @2xl:max-w-60 flex-1"
           data-testid="history-search"
           onChange={(e) => prefs.setQuery(e.target.value)}
           placeholder="Search history…"
@@ -333,7 +339,7 @@ export const SessionHistory = ({
         />
         <Select onValueChange={prefs.setKind} value={kind}>
           <SelectTrigger
-            className="w-36 sm:w-40"
+            className="@2xl:w-40 w-36"
             data-testid="history-kind-filter"
           >
             <SelectValue />
@@ -346,10 +352,6 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
-        <span className="hidden text-muted-foreground text-xs sm:inline">
-          {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
-          dumb zone
-        </span>
         <fieldset
           aria-label="Transcript layout"
           className="ml-auto flex items-center gap-0.5 rounded-md border border-border p-0.5"
@@ -387,7 +389,7 @@ export const SessionHistory = ({
             ) : (
               <ChevronsUpDownIcon className="size-3.5" />
             )}
-            <span className="hidden sm:inline">{expandLabel}</span>
+            <span className="@2xl:inline hidden">{expandLabel}</span>
           </Button>
         ) : null}
         <RedactionOffBadge redacted={redacted} />
