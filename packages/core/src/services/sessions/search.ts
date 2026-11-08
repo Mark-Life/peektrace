@@ -8,6 +8,7 @@ import { homedir } from "node:os";
 import type { FileSystem } from "@effect/platform";
 import { Effect, Ref, Stream } from "effect";
 import type { AgentRegistryShape, SessionFileRef } from "../agents";
+import { homeCollapser } from "./export/shared";
 import { type HeaderCache, LIST_CONCURRENCY } from "./header-cache";
 import { listSessions } from "./listing";
 import { byUpdatedDesc, timeOf } from "./order";
@@ -44,8 +45,9 @@ const scanOne = (args: {
   readonly header: SessionHeader;
   readonly q: string;
   readonly redact: boolean;
+  readonly collapsePaths: (text: string) => string;
 }): Effect.Effect<SearchSession | undefined> => {
-  const { agents, counters, header, q, redact } = args;
+  const { agents, counters, header, q, redact, collapsePaths } = args;
   return agents
     .loadTranscript({ agent: header.agent, ref: refOf(header) })
     .pipe(
@@ -58,7 +60,7 @@ const scanOne = (args: {
               q,
               redact,
               maxHits: HITS_PER_SESSION,
-              home: homedir(),
+              collapsePaths,
             })
           )
         )
@@ -70,13 +72,13 @@ const scanOne = (args: {
               id: header.id,
               agent: header.agent,
               project: redact
-                ? redactDisplay(header.project, homedir())
+                ? redactDisplay(header.project, collapsePaths)
                 : header.project,
               ...(header.title === undefined
                 ? {}
                 : {
                     title: redact
-                      ? redactDisplay(header.title, homedir())
+                      ? redactDisplay(header.title, collapsePaths)
                       : header.title,
                   }),
               ...(header.updatedAt === undefined
@@ -102,12 +104,13 @@ export const searchSessions = (args: {
 }): Effect.Effect<SessionSearchResult> => {
   const { fs, agents, cache, req } = args;
   const { q, agent, project, redact = true } = req;
+  const collapsePaths = homeCollapser(homedir());
   const limit =
     req.limit === undefined || req.limit < 0 ? DEFAULT_LIMIT : req.limit;
   const inProject = (name: string) =>
     project === undefined ||
     name === project ||
-    (redact && redactDisplay(name, homedir()) === project);
+    (redact && redactDisplay(name, collapsePaths) === project);
   const sinceMs = req.since === undefined ? Number.NaN : Date.parse(req.since);
   if (q.trim() === "") {
     return Effect.succeed({
@@ -143,7 +146,8 @@ export const searchSessions = (args: {
     };
     const found = yield* Stream.fromIterable(candidates).pipe(
       Stream.mapEffect(
-        (header) => scanOne({ agents, counters, header, q, redact }),
+        (header) =>
+          scanOne({ agents, counters, header, q, redact, collapsePaths }),
         { concurrency: LIST_CONCURRENCY }
       ),
       Stream.filter((s): s is SearchSession => s !== undefined),

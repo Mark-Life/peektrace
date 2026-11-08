@@ -150,6 +150,37 @@ describe("collapseHomePaths: known home", () => {
     expect(collapseHomePaths("C:/Users/jane-doe/x", WIN)).toBe("~/x");
     expect(collapseHomePaths("c:\\users\\jane-doe\\x", WIN)).toBe("~\\x");
   });
+  test("matches Windows homes and slugs in any case", () => {
+    const home = "C:\\Users\\Jane-Doe";
+    expect(collapseHomePaths("C--Users-jane-doe-work", home)).toBe("-~-work");
+    expect(collapseHomePaths("c--users-jane-doe-work", home)).toBe("-~-work");
+    expect(collapseHomePaths("c--Users-jane-doe-work")).toBe("-~-doe-work");
+    expect(collapseHomePaths("c--USERS-jane-work")).toBe("-~-work");
+    expect(collapseHomePaths("-HOME-jane-work")).toBe("-~-work");
+  });
+  test("collapses Pi slugs", () => {
+    expect(collapseHomePaths("--home-jane-doe-work--", UNIX)).toBe(
+      "--~-work--"
+    );
+    expect(collapseHomePaths("--home-jane-doe-.cache-x--", UNIX)).toBe(
+      "--~-.cache-x--"
+    );
+    expect(collapseHomePaths("--home-jane-doer-x--", UNIX)).toBe(
+      "--~-doer-x--"
+    );
+    expect(
+      collapseHomePaths("--C--Users-Jane-Doe-work--", "C:\\Users\\Jane-Doe")
+    ).toBe("--~-work--");
+    expect(collapseHomePaths("--home-jane-work--")).toBe("--~-work--");
+    expect(collapseHomePaths("--home-jane-doe-work--")).toBe("--~-doe-work--");
+    expect(collapseHomePaths("--Users-jane-work--")).toBe("--~-work--");
+    expect(collapseHomePaths("--C--Users-jane-work--")).toBe("--~-work--");
+  });
+  test("keeps three slashes in file URIs with a Windows home", () => {
+    expect(collapseHomePaths("file:///C:/Users/jane-doe/x", WIN)).toBe(
+      "file:///~/x"
+    );
+  });
   test("leaves no part of the username", () => {
     const text = "-home-jane-doe-work /home/jane-doe/a";
     expect(collapseHomePaths(text, UNIX)).not.toContain("doe");
