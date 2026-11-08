@@ -195,6 +195,7 @@ before the subcommand.
 ```sh
 peektrace sessions ls [--agent <id>] [--project <name>] [--since <when>] [--cwd <path>] [--limit <n>]
 peektrace sessions analyze [<session-id>] [--latest] [--cwd <path>]
+peektrace sessions export [<session-id>] [--format html|md|json] [--out <file>] [--no-redact]
 peektrace statusline [--timeout <ms>]            # Claude Code status line, reads stdin
 peektrace memory ls [project]                    # --json for raw output
 peektrace memory show <project> <name>
@@ -208,6 +209,10 @@ email. It is a diagnostics export, not a health check — nothing is uploaded.
 
 `peektrace sessions analyze --latest` scores the newest session of any agent.
 `--cwd .` limits it to sessions run in this directory or below.
+
+`peektrace sessions export --latest --out session.html` saves one session as
+HTML, Markdown or JSON. Secrets and home paths are redacted unless you pass
+`--no-redact`.
 
 To show context health in the Claude Code status line, add this to
 `~/.claude/settings.json`. It prints `ctx 42% Healthy`, or `ctx --` on any

@@ -18,6 +18,7 @@ import { makeDoctor } from "./commands/doctor";
 import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
 import { makeServe } from "./commands/serve";
 import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
+import { makeSessionsExport } from "./commands/sessions-export";
 import { makeStats } from "./commands/stats";
 import { makeStatusline } from "./commands/statusline";
 import { makeTui } from "./commands/tui";
@@ -92,6 +93,7 @@ const sessions = Command.make("sessions").pipe(
   Command.withSubcommands([
     makeSessionsLs(globals),
     makeSessionsAnalyze(globals),
+    makeSessionsExport(globals),
   ])
 );
 
