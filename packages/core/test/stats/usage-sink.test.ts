@@ -1,11 +1,8 @@
 /** The usage sink: day, month and block buckets over synthetic usage rows. */
 import { describe, expect, test } from "bun:test";
+import { turnCost } from "../../src/services/pricing";
 import { makeCorpusTotals } from "../../src/services/stats/accumulate";
-import {
-  estimateCost,
-  makeCorpusPanels,
-  priceFor,
-} from "../../src/services/stats/detectors/corpus";
+import { makeCorpusPanels } from "../../src/services/stats/detectors/corpus";
 import {
   blocksOf,
   dayKeyOf,
@@ -53,6 +50,7 @@ const call = (iso: string) => ({
     outputTokens: 0,
     cacheReadTokens: 0,
     cacheCreationTokens: 0,
+    usd: 0,
   },
 });
 
@@ -243,9 +241,7 @@ describe("cost", () => {
       outputTokens: 1_000_000,
     });
     const out = run([opus, sonnet]);
-    const want =
-      estimateCost(opus, priceFor(opus.model).rates) +
-      estimateCost(sonnet, priceFor(sonnet.model).rates);
+    const want = (turnCost(opus) ?? 0) + (turnCost(sonnet) ?? 0);
     expect(out.rows[0]?.usd).toBe(round(want));
     expect(out.rows[0]?.models).toEqual([
       "claude-opus-4-1",
@@ -256,12 +252,24 @@ describe("cost", () => {
     expect(out.unpricedModels).toEqual([]);
   });
 
-  test("an unknown model is named as a guess", () => {
-    const out = run([at(ts, { model: "made-up-model", agent: "codex" })]);
+  test("a long prompt bills at its card's long tier", () => {
+    const short = at(ts, { model: "claude-haiku-5-5", inputTokens: 99_000 });
+    const long = at(ts, { model: "claude-haiku-5-5", inputTokens: 101_000 });
+    expect(run([short]).totals.usd).toBe(round(0.0099 + 0.000_025));
+    expect(run([long]).totals.usd).toBe(round(0.0505 + 0.000_125));
+  });
+
+  test("an unknown model adds no cost and is named", () => {
+    const priced = at(ts);
+    const out = run([
+      priced,
+      at(ts, { model: "made-up-model", agent: "codex" }),
+    ]);
     expect(out.unpricedModels).toEqual(["made-up-model"]);
+    expect(out.totals.usd).toBe(round(turnCost(priced) ?? 0));
     expect(
       out.caveats.some(
-        (c) => c.includes("made-up-model") && c.includes("guess")
+        (c) => c.includes("made-up-model") && c.includes("left out of the cost")
       )
     ).toBe(true);
   });

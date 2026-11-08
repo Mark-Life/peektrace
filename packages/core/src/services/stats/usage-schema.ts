@@ -45,7 +45,7 @@ const usageTotalsFields = {
   cacheReadTokens: Schema.Number,
   cacheCreationTokens: Schema.Number,
   totalTokens: Schema.Number,
-  /** Estimated USD at published list prices. */
+  /** Estimated USD at API list prices; unpriced models add nothing. */
   usd: Schema.Number,
   models: Schema.Array(Schema.String),
 };
@@ -89,7 +89,7 @@ export const UsageReport = Schema.Struct({
   /** Ascending by key. The first bucket is whole, so it may start before `window.fromIso`. */
   rows: Schema.Array(UsageRow),
   totals: UsageTotals,
-  /** Model ids with no rate card, priced at the fallback family's rates. */
+  /** Model ids with no rate card: they add no cost. */
   unpricedModels: Schema.Array(Schema.String),
   skipped: UsageSkipped,
   caveats: Schema.Array(Schema.String),

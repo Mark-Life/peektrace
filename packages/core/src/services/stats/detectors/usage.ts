@@ -6,6 +6,10 @@
  * calls. Blocks need the calls in time order, so block mode keeps one compact
  * record per Claude call and folds them in `finish`.
  *
+ * Each call is priced on its own with the shared price table, so a long prompt
+ * bills at its card's long tier. A model with no rate card adds no cost and is
+ * named in a caveat.
+ *
  * Block rules follow ccusage: a block opens at the UTC hour of its first call
  * and lasts 5 hours; a call past that opens the next block.
  *
@@ -14,6 +18,7 @@
  * known to be globally unique and dedup within their own transcript only.
  */
 import type { Types } from "effect";
+import { priceFor, pricingEcho, turnCost } from "../../pricing";
 import type { FactSink } from "../accumulate";
 import { round, uniqSorted } from "../rank";
 import type { StatsFact, UsageFact } from "../schema";
@@ -24,7 +29,6 @@ import type {
   UsageSkipped,
   UsageTotals,
 } from "../usage-schema";
-import { estimateCost, FALLBACK_FAMILY, priceFor, pricingEcho } from "./corpus";
 
 export const HOUR_MS = 3_600_000;
 export const DAY_MS = 86_400_000;
@@ -51,39 +55,48 @@ type Tokens = Pick<
   "cacheCreationTokens" | "cacheReadTokens" | "inputTokens" | "outputTokens"
 >;
 
-/** Tokens and call count folded under one bucket and model. */
+/** Tokens, call count and USD folded under one bucket and model. */
 interface Agg extends Types.Mutable<Tokens> {
   turns: number;
+  usd: number;
+}
+
+/** One call's tokens and its USD; zero when its model is unpriced. */
+interface PricedTokens extends Tokens {
+  readonly usd: number;
 }
 
 /** One Claude call, kept for the block fold. */
 interface BlockCall {
   readonly model: string;
   readonly ms: number;
-  readonly tokens: Tokens;
+  readonly tokens: PricedTokens;
 }
 
 const noAgg = (): Agg => ({
   turns: 0,
+  usd: 0,
   inputTokens: 0,
   outputTokens: 0,
   cacheReadTokens: 0,
   cacheCreationTokens: 0,
 });
 
-const addInto = (agg: Agg, tokens: Tokens, turns = 1): void => {
+const addInto = (agg: Agg, tokens: PricedTokens, turns = 1): void => {
   agg.turns += turns;
+  agg.usd += tokens.usd;
   agg.inputTokens += tokens.inputTokens;
   agg.outputTokens += tokens.outputTokens;
   agg.cacheReadTokens += tokens.cacheReadTokens;
   agg.cacheCreationTokens += tokens.cacheCreationTokens;
 };
 
-const tokensOf = (fact: Tokens): Tokens => ({
+const pricedOf = (fact: UsageFact): PricedTokens => ({
   inputTokens: fact.inputTokens,
   outputTokens: fact.outputTokens,
   cacheReadTokens: fact.cacheReadTokens,
   cacheCreationTokens: fact.cacheCreationTokens,
+  usd: turnCost(fact) ?? 0,
 });
 
 const totalOf = (t: Tokens): number =>
@@ -211,7 +224,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
   const fold = (
     target: Map<string, Agg>,
     model: string,
-    tokens: Tokens
+    tokens: PricedTokens
   ): void => {
     const agg = target.get(model) ?? noAgg();
     addInto(agg, tokens);
@@ -257,7 +270,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
     }
     if (by === "block") {
       if (!isDuplicate(fact)) {
-        calls.push({ ms, model: fact.model, tokens: tokensOf(fact) });
+        calls.push({ ms, model: fact.model, tokens: pricedOf(fact) });
       }
       return;
     }
@@ -266,21 +279,19 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
       return;
     }
     const bucket = buckets.get(key) ?? new Map<string, Agg>();
-    fold(bucket, fact.model, fact);
+    fold(bucket, fact.model, pricedOf(fact));
     buckets.set(key, bucket);
   };
 
   const totalsOf = (byModel: ReadonlyMap<string, Agg>): UsageTotals => {
     const sum = noAgg();
-    let usd = 0;
-    for (const [model, agg] of byModel) {
+    for (const agg of byModel.values()) {
       addInto(sum, agg, agg.turns);
-      usd += estimateCost(agg, priceFor(model).rates);
     }
     return {
       ...sum,
       totalTokens: totalOf(sum),
-      usd: round(usd),
+      usd: round(sum.usd),
       models: uniqSorted(byModel.keys()),
     };
   };
@@ -327,13 +338,16 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([key, byModel]) => ({ key, byModel, block: null }));
 
-  const caveatsOf = (unpricedModels: readonly string[]) => {
+  const caveatsOf = (
+    models: Iterable<string>,
+    unpricedModels: readonly string[]
+  ) => {
     const caveats = [
-      `Cost is an ESTIMATE at published list prices per million tokens (input/output/cacheWrite/cacheRead USD): ${pricingEcho()}`,
+      `Cost is an ESTIMATE at API list prices, priced per call: a long prompt bills at its card's long tier, and every cache write at the 5-minute rate. Base rates per million tokens (input/output/cacheWrite/cacheRead USD): ${pricingEcho(models)}`,
     ];
     if (unpricedModels.length > 0) {
       caveats.push(
-        `Cost: ${unpricedModels.length} model ids have no rate card and are estimated at ${FALLBACK_FAMILY} rates, so their cost is a guess — ${unpricedModels.join(", ")}`
+        `Cost: ${unpricedModels.length} model ids have no rate card and are left out of the cost — ${unpricedModels.join(", ")}`
       );
     }
     if (skipped.duplicates > 0) {
@@ -373,7 +387,7 @@ export const makeUsageSink = (opts: UsageSinkOptions) => {
     const unpricedModels = uniqSorted(
       [...all.keys()].filter((model) => !priceFor(model).priced)
     );
-    const caveats = caveatsOf(unpricedModels);
+    const caveats = caveatsOf(all.keys(), unpricedModels);
     return {
       chainCut: trusted?.chainCut ?? false,
       rows: built.map(({ key, byModel, block }) => ({
