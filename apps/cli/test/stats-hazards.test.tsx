@@ -6,12 +6,17 @@
  * a share divided by zero, a row that wraps and shifts every row under it, a
  * control byte reaching the buffer. All four are pinned here on fixtures.
  */
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { StatsReport } from "@workspace/core/services/stats/schema";
 import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
+import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
+import { settleFor } from "./support/settle";
+
+// Lets settleFor's deadline throw, with its frame, before bun's test timeout.
+setDefaultTimeout(10_000);
 
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
@@ -156,25 +161,6 @@ const makeBridge = (report: () => StatsReport): TuiBridge => ({
   }) as TuiBridge["run"],
 });
 
-const SETTLE_ROUNDS = 40;
-const SETTLE_MS = 30;
-
-/** Poll for `needle` while advancing the timer queue `waitForFrame` skips. */
-const settleFor = async (
-  setup: Awaited<ReturnType<typeof testRender>>,
-  needle: string
-): Promise<string> => {
-  for (let i = 0; i < SETTLE_ROUNDS; i++) {
-    await setup.renderOnce();
-    const frame = setup.captureCharFrame();
-    if (frame.includes(needle)) {
-      return frame;
-    }
-    await new Promise((r) => setTimeout(r, SETTLE_MS));
-  }
-  return setup.captureCharFrame();
-};
-
 /** The longest rendered line: anything past the terminal width has wrapped. */
 const widest = (frame: string): number =>
   Math.max(...frame.split("\n").map((line) => line.trimEnd().length));
@@ -185,7 +171,7 @@ const openStats = async (report: () => StatsReport, size: [number, number]) => {
     { width: size[0], height: size[1] }
   );
   await setup.waitForFrame((v) => v.includes("loopback"));
-  await setup.mockInput.typeText("5");
+  await act(() => setup.mockInput.typeText("5"));
   return setup;
 };
 
@@ -242,8 +228,8 @@ test("no escape sequence from a transcript reaches the drill overlay", async () 
   const setup = await openStats(fatNumbers, [WIDE, TALL]);
   try {
     await settleFor(setup, "WHAT FAILS");
-    await setup.mockInput.typeText("\r");
-    const frame = await settleFor(setup, "DRILL");
+    await act(() => setup.mockInput.typeText("\r"));
+    const frame = await settleFor(setup, "rm -rf / tail");
     expect(frame).not.toContain(ESC);
     expect(frame).not.toContain(BEL);
     expect(frame).toContain("rm -rf / tail");

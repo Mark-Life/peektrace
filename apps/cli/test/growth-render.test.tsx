@@ -7,8 +7,10 @@
 import { expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
+import { settleFor } from "./support/settle";
 
 const CTXS = [30_000, 80_000, 140_000, 190_000, 160_000];
 
@@ -105,21 +107,6 @@ const bridge: TuiBridge = {
   }) as TuiBridge["run"],
 };
 
-const settleFor = async (
-  setup: Awaited<ReturnType<typeof testRender>>,
-  needle: string
-): Promise<string> => {
-  for (let i = 0; i < 40; i++) {
-    await setup.renderOnce();
-    const frame = setup.captureCharFrame();
-    if (frame.includes(needle)) {
-      return frame;
-    }
-    await new Promise((r) => setTimeout(r, 30));
-  }
-  return setup.captureCharFrame();
-};
-
 test("`g` toggles the analysis pane to the growth chart", async () => {
   const setup = await testRender(
     <App bridge={bridge} onQuit={() => undefined} />,
@@ -127,7 +114,7 @@ test("`g` toggles the analysis pane to the growth chart", async () => {
   );
   try {
     await settleFor(setup, "Full history");
-    setup.mockInput.typeText("g");
+    await act(() => setup.mockInput.typeText("g"));
     const frame = await settleFor(setup, "Context growth");
     // Chart chrome present: header, a y-axis token label, block bars, legend.
     expect(frame).toContain("Context growth");

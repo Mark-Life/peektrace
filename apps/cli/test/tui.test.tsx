@@ -9,6 +9,7 @@ import { expect, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import { makeHandlersLayer, makeInProcessClient } from "@workspace/rpc";
 import { Effect } from "effect";
+import { act } from "react";
 import { App } from "../src/tui/app";
 import { makeTuiBridge, type TuiBridge, type TuiEnv } from "../src/tui/runtime";
 
@@ -58,7 +59,7 @@ test("shell renders and switches to the capabilities matrix", async () => {
       const first = await setup.waitForFrame((v) => v.includes("Peektrace"));
       expect(first).toContain("Sessions");
       expect(first).toContain("web ▸");
-      await setup.mockInput.typeText("3");
+      await act(() => setup.mockInput.typeText("3"));
       const frame = await setup.waitForFrame((v) => v.includes("supported"));
       expect(frame).toContain("Capabilities");
     } finally {
@@ -76,7 +77,7 @@ const expectScreen = (digit: string, signature: string) =>
     );
     try {
       await setup.waitForFrame((v) => v.includes("Peektrace"));
-      await setup.mockInput.typeText(digit);
+      await act(() => setup.mockInput.typeText(digit));
       const frame = await setup.waitForFrame((v) => v.includes(signature));
       expect(frame).toContain(signature);
     } finally {

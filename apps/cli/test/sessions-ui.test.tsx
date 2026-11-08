@@ -12,6 +12,7 @@ import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
 import { BridgeProvider } from "../src/tui/runtime";
 import { SessionHistory } from "../src/tui/screens/sessions-history";
+import { settleFor } from "./support/settle";
 
 const ESC = String.fromCharCode(27);
 
@@ -239,25 +240,6 @@ const fakeBridge: TuiBridge = {
       },
     ]);
   }) as TuiBridge["run"],
-};
-
-/**
- * Poll for `needle` while advancing the timer queue — the two-hop
- * list→analyze async chain needs real macrotasks that `waitForFrame` skips.
- */
-const settleFor = async (
-  setup: Awaited<ReturnType<typeof testRender>>,
-  needle: string
-): Promise<string> => {
-  for (let i = 0; i < 40; i++) {
-    await setup.renderOnce();
-    const frame = setup.captureCharFrame();
-    if (frame.includes(needle)) {
-      return frame;
-    }
-    await new Promise((r) => setTimeout(r, 30));
-  }
-  return setup.captureCharFrame();
 };
 
 test("session cards render and keyboard selection drives the detail", async () => {
