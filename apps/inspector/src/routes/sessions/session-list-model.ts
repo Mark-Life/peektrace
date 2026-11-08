@@ -84,18 +84,28 @@ const rangeFromParams = (params: URLSearchParams): DateRange | undefined => {
   return to < from ? { from: to, to: from } : { from, to };
 };
 
-/** Hash value, or the default when the key is missing or empty. */
-const orDefault = (params: URLSearchParams, key: ListKey, fallback: string) =>
-  params.get(key) || fallback;
+/** The string filters and the hash key each one is stored under. */
+const FILTER_KEY = {
+  query: "q",
+  agent: "agent",
+  project: "project",
+  branch: "branch",
+  model: "model",
+  source: "source",
+} as const satisfies Record<Exclude<keyof Filters, "range">, ListKey>;
+
+/** The string filter names, in hash key order. */
+const STRING_FILTERS = Object.keys(FILTER_KEY) as (keyof typeof FILTER_KEY)[];
 
 /** Filters read from hash params; a missing or empty key is the default. */
 export const filtersFromParams = (params: URLSearchParams): Filters => ({
-  query: orDefault(params, "q", NO_FILTERS.query),
-  agent: orDefault(params, "agent", NO_FILTERS.agent),
-  project: orDefault(params, "project", NO_FILTERS.project),
-  branch: orDefault(params, "branch", NO_FILTERS.branch),
-  model: orDefault(params, "model", NO_FILTERS.model),
-  source: orDefault(params, "source", NO_FILTERS.source),
+  ...NO_FILTERS,
+  ...Object.fromEntries(
+    STRING_FILTERS.map((name) => [
+      name,
+      params.get(FILTER_KEY[name]) || NO_FILTERS[name],
+    ])
+  ),
   range: rangeFromParams(params),
 });
 
@@ -114,22 +124,14 @@ const rangeToParams = (range: DateRange | undefined) => {
 export const filtersToParams = (
   f: Partial<Filters>
 ): Partial<Record<ListKey, string | null>> => ({
-  ...(f.query === undefined ? {} : { q: orNull(f.query, NO_FILTERS.query) }),
-  ...(f.agent === undefined
-    ? {}
-    : { agent: orNull(f.agent, NO_FILTERS.agent) }),
-  ...(f.project === undefined
-    ? {}
-    : { project: orNull(f.project, NO_FILTERS.project) }),
-  ...(f.branch === undefined
-    ? {}
-    : { branch: orNull(f.branch, NO_FILTERS.branch) }),
-  ...(f.model === undefined
-    ? {}
-    : { model: orNull(f.model, NO_FILTERS.model) }),
-  ...(f.source === undefined
-    ? {}
-    : { source: orNull(f.source, NO_FILTERS.source) }),
+  ...Object.fromEntries(
+    STRING_FILTERS.flatMap((name) => {
+      const value = f[name];
+      return value === undefined
+        ? []
+        : [[FILTER_KEY[name], orNull(value, NO_FILTERS[name])]];
+    })
+  ),
   ...("range" in f ? rangeToParams(f.range) : {}),
 });
 
@@ -369,4 +371,15 @@ export const matches = (h: SessionHeader, f: Filters) => {
     return hay.includes(f.query.toLowerCase());
   }
   return true;
+};
+
+/** The filters that hide `h`, each set back to its default; empty when `h`
+ * passes. Every filter is checked on its own, so the rest stay as they are. */
+export const hidingFilters = (h: SessionHeader, f: Filters) => {
+  const names = [...STRING_FILTERS, "range"] as const;
+  return Object.fromEntries(
+    names
+      .filter((name) => !matches(h, { ...NO_FILTERS, [name]: f[name] }))
+      .map((name) => [name, NO_FILTERS[name]])
+  ) as Partial<Filters>;
 };

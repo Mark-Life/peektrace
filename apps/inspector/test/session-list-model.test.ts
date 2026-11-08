@@ -7,6 +7,7 @@ import {
   activeDays,
   filtersFromParams,
   filtersToParams,
+  hidingFilters,
   isLive,
   LIVE_MS,
   matches,
@@ -419,5 +420,21 @@ describe("filters in the hash", () => {
     expect(filtersFromParams(new URLSearchParams("q=&agent=")).agent).toBe(
       NO_FILTERS.agent
     );
+  });
+});
+
+describe("hidingFilters", () => {
+  const h = header({ agent: "claude" as SessionHeader["agent"], model: "m-1" });
+
+  test("is empty when the session passes every filter", () => {
+    expect(hidingFilters(h, NO_FILTERS)).toEqual({});
+    expect(hidingFilters(h, { ...NO_FILTERS, model: "m-1" })).toEqual({});
+  });
+
+  test("resets only the filters that hide the session", () => {
+    const f = { ...NO_FILTERS, agent: "codex", model: "m-1", query: "zzz" };
+    const fix = hidingFilters(h, f);
+    expect(fix).toEqual({ agent: NO_FILTERS.agent, query: NO_FILTERS.query });
+    expect(matches(h, { ...f, ...fix })).toBe(true);
   });
 });

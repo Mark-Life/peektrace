@@ -65,6 +65,7 @@ import {
   filtersFromParams,
   filtersToParams,
   fmtStamp,
+  hidingFilters,
   isLive,
   matches,
   NO_FILTERS,
@@ -536,6 +537,29 @@ const SessionListView = ({
 
   const active = activeCount(filters);
   const search = useListSearch();
+
+  // A session opened from outside the rail (stats, a shared link) may be
+  // hidden by the filters; drop the ones that hide it, once per selection.
+  // The key is null until the selected header has loaded.
+  const selectedKey = headers.some((h) => h.id === selectedId)
+    ? selectedId
+    : null;
+  const unhide = useEffectEvent((id: string) => {
+    const h = headers.find((x) => x.id === id);
+    const fix = h ? hidingFilters(h, filters) : {};
+    if (Object.keys(fix).length === 0) {
+      return;
+    }
+    if (fix.query !== undefined) {
+      setDraft(fix.query);
+    }
+    patch(fix);
+  });
+  useEffect(() => {
+    if (selectedKey) {
+      unhide(selectedKey);
+    }
+  }, [selectedKey]);
 
   return (
     <div

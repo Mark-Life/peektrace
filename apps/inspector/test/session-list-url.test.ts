@@ -1,5 +1,5 @@
 /** Session list filters live in the hash, so opening a row or going Back keeps them. */
-import { beforeEach, expect, test } from "bun:test";
+import { afterAll, beforeEach, expect, test } from "bun:test";
 
 const loc = { hash: "" };
 let replaces = 0;
@@ -15,7 +15,17 @@ const win = {
   removeEventListener: () => undefined,
   dispatchEvent: () => true,
 };
+// bun runs every test file in one process: put back what was there before.
+const hadWindow = "window" in globalThis;
+const prevWindow = Reflect.get(globalThis, "window");
 Object.assign(globalThis, { window: win });
+afterAll(() => {
+  if (hadWindow) {
+    Object.assign(globalThis, { window: prevWindow });
+  } else {
+    Reflect.deleteProperty(globalThis, "window");
+  }
+});
 
 const {
   closeSession,
@@ -73,15 +83,15 @@ test("a subagent opens with the list filters kept", () => {
   expect(params().get("q")).toBe("alpha");
 });
 
-test("a stats row link carries no list filters", () => {
-  const hash = markedSessionHash({
-    id: "id-0001",
-    parent: null,
-    mark: "retry",
-  });
-  const p = new URLSearchParams(hash.split("?")[1]);
-  expect(p.get("q")).toBeNull();
-  expect(p.get("agent")).toBeNull();
+test("a stats row link is the hash opening it from stats writes", () => {
+  navigate("stats");
+  const target = { id: "id-0001", parent: null, mark: "retry", call: "c-1" };
+  const hash = markedSessionHash(target);
+  openSessionMarked(target);
+  expect(loc.hash).toBe(hash);
+  expect(params().get("call")).toBe("c-1");
+  expect(params().get("view")).toBe("chat");
+  expect(params().get("agent")).toBe("codex");
 });
 
 test("setHashParams writes every change in one replace", () => {

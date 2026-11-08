@@ -179,19 +179,17 @@ const markedParams = (target: MarkedTarget) => {
  * The hash a stats row links to, carrying the detector id that sent you there
  * so the transcript can highlight the calls behind the number, and `call=<id>`
  * so it scrolls to the one meant. Marks render only in the chat layout, so
- * `view=chat` overrides a stored table preference. Carries no list filters.
+ * `view=chat` overrides a stored table preference. The list filters last seen
+ * on the sessions section (as of the last hash read) come along; the rail
+ * drops any that hide the target.
  */
 export const markedSessionHash = (target: MarkedTarget) =>
-  buildHash("sessions", markedParams(target));
+  buildHash("sessions", merged(lastList, markedParams(target)));
 
-/** Open a session from a stats row, marked by the row's detector. The list
- *  filters last seen on the sessions section come along, so they are kept. */
+/** Open a session from a stats row, marked by the row's detector. */
 export const openSessionMarked = (target: MarkedTarget) => {
   parseHash();
-  window.location.hash = buildHash(
-    "sessions",
-    merged(lastList, markedParams(target))
-  );
+  window.location.hash = markedSessionHash(target);
 };
 
 /** Open a subagent transcript through the session it ran under. */
