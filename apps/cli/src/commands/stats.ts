@@ -29,6 +29,7 @@ import {
 } from "@workspace/core/services/stats/prompts";
 import type {
   CauseRow,
+  DrillResult,
   FailRow,
   SampleRef,
   StatsReport,
@@ -362,6 +363,28 @@ const windowOf = (
   ...(Option.isSome(limit) ? { limit: limit.value } : {}),
 });
 
+/** A drill page: one line naming the page, then one row per call. */
+export const renderDrill = (result: DrillResult, compact: boolean): string => {
+  // Only a cause drill pairs its calls with their retries.
+  const paired = result.table === "cause";
+  const rows = result.hits.map((hit) => [
+    hit.ts ?? "-",
+    hitRef(hit),
+    hit.project,
+    hit.tool,
+    hit.durSec === null ? "-" : hms(hit.durSec),
+    hit.failed ? "fail" : "-",
+    clipCell(hit.line),
+    ...(paired ? [hit.pairLine === null ? "-" : clipCell(hit.pairLine)] : []),
+  ]);
+  const headers = ["TS", "SESSION", "PROJECT", "TOOL", "DUR", "STATE", "LINE"];
+  return `${result.table} ${result.key}: ${result.hits.length} of ${result.total} calls\n${table(
+    paired ? [...headers, "RETRY"] : headers,
+    rows,
+    { compact }
+  )}`;
+};
+
 /** `stats drill` — the calls behind one aggregate key. */
 const makeStatsDrill = (globals: GlobalsAccessor) =>
   Command.make(
@@ -430,36 +453,8 @@ const makeStatsDrill = (globals: GlobalsAccessor) =>
         if (g.json) {
           return yield* Console.log(json(result));
         }
-        // Only a cause drill pairs its calls with their retries.
-        const paired = result.table === "cause";
-        const rows = result.hits.map((hit) => [
-          hit.ts ?? "-",
-          hitRef(hit),
-          hit.project,
-          hit.tool,
-          hit.durSec === null ? "-" : hms(hit.durSec),
-          hit.failed ? "fail" : "-",
-          clipCell(hit.line),
-          ...(paired
-            ? [hit.pairLine === null ? "-" : clipCell(hit.pairLine)]
-            : []),
-        ]);
-        const shown = `${result.table} ${result.key}: ${result.hits.length} of ${result.total} calls`;
         return yield* Console.log(
-          `${shown}\n${table(
-            [
-              "TS",
-              "SESSION",
-              "PROJECT",
-              "TOOL",
-              "DUR",
-              "STATE",
-              "LINE",
-              ...(paired ? ["RETRY"] : []),
-            ],
-            rows,
-            { compact: g.compact }
-          )}`
+          g.json ? json(result) : renderDrill(result, g.compact)
         );
       })
   ).pipe(Command.withDescription(STATS_DRILL_SUMMARY));

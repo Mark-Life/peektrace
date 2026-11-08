@@ -4,6 +4,7 @@ import { HelpDoc, Span } from "@effect/cli";
 import { DESCRIPTION } from "./description";
 import {
   DOCTOR_SUMMARY,
+  MCP_SUMMARY,
   MEMORY_LS_SUMMARY,
   MEMORY_RM_SUMMARY,
   MEMORY_SHOW_SUMMARY,
@@ -41,6 +42,7 @@ export const COMMAND_ROWS = [
   { path: "memory show", summary: MEMORY_SHOW_SUMMARY },
   { path: "memory rm", summary: MEMORY_RM_SUMMARY },
   { path: "statusline", summary: STATUSLINE_SUMMARY },
+  { path: "mcp", summary: MCP_SUMMARY },
   { path: "doctor", summary: DOCTOR_SUMMARY },
   { path: "upgrade", summary: UPGRADE_SUMMARY },
 ] as const;

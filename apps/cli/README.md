@@ -369,6 +369,43 @@ machine.
 { "statusLine": { "type": "command", "command": "peektrace statusline" } }
 ```
 
+### `mcp` — MCP server for agents
+
+Runs a stdio MCP server, so an agent can query peektrace without shelling
+out. It serves four read-only tools:
+
+| Tool | Same as |
+| --- | --- |
+| `sessions_list` | `sessions ls` (`agent`, `project`, `since`, `cwd`, `limit`) |
+| `sessions_analyze` | `sessions analyze` (`id`, `latest`, `cwd`, `parent`) |
+| `stats_report` | `stats` (`days`, `limit`, `agent`) |
+| `stats_drill` | `stats drill` (`table`, `key`, `days`, `limit`, `agent`, `offset`, `pageSize`) |
+
+Each tool returns the compact text the CLI prints, with the CLI's stderr
+notes added at the end. Pass `format: "json"` to get the `--json` payload.
+A report DRILL cell `--cause K` maps to `stats_drill {table:"cause", key:"K"}`.
+
+- Local only: `--remote` is refused.
+- Redacted: no tool accepts `redact` or `force`, so core's default redaction
+  always applies. Titles, projects and cwds still reach the agent, and through
+  it the agent's model provider, the same as when the agent runs the CLI.
+- stdout carries only the protocol (newline-delimited JSON-RPC). Logs go to
+  stderr.
+
+Claude Code:
+
+```bash
+claude mcp add peektrace -- peektrace mcp
+```
+
+Codex, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.peektrace]
+command = "peektrace"
+args = ["mcp"]
+```
+
 ### `memory ls [project]` — memories overview / one vault
 
 No argument → every project that has a `memory/` directory (slug, file count,
