@@ -2,6 +2,7 @@
  *
  * No `effect` and no `node:*` imports: the web inspector bundles these files.
  */
+import { clip, collapseWs } from "../../stats/rank";
 import { contextEditNote, eventBadgeLabel, thinkingNote } from "../labels";
 import type { ParsedSession, TimelineEvent } from "../schema";
 
@@ -15,12 +16,34 @@ export interface ExportOptions {
   readonly redacted: boolean;
 }
 
-const HOME_PATH =
-  /(?<![\w/])\/(?:home|Users)\/[^/\s"'`<>|:;,)]+|(?<!\w)[A-Za-z]:(?:\\{1,2}|\/)Users(?:\\{1,2}|\/)[^\\/\s"'`<>|:;,)]+/g;
+const NAME = /[\w@-]+(?:\.[\w@-]+)*/.source;
+/** Up to two words when a path separator follows: `John Smith` in `\Users\John Smith\x`. */
+const SPACED_NAME = `(?:${NAME}(?: ${NAME})?(?=[\\\\/])|${NAME})`;
+const NOT_AFTER_WORD = "(?<![\\w.])";
+
+const UNIX_PATH = `\\/(?:home\\/${NAME}|Users\\/${SPACED_NAME})`;
+const UNIX_HOME = new RegExp(`(?<![\\w./])${UNIX_PATH}`, "g");
+/** Behind a slash or `://file` (`file:///home/x`): keep that slash. */
+const URI_HOME = new RegExp(`(?<=\\/|:\\/\\/file)${UNIX_PATH}`, "g");
+/** `C:\Users\x`, `C:/Users/x`, `/mnt/c/Users/x`, `/c/Users/x`; any letter case. */
+const WINDOWS_HOME = new RegExp(
+  `${NOT_AFTER_WORD}(?:[A-Za-z]:(?:\\\\{1,2}|\\/)|\\/(?:mnt\\/)?[A-Za-z]\\/)users(?:\\\\{1,2}|\\/)${SPACED_NAME}`,
+  "gi"
+);
+/** Claude project slugs: `-home-<user>-...`, `C--Users-<user>-...`. */
+const HOME_SLUG = /(?<![\w-])(?:-(?:home|Users)|[A-Za-z]--Users)-[\w@]+/g;
 
 /** Replace the home directory prefix (`/home/<user>`, `/Users/<user>`,
- * `C:\Users\<user>`) with `~`, anywhere in the text. Machine independent. */
-export const collapseHomePaths = (text: string) => text.replace(HOME_PATH, "~");
+ * `C:\Users\<user>`, WSL and `file://` forms, project slugs) with `~`,
+ * anywhere in the text. Machine independent. Best effort: a route such as
+ * `/home/dashboard` also collapses, and a hyphenated username in a slug keeps
+ * its tail. */
+export const collapseHomePaths = (text: string) =>
+  text
+    .replace(URI_HOME, "/~")
+    .replace(UNIX_HOME, "~")
+    .replace(WINDOWS_HOME, "~")
+    .replace(HOME_SLUG, "-~");
 
 const MIN_FENCE = 3;
 const BACKTICK_RUN = /`+/g;
@@ -182,13 +205,9 @@ export const LABEL_MAX = 80;
 export const TITLE_MAX = 200;
 export const NOTE_MAX = 400;
 const LINE_MAX = 120;
-const WHITESPACE = /\s+/g;
-
 /** One-line text: whitespace runs become single spaces, long text is cut. */
-export const oneLine = (text: string, max = LINE_MAX) => {
-  const flat = text.replace(WHITESPACE, " ").trim();
-  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
-};
+export const oneLine = (text: string, max = LINE_MAX) =>
+  clip(collapseWs(text), max - 1);
 
 /** Header rows (label, value) shared by the Markdown and HTML renderers. */
 export const metaRows = (d: ExportDoc) =>

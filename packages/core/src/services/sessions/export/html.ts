@@ -35,7 +35,7 @@ dl{display:grid;grid-template-columns:max-content 1fr;gap:.15rem 1rem;color:var(
 dt{font-weight:600}dd{margin:0;overflow-wrap:anywhere}
 .msg,details{border:1px solid var(--line);border-radius:6px;margin:.75rem 0;padding:.6rem .8rem;background:var(--card)}
 .msg.user{background:var(--user)}
-.who{font-weight:600;font-size:.85rem;color:var(--mute);margin-bottom:.3rem}
+.who{font-weight:600;font-size:.85rem;color:var(--mute);margin:0 0 .3rem}
 summary{cursor:pointer;color:var(--mute);font-size:.85rem}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:.4rem 0 0;font:13px/1.45 ui-monospace,monospace}
 .note{color:var(--mute);font-style:italic;font-size:.85rem}
@@ -67,7 +67,7 @@ const eventHtml = (e: ExportEvent) => {
       : `<p class="note">${escapeHtml(oneLine(e.note, NOTE_MAX))}</p>`;
   const body = `<pre>${escapeHtml(e.body)}</pre>`;
   if (e.role !== "other") {
-    return `<section class="msg ${e.role}"><div class="who">${head}</div>${note}${body}</section>`;
+    return `<section class="msg ${e.role}"><h3 class="who">${head}</h3>${note}${body}</section>`;
   }
   const title =
     e.title !== "" && e.title !== e.label

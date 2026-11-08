@@ -111,15 +111,10 @@ test("each format prints to stdout", () => {
   expect(JSON.parse(json.out).schema).toBe("peektrace.session-export");
 }, 60_000);
 
-test("default format is markdown", () => {
+test("default is redacted markdown", () => {
   const { code, out } = run(CLAUDE_ID);
   expect(code).toBe(0);
   expect(out.startsWith("# ")).toBe(true);
-}, 60_000);
-
-test("secrets and home paths are redacted by default", () => {
-  const { code, out } = run(CLAUDE_ID);
-  expect(code).toBe(0);
   expect(out).toContain("[REDACTED");
   expect(out).not.toContain(ANTHROPIC_KEY);
   expect(out).not.toContain(GITHUB_TOKEN);
@@ -187,4 +182,21 @@ test("no id and no flag fails with usage", () => {
   const { code, err } = run();
   expect(code).toBe(1);
   expect(err).toContain("Pass a session id, --latest, or --cwd <dir>");
+}, 60_000);
+
+test("--out - prints to stdout and writes no file", () => {
+  const { code, out, err } = run(CLAUDE_ID, "--out", "-");
+  expect(code).toBe(0);
+  expect(out.startsWith("# ")).toBe(true);
+  expect(err).not.toContain("Wrote");
+}, 60_000);
+
+test("--out into a missing directory fails with one clear line", () => {
+  const target = join(home, "no-such-dir", "x.md");
+  const { code, err } = run(CLAUDE_ID, "--out", target);
+  expect(code).toBe(1);
+  expect(err).toContain("Cannot write");
+  expect(err).toContain("the directory does not exist");
+  expect(err).not.toContain("ENOENT");
+  expect(err.split(target).length - 1).toBe(1);
 }, 60_000);

@@ -19,19 +19,44 @@ const heading = (e: ExportEvent) => {
   return `### ${e.index + 1}. ${oneLine(whoOf(e), LABEL_MAX)}${tail ? ` (${tail})` : ""}`;
 };
 
+const FENCE_LINE = /^ {0,3}(`{3,}|~{3,})(.*)$/;
+
+/** The body with any code fence it leaves open closed, so later headings
+ * stay outside the code block. */
+const closeOpenFence = (body: string) => {
+  let open: string | undefined;
+  for (const line of body.split("\n")) {
+    const m = FENCE_LINE.exec(line);
+    if (!m) {
+      continue;
+    }
+    const [, run = "", info = ""] = m;
+    if (open === undefined) {
+      open = run;
+    } else if (
+      run.startsWith(open[0] ?? "") &&
+      run.length >= open.length &&
+      info.trim() === ""
+    ) {
+      open = undefined;
+    }
+  }
+  return open === undefined ? body : `${body}\n${open}`;
+};
+
 const eventBlock = (e: ExportEvent) => {
   const parts = [heading(e)];
   if (e.role === "other" && e.title !== "" && e.title !== e.label) {
     parts.push(`*${oneLine(e.title)}*`);
   }
-  if (e.note !== undefined && e.role === "other") {
+  if (e.note !== undefined) {
     parts.push(`> ${oneLine(e.note, NOTE_MAX)}`);
   }
   if (e.role === "other") {
     const fence = fenceFor(e.body);
     parts.push(`${fence}\n${e.body}\n${fence}`);
   } else {
-    parts.push(e.body);
+    parts.push(closeOpenFence(e.body));
   }
   return parts.join("\n\n");
 };

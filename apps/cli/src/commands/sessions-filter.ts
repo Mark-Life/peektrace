@@ -1,4 +1,5 @@
-/** Pure client-side filtering for `sessions ls`: `--since`, `--cwd`, sort, `--limit`. */
+/** Client-side session selection: `sessions ls` filtering (`--since`, `--cwd`,
+ * sort, `--limit`) and target resolution for single-session commands. */
 import { resolve } from "node:path";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { Effect } from "effect";
@@ -174,7 +175,7 @@ export const planTarget = ({
 };
 
 /** The newest header (optionally under `cwd`), or an `Invalid` with a message. */
-export const newestTarget = (
+const newestTarget = (
   cwd: string | undefined,
   headers: readonly Pick<SessionHeader, "cwd" | "id" | "updatedAt">[]
 ): Target => {

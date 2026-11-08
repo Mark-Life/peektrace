@@ -85,6 +85,36 @@ describe("collapseHomePaths", () => {
     expect(collapseHomePaths("C:\\Users\\x\\a.ts")).toBe("~\\a.ts");
     expect(collapseHomePaths("C:\\\\Users\\\\x\\\\a")).toBe("~\\\\a");
   });
+  test("collapses URI, WSL and slug forms", () => {
+    expect(collapseHomePaths("open file:///home/alice/notes.txt")).toBe(
+      "open file:///~/notes.txt"
+    );
+    expect(collapseHomePaths("vscode://file/home/alice/x")).toBe(
+      "vscode://file/~/x"
+    );
+    expect(collapseHomePaths("file:///Users/alice/x")).toBe("file:///~/x");
+    expect(collapseHomePaths("/mnt/c/Users/bob/x")).toBe("~/x");
+    expect(collapseHomePaths("/c/Users/bob/x")).toBe("~/x");
+    expect(
+      collapseHomePaths(
+        "/home/alice/.claude/projects/-home-alice-Code-proj/memory"
+      )
+    ).toBe("~/.claude/projects/-~-Code-proj/memory");
+    expect(collapseHomePaths("C--Users-bob-proj")).toBe("-~-proj");
+  });
+  test("keeps surrounding shell and bracket text", () => {
+    expect(collapseHomePaths("echo $\u007bHOME:-/home/alice}")).toBe(
+      "echo $\u007bHOME:-~}"
+    );
+    expect(collapseHomePaths("see [/home/alice] ok")).toBe("see [~] ok");
+    expect(collapseHomePaths("cd /home/alice&&ls")).toBe("cd ~&&ls");
+    expect(collapseHomePaths("in /home/alice.")).toBe("in ~.");
+  });
+  test("handles spaced names and Windows letter case", () => {
+    expect(collapseHomePaths("/Users/John Smith/proj")).toBe("~/proj");
+    expect(collapseHomePaths("C:\\Users\\John Smith\\proj")).toBe("~\\proj");
+    expect(collapseHomePaths("c:\\users\\bob\\x")).toBe("~\\x");
+  });
   test("collapses mid-string, leaves lookalikes alone", () => {
     expect(collapseHomePaths('{"p":"/home/x/a"} and /Users/y/b')).toBe(
       '{"p":"~/a"} and ~/b'
@@ -163,6 +193,33 @@ describe("json", () => {
   });
 });
 
+describe("markdown fences and notes", () => {
+  const withEvents = (events: TimelineEvent[]) =>
+    renderMarkdown({ ...session, events }, opts);
+  test("an unclosed fence in a chat body does not swallow later turns", () => {
+    const md = withEvents([
+      ev(0, "user-prompt", "hi"),
+      ev(1, "assistant-text", "```ts\nconst x = 1"),
+      ev(2, "user-prompt", "second prompt"),
+    ]);
+    const [head, tail] = md.split("### 3. User");
+    expect((head?.match(/^```/gm) ?? []).length % 2).toBe(0);
+    expect(tail).toContain("second prompt");
+  });
+  test("balanced fences are left alone", () => {
+    const body = "a\n```ts\nx\n```\nb";
+    expect(withEvents([ev(0, "assistant-text", body)])).toContain(`${body}\n`);
+  });
+  test("context edit notes show on chat events", () => {
+    const md = withEvents([
+      ev(0, "assistant-text", "x", {
+        contextEdit: { status: "removed", atIndex: 9 },
+      }),
+    ]);
+    expect(md).toContain("Dropped");
+  });
+});
+
 describe("html", () => {
   const html = renderHtml(session, opts);
   test("escapes content, no script or event handler attributes", () => {
@@ -171,6 +228,10 @@ describe("html", () => {
     expect(html).not.toContain("<script");
     expect(html).not.toMatch(EVENT_HANDLER_ATTR);
     expect(html).not.toContain("<img");
+  });
+  test("chat turns are headings", () => {
+    expect(html).toContain('<h3 class="who">User');
+    expect(html).toContain('<h3 class="who">Assistant');
   });
   test("escapes the title", () => {
     expect(html).toContain("<title>Demo &lt;session&gt;</title>");

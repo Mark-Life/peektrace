@@ -119,7 +119,7 @@ Declared on the root command; apply to every subcommand:
 
 | Flag | Effect |
 | --- | --- |
-| `--json` | Emit the raw RPC payload as JSON instead of rendered tables (output commands only) |
+| `--json` | Emit the raw RPC payload as JSON instead of rendered tables (output commands only). `sessions export` instead prints its whitelisted export document |
 | `--pretty` | Render aligned tables instead of the default compact tab-separated output |
 | `--read-only` | Safe mode — refuse any mutating command up-front (e.g. `memory rm`) before the write path is reached |
 | `--remote <url>` | Target a running `peektrace serve` over HTTP instead of in-process. Token from `PEEKTRACE_TOKEN` or a `?token=` URL |

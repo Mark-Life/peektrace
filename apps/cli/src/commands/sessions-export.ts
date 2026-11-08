@@ -7,6 +7,7 @@
 import { extname } from "node:path";
 import { Args, Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
+import type { PlatformError } from "@effect/platform/Error";
 import {
   EXPORT_FORMATS,
   type ExportFormat,
@@ -19,6 +20,7 @@ import {
   localReadOnlyOpt,
   withClient,
 } from "../client";
+import { CliUserError } from "../errors";
 import { cwdOpt, parentOpt } from "./sessions";
 import { resolveCwd, resolveTargetId } from "./sessions-filter";
 
@@ -46,6 +48,20 @@ export const pickFormat = (input: {
   return FORMAT_BY_EXTENSION[ext] ?? "md";
 };
 
+const writeFailure = (e: PlatformError) => {
+  if (e._tag !== "SystemError") {
+    return e.message;
+  }
+  switch (e.reason) {
+    case "NotFound":
+      return "the directory does not exist";
+    case "PermissionDenied":
+      return "permission denied";
+    default:
+      return e.reason;
+  }
+};
+
 const formatOpt = Options.choice("format", EXPORT_FORMATS).pipe(
   Options.withDescription(
     "Output format: html|md|json (default: from --json or the --out extension, else md)"
@@ -53,7 +69,9 @@ const formatOpt = Options.choice("format", EXPORT_FORMATS).pipe(
   Options.optional
 );
 const outOpt = Options.text("out").pipe(
-  Options.withDescription("Write to this file instead of stdout"),
+  Options.withDescription(
+    "Write to this file instead of stdout (`-` is stdout)"
+  ),
   Options.optional
 );
 const noRedactOpt = Options.boolean("no-redact").pipe(
@@ -102,7 +120,9 @@ export const makeSessionsExport = (globals: GlobalsAccessor) =>
             });
           })
         );
-        const outPath = Option.getOrUndefined(out);
+        const outPath = Option.filter(out, (p) => p !== "-").pipe(
+          Option.getOrUndefined
+        );
         const text = renderExport(
           pickFormat({
             format: Option.getOrUndefined(format),
@@ -116,7 +136,14 @@ export const makeSessionsExport = (globals: GlobalsAccessor) =>
           return yield* Console.log(text.trimEnd());
         }
         const fs = yield* FileSystem.FileSystem;
-        yield* fs.writeFileString(outPath, text);
+        yield* fs.writeFileString(outPath, text).pipe(
+          Effect.mapError(
+            (e) =>
+              new CliUserError({
+                message: `Cannot write ${outPath}: ${writeFailure(e)}`,
+              })
+          )
+        );
         yield* Console.error(`Wrote ${outPath}`);
       })
   );

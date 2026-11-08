@@ -18,8 +18,8 @@ export {
   fenceFor,
 } from "./shared";
 
-export const EXPORT_SCHEMA = "peektrace.session-export";
-export const EXPORT_VERSION = 1;
+const EXPORT_SCHEMA = "peektrace.session-export";
+const EXPORT_VERSION = 1;
 
 /** Render a session as JSON built from an explicit field whitelist. */
 export const renderJson = (session: ParsedSession, opts: ExportOptions) => {
