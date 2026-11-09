@@ -34,6 +34,7 @@ import {
   type ReactNode,
   useState,
 } from "react";
+import { useDocumentTitle } from "../lib/document-title";
 import { hasInsetTitlebar } from "../lib/host";
 import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
@@ -153,6 +154,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   useThemeShortcut();
+  useDocumentTitle(active?.label ?? null);
   return (
     <SidebarProvider
       className="h-dvh min-h-0"

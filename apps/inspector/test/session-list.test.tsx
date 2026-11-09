@@ -32,10 +32,9 @@ const header = (i: number): SessionHeader => {
 
 const headers = Array.from({ length: COUNT }, (_, i) => header(i));
 const html = renderToStaticMarkup(
-  <SessionList headers={headers} onOpen={() => undefined} selectedId={null} />
+  <SessionList headers={headers} selectedId={null} />
 );
-const rowTags =
-  html.match(/<button[^>]*data-testid="session-row"[^>]*>/g) ?? [];
+const rowTags = html.match(/<a[^>]*data-testid="session-row"[^>]*>/g) ?? [];
 const rowCount = rowTags.length;
 
 describe("SessionList over 500 sessions", () => {
@@ -96,11 +95,7 @@ describe("SessionList live marker", () => {
       updatedAt: new Date(now - 3_600_000).toISOString(),
     };
     const markup = renderToStaticMarkup(
-      <SessionList
-        headers={[idle, live]}
-        onOpen={() => undefined}
-        selectedId={null}
-      />
+      <SessionList headers={[idle, live]} selectedId={null} />
     );
     expect(markup.split('data-testid="session-live"').length - 1).toBe(1);
     expect(

@@ -10,12 +10,16 @@ import { Result, useAtomValue } from "@effect-atom/atom-react";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
-import { VerdictHeader } from "@workspace/viz/components/verdict-header";
+import {
+  analyzedTitle,
+  VerdictHeader,
+} from "@workspace/viz/components/verdict-header";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
 import { memo, useCallback, useMemo, useRef } from "react";
+import { useTitleOverride } from "../../lib/document-title";
 import { useHistoryJump } from "../../lib/history-jump";
 import { ResultView } from "../../lib/result-view";
-import { openSession } from "../../lib/routes";
+import { sessionHash, useListParams } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useAnalyzedSession } from "../../lib/session-atoms";
 import { useSessionView } from "../../lib/session-view";
@@ -25,23 +29,28 @@ import { LoadedArtifacts } from "./loaded-artifacts";
 import { SessionHistory } from "./session-history";
 
 /** Where a subagent transcript came from, with the way back to it. */
-const ParentNote = ({ parent }: { readonly parent: string }) => (
-  <div
-    className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
-    data-testid="subagent-parent"
-  >
-    <span className="text-muted-foreground">Subagent of</span>
-    <code className="text-xs">{parent}</code>
-    <Button
-      className="ml-auto h-6 gap-1 px-2 text-xs"
-      onClick={() => openSession(parent)}
-      size="sm"
-      variant="outline"
+const ParentNote = ({ parent }: { readonly parent: string }) => {
+  const list = useListParams();
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+      data-testid="subagent-parent"
     >
-      <ArrowLeftIcon className="size-3" /> Open parent session
-    </Button>
-  </div>
-);
+      <span className="text-muted-foreground">Subagent of</span>
+      <code className="text-xs">{parent}</code>
+      <Button
+        asChild
+        className="ml-auto h-6 gap-1 px-2 text-xs"
+        size="sm"
+        variant="outline"
+      >
+        <a href={sessionHash({ id: parent, parent: null }, list)}>
+          <ArrowLeftIcon className="size-3" /> Open parent session
+        </a>
+      </Button>
+    </div>
+  );
+};
 
 /** The full debug view for one session id; `onBack` returns to the list. A
  * `parent` means `id` is a subagent transcript, resolved through that session. */
@@ -89,6 +98,9 @@ const SessionDetailView = ({
     root?.scrollTo({ top: 0 });
     jumpButton.current?.focus({ preventScroll: true });
   }, [root]);
+  useTitleOverride(
+    Result.isSuccess(result) ? analyzedTitle(result.value) : null
+  );
 
   return (
     <div className="flex flex-col gap-4" data-testid="session-detail">

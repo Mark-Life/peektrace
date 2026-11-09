@@ -8,7 +8,7 @@
  * `window.location.search` (where `?titlebar=inset` lives), so host chrome
  * detection is unaffected.
  */
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 
 /** The inspector sections, in nav order. */
 export const ROUTES = [
@@ -135,18 +135,6 @@ const merged = (base: URLSearchParams, extra: URLSearchParams) => {
   return params;
 };
 
-/** The current list filters plus `extra`, for a hash that keeps the rail as is. */
-const withList = (extra: URLSearchParams) =>
-  merged(listParams(parseHash().params), extra);
-
-/** Open a session in the sessions section — pushes a shareable history entry. */
-export const openSession = (id: string) => {
-  window.location.hash = buildHash(
-    "sessions",
-    withList(new URLSearchParams({ id }))
-  );
-};
-
 /** A session to open: a nested transcript also names the session it ran under. */
 export interface SessionTarget {
   readonly id: string;
@@ -186,16 +174,14 @@ const markedParams = (target: MarkedTarget) => {
 export const markedSessionHash = (target: MarkedTarget) =>
   buildHash("sessions", merged(lastList, markedParams(target)));
 
-/** Open a session from a stats row, marked by the row's detector. */
-export const openSessionMarked = (target: MarkedTarget) => {
-  parseHash();
-  window.location.hash = markedSessionHash(target);
-};
-
-/** Open a subagent transcript through the session it ran under. */
-export const openSubagent = (target: SessionTarget) => {
-  window.location.hash = buildHash("sessions", withList(targetParams(target)));
-};
+/** The hash that opens a session (or a subagent transcript under its parent),
+ *  with the session list filters in `list` kept so the rail stays as it is.
+ *  Render it as an `<a href>`: the router follows `hashchange`, so a plain click
+ *  navigates and Cmd/Ctrl-click, middle-click and "Copy link" work natively. */
+export const sessionHash = (
+  target: SessionTarget,
+  list: URLSearchParams = new URLSearchParams()
+) => buildHash("sessions", merged(list, targetParams(target)));
 
 /** Clear the selected session without adding a history entry (in-app Back).
  *  The list filters stay. */
@@ -237,6 +223,13 @@ export const useListQuery = () =>
     () => listParams(parseHash().params).toString(),
     () => ""
   );
+
+/** The list filter params of the current hash, kept current, for session
+ *  links that keep the rail as it is (`sessionHash(target, list)`). */
+export const useListParams = () => {
+  const query = useListQuery();
+  return useMemo(() => new URLSearchParams(query), [query]);
+};
 
 /** Set (or, when a value is null, clear) query params on the current hash in
  *  one write, preserving the other params, without adding a history entry. */
