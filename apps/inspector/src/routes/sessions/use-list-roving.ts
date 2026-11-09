@@ -4,6 +4,7 @@ import {
   type FocusEvent,
   type KeyboardEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -51,11 +52,25 @@ export const useListRoving = ({
   /** Focus sits on a row, or sat on one that a filter or reload removed. */
   const inside = useRef(false);
   const lastIndex = useRef(0);
+  /** A row asked for focus before it was drawn (a virtualized list mounts
+   *  the new stop on the next render). */
+  const pending = useRef<string | null>(null);
 
   const focusRow = (id: string) => {
     setFocusedId(id);
-    focusEl(rowEl(group.current, id));
+    const el = rowEl(group.current, id);
+    pending.current = el ? null : id;
+    focusEl(el);
   };
+
+  useLayoutEffect(() => {
+    const id = pending.current;
+    if (id === null) {
+      return;
+    }
+    pending.current = null;
+    focusEl(rowEl(group.current, id));
+  });
 
   useEffect(() => {
     if (focusedId === null) {
@@ -71,7 +86,9 @@ export const useListRoving = ({
     const next = ids[Math.min(lastIndex.current, ids.length - 1)];
     if (inside.current && lost && next !== undefined) {
       setFocusedId(next);
-      focusEl(rowEl(group.current, next));
+      const el = rowEl(group.current, next);
+      pending.current = el ? null : next;
+      focusEl(el);
     }
   }, [focusedId, ids]);
 

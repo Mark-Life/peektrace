@@ -27,7 +27,7 @@ const HEADERS = [
   header("s3", "2026-01-03T10:00:00Z"),
 ];
 
-const LIST_ITEM = /<li>/g;
+const LIST_ITEM = /<li[\s>]/g;
 const SKIP = /data-testid="skip-link"/g;
 const TAB_STOP = /<button[^>]*tabindex="0"[^>]*>/g;
 const ROW = /data-testid="session-row"/g;
@@ -57,6 +57,24 @@ describe("session list", () => {
     expect(stops).toHaveLength(1);
     // Newest first.
     expect(stops[0]).toContain('data-session-id="s3"');
+  });
+
+  test("a stop outside the drawn window is still drawn, so Tab reaches it", () => {
+    const many = Array.from({ length: 500 }, (_, i) =>
+      header(
+        `m${i}`,
+        new Date(Date.parse("2026-01-01T00:00:00Z") + i * 60_000).toISOString()
+      )
+    );
+    const html = renderToStaticMarkup(
+      <TooltipProvider>
+        <SessionList headers={many} onOpen={() => undefined} selectedId="m3" />
+      </TooltipProvider>
+    );
+    expect((html.match(ROW) ?? []).length).toBeLessThan(many.length);
+    const stops = html.match(TAB_STOP) ?? [];
+    expect(stops).toHaveLength(1);
+    expect(stops[0]).toContain('data-session-id="m3"');
   });
 
   test("rows sit in list items and search names its shortcut", () => {

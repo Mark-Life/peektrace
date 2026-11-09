@@ -1,11 +1,17 @@
-/** Session browser (Phase 8.1) — filter + search over `sessions.list`.
+/** Session browser: filter + search over `sessions.list`.
  *
  * Headers are the lightweight `SessionHeader` rows (no body parse). Filters span
- * agent / project / gitBranch / model / start-date range; free-text search matches
- * the title (and id). Rows are `Item`s in a list so they can live in the
- * master-detail left rail; the active row is highlighted via `selectedId`. When
- * nothing matches, an `Empty` offers a one-click filter reset.
+ * agent / project / gitBranch / model / activity-date range; free-text search matches
+ * the title (and id). Rows are newest activity first, two lines each, and only
+ * the window in view is mounted. The active row is highlighted via `selectedId`.
+ * When nothing matches, an `Empty` offers a one-click filter reset.
  */
+
+import {
+  defaultRangeExtractor,
+  type Range,
+  useVirtualizer,
+} from "@tanstack/react-virtual";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
@@ -23,14 +29,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@workspace/ui/components/input-group";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemFooter,
-  ItemTitle,
-} from "@workspace/ui/components/item";
+import { Item } from "@workspace/ui/components/item";
 import {
   Select,
   SelectContent,
@@ -38,29 +37,41 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
-import type { ReactNode } from "react";
-import { memo, useId, useMemo, useState } from "react";
+import type { RefObject } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
+import { ariaKeys } from "../../lib/shortcuts";
+import { DateRangeFilter } from "./date-range-filter";
 import {
   AGENT_LABEL,
   ANY,
   activeCount,
-  dayOf,
+  activeDays,
   distinct,
+  type FilterOption,
   type Filters,
+  fmtStamp,
+  isLive,
   matches,
   NO_FILTERS,
+  projectLabel,
+  projectOptions,
+  sortByRecent,
+  stampTitle,
   titleOf,
-} from "../../lib/session-filters";
-import { ariaKeys } from "../../lib/shortcuts";
-import { DateRangeFilter } from "./date-range-filter";
+  visibleBranch,
+} from "./session-list-model";
 import { useListRoving, useListSearch } from "./use-list-roving";
 
 /** Per-harness chip tint, so a rail of mixed sessions is scannable at a glance.
@@ -74,39 +85,36 @@ const AGENT_BADGE: Record<string, string> = {
     "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
 };
 
-/** Characters of the session id shown as a short handle. */
-const ID_PREFIX = 8;
-/** Short month names, indexed by `MM - 1` from an ISO timestamp. */
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
+/** Fixed row height in rem, so rows grow with the browser font size; must
+ * match `ROW_HEIGHT_CLASS`. */
+const ROW_REM = 3.75;
+const ROW_HEIGHT_CLASS = "h-[3.75rem]";
+/** Root font size assumed on the server and when it cannot be read. */
+const DEFAULT_ROOT_PX = 16;
+/** Space between rows in px. */
+const GAP_PX = 4;
+/** Rows mounted beyond each edge of the viewport. */
+const OVERSCAN = 8;
+/** Viewport assumed before the first measure (and on the server). */
+const INITIAL_RECT = { width: 320, height: 800 };
+/** How often the live markers are re-evaluated. */
+const NOW_TICK_MS = 30_000;
 
-/** Captures `YYYY`-`MM`-`DD`T`HH:MM` from the head of an ISO timestamp. */
-const ISO_STAMP = /^\d{4}-(\d{2})-(\d{2})T(\d{2}:\d{2})/;
-
-/** `Jul 9, 08:18` of an ISO timestamp, or `"—"`. Read off the string rather than
- * `Date`-parsed, so the rendered wall-clock matches what the transcript recorded. */
-const fmtStarted = (iso: string | undefined): string => {
-  const parts = iso?.match(ISO_STAMP);
-  const month = parts ? MONTHS[Number(parts[1]) - 1] : undefined;
-  if (!(parts && month)) {
-    return "—";
+/** Root font size in px, read once per list mount. */
+const rootFontPx = () => {
+  if (typeof document === "undefined") {
+    return DEFAULT_ROOT_PX;
   }
-  return `${month} ${Number(parts[2])}, ${parts[3]}`;
+  const px = Number.parseFloat(
+    getComputedStyle(document.documentElement).fontSize
+  );
+  return Number.isFinite(px) && px > 0 ? px : DEFAULT_ROOT_PX;
 };
 
-/** A labelled filter `Select` over `all` + the distinct option values. */
+const toOptions = (values: readonly string[]): readonly FilterOption[] =>
+  values.map((v) => ({ value: v, label: v }));
+
+/** A labelled filter `Select` over `all` + the option values. */
 const FilterSelect = ({
   label,
   value,
@@ -116,7 +124,7 @@ const FilterSelect = ({
 }: {
   readonly label: string;
   readonly value: string;
-  readonly options: readonly string[];
+  readonly options: readonly FilterOption[];
   readonly onChange: (v: string) => void;
   readonly testId: string;
 }) => (
@@ -127,157 +135,120 @@ const FilterSelect = ({
     <SelectContent>
       <SelectItem value={ANY}>{label}: all</SelectItem>
       {options.map((o) => (
-        <SelectItem key={o} value={o}>
-          {o}
+        <SelectItem key={o.value} value={o.value}>
+          {o.label}
         </SelectItem>
       ))}
     </SelectContent>
   </Select>
 );
 
-/** A value the rail has to truncate; hovering (or focusing) reveals it in full. */
-const Truncated = ({
-  full,
-  className,
-  children,
-}: {
-  readonly full: string;
-  readonly className?: string;
-  readonly children: ReactNode;
-}) => (
-  <Tooltip>
-    <TooltipTrigger asChild>
-      <span className={cn("truncate", className)}>{children}</span>
-    </TooltipTrigger>
-    <TooltipContent className="max-w-xs break-all">{full}</TooltipContent>
-  </Tooltip>
-);
-
 const ROW_KEYS = (["listDown", "listUp", "listFirst", "listLast"] as const)
   .map(ariaKeys)
   .join(" ");
 
-/** One session row in the rail; highlighted when it is the active selection. */
-const SessionRowView = ({
-  h,
-  active,
-  hintId,
-  onOpen,
-  tabbable,
-}: {
-  readonly h: SessionHeader;
-  readonly active: boolean;
-  /** Id of the hint that says how to move between rows. */
-  readonly hintId: string;
-  readonly onOpen: (id: string) => void;
-  /** The list's one Tab stop. */
-  readonly tabbable: boolean;
-}) => (
-  <Item asChild size="sm" variant="outline">
-    <button
-      aria-current={active ? "true" : undefined}
-      aria-describedby={hintId}
-      aria-keyshortcuts={ROW_KEYS}
-      className={cn(
-        "text-left",
-        active
-          ? "border-primary/40 bg-primary/10"
-          : "hover:bg-muted focus-visible:bg-muted"
-      )}
-      data-session-id={h.id}
-      data-testid="session-row"
-      onClick={() => onOpen(h.id)}
-      tabIndex={tabbable ? 0 : -1}
-      type="button"
-    >
-      <ItemContent className="min-w-0">
-        <ItemTitle className="line-clamp-2 block w-full min-w-0 text-sm">
-          {titleOf(h)}
-        </ItemTitle>
-        <ItemDescription className="flex min-w-0 items-center gap-2">
-          <Badge
-            className={cn("shrink-0", AGENT_BADGE[h.agent])}
-            variant="outline"
-          >
-            {AGENT_LABEL[h.agent] ?? h.agent}
-          </Badge>
-          {h.sourceLabel ? (
-            <Badge className="shrink-0" variant="secondary">
-              {h.sourceLabel}
-            </Badge>
-          ) : null}
-          <Truncated full={h.project}>{h.project}</Truncated>
-        </ItemDescription>
-        {h.gitBranch ? (
-          <div className="flex min-w-0">
-            <Badge className="max-w-full" variant="secondary">
-              <Truncated full={h.gitBranch}>{h.gitBranch}</Truncated>
-            </Badge>
-          </div>
-        ) : null}
-      </ItemContent>
-      <ItemActions className="shrink-0 self-start whitespace-nowrap text-muted-foreground tabular-nums">
-        {h.messageCount} msgs
-      </ItemActions>
-      <ItemFooter className="min-w-0 gap-2 text-muted-foreground">
-        <Truncated className="min-w-0 font-mono" full={h.model ?? h.id}>
-          {h.model ?? h.id.slice(0, ID_PREFIX)}
-        </Truncated>
-        <span className="shrink-0 whitespace-nowrap tabular-nums">
-          <Truncated full={h.startedAt ?? "unknown start time"}>
-            {fmtStarted(h.startedAt)}
-          </Truncated>
-          {" · "}
-          {fmtBytes(h.sizeBytes)}
-        </span>
-      </ItemFooter>
-    </button>
-  </Item>
-);
-
-/** Memoized: list reloads keep unchanged headers as the same objects, and
+/** One two-line session row; full values show as native tooltips on hover.
+ *  Memoized: list reloads keep unchanged headers as the same objects, and
  *  moving the Tab stop re-renders only the two rows it touches. */
-const SessionRow = memo(SessionRowView);
-
-/** The rows: one Tab stop, moved by the list keys. Owns the roving state, so
- *  a focus move re-renders only this and the rows it touches. */
-const SessionRows = ({
-  rows,
-  selectedId,
-  onOpen,
-}: {
-  readonly rows: readonly SessionHeader[];
-  readonly selectedId: string | null;
-  readonly onOpen: (id: string) => void;
-}) => {
-  const ids = useMemo(() => rows.map((h) => h.id), [rows]);
-  const roving = useListRoving({ ids, selectedId });
-  const hintId = useId();
-  return (
-    <>
-      <p className="sr-only" id={hintId}>
-        Arrow keys or J and K move between sessions.
-      </p>
-      <ul
-        aria-label="Sessions"
-        className="flex w-full flex-col gap-2"
-        {...roving.group}
+const SessionRow = memo(
+  ({
+    h,
+    active,
+    hintId,
+    live,
+    onOpen,
+    tabbable,
+  }: {
+    readonly h: SessionHeader;
+    readonly active: boolean;
+    /** Id of the hint that says how to move between rows. */
+    readonly hintId: string;
+    readonly live: boolean;
+    readonly onOpen: (id: string) => void;
+    /** The list's one Tab stop. */
+    readonly tabbable: boolean;
+  }) => {
+    const title = titleOf(h);
+    const stamp = h.updatedAt ?? h.startedAt;
+    const branch = visibleBranch(h.gitBranch);
+    return (
+      // Layout classes go on `Item` so they merge over its defaults; the
+      // `asChild` slot only concatenates the child's classes.
+      <Item
+        asChild
+        className={cn(
+          ROW_HEIGHT_CLASS,
+          "flex-col flex-nowrap items-stretch justify-center gap-1 py-1.5 text-left",
+          active
+            ? "border-primary/40 bg-primary/10"
+            : "hover:bg-muted focus-visible:bg-muted"
+        )}
+        size="sm"
+        variant="outline"
       >
-        {rows.map((h) => (
-          <li key={h.id}>
-            <SessionRow
-              active={h.id === selectedId}
-              h={h}
-              hintId={hintId}
-              onOpen={onOpen}
-              tabbable={h.id === roving.stop}
-            />
-          </li>
-        ))}
-      </ul>
-    </>
-  );
-};
+        <button
+          aria-current={active ? "true" : undefined}
+          aria-describedby={hintId}
+          aria-keyshortcuts={ROW_KEYS}
+          data-session-id={h.id}
+          data-testid="session-row"
+          onClick={() => onOpen(h.id)}
+          tabIndex={tabbable ? 0 : -1}
+          type="button"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            {live ? (
+              <span
+                aria-label="Live"
+                className="size-2 shrink-0 rounded-full bg-emerald-500"
+                data-testid="session-live"
+                role="img"
+                title="Live: wrote a line in the last 5 min"
+              />
+            ) : null}
+            <span
+              className="min-w-0 flex-1 truncate font-medium text-sm"
+              title={title}
+            >
+              {title}
+            </span>
+            <span
+              className="shrink-0 text-muted-foreground tabular-nums"
+              title={stampTitle(h)}
+            >
+              {fmtStamp(stamp)}
+            </span>
+          </span>
+          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+            <Badge className={cn(AGENT_BADGE[h.agent])} variant="outline">
+              {AGENT_LABEL[h.agent] ?? h.agent}
+            </Badge>
+            {h.sourceLabel ? (
+              <Badge variant="secondary">{h.sourceLabel}</Badge>
+            ) : null}
+            <span
+              className="min-w-0 max-w-1/2 shrink-0 truncate"
+              title={h.cwd ?? h.project}
+            >
+              {projectLabel(h)}
+            </span>
+            {branch ? (
+              <span className="min-w-0 truncate font-mono" title={branch}>
+                {branch}
+              </span>
+            ) : null}
+            <span
+              className="ml-auto shrink-0 whitespace-nowrap tabular-nums"
+              title={`${fmtBytes(h.sizeBytes)} · ${h.model ?? h.id}`}
+            >
+              {h.messageCount} msgs
+            </span>
+          </span>
+        </button>
+      </Item>
+    );
+  }
+);
 
 /** Shown when every session is filtered out; the action clears all facets. */
 const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
@@ -305,7 +276,159 @@ const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
   </Empty>
 );
 
-/** The filter controls + a compact, scrollable session list; rows call `onOpen`. */
+/** Current epoch ms, refreshed every `ms`. */
+const useNow = (ms: number) => {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return now;
+};
+
+/** Nearest ancestor that scrolls vertically, else the document scroller. */
+const scrollParentOf = (el: HTMLElement) => {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const overflow = getComputedStyle(p).overflowY;
+    if (overflow === "auto" || overflow === "scroll") {
+      return p;
+    }
+  }
+  return document.scrollingElement as HTMLElement | null;
+};
+
+/** The element that scrolls the list and the list's offset inside it. Which
+ * ancestor scrolls depends on the breakpoint, and the filters above the list
+ * set its offset, so both are re-read on resize of the window, the list's
+ * wrapper or the page. A hidden list keeps its last values. */
+const useScrollParent = (ref: RefObject<HTMLElement | null>) => {
+  const [scroller, setScroller] = useState<HTMLElement | null>(null);
+  const [margin, setMargin] = useState(0);
+  const measure = useEffectEvent(() => {
+    const el = ref.current;
+    if (!el || el.offsetParent === null) {
+      return;
+    }
+    const parent = scrollParentOf(el);
+    setScroller(parent);
+    if (parent) {
+      const next =
+        el.getBoundingClientRect().top -
+        parent.getBoundingClientRect().top +
+        parent.scrollTop;
+      setMargin((prev) => (Math.abs(prev - next) < 1 ? prev : next));
+    }
+  });
+  useLayoutEffect(() => {
+    measure();
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    const observer = new ResizeObserver(onResize);
+    const wrapper = ref.current?.parentElement;
+    if (wrapper) {
+      observer.observe(wrapper);
+    }
+    observer.observe(document.body);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      observer.disconnect();
+    };
+  }, [ref]);
+  return { scroller, margin };
+};
+
+/** Only the rows in view (plus overscan), absolutely placed in a full-height
+ *  track. The rows are one Tab stop, moved by the list keys; the stop row is
+ *  always mounted so Tab can reach it. Owns the roving state, so a focus move
+ *  re-renders only this and the rows it touches. */
+const VirtualRows = ({
+  rows,
+  selectedId,
+  onOpen,
+}: {
+  readonly rows: readonly SessionHeader[];
+  readonly selectedId: string | null;
+  readonly onOpen: (id: string) => void;
+}) => {
+  const ids = useMemo(() => rows.map((h) => h.id), [rows]);
+  const roving = useListRoving({ ids, selectedId });
+  const hintId = useId();
+  const ref = roving.group.ref;
+  const { scroller, margin } = useScrollParent(ref);
+  const now = useNow(NOW_TICK_MS);
+  const [rowPx] = useState(() => ROW_REM * rootFontPx() + GAP_PX);
+  const stopIndex = roving.stop === null ? -1 : ids.indexOf(roving.stop);
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const indexes = defaultRangeExtractor(range);
+      return stopIndex < 0 || indexes.includes(stopIndex)
+        ? indexes
+        : [...indexes, stopIndex].sort((a, b) => a - b);
+    },
+    [stopIndex]
+  );
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scroller,
+    estimateSize: () => rowPx,
+    getItemKey: (i) => rows[i]?.id ?? i,
+    overscan: OVERSCAN,
+    rangeExtractor,
+    scrollMargin: margin,
+    initialRect: INITIAL_RECT,
+  });
+
+  const revealSelected = useEffectEvent((id: string) => {
+    if (ref.current?.offsetParent === null) {
+      return;
+    }
+    const index = rows.findIndex((h) => h.id === id);
+    if (index >= 0) {
+      virtualizer.scrollToIndex(index, { align: "auto" });
+    }
+  });
+  useEffect(() => {
+    if (selectedId && scroller) {
+      revealSelected(selectedId);
+    }
+  }, [selectedId, scroller]);
+
+  return (
+    <>
+      <p className="sr-only" id={hintId}>
+        Arrow keys or J and K move between sessions.
+      </p>
+      <ul
+        aria-label="Sessions"
+        className="relative w-full"
+        style={{ height: virtualizer.getTotalSize() }}
+        {...roving.group}
+      >
+        {virtualizer.getVirtualItems().map((v) => {
+          const h = rows[v.index];
+          return h ? (
+            <li
+              className="absolute inset-x-0 top-0"
+              key={v.key}
+              style={{ transform: `translateY(${v.start - margin}px)` }}
+            >
+              <SessionRow
+                active={h.id === selectedId}
+                h={h}
+                hintId={hintId}
+                live={isLive(h, now)}
+                onOpen={onOpen}
+                tabbable={h.id === roving.stop}
+              />
+            </li>
+          ) : null;
+        })}
+      </ul>
+    </>
+  );
+};
+
+/** The filter controls + a compact, virtualized session list; rows call `onOpen`. */
 const SessionListView = ({
   headers,
   selectedId,
@@ -321,31 +444,32 @@ const SessionListView = ({
     (v: Filters[K]) =>
       setFilters((prev) => ({ ...prev, [key]: v }));
 
-  const agents = useMemo(() => distinct(headers, (h) => h.agent), [headers]);
-  const projects = useMemo(
-    () => distinct(headers, (h) => h.project),
+  const agents = useMemo(
+    () => toOptions(distinct(headers, (h) => h.agent)),
     [headers]
   );
+  const projects = useMemo(() => projectOptions(headers), [headers]);
   const branches = useMemo(
-    () => distinct(headers, (h) => h.gitBranch),
+    () => toOptions(distinct(headers, (h) => h.gitBranch)),
     [headers]
   );
-  const models = useMemo(() => distinct(headers, (h) => h.model), [headers]);
+  const models = useMemo(
+    () => toOptions(distinct(headers, (h) => h.model)),
+    [headers]
+  );
   const sources = useMemo(
-    () => distinct(headers, (h) => h.sourceLabel),
+    () => toOptions(distinct(headers, (h) => h.sourceLabel)),
     [headers]
   );
   const days = useMemo(
-    () => distinct(headers, (h) => dayOf(h.startedAt) || undefined),
+    () => [...new Set(headers.flatMap(activeDays))].sort(),
     [headers]
   );
 
+  const sorted = useMemo(() => sortByRecent(headers), [headers]);
   const rows = useMemo(
-    () =>
-      [...headers]
-        .filter((h) => matches(h, filters))
-        .sort((a, b) => (b.startedAt ?? "").localeCompare(a.startedAt ?? "")),
-    [headers, filters]
+    () => sorted.filter((h) => matches(h, filters)),
+    [sorted, filters]
   );
 
   const active = activeCount(filters);
@@ -451,7 +575,7 @@ const SessionListView = ({
       {rows.length === 0 ? (
         <NoMatches onReset={() => setFilters(NO_FILTERS)} />
       ) : (
-        <SessionRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
+        <VirtualRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
       )}
     </div>
   );
