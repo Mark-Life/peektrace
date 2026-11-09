@@ -150,6 +150,7 @@ export const VirtualList = <T,>({
   measureKey,
   ref,
   render,
+  scrollPaddingStart = 0,
   testId,
 }: {
   readonly className?: string;
@@ -163,6 +164,9 @@ export const VirtualList = <T,>({
   readonly measureKey?: unknown;
   readonly ref?: Ref<VirtualListHandle>;
   readonly render: (item: T) => ReactNode;
+  /** Height covered at the top of the pane (a sticky toolbar): an item
+   *  scrolled to the start lands below it. */
+  readonly scrollPaddingStart?: number;
   readonly testId?: string;
 }) => {
   const root = useScrollRoot();
@@ -197,6 +201,7 @@ export const VirtualList = <T,>({
     overscan: OVERSCAN,
     rangeExtractor,
     scrollMargin,
+    scrollPaddingStart,
     useFlushSync: false,
   });
 
@@ -234,7 +239,9 @@ export const VirtualList = <T,>({
     // is already where they left it.
     const offset = v.scrollOffset ?? 0;
     const anchor =
-      offset > scrollMargin ? v.getVirtualItemForOffset(offset) : undefined;
+      offset > scrollMargin
+        ? v.getVirtualItemForOffset(offset + scrollPaddingStart)
+        : undefined;
     v.measure();
     for (const el of list.querySelectorAll<HTMLLIElement>(
       ":scope > [data-index]"
@@ -244,7 +251,7 @@ export const VirtualList = <T,>({
     if (anchor) {
       v.scrollToIndex(anchor.index, { align: "start" });
     }
-  }, [measureKey, list, v, virtual, scrollMargin]);
+  }, [measureKey, list, v, virtual, scrollMargin, scrollPaddingStart]);
 
   // Small lists mount every item in plain flow: nothing to measure or place.
   const drawn: readonly Pick<VirtualItem, "index" | "start">[] = virtual

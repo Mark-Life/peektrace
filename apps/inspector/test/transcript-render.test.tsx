@@ -14,11 +14,14 @@ import type {
   TimelineEvent,
   Turn,
 } from "@workspace/core/services/sessions/schema";
+import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
+import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
 import { buildChatPlan, chatNodeKeys } from "../src/lib/chat-lane";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import type { ToolMarks } from "../src/lib/session-markers";
 import { indexTools } from "../src/lib/tool-event";
+import { HiddenNote } from "../src/routes/sessions/hidden-note";
 import {
   ChatNodeView,
   TranscriptChat,
@@ -164,6 +167,7 @@ const TURNS = EVENTS.map((e) => {
 
 /** No stats markers: the transcript renders the same with or without them. */
 const NO_MARKS: ToolMarks = new Map();
+const LANDING = { done: { current: null } };
 
 const noop = () => {
   // collapse state is not exercised by a static render
@@ -276,14 +280,15 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       activeMark={null}
       allOpen={false}
       bulkKey={0}
-      callId="t1"
       crossEvtIdx={9}
       isOpen={() => false}
-      jumpDone={{ current: null }}
+      jump={null}
+      landing={LANDING}
       marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
       rows={ROWS}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -295,14 +300,16 @@ test("both transcripts mount as lists before the page has scrolled", () => {
     <TranscriptTable
       a={SESSION}
       bulkKey={0}
-      callId={null}
       crossEvtIdx={9}
       isOpen={() => false}
-      jumpDone={{ current: null }}
+      jump={null}
+      jumpIndex={-1}
+      landing={LANDING}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
       sort={DEFAULT_HISTORY_SORT}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -322,14 +329,16 @@ test("token sort shows window share, hides the divider, marks the header", () =>
     <TranscriptTable
       a={SESSION}
       bulkKey={0}
-      callId={null}
       crossEvtIdx={9}
       isOpen={() => false}
-      jumpDone={{ current: null }}
+      jump={null}
+      jumpIndex={-1}
+      landing={LANDING}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
       sort={{ key: "tokens", dir: "desc" }}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -344,12 +353,13 @@ test("empty filters read the same in both layouts", () => {
   const props = {
     a: SESSION,
     bulkKey: 0,
-    callId: null,
     crossEvtIdx: -1,
     isOpen: () => false,
-    jumpDone: { current: null },
+    jump: null,
+    landing: LANDING,
     onToggle: noop,
     rows: [],
+    stickyHeight: 0,
     tools: indexTools(SESSION),
     turns: TURNS,
   };
@@ -387,4 +397,71 @@ test("a stats marker lands on the card its detector counted", () => {
   expect(countOf(html, 'data-testid="stats-marker"')).toBe(1);
   expect(html).toContain('data-detector="piped-exit-code"');
   expect(html).toContain("silent fail");
+});
+
+/** A summary worth jumping from: a crossing, a compaction, a subagent, and
+ *  two plotted turns. */
+const SUMMARY = {
+  ...SESSION,
+  compactionTurns: [1],
+  snapshots: [0, 1].map((turnIndex) => ({
+    ctx: 40_000,
+    outputTokens: 0,
+    slices: {},
+    turnIndex,
+  })),
+  subagents: [
+    { id: "agent-1", path: "sub.jsonl", peakContextTokens: 0, turns: 1 },
+  ],
+} satisfies AnalyzedSession;
+
+test("summary chips are jump buttons only when the host can jump", () => {
+  const live = renderToStaticMarkup(
+    <VerdictHeader a={SUMMARY} onJump={noop} />
+  );
+  expect(countOf(live, "<button")).toBe(3);
+  for (const id of ["chip-dumbzone", "chip-compaction", "chip-subagents"]) {
+    expect(live).toContain(`data-testid="${id}"`);
+  }
+  // The visible text is the name; the jump hint follows for screen readers.
+  expect(live).not.toContain("aria-label=");
+  expect(live).toContain("1 compaction(s)");
+  expect(live).toContain(", jump to the first in history");
+  const plain = renderToStaticMarkup(<VerdictHeader a={SUMMARY} />);
+  expect(countOf(plain, "<button")).toBe(0);
+  expect(plain).toContain("entered dumb zone @ turn 2");
+});
+
+test("the timeline takes clicks and focus only when the host can jump", () => {
+  const live = renderToStaticMarkup(
+    <GrowthTimeline a={SUMMARY} onTurn={noop} />
+  );
+  expect(live).toContain('data-testid="timeline-hit-area"');
+  expect(countOf(live, 'role="button"')).toBe(2);
+  expect(countOf(live, 'tabindex="0"')).toBe(2);
+  expect(live).toContain('role="group"');
+  // Two markers, told apart by name; the rest is hidden from assistive tech.
+  expect(live).toContain('aria-label="Entered dumb zone at turn 2: jump');
+  expect(live).toContain('aria-label="Peak ');
+  expect(live).toContain('aria-hidden="true"');
+  const plain = renderToStaticMarkup(<GrowthTimeline a={SUMMARY} />);
+  expect(plain).not.toContain("timeline-hit");
+  expect(plain).not.toContain('role="button"');
+  expect(plain).toContain('role="img"');
+});
+
+test("the hidden note says which kind of jump the filters hide", () => {
+  const call = renderToStaticMarkup(
+    <HiddenNote hidden="call" onClear={noop} />
+  );
+  expect(call).toContain('data-testid="history-call-hidden"');
+  expect(call).toContain("The call this link points to");
+  const jump = renderToStaticMarkup(
+    <HiddenNote hidden="jump" onClear={noop} />
+  );
+  expect(jump).toContain('data-testid="history-jump-hidden"');
+  expect(jump).toContain("The place you jumped to");
+  expect(
+    renderToStaticMarkup(<HiddenNote hidden={false} onClear={noop} />)
+  ).toBe("");
 });

@@ -15,15 +15,20 @@ import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
-import { memo, type RefObject, useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import {
   buildChatPlan,
   type ChatNode,
   chatNodeKeys,
   laneOf,
-  planIndexOfCall,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
+import {
+  alignOf,
+  type HistoryJump,
+  type JumpLanding,
+  planIndexOfTarget,
+} from "../../lib/history-jump";
 import type { ToolMarks } from "../../lib/session-markers";
 import { chatCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
@@ -257,20 +262,21 @@ const ChatNodeViewBody = ({
 export const ChatNodeView = memo(ChatNodeViewBody);
 
 /** The transcript as a conversation. Only the blocks near the screen are
- *  mounted; `callId` is the tool call a link asked to land on. */
+ *  mounted; `jump` is the place a link or the summary asked to land on. */
 export const TranscriptChat = ({
   a,
   activeMark,
   allOpen,
   bulkKey,
-  callId,
   crossEvtIdx,
   isOpen,
-  jumpDone,
+  jump,
+  landing,
   marks,
   onToggle,
   queryActive,
   rows,
+  stickyHeight,
   tools,
   turns,
 }: {
@@ -280,17 +286,20 @@ export const TranscriptChat = ({
   readonly allOpen: boolean;
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
-  readonly callId: string | null;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
-  /** The call link already landed on, shared by both layouts. */
-  readonly jumpDone: RefObject<string | null>;
+  /** Where a link or the summary asked to go, if anywhere. */
+  readonly jump: HistoryJump | null;
+  /** How far the jump got, shared by both layouts. */
+  readonly landing: JumpLanding;
   /** Stats marks for this session, keyed by tool-use id. */
   readonly marks: ToolMarks;
   readonly onToggle: (id: string, open: boolean) => void;
   /** A search is running: chip clusters must not fold a match out of sight. */
   readonly queryActive: boolean;
   readonly rows: readonly TranscriptRowRef[];
+  /** Height of the sticky toolbar a jump must land below. */
+  readonly stickyHeight: number;
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
@@ -301,10 +310,11 @@ export const TranscriptChat = ({
   const keys = useMemo(() => chatNodeKeys(plan), [plan]);
   const list = useRef<VirtualListHandle>(null);
   useVirtualJump({
-    done: jumpDone,
-    index: callId === null ? -1 : planIndexOfCall(plan, callId),
+    align: jump ? alignOf(jump.target) : "start",
+    done: landing.done,
+    index: jump ? planIndexOfTarget(plan, jump.target) : -1,
     list,
-    target: callId,
+    target: jump?.key ?? null,
   });
 
   if (rows.length === 0) {
@@ -337,6 +347,7 @@ export const TranscriptChat = ({
           tools={tools}
         />
       )}
+      scrollPaddingStart={stickyHeight}
       testId="chat-transcript"
     />
   );

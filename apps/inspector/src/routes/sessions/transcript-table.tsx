@@ -33,12 +33,17 @@ import {
 } from "@workspace/ui/components/collapsible";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo, type RefObject, useMemo, useRef } from "react";
+import { memo, useMemo, useRef } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
-import { rowIndexOfCall } from "../../lib/history-filter";
+import {
+  alignOf,
+  type HistoryJump,
+  type JumpLanding,
+} from "../../lib/history-jump";
 import {
   type HistorySort,
   type HistorySortKey,
+  isForwardOrder,
   nextSort,
 } from "../../lib/history-sort";
 import { eventCollapseId } from "../../lib/session-view";
@@ -312,35 +317,42 @@ const TableRowViewBody = ({
 export const TableRowView = memo(TableRowViewBody);
 
 /** The bordered list of event rows, with the dumb-zone divider inline. Only
- *  the rows near the screen are mounted; `callId` is the tool call a link
- *  asked to land on. */
+ *  the rows near the screen are mounted; `jump` is the place a link or the
+ *  summary asked to land on. */
 export const TranscriptTable = ({
   a,
   bulkKey,
-  callId,
   crossEvtIdx,
   isOpen,
-  jumpDone,
+  jump,
+  jumpIndex,
+  landing,
   onSort,
   onToggle,
   rows,
   sort,
+  stickyHeight,
   tools,
   turns,
 }: {
   readonly a: AnalyzedSession;
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
-  readonly callId: string | null;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
-  /** The call link already landed on, shared by both layouts. */
-  readonly jumpDone: RefObject<string | null>;
+  /** Where a link or the summary asked to go, if anywhere. */
+  readonly jump: HistoryJump | null;
+  /** The row `jump` lands on; -1 when hidden or there is no jump. */
+  readonly jumpIndex: number;
+  /** How far the jump got, shared by both layouts. */
+  readonly landing: JumpLanding;
   readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
   /** Rows already in `sort` order. */
   readonly rows: readonly TranscriptRowRef[];
   readonly sort: HistorySort;
+  /** Height of the sticky toolbar a jump must land below. */
+  readonly stickyHeight: number;
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
@@ -348,7 +360,7 @@ export const TranscriptTable = ({
   // matters while ranking by tokens — in transcript order it is just noise.
   const showShare = sort.key === "tokens";
   // The divider marks a point in time, so it only reads right in forward order.
-  const showDivider = sort.key === "order" && sort.dir === "asc";
+  const showDivider = isForwardOrder(sort);
   const shareOf = (e: TimelineEvent) =>
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
@@ -361,10 +373,11 @@ export const TranscriptTable = ({
   );
   const list = useRef<VirtualListHandle>(null);
   useVirtualJump({
-    done: jumpDone,
-    index: callId === null ? -1 : rowIndexOfCall(rows, callId),
+    align: jump ? alignOf(jump.target) : "start",
+    done: landing.done,
+    index: jumpIndex,
     list,
-    target: callId,
+    target: jump?.key ?? null,
   });
 
   return (
@@ -396,6 +409,7 @@ export const TranscriptTable = ({
             turn={turns[row.pos] ?? 0}
           />
         )}
+        scrollPaddingStart={stickyHeight}
         testId="table-transcript"
       />
       {rows.length === 0 ? (

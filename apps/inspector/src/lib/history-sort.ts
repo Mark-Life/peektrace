@@ -45,6 +45,11 @@ export const historySortOf = (raw: unknown): HistorySort => {
 export const sameSort = (x: HistorySort, y: HistorySort) =>
   x.key === y.key && x.dir === y.dir;
 
+/** Rows run in transcript order, first to last: only then does "a later
+ *  turn" or a divider at a point in time mean anything. */
+export const isForwardOrder = (sort: HistorySort) =>
+  sameSort(sort, DEFAULT_HISTORY_SORT);
+
 /** Header click: the active column flips; a new column starts at its natural
  *  direction (tokens biggest first, the rest ascending). */
 export const nextSort = (current: HistorySort, key: HistorySortKey) => {
