@@ -34,6 +34,7 @@ import {
 import { BrainIcon, ChevronRightIcon } from "lucide-react";
 import { memo, type ReactNode, useState } from "react";
 import { type ChatLane, needsClamp } from "../../lib/chat-lane";
+import { chatPanelId, disclosureProps } from "../../lib/session-view";
 import { EMPTY_BODY } from "../../lib/tool-event";
 import { sameChatRow } from "../../lib/transcript-row";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
@@ -208,6 +209,8 @@ const ChatBubbleBody = ({
           <ContextEditBadge className="h-4" e={e} />
           {clamps && !raw ? (
             <Button
+              aria-controls={chatPanelId(collapseId)}
+              aria-expanded={open}
               className={META_BUTTON}
               data-testid="chat-show-all"
               onClick={() => onToggle(collapseId, !open)}
@@ -231,7 +234,10 @@ const ChatBubbleBody = ({
           </CodeBlock>
         ) : (
           <div className={cn(BUBBLE, LANE_SURFACE[lane])}>
-            <div className={clampClass({ clamps, open })}>
+            <div
+              className={clampClass({ clamps, open })}
+              id={chatPanelId(collapseId)}
+            >
               {hasBody ? (
                 <Markdown text={e.body} />
               ) : (
@@ -270,6 +276,7 @@ const ChatThinkingBody = ({
       <button
         className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-border border-dashed px-3 py-1.5 text-muted-foreground text-xs italic hover:bg-muted/30"
         data-state={open ? "open" : "closed"}
+        {...disclosureProps(chatPanelId(collapseId), open)}
         onClick={() => onToggle(collapseId, !open)}
         type="button"
       >
@@ -284,7 +291,7 @@ const ChatThinkingBody = ({
           : ` · ${fmtThinkingMs(e.thinkingDurationMs)}`}
       </button>
       {open ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1" id={chatPanelId(collapseId)}>
           <div
             className={cn(
               "rounded-md bg-muted/30 px-3 py-2 text-muted-foreground text-xs",

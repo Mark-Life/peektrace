@@ -122,6 +122,13 @@ const EVENTS: readonly TimelineEvent[] = [
     title: "System prompt",
     tokensEst: 2000,
   }),
+  evt({
+    body: "<task-notification>done</task-notification>",
+    index: 15,
+    kind: "user-prompt",
+    promptOrigin: "task-notification",
+    title: "Task notification",
+  }),
 ];
 
 const SESSION = {
@@ -231,9 +238,9 @@ test("chat renders every event kind", () => {
   const html = chatHtml({ open: false });
   expect(html).toContain('data-testid="dumbzone-divider"');
   expect(html).toContain('data-testid="chat-turn-rule"');
-  // 14 non-system rows, minus the result folded into its call, minus the three
+  // 15 non-system rows, minus the result folded into its call, minus the three
   // context injections that render as chips (their testid is `chat-chip`).
-  expect(countOf(html, 'data-testid="history-event"')).toBe(10);
+  expect(countOf(html, 'data-testid="history-event"')).toBe(11);
   expect(html).toContain('data-kind="system-prompt"');
   expect(html).toContain("system prompt · ~2K");
   expect(html).not.toContain("You are a coding agent.");
@@ -249,6 +256,57 @@ test("chat renders expanded without throwing", () => {
   expect(html).toContain("file contents");
   expect(html).toContain("running notes");
   expect(html).toContain("You are a coding agent.");
+});
+
+const renderChat = (open: boolean) =>
+  renderToStaticMarkup(
+    <TranscriptChat
+      a={SESSION}
+      activeMark={null}
+      allOpen={open}
+      bulkKey={0}
+      crossEvtIdx={9}
+      isOpen={() => open}
+      jump={null}
+      landing={LANDING}
+      marks={NO_MARKS}
+      onToggle={noop}
+      queryActive={false}
+      rows={ROWS}
+      stickyHeight={0}
+      tools={indexTools(SESSION)}
+      turns={TURNS}
+    />
+  );
+
+const controlled = (html: string) =>
+  [...html.matchAll(/aria-controls="(chat:[^"]+)"/g)].map(([, id]) => id ?? "");
+
+test("collapsed chat toggles say closed and point at no missing panel", () => {
+  const html = renderChat(false);
+  expect(html).not.toContain('aria-expanded="true"');
+  const toggles = (
+    html.match(/<button [^>]*aria-expanded="false"[^>]*>/g) ?? []
+  )
+    .filter((tag) => !tag.includes('data-slot="collapsible-trigger"'))
+    .filter((tag) => !tag.includes('data-testid="chat-chip"'));
+  // three bands, the thinking strip, the notice, Show all
+  expect(toggles).toHaveLength(6);
+  // only Show all keeps its target mounted while closed
+  expect(controlled(html)).toEqual(["chat:13:body"]);
+  expect(html).toContain('id="chat:13:body"');
+});
+
+test("expanded chat toggles say open and each controls a rendered panel", () => {
+  const html = renderChat(true);
+  expect(html).not.toContain('aria-expanded="false"');
+  const ids = controlled(html);
+  expect(ids.toSorted()).toEqual(
+    [2, 9, 10, 13, 14, 15].map((pos) => `chat:${pos}:body`).toSorted()
+  );
+  for (const id of ids) {
+    expect(countOf(html, `id="${id}"`)).toBe(1);
+  }
 });
 
 test("expanded chat code blocks wrap instead of scrolling sideways", () => {

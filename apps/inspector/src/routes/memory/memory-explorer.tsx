@@ -148,6 +148,7 @@ const Filters = ({
 }) => (
   <>
     <Input
+      aria-label="Search memories"
       className="max-w-xs"
       data-testid="memory-search"
       onChange={(e) => onQuery(e.target.value)}

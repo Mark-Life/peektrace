@@ -30,7 +30,11 @@ import {
   planIndexOfTarget,
 } from "../../lib/history-jump";
 import type { ToolMarks } from "../../lib/session-markers";
-import { chatCollapseId } from "../../lib/session-view";
+import {
+  chatCollapseId,
+  chatPanelId,
+  disclosureProps,
+} from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import { toolNameOf, toolState } from "../../lib/tool-event";
 import {
@@ -102,6 +106,7 @@ const Band = ({
       >
         <button
           className="flex w-full items-center justify-center gap-1.5"
+          {...disclosureProps(chatPanelId(id), open)}
           onClick={() => onToggle(id, !open)}
           type="button"
         >
@@ -112,7 +117,10 @@ const Band = ({
         </button>
         <p className="truncate text-muted-foreground text-xs">{e.preview}</p>
         {open ? (
-          <div className="mt-1 flex flex-col gap-1 text-left">
+          <div
+            className="mt-1 flex flex-col gap-1 text-left"
+            id={chatPanelId(id)}
+          >
             <Markdown
               className={cn(
                 "max-h-[28rem] overflow-auto text-xs",

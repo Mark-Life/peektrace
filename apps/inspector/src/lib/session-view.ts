@@ -34,6 +34,16 @@ export const eventCollapseId = (pos: number) => `event:${pos}`;
  *  need two clicks. It also lets each layout keep its own reading position. */
 export const chatCollapseId = (pos: number) => `chat:${pos}`;
 
+/** DOM id of the body a chat-node toggle opens. */
+export const chatPanelId = (collapseId: string) => `${collapseId}:body`;
+
+/** Disclosure attributes for a toggle whose panel mounts only while open:
+ *  `aria-controls` must not point at a missing element. */
+export const disclosureProps = (panelId: string, open: boolean) => ({
+  "aria-controls": open ? panelId : undefined,
+  "aria-expanded": open,
+});
+
 /** Stable Collapsible id for a subagent card. */
 export const subagentCollapseId = (id: string) => `subagent:${id}`;
 
