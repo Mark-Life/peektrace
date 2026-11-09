@@ -12,6 +12,9 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 export interface ExportOptions {
   /** ISO time stamped into the output; passed in so renderers stay pure. */
   readonly exportedAt: string;
+  /** The real home directory. Collapsed exactly, so a dashed username cannot
+   * leak through a project slug. */
+  readonly home?: string | undefined;
   /** The input was already redacted; home paths are then collapsed to `~`. */
   readonly redacted: boolean;
 }
@@ -37,24 +40,101 @@ const WSL_HOME = new RegExp(
   `\\\\{2,4}wsl(?:\\.localhost|\\$)\\\\{1,2}[^\\s\\\\/]+\\\\{1,2}home\\\\{1,2}${NAME}`,
   "giu"
 );
-/** Claude project slugs: `-home-<user>-...`, `C--Users-<user>-...`. */
+/** Claude project slugs: `-home-<user>-...`, `C--Users-<user>-...`.
+ * Pi slugs add a `--` frame and keep dots: `--home-<user>-work--`. */
 const HOME_SLUG = new RegExp(
-  `(?<![${WORD}-])(?:-(?:home|Users)|[A-Za-z]--Users)-[${WORD}@]+`,
+  `(?<![${WORD}-])(?:-(?:home|Users)|[A-Za-z]--[Uu]sers)-[${WORD}@]+`,
+  "gu"
+);
+/** Pi slugs (`--home-<user>-...--`). The closing `--` keeps CLI flags such as
+ * `--home-dir` out. */
+const PI_HOME_SLUG = new RegExp(
+  `(?<![${WORD}])--(?:home|Users|[A-Za-z]--[Uu]sers)-[${WORD}@]+(?=[${WORD}@.-]*--(?![${WORD}@.-]))`,
   "gu"
 );
 
-/** Replace the home directory prefix (`/home/<user>`, `/Users/<user>`,
- * `C:\Users\<user>`, WSL and `file://` forms, project slugs) with `~`,
- * anywhere in the text. Machine independent. Best effort: a route such as
- * `/home/dashboard` also collapses, and a hyphenated username in a slug keeps
- * its tail. */
-export const collapseHomePaths = (text: string) =>
-  text
-    .replace(URI_HOME, "/~")
-    .replace(UNIX_HOME, "~")
-    .replace(WINDOWS_HOME, "~")
-    .replace(WSL_HOME, "~")
-    .replace(HOME_SLUG, "-~");
+const SEPARATORS = /[\\/]+/;
+const TRAILING_SEPARATORS = /[\\/]+$/;
+const LEADING_SEPARATOR = /^[\\/]/;
+const PI_SLUG_CHARS = /[\\/:]/g;
+const DRIVE = /^[A-Za-z]:/;
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** How Claude names a project directory: every non-alphanumeric becomes `-`. */
+const slugOf = (path: string) => path.replace(/[^a-zA-Z0-9]/g, "-");
+
+/** How Pi names one: `--<path>--`, only separators and `:` become `-`. */
+const piSlugOf = (path: string) =>
+  `--${path.replace(LEADING_SEPARATOR, "").replace(PI_SLUG_CHARS, "-")}`;
+
+interface HomeMatchers {
+  readonly path: RegExp;
+  readonly piSlug: RegExp;
+  readonly slug: RegExp;
+  readonly uri?: RegExp;
+}
+
+const buildHomeMatchers = (home: string): HomeMatchers | undefined => {
+  const trimmed = home.replace(TRAILING_SEPARATORS, "");
+  const segments = home.split(SEPARATORS).filter((seg) => seg !== "");
+  if (segments.length < 2) {
+    return;
+  }
+  const rooted = home.startsWith("/");
+  const sep = home.includes("\\") ? "(?:\\\\{1,2}|\\/)" : "\\/";
+  const body = `${rooted ? "\\/" : ""}${segments.map(escapeRe).join(sep)}`;
+  const flags = DRIVE.test(home) ? "giu" : "gu";
+  const tail = `(?![${WORD}-])`;
+  const behind = rooted ? `[${WORD}./]` : `[${WORD}.]`;
+  return {
+    path: new RegExp(`(?<!${behind})${body}${tail}`, flags),
+    // A Windows home inside `file:///C:/...` is left to the path matcher.
+    ...(rooted
+      ? { uri: new RegExp(`(?<=\\/|:\\/\\/file)${body}${tail}`, flags) }
+      : {}),
+    slug: new RegExp(
+      `(?<![${WORD}-])${escapeRe(slugOf(trimmed))}(?![a-zA-Z0-9])`,
+      flags
+    ),
+    piSlug: new RegExp(
+      `(?<![${WORD}])${escapeRe(piSlugOf(trimmed))}(?![${WORD}])`,
+      flags
+    ),
+  };
+};
+
+const identity = (text: string) => text;
+
+/** Build a function that replaces the home directory prefix (`/home/<user>`,
+ * `/Users/<user>`, `C:\Users\<user>`, WSL and `file://` forms, Claude and Pi
+ * project slugs) with `~`, anywhere in the text. Machine independent. When
+ * `home` is known it is collapsed exactly first, in path and slug form.
+ * Without it the match is best effort: a route such as `/home/dashboard` also
+ * collapses, and a hyphenated username in a slug keeps its tail. */
+export const homeCollapser = (home?: string): ((text: string) => string) => {
+  const exact = home === undefined ? undefined : buildHomeMatchers(home);
+  const known =
+    exact === undefined
+      ? identity
+      : (text: string) =>
+          (exact.uri === undefined ? text : text.replace(exact.uri, "/~"))
+            .replace(exact.path, "~")
+            .replace(exact.piSlug, "--~")
+            .replace(exact.slug, "-~");
+  return (text) =>
+    known(text)
+      .replace(URI_HOME, "/~")
+      .replace(UNIX_HOME, "~")
+      .replace(WINDOWS_HOME, "~")
+      .replace(WSL_HOME, "~")
+      .replace(PI_HOME_SLUG, "--~")
+      .replace(HOME_SLUG, "-~");
+};
+
+/** One-shot form of `homeCollapser`; build the collapser once for bulk use. */
+export const collapseHomePaths = (text: string, home?: string) =>
+  homeCollapser(home)(text);
 
 const MIN_FENCE = 3;
 const BACKTICK_RUN = /`+/g;
@@ -183,9 +263,9 @@ const prepareEvent = (
  * Drops transcript paths and image refs; skips events with no text. */
 export const prepareExport = (
   session: ParsedSession,
-  { exportedAt, redacted }: ExportOptions
+  { exportedAt, redacted, home }: ExportOptions
 ): ExportDoc => {
-  const clean = redacted ? collapseHomePaths : (text: string) => text;
+  const clean = redacted ? homeCollapser(home) : (text: string) => text;
   const events = session.events.flatMap((raw) => {
     const e = prepareEvent(raw, clean);
     return e ? [e] : [];

@@ -11,6 +11,7 @@
  * the `AgentRegistry` are injectable so tests can point Claude resolution at the
  * committed fixtures.
  */
+import { homedir } from "node:os";
 import type { FileSystem } from "@effect/platform";
 import type { PlatformError } from "@effect/platform/Error";
 import { BunFileSystem } from "@effect/platform-bun";
@@ -42,6 +43,7 @@ import {
   StatsCacheLive,
   StatsService,
   StatsServiceLive,
+  scannedRoots,
   WatchService,
   WatchServiceLive,
 } from "@workspace/core";
@@ -247,10 +249,18 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
       const watch = yield* WatchService;
       const settings = yield* SettingsService;
       const stats = yield* StatsService;
+      const scanContext = yield* Effect.context<
+        AgentRegistry | FileSystem.FileSystem
+      >();
+      const serverInfo = scannedRoots.pipe(
+        Effect.map((agents) => ({ readOnly, userHome: homedir(), agents })),
+        Effect.provide(scanContext)
+      );
 
       return withRootSpans(
         {
           "capabilities.list": () => caps.list(),
+          "server.info": () => serverInfo,
           "watch.poll": () => watch.versions,
           "sessions.list": (filter) =>
             sessions
@@ -290,6 +300,7 @@ const makeHandlersLive = (rootSpans: boolean, readOnly: boolean) =>
                 ...(redact === undefined ? {} : { redact }),
               })
             ),
+          "sessions.search": (req) => sessions.search(req),
           "memory.allVaults": () => memory.getAllVaults(),
           "memory.projects": () => memory.listProjects(),
           "memory.vault": ({ project }) => memory.getVault(project),
@@ -408,7 +419,16 @@ const coreServicesLayer = (options?: HandlersLayerOptions) => {
     Layer.provide(agents),
     Layer.provide(fileSystem)
   );
-  return Layer.mergeAll(sessions, memory, caps, watch, settings, stats);
+  return Layer.mergeAll(
+    sessions,
+    memory,
+    caps,
+    watch,
+    settings,
+    stats,
+    agents,
+    fileSystem
+  );
 };
 
 /**

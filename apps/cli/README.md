@@ -154,6 +154,8 @@ always prints text. Put `--remote`, `--otel` and
 
 ## Commands
 
+`peektrace --help` lists every command. `peektrace <command> --help` shows its flags.
+
 ### `serve` — the headline
 
 Boots a loopback Bun HTTP server that mounts the Effect-RPC handler at
@@ -252,6 +254,39 @@ peektrace sessions ls --cwd .
 peektrace sessions ls --project -Users-me-myrepo --json
 ```
 
+### `sessions search <text>` — find sessions by content
+
+Scans the text of every session, across every agent, for a case-insensitive
+phrase. Spaces in the query match any run of whitespace. Newest sessions come
+first, and the scan stops once it has found more than `--limit` sessions.
+Message and tool text counts, including tool input such as file paths. JSON
+keys, ids, git info, model and usage settings and encoded blobs do not. To
+search for text that starts with `-`, put it after `--`:
+`sessions search -- -v`. Each session shows its match count and up to 3
+distinct matches as `L<line>  <snippet>`. `L<line>` is the 1-based line in the
+transcript (for OpenCode, in the text the reader builds). Subagent transcripts
+are not searched.
+
+Snippets, titles and projects are redacted by default (secrets and home paths).
+Redaction is best effort. `--no-redact` keeps the raw text, so treat that output
+as private.
+
+| Flag | Effect |
+| --- | --- |
+| `--agent <id>` | `claude`, `codex`, `pi`, `opencode` or `all` (default `all`) |
+| `--project <name>` | Same as `sessions ls`; the redacted name shown in results works too |
+| `--since <when>` | Same as `sessions ls` |
+| `--limit <n>` | Max sessions (default 20, `0` = all) |
+| `--no-redact` | Keep secrets and home paths |
+
+`--json` prints the raw result: `sessions`, `truncated`, `scannedSessions` and
+`unreadable`. With no match the command exits 0 and says so on stderr.
+
+```sh
+peektrace sessions search "retry backoff"
+peektrace sessions search "ECONNRESET" --agent claude --since 7d --json
+```
+
 ### `sessions analyze [<id>]` — context-budget forensics
 
 Reproduces the `session-report` math headlessly: verdict
@@ -332,6 +367,44 @@ machine.
 
 ```json
 { "statusLine": { "type": "command", "command": "peektrace statusline" } }
+```
+
+### `mcp` — MCP server for agents
+
+Runs a stdio MCP server, so an agent can query peektrace without shelling
+out. It serves five read-only tools:
+
+| Tool | Same as |
+| --- | --- |
+| `sessions_list` | `sessions ls` (`agent`, `project`, `since`, `cwd`, `limit`) |
+| `sessions_search` | `sessions search` (`q`, `agent`, `project`, `since`, `limit`) |
+| `sessions_analyze` | `sessions analyze` (`id`, `latest`, `cwd`, `parent`) |
+| `stats_report` | `stats` (`days`, `limit`, `agent`) |
+| `stats_drill` | `stats drill` (`table`, `key`, `days`, `limit`, `agent`, `offset`, `pageSize`) |
+
+Each tool returns the compact text the CLI prints, with the CLI's stderr
+notes added at the end. Pass `format: "json"` to get the `--json` payload.
+A report DRILL cell `--cause K` maps to `stats_drill {table:"cause", key:"K"}`.
+
+- Local only: `--remote` is refused.
+- Redacted: no tool accepts `redact` or `force`, so core's default redaction
+  always applies. Titles, projects and cwds still reach the agent, and through
+  it the agent's model provider, the same as when the agent runs the CLI.
+- stdout carries only the protocol (newline-delimited JSON-RPC). Logs go to
+  stderr.
+
+Claude Code:
+
+```bash
+claude mcp add peektrace -- peektrace mcp
+```
+
+Codex, in `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.peektrace]
+command = "peektrace"
+args = ["mcp"]
 ```
 
 ### `memory ls [project]` — memories overview / one vault

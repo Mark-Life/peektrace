@@ -6,7 +6,7 @@
  * containment check against the agent roots (+ the temp dir).
  */
 import { tmpdir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import type { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import type { AgentId, AgentRegistryShape } from "../agents";
@@ -70,6 +70,10 @@ const isWithin = (path: string, roots: readonly string[]): boolean => {
     return r === b || r.startsWith(b + sep);
   });
 };
+
+/** A single path segment: no separators, not `.` or `..`. */
+const isPlainSlug = (slug: string) =>
+  slug.length > 0 && slug !== "." && slug !== ".." && basename(slug) === slug;
 
 /** Apply an editable-field patch onto a clone of the current frontmatter. */
 const applyPatch = (
@@ -222,6 +226,20 @@ export const makeWrite = (deps: WriteDeps) => {
         );
       }
       const memoryDir = yield* memoryDirFor(args.project);
+      const projectExists =
+        isPlainSlug(args.project) &&
+        (yield* fs
+          .exists(dirname(memoryDir))
+          .pipe(Effect.orElseSucceed(() => false)));
+      if (!projectExists) {
+        return yield* Effect.fail(
+          new MemoryValidationError({
+            reason: "unknown project",
+            name: args.name,
+          })
+        );
+      }
+      yield* fs.makeDirectory(memoryDir, { recursive: true });
       const filePath = join(memoryDir, `${args.name}.md`);
       const alreadyExists = yield* fs
         .exists(filePath)

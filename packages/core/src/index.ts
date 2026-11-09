@@ -36,6 +36,7 @@ export {
   type WriteFsShape,
 } from "./services/fs";
 export * from "./services/memory";
+export { scannedRoots } from "./services/scan-roots";
 export {
   type AnalyzeOptions,
   analyze,
@@ -101,6 +102,12 @@ export {
   Usage,
   UserLine,
 } from "./services/sessions/schema";
+export {
+  SearchHit,
+  type SearchRequest,
+  SearchSession,
+  SessionSearchResult,
+} from "./services/sessions/search-schema";
 export {
   type AnalyzeRequest,
   type ListFilter,

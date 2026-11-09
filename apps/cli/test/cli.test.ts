@@ -27,6 +27,16 @@ import {
 } from "../src/render";
 
 describe("render", () => {
+  test("table cuts the last column to maxWidth", () => {
+    const out = table(["A", "TEXT"], [["1", "x".repeat(200)]], {
+      maxWidth: 40,
+    });
+    for (const line of out.split("\n")) {
+      expect(line.length).toBeLessThanOrEqual(40);
+    }
+    expect(out).toContain("…");
+  });
+
   test("table aligns columns and rules", () => {
     const out = table(["A", "BB"], [["1", "22"]]);
     const [head, rule, row] = out.split("\n");
@@ -210,4 +220,19 @@ describe("--remote transport failure", () => {
     expect(r.stderr).toContain("Invalid --remote URL");
     expect(r.stderr).not.toContain("peektrace serve");
   });
+});
+
+test("table measures display width, not string length", () => {
+  const out = table(["A", "B"], [["日本語日本語", "x"]], { maxWidth: 80 });
+  const widths = out.split("\n").map((l) => Bun.stringWidth(l));
+  expect(widths[2]).toBe(Bun.stringWidth("日本語日本語  x"));
+  expect(widths[1]).toBe(Bun.stringWidth("------------  -"));
+});
+
+test("table clips the last column by width without splitting a pair", () => {
+  const out = table(["A", "B"], [["a", "😀".repeat(60)]], { maxWidth: 40 });
+  for (const line of out.split("\n")) {
+    expect(Bun.stringWidth(line)).toBeLessThanOrEqual(40);
+    expect(line.isWellFormed()).toBe(true);
+  }
 });

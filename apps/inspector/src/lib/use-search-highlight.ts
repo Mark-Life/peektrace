@@ -6,7 +6,7 @@
  * its outline: React never renders that attribute, so setting it by hand is
  * safe.
  */
-import { type RefObject, useEffect, useRef } from "react";
+import { type RefObject, useEffect } from "react";
 import { rangesIn, textRanges } from "./history-search";
 
 /** Highlight names, matched by the `::highlight()` rules in the search bar. */
@@ -21,32 +21,25 @@ const registry = () =>
   typeof CSS !== "undefined" && "highlights" in CSS ? CSS.highlights : null;
 
 /**
- * The rendered card for collapse id `id`. Chat cards carry the id as their DOM
- * id; an opened context chip carries it on its header, so take the enclosing
- * chip card. Table rows carry no id: take the row at the id's place in `ids`
- * (one `history-event` node per row, in render order).
+ * The rendered card for collapse id `id`, or null when it is not drawn. Chat
+ * cards carry the id as their DOM id; an opened context chip carries it on its
+ * header, so take the enclosing chip card. Table rows carry it as
+ * `data-collapse-id`.
  */
 export const cardOf = ({
   container,
   id,
-  ids,
 }: {
   readonly container: HTMLElement;
   readonly id: string;
-  readonly ids: readonly string[];
 }) => {
-  if (!id.startsWith("event:")) {
-    const el = container.querySelector<HTMLElement>(`[id="${CSS.escape(id)}"]`);
-    return (
-      el?.closest<HTMLElement>('[data-testid="chat-chip-card"]') ?? el ?? null
-    );
-  }
-  const at = ids.indexOf(id);
-  return at < 0
-    ? null
-    : (container.querySelectorAll<HTMLElement>('[data-testid="history-event"]')[
-        at
-      ] ?? null);
+  const sel = CSS.escape(id);
+  const el = container.querySelector<HTMLElement>(
+    `[id="${sel}"], [data-collapse-id="${sel}"]`
+  );
+  return (
+    el?.closest<HTMLElement>('[data-testid="chat-chip-card"]') ?? el ?? null
+  );
 };
 
 /** The element holding the first rendered match of `needle` in `card`, or the
@@ -131,21 +124,12 @@ const paint = ({
 export const useSearchHighlight = ({
   containerRef,
   currentId,
-  ids,
   query,
 }: {
   readonly containerRef: RefObject<HTMLElement | null>;
   readonly currentId: string | null;
-  /** Transcript collapse ids in render order, for table-row lookup. */
-  readonly ids: readonly string[];
   readonly query: string;
 }) => {
-  // Read through a ref: a live append changes `ids` but needs no new observer.
-  const idsRef = useRef(ids);
-  useEffect(() => {
-    idsRef.current = ids;
-  }, [ids]);
-
   useEffect(() => {
     const container = containerRef.current;
     const needle = query.toLowerCase();
@@ -159,9 +143,7 @@ export const useSearchHighlight = ({
     const run = () => {
       frame = 0;
       const current =
-        currentId === null
-          ? null
-          : cardOf({ container, id: currentId, ids: idsRef.current });
+        currentId === null ? null : cardOf({ container, id: currentId });
       if (marked !== current) {
         marked?.removeAttribute(CURRENT_ATTR);
         current?.setAttribute(CURRENT_ATTR, "");

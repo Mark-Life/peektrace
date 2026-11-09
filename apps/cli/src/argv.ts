@@ -20,3 +20,94 @@ export const firstPositional = (argv: readonly string[]) => {
 /** Commands that run on every status-bar refresh and must not write telemetry. */
 export const skipsTelemetry = (argv: readonly string[]) =>
   firstPositional(argv) === "statusline";
+
+/** Flag name without an `=value` suffix. */
+const flagName = (arg: string) => arg.split("=")[0] ?? arg;
+
+const isHelpFlag = (arg: string) => {
+  const name = flagName(arg);
+  return name === "--help" || name === "-h";
+};
+
+/** True when `--help` / `-h` comes before any subcommand (the owned root page).
+ * `--completions` wins over help, as in the lib. */
+export const isRootHelp = (argv: readonly string[]) => {
+  const args = argv.slice(2);
+  if (args.some((arg) => flagName(arg) === "--completions")) {
+    return false;
+  }
+  const first = firstPositional(argv);
+  const helpAt = args.findIndex(isHelpFlag);
+  if (helpAt < 0) {
+    return false;
+  }
+  return first === undefined || args.indexOf(first) > helpAt;
+};
+
+/** The group named by `<group> --help` (help flag anywhere, no deeper subcommand),
+ * or undefined. These pages are owned because the lib pads them to the widest usage line. */
+export const helpGroup = <G extends string>(
+  argv: readonly string[],
+  groups: readonly G[]
+): G | undefined => {
+  const args = argv.slice(2);
+  if (
+    args.some((arg) => flagName(arg) === "--completions") ||
+    !args.some(isHelpFlag)
+  ) {
+    return;
+  }
+  const first = firstPositional(argv);
+  const group = groups.find((name) => name === first);
+  if (group === undefined) {
+    return;
+  }
+  const positionals: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i] ?? "";
+    if (VALUE_FLAGS.has(arg)) {
+      i++;
+    } else if (!arg.startsWith("-")) {
+      positionals.push(arg);
+    }
+  }
+  return positionals.length === 1 ? group : undefined;
+};
+
+/** Args before a bare `--`; after it everything is a positional, never a flag. */
+export const beforeSeparator = (argv: readonly string[]) => {
+  const end = argv.indexOf("--");
+  return end < 0 ? argv : argv.slice(0, end);
+};
+
+/** Subcommands whose positional arguments are free text the user typed. */
+const FREE_TEXT = new Set(["search"]);
+
+/** Index of a free-text subcommand in `args` (without the runtime), or -1. */
+const freeTextIndex = (args: readonly string[]) => {
+  const cmd = args.findIndex((a) => FREE_TEXT.has(a));
+  return args[cmd - 1] === "sessions" ? cmd : -1;
+};
+
+/** True when the command line carries user-typed free text. */
+export const hasFreeText = (argv: readonly string[]) =>
+  freeTextIndex(argv.slice(2)) >= 0;
+
+/**
+ * Argv text safe to store in telemetry: positionals of a free-text command
+ * (`sessions search <q>`) are replaced, flags and their shape stay.
+ */
+export const loggableArgv = (argv: readonly string[]) => {
+  const args = argv.slice(2);
+  const cmd = freeTextIndex(args);
+  const sep = args.indexOf("--");
+  if (cmd < 0) {
+    return args.join(" ");
+  }
+  return args
+    .map((a, i) => {
+      const flag = a.startsWith("-") && (sep < 0 || i < sep);
+      return i > cmd && !flag && a !== "--" ? "<text>" : a;
+    })
+    .join(" ");
+};

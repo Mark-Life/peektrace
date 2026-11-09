@@ -3,7 +3,9 @@
  * The plan is unit-tested elsewhere; this covers the part unit tests cannot —
  * that the components mount at all, over a session carrying every `EventKind`,
  * and that the markers a script would target (`history-event`, `chat-chip`,
- * `dumbzone-divider`) come out in the counts the layout promises.
+ * `dumbzone-divider`) come out in the counts the layout promises. The
+ * transcripts only mount what is near the screen, so the counts render every
+ * block through the same per-block views the lists use.
  */
 
 import { expect, test } from "bun:test";
@@ -12,12 +14,25 @@ import type {
   TimelineEvent,
   Turn,
 } from "@workspace/core/services/sessions/schema";
+import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
+import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
+import { buildChatPlan, chatNodeKeys } from "../src/lib/chat-lane";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import type { ToolMarks } from "../src/lib/session-markers";
 import { indexTools } from "../src/lib/tool-event";
-import { TranscriptChat } from "../src/routes/sessions/transcript-chat";
-import { TranscriptTable } from "../src/routes/sessions/transcript-table";
+import { HiddenNote } from "../src/routes/sessions/hidden-note";
+import {
+  ChatNodeView,
+  TranscriptChat,
+} from "../src/routes/sessions/transcript-chat";
+import {
+  TableRowView,
+  TranscriptTable,
+} from "../src/routes/sessions/transcript-table";
+
+/** The table list carrying an inline style (spacer or fixed height). */
+const STYLED_TABLE_LIST = /data-testid="table-transcript"[^>]*style=/;
 
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
   body: "",
@@ -107,6 +122,13 @@ const EVENTS: readonly TimelineEvent[] = [
     title: "System prompt",
     tokensEst: 2000,
   }),
+  evt({
+    body: "<task-notification>done</task-notification>",
+    index: 15,
+    kind: "user-prompt",
+    promptOrigin: "task-notification",
+    title: "Task notification",
+  }),
 ];
 
 const SESSION = {
@@ -152,6 +174,7 @@ const TURNS = EVENTS.map((e) => {
 
 /** No stats markers: the transcript renders the same with or without them. */
 const NO_MARKS: ToolMarks = new Map();
+const LANDING = { done: { current: null } };
 
 const noop = () => {
   // collapse state is not exercised by a static render
@@ -159,28 +182,65 @@ const noop = () => {
 
 const countOf = (html: string, needle: string) => html.split(needle).length - 1;
 
-test("chat renders every event kind", () => {
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark={null}
-      allOpen={false}
-      crossEvtIdx={9}
-      isOpen={() => false}
-      marks={NO_MARKS}
-      onToggle={noop}
-      queryActive={false}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
+/** Every block of the chat plan, drawn the way the virtual list draws one. */
+const chatHtml = ({
+  activeMark = null,
+  marks = NO_MARKS,
+  open,
+}: {
+  readonly activeMark?: string | null;
+  readonly marks?: ToolMarks;
+  readonly open: boolean;
+}) => {
+  const plan = buildChatPlan({ crossEvtIdx: 9, rows: ROWS, turns: TURNS });
+  const keys = chatNodeKeys(plan);
+  return renderToStaticMarkup(
+    <div>
+      {plan.map((n, i) => (
+        <ChatNodeView
+          a={SESSION}
+          activeMark={activeMark}
+          allOpen={open}
+          isOpen={() => open}
+          key={keys[i]}
+          marks={marks}
+          n={n}
+          onToggle={noop}
+          queryActive={open}
+          tools={indexTools(SESSION)}
+        />
+      ))}
+    </div>
   );
-  expect(html).toContain('data-testid="chat-transcript"');
+};
+
+/** Every table row, drawn the way the virtual list draws one. */
+const tableHtml = (divider: (pos: number) => boolean) =>
+  renderToStaticMarkup(
+    <div>
+      {ROWS.map((row) => (
+        <TableRowView
+          a={SESSION}
+          divider={divider(row.pos)}
+          isOpen={() => false}
+          key={row.pos}
+          onToggle={noop}
+          row={row}
+          share={undefined}
+          tools={indexTools(SESSION)}
+          turn={TURNS[row.pos] ?? 0}
+        />
+      ))}
+    </div>
+  );
+
+test("chat renders every event kind", () => {
+  const html = chatHtml({ open: false });
   expect(html).toContain('data-testid="dumbzone-divider"');
   expect(html).toContain('data-testid="chat-turn-rule"');
-  // 14 non-system rows, minus the result folded into its call, minus the three
+  // 15 non-system rows, minus the result folded into its call, minus the three
   // context injections that render as chips (their testid is `chat-chip`).
-  expect(countOf(html, 'data-testid="history-event"')).toBe(10);
+  expect(countOf(html, 'data-testid="history-event"')).toBe(11);
   expect(html).toContain('data-kind="system-prompt"');
   expect(html).toContain("system prompt · ~2K");
   expect(html).not.toContain("You are a coding agent.");
@@ -192,42 +252,65 @@ test("chat renders every event kind", () => {
 });
 
 test("chat renders expanded without throwing", () => {
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark={null}
-      allOpen={true}
-      crossEvtIdx={9}
-      isOpen={() => true}
-      marks={NO_MARKS}
-      onToggle={noop}
-      queryActive={true}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
-  );
+  const html = chatHtml({ open: true });
   expect(html).toContain("file contents");
   expect(html).toContain("running notes");
   expect(html).toContain("You are a coding agent.");
 });
 
-test("expanded chat code blocks wrap instead of scrolling sideways", () => {
-  const html = renderToStaticMarkup(
+const renderChat = (open: boolean) =>
+  renderToStaticMarkup(
     <TranscriptChat
       a={SESSION}
       activeMark={null}
-      allOpen={true}
+      allOpen={open}
+      bulkKey={0}
       crossEvtIdx={9}
-      isOpen={() => true}
+      isOpen={() => open}
+      jump={null}
+      landing={LANDING}
       marks={NO_MARKS}
       onToggle={noop}
-      queryActive={true}
+      queryActive={false}
       rows={ROWS}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
   );
+
+const controlled = (html: string) =>
+  [...html.matchAll(/aria-controls="(chat:[^"]+)"/g)].map(([, id]) => id ?? "");
+
+test("collapsed chat toggles say closed and point at no missing panel", () => {
+  const html = renderChat(false);
+  expect(html).not.toContain('aria-expanded="true"');
+  const toggles = (
+    html.match(/<button [^>]*aria-expanded="false"[^>]*>/g) ?? []
+  )
+    .filter((tag) => !tag.includes('data-slot="collapsible-trigger"'))
+    .filter((tag) => !tag.includes('data-testid="chat-chip"'));
+  // three bands, the thinking strip, the notice, Show all
+  expect(toggles).toHaveLength(6);
+  // only Show all keeps its target mounted while closed
+  expect(controlled(html)).toEqual(["chat:13:body"]);
+  expect(html).toContain('id="chat:13:body"');
+});
+
+test("expanded chat toggles say open and each controls a rendered panel", () => {
+  const html = renderChat(true);
+  expect(html).not.toContain('aria-expanded="false"');
+  const ids = controlled(html);
+  expect(ids.toSorted()).toEqual(
+    [2, 9, 10, 13, 14, 15].map((pos) => `chat:${pos}:body`).toSorted()
+  );
+  for (const id of ids) {
+    expect(countOf(html, `id="${id}"`)).toBe(1);
+  }
+});
+
+test("expanded chat code blocks wrap instead of scrolling sideways", () => {
+  const html = chatHtml({ open: true });
   const pres = html.match(/<pre class="[^"]*"/g) ?? [];
   expect(pres.length).toBeGreaterThan(0);
   for (const pre of pres) {
@@ -237,33 +320,83 @@ test("expanded chat code blocks wrap instead of scrolling sideways", () => {
 });
 
 test("table renders the same rows", () => {
-  const html = renderToStaticMarkup(
-    <TranscriptTable
+  const html = tableHtml((pos) => pos === 9);
+  expect(countOf(html, 'data-testid="history-event"')).toBe(ROWS.length);
+  expect(countOf(html, 'data-testid="dumbzone-divider"')).toBe(1);
+});
+
+test("table tool rows carry their tool-use id, so call links can land", () => {
+  const html = tableHtml(() => false);
+  expect(countOf(html, 'data-tool-use-id="t1"')).toBe(2);
+  expect(html).toContain('data-tool-use-id="orphan"');
+});
+
+test("both transcripts mount as lists before the page has scrolled", () => {
+  const chat = renderToStaticMarkup(
+    <TranscriptChat
       a={SESSION}
+      activeMark={null}
+      allOpen={false}
+      bulkKey={0}
       crossEvtIdx={9}
       isOpen={() => false}
-      onSort={noop}
+      jump={null}
+      landing={LANDING}
+      marks={NO_MARKS}
       onToggle={noop}
+      queryActive={false}
       rows={ROWS}
-      sort={DEFAULT_HISTORY_SORT}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
   );
-  expect(countOf(html, 'data-testid="history-event"')).toBe(ROWS.length);
-  expect(html).toContain('data-testid="dumbzone-divider"');
+  expect(chat).toContain('data-testid="chat-transcript"');
+  expect(chat).toContain('aria-posinset="1"');
+  expect(chat).toContain('data-testid="history-event"');
+  const table = renderToStaticMarkup(
+    <TranscriptTable
+      a={SESSION}
+      bulkKey={0}
+      crossEvtIdx={9}
+      isOpen={() => false}
+      jump={null}
+      jumpIndex={-1}
+      landing={LANDING}
+      onSort={noop}
+      onToggle={noop}
+      rows={ROWS}
+      sort={DEFAULT_HISTORY_SORT}
+      stickyHeight={0}
+      tools={indexTools(SESSION)}
+      turns={TURNS}
+    />
+  );
+  expect(table).toContain('data-testid="table-transcript"');
+  expect(table).toContain(`aria-setsize="${ROWS.length}"`);
+  // A short transcript mounts every row, so find-in-page reaches all of it.
+  expect(countOf(table, "data-index=")).toBe(ROWS.length);
+  // ...in plain flow, with no spacer or fixed height to keep current.
+  expect(table).not.toMatch(STYLED_TABLE_LIST);
+  expect(countOf(table, "data-key=")).toBe(ROWS.length);
+  expect(table).toContain('data-testid="history-event"');
 });
 
 test("token sort shows window share, hides the divider, marks the header", () => {
   const html = renderToStaticMarkup(
     <TranscriptTable
       a={SESSION}
+      bulkKey={0}
       crossEvtIdx={9}
       isOpen={() => false}
+      jump={null}
+      jumpIndex={-1}
+      landing={LANDING}
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
       sort={{ key: "tokens", dir: "desc" }}
+      stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
@@ -277,10 +410,14 @@ test("token sort shows window share, hides the divider, marks the header", () =>
 test("empty filters read the same in both layouts", () => {
   const props = {
     a: SESSION,
+    bulkKey: 0,
     crossEvtIdx: -1,
     isOpen: () => false,
+    jump: null,
+    landing: LANDING,
     onToggle: noop,
     rows: [],
+    stickyHeight: 0,
     tools: indexTools(SESSION),
     turns: TURNS,
   };
@@ -314,22 +451,131 @@ test("a stats marker lands on the card its detector counted", () => {
       ],
     ],
   ]);
-  const html = renderToStaticMarkup(
-    <TranscriptChat
-      a={SESSION}
-      activeMark="piped-exit-code"
-      allOpen={false}
-      crossEvtIdx={9}
-      isOpen={() => false}
-      marks={marks}
-      onToggle={noop}
-      queryActive={false}
-      rows={ROWS}
-      tools={indexTools(SESSION)}
-      turns={TURNS}
-    />
-  );
+  const html = chatHtml({ activeMark: "piped-exit-code", marks, open: false });
   expect(countOf(html, 'data-testid="stats-marker"')).toBe(1);
   expect(html).toContain('data-detector="piped-exit-code"');
   expect(html).toContain("silent fail");
+});
+
+/** A summary worth jumping from: a crossing, a compaction, a subagent, and
+ *  two plotted turns. */
+const SUMMARY = {
+  ...SESSION,
+  compactionTurns: [1],
+  snapshots: [0, 1].map((turnIndex) => ({
+    ctx: 40_000,
+    outputTokens: 0,
+    slices: {},
+    turnIndex,
+  })),
+  subagents: [
+    { id: "agent-1", path: "sub.jsonl", peakContextTokens: 0, turns: 1 },
+  ],
+} satisfies AnalyzedSession;
+
+test("summary chips are jump buttons only when the host can jump", () => {
+  const live = renderToStaticMarkup(
+    <VerdictHeader a={SUMMARY} onJump={noop} />
+  );
+  expect(countOf(live, "<button")).toBe(3);
+  for (const id of ["chip-dumbzone", "chip-compaction", "chip-subagents"]) {
+    expect(live).toContain(`data-testid="${id}"`);
+  }
+  // The visible text is the name; the jump hint follows for screen readers.
+  expect(live).not.toContain("aria-label=");
+  expect(live).toContain("1 compaction(s)");
+  expect(live).toContain(", jump to the first in history");
+  const plain = renderToStaticMarkup(<VerdictHeader a={SUMMARY} />);
+  expect(countOf(plain, "<button")).toBe(0);
+  expect(plain).toContain("entered dumb zone @ turn 2");
+});
+
+test("the timeline takes clicks and focus only when the host can jump", () => {
+  const live = renderToStaticMarkup(
+    <GrowthTimeline a={SUMMARY} onTurn={noop} />
+  );
+  expect(live).toContain('data-testid="timeline-hit-area"');
+  expect(countOf(live, 'role="button"')).toBe(2);
+  expect(countOf(live, 'tabindex="0"')).toBe(2);
+  expect(live).toContain('role="group"');
+  // Two markers, told apart by name; the rest is hidden from assistive tech.
+  expect(live).toContain('aria-label="Entered dumb zone at turn 2: jump');
+  expect(live).toContain('aria-label="Peak ');
+  expect(live).toContain('aria-hidden="true"');
+  const plain = renderToStaticMarkup(<GrowthTimeline a={SUMMARY} />);
+  expect(plain).not.toContain("timeline-hit");
+  expect(plain).not.toContain('role="button"');
+  expect(plain).toContain('role="img"');
+});
+
+test("the hidden note says which kind of jump the filters hide", () => {
+  const call = renderToStaticMarkup(
+    <HiddenNote hidden="call" onClear={noop} />
+  );
+  expect(call).toContain('data-testid="history-call-hidden"');
+  expect(call).toContain("The call this link points to");
+  const jump = renderToStaticMarkup(
+    <HiddenNote hidden="jump" onClear={noop} />
+  );
+  expect(jump).toContain('data-testid="history-jump-hidden"');
+  expect(jump).toContain("The place you jumped to");
+  expect(
+    renderToStaticMarkup(<HiddenNote hidden={false} onClear={noop} />)
+  ).toBe("");
+});
+
+test("a failed tool card keeps its badges out of the preview row", () => {
+  const events = EVENTS.map((e) => {
+    if (e.index === 3) {
+      return { ...e, preview: "read b.ts" };
+    }
+    return e.index === 4 ? { ...e, isError: true } : e;
+  });
+  const a = { ...SESSION, events };
+  const marks: ToolMarks = new Map([
+    [
+      "t1",
+      [
+        {
+          detector: "piped-exit-code",
+          label: "printed a failure (tsc) and exited 0",
+          seq: 4,
+          toolUseId: "t1",
+        },
+      ],
+    ],
+  ]);
+  const html = renderToStaticMarkup(
+    <TranscriptChat
+      a={a}
+      activeMark={null}
+      allOpen={false}
+      bulkKey={0}
+      crossEvtIdx={9}
+      isOpen={() => false}
+      jump={null}
+      landing={LANDING}
+      marks={marks}
+      onToggle={noop}
+      queryActive={false}
+      rows={events
+        .map((e, pos) => ({ e, pos }))
+        .filter(({ e }) => e.kind !== "system")}
+      stickyHeight={0}
+      tools={indexTools(a)}
+      turns={TURNS}
+    />
+  );
+  const start = html.indexOf('data-tool-use-id="t1"');
+  const end = html.indexOf("data-kind=", start);
+  const card = html.slice(start, end === -1 ? undefined : end);
+  const [header = "", summary = ""] = card.split('data-testid="tool-summary"');
+
+  expect(countOf(card, 'data-testid="tool-summary"')).toBe(1);
+  expect(header).toContain('data-testid="stats-marker"');
+  expect(header).toContain(">error</span>");
+  expect(summary).not.toContain(">error</span>");
+  expect(summary).not.toContain('data-testid="stats-marker"');
+  expect(summary).toContain("b.ts");
+  expect(summary).toContain("~0 → ~0");
 });

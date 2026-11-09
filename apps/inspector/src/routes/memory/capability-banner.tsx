@@ -1,17 +1,16 @@
-/** Capability verdict banner shown when the selected agent can't edit memory.
+/** Read-only notice shown when memory editing is blocked.
  *
- * Drives Phase 7.6: for any non-Claude agent the `memory.crud` matrix cell is
- * not `supported`, so every write affordance is hidden and this banner shows the
- * verdict + note (e.g. "Codex memory: planned"). Claude (supported) shows
- * nothing.
+ * Every write affordance is hidden while the server is read-only or `memory.crud`
+ * is not `supported`; this banner says why: the server mode, the matrix note, or
+ * the per-agent support summary.
  */
-import type { AgentId } from "@workspace/core/services/agent-id";
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from "@workspace/ui/components/alert";
 import { LockIcon } from "lucide-react";
+import { ReadOnlyReason } from "../../components/read-only";
 
 /** Map a support level to a short verdict phrase. */
 const VERDICT: Record<string, string> = {
@@ -21,24 +20,32 @@ const VERDICT: Record<string, string> = {
   supported: "supported",
 };
 
-/** Render the read-only verdict for a gated agent. */
+/** Render the blocked verdict. */
 export const CapabilityBanner = ({
-  agent,
+  blockedBy,
   level,
-  note,
+  detail,
 }: {
-  readonly agent: AgentId;
+  readonly blockedBy: "read-only" | "capability";
   readonly level: string;
-  readonly note?: string;
+  readonly detail: string;
 }) => (
-  <Alert className="mb-4" data-testid="capability-banner">
+  <Alert data-testid="capability-banner">
     <LockIcon className="size-4" />
-    <AlertTitle className="capitalize">
-      {agent} memory editing is {VERDICT[level] ?? level}
-    </AlertTitle>
-    <AlertDescription>
-      {note ??
-        `The capability matrix marks memory.crud as "${level}" for ${agent}; editing is read-only here. Claude is the only agent with markdown memory CRUD today.`}
-    </AlertDescription>
+    {blockedBy === "read-only" ? (
+      <>
+        <AlertTitle>Read-only server</AlertTitle>
+        <AlertDescription>
+          <p>
+            <ReadOnlyReason /> Memories can't be edited from here.
+          </p>
+        </AlertDescription>
+      </>
+    ) : (
+      <>
+        <AlertTitle>Memory editing is {VERDICT[level] ?? level}</AlertTitle>
+        <AlertDescription>{detail}</AlertDescription>
+      </>
+    )}
   </Alert>
 );

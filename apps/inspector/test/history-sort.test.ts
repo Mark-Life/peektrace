@@ -4,6 +4,7 @@ import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import {
   DEFAULT_HISTORY_SORT,
   historySortOf,
+  isForwardOrder,
   nextSort,
   sortRows,
 } from "../src/lib/history-sort";
@@ -81,4 +82,10 @@ test("sorting never mutates the input", () => {
   const input = [...ROWS];
   sortRows(input, { key: "tokens", dir: "desc" });
   expect(posOf(input)).toEqual([0, 1, 2, 3]);
+});
+
+test("only order ascending is forward order", () => {
+  expect(isForwardOrder(DEFAULT_HISTORY_SORT)).toBe(true);
+  expect(isForwardOrder({ key: "order", dir: "desc" })).toBe(false);
+  expect(isForwardOrder({ key: "tokens", dir: "asc" })).toBe(false);
 });

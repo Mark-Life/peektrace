@@ -17,9 +17,8 @@ import { findFreePort } from "../src/serve-core";
 
 const ENTRY = join(import.meta.dirname, "../src/index.ts");
 const PROJECT = "-synthetic-proj";
-const READY_TIMEOUT_MS = 20_000;
-const POLL_MS = 100;
 const URL_LINE = /Open:\s+(http:\/\/\S+)/;
+const LOOPBACK_LINE = /serving on (http:\/\/127\.0\.0\.1:\d+)/;
 const LONG_TOKEN = "k".repeat(40);
 
 setDefaultTimeout(45_000);
@@ -56,39 +55,55 @@ const serveArgs = (port: number, host: string) => [
   "--no-open",
 ];
 
+/**
+ * Drain `proc.stdout` for the life of the process and resolve with the first
+ * match of `re`. Draining keeps serve's later writes off a closed pipe. Rejects
+ * with the captured output if the stream ends first (serve exited).
+ */
+const waitForLine = (
+  proc: Bun.Subprocess<"ignore", "pipe", "ignore">,
+  re: RegExp
+) =>
+  new Promise<RegExpExecArray>((resolve, reject) => {
+    const decoder = new TextDecoder();
+    let out = "";
+    let matched = false;
+    (async () => {
+      for await (const chunk of proc.stdout) {
+        out += decoder.decode(chunk, { stream: true });
+        const match = matched ? null : re.exec(out);
+        if (match !== null) {
+          matched = true;
+          resolve(match);
+        }
+      }
+      if (!matched) {
+        reject(new Error(`serve exited before printing ${re}:\n${out}`));
+      }
+    })().catch(reject);
+  });
+
 /** Start `serve` on all interfaces and wait for its printed token URL. */
 const startServe = async (
   flags: readonly string[],
   extra: Record<string, string> = {}
 ): Promise<Server> => {
-  const port = await Effect.runPromise(findFreePort(42_000, "0.0.0.0"));
-  const proc = Bun.spawn([...serveArgs(port, "0.0.0.0"), ...flags], {
+  // Serve picks its own free port from 42000; the printed URL carries it.
+  const proc = Bun.spawn([...serveArgs(42_000, "0.0.0.0"), ...flags], {
     env: env(extra),
     stdout: "pipe",
     stderr: "ignore",
   });
-  const decoder = new TextDecoder();
-  let out = "";
-  (async () => {
-    for await (const chunk of proc.stdout) {
-      out += decoder.decode(chunk);
-    }
-  })();
-  const deadline = Date.now() + READY_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const match = URL_LINE.exec(out);
-    if (match?.[1] !== undefined) {
-      const url = new URL(match[1]);
-      return {
-        base: url.origin,
-        kill: () => proc.kill(),
-        token: url.searchParams.get("token") ?? "",
-      };
-    }
-    await Bun.sleep(POLL_MS);
-  }
-  proc.kill();
-  throw new Error(`serve did not print a token URL:\n${out}`);
+  const [, href = ""] = await waitForLine(proc, URL_LINE).catch((e) => {
+    proc.kill();
+    throw e;
+  });
+  const url = new URL(href);
+  return {
+    base: url.origin,
+    kill: () => proc.kill(),
+    token: url.searchParams.get("token") ?? "",
+  };
 };
 
 const createMemory = (server: Server) =>
@@ -189,22 +204,15 @@ describe("serve token handling", () => {
   });
 
   test("loopback ignores PEEKTRACE_TOKEN and needs no credentials", async () => {
-    const port = await Effect.runPromise(findFreePort(43_100, "127.0.0.1"));
-    const proc = Bun.spawn(serveArgs(port, "127.0.0.1"), {
+    const proc = Bun.spawn(serveArgs(43_100, "127.0.0.1"), {
       env: env({ PEEKTRACE_TOKEN: LONG_TOKEN }),
-      stdout: "ignore",
+      stdout: "pipe",
       stderr: "ignore",
     });
     try {
-      const deadline = Date.now() + READY_TIMEOUT_MS;
-      let status = 0;
-      while (Date.now() < deadline && status !== 200) {
-        status = await fetch(`http://127.0.0.1:${port}/health`)
-          .then((r) => r.status)
-          .catch(() => 0);
-        await Bun.sleep(POLL_MS);
-      }
-      expect(status).toBe(200);
+      // Serve picks its own free port from the start one, so use the one it prints.
+      const [, base] = await waitForLine(proc, LOOPBACK_LINE);
+      expect((await fetch(`${base}/health`)).status).toBe(200);
     } finally {
       proc.kill();
     }

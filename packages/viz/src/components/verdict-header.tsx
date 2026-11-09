@@ -2,8 +2,10 @@
  *
  * A health word (Healthy / Degrading / Rotting) derived from peak context vs
  * window, the peak gauge with its dumb-zone marker, and the headline metadata
- * grid (peak, turns, system tax, dumb-zone dwell).
+ * grid (peak, turns, system tax, output, dumb-zone dwell, cache, and the
+ * estimated cost when the session has one).
  */
+import { costSummary } from "@workspace/core/services/sessions/cost";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
@@ -17,6 +19,7 @@ import {
   ZONE_CLASSES,
   zoneOf,
 } from "../lib/session-format";
+import type { SessionJump } from "../lib/session-jump";
 
 /** Short id prefix shown in the metadata line. */
 const ID_PREFIX = 8;
@@ -28,6 +31,10 @@ const PROVIDER_LABEL: Record<string, string> = {
   pi: "Pi",
   opencode: "OpenCode",
 };
+
+/** The session's display name: its title, else the harness that produced it. */
+export const analyzedTitle = (a: Pick<AnalyzedSession, "provider" | "title">) =>
+  a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`;
 
 /** A single metadata cell. */
 const Meta = ({
@@ -44,6 +51,78 @@ const Meta = ({
     <div className="wrap-anywhere mt-0.5 text-sm">{children}</div>
   </div>
 );
+
+/**
+ * Cost cell value as visible text: total (or `—` when nothing is priced), who
+ * reported it, and the notes that qualify it.
+ */
+const CostValue = ({
+  cost,
+  provider,
+}: {
+  readonly cost: NonNullable<AnalyzedSession["cost"]>;
+  readonly provider: string;
+}) => {
+  const { total, notes } = costSummary(
+    cost,
+    PROVIDER_LABEL[provider] ?? provider
+  );
+  return (
+    <span
+      data-testid="session-cost"
+      title={cost.source === "estimate" ? "Estimate at list price" : undefined}
+    >
+      {total}
+      {notes.length > 0 ? (
+        <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
+      ) : null}
+    </span>
+  );
+};
+
+/** A summary chip. Given `onJump` it is a button that shows the place it
+ *  names in the transcript; without it, a plain badge. The visible text stays
+ *  the button's name, so its counts are read out and voice control matches
+ *  it; `hint` follows it for screen readers and as the tooltip. */
+const JumpChip = ({
+  children,
+  className,
+  hint,
+  jump,
+  onJump,
+  testId,
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly hint: string;
+  readonly jump: SessionJump;
+  readonly onJump: ((j: SessionJump) => void) | undefined;
+  readonly testId: string;
+}) =>
+  onJump ? (
+    <Badge
+      asChild
+      className={cn(
+        "min-h-6 cursor-pointer hover:bg-muted focus-visible:outline-none",
+        className
+      )}
+      variant="outline"
+    >
+      <button
+        data-testid={testId}
+        onClick={() => onJump(jump)}
+        title={hint}
+        type="button"
+      >
+        {children}
+        <span className="sr-only">, {hint}</span>
+      </button>
+    </Badge>
+  ) : (
+    <Badge className={className} variant="outline">
+      {children}
+    </Badge>
+  );
 
 /** The peak gauge track: fill width = peak fraction, dumb-zone tick overlaid. */
 const PeakGauge = ({ a }: { readonly a: AnalyzedSession }) => {
@@ -72,8 +151,16 @@ const PeakGauge = ({ a }: { readonly a: AnalyzedSession }) => {
   );
 };
 
-/** Verdict header card: title, health badge, gauge, and metadata grid. */
-export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
+/** Verdict header card: title, health badge, gauge, and metadata grid. With
+ *  `onJump`, the dumb-zone, compaction and subagent chips jump to the
+ *  transcript. */
+export const VerdictHeader = ({
+  a,
+  onJump,
+}: {
+  readonly a: AnalyzedSession;
+  readonly onJump?: (j: SessionJump) => void;
+}) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
   const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
   const cacheFrac = a.peakContextTokens
@@ -81,14 +168,12 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
     : 0;
   return (
     <section
-      className="flex flex-col gap-4 rounded-lg border border-border p-4"
+      className="@container flex flex-col gap-4 rounded-lg border border-border p-3 md:p-4"
       data-testid="verdict-header"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <div className="font-semibold text-lg">
-            {a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`}
-          </div>
+          <div className="font-semibold text-lg">{analyzedTitle(a)}</div>
           <div
             className="truncate font-mono text-muted-foreground text-xs"
             title={a.cwd ?? undefined}
@@ -113,7 +198,7 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
 
       <PeakGauge a={a} />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2">
+      <div className="grid @4xl:grid-cols-6 @lg:grid-cols-3 grid-cols-2 gap-2">
         <Meta k="Peak context">
           <span className={ZONE_CLASSES[zone].text}>
             {fmt(a.peakContextTokens)}
@@ -128,6 +213,11 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
         </Meta>
         <Meta k="System + tools tax">{fmt(a.systemOverheadTokens)}</Meta>
         <Meta k="Output">{fmt(a.totalOutputTokens)}</Meta>
+        {a.cost ? (
+          <Meta k="Est. cost">
+            <CostValue cost={a.cost} provider={a.provider} />
+          </Meta>
+        ) : null}
         <Meta k="Dumb-zone dwell">
           {a.dumbZoneTurns}/{a.turnCount}
         </Meta>
@@ -140,21 +230,39 @@ export const VerdictHeader = ({ a }: { readonly a: AnalyzedSession }) => {
           {a.contextWindowInferred ? " (assumed)" : ""}
         </Badge>
         {a.dumbZoneCrossTurn >= 0 ? (
-          <Badge className={ZONE_CLASSES.bad.text} variant="outline">
+          <JumpChip
+            className={ZONE_CLASSES.bad.text}
+            hint="jump to that turn in history"
+            jump={{ kind: "turn", turn: a.dumbZoneCrossTurn + 1 }}
+            onJump={onJump}
+            testId="chip-dumbzone"
+          >
             entered dumb zone @ turn {a.dumbZoneCrossTurn + 1}
-          </Badge>
+          </JumpChip>
         ) : (
           <Badge className={ZONE_CLASSES.ok.text} variant="outline">
             stayed in smart zone
           </Badge>
         )}
         {a.compactionTurns.length > 0 ? (
-          <Badge variant="outline">
+          <JumpChip
+            hint="jump to the first in history"
+            jump={{ kind: "compaction" }}
+            onJump={onJump}
+            testId="chip-compaction"
+          >
             {a.compactionTurns.length} compaction(s)
-          </Badge>
+          </JumpChip>
         ) : null}
         {a.subagents.length > 0 ? (
-          <Badge variant="outline">{a.subagents.length} subagent(s)</Badge>
+          <JumpChip
+            hint="jump to the first in history"
+            jump={{ kind: "subagent" }}
+            onJump={onJump}
+            testId="chip-subagents"
+          >
+            {a.subagents.length} subagent(s)
+          </JumpChip>
         ) : null}
         {a.webSearchRequests > 0 ? (
           <Badge data-testid="web-searches" variant="outline">

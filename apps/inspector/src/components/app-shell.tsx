@@ -28,10 +28,21 @@ import {
   MessagesSquareIcon,
   SettingsIcon,
 } from "lucide-react";
-import type { ComponentType, CSSProperties, ReactNode } from "react";
+import {
+  type ComponentType,
+  type CSSProperties,
+  type ReactNode,
+  useState,
+} from "react";
+import { useDocumentTitle } from "../lib/document-title";
 import { hasInsetTitlebar } from "../lib/host";
+import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
-import { ThemeToggle } from "../lib/theme";
+import { ScrollRootContext } from "../lib/scroll-root";
+import { ThemeToggle, useThemeShortcut } from "../lib/theme";
+import { ReadOnlyBadge } from "./read-only";
+import { ShortcutsButton, ShortcutsDialog } from "./shortcuts-dialog";
+import { ShellSkipLinks } from "./skip-links";
 import { WatchStatus } from "./watch-status";
 
 /** Nav entry: section id, label, and its icon. */
@@ -58,16 +69,20 @@ const NAV_ITEMS: readonly NavItem[] = [
   },
   { id: "memory", label: "Memory", icon: DatabaseIcon, hint: "All projects" },
   {
-    id: "capabilities",
-    label: "Capabilities",
-    icon: LayoutGridIcon,
-    hint: "Support matrix",
-  },
-  {
     id: "settings",
     label: "Settings",
     icon: SettingsIcon,
     hint: "Agent roots",
+  },
+];
+
+/** Pages reached by a link, not the rail; they still title the header. */
+const PAGE_ITEMS: readonly NavItem[] = [
+  {
+    id: "capabilities",
+    label: "Capabilities",
+    icon: LayoutGridIcon,
+    hint: "Support matrix",
   },
 ];
 
@@ -106,13 +121,15 @@ const TitlebarDragRegion = () => {
   );
 };
 
-/** Content header: section title, the sidebar toggle, and the sync dot. */
+/** Content header: section title, the sidebar toggle, the sync dot and the
+ *  read-only badge. */
 const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
   <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
     <SidebarTrigger className="-ml-1" />
     <span className="font-medium text-sm">{active?.label}</span>
     <span className="text-muted-foreground text-xs">{active?.hint}</span>
     <WatchStatus />
+    <ReadOnlyBadge />
   </header>
 );
 
@@ -120,17 +137,19 @@ const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
 const readSidebarCookie = () =>
   document.cookie.match(SIDEBAR_COOKIE)?.[1] !== "false";
 
-/** Footer row: theme toggle, left-aligned when expanded, centered on the icon rail. */
-const ShellFooter = () => {
+/** Footer row: theme toggle and the shortcuts sheet, left-aligned when
+ *  expanded, stacked and centred on the icon rail. */
+const ShellFooter = ({ onHelp }: { readonly onHelp: () => void }) => {
   const collapsed = useSidebar().state === "collapsed";
   return (
     <div
       className={cn(
         "flex items-center gap-2",
-        collapsed ? "justify-center" : "justify-start"
+        collapsed ? "flex-col justify-center" : "justify-start"
       )}
     >
       <ThemeToggle iconOnly={collapsed} />
+      <ShortcutsButton iconOnly={collapsed} onOpen={onHelp} />
     </div>
   );
 };
@@ -138,7 +157,13 @@ const ShellFooter = () => {
 /** The shell: collapsible sidebar + a scrollable content region. */
 export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const route = useRoute();
-  const active = NAV_ITEMS.find((item) => item.id === route);
+  const active = [...NAV_ITEMS, ...PAGE_ITEMS].find(
+    (item) => item.id === route
+  );
+  const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  useThemeShortcut();
+  useDocumentTitle(active?.label ?? null);
   return (
     <SidebarProvider
       className="h-dvh min-h-0"
@@ -149,6 +174,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
           : undefined
       }
     >
+      <ShellSkipLinks />
       <TitlebarDragRegion />
       <Sidebar collapsible="icon">
         <TitlebarSpacer />
@@ -190,23 +216,29 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <ShellFooter />
+          <ShellFooter onHelp={() => setHelpOpen(true)} />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="min-w-0 overflow-hidden">
         <ShellHeader active={active} />
-        <div className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto">
+        <div
+          className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto outline-none"
+          id={MAIN_CONTENT_ID}
+          ref={setScrollRoot}
+          tabIndex={-1}
+        >
           <div
             className={cn(
-              "mx-auto px-6 py-6",
+              "mx-auto px-3 py-4 md:px-6 md:py-6",
               route === "sessions" ? "max-w-[1800px]" : "max-w-6xl"
             )}
           >
-            {children}
+            <ScrollRootContext value={scrollRoot}>{children}</ScrollRootContext>
           </div>
         </div>
       </SidebarInset>
+      <ShortcutsDialog onOpenChange={setHelpOpen} open={helpOpen} />
     </SidebarProvider>
   );
 };

@@ -15,15 +15,13 @@
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import { useMemo } from "react";
 import { PeektraceClient } from "./client";
-import { sessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
+import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
 
 /**
  * Build a memoized `sessions.analyze` atom for one session id + redact flag, and
- * re-validate it whenever an agent appends to a session on disk, so a live
- * transcript grows by appending rows rather than going stale.
- *
- * The version is read as a number, not as the poll's `Result`, so this only
- * re-renders when something actually changed (see `watch-atoms`).
+ * re-validate it on each settled sessions bump, so a live transcript grows by
+ * appending rows rather than going stale. The settled version also covers
+ * subagent transcripts, which feed the parent's analysis but not its header.
  */
 export const useAnalyzedSession = ({
   id,
@@ -45,6 +43,6 @@ export const useAnalyzedSession = ({
     [id, parent, redact]
   );
   const refresh = useAtomRefresh(atom);
-  useOnVersionBump(useAtomValue(sessionsVersionAtom), refresh);
+  useOnVersionBump(useAtomValue(settledSessionsVersionAtom), refresh);
   return atom;
 };

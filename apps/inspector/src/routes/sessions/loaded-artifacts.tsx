@@ -1,6 +1,6 @@
 /** Loaded artifacts.
  *
- * On-disk instruction files (CLAUDE.md/AGENTS.md/memory, sizes from disk, with a
+ * On-disk instruction files (agent instruction files and memory, sizes from disk, with a
  * "trim me" hint when heavy). The biggest single events live in the full history
  * table instead, where the Tokens column sorts every event by size.
  */
@@ -29,8 +29,8 @@ const OnDiskTable = ({ a }: { readonly a: AnalyzedSession }) => {
       </h3>
       {total > TRIM_HINT_TOKENS ? (
         <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs">
-          Your CLAUDE.md / AGENTS.md / memory total ~{fmt(total)} tokens —
-          loaded every turn. Consider trimming.
+          Your instruction files and memory total ~{fmt(total)} tokens — loaded
+          every turn. Consider trimming.
         </div>
       ) : null}
       <Table>
@@ -71,7 +71,7 @@ const OnDiskTable = ({ a }: { readonly a: AnalyzedSession }) => {
 /** Loaded artifacts section. */
 export const LoadedArtifacts = ({ a }: { readonly a: AnalyzedSession }) => (
   <section
-    className="flex flex-col gap-5 rounded-lg border border-border p-4"
+    className="flex flex-col gap-5 rounded-lg border border-border p-3 md:p-4"
     data-testid="loaded-artifacts"
   >
     <div>

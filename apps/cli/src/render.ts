@@ -3,10 +3,38 @@
  * Kept side-effect-free (return strings) so commands stay declarative and the
  * formatters are unit-testable. No color codes — plain text for pipe-friendliness.
  */
+import { fmtUsd } from "@workspace/core/services/sessions/cost";
 
-/** Right-pad `value` to `width` with spaces. */
-const pad = (value: string, width: number): string =>
-  value.length >= width ? value : value + " ".repeat(width - value.length);
+const GAP = 2;
+/** Narrowest the last column shrinks to when fitting a terminal. */
+const MIN_LAST_COLUMN = 20;
+
+/** Terminal columns `value` takes (wide characters count twice). */
+const displayWidth = (value: string): number => Bun.stringWidth(value);
+
+/** Right-pad `value` to `width` columns with spaces. */
+const pad = (value: string, width: number): string => {
+  const have = displayWidth(value);
+  return have >= width ? value : value + " ".repeat(width - have);
+};
+
+/** Cut `value` to at most `max` columns, ending in an ellipsis when clipped. */
+export const clipToWidth = (value: string, max: number): string => {
+  if (displayWidth(value) <= max) {
+    return value;
+  }
+  let out = "";
+  let used = 0;
+  for (const char of value) {
+    const w = displayWidth(char);
+    if (used + w > max - 1) {
+      break;
+    }
+    out += char;
+    used += w;
+  }
+  return `${out}…`;
+};
 
 /**
  * Tab-separated twin of {@link table}: one lowercased header line, then raw
@@ -32,20 +60,34 @@ const compactTable = (
 export const table = (
   headers: readonly string[],
   rows: readonly (readonly string[])[],
-  opts?: { readonly compact?: boolean }
+  opts?: { readonly compact?: boolean; readonly maxWidth?: number }
 ): string => {
   if (opts?.compact) {
     return compactTable(headers, rows);
   }
   const widths = headers.map((header, col) =>
     rows.reduce(
-      (max, row) => Math.max(max, (row[col] ?? "").length),
-      header.length
+      (max, row) => Math.max(max, displayWidth(row[col] ?? "")),
+      displayWidth(header)
     )
   );
+  const last = widths.length - 1;
+  const room =
+    opts?.maxWidth === undefined
+      ? undefined
+      : Math.max(
+          MIN_LAST_COLUMN,
+          opts.maxWidth -
+            widths.slice(0, last).reduce((sum, w) => sum + w + GAP, 0)
+        );
+  if (room !== undefined && (widths[last] ?? 0) > room) {
+    widths[last] = room;
+  }
+  const fit = (cell: string, col: number) =>
+    col === last && room !== undefined ? clipToWidth(cell, room) : cell;
   const line = (cells: readonly string[]): string =>
     cells
-      .map((cell, col) => pad(cell, widths[col] ?? 0))
+      .map((cell, col) => pad(fit(cell, col), widths[col] ?? 0))
       .join("  ")
       .trimEnd();
   const head = line(headers);
@@ -85,15 +127,9 @@ export const tokens = (value: number): string => {
     : `${(n / MILLION).toFixed(DECIMALS)}M`;
 };
 
-const CENT = 0.005;
-
 /** An estimated USD figure: `~$1.23`, `<$0.01` below a cent, `-` when absent. */
-export const usdCell = (n: number | undefined): string => {
-  if (n === undefined) {
-    return "-";
-  }
-  return n > 0 && n < CENT ? "<$0.01" : `~$${n.toFixed(2)}`;
-};
+export const usdCell = (n: number | undefined): string =>
+  n === undefined ? "-" : fmtUsd(n);
 
 /** Dumb-zone cross turn for display: 1-based like the inspector, `never` for -1. */
 export const crossTurnCell = (n: number): string =>

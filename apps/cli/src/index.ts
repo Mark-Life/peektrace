@@ -4,124 +4,34 @@
  *
  * One binary, two execution modes per command: in-process (default; provisions the
  * core layers directly) and `--remote <url>` (HTTP client against a running
- * `peektrace serve`). Global flags `--json` and `--read-only` are read from this
- * parent command's parsed config; `sessions`, `memory` and `stats` leaf commands
- * also accept them locally, after the subcommand.
+ * `peektrace serve`). The command tree lives in `cli-tree.ts`.
  */
-import { Command, Options, ValidationError } from "@effect/cli";
+import { CliConfig, Command, HelpDoc, ValidationError } from "@effect/cli";
 import { BunContext, BunRuntime } from "@effect/platform-bun";
 import { TelemetryStoreLive, TelemetryTracerLive } from "@workspace/telemetry";
-import { Console, Effect, Layer, Option } from "effect";
-import { skipsTelemetry } from "./argv";
-import type { GlobalsAccessor } from "./client";
-import { makeDoctor } from "./commands/doctor";
-import { makeMemoryLs, makeMemoryRm, makeMemoryShow } from "./commands/memory";
-import { makeServe } from "./commands/serve";
-import { makeSessionsAnalyze, makeSessionsLs } from "./commands/sessions";
-import { makeSessionsExport } from "./commands/sessions-export";
-import { makeStats } from "./commands/stats";
-import { makeStatusline } from "./commands/statusline";
-import { makeTui } from "./commands/tui";
-import { makeUpgrade } from "./commands/upgrade";
-import { DESCRIPTION } from "./description";
-import { formatCliError } from "./errors";
+import { Console, Effect, Layer } from "effect";
+import {
+  beforeSeparator,
+  hasFreeText,
+  helpGroup,
+  isRootHelp,
+  loggableArgv,
+  skipsTelemetry,
+} from "./argv";
+import { command } from "./cli-tree";
+import { formatCliError, UsageError } from "./errors";
+import { GROUP_PATHS, groupHelpDoc, rootHelpDoc } from "./help";
 import { otelEnabled, tracingLayer } from "./tracing";
 import { APP_VERSION } from "./version";
 
 export { APP_VERSION } from "./version";
 
-const jsonOpt = Options.boolean("json").pipe(
-  Options.withDescription("Emit raw JSON instead of rendered tables")
-);
-const readOnlyOpt = Options.boolean("read-only").pipe(
-  Options.withDescription("Refuse any mutating command (safe mode)")
-);
-const prettyOpt = Options.boolean("pretty").pipe(
-  Options.withDescription(
-    "Render aligned tables instead of the default compact tab-separated output"
-  )
-);
-const remoteOpt = Options.text("remote").pipe(
-  Options.withDescription(
-    "Target a running `peektrace serve` over HTTP (token from PEEKTRACE_TOKEN or a ?token= URL)"
-  ),
-  Options.optional
-);
-const otelOpt = Options.boolean("otel").pipe(
-  Options.withDescription(
-    "Log Effect spans to stderr (also enabled by PEEKTRACE_OTEL)"
-  )
-);
-const telemetryOpt = Options.boolean("telemetry", {
-  negationNames: ["no-telemetry"],
-}).pipe(
-  Options.withDescription(
-    "Persist local wide-event telemetry (default on; --no-telemetry to disable)"
-  ),
-  Options.withDefault(true)
-);
-
-/** Root command — carries the global flags; prints a banner when run bare. */
-const peektrace = Command.make(
-  "peektrace",
-  {
-    json: jsonOpt,
-    readOnly: readOnlyOpt,
-    remote: remoteOpt,
-    otel: otelOpt,
-    telemetry: telemetryOpt,
-    pretty: prettyOpt,
-  },
-  () =>
-    Console.log(
-      `Peektrace — ${DESCRIPTION}\n` +
-        "Try: peektrace serve | tui | sessions ls | memory ls | stats"
-    )
-).pipe(Command.withDescription(DESCRIPTION));
-
-/** Resolve the parent command's parsed global flags inside any subcommand,
- * OR-ing subcommand-local `--json`/`--read-only` onto the parent values. */
-const globals: GlobalsAccessor = (local) =>
-  Effect.map(peektrace, (config) => ({
-    json: config.json || (local?.json ?? false),
-    readOnly: config.readOnly || (local?.readOnly ?? false),
-    remote: Option.getOrUndefined(config.remote),
-    compact: !config.pretty,
-  }));
-
-const sessions = Command.make("sessions").pipe(
-  Command.withSubcommands([
-    makeSessionsLs(globals),
-    makeSessionsAnalyze(globals),
-    makeSessionsExport(globals),
-  ])
-);
-
-const memory = Command.make("memory").pipe(
-  Command.withSubcommands([
-    makeMemoryLs(globals),
-    makeMemoryShow(globals),
-    makeMemoryRm(globals),
-  ])
-);
-
-const command = peektrace.pipe(
-  Command.withSubcommands([
-    sessions,
-    memory,
-    makeStats(globals),
-    makeStatusline(globals),
-    makeServe(globals),
-    makeTui(globals),
-    makeDoctor(),
-    makeUpgrade(),
-  ])
-);
-
 const cli = Command.run(command, {
   name: "Peektrace",
   version: APP_VERSION,
 });
+
+const printRootHelp = Console.log(HelpDoc.toAnsiText(rootHelpDoc(APP_VERSION)));
 
 // One tracer slot is chosen at boot from raw argv (flags are also parsed by
 // @effect/cli, but the tracer layer must be picked before dispatch). Telemetry
@@ -129,10 +39,11 @@ const cli = Command.run(command, {
 // `--no-telemetry` (or `PEEKTRACE_NO_TELEMETRY`) opts out; `statusline` never
 // records (it runs on every status-bar refresh). `--otel` becomes the
 // stderr echo. When telemetry is off, `--otel` still drives the console tracer.
+const flagArgs = beforeSeparator(process.argv);
 const telemetryOn =
-  !(process.argv.includes("--no-telemetry") || skipsTelemetry(process.argv)) &&
+  !(flagArgs.includes("--no-telemetry") || skipsTelemetry(process.argv)) &&
   process.env.PEEKTRACE_NO_TELEMETRY == null;
-const echo = otelEnabled(process.argv.includes("--otel"));
+const echo = otelEnabled(flagArgs.includes("--otel"));
 
 /** Pick the single tracer layer: local telemetry when on, else the echo/no-op. */
 const selectTracing = () => {
@@ -147,7 +58,9 @@ const tracing = selectTracing();
 
 // Convenience alias: `-v` behaves like `--version` (@effect/cli has no built-in
 // short alias for it). No subcommand defines `-v`, so the rewrite is unambiguous.
-const argv = process.argv.map((arg) => (arg === "-v" ? "--version" : arg));
+const argv = process.argv.map((arg, i) =>
+  arg === "-v" && i < flagArgs.length ? "--version" : arg
+);
 
 /**
  * Error boundary for expected user-error paths: @effect/cli `ValidationError`
@@ -156,27 +69,63 @@ const argv = process.argv.map((arg) => (arg === "-v" ? "--version" : arg));
  * line to stderr, exit 1). Unexpected defects are NOT caught here, so genuine bugs
  * still surface — only known user errors are made clean.
  */
+const reportCliError = (error: unknown) => {
+  if (ValidationError.isValidationError(error)) {
+    if (!ValidationError.isHelpRequested(error)) {
+      process.exitCode = 1;
+    }
+    return;
+  }
+  process.stderr.write(`${formatCliError(error)}\n`);
+  process.exitCode = 1;
+};
+
+/** `UsageError` was already reported by `scrubUsage`. */
 const handleCliError = (error: unknown) =>
   Effect.sync(() => {
-    if (ValidationError.isValidationError(error)) {
-      if (!ValidationError.isHelpRequested(error)) {
-        process.exitCode = 1;
-      }
-      return;
+    if (!(error instanceof UsageError)) {
+      reportCliError(error);
     }
-    process.stderr.write(`${formatCliError(error)}\n`);
-    process.exitCode = 1;
   });
 
-cli(argv).pipe(
+/**
+ * On free-text commands, report the failure here and hand telemetry a
+ * text-free `UsageError`: validation and user errors quote the user's words.
+ */
+const scrubUsage = <A, E, R>(
+  effect: Effect.Effect<A, E, R>
+): Effect.Effect<A, E | UsageError, R> =>
+  hasFreeText(argv)
+    ? effect.pipe(
+        Effect.tapError((error) => Effect.sync(() => reportCliError(error))),
+        Effect.mapError(
+          () => new UsageError({ message: "invalid command line" })
+        )
+      )
+    : effect;
+
+const selectProgram = () => {
+  if (isRootHelp(argv)) {
+    return printRootHelp;
+  }
+  const group = helpGroup(argv, GROUP_PATHS);
+  return group === undefined
+    ? cli(argv)
+    : Console.log(HelpDoc.toAnsiText(groupHelpDoc(group, APP_VERSION)));
+};
+
+const program = selectProgram();
+
+scrubUsage(program).pipe(
   Effect.withSpan("cli", {
     attributes: {
       "peektrace.root": true,
       "peektrace.kind": "cli",
-      argv: argv.slice(2).join(" "),
+      argv: loggableArgv(argv),
     },
   }),
   Effect.provide(BunContext.layer),
+  Effect.provide(CliConfig.layer({ showBuiltIns: false })),
   Effect.provide(tracing),
   Effect.catchAll(handleCliError),
   BunRuntime.runMain

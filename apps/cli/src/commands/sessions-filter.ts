@@ -1,6 +1,8 @@
 /** Client-side session selection: `sessions ls` filtering (`--since`, `--cwd`,
  * sort, `--limit`) and target resolution for single-session commands. */
+import { homedir } from "node:os";
 import { resolve } from "node:path";
+import { byUpdatedDesc, timeOf } from "@workspace/core/services/sessions/order";
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { Effect } from "effect";
 import type { PeektraceClient } from "../client";
@@ -46,8 +48,14 @@ const WINDOWS_PATH = /^(?:[a-z]:|\\\\)/i;
 const stripSeparators = (path: string) =>
   path.replace(TRAILING_SEPARATORS, "") || "/";
 
-/** Resolve a `--cwd` argument against this machine's working directory. */
-export const resolveCwd = (text: string) => stripSeparators(resolve(text));
+/** Resolve a `--cwd` argument against this machine's working directory.
+ * A leading `~` expands to the home dir, for callers that bypass the shell. */
+export const resolveCwd = (text: string) =>
+  stripSeparators(
+    resolve(
+      text === "~" || text.startsWith("~/") ? homedir() + text.slice(1) : text
+    )
+  );
 
 /** True when the header's cwd is `cwd` or inside it. Rows without a cwd never match.
  * Both `/` and `\` separate segments; Windows paths compare case-insensitively. */
@@ -65,31 +73,6 @@ export const matchesCwd = (header: Pick<SessionHeader, "cwd">, cwd: string) => {
   }
   const next = have[want.length];
   return have.startsWith(want) && (next === "/" || next === "\\");
-};
-
-const timeOf = (header: Pick<SessionHeader, "updatedAt">) => {
-  const t =
-    header.updatedAt === undefined ? Number.NaN : Date.parse(header.updatedAt);
-  return Number.isNaN(t) ? undefined : t;
-};
-
-/** Newest first; rows with no parseable time last; ties broken by id. */
-export const byUpdatedDesc = (
-  a: Pick<SessionHeader, "id" | "updatedAt">,
-  b: Pick<SessionHeader, "id" | "updatedAt">
-) => {
-  const ta = timeOf(a);
-  const tb = timeOf(b);
-  if (ta !== tb) {
-    if (ta === undefined) {
-      return 1;
-    }
-    if (tb === undefined) {
-      return -1;
-    }
-    return tb - ta;
-  }
-  return a.id.localeCompare(b.id);
 };
 
 export interface SelectOptions {
@@ -121,11 +104,26 @@ export const selectSessions = <
   return { rows, hidden: kept.length - rows.length };
 };
 
+/** The messages for invalid target combinations, worded for the caller's inputs. */
+export interface TargetMessages {
+  readonly idAndNewest: string;
+  readonly noTarget: string;
+  readonly parentWithoutId: string;
+}
+
+const CLI_TARGET_MESSAGES: TargetMessages = {
+  parentWithoutId: "--parent needs an explicit subagent id.",
+  idAndNewest: "Pass either a session id or --latest/--cwd, not both.",
+  noTarget: "Pass a session id, --latest, or --cwd <dir>.",
+};
+
 export interface TargetRequest {
   /** Absolute `--cwd` directory, already resolved. */
   readonly cwd?: string | undefined;
   readonly id?: string | undefined;
   readonly latest: boolean;
+  /** Defaults to messages that name the CLI flags. */
+  readonly messages?: TargetMessages | undefined;
   /** `--parent` id; only valid together with an explicit subagent `id`. */
   readonly parent?: string | undefined;
 }
@@ -145,31 +143,23 @@ export const planTarget = ({
   latest,
   cwd,
   parent,
+  messages = CLI_TARGET_MESSAGES,
 }: TargetRequest): TargetPlan => {
   const wantsNewest = latest || cwd !== undefined;
   if (id?.startsWith("-")) {
     return { _tag: "Invalid", message: `Missing value for ${id}.` };
   }
   if (parent !== undefined && id === undefined) {
-    return {
-      _tag: "Invalid",
-      message: "--parent needs an explicit subagent id.",
-    };
+    return { _tag: "Invalid", message: messages.parentWithoutId };
   }
   if (id !== undefined && wantsNewest) {
-    return {
-      _tag: "Invalid",
-      message: "Pass either a session id or --latest/--cwd, not both.",
-    };
+    return { _tag: "Invalid", message: messages.idAndNewest };
   }
   if (id !== undefined) {
     return { _tag: "Picked", id };
   }
   if (!wantsNewest) {
-    return {
-      _tag: "Invalid",
-      message: "Pass a session id, --latest, or --cwd <dir>.",
-    };
+    return { _tag: "Invalid", message: messages.noTarget };
   }
   return { _tag: "Newest", cwd };
 };

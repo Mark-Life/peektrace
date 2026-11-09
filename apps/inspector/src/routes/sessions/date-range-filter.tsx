@@ -1,4 +1,4 @@
-/** Start-date range filter for the session rail.
+/** Activity-date range filter for the session rail.
  *
  * A `Calendar` in `range` mode behind a `Popover`, replacing the flat list of
  * every distinct session day. Days are compared as `YYYY-MM-DD` strings in the
@@ -42,7 +42,7 @@ export const toDayKey = (d: Date): string =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /** `YYYY-MM-DD` back to a local midnight `Date`, or `undefined` if unparseable. */
-const fromDayKey = (key: string): Date | undefined => {
+export const fromDayKey = (key: string): Date | undefined => {
   const [y, m, d] = key.split("-").map(Number);
   return y && m && d ? new Date(y, m - 1, d) : undefined;
 };
@@ -68,7 +68,7 @@ export const DateRangeFilter = ({
   range,
   onChange,
 }: {
-  /** Every `YYYY-MM-DD` a loaded session started on, ascending. */
+  /** Every `YYYY-MM-DD` a loaded session was active on, ascending. */
   readonly days: readonly string[];
   readonly range: DateRange | undefined;
   readonly onChange: (range: DateRange | undefined) => void;

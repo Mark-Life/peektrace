@@ -8,6 +8,7 @@
  * the screen; the history calls `onBack` (Left / Esc) to return to the list.
  */
 import { useKeyboard, useTerminalDimensions } from "@opentui/react";
+import { costSummary } from "@workspace/core/services/sessions/cost";
 import type {
   AnalyzedSession,
   BudgetSlice,
@@ -98,6 +99,18 @@ const PeakGauge = ({
   );
 };
 
+/** Cost summary line: total, then who reported it and the notes, `·`-joined. */
+const costLine = (
+  cost: NonNullable<AnalyzedSession["cost"]>,
+  provider: AnalyzedSession["provider"]
+) => {
+  const { total, notes } = costSummary(
+    cost,
+    PROVIDER_LABEL[provider] ?? provider
+  );
+  return [total, ...notes].join(" · ");
+};
+
 /** Server-side web searches and fetches, when the session ran any. */
 const webCounts = (s: AnalyzedSession) =>
   [
@@ -157,6 +170,13 @@ const VerdictHeader = ({
         labelWidth={LABEL_W}
         value={fmt(s.systemOverheadTokens)}
       />
+      {s.cost ? (
+        <Field
+          label="Est. cost"
+          labelWidth={LABEL_W}
+          value={clip(costLine(s.cost, s.provider), w - LABEL_W)}
+        />
+      ) : null}
       <Field
         label="Cache / window"
         labelWidth={LABEL_W}

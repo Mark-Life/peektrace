@@ -12,6 +12,7 @@ import { Command, Options } from "@effect/cli";
 import { Console, Effect, Option } from "effect";
 import { CliUserError } from "../errors";
 import { bytes } from "../render";
+import { UPGRADE_SUMMARY } from "../summaries";
 import { performUpgrade } from "../upgrade/install";
 import {
   compareVersions,
@@ -38,8 +39,7 @@ const versionOpt = Options.text("version").pipe(
 const checkOpt = Options.boolean("check").pipe(
   Options.withDescription(
     "Only report whether an update is available; download and write nothing"
-  ),
-  Options.withDefault(false)
+  )
 );
 
 /** `upgrade` — download, verify, and atomically replace the installed binary. */
@@ -101,4 +101,4 @@ export const makeUpgrade = () =>
           `Upgraded to ${targetTag} (${how}). It takes effect on the next launch.`
         );
       })
-  );
+  ).pipe(Command.withDescription(UPGRADE_SUMMARY));

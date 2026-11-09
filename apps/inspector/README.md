@@ -12,7 +12,7 @@ src/
   main.tsx                      mount + ThemeProvider + globals.css
   app.tsx                       shell + hash-routed sections
   components/
-    app-shell.tsx               left nav (Memory / Sessions / Capabilities)
+    app-shell.tsx               left nav (Sessions / Stats / Memory / Settings)
     section-header.tsx          shared page heading
   routes/
     capabilities-route.tsx      LIVE feature × agent matrix (capabilities.list)

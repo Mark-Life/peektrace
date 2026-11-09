@@ -22,6 +22,12 @@ export interface TranscriptRowRef {
   readonly pos: number;
 }
 
+/** A chip of a context run. `repeat` is set when an earlier chip of the same
+ *  identity already carried this exact body, so the chat can fold it. */
+export interface RunItem extends TranscriptRowRef {
+  readonly repeat: boolean;
+}
+
 /** One thing the chat renders: a bubble, a tool card, a chip cluster, a band, a
  *  centred notice from the harness, or a synthetic separator. */
 export type ChatNode =
@@ -31,7 +37,7 @@ export type ChatNode =
       readonly call: TranscriptRowRef | null;
       readonly result: TranscriptRowRef | null;
     }
-  | { readonly type: "run"; readonly items: readonly TranscriptRowRef[] }
+  | { readonly type: "run"; readonly items: readonly RunItem[] }
   | { readonly type: "band"; readonly row: TranscriptRowRef }
   | { readonly type: "notice"; readonly row: TranscriptRowRef }
   | { readonly type: "turn"; readonly turn: number }
@@ -103,6 +109,11 @@ export const chatCollapseIdOf = (n: ChatNode): string | null => {
 const isChip = (e: TimelineEvent) =>
   e.kind === "attachment" || e.kind === "meta" || e.kind === "system";
 
+/** What makes two chips "the same chip": kind, attachment type, label, and
+ *  whether it ran inside a subagent. The body decides if it also repeats. */
+const chipIdentity = (e: TimelineEvent) =>
+  `${e.kind}|${e.attachmentType ?? ""}|${chipLabel(e)}|${e.isSidechain === true}`;
+
 /** The result that answers `call`, searched forward among the still-visible rows
  *  so a result the filter dropped simply leaves the call unanswered. */
 const resultFor = (
@@ -169,7 +180,8 @@ export const buildChatPlan = ({
 }): readonly ChatNode[] => {
   const nodes: ChatNode[] = [];
   const consumed = new Set<number>();
-  const run: TranscriptRowRef[] = [];
+  const run: RunItem[] = [];
+  const lastBody = new Map<string, string>();
   let lastTurn = 0;
 
   const flush = () => {
@@ -195,7 +207,13 @@ export const buildChatPlan = ({
       lastTurn = turn;
     }
     if (isChip(e)) {
-      run.push(row);
+      const identity = chipIdentity(e);
+      const isImage = e.attachmentType === "image" || e.images !== undefined;
+      run.push({
+        ...row,
+        repeat: !isImage && lastBody.get(identity) === e.body,
+      });
+      lastBody.set(identity, e.body);
       continue;
     }
     flush();
@@ -228,4 +246,42 @@ export const chatIdsOf = (
   return rows
     .filter(({ pos }) => !consumed.has(pos))
     .map(({ pos }) => chatCollapseId(pos));
+};
+
+/** The node that shows tool call `id`: its card, whether the call itself or
+ *  only its result is visible. -1 when no visible node carries it. */
+export const planIndexOfCall = (plan: readonly ChatNode[], id: string) =>
+  plan.findIndex(
+    (n) =>
+      n.type === "tool" &&
+      (n.call?.e.toolUseId === id ||
+        (n.call === null && n.result?.e.toolUseId === id))
+  );
+
+/** The key one node is known by, before deduplication. Built from event
+ *  positions and turn numbers, never list positions, so a node keeps its key
+ *  (and its measured height) when a filter or a live append moves it. */
+const baseKeyOf = (n: ChatNode) => {
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
+    return `n${n.row.pos}`;
+  }
+  if (n.type === "tool") {
+    return `n${n.call?.pos ?? n.result?.pos ?? "?"}`;
+  }
+  if (n.type === "run") {
+    return `run${n.items[0]?.pos ?? "?"}`;
+  }
+  return n.type === "turn" ? `turn${n.turn}` : "dumbzone";
+};
+
+/** One unique key per node. A turn whose events are interleaved with another's
+ *  draws its rule twice; the repeat gets a numbered suffix. */
+export const chatNodeKeys = (plan: readonly ChatNode[]) => {
+  const seen = new Map<string, number>();
+  return plan.map((n) => {
+    const base = baseKeyOf(n);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    return count === 0 ? base : `${base}~${count}`;
+  });
 };

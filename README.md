@@ -181,7 +181,9 @@ mtime.
 A feature × agent matrix for Claude, Codex, Pi and OpenCode. Click a cell to see
 why a capability is supported, partial, planned or unsupported. In the web app,
 session browsing is live for all four. Context debugging is full on Claude and
-partial on Codex, Pi and OpenCode. Memory tooling is Claude-only.
+partial on Codex, Pi and OpenCode. Memory tooling is Claude-only. Open the
+matrix from Settings in the web app. The terminal UI keeps its own
+Capabilities screen.
 
 ## Scripting
 
@@ -195,6 +197,7 @@ before the subcommand.
 
 ```sh
 peektrace sessions ls [--agent <id>] [--project <name>] [--since <when>] [--cwd <path>] [--limit <n>]
+peektrace sessions search <text> [--agent <id>] [--project <name>] [--since <when>] [--limit <n>] [--no-redact]
 peektrace sessions analyze [<session-id>] [--latest] [--cwd <path>]
 peektrace sessions export [<session-id>] [--format html|md|json] [--out <file>] [--no-redact]
 peektrace statusline [--timeout <ms>]            # Claude Code status line, reads stdin
@@ -207,6 +210,10 @@ peektrace doctor                                 # write a local support bundle
 `peektrace doctor` collects recent local run-log events, recursively redacts
 them, and writes a JSON bundle to `~/.peektrace` (or `PEEKTRACE_DIR`) for you to
 email. It is a diagnostics export, not a health check — nothing is uploaded.
+
+`peektrace sessions search "retry backoff"` finds sessions whose text holds the
+phrase, newest first, with the matching line and a snippet. Snippets are
+redacted unless you pass `--no-redact`.
 
 `peektrace sessions analyze --latest` scores the newest session of any agent.
 `--cwd .` limits it to sessions run in this directory or below.

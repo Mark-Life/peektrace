@@ -285,6 +285,11 @@ test("a history view renders unfiltered with an empty search box", () => {
         evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
         evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
       ])}
+      landing={{ done: { current: null } }}
+      onSummary={() => undefined}
+      req={null}
+      sectionRef={{ current: null }}
+      seq={0}
       sid="s-fresh"
       view={view}
     />

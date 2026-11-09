@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { win32 } from "node:path";
+import { homedir } from "node:os";
+import { join, win32 } from "node:path";
+import { byUpdatedDesc } from "@workspace/core/services/sessions/order";
 import {
-  byUpdatedDesc,
   matchesCwd,
   parseSince,
   pickTarget,
@@ -51,6 +52,12 @@ test("resolveCwd resolves and trims separators", () => {
   expect(resolveCwd(".")).toBe(process.cwd());
   expect(resolveCwd("/a/b/")).toBe("/a/b");
   expect(resolveCwd("/")).toBe("/");
+});
+
+test("resolveCwd expands a leading ~ to the home dir", () => {
+  expect(resolveCwd("~")).toBe(homedir());
+  expect(resolveCwd("~/proj/")).toBe(join(homedir(), "proj"));
+  expect(resolveCwd("a~b")).toBe(join(process.cwd(), "a~b"));
 });
 
 test("matchesCwd: Windows paths with mixed separators", () => {
@@ -210,4 +217,17 @@ test("planTarget asks for a listing only for the newest branch", () => {
   expect(planTarget({ latest: false, id: "abc" })._tag).toBe("Picked");
   expect(planTarget({ latest: false })._tag).toBe("Invalid");
   expect(planTarget({ latest: true, id: "abc" })._tag).toBe("Invalid");
+  expect(planTarget({ latest: false })).toEqual({
+    _tag: "Invalid",
+    message: "Pass a session id, --latest, or --cwd <dir>.",
+  });
+  const messages = { parentWithoutId: "p", idAndNewest: "b", noTarget: "n" };
+  expect(planTarget({ latest: false, messages })).toEqual({
+    _tag: "Invalid",
+    message: "n",
+  });
+  expect(planTarget({ latest: true, id: "abc", messages })).toEqual({
+    _tag: "Invalid",
+    message: "b",
+  });
 });

@@ -4,6 +4,7 @@
  * `--remote`), redacted by default, and renders it with the pure core
  * renderers. Output goes to stdout, or to `--out <path>`.
  */
+import { homedir } from "node:os";
 import { extname } from "node:path";
 import { Args, Command, Options } from "@effect/cli";
 import { FileSystem } from "@effect/platform";
@@ -21,7 +22,8 @@ import {
   withClient,
 } from "../client";
 import { CliUserError } from "../errors";
-import { cwdOpt, parentOpt } from "./sessions";
+import { SESSIONS_EXPORT_SUMMARY } from "../summaries";
+import { cwdOpt, noRedactOpt, parentOpt } from "./sessions";
 import { resolveCwd, resolveTargetId } from "./sessions-filter";
 
 const FORMAT_BY_EXTENSION: Readonly<Record<string, ExportFormat>> = {
@@ -76,11 +78,6 @@ const outOpt = Options.text("out").pipe(
   ),
   Options.optional
 );
-const noRedactOpt = Options.boolean("no-redact").pipe(
-  Options.withDescription(
-    "Keep secrets and home paths in the output (redacted by default)"
-  )
-);
 const latestOpt = Options.boolean("latest").pipe(
   Options.withDescription("Export the newest session of any agent")
 );
@@ -132,7 +129,11 @@ export const makeSessionsExport = (globals: GlobalsAccessor) =>
             out: outPath,
           }),
           session,
-          { exportedAt: new Date().toISOString(), redacted: redact }
+          {
+            exportedAt: new Date().toISOString(),
+            redacted: redact,
+            home: homedir(),
+          }
         );
         if (outPath === undefined) {
           return yield* Console.log(text.trimEnd());
@@ -148,4 +149,4 @@ export const makeSessionsExport = (globals: GlobalsAccessor) =>
         );
         yield* Console.error(`Wrote ${outPath}`);
       })
-  );
+  ).pipe(Command.withDescription(SESSIONS_EXPORT_SUMMARY));

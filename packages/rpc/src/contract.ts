@@ -28,6 +28,7 @@ import {
   SessionHeader,
   SessionListing,
 } from "@workspace/core/services/sessions/schema";
+import { SessionSearchResult } from "@workspace/core/services/sessions/search-schema";
 import { PeektraceSettings } from "@workspace/core/services/settings";
 import {
   DrillResult,
@@ -231,6 +232,30 @@ export const SessionAnalyzePayload = Schema.Struct({
   redact: Schema.optional(Schema.Boolean),
 });
 
+/** `sessions.search` arguments. */
+export const SessionsSearchPayload = Schema.Struct({
+  /** Non-blank search text. */
+  q: Schema.String.pipe(
+    Schema.filter((s) => s.trim() !== "", {
+      message: () => "q must not be blank",
+    })
+  ),
+  agent: Schema.optional(AgentId),
+  project: Schema.optional(Schema.String),
+  /** ISO time: only sessions updated at or after it. */
+  since: Schema.optional(
+    Schema.String.pipe(
+      Schema.filter((s) => !Number.isNaN(Date.parse(s)), {
+        message: () => "since must be an ISO time",
+      })
+    )
+  ),
+  /** Max sessions, newest first. Default 20; 0 = all. */
+  limit: Schema.optional(Schema.Int.pipe(Schema.nonNegative())),
+  /** Redact snippets, titles and projects. Default true. */
+  redact: Schema.optional(Schema.Boolean),
+});
+
 /** `memory.vault` selector. */
 export const MemoryVaultPayload = Schema.Struct({
   project: Schema.String,
@@ -273,6 +298,34 @@ export const SettingsResult = Schema.Struct({
   mtimeMs: Schema.Number,
   path: Schema.String,
 });
+
+/** One transcript folder the server scans for an agent. */
+export const ScannedRoot = Schema.Struct({
+  isDefault: Schema.Boolean,
+  /** The source's config dir, the kind of path Settings rows take. */
+  home: Schema.String,
+  /** The source's transcript root. */
+  path: Schema.String,
+  /** Whether the folder exists on disk at request time. */
+  exists: Schema.Boolean,
+});
+export type ScannedRoot = typeof ScannedRoot.Type;
+
+/** The folders scanned for one supported agent, default first. */
+export const AgentScan = Schema.Struct({
+  agent: AgentId,
+  roots: Schema.Array(ScannedRoot),
+});
+
+/** `server.info` result: the running server's posture and scan roots. */
+export const ServerInfo = Schema.Struct({
+  /** Mutating RPCs are refused (`--read-only`, or a non-loopback host). */
+  readOnly: Schema.Boolean,
+  /** The server user's home dir, so the UI can show `~` paths. */
+  userHome: Schema.String,
+  agents: Schema.Array(AgentScan),
+});
+export type ServerInfo = typeof ServerInfo.Type;
 
 /** What every stats pass accepts: scope, window and cache posture. */
 const statsScopeFields = {
@@ -339,6 +392,9 @@ export const PeektraceRpcs = RpcGroup.make(
   Rpc.make("capabilities.list", {
     success: Schema.Array(Capability),
   }),
+  Rpc.make("server.info", {
+    success: ServerInfo,
+  }),
   Rpc.make("sessions.list", {
     payload: SessionsListPayload,
     success: Schema.Array(SessionHeader),
@@ -362,6 +418,10 @@ export const PeektraceRpcs = RpcGroup.make(
     payload: SessionAnalyzePayload,
     success: AnalyzedSession,
     error: WireError,
+  }),
+  Rpc.make("sessions.search", {
+    payload: SessionsSearchPayload,
+    success: SessionSearchResult,
   }),
   Rpc.make("memory.allVaults", {
     success: AllVaults,

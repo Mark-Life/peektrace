@@ -48,7 +48,9 @@ type PortProbe =
 /** Probe one port on `host`, classifying the bind outcome. */
 const tryPort = (port: number, host: string): Effect.Effect<PortProbe> =>
   Effect.async<PortProbe>((resume) => {
-    const srv = createServer();
+    // Drop any client that connects during the probe: `close` waits for open
+    // connections, so one unanswered client would stall startup.
+    const srv = createServer((socket) => socket.destroy());
     srv.once("error", (err: NodeJS.ErrnoException) => {
       srv.close();
       if (err.code === "EADDRINUSE") {

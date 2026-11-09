@@ -9,6 +9,7 @@
  * it opens stays open only while it is the current hit.
  */
 import {
+  type RefObject,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -17,6 +18,41 @@ import {
 } from "react";
 import { type StepDir, stepHit } from "./history-search";
 import { cardOf, firstHitIn, useSearchHighlight } from "./use-search-highlight";
+import { revealAt } from "./virtual-jump";
+import type { VirtualListHandle } from "./virtual-range";
+
+/** Scrolls the transcript to the row of hit `id` and calls `onDrawn` once
+ *  that row is drawn. Set by the mounted layout, which knows the row order. */
+export type RevealHit = (id: string, onDrawn: () => void) => void;
+
+/** Fill `reveal` for a virtualized layout: `indexOf` maps a hit id to its item
+ *  index in `list`, -1 when it is not there. */
+export const useRevealHit = ({
+  indexOf,
+  list,
+  reveal,
+}: {
+  readonly indexOf: (id: string) => number;
+  readonly list: RefObject<VirtualListHandle | null>;
+  readonly reveal: RefObject<RevealHit | null>;
+}) => {
+  useEffect(() => {
+    let cancel = () => {
+      // nothing scheduled yet
+    };
+    reveal.current = (id, onDrawn) => {
+      cancel();
+      const index = indexOf(id);
+      if (index >= 0) {
+        cancel = revealAt({ index, list, onDrawn });
+      }
+    };
+    return () => {
+      cancel();
+      reveal.current = null;
+    };
+  }, [indexOf, list, reveal]);
+};
 
 interface QueryState {
   readonly query: string;
@@ -57,6 +93,7 @@ export const useSearchStepper = ({
   onToggle,
   query,
   resetKey,
+  reveal,
 }: {
   readonly hits: readonly string[];
   readonly isOpen: (id: string) => boolean;
@@ -64,6 +101,9 @@ export const useSearchStepper = ({
   /** The query the hits were filtered by; highlights follow it. */
   readonly query: string;
   readonly resetKey: string;
+  /** Brings a hit's row into the DOM; rows of a long transcript are drawn
+   *  only near the screen. */
+  readonly reveal: RefObject<RevealHit | null>;
 }) => {
   const [currentId, setCurrentId] = useState<string | null>(null);
   /** The current hit, when it was closed before the step landed on it. */
@@ -89,12 +129,9 @@ export const useSearchStepper = ({
     }
     setOpenedId(isOpen(next) ? null : next);
     setCurrentId(next);
-    // The step's render commits before the next frame, so the card is open.
-    cancelAnimationFrame(frameRef.current);
-    frameRef.current = requestAnimationFrame(() => {
+    const toHit = () => {
       const container = containerRef.current;
-      const card =
-        container === null ? null : cardOf({ container, id: next, ids: hits });
+      const card = container === null ? null : cardOf({ container, id: next });
       if (card !== null) {
         // Jump like browser find: a smooth scroll is slow over long
         // transcripts and can stop short while skipped cards render.
@@ -103,10 +140,18 @@ export const useSearchStepper = ({
           block: "center",
         });
       }
-    });
+    };
+    // The step's render commits before the next frame, so the card is open.
+    cancelAnimationFrame(frameRef.current);
+    const show = reveal.current;
+    if (show === null) {
+      frameRef.current = requestAnimationFrame(toHit);
+    } else {
+      show(next, toHit);
+    }
   };
 
-  useSearchHighlight({ containerRef, currentId: liveId, ids: hits, query });
+  useSearchHighlight({ containerRef, currentId: liveId, query });
 
   // Rows are memoized on the toggle handler: read the opened id through a ref
   // so a step does not hand every row a new handler.

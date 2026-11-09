@@ -4,13 +4,17 @@
  * the card list + selection→detail wiring through a fake bridge, using
  * `@opentui/react/test-utils`.
  */
-import { expect, test } from "bun:test";
+import { expect, setDefaultTimeout, test } from "bun:test";
 import { testRender } from "@opentui/react/test-utils";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import { act } from "react";
 import { App } from "../src/tui/app";
 import type { TuiBridge } from "../src/tui/runtime";
 import { BridgeProvider } from "../src/tui/runtime";
 import { SessionHistory } from "../src/tui/screens/sessions-history";
+import { SETTLE_TEST_TIMEOUT_MS, settleFor } from "./support/settle";
+
+setDefaultTimeout(SETTLE_TEST_TIMEOUT_MS);
 
 const ESC = String.fromCharCode(27);
 
@@ -86,7 +90,11 @@ test("history expands to a highlighted body and strips ANSI", async () => {
     expect(collapsed.includes(ESC)).toBe(false);
     expect(collapsed).not.toContain("ls -la /tmp");
     // Enter expands the selected (first) item → decoded bash body appears.
-    setup.mockInput.pressEnter();
+    // Key presses become React updates that commit in a later macrotask, so
+    // `act` flushes them before `waitForFrame` checks the frame.
+    await act(() => {
+      setup.mockInput.pressEnter();
+    });
     const expanded = await setup.waitForFrame((v) => v.includes("ls -la /tmp"));
     expect(expanded).toContain("ls -la /tmp");
   } finally {
@@ -122,14 +130,16 @@ test("s sorts the history biggest first and keeps open rows open", async () => {
     expect(ordered.indexOf("Bash tool")).toBeLessThan(
       ordered.indexOf("total 8")
     );
-    // Expand the heavy result row (arrow needs a tick to land before enter).
-    setup.mockInput.pressArrow("down");
-    await new Promise((r) => setTimeout(r, 20));
-    await setup.renderOnce();
-    setup.mockInput.pressEnter();
+    // Expand the heavy result row.
+    await act(() => {
+      setup.mockInput.pressArrow("down");
+    });
+    await act(() => {
+      setup.mockInput.pressEnter();
+    });
     await setup.waitForFrame((v) => v.includes("file.txt"));
     // Size order lifts it above the smaller call, still open, with its share.
-    await setup.mockInput.typeText("s");
+    await act(() => setup.mockInput.typeText("s"));
     const sorted = await setup.waitForFrame((v) => v.includes("~500   0.3%"));
     expect(sorted.indexOf("total 8")).toBeLessThan(sorted.indexOf("Bash tool"));
     expect(sorted).toContain("file.txt");
@@ -187,8 +197,10 @@ test("attachment rows badge their type, not the bare kind", async () => {
   }
 });
 
-/** Fake bridge: list → two headers, analyze → title-per-id, watch → zeros. */
-const fakeBridge: TuiBridge = {
+/** Fake bridge: list → two headers, analyze → `analyzed(title-per-id)`, watch → zeros. */
+const bridgeFor = (
+  analyzed: (title: string) => AnalyzedSession = fakeAnalyzed
+): TuiBridge => ({
   serverUrl: "http://127.0.0.1:4321",
   run: ((build: (c: unknown) => unknown) => {
     const client = {
@@ -207,7 +219,7 @@ const fakeBridge: TuiBridge = {
       return Promise.resolve([]);
     }
     if (eff.tag === "analyze") {
-      return Promise.resolve(fakeAnalyzed(`Analyzed-${eff.id}`));
+      return Promise.resolve(analyzed(`Analyzed-${eff.id}`));
     }
     return Promise.resolve([
       {
@@ -232,26 +244,9 @@ const fakeBridge: TuiBridge = {
       },
     ]);
   }) as TuiBridge["run"],
-};
+});
 
-/**
- * Poll for `needle` while advancing the timer queue — the two-hop
- * list→analyze async chain needs real macrotasks that `waitForFrame` skips.
- */
-const settleFor = async (
-  setup: Awaited<ReturnType<typeof testRender>>,
-  needle: string
-): Promise<string> => {
-  for (let i = 0; i < 40; i++) {
-    await setup.renderOnce();
-    const frame = setup.captureCharFrame();
-    if (frame.includes(needle)) {
-      return frame;
-    }
-    await new Promise((r) => setTimeout(r, 30));
-  }
-  return setup.captureCharFrame();
-};
+const fakeBridge = bridgeFor();
 
 test("session cards render and keyboard selection drives the detail", async () => {
   const setup = await testRender(
@@ -263,15 +258,36 @@ test("session cards render and keyboard selection drives the detail", async () =
     const first = await settleFor(setup, "Analyzed-a");
     expect(first).toContain("Alpha");
     expect(first).toContain("Beta");
-    expect(first).toContain("Analyzed-a");
     // Header rows stay intact (regression: fixed rows must not collapse and
     // overlap when the card scrollbox grows).
     expect(first).toContain("filter (press /)");
     expect(first).toContain("agent: all · a to cycle");
     // Arrow-down selects Beta → the detail re-analyzes the new id.
-    setup.mockInput.pressArrow("down");
-    const second = await settleFor(setup, "Analyzed-b");
-    expect(second).toContain("Analyzed-b");
+    await act(() => {
+      setup.mockInput.pressArrow("down");
+    });
+    await settleFor(setup, "Analyzed-b");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("session detail summary shows the estimated cost", async () => {
+  const priced = (title: string): AnalyzedSession => ({
+    ...fakeAnalyzed(title),
+    cost: {
+      totalUsd: 1.23,
+      source: "estimate",
+      unpricedModels: ["mystery-model"],
+    },
+  });
+  const setup = await testRender(
+    <App bridge={bridgeFor(priced)} onQuit={() => undefined} />,
+    { width: 140, height: 40 }
+  );
+  try {
+    const frame = await settleFor(setup, "Est. cost");
+    expect(frame).toContain("~$1.23 · unpriced: mystery-model");
   } finally {
     setup.renderer.destroy();
   }

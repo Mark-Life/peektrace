@@ -31,6 +31,7 @@ import {
   findFreePort,
   openBrowser,
 } from "../serve-core";
+import { SERVE_SUMMARY } from "../summaries";
 import { startupUpdateNotice } from "../upgrade/update-check";
 import { APP_VERSION } from "../version";
 
@@ -165,4 +166,4 @@ export const makeServe = (globals: GlobalsAccessor) =>
           )
         );
       })
-  );
+  ).pipe(Command.withDescription(SERVE_SUMMARY));

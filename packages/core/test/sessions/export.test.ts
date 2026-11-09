@@ -81,6 +81,19 @@ const URL_SCHEME = /https?:/;
 const opts = { exportedAt: "2026-02-02T00:00:00.000Z", redacted: true };
 
 describe("collapseHomePaths", () => {
+  test("leaves CLI flags that look like home slugs alone", () => {
+    for (const text of [
+      "pip install --home-page=x",
+      "gpg --home-dir ./g",
+      "tool --users-list --users-file a.csv",
+      "flag --Users-only",
+      "and -users-x",
+    ]) {
+      expect(collapseHomePaths(text)).toBe(text);
+      expect(collapseHomePaths(text, "/home/jane-doe")).toBe(text);
+    }
+  });
+
   test("collapses home prefixes on both OSes", () => {
     expect(collapseHomePaths("/home/x/a.ts")).toBe("~/a.ts");
     expect(collapseHomePaths("/Users/x")).toBe("~");
@@ -124,6 +137,87 @@ describe("collapseHomePaths", () => {
     expect(collapseHomePaths("/homework/a /opt/home/x/a")).toBe(
       "/homework/a /opt/home/x/a"
     );
+  });
+});
+
+describe("collapseHomePaths: known home", () => {
+  const UNIX = "/home/jane-doe";
+  const WIN = "C:\\Users\\jane-doe";
+  test("without a home a dashed username leaks in slugs only", () => {
+    expect(collapseHomePaths("-home-jane-doe-work")).toBe("-~-doe-work");
+    expect(collapseHomePaths("C--Users-jane-doe-work")).toBe("-~-doe-work");
+    expect(collapseHomePaths("/home/jane-doe/x")).toBe("~/x");
+    expect(collapseHomePaths("C:\\Users\\jane-doe\\x")).toBe("~\\x");
+  });
+  test("collapses the unix home and its slug exactly", () => {
+    expect(collapseHomePaths("-home-jane-doe-work", UNIX)).toBe("-~-work");
+    expect(collapseHomePaths("-home-jane-doe", UNIX)).toBe("-~");
+    expect(collapseHomePaths("/home/jane-doe/x", UNIX)).toBe("~/x");
+    expect(collapseHomePaths("file:///home/jane-doe/x", UNIX)).toBe(
+      "file:///~/x"
+    );
+  });
+  test("collapses the Windows home and its slug exactly", () => {
+    expect(collapseHomePaths("C--Users-jane-doe-work", WIN)).toBe("-~-work");
+    expect(collapseHomePaths("C:\\Users\\jane-doe\\x", WIN)).toBe("~\\x");
+    expect(collapseHomePaths("C:/Users/jane-doe/x", WIN)).toBe("~/x");
+    expect(collapseHomePaths("c:\\users\\jane-doe\\x", WIN)).toBe("~\\x");
+  });
+  test("matches Windows homes and slugs in any case", () => {
+    const home = "C:\\Users\\Jane-Doe";
+    expect(collapseHomePaths("C--Users-jane-doe-work", home)).toBe("-~-work");
+    expect(collapseHomePaths("c--users-jane-doe-work", home)).toBe("-~-work");
+    expect(collapseHomePaths("c--Users-jane-doe-work")).toBe("-~-doe-work");
+  });
+  test("collapses Pi slugs", () => {
+    expect(collapseHomePaths("--home-jane-doe-work--", UNIX)).toBe(
+      "--~-work--"
+    );
+    expect(collapseHomePaths("--home-jane-doe-.cache-x--", UNIX)).toBe(
+      "--~-.cache-x--"
+    );
+    expect(collapseHomePaths("--home-jane-doer-x--", UNIX)).toBe(
+      "--~-doer-x--"
+    );
+    expect(
+      collapseHomePaths("--C--Users-Jane-Doe-work--", "C:\\Users\\Jane-Doe")
+    ).toBe("--~-work--");
+    expect(collapseHomePaths("--home-jane-work--")).toBe("--~-work--");
+    expect(collapseHomePaths("--home-jane-doe-work--")).toBe("--~-doe-work--");
+    expect(collapseHomePaths("--Users-jane-work--")).toBe("--~-work--");
+    expect(collapseHomePaths("--C--Users-jane-work--")).toBe("--~-work--");
+  });
+  test("keeps three slashes in file URIs with a Windows home", () => {
+    expect(collapseHomePaths("file:///C:/Users/jane-doe/x", WIN)).toBe(
+      "file:///~/x"
+    );
+  });
+  test("leaves no part of the username", () => {
+    const text = "-home-jane-doe-work /home/jane-doe/a";
+    expect(collapseHomePaths(text, UNIX)).not.toContain("doe");
+    expect(collapseHomePaths(text, UNIX)).not.toContain("jane");
+  });
+  test("does not touch longer names or a trailing separator home", () => {
+    expect(collapseHomePaths("/home/jane-doer/x", UNIX)).toBe("~/x");
+    expect(collapseHomePaths("-home-jane-doe-work", `${UNIX}/`)).toBe(
+      "-~-work"
+    );
+  });
+  test("renders exports with the home", () => {
+    const session = {
+      sessionId: "s",
+      provider: "claude",
+      models: [],
+      title: "-home-jane-doe-work",
+      events: [],
+      subagents: [],
+    } as unknown as Parameters<typeof renderJson>[0];
+    const out = renderJson(session, {
+      exportedAt: "2026-01-01T00:00:00Z",
+      redacted: true,
+      home: UNIX,
+    });
+    expect(out).not.toContain("doe");
   });
 });
 

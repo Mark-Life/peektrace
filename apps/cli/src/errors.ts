@@ -13,6 +13,15 @@ export class CliUserError extends Data.TaggedError("CliUserError")<{
   readonly message: string;
 }> {}
 
+/**
+ * Stands in for any failure of a free-text command. The original message may
+ * quote the user's words, so only this generic text reaches telemetry. The
+ * real error is printed before the swap.
+ */
+export class UsageError extends Data.TaggedError("UsageError")<{
+  readonly message: string;
+}> {}
+
 interface Tagged {
   readonly _tag: string;
 }

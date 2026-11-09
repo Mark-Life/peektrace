@@ -23,26 +23,52 @@ import {
 import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
 import {
+  ArrowUpIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
   MessagesSquareIcon,
   ShieldAlertIcon,
   TableIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
+import {
+  isHiddenJump,
+  type JumpLanding,
+  type JumpRequest,
+  rowIndexOfTarget,
+  toHistoryJump,
+} from "../../lib/history-jump";
+import {
+  useScrollPadding,
+  useStickyHeight,
+  useSubagentsJump,
+} from "../../lib/history-landing";
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { searchIndexOf, visibleRows } from "../../lib/history-search";
-import { DEFAULT_HISTORY_SORT } from "../../lib/history-sort";
+import { DEFAULT_HISTORY_SORT, isForwardOrder } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
-import { useScrollToCall, useToolMarks } from "../../lib/session-markers";
+import { useScrollRoot } from "../../lib/scroll-root";
+import { useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
   type SessionView,
   subagentCollapseId,
 } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
-import { useSearchQuery, useSearchStepper } from "../../lib/use-history-search";
+import {
+  type RevealHit,
+  useSearchQuery,
+  useSearchStepper,
+} from "../../lib/use-history-search";
+import { HiddenNote } from "./hidden-note";
 import { HistorySearch } from "./history-search";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
@@ -79,13 +105,39 @@ const turnNumbers = (a: AnalyzedSession): number[] => {
   return out;
 };
 
+/** Keeps the warning in sight once the banner has scrolled away. */
+const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
+  redacted ? null : (
+    <span
+      className="inline-flex items-center gap-1 rounded-md border border-destructive/60 bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive text-xs"
+      data-testid="sticky-redaction-off"
+    >
+      <ShieldAlertIcon className="size-3.5" />
+      Redaction off
+    </span>
+  );
+
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
   a,
+  landing,
+  onSummary,
+  req,
+  sectionRef,
+  seq,
   sid,
   view,
 }: {
   readonly a: AnalyzedSession;
+  readonly landing: JumpLanding;
+  /** Scrolls back up to the summary. */
+  readonly onSummary: () => void;
+  /** Where a stats link or the summary asked to go, if anywhere. */
+  readonly req: JumpRequest | null;
+  /** The section element, for jumps from outside it. */
+  readonly sectionRef: RefObject<HTMLElement | null>;
+  /** Bumped on every request, so a second click on one chip lands again. */
+  readonly seq: number;
   /** The session id, for the marker query — `AnalyzedSession` carries none. */
   readonly sid: string;
   readonly view: SessionView;
@@ -102,12 +154,22 @@ export const SessionHistory = ({
     [a.events, searching]
   );
   const turns = useMemo(() => turnNumbers(a), [a]);
+  // Resolved once per analysis and request: the resolve walks every event,
+  // and a fresh object would re-run the landing effects on each render.
+  const jump = useMemo(() => toHistoryJump(a, req, seq), [a, req, seq]);
   const tools = useMemo(() => indexTools(a), [a]);
   // Stats marks are an annotation on the same calls the tables counted; a
   // failed or pending marker query leaves the transcript exactly as it was.
   const marks = useToolMarks(sid);
   const activeMark = useHashParam("mark");
-  const callId = useHashParam("call");
+  const [bar, setBar] = useState<HTMLDivElement | null>(null);
+  const stickyHeight = useStickyHeight(bar);
+  useScrollPadding(useScrollRoot(), stickyHeight);
+  useSubagentsJump({
+    done: landing.done,
+    jump,
+    section: sectionRef,
+  });
 
   // A conversation has one order — its own. The persisted sort is left alone, so
   // switching back to the table restores the column sort it had.
@@ -131,15 +193,31 @@ export const SessionHistory = ({
       }),
     [a.events, searchIndex, kind, deferredQuery, effectiveSort]
   );
+  // The input follows every keystroke; the transcript follows when React has
+  // time, so typing never waits on a re-filter of thousands of events.
+  const stale = query !== deferredQuery;
 
-  useScrollToCall(callId, visible);
-  // A stats link names a call the search or type filter can hide: say
-  // so, rather than leave the reader at the top of the transcript.
-  const callHidden =
-    callId !== null &&
-    a.events.some((e) => e.toolUseId === callId) &&
-    !visible.some(({ e }) => e.toolUseId === callId);
-  const showCall = () => {
+  // A jump the search or type filter hides gets a note, rather than leave the
+  // reader at the top of the transcript.
+  const jumpIndex = useMemo(
+    () =>
+      jump === null
+        ? -1
+        : rowIndexOfTarget({
+            ordered: isForwardOrder(effectiveSort),
+            rows: visible,
+            target: jump.target,
+            turns,
+          }),
+    [jump, visible, effectiveSort, turns]
+  );
+  const jumpHidden = isHiddenJump({
+    filtered: searching || kind !== "all",
+    index: jumpIndex,
+    jump,
+    landed: landing.done.current,
+  });
+  const clearFilters = () => {
     setQuery("");
     prefs.setKind("all");
   };
@@ -189,19 +267,27 @@ export const SessionHistory = ({
     [expandAll, view.setExpanded, view.toggleExpanded]
   );
 
-  // The search filters the list, so every drawn card is a hit.
+  // The search filters the list, so every drawn card is a hit. The mounted
+  // layout fills `revealHit`, since only it knows where a hit's row sits.
+  const revealHit = useRef<RevealHit>(null);
   const search = useSearchStepper({
     hits: searching ? transcriptIds : NO_HITS,
     isOpen,
     onToggle,
     query: deferredQuery,
     resetKey: query,
+    reveal: revealHit,
   });
 
   const allOpen =
     expandAll ||
     (allIds.length > 0 && allIds.every((id) => view.isExpanded(id)));
+  const expandLabel = allOpen ? "Collapse all" : "Expand all";
+  // Re-measures every block only on a bulk action, not when `allOpen` flips
+  // because one block was opened by hand or the filter changed.
+  const [bulkKey, setBulkKey] = useState(0);
   const toggleAll = () => {
+    setBulkKey((k) => k + 1);
     if (allOpen) {
       setHashParam("expand", null);
       view.setExpanded([]);
@@ -211,9 +297,21 @@ export const SessionHistory = ({
   };
 
   return (
-    <section className="flex flex-col gap-3" data-testid="session-history">
+    <section
+      className="flex flex-col gap-3"
+      data-testid="session-history"
+      ref={sectionRef}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-semibold text-base">Full history</h2>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="font-semibold text-base outline-none" tabIndex={-1}>
+            Full history
+          </h2>
+          <span className="text-muted-foreground text-xs">
+            {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
+            dumb zone
+          </span>
+        </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground" id="redact-toggle-label">
             Reveal secrets
@@ -251,16 +349,10 @@ export const SessionHistory = ({
         )}
       </div>
 
-      {/* Only the search row is pinned while searching, so the counter and
-          step controls stay in reach as stepping scrolls the transcript. The
-          padding is constant so typing does not shift the layout. */}
       <div
-        className={cn(
-          "-mx-1 -my-1 border-b px-1 py-1",
-          query.length > 0
-            ? "sticky top-0 z-10 border-border bg-background"
-            : "border-transparent"
-        )}
+        className="@container top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
+        data-testid="history-toolbar"
+        ref={setBar}
       >
         <HistorySearch
           count={search.count}
@@ -268,13 +360,14 @@ export const SessionHistory = ({
           onClear={() => setQuery("")}
           onQuery={setQuery}
           onStep={search.onStep}
-          pending={query !== deferredQuery}
+          pending={stale}
           query={query}
         />
-      </div>
-      <div className="flex flex-wrap items-center gap-3">
         <Select onValueChange={prefs.setKind} value={kind}>
-          <SelectTrigger className="w-40" data-testid="history-kind-filter">
+          <SelectTrigger
+            className="@2xl:w-40 w-36"
+            data-testid="history-kind-filter"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -285,10 +378,6 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
-        <span className="text-muted-foreground text-xs">
-          {visible.length} events · {a.dumbZoneTurns}/{a.turnCount} turns in
-          dumb zone
-        </span>
         <fieldset
           aria-label="Transcript layout"
           className="ml-auto flex items-center gap-0.5 rounded-md border border-border p-0.5"
@@ -315,6 +404,7 @@ export const SessionHistory = ({
         </fieldset>
         {allIds.length > 0 ? (
           <Button
+            aria-label={expandLabel}
             data-testid="history-expand-all"
             onClick={toggleAll}
             size="sm"
@@ -325,54 +415,66 @@ export const SessionHistory = ({
             ) : (
               <ChevronsUpDownIcon className="size-3.5" />
             )}
-            {allOpen ? "Collapse all" : "Expand all"}
+            <span className="@2xl:inline hidden">{expandLabel}</span>
           </Button>
         ) : null}
+        <RedactionOffBadge redacted={redacted} />
+        <Button
+          aria-label="Back to summary"
+          data-testid="history-to-summary"
+          onClick={onSummary}
+          size="icon-sm"
+          title="Back to summary"
+          variant="ghost"
+        >
+          <ArrowUpIcon className="size-3.5" />
+        </Button>
       </div>
 
-      {callHidden ? (
-        <div
-          className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs"
-          data-testid="history-call-hidden"
-        >
-          <span>
-            The call this link points to is hidden by the search or type filter.
-          </span>
-          <Button
-            className="h-6 px-2 text-xs"
-            onClick={showCall}
-            size="sm"
-            variant="outline"
-          >
-            Clear filters
-          </Button>
-        </div>
-      ) : null}
+      <HiddenNote
+        hidden={jumpHidden && (req?.kind === "call" ? "call" : "jump")}
+        onClear={clearFilters}
+      />
 
-      <div ref={search.containerRef}>
+      <div
+        aria-busy={stale}
+        className={cn("transition-opacity", stale && "opacity-70")}
+        ref={search.containerRef}
+      >
         {mode === "chat" ? (
           <TranscriptChat
             a={a}
             activeMark={activeMark}
             allOpen={allOpen}
+            bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
             isOpen={search.isOpen}
+            jump={jump}
+            landing={landing}
             marks={marks}
             onToggle={search.onToggle}
             queryActive={searching}
+            revealHit={revealHit}
             rows={visible}
+            stickyHeight={stickyHeight}
             tools={tools}
             turns={turns}
           />
         ) : (
           <TranscriptTable
             a={a}
+            bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
             isOpen={search.isOpen}
+            jump={jump}
+            jumpIndex={jumpIndex}
+            landing={landing}
             onSort={prefs.setSort}
             onToggle={search.onToggle}
+            revealHit={revealHit}
             rows={visible}
             sort={sort}
+            stickyHeight={stickyHeight}
             tools={tools}
             turns={turns}
           />

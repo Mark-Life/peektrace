@@ -20,6 +20,8 @@ export {
   MemoryVaultPayload,
   PathOutsideRootError,
   PeektraceRpcs,
+  ScannedRoot,
+  ServerInfo,
   SessionAnalyzePayload,
   SessionGetPayload,
   SessionNotFoundError,
