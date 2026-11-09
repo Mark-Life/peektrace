@@ -1,18 +1,18 @@
 /** Full history: one filtered event list, two readings of it.
  *
  * The shell owns everything shared — search, the type filter, the redaction
- * toggle and its banner, expand-all, and the single `visible` array — then hands
- * the identical rows to either renderer. Layout, sort and filters come from the
- * history prefs shared across sessions. The chat layout is the default, the
- * readable pass; the dense table is the forensic answer ("what did this cost,
- * in what order") over the same events. Keeping the filtering here is what
- * stops the two from drifting apart. The transcript is REDACTED BY DEFAULT
- * behind a persistent "review before sharing" banner; the reveal toggle
- * re-fetches with `redact:false` (handled by the parent atom).
+ * toggle and its banner, expand-all, and the single `visible` array — then
+ * hands the identical rows to either renderer. Layout, sort and the type
+ * filter come from the history prefs shared across sessions; the search query
+ * belongs to this view and clears when another session opens. The chat layout
+ * is the default, the readable pass; the dense table is the forensic answer
+ * ("what did this cost, in what order") over the same events. Keeping the
+ * filtering here is what stops the two from drifting apart. The transcript is
+ * REDACTED BY DEFAULT behind a persistent "review before sharing" banner; the
+ * reveal toggle re-fetches with `redact:false` (handled by the parent atom).
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
-import { Input } from "@workspace/ui/components/input";
 import {
   Select,
   SelectContent,
@@ -33,14 +33,12 @@ import {
 import {
   type RefObject,
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 import { chatIdsOf } from "../../lib/chat-lane";
-import { filterRows, searchIndex } from "../../lib/history-filter";
 import {
   isHiddenJump,
   type JumpLanding,
@@ -54,12 +52,8 @@ import {
   useSubagentsJump,
 } from "../../lib/history-landing";
 import { useHistoryPrefs } from "../../lib/history-prefs";
-import {
-  DEFAULT_HISTORY_SORT,
-  isForwardOrder,
-  sortRows,
-} from "../../lib/history-sort";
-import { HISTORY_SEARCH_ID } from "../../lib/landmarks";
+import { searchIndexOf, visibleRows } from "../../lib/history-search";
+import { DEFAULT_HISTORY_SORT, isForwardOrder } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useToolMarks } from "../../lib/session-markers";
@@ -69,7 +63,13 @@ import {
   subagentCollapseId,
 } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
+import {
+  type RevealHit,
+  useSearchQuery,
+  useSearchStepper,
+} from "../../lib/use-history-search";
 import { HiddenNote } from "./hidden-note";
+import { HistorySearch } from "./history-search";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
 import { TranscriptTable } from "./transcript-table";
@@ -85,6 +85,9 @@ const KIND_OPTIONS = [
   { value: "assistant-thinking", label: "Thinking" },
   { value: "attachment", label: "Attachments" },
 ] as const;
+
+const NO_HITS: readonly string[] = [];
+const NO_INDEX: readonly string[] = [];
 
 /** Map every event to the 1-based turn it belongs to (for grouping). */
 const turnNumbers = (a: AnalyzedSession): number[] => {
@@ -141,7 +144,15 @@ export const SessionHistory = ({
 }) => {
   const { redacted } = view.state;
   const prefs = useHistoryPrefs();
-  const { query, kind, sort, mode } = prefs;
+  const { kind, sort, mode } = prefs;
+  const { query, deferredQuery, setQuery } = useSearchQuery(sid);
+  // Built only while searching: a live append rebuilds every event, and an
+  // idle viewer should not pay for an index nobody reads.
+  const searching = deferredQuery.length > 0;
+  const searchIndex = useMemo(
+    () => (searching ? searchIndexOf(a.events) : NO_INDEX),
+    [a.events, searching]
+  );
   const turns = useMemo(() => turnNumbers(a), [a]);
   // Resolved once per analysis and request: the resolve walks every event,
   // and a fresh object would re-run the landing effects on each render.
@@ -171,22 +182,23 @@ export const SessionHistory = ({
         )
       : -1;
 
-  // The input follows every keystroke; the transcript follows when React has
-  // time, so typing never waits on a re-filter of thousands of events.
-  const deferredQuery = useDeferredValue(query);
-  const stale = query !== deferredQuery;
-  const hay = useMemo(() => searchIndex(a.events), [a.events]);
   const visible = useMemo(
     () =>
-      sortRows(
-        filterRows({ events: a.events, hay, kind, query: deferredQuery }),
-        effectiveSort
-      ),
-    [a.events, hay, kind, deferredQuery, effectiveSort]
+      visibleRows({
+        events: a.events,
+        index: searchIndex,
+        kind,
+        query: deferredQuery,
+        sort: effectiveSort,
+      }),
+    [a.events, searchIndex, kind, deferredQuery, effectiveSort]
   );
+  // The input follows every keystroke; the transcript follows when React has
+  // time, so typing never waits on a re-filter of thousands of events.
+  const stale = query !== deferredQuery;
 
-  // A jump the saved search or type filter hides gets a note, rather than
-  // leave the reader at the top of the transcript.
+  // A jump the search or type filter hides gets a note, rather than leave the
+  // reader at the top of the transcript.
   const jumpIndex = useMemo(
     () =>
       jump === null
@@ -200,27 +212,32 @@ export const SessionHistory = ({
     [jump, visible, effectiveSort, turns]
   );
   const jumpHidden = isHiddenJump({
-    filtered: deferredQuery.length > 0 || kind !== "all",
+    filtered: searching || kind !== "all",
     index: jumpIndex,
     jump,
     landed: landing.done.current,
   });
   const clearFilters = () => {
-    prefs.setQuery("");
+    setQuery("");
     prefs.setKind("all");
   };
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
   // shareable link; individual rows persist in the per-session set instead.
   const expandAll = useHashParam("expand") === "all";
+  const transcriptIds = useMemo(
+    () =>
+      mode === "chat"
+        ? chatIdsOf(visible)
+        : visible.map(({ pos }) => eventCollapseId(pos)),
+    [mode, visible]
+  );
   const allIds = useMemo(
     () => [
-      ...(mode === "chat"
-        ? chatIdsOf(visible)
-        : visible.map(({ pos }) => eventCollapseId(pos))),
+      ...transcriptIds,
       ...a.subagents.map((s) => subagentCollapseId(s.id)),
     ],
-    [mode, visible, a.subagents]
+    [transcriptIds, a.subagents]
   );
 
   const isOpen = (id: string) => expandAll || view.isExpanded(id);
@@ -249,6 +266,18 @@ export const SessionHistory = ({
     },
     [expandAll, view.setExpanded, view.toggleExpanded]
   );
+
+  // The search filters the list, so every drawn card is a hit. The mounted
+  // layout fills `revealHit`, since only it knows where a hit's row sits.
+  const revealHit = useRef<RevealHit>(null);
+  const search = useSearchStepper({
+    hits: searching ? transcriptIds : NO_HITS,
+    isOpen,
+    onToggle,
+    query: deferredQuery,
+    resetKey: query,
+    reveal: revealHit,
+  });
 
   const allOpen =
     expandAll ||
@@ -325,14 +354,14 @@ export const SessionHistory = ({
         data-testid="history-toolbar"
         ref={setBar}
       >
-        <Input
-          aria-label="Search history"
-          className="min-w-40 @2xl:max-w-60 flex-1"
-          data-testid={HISTORY_SEARCH_ID}
-          id={HISTORY_SEARCH_ID}
-          onChange={(e) => prefs.setQuery(e.target.value)}
-          placeholder="Search history…"
-          value={query}
+        <HistorySearch
+          count={search.count}
+          current={search.current}
+          onClear={() => setQuery("")}
+          onQuery={setQuery}
+          onStep={search.onStep}
+          pending={stale}
+          query={query}
         />
         <Select onValueChange={prefs.setKind} value={kind}>
           <SelectTrigger
@@ -410,6 +439,7 @@ export const SessionHistory = ({
       <div
         aria-busy={stale}
         className={cn("transition-opacity", stale && "opacity-70")}
+        ref={search.containerRef}
       >
         {mode === "chat" ? (
           <TranscriptChat
@@ -418,12 +448,13 @@ export const SessionHistory = ({
             allOpen={allOpen}
             bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
-            isOpen={isOpen}
+            isOpen={search.isOpen}
             jump={jump}
             landing={landing}
             marks={marks}
-            onToggle={onToggle}
-            queryActive={deferredQuery.length > 0}
+            onToggle={search.onToggle}
+            queryActive={searching}
+            revealHit={revealHit}
             rows={visible}
             stickyHeight={stickyHeight}
             tools={tools}
@@ -434,12 +465,13 @@ export const SessionHistory = ({
             a={a}
             bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
-            isOpen={isOpen}
+            isOpen={search.isOpen}
             jump={jump}
             jumpIndex={jumpIndex}
             landing={landing}
             onSort={prefs.setSort}
-            onToggle={onToggle}
+            onToggle={search.onToggle}
+            revealHit={revealHit}
             rows={visible}
             sort={sort}
             stickyHeight={stickyHeight}

@@ -33,7 +33,7 @@ import {
 } from "@workspace/ui/components/collapsible";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo, useMemo, useRef } from "react";
+import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
 import {
   alignOf,
@@ -59,6 +59,7 @@ import {
 import { estimateTableRow } from "../../lib/transcript-estimate";
 import { sameEvent } from "../../lib/transcript-row";
 import { tableTurnStops } from "../../lib/turn-nav";
+import { type RevealHit, useRevealHit } from "../../lib/use-history-search";
 import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
@@ -153,6 +154,7 @@ const ToolEventRowBody = ({
   return (
     <Tool
       className="rounded-none border-0 border-b"
+      data-collapse-id={collapseId}
       data-kind={e.kind}
       data-sidechain={e.isSidechain ? "true" : "false"}
       data-testid="history-event"
@@ -216,6 +218,7 @@ const EventRowBody = ({
   return (
     <Collapsible
       className="border-border border-b"
+      data-collapse-id={collapseId}
       data-kind={e.kind}
       data-sidechain={e.isSidechain ? "true" : "false"}
       data-testid="history-event"
@@ -331,6 +334,7 @@ export const TranscriptTable = ({
   landing,
   onSort,
   onToggle,
+  revealHit,
   rows,
   sort,
   stickyHeight,
@@ -350,6 +354,8 @@ export const TranscriptTable = ({
   readonly landing: JumpLanding;
   readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
+  /** Filled here so search can step to a hit that is not drawn. */
+  readonly revealHit: RefObject<RevealHit | null>;
   /** Rows already in `sort` order. */
   readonly rows: readonly TranscriptRowRef[];
   readonly sort: HistorySort;
@@ -374,6 +380,11 @@ export const TranscriptTable = ({
     [rows]
   );
   const list = useRef<VirtualListHandle>(null);
+  const indexOfHit = useCallback(
+    (id: string) => rows.findIndex(({ pos }) => eventCollapseId(pos) === id),
+    [rows]
+  );
+  useRevealHit({ indexOf: indexOfHit, list, reveal: revealHit });
   useVirtualJump({
     align: jump ? alignOf(jump.target) : "start",
     done: landing.done,

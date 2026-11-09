@@ -123,6 +123,38 @@ export const landAt = ({
 };
 
 /**
+ * Scroll item `index` to the centre, then hand its drawn element to `onDrawn`.
+ * Focus is left alone, so a search box keeps it while stepping. Returns a
+ * cancel function.
+ */
+export const revealAt = ({
+  index,
+  list,
+  onDrawn,
+}: {
+  readonly index: number;
+  readonly list: RefObject<VirtualListHandle | null>;
+  readonly onDrawn: (item: HTMLElement) => void;
+}) => {
+  list.current?.scrollToIndex(index, "center");
+  let frames = 0;
+  let raf = 0;
+  const tick = () => {
+    const item = list.current?.elementAt(index);
+    if (item) {
+      onDrawn(item);
+      return;
+    }
+    frames += 1;
+    if (frames < MAX_FRAMES) {
+      raf = requestAnimationFrame(tick);
+    }
+  };
+  raf = requestAnimationFrame(tick);
+  return () => cancelAnimationFrame(raf);
+};
+
+/**
  * Bring item `index` into view and focus it, once per `target`. `target` is
  * the id the link names; `index` is where it sits in the list now, or -1 when
  * a filter hides it, in which case the jump waits until it is shown. Reading

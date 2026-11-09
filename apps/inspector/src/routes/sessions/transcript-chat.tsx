@@ -15,10 +15,11 @@ import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
-import { memo, useMemo, useRef } from "react";
+import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
 import {
   buildChatPlan,
   type ChatNode,
+  chatCollapseIdOf,
   chatNodeKeys,
   laneOf,
   type TranscriptRowRef,
@@ -42,6 +43,7 @@ import {
   estimateChatNode,
 } from "../../lib/transcript-estimate";
 import { chatTurnStops } from "../../lib/turn-nav";
+import { type RevealHit, useRevealHit } from "../../lib/use-history-search";
 import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
@@ -285,6 +287,7 @@ export const TranscriptChat = ({
   marks,
   onToggle,
   queryActive,
+  revealHit,
   rows,
   stickyHeight,
   tools,
@@ -307,6 +310,8 @@ export const TranscriptChat = ({
   readonly onToggle: (id: string, open: boolean) => void;
   /** A search is running: chip clusters must not fold a match out of sight. */
   readonly queryActive: boolean;
+  /** Filled here so search can step to a hit that is not drawn. */
+  readonly revealHit: RefObject<RevealHit | null>;
   readonly rows: readonly TranscriptRowRef[];
   /** Height of the sticky toolbar a jump must land below. */
   readonly stickyHeight: number;
@@ -326,6 +331,17 @@ export const TranscriptChat = ({
     list,
     target: jump?.key ?? null,
   });
+  const indexOfHit = useCallback(
+    (id: string) =>
+      plan.findIndex(
+        (n) =>
+          chatCollapseIdOf(n) === id ||
+          (n.type === "run" &&
+            n.items.some(({ pos }) => chatCollapseId(pos) === id))
+      ),
+    [plan]
+  );
+  useRevealHit({ indexOf: indexOfHit, list, reveal: revealHit });
   const stops = useMemo(() => chatTurnStops(plan), [plan]);
   useTurnNav({ list, stops });
 

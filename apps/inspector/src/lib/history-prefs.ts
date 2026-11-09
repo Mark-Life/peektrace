@@ -1,9 +1,11 @@
 /** History view prefs shared by every session.
  *
- * Layout, sort, type filter and search live under one `localStorage` key, so
- * opening another session keeps the same reading of its history. Redaction and
- * open rows stay per session (see `session-view.ts`): revealing secrets in one
- * transcript must never reveal them in the next.
+ * Layout, sort and type filter live under one `localStorage` key, so opening
+ * another session keeps the same reading of its history. Redaction and open
+ * rows stay per session (see `session-view.ts`): revealing secrets in one
+ * transcript must never reveal them in the next. The search query is not a
+ * pref: it belongs to one session view and clears when another opens, so a
+ * stale query can never silently filter the next transcript.
  *
  * A module-level store backs the hook, so every component reading the prefs
  * sees one value and re-renders together on same-tab writes; the `storage`
@@ -30,8 +32,6 @@ export interface HistoryPrefs {
   readonly kind: string;
   /** Stored transcript layout (the hash `view` param can override it). */
   readonly mode: TranscriptMode;
-  /** History search box value. */
-  readonly query: string;
   /** Table row sort (chat always reads in transcript order). */
   readonly sort: HistorySort;
 }
@@ -41,7 +41,6 @@ export const DEFAULT_HISTORY_PREFS: HistoryPrefs = {
   mode: DEFAULT_TRANSCRIPT_MODE,
   sort: DEFAULT_HISTORY_SORT,
   kind: "all",
-  query: "",
 };
 
 /** `localStorage` key for the shared history prefs. */
@@ -57,8 +56,6 @@ export const normalizeHistoryPrefs = (parsed: unknown): HistoryPrefs => {
     mode: transcriptModeOf(raw.mode) ?? DEFAULT_HISTORY_PREFS.mode,
     sort: historySortOf(raw.sort),
     kind: typeof raw.kind === "string" ? raw.kind : DEFAULT_HISTORY_PREFS.kind,
-    query:
-      typeof raw.query === "string" ? raw.query : DEFAULT_HISTORY_PREFS.query,
   };
 };
 
@@ -151,10 +148,6 @@ export const useHistoryPrefs = () => {
     stored: prefs.mode,
   });
 
-  const setQuery = useCallback(
-    (query: string) => updateHistoryPrefs({ query }),
-    []
-  );
   const setKind = useCallback(
     (kind: string) => updateHistoryPrefs({ kind }),
     []
@@ -169,5 +162,5 @@ export const useHistoryPrefs = () => {
     setHashParam("view", next);
   }, []);
 
-  return { ...prefs, mode, setQuery, setKind, setSort, setMode };
+  return { ...prefs, mode, setKind, setSort, setMode };
 };
