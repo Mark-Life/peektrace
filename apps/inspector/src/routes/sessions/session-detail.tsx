@@ -6,7 +6,7 @@
  * size) with subagent drill-down. The redaction toggle flips the atom's
  * `redact` flag, which re-fetches the analysis with raw bodies.
  */
-import { Result, useAtomValue } from "@effect-atom/atom-react";
+import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
@@ -66,6 +66,7 @@ const SessionDetailView = ({
   const view = useSessionView(id);
   const atom = useAnalyzedSession({ id, parent, redact: view.state.redacted });
   const result = useAtomValue(atom);
+  const retry = useAtomRefresh(atom);
   const source = useMemo(() => ({ id, parent }), [id, parent]);
   const root = useScrollRoot();
   const history = useRef<HTMLElement>(null);
@@ -128,7 +129,7 @@ const SessionDetailView = ({
         ) : null}
       </div>
       {parent === null ? null : <ParentNote parent={parent} />}
-      <ResultView result={result}>
+      <ResultView onRetry={retry} result={result}>
         {(a) => (
           <div className="flex flex-col gap-4">
             <VerdictHeader a={a} onJump={request} />

@@ -4,8 +4,8 @@
  * top, then each project's full forensic + CRUD surface in an accordion. Search
  * + type-filter span all projects; a scope select drills into one project.
  * "New memory in…" creates a memory in any Claude project, including the first
- * one when no vault exists yet. The `memory.crud` matrix cell gates every write
- * affordance. Writes refresh `allVaultsAtom` so gauges re-validate.
+ * one when no vault exists yet. A read-only server or the `memory.crud` matrix
+ * cell gates every write affordance. Writes refresh `allVaultsAtom` so gauges re-validate.
  */
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type {
@@ -38,7 +38,11 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { allVaultsAtom, capabilitiesAtom } from "../../lib/atoms";
+import {
+  allVaultsAtom,
+  capabilitiesAtom,
+  serverInfoAtom,
+} from "../../lib/atoms";
 import {
   memoryCrudVerdict,
   memorySupportSummary,
@@ -184,9 +188,11 @@ const Filters = ({
 export const Explorer = ({
   all,
   caps,
+  readOnly,
 }: {
   readonly all: typeof AllVaults.Type;
   readonly caps: readonly Capability[];
+  readonly readOnly: boolean;
 }) => {
   const refresh = useAtomRefresh(allVaultsAtom);
   const [query, setQuery] = useState("");
@@ -199,8 +205,8 @@ export const Explorer = ({
   // Collapsed vaults; every other vault (including a newly created one) is open.
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
 
-  const verdict = memoryCrudVerdict(caps);
-  const canWrite = verdict.canWrite;
+  const verdict = memoryCrudVerdict({ caps, readOnly });
+  const canWrite = verdict.blockedBy === null;
   const isEmpty = all.projects.length === 0;
 
   const vaults = useMemo(
@@ -281,7 +287,7 @@ export const Explorer = ({
         </div>
       )}
 
-      {canWrite ? (
+      {verdict.blockedBy === null ? (
         <p
           className="text-muted-foreground text-xs"
           data-testid="memory-support"
@@ -290,6 +296,7 @@ export const Explorer = ({
         </p>
       ) : (
         <CapabilityBanner
+          blockedBy={verdict.blockedBy}
           detail={verdict.note ?? memorySupportSummary(caps)}
           level={verdict.level}
         />
@@ -351,15 +358,26 @@ export const Explorer = ({
   );
 };
 
-/** Resolve both queries, then render the explorer (or its empty state). */
+/** Resolve every query, then render the explorer (or its empty state). The
+ * server mode is awaited so edit buttons never show and then vanish. */
 export const MemoryExplorer = () => {
   const allResult = useAtomValue(allVaultsAtom);
   const capsResult = useAtomValue(capabilitiesAtom);
+  const infoResult = useAtomValue(serverInfoAtom);
+  const retryAll = useAtomRefresh(allVaultsAtom);
+  const retryCaps = useAtomRefresh(capabilitiesAtom);
+  const retryInfo = useAtomRefresh(serverInfoAtom);
   return (
-    <ResultView result={allResult}>
+    <ResultView onRetry={retryAll} result={allResult}>
       {(all) => (
-        <ResultView result={capsResult}>
-          {(caps) => <Explorer all={all} caps={caps} />}
+        <ResultView onRetry={retryCaps} result={capsResult}>
+          {(caps) => (
+            <ResultView onRetry={retryInfo} result={infoResult}>
+              {(info) => (
+                <Explorer all={all} caps={caps} readOnly={info.readOnly} />
+              )}
+            </ResultView>
+          )}
         </ResultView>
       )}
     </ResultView>

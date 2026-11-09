@@ -10,7 +10,7 @@
  * one action that costs another corpus pass, so it is a button, never a scroll.
  */
 import type { Atom, Result } from "@effect-atom/atom-react";
-import { useAtomValue } from "@effect-atom/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type {
   DrillHit,
   DrillResult,
@@ -218,8 +218,9 @@ const DrillBody = ({
   readonly onPage: (offset: number) => void;
 }) => {
   const result = useAtomValue(atom);
+  const retry = useAtomRefresh(atom);
   return (
-    <ResultView result={result}>
+    <ResultView onRetry={retry} result={result}>
       {(value) => (
         <Hits
           detector={detector}

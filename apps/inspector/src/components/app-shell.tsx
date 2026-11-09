@@ -40,6 +40,7 @@ import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
 import { ScrollRootContext } from "../lib/scroll-root";
 import { ThemeToggle, useThemeShortcut } from "../lib/theme";
+import { ReadOnlyBadge } from "./read-only";
 import { ShortcutsButton, ShortcutsDialog } from "./shortcuts-dialog";
 import { ShellSkipLinks } from "./skip-links";
 import { WatchStatus } from "./watch-status";
@@ -120,13 +121,15 @@ const TitlebarDragRegion = () => {
   );
 };
 
-/** Content header: section title, the sidebar toggle, and the sync dot. */
+/** Content header: section title, the sidebar toggle, the sync dot and the
+ *  read-only badge. */
 const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
   <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
     <SidebarTrigger className="-ml-1" />
     <span className="font-medium text-sm">{active?.label}</span>
     <span className="text-muted-foreground text-xs">{active?.hint}</span>
     <WatchStatus />
+    <ReadOnlyBadge />
   </header>
 );
 

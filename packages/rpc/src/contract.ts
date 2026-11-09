@@ -299,6 +299,34 @@ export const SettingsResult = Schema.Struct({
   path: Schema.String,
 });
 
+/** One transcript folder the server scans for an agent. */
+export const ScannedRoot = Schema.Struct({
+  isDefault: Schema.Boolean,
+  /** The source's config dir, the kind of path Settings rows take. */
+  home: Schema.String,
+  /** The source's transcript root. */
+  path: Schema.String,
+  /** Whether the folder exists on disk at request time. */
+  exists: Schema.Boolean,
+});
+export type ScannedRoot = typeof ScannedRoot.Type;
+
+/** The folders scanned for one supported agent, default first. */
+export const AgentScan = Schema.Struct({
+  agent: AgentId,
+  roots: Schema.Array(ScannedRoot),
+});
+
+/** `server.info` result: the running server's posture and scan roots. */
+export const ServerInfo = Schema.Struct({
+  /** Mutating RPCs are refused (`--read-only`, or a non-loopback host). */
+  readOnly: Schema.Boolean,
+  /** The server user's home dir, so the UI can show `~` paths. */
+  userHome: Schema.String,
+  agents: Schema.Array(AgentScan),
+});
+export type ServerInfo = typeof ServerInfo.Type;
+
 /** What every stats pass accepts: scope, window and cache posture. */
 const statsScopeFields = {
   /** Agents to scan. Default: every agent with a parser. */
@@ -363,6 +391,9 @@ export const SettingsUpdatePayload = Schema.Struct({
 export const PeektraceRpcs = RpcGroup.make(
   Rpc.make("capabilities.list", {
     success: Schema.Array(Capability),
+  }),
+  Rpc.make("server.info", {
+    success: ServerInfo,
   }),
   Rpc.make("sessions.list", {
     payload: SessionsListPayload,

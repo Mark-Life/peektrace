@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select";
+import { cn } from "@workspace/ui/lib/utils";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 import { at, hms, n } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
@@ -59,12 +60,14 @@ const Controls = ({
   onAgent,
   onDays,
   onRescan,
+  rescanning,
 }: {
   readonly agent: AgentId | null;
   readonly days: number;
   readonly onAgent: (value: AgentId | null) => void;
   readonly onDays: (value: number) => void;
   readonly onRescan: () => void;
+  readonly rescanning: boolean;
 }) => (
   <div className="flex flex-wrap items-center gap-2">
     <Select onValueChange={(v) => onDays(Number(v))} value={String(days)}>
@@ -97,12 +100,16 @@ const Controls = ({
     </Select>
     <Button
       data-testid="stats-rescan"
+      disabled={rescanning}
       onClick={onRescan}
       size="sm"
       variant="outline"
     >
-      <RefreshCwIcon className="size-3.5" />
-      Rescan
+      <RefreshCwIcon
+        aria-hidden
+        className={cn("size-3.5", rescanning && "motion-safe:animate-spin")}
+      />
+      {rescanning ? "Rescanning…" : "Rescan"}
     </Button>
   </div>
 );
@@ -116,12 +123,15 @@ export const ReportHeader = ({
   onRescan,
   prompt,
   report,
+  rescanning,
 }: {
   readonly agent: AgentId | null;
   readonly days: number;
   readonly onAgent: (value: AgentId | null) => void;
   readonly onDays: (value: number) => void;
   readonly onRescan: () => void;
+  /** A rescan is in flight over the report on screen. */
+  readonly rescanning: boolean;
   /** The whole-report investigation prompt. */
   readonly prompt: string | null;
   readonly report: StatsReport;
@@ -142,6 +152,7 @@ export const ReportHeader = ({
             onAgent={onAgent}
             onDays={onDays}
             onRescan={onRescan}
+            rescanning={rescanning}
           />
           <PromptButton
             subject="this report"

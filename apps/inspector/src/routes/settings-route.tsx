@@ -4,7 +4,8 @@
  * config roots (path + optional label), and writes back with `settings.update`
  * (CAS on mtime). Because the running server resolves agent roots once at boot,
  * a banner makes clear that saved changes only affect the scanned session list
- * after `peektrace serve` restarts.
+ * after `peektrace serve` restarts. Each agent card shows the default folder the
+ * server scans; a read-only server disables the whole form.
  */
 import {
   useAtomRefresh,
@@ -13,6 +14,7 @@ import {
 } from "@effect-atom/atom-react";
 import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
 import type { PeektraceSettings } from "@workspace/core/services/settings";
+import type { ScannedRoot, ServerInfo } from "@workspace/rpc/contract";
 import {
   Alert,
   AlertDescription,
@@ -32,16 +34,21 @@ import { Exit } from "effect";
 import {
   AlertTriangleIcon,
   InfoIcon,
+  LockIcon,
   PlusIcon,
   SaveIcon,
   Trash2Icon,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ReadOnlyReason } from "../components/read-only";
+import { RootRow } from "../components/root-row";
 import { AGENT_LABEL } from "../lib/agent-label";
 import { settingsAtom } from "../lib/atoms";
+import { tildePath } from "../lib/paths";
 import { ResultView } from "../lib/result-view";
 import { navigate } from "../lib/routes";
+import { useFreshServerInfo, withLastSuccess } from "../lib/server-info";
 import { updateSettingsAtom } from "../lib/settings-atoms";
 import { wireErrorMessage, wireErrorOf } from "../lib/wire-error";
 
@@ -87,10 +94,15 @@ const assemble = (rows: RowsByAgent): PeektraceSettings => {
 /** Per-agent card: a list of extra roots with add/remove + path/label inputs. */
 const AgentRoots = ({
   agent,
+  defaultRoot,
+  home,
   rows,
   onChange,
 }: {
   readonly agent: AgentId;
+  /** The scanned default folder; absent for agents the server does not scan. */
+  readonly defaultRoot?: ScannedRoot;
+  readonly home: string;
   readonly rows: Row[];
   readonly onChange: (rows: Row[]) => void;
 }) => {
@@ -110,6 +122,20 @@ const AgentRoots = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        {defaultRoot ? (
+          <RootRow
+            className="text-sm"
+            exists={defaultRoot.exists}
+            home={home}
+            label="Default"
+            path={defaultRoot.home}
+            testId="settings-default-root"
+          >
+            <span className="text-muted-foreground text-xs">
+              scans <code>{tildePath({ path: defaultRoot.path, home })}</code>
+            </span>
+          </RootRow>
+        ) : null}
         {rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">No extra roots.</p>
         ) : (
@@ -169,21 +195,34 @@ const AgentRoots = ({
   );
 };
 
+/** The scanned default folder per agent, from `server.info`. */
+const defaultRoots = (info: ServerInfo) =>
+  new Map(
+    info.agents.flatMap(({ agent, roots }) => {
+      const root = roots.find((r) => r.isDefault);
+      return root ? [[agent, root] as const] : [];
+    })
+  );
+
 /** The editor form, seeded from one loaded snapshot (re-keyed on refresh). */
-const SettingsEditor = ({
+export const SettingsEditor = ({
   settings,
   mtimeMs,
   path,
+  info,
 }: {
   readonly settings: PeektraceSettings;
   readonly mtimeMs: number;
   readonly path: string;
+  readonly info: ServerInfo;
 }) => {
   const save = useAtomSet(updateSettingsAtom, { mode: "promiseExit" });
   const refresh = useAtomRefresh(settingsAtom);
   const [rows, setRows] = useState<RowsByAgent>(() => seedRows(settings));
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const defaults = defaultRoots(info);
+  const home = info.userHome;
 
   // `guard` on → CAS on the loaded mtime; off → force-overwrite a conflict.
   const send = async (guard: boolean) => {
@@ -219,67 +258,90 @@ const SettingsEditor = ({
         <InfoIcon />
         <AlertTitle>Changes apply after a restart</AlertTitle>
         <AlertDescription>
-          Saved to <code>{path}</code>. The running server scans the roots it
-          read at startup, so restart <code>peektrace serve</code> for new roots
-          to appear in the session list.
+          Saved to <code>{tildePath({ path, home })}</code>. The running server
+          scans the roots it read at startup, so restart{" "}
+          <code>peektrace serve</code> for new roots to appear in the session
+          list.
         </AlertDescription>
       </Alert>
 
-      {conflict ? (
-        <div
-          className="flex flex-col gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-4"
-          data-testid="settings-cas-conflict"
-        >
-          <div className="flex items-center gap-2 font-medium text-amber-300">
-            <AlertTriangleIcon className="size-4" />
-            settings.json changed on disk
-          </div>
-          <p className="text-muted-foreground text-sm">
-            The file was modified after you loaded it. Reload to pull the latest
-            (your edits are discarded) or overwrite to force-save what you have.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button
-              data-testid="settings-cas-reload"
-              onClick={() => refresh()}
-              type="button"
-              variant="outline"
-            >
-              Reload from disk
-            </Button>
-            <Button
-              data-testid="settings-cas-overwrite"
-              disabled={busy}
-              onClick={() => send(false)}
-              type="button"
-              variant="destructive"
-            >
-              Overwrite
-            </Button>
-          </div>
-        </div>
+      {info.readOnly ? (
+        <Alert data-testid="settings-readonly" id="settings-readonly">
+          <LockIcon />
+          <AlertTitle>Read-only server</AlertTitle>
+          <AlertDescription>
+            <p>
+              <ReadOnlyReason /> Settings can't be saved from here.
+            </p>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      {AGENT_IDS.map((agent) => (
-        <AgentRoots
-          agent={agent}
-          key={agent}
-          onChange={(next) => setRows((prev) => ({ ...prev, [agent]: next }))}
-          rows={rows[agent]}
-        />
-      ))}
+      <fieldset
+        aria-describedby={info.readOnly ? "settings-readonly" : undefined}
+        className="m-0 flex min-w-0 flex-col gap-4 border-0 p-0"
+        data-testid="settings-form"
+        disabled={info.readOnly}
+      >
+        {conflict ? (
+          <div
+            className="flex flex-col gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-4"
+            data-testid="settings-cas-conflict"
+          >
+            <div className="flex items-center gap-2 font-medium text-amber-300">
+              <AlertTriangleIcon className="size-4" />
+              settings.json changed on disk
+            </div>
+            <p className="text-muted-foreground text-sm">
+              The file was modified after you loaded it. Reload to pull the
+              latest (your edits are discarded) or overwrite to force-save what
+              you have.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                data-testid="settings-cas-reload"
+                onClick={() => refresh()}
+                type="button"
+                variant="outline"
+              >
+                Reload from disk
+              </Button>
+              <Button
+                data-testid="settings-cas-overwrite"
+                disabled={busy}
+                onClick={() => send(false)}
+                type="button"
+                variant="destructive"
+              >
+                Overwrite
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
-      <div className="flex justify-end">
-        <Button
-          data-testid="settings-save"
-          disabled={busy}
-          onClick={() => send(true)}
-          type="button"
-        >
-          <SaveIcon />
-          {busy ? "Saving…" : "Save settings"}
-        </Button>
-      </div>
+        {AGENT_IDS.map((agent) => (
+          <AgentRoots
+            agent={agent}
+            defaultRoot={defaults.get(agent)}
+            home={home}
+            key={agent}
+            onChange={(next) => setRows((prev) => ({ ...prev, [agent]: next }))}
+            rows={rows[agent]}
+          />
+        ))}
+
+        <div className="flex justify-end">
+          <Button
+            data-testid="settings-save"
+            disabled={busy}
+            onClick={() => send(true)}
+            type="button"
+          >
+            <SaveIcon />
+            {busy ? "Saving…" : "Save settings"}
+          </Button>
+        </div>
+      </fieldset>
     </div>
   );
 };
@@ -287,6 +349,8 @@ const SettingsEditor = ({
 /** Settings section route. */
 export const SettingsRoute = () => {
   const result = useAtomValue(settingsAtom);
+  const { info: infoResult, refresh: retryInfo } = useFreshServerInfo();
+  const retry = useAtomRefresh(settingsAtom);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <div>
@@ -296,14 +360,19 @@ export const SettingsRoute = () => {
           account — to scan them in parallel.
         </p>
       </div>
-      <ResultView result={result}>
+      <ResultView onRetry={retry} result={result}>
         {(value) => (
-          <SettingsEditor
-            key={value.mtimeMs}
-            mtimeMs={value.mtimeMs}
-            path={value.path}
-            settings={value.settings}
-          />
+          <ResultView onRetry={retryInfo} result={withLastSuccess(infoResult)}>
+            {(info) => (
+              <SettingsEditor
+                info={info}
+                key={value.mtimeMs}
+                mtimeMs={value.mtimeMs}
+                path={value.path}
+                settings={value.settings}
+              />
+            )}
+          </ResultView>
         )}
       </ResultView>
       <Card>

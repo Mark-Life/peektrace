@@ -3,7 +3,8 @@
  * Columns: title · type · description · size · modified · in-index · links.
  * Click a header to sort; click a row to expand its full body + clickable
  * `[[wikilinks]]` (a link click calls `onNavigate(targetSlug)` to jump to that
- * memory). Edit/delete affordances render only when `canWrite` (capability gate).
+ * memory). Edit/delete affordances render only when `canWrite` (supported
+ * capability, writable server).
  */
 import type { MemoryEntry } from "@workspace/core/services/memory/types";
 import { Badge } from "@workspace/ui/components/badge";

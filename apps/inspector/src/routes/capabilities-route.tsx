@@ -6,7 +6,7 @@
  * note (e.g. "memory edit: Claude only; Codex sessions: planned") and the
  * SupportLevel legend.
  */
-import { useAtomValue } from "@effect-atom/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type { Capability } from "@workspace/rpc/contract";
 import { Badge } from "@workspace/ui/components/badge";
 import {
@@ -214,10 +214,11 @@ const CellSheet = ({
 /** Capabilities section: live feature × agent support matrix + cell drawer. */
 export const CapabilitiesRoute = () => {
   const result = useAtomValue(capabilitiesAtom);
+  const retry = useAtomRefresh(capabilitiesAtom);
   const [selection, setSelection] = useState<Selection | null>(null);
   return (
     <div>
-      <ResultView result={result}>
+      <ResultView onRetry={retry} result={result}>
         {(caps) => (
           <>
             <Matrix caps={caps} onSelect={setSelection} />

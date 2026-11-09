@@ -36,6 +36,7 @@ export {
   type WriteFsShape,
 } from "./services/fs";
 export * from "./services/memory";
+export { scannedRoots } from "./services/scan-roots";
 export {
   type AnalyzeOptions,
   analyze,

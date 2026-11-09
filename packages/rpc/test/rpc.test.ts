@@ -107,27 +107,31 @@ const makeAgents = (base: string): AgentRegistryShape => {
   };
 };
 
-const handlersLayer = () =>
+const handlersLayer = (options?: {
+  readonly agents?: AgentRegistryShape;
+  readonly readOnly?: boolean;
+}) =>
   makeHandlersLayer({
-    agents: Layer.succeed(AgentRegistry, makeAgents(root)),
+    agents: Layer.succeed(AgentRegistry, options?.agents ?? makeAgents(root)),
     fileSystem: BunFileSystem.layer,
+    readOnly: options?.readOnly,
   });
 
 /** Build the in-process client, run `use`, provide handlers + scope. */
 const withClient = <A, E>(
   use: (
     client: Effect.Effect.Success<ReturnType<typeof makeInProcessClient>>
-  ) => Effect.Effect<A, E, never>
+  ) => Effect.Effect<A, E, never>,
+  layerOptions?: Parameters<typeof handlersLayer>[0]
 ): Promise<A> =>
   Effect.runPromise(
     Effect.gen(function* () {
       const client = yield* makeInProcessClient();
       return yield* use(client);
-    }).pipe(Effect.scoped, Effect.provide(handlersLayer())) as Effect.Effect<
-      A,
-      E,
-      never
-    >
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(handlersLayer(layerOptions))
+    ) as Effect.Effect<A, E, never>
   );
 
 const prevPtDir = process.env.PEEKTRACE_DIR;
@@ -159,6 +163,54 @@ describe("capabilities", () => {
         expect(crud?.perAgent.codex.level).toBe("planned");
       })
     ));
+});
+
+describe("server.info", () => {
+  test("reports write mode and the scanned Claude root", () =>
+    withClient((client) =>
+      Effect.gen(function* () {
+        const info = yield* client.server.info();
+        expect(info.readOnly).toBe(false);
+        expect(info.userHome.length).toBeGreaterThan(0);
+        expect(info.agents.map((a) => a.agent)).toEqual(["claude"]);
+        expect(info.agents[0]?.roots).toEqual([
+          {
+            isDefault: true,
+            home: join(root, "home"),
+            path: root,
+            exists: true,
+          },
+        ]);
+      })
+    ));
+
+  test("reports read-only mode", () =>
+    withClient(
+      (client) =>
+        Effect.gen(function* () {
+          const info = yield* client.server.info();
+          expect(info.readOnly).toBe(true);
+        }),
+      { readOnly: true }
+    ));
+
+  test("flags a root missing on disk", () => {
+    const base = makeAgents(root);
+    const missing = join(root, "no-such-dir");
+    const agents: AgentRegistryShape = {
+      ...base,
+      roots: (id) => ({ ...base.roots(id), projectsRoot: missing }),
+    };
+    return withClient(
+      (client) =>
+        Effect.gen(function* () {
+          const info = yield* client.server.info();
+          expect(info.agents[0]?.roots[0]?.path).toBe(missing);
+          expect(info.agents[0]?.roots[0]?.exists).toBe(false);
+        }),
+      { agents }
+    );
+  });
 });
 
 describe("sessions", () => {

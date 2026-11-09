@@ -30,3 +30,6 @@ export const sessionHeadersAtom = sharedHeadersAtom(sessionsListAtom);
 
 /** Current user settings file (`settings.get`) — used by the Settings UI. */
 export const settingsAtom = PeektraceClient.query("settings.get", undefined);
+
+/** Server posture and scanned transcript folders (`server.info`). */
+export const serverInfoAtom = PeektraceClient.query("server.info", undefined);
