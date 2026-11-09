@@ -1,7 +1,8 @@
 /** Pure helpers behind the session rail: filtering, ordering and row labels. */
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import type { DateRange } from "react-day-picker";
-import { toDayKey } from "./date-range-filter";
+import type { ListKey } from "../../lib/routes";
+import { fromDayKey, toDayKey } from "./date-range-filter";
 
 /** Human-readable label per agent id for the badge. */
 export const AGENT_LABEL: Record<string, string> = {
@@ -59,6 +60,81 @@ export const NO_FILTERS: Filters = {
   source: ANY,
 };
 
+/** Shape of a calendar day key. */
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** A `YYYY-MM-DD` hash value as a local day, or `undefined` if malformed or
+ * not a real calendar day (`2026-02-31` would otherwise roll into March). */
+const dayParam = (value: string | null) => {
+  if (value === null || !DAY_KEY.test(value)) {
+    return;
+  }
+  const day = fromDayKey(value);
+  return day && toDayKey(day) === value ? day : undefined;
+};
+
+/** The range in `from`/`to`; a `to` without a valid `from` is ignored. A
+ * missing `to` reads as a one-day range, and a reversed pair is swapped. */
+const rangeFromParams = (params: URLSearchParams): DateRange | undefined => {
+  const from = dayParam(params.get("from"));
+  if (!from) {
+    return;
+  }
+  const to = dayParam(params.get("to")) ?? from;
+  return to < from ? { from: to, to: from } : { from, to };
+};
+
+/** The string filters and the hash key each one is stored under. */
+const FILTER_KEY = {
+  query: "q",
+  agent: "agent",
+  project: "project",
+  branch: "branch",
+  model: "model",
+  source: "source",
+} as const satisfies Record<Exclude<keyof Filters, "range">, ListKey>;
+
+/** The string filter names, in hash key order. */
+const STRING_FILTERS = Object.keys(FILTER_KEY) as (keyof typeof FILTER_KEY)[];
+
+/** Filters read from hash params; a missing or empty key is the default. */
+export const filtersFromParams = (params: URLSearchParams): Filters => ({
+  ...NO_FILTERS,
+  ...Object.fromEntries(
+    STRING_FILTERS.map((name) => [
+      name,
+      params.get(FILTER_KEY[name]) || NO_FILTERS[name],
+    ])
+  ),
+  range: rangeFromParams(params),
+});
+
+/** `value`, or `null` when it is the default, so defaults stay out of the URL. */
+const orNull = (value: string, fallback: string) =>
+  value === fallback ? null : value;
+
+/** The `from`/`to` hash values of a range; `to` only when it is a later day. */
+const rangeToParams = (range: DateRange | undefined) => {
+  const from = range?.from ? toDayKey(range.from) : null;
+  const to = from && range?.to ? toDayKey(range.to) : null;
+  return { from, to: to !== null && from !== null && to > from ? to : null };
+};
+
+/** Hash params for the filters in `f`; only the keys present in `f` are set. */
+export const filtersToParams = (
+  f: Partial<Filters>
+): Partial<Record<ListKey, string | null>> => ({
+  ...Object.fromEntries(
+    STRING_FILTERS.flatMap((name) => {
+      const value = f[name];
+      return value === undefined
+        ? []
+        : [[FILTER_KEY[name], orNull(value, NO_FILTERS[name])]];
+    })
+  ),
+  ...("range" in f ? rangeToParams(f.range) : {}),
+});
+
 /** A filter option: `value` is matched against the header, `label` is shown. */
 export interface FilterOption {
   readonly label: string;
@@ -78,9 +154,6 @@ export const distinct = (
   pick: (h: SessionHeader) => string | undefined
 ): readonly string[] =>
   [...new Set(headers.map(pick).filter((v): v is string => Boolean(v)))].sort();
-
-/** Shape of a calendar day key. */
-const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `YYYY-MM-DD` of an ISO timestamp, or `""` when it does not start with a
  * real calendar day. */
@@ -298,4 +371,15 @@ export const matches = (h: SessionHeader, f: Filters) => {
     return hay.includes(f.query.toLowerCase());
   }
   return true;
+};
+
+/** The filters that hide `h`, each set back to its default; empty when `h`
+ * passes. Every filter is checked on its own, so the rest stay as they are. */
+export const hidingFilters = (h: SessionHeader, f: Filters) => {
+  const names = [...STRING_FILTERS, "range"] as const;
+  return Object.fromEntries(
+    names
+      .filter((name) => !matches(h, { ...NO_FILTERS, [name]: f[name] }))
+      .map((name) => [name, NO_FILTERS[name]])
+  ) as Partial<Filters>;
 };

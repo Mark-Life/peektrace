@@ -42,7 +42,7 @@ export const toDayKey = (d: Date): string =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /** `YYYY-MM-DD` back to a local midnight `Date`, or `undefined` if unparseable. */
-const fromDayKey = (key: string): Date | undefined => {
+export const fromDayKey = (key: string): Date | undefined => {
   const [y, m, d] = key.split("-").map(Number);
   return y && m && d ? new Date(y, m - 1, d) : undefined;
 };

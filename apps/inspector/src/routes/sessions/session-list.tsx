@@ -51,6 +51,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { setHashParams, useListQuery } from "../../lib/routes";
 import { ariaKeys } from "../../lib/shortcuts";
 import { DateRangeFilter } from "./date-range-filter";
 import {
@@ -61,7 +62,10 @@ import {
   distinct,
   type FilterOption,
   type Filters,
+  filtersFromParams,
+  filtersToParams,
   fmtStamp,
+  hidingFilters,
   isLive,
   matches,
   NO_FILTERS,
@@ -114,6 +118,13 @@ const rootFontPx = () => {
 const toOptions = (values: readonly string[]): readonly FilterOption[] =>
   values.map((v) => ({ value: v, label: v }));
 
+/** `options`, plus `value` itself when a shared link names one not loaded here,
+ * so the trigger shows it instead of going blank. */
+const withCurrent = (options: readonly FilterOption[], value: string) =>
+  value === ANY || options.some((o) => o.value === value)
+    ? options
+    : [...options, { value, label: value }];
+
 /** A labelled filter `Select` over `all` + the option values. */
 const FilterSelect = ({
   label,
@@ -134,7 +145,7 @@ const FilterSelect = ({
     </SelectTrigger>
     <SelectContent>
       <SelectItem value={ANY}>{label}: all</SelectItem>
-      {options.map((o) => (
+      {withCurrent(options, value).map((o) => (
         <SelectItem key={o.value} value={o.value}>
           {o.label}
         </SelectItem>
@@ -428,6 +439,50 @@ const VirtualRows = ({
   );
 };
 
+/** The list filters, read from and written to the hash so they survive
+ * reload, Back and leaving the section. Writes replace the history entry and
+ * touch only the keys being changed. */
+const useListFilters = () => {
+  const query = useListQuery();
+  const filters = useMemo(
+    () => filtersFromParams(new URLSearchParams(query)),
+    [query]
+  );
+  const patch = (next: Partial<Filters>) =>
+    setHashParams(filtersToParams(next));
+  return [filters, patch] as const;
+};
+
+/** Wait after the last keystroke before writing the search to the hash:
+ * browsers cap `history.replaceState` calls and WebKit throws past the cap. */
+const SEARCH_WRITE_MS = 250;
+
+/** The search box text: local while typing, written to the hash after a pause
+ * (or right away via `flush`), and reset when the hash changes from outside. */
+const useSearchDraft = (stored: string, write: (query: string) => void) => {
+  const [draft, setDraft] = useState(stored);
+  const [seen, setSeen] = useState(stored);
+  if (stored !== seen) {
+    setSeen(stored);
+    setDraft(stored);
+  }
+  const onWrite = useEffectEvent(write);
+  useEffect(() => {
+    if (draft === stored) {
+      return;
+    }
+    const id = setTimeout(() => onWrite(draft), SEARCH_WRITE_MS);
+    return () => clearTimeout(id);
+  }, [draft, stored]);
+  const flush = (value: string) => {
+    setDraft(value);
+    if (value !== stored) {
+      write(value);
+    }
+  };
+  return [draft, setDraft, flush] as const;
+};
+
 /** The filter controls + a compact, virtualized session list; rows call `onOpen`. */
 const SessionListView = ({
   headers,
@@ -438,11 +493,19 @@ const SessionListView = ({
   readonly selectedId: string | null;
   readonly onOpen: (id: string) => void;
 }) => {
-  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [stored, patch] = useListFilters();
+  const [draft, setDraft, flush] = useSearchDraft(stored.query, (query) =>
+    patch({ query })
+  );
+  const filters = useMemo(() => ({ ...stored, query: draft }), [stored, draft]);
+  const reset = () => {
+    setDraft(NO_FILTERS.query);
+    patch(NO_FILTERS);
+  };
   const set =
     <K extends keyof Filters>(key: K) =>
     (v: Filters[K]) =>
-      setFilters((prev) => ({ ...prev, [key]: v }));
+      patch({ [key]: v });
 
   const agents = useMemo(
     () => toOptions(distinct(headers, (h) => h.agent)),
@@ -475,6 +538,29 @@ const SessionListView = ({
   const active = activeCount(filters);
   const search = useListSearch();
 
+  // A session opened from outside the rail (stats, a shared link) may be
+  // hidden by the filters; drop the ones that hide it, once per selection.
+  // The key is null until the selected header has loaded.
+  const selectedKey = headers.some((h) => h.id === selectedId)
+    ? selectedId
+    : null;
+  const unhide = useEffectEvent((id: string) => {
+    const h = headers.find((x) => x.id === id);
+    const fix = h ? hidingFilters(h, filters) : {};
+    if (Object.keys(fix).length === 0) {
+      return;
+    }
+    if (fix.query !== undefined) {
+      setDraft(fix.query);
+    }
+    patch(fix);
+  });
+  useEffect(() => {
+    if (selectedKey) {
+      unhide(selectedKey);
+    }
+  }, [selectedKey]);
+
   return (
     <div
       className="flex flex-col gap-3"
@@ -489,8 +575,15 @@ const SessionListView = ({
           aria-keyshortcuts={ariaKeys("search")}
           aria-label="Search sessions"
           data-testid="session-search"
-          onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
-          onKeyDown={search.onSearchKeyDown}
+          onBlur={() => flush(draft)}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              flush(draft);
+              return;
+            }
+            search.onSearchKeyDown(e);
+          }}
           placeholder="Search by title…"
           ref={search.search}
           value={filters.query}
@@ -500,7 +593,7 @@ const SessionListView = ({
             <InputGroupButton
               aria-label="Clear search"
               data-testid="session-search-clear"
-              onClick={() => setFilters((p) => ({ ...p, query: "" }))}
+              onClick={() => flush("")}
               size="icon-xs"
             >
               <XIcon />
@@ -562,7 +655,7 @@ const SessionListView = ({
           <Button
             className="h-6 px-2 text-xs"
             data-testid="session-filters-clear"
-            onClick={() => setFilters(NO_FILTERS)}
+            onClick={reset}
             size="sm"
             variant="ghost"
           >
@@ -573,7 +666,7 @@ const SessionListView = ({
       </div>
 
       {rows.length === 0 ? (
-        <NoMatches onReset={() => setFilters(NO_FILTERS)} />
+        <NoMatches onReset={reset} />
       ) : (
         <VirtualRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
       )}

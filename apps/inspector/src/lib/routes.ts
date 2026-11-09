@@ -37,6 +37,36 @@ export interface HashLocation {
 /** Module-level cache so repeated `getSnapshot` calls return a stable ref. */
 let cache: { readonly raw: string; readonly loc: HashLocation } | null = null;
 
+/** Hash keys that hold the session list filters. */
+const LIST_KEYS = [
+  "q",
+  "agent",
+  "project",
+  "branch",
+  "model",
+  "source",
+  "from",
+  "to",
+] as const;
+
+/** One session list filter key. */
+export type ListKey = (typeof LIST_KEYS)[number];
+
+/** Only the list filter keys of `params`, in `LIST_KEYS` order. */
+export const listParams = (params: URLSearchParams) => {
+  const out = new URLSearchParams();
+  for (const key of LIST_KEYS) {
+    const value = params.get(key);
+    if (value !== null) {
+      out.set(key, value);
+    }
+  }
+  return out;
+};
+
+/** The list filters of the last sessions hash seen, so the nav can restore them. */
+let lastList = new URLSearchParams();
+
 /**
  * Parse `location.hash` into a section + params, memoized by the raw hash
  * string so repeated `getSnapshot` calls return a stable reference (required
@@ -57,6 +87,9 @@ const parseHash = (): HashLocation => {
     params: new URLSearchParams(tail ?? ""),
   };
   cache = { raw, loc };
+  if (section === "sessions") {
+    lastList = listParams(loc.params);
+  }
   return loc;
 };
 
@@ -83,14 +116,35 @@ const replaceHash = (hash: string) => {
   window.dispatchEvent(event);
 };
 
-/** Navigate to a top-level section (pushes; clears any session selection). */
+/** Navigate to a top-level section (pushes; clears any session selection).
+ *  The sessions section gets back the list filters it last had. */
 export const navigate = (section: RouteId) => {
-  window.location.hash = buildHash(section);
+  parseHash();
+  window.location.hash = buildHash(
+    section,
+    section === "sessions" ? lastList : undefined
+  );
 };
+
+/** `base` with every key of `extra` set over it. */
+const merged = (base: URLSearchParams, extra: URLSearchParams) => {
+  const params = new URLSearchParams(base);
+  for (const [key, value] of extra) {
+    params.set(key, value);
+  }
+  return params;
+};
+
+/** The current list filters plus `extra`, for a hash that keeps the rail as is. */
+const withList = (extra: URLSearchParams) =>
+  merged(listParams(parseHash().params), extra);
 
 /** Open a session in the sessions section — pushes a shareable history entry. */
 export const openSession = (id: string) => {
-  window.location.hash = buildHash("sessions", new URLSearchParams({ id }));
+  window.location.hash = buildHash(
+    "sessions",
+    withList(new URLSearchParams({ id }))
+  );
 };
 
 /** A session to open: a nested transcript also names the session it ran under. */
@@ -110,35 +164,43 @@ type MarkedTarget = SessionTarget & {
   readonly call?: string | null;
 };
 
-/**
- * The hash a stats row opens, carrying the detector id that sent you there so
- * the transcript can highlight the calls behind the number, and `call=<id>`
- * so it scrolls to the one meant. Marks render only in the chat layout, so
- * `view=chat` overrides a stored table preference.
- */
-export const markedSessionHash = (target: MarkedTarget) => {
+/** Query for a marked target: the session, its mark and call, chat view. */
+const markedParams = (target: MarkedTarget) => {
   const params = targetParams(target);
   params.set("mark", target.mark);
   if (target.call !== undefined && target.call !== null) {
     params.set("call", target.call);
   }
   params.set("view", "chat");
-  return buildHash("sessions", params);
+  return params;
 };
+
+/**
+ * The hash a stats row links to, carrying the detector id that sent you there
+ * so the transcript can highlight the calls behind the number, and `call=<id>`
+ * so it scrolls to the one meant. Marks render only in the chat layout, so
+ * `view=chat` overrides a stored table preference. The list filters last seen
+ * on the sessions section (as of the last hash read) come along; the rail
+ * drops any that hide the target.
+ */
+export const markedSessionHash = (target: MarkedTarget) =>
+  buildHash("sessions", merged(lastList, markedParams(target)));
 
 /** Open a session from a stats row, marked by the row's detector. */
 export const openSessionMarked = (target: MarkedTarget) => {
+  parseHash();
   window.location.hash = markedSessionHash(target);
 };
 
 /** Open a subagent transcript through the session it ran under. */
 export const openSubagent = (target: SessionTarget) => {
-  window.location.hash = buildHash("sessions", targetParams(target));
+  window.location.hash = buildHash("sessions", withList(targetParams(target)));
 };
 
-/** Clear the selected session without adding a history entry (in-app Back). */
+/** Clear the selected session without adding a history entry (in-app Back).
+ *  The list filters stay. */
 export const closeSession = () => {
-  replaceHash(buildHash("sessions"));
+  replaceHash(buildHash("sessions", listParams(parseHash().params)));
 };
 
 /** Reactively read the current section from the URL hash. */
@@ -168,21 +230,32 @@ export const useHashParam = (key: string) =>
 /** One query param from the current hash, read once, or null. */
 export const readHashParam = (key: string) => parseHash().params.get(key);
 
-/** Set (or, where a value is null, clear) query params on the current hash,
- *  preserving the others, without adding a history entry. */
+/** Reactively read the list filter keys of the current hash as a query string. */
+export const useListQuery = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => listParams(parseHash().params).toString(),
+    () => ""
+  );
+
+/** Set (or, when a value is null, clear) query params on the current hash in
+ *  one write, preserving the other params, without adding a history entry. */
 export const setHashParams = (
-  entries: Readonly<Record<string, string | null>>
+  updates: Readonly<Record<string, string | null>>
 ) => {
   const loc = parseHash();
   const params = new URLSearchParams(loc.params);
-  for (const [key, value] of Object.entries(entries)) {
+  for (const [key, value] of Object.entries(updates)) {
     if (value === null) {
       params.delete(key);
     } else {
       params.set(key, value);
     }
   }
-  replaceHash(buildHash(loc.section, params));
+  const hash = buildHash(loc.section, params);
+  if (hash !== window.location.hash) {
+    replaceHash(hash);
+  }
 };
 
 /** Set (or, when `value` is null, clear) one query param on the current hash,
