@@ -64,3 +64,25 @@ describe("Explorer with no memory folders", () => {
     expect(html).not.toContain("Memory editing is");
   });
 });
+
+describe("Explorer with memory folders", () => {
+  test("names the search box for screen readers", () => {
+    const all = {
+      ...EMPTY,
+      projects: [
+        {
+          fileCount: 1,
+          hasIndex: true,
+          memoryDir: "/mem/demo",
+          project: "demo",
+          slug: "demo",
+        },
+      ],
+    };
+    const html = renderToStaticMarkup(
+      <Explorer all={all} caps={caps("supported")} readOnly={false} />
+    );
+    expect(html).toContain('data-testid="memory-search"');
+    expect(html).toContain('aria-label="Search memories"');
+  });
+});

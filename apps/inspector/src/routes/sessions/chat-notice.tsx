@@ -22,6 +22,7 @@ import {
   TerminalIcon,
 } from "lucide-react";
 import { memo } from "react";
+import { chatPanelId, disclosureProps } from "../../lib/session-view";
 import { sameChatRow } from "../../lib/transcript-row";
 import { RawToggle } from "./chat-message";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
@@ -90,6 +91,7 @@ const ChatNoticeBody = ({
         <button
           className="flex w-full min-w-0 items-center gap-1.5 text-left"
           data-state={open ? "open" : "closed"}
+          {...disclosureProps(chatPanelId(collapseId), open)}
           onClick={() => onToggle(collapseId, !open)}
           type="button"
         >
@@ -119,7 +121,10 @@ const ChatNoticeBody = ({
           </span>
         </button>
         {open ? (
-          <div className="mt-2 flex flex-col gap-1">
+          <div
+            className="mt-2 flex flex-col gap-1"
+            id={chatPanelId(collapseId)}
+          >
             <ContextEditNote e={e} />
             <NoticeBody e={e} />
             <RawToggle body={e.body} />

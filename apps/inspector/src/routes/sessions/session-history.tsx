@@ -326,6 +326,7 @@ export const SessionHistory = ({
         ref={setBar}
       >
         <Input
+          aria-label="Search history"
           className="min-w-40 @2xl:max-w-60 flex-1"
           data-testid={HISTORY_SEARCH_ID}
           id={HISTORY_SEARCH_ID}
