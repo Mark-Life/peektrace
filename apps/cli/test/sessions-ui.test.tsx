@@ -197,8 +197,10 @@ test("attachment rows badge their type, not the bare kind", async () => {
   }
 });
 
-/** Fake bridge: list → two headers, analyze → title-per-id, watch → zeros. */
-const fakeBridge: TuiBridge = {
+/** Fake bridge: list → two headers, analyze → `analyzed(title-per-id)`, watch → zeros. */
+const bridgeFor = (
+  analyzed: (title: string) => AnalyzedSession = fakeAnalyzed
+): TuiBridge => ({
   serverUrl: "http://127.0.0.1:4321",
   run: ((build: (c: unknown) => unknown) => {
     const client = {
@@ -217,7 +219,7 @@ const fakeBridge: TuiBridge = {
       return Promise.resolve([]);
     }
     if (eff.tag === "analyze") {
-      return Promise.resolve(fakeAnalyzed(`Analyzed-${eff.id}`));
+      return Promise.resolve(analyzed(`Analyzed-${eff.id}`));
     }
     return Promise.resolve([
       {
@@ -242,7 +244,9 @@ const fakeBridge: TuiBridge = {
       },
     ]);
   }) as TuiBridge["run"],
-};
+});
+
+const fakeBridge = bridgeFor();
 
 test("session cards render and keyboard selection drives the detail", async () => {
   const setup = await testRender(
@@ -263,6 +267,27 @@ test("session cards render and keyboard selection drives the detail", async () =
       setup.mockInput.pressArrow("down");
     });
     await settleFor(setup, "Analyzed-b");
+  } finally {
+    setup.renderer.destroy();
+  }
+});
+
+test("session detail summary shows the estimated cost", async () => {
+  const priced = (title: string): AnalyzedSession => ({
+    ...fakeAnalyzed(title),
+    cost: {
+      totalUsd: 1.23,
+      source: "estimate",
+      unpricedModels: ["mystery-model"],
+    },
+  });
+  const setup = await testRender(
+    <App bridge={bridgeFor(priced)} onQuit={() => undefined} />,
+    { width: 140, height: 40 }
+  );
+  try {
+    const frame = await settleFor(setup, "Est. cost");
+    expect(frame).toContain("~$1.23 · unpriced: mystery-model");
   } finally {
     setup.renderer.destroy();
   }
