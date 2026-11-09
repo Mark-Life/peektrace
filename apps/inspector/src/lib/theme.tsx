@@ -1,6 +1,5 @@
 /** Theme provider + toggle, built on `next-themes` (shipped in ui). */
 import { Button } from "@workspace/ui/components/button";
-import { Kbd } from "@workspace/ui/components/kbd";
 import {
   Tooltip,
   TooltipContent,
@@ -8,7 +7,9 @@ import {
 } from "@workspace/ui/components/tooltip";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
-import { type ReactNode, useEffect } from "react";
+import type { ReactNode } from "react";
+import { ShortcutKeys } from "./shortcut-keys";
+import { ariaKeys, useShortcut } from "./shortcuts";
 import { type Appearance, nextThemePress } from "./theme-modes";
 
 /**
@@ -35,52 +36,32 @@ const ICONS: Record<Appearance, typeof SunIcon> = {
   dark: MoonIcon,
 };
 
-/** Returns true when focus is inside a field where typing should win over shortcuts. */
-const isTypingTarget = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  const tag = target.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    target.isContentEditable
-  );
+/** What the next flip shows, and a `flip` that applies it. The flip goes
+ *  light <-> dark from what is on screen, storing "system" when it lands on
+ *  the OS appearance. */
+const useThemeFlip = () => {
+  // Client-only app: next-themes reads storage and the OS in its initial state,
+  // so both appearances are already known on the first render.
+  const { resolvedTheme, systemTheme, setTheme } = useTheme();
+  const { appearance, store } = nextThemePress({ resolvedTheme, systemTheme });
+  return { appearance, flip: () => setTheme(store) };
 };
 
-/**
- * Flips light <-> dark from what is on screen, storing "system" when the flip
- * lands on the OS appearance. Also bound to the `D` shortcut.
- */
+/** Binds the `theme` shortcut. Call it from a component that is always
+ *  mounted: the toggle button unmounts with the mobile sidebar sheet. */
+export const useThemeShortcut = () => {
+  const { flip } = useThemeFlip();
+  useShortcut("theme", flip);
+};
+
+/** The light / dark button. */
 export const ThemeToggle = ({
   iconOnly = false,
 }: {
   /** Drop the label: for narrow rails. */
   readonly iconOnly?: boolean;
 }) => {
-  // Client-only app: next-themes reads storage and the OS in its initial state,
-  // so both appearances are already known on the first render.
-  const { resolvedTheme, systemTheme, setTheme } = useTheme();
-  const { appearance, store } = nextThemePress({ resolvedTheme, systemTheme });
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== "d" ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.altKey ||
-        isTypingTarget(event.target)
-      ) {
-        return;
-      }
-      setTheme(store);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [store, setTheme]);
-
+  const { appearance, flip } = useThemeFlip();
   // Icon and label name the appearance the next press produces.
   const Icon = ICONS[appearance];
   const label = `Switch to ${appearance} theme`;
@@ -89,8 +70,9 @@ export const ThemeToggle = ({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
+          aria-keyshortcuts={ariaKeys("theme")}
           aria-label={label}
-          onClick={() => setTheme(store)}
+          onClick={flip}
           size={iconOnly ? "icon-sm" : "sm"}
           variant="ghost"
         >
@@ -100,7 +82,7 @@ export const ThemeToggle = ({
       </TooltipTrigger>
       <TooltipContent className="flex items-center gap-1.5" side="right">
         {label}
-        <Kbd>D</Kbd>
+        <ShortcutKeys id="theme" />
       </TooltipContent>
     </Tooltip>
   );

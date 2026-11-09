@@ -139,6 +139,42 @@ const useFocusedKey = (list: HTMLElement | null) => {
   return focused;
 };
 
+/** Rounding after a `start` scroll can leave the previous item a pixel or two
+ *  on screen. */
+const TOP_SLACK = 2;
+
+/** The index of the drawn item holding focus, when it is on screen. */
+const focusedOnScreen = (list: HTMLElement, root: HTMLElement) => {
+  let item = document.activeElement;
+  while (item && item.parentElement !== list) {
+    item = item.parentElement;
+  }
+  if (!(item instanceof HTMLElement)) {
+    return null;
+  }
+  const pane = root.getBoundingClientRect();
+  const box = item.getBoundingClientRect();
+  return box.bottom > pane.top && box.top < pane.bottom
+    ? Number(item.dataset.index)
+    : null;
+};
+
+/** The first item in plain flow that reaches below the pane's top edge. */
+const firstOnScreen = (list: HTMLElement, root: HTMLElement) => {
+  const top = root.getBoundingClientRect().top + TOP_SLACK;
+  if (list.getBoundingClientRect().top >= top) {
+    return -1;
+  }
+  for (const el of list.querySelectorAll<HTMLElement>(
+    ":scope > [data-index]"
+  )) {
+    if (el.getBoundingClientRect().bottom > top) {
+      return Number(el.dataset.index);
+    }
+  }
+  return -1;
+};
+
 /** A virtualized list. `keys` holds one unique, stable key per item: measured
  *  heights are cached by key, so they survive filtering and appends. */
 export const VirtualList = <T,>({
@@ -222,8 +258,24 @@ export const VirtualList = <T,>({
         }
         elementAt(index)?.scrollIntoView({ block: align });
       },
+      topIndex: () => {
+        if (!(list && root)) {
+          return -1;
+        }
+        const focusedIndex = focusedOnScreen(list, root);
+        if (focusedIndex !== null) {
+          return focusedIndex;
+        }
+        if (!virtual) {
+          return firstOnScreen(list, root);
+        }
+        const offset = (v.scrollOffset ?? 0) + TOP_SLACK;
+        return offset < scrollMargin
+          ? -1
+          : (v.getVirtualItemForOffset(offset)?.index ?? -1);
+      },
     }),
-    [v, virtual, elementAt]
+    [v, virtual, elementAt, list, root, scrollMargin]
   );
 
   const lastMeasureKey = useRef(measureKey);

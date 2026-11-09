@@ -59,6 +59,7 @@ import {
   isForwardOrder,
   sortRows,
 } from "../../lib/history-sort";
+import { HISTORY_SEARCH_ID } from "../../lib/landmarks";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useToolMarks } from "../../lib/session-markers";
@@ -326,7 +327,8 @@ export const SessionHistory = ({
       >
         <Input
           className="min-w-40 @2xl:max-w-60 flex-1"
-          data-testid="history-search"
+          data-testid={HISTORY_SEARCH_ID}
+          id={HISTORY_SEARCH_ID}
           onChange={(e) => prefs.setQuery(e.target.value)}
           placeholder="Search history…"
           value={query}

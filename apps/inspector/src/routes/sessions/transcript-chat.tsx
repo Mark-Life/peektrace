@@ -37,6 +37,8 @@ import {
   CHAT_ITEM_CLASS,
   estimateChatNode,
 } from "../../lib/transcript-estimate";
+import { chatTurnStops } from "../../lib/turn-nav";
+import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ChatContextRun } from "./chat-context-run";
@@ -316,6 +318,8 @@ export const TranscriptChat = ({
     list,
     target: jump?.key ?? null,
   });
+  const stops = useMemo(() => chatTurnStops(plan), [plan]);
+  useTurnNav({ list, stops });
 
   if (rows.length === 0) {
     return (

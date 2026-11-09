@@ -35,9 +35,12 @@ import {
   useState,
 } from "react";
 import { hasInsetTitlebar } from "../lib/host";
+import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
 import { ScrollRootContext } from "../lib/scroll-root";
-import { ThemeToggle } from "../lib/theme";
+import { ThemeToggle, useThemeShortcut } from "../lib/theme";
+import { ShortcutsButton, ShortcutsDialog } from "./shortcuts-dialog";
+import { ShellSkipLinks } from "./skip-links";
 import { WatchStatus } from "./watch-status";
 
 /** Nav entry: section id, label, and its icon. */
@@ -126,17 +129,19 @@ const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
 const readSidebarCookie = () =>
   document.cookie.match(SIDEBAR_COOKIE)?.[1] !== "false";
 
-/** Footer row: theme toggle, left-aligned when expanded, centered on the icon rail. */
-const ShellFooter = () => {
+/** Footer row: theme toggle and the shortcuts sheet, left-aligned when
+ *  expanded, stacked and centred on the icon rail. */
+const ShellFooter = ({ onHelp }: { readonly onHelp: () => void }) => {
   const collapsed = useSidebar().state === "collapsed";
   return (
     <div
       className={cn(
         "flex items-center gap-2",
-        collapsed ? "justify-center" : "justify-start"
+        collapsed ? "flex-col justify-center" : "justify-start"
       )}
     >
       <ThemeToggle iconOnly={collapsed} />
+      <ShortcutsButton iconOnly={collapsed} onOpen={onHelp} />
     </div>
   );
 };
@@ -146,6 +151,8 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const route = useRoute();
   const active = NAV_ITEMS.find((item) => item.id === route);
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+  useThemeShortcut();
   return (
     <SidebarProvider
       className="h-dvh min-h-0"
@@ -156,6 +163,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
           : undefined
       }
     >
+      <ShellSkipLinks />
       <TitlebarDragRegion />
       <Sidebar collapsible="icon">
         <TitlebarSpacer />
@@ -197,15 +205,17 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <ShellFooter />
+          <ShellFooter onHelp={() => setHelpOpen(true)} />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="min-w-0 overflow-hidden">
         <ShellHeader active={active} />
         <div
-          className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto"
+          className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto outline-none"
+          id={MAIN_CONTENT_ID}
           ref={setScrollRoot}
+          tabIndex={-1}
         >
           <div
             className={cn(
@@ -217,6 +227,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
           </div>
         </div>
       </SidebarInset>
+      <ShortcutsDialog onOpenChange={setHelpOpen} open={helpOpen} />
     </SidebarProvider>
   );
 };

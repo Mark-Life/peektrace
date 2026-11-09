@@ -356,11 +356,13 @@ export const ChatTurnRule = ({
   readonly webFetches: number | undefined;
   readonly webSearches: number | undefined;
 }) => (
-  <div
-    className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground"
+  <h3
+    className="flex items-center gap-2 rounded-sm py-1 text-[11px] text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
     data-testid="chat-turn-rule"
+    data-turn-stop=""
+    tabIndex={-1}
   >
-    <div className="h-px flex-1 bg-border" />
+    <span aria-hidden="true" className="h-px flex-1 bg-border" />
     <span>
       turn {turn} · {model}
       {effort ? ` · ${effort} effort` : ""} · ctx {fmtK(tokens)}{" "}
@@ -374,6 +376,6 @@ export const ChatTurnRule = ({
         : ""}
       {webFetches ? ` · ${plural(webFetches, "web fetch", "web fetches")}` : ""}
     </span>
-    <div className="h-px flex-1 bg-border" />
-  </div>
+    <span aria-hidden="true" className="h-px flex-1 bg-border" />
+  </h3>
 );

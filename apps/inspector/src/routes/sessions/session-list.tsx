@@ -2,7 +2,7 @@
  *
  * Headers are the lightweight `SessionHeader` rows (no body parse). Filters span
  * agent / project / gitBranch / model / start-date range; free-text search matches
- * the title (and id). Rows are `Item`s in an `ItemGroup` so they can live in the
+ * the title (and id). Rows are `Item`s in a list so they can live in the
  * master-detail left rail; the active row is highlighted via `selectedId`. When
  * nothing matches, an `Empty` offers a one-click filter reset.
  */
@@ -29,7 +29,6 @@ import {
   ItemContent,
   ItemDescription,
   ItemFooter,
-  ItemGroup,
   ItemTitle,
 } from "@workspace/ui/components/item";
 import {
@@ -48,17 +47,21 @@ import { cn } from "@workspace/ui/lib/utils";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { memo, useMemo, useState } from "react";
-import type { DateRange } from "react-day-picker";
-import { DateRangeFilter, toDayKey } from "./date-range-filter";
-
-/** Human-readable label per agent id for the badge. */
-const AGENT_LABEL: Record<string, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  pi: "Pi",
-  opencode: "OpenCode",
-};
+import { memo, useId, useMemo, useState } from "react";
+import {
+  AGENT_LABEL,
+  ANY,
+  activeCount,
+  dayOf,
+  distinct,
+  type Filters,
+  matches,
+  NO_FILTERS,
+  titleOf,
+} from "../../lib/session-filters";
+import { ariaKeys } from "../../lib/shortcuts";
+import { DateRangeFilter } from "./date-range-filter";
+import { useListRoving, useListSearch } from "./use-list-roving";
 
 /** Per-harness chip tint, so a rail of mixed sessions is scannable at a glance.
  * Unknown agents fall through to the plain `outline` badge. */
@@ -73,8 +76,6 @@ const AGENT_BADGE: Record<string, string> = {
 
 /** Characters of the session id shown as a short handle. */
 const ID_PREFIX = 8;
-/** Sentinel option meaning "this facet is not constraining the list". */
-const ANY = "all";
 /** Short month names, indexed by `MM - 1` from an ISO timestamp. */
 const MONTHS = [
   "Jan",
@@ -90,46 +91,6 @@ const MONTHS = [
   "Nov",
   "Dec",
 ];
-
-/** The facets a header can be narrowed by, plus the free-text query. */
-interface Filters {
-  readonly agent: string;
-  readonly branch: string;
-  readonly model: string;
-  readonly project: string;
-  readonly query: string;
-  readonly range: DateRange | undefined;
-  readonly source: string;
-}
-
-/** No facet selected, no query — the state the reset action restores. */
-const NO_FILTERS: Filters = {
-  query: "",
-  agent: ANY,
-  project: ANY,
-  branch: ANY,
-  model: ANY,
-  range: undefined,
-  source: ANY,
-};
-
-/** How many facets (query counts as one) currently constrain the list. */
-const activeCount = (f: Filters): number =>
-  (f.query.length > 0 ? 1 : 0) +
-  (f.range?.from ? 1 : 0) +
-  [f.agent, f.project, f.branch, f.model, f.source].filter((v) => v !== ANY)
-    .length;
-
-/** Distinct, sorted non-empty values of one header field. */
-const distinct = (
-  headers: readonly SessionHeader[],
-  pick: (h: SessionHeader) => string | undefined
-): readonly string[] =>
-  [...new Set(headers.map(pick).filter((v): v is string => Boolean(v)))].sort();
-
-/** `YYYY-MM-DD` of an ISO timestamp, or `""`. */
-const dayOf = (iso: string | undefined): string =>
-  iso ? (iso.slice(0, 10) ?? "") : "";
 
 /** Captures `YYYY`-`MM`-`DD`T`HH:MM` from the head of an ISO timestamp. */
 const ISO_STAMP = /^\d{4}-(\d{2})-(\d{2})T(\d{2}:\d{2})/;
@@ -174,53 +135,6 @@ const FilterSelect = ({
   </Select>
 );
 
-/** The row's headline: the transcript title, else the harness that produced it
- * (`Codex session`) — mirrors how the detail header names untitled sessions. */
-const titleOf = (h: SessionHeader): string =>
-  h.title || `${AGENT_LABEL[h.agent] ?? h.agent} session`;
-
-/** Predicate: the session started on a day inside the picked range. A range with
- * no `to` yet (mid-drag, or a single click) matches that one day. */
-const inRange = (h: SessionHeader, range: DateRange): boolean => {
-  if (!range.from) {
-    return true;
-  }
-  const day = dayOf(h.startedAt);
-  if (!day) {
-    return false;
-  }
-  const from = toDayKey(range.from);
-  const to = range.to ? toDayKey(range.to) : from;
-  return day >= from && day <= to;
-};
-
-/** Predicate: header passes every active filter + the title/id search. */
-const matches = (h: SessionHeader, f: Filters): boolean => {
-  if (f.agent !== ANY && h.agent !== f.agent) {
-    return false;
-  }
-  if (f.project !== ANY && h.project !== f.project) {
-    return false;
-  }
-  if (f.branch !== ANY && h.gitBranch !== f.branch) {
-    return false;
-  }
-  if (f.model !== ANY && h.model !== f.model) {
-    return false;
-  }
-  if (f.source !== ANY && (h.sourceLabel ?? "") !== f.source) {
-    return false;
-  }
-  if (f.range && !inRange(h, f.range)) {
-    return false;
-  }
-  if (f.query.length > 0) {
-    const hay = `${titleOf(h)} ${h.id}`.toLowerCase();
-    return hay.includes(f.query.toLowerCase());
-  }
-  return true;
-};
-
 /** A value the rail has to truncate; hovering (or focusing) reveals it in full. */
 const Truncated = ({
   full,
@@ -239,27 +153,41 @@ const Truncated = ({
   </Tooltip>
 );
 
+const ROW_KEYS = (["listDown", "listUp", "listFirst", "listLast"] as const)
+  .map(ariaKeys)
+  .join(" ");
+
 /** One session row in the rail; highlighted when it is the active selection. */
 const SessionRowView = ({
   h,
   active,
+  hintId,
   onOpen,
+  tabbable,
 }: {
   readonly h: SessionHeader;
   readonly active: boolean;
+  /** Id of the hint that says how to move between rows. */
+  readonly hintId: string;
   readonly onOpen: (id: string) => void;
+  /** The list's one Tab stop. */
+  readonly tabbable: boolean;
 }) => (
   <Item asChild size="sm" variant="outline">
     <button
       aria-current={active ? "true" : undefined}
+      aria-describedby={hintId}
+      aria-keyshortcuts={ROW_KEYS}
       className={cn(
         "text-left",
         active
           ? "border-primary/40 bg-primary/10"
           : "hover:bg-muted focus-visible:bg-muted"
       )}
+      data-session-id={h.id}
       data-testid="session-row"
       onClick={() => onOpen(h.id)}
+      tabIndex={tabbable ? 0 : -1}
       type="button"
     >
       <ItemContent className="min-w-0">
@@ -307,8 +235,49 @@ const SessionRowView = ({
   </Item>
 );
 
-/** Memoized: list reloads keep unchanged headers as the same objects. */
+/** Memoized: list reloads keep unchanged headers as the same objects, and
+ *  moving the Tab stop re-renders only the two rows it touches. */
 const SessionRow = memo(SessionRowView);
+
+/** The rows: one Tab stop, moved by the list keys. Owns the roving state, so
+ *  a focus move re-renders only this and the rows it touches. */
+const SessionRows = ({
+  rows,
+  selectedId,
+  onOpen,
+}: {
+  readonly rows: readonly SessionHeader[];
+  readonly selectedId: string | null;
+  readonly onOpen: (id: string) => void;
+}) => {
+  const ids = useMemo(() => rows.map((h) => h.id), [rows]);
+  const roving = useListRoving({ ids, selectedId });
+  const hintId = useId();
+  return (
+    <>
+      <p className="sr-only" id={hintId}>
+        Arrow keys or J and K move between sessions.
+      </p>
+      <ul
+        aria-label="Sessions"
+        className="flex w-full flex-col gap-2"
+        {...roving.group}
+      >
+        {rows.map((h) => (
+          <li key={h.id}>
+            <SessionRow
+              active={h.id === selectedId}
+              h={h}
+              hintId={hintId}
+              onOpen={onOpen}
+              tabbable={h.id === roving.stop}
+            />
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+};
 
 /** Shown when every session is filtered out; the action clears all facets. */
 const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
@@ -380,17 +349,26 @@ const SessionListView = ({
   );
 
   const active = activeCount(filters);
+  const search = useListSearch();
 
   return (
-    <div className="flex flex-col gap-3" data-testid="session-list">
+    <div
+      className="flex flex-col gap-3"
+      data-testid="session-list"
+      ref={search.root}
+    >
       <InputGroup>
         <InputGroupAddon>
           <SearchIcon />
         </InputGroupAddon>
         <InputGroupInput
+          aria-keyshortcuts={ariaKeys("search")}
+          aria-label="Search sessions"
           data-testid="session-search"
           onChange={(e) => setFilters((p) => ({ ...p, query: e.target.value }))}
+          onKeyDown={search.onSearchKeyDown}
           placeholder="Search by title…"
+          ref={search.search}
           value={filters.query}
         />
         {filters.query.length > 0 ? (
@@ -473,16 +451,7 @@ const SessionListView = ({
       {rows.length === 0 ? (
         <NoMatches onReset={() => setFilters(NO_FILTERS)} />
       ) : (
-        <ItemGroup className="gap-2">
-          {rows.map((h) => (
-            <SessionRow
-              active={h.id === selectedId}
-              h={h}
-              key={h.id}
-              onOpen={onOpen}
-            />
-          ))}
-        </ItemGroup>
+        <SessionRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
       )}
     </div>
   );
