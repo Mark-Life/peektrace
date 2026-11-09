@@ -1,4 +1,4 @@
-/** Start-date range filter for the session rail.
+/** Activity-date range filter for the session rail.
  *
  * A `Calendar` in `range` mode behind a `Popover`, replacing the flat list of
  * every distinct session day. Days are compared as `YYYY-MM-DD` strings in the
@@ -16,7 +16,6 @@ import { cn } from "@workspace/ui/lib/utils";
 import { CalendarIcon, XIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
 import type { DateRange } from "react-day-picker";
-import { toDayKey } from "../../lib/session-filters";
 
 /** `react-day-picker` and its `date-fns` dependency are ~66 KB, and the sessions
  *  rail is the first thing the app paints. The popover only mounts its content
@@ -34,6 +33,13 @@ const CalendarFallback = () => (
     <span className="sr-only">Loading calendar…</span>
   </div>
 );
+
+/** Zero-padded to two digits. */
+const pad = (n: number): string => String(n).padStart(2, "0");
+
+/** Local-calendar `YYYY-MM-DD` of a `Date` — never UTC, so no midnight drift. */
+export const toDayKey = (d: Date): string =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /** `YYYY-MM-DD` back to a local midnight `Date`, or `undefined` if unparseable. */
 const fromDayKey = (key: string): Date | undefined => {
@@ -62,7 +68,7 @@ export const DateRangeFilter = ({
   range,
   onChange,
 }: {
-  /** Every `YYYY-MM-DD` a loaded session started on, ascending. */
+  /** Every `YYYY-MM-DD` a loaded session was active on, ascending. */
   readonly days: readonly string[];
   readonly range: DateRange | undefined;
   readonly onChange: (range: DateRange | undefined) => void;
