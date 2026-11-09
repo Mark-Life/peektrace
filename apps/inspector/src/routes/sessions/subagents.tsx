@@ -14,7 +14,7 @@ import {
 } from "@workspace/ui/components/collapsible";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
 import { ArrowUpRightIcon, ChevronRightIcon } from "lucide-react";
-import { openSubagent } from "../../lib/routes";
+import { sessionHash, useListParams } from "../../lib/routes";
 import { subagentCollapseId } from "../../lib/session-view";
 
 /** Subagent (sidechain) transcript cards — each runs in its own window. */
@@ -30,6 +30,7 @@ export const Subagents = ({
   /** The session these subagents ran under; opens each one through it. */
   readonly parent: string;
 }) => {
+  const list = useListParams();
   if (a.subagents.length === 0) {
     return null;
   }
@@ -69,13 +70,17 @@ peak context: ${fmt(s.peakContextTokens)}
 path: ${s.path}`}
             </pre>
             <Button
+              asChild
               className="m-2 h-6 gap-1 px-2 text-xs"
-              data-testid="subagent-open"
-              onClick={() => openSubagent({ id: s.id, parent })}
               size="sm"
               variant="outline"
             >
-              <ArrowUpRightIcon className="size-3" /> Open transcript
+              <a
+                data-testid="subagent-open"
+                href={sessionHash({ id: s.id, parent }, list)}
+              >
+                <ArrowUpRightIcon className="size-3" /> Open transcript
+              </a>
             </Button>
           </CollapsibleContent>
         </Collapsible>

@@ -32,6 +32,10 @@ const PROVIDER_LABEL: Record<string, string> = {
   opencode: "OpenCode",
 };
 
+/** The session's display name: its title, else the harness that produced it. */
+export const analyzedTitle = (a: Pick<AnalyzedSession, "provider" | "title">) =>
+  a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`;
+
 /** A single metadata cell. */
 const Meta = ({
   k,
@@ -169,9 +173,7 @@ export const VerdictHeader = ({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <div className="font-semibold text-lg">
-            {a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`}
-          </div>
+          <div className="font-semibold text-lg">{analyzedTitle(a)}</div>
           <div
             className="truncate font-mono text-muted-foreground text-xs"
             title={a.cwd ?? undefined}

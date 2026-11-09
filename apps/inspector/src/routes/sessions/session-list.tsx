@@ -51,7 +51,12 @@ import {
   useMemo,
   useState,
 } from "react";
-import { setHashParams, useListQuery } from "../../lib/routes";
+import {
+  sessionHash,
+  setHashParams,
+  useListParams,
+  useListQuery,
+} from "../../lib/routes";
 import { ariaKeys } from "../../lib/shortcuts";
 import { DateRangeFilter } from "./date-range-filter";
 import {
@@ -166,16 +171,17 @@ const SessionRow = memo(
     h,
     active,
     hintId,
+    href,
     live,
-    onOpen,
     tabbable,
   }: {
     readonly h: SessionHeader;
     readonly active: boolean;
     /** Id of the hint that says how to move between rows. */
     readonly hintId: string;
+    /** The session's hash, with the list filters kept. */
+    readonly href: string;
     readonly live: boolean;
-    readonly onOpen: (id: string) => void;
     /** The list's one Tab stop. */
     readonly tabbable: boolean;
   }) => {
@@ -191,21 +197,20 @@ const SessionRow = memo(
           ROW_HEIGHT_CLASS,
           "flex-col flex-nowrap items-stretch justify-center gap-1 py-1.5 text-left",
           active
-            ? "border-primary/40 bg-primary/10"
+            ? "border-primary/40 bg-primary/10 [a]:hover:bg-primary/10"
             : "hover:bg-muted focus-visible:bg-muted"
         )}
         size="sm"
         variant="outline"
       >
-        <button
-          aria-current={active ? "true" : undefined}
+        <a
+          aria-current={active ? "page" : undefined}
           aria-describedby={hintId}
           aria-keyshortcuts={ROW_KEYS}
           data-session-id={h.id}
           data-testid="session-row"
-          onClick={() => onOpen(h.id)}
+          href={href}
           tabIndex={tabbable ? 0 : -1}
-          type="button"
         >
           <span className="flex min-w-0 items-center gap-2">
             {live ? (
@@ -255,7 +260,7 @@ const SessionRow = memo(
               {h.messageCount} msgs
             </span>
           </span>
-        </button>
+        </a>
       </Item>
     );
   }
@@ -355,13 +360,12 @@ const useScrollParent = (ref: RefObject<HTMLElement | null>) => {
 const VirtualRows = ({
   rows,
   selectedId,
-  onOpen,
 }: {
   readonly rows: readonly SessionHeader[];
   readonly selectedId: string | null;
-  readonly onOpen: (id: string) => void;
 }) => {
   const ids = useMemo(() => rows.map((h) => h.id), [rows]);
+  const list = useListParams();
   const roving = useListRoving({ ids, selectedId });
   const hintId = useId();
   const ref = roving.group.ref;
@@ -427,8 +431,8 @@ const VirtualRows = ({
                 active={h.id === selectedId}
                 h={h}
                 hintId={hintId}
+                href={sessionHash({ id: h.id, parent: null }, list)}
                 live={isLive(h, now)}
-                onOpen={onOpen}
                 tabbable={h.id === roving.stop}
               />
             </li>
@@ -483,15 +487,13 @@ const useSearchDraft = (stored: string, write: (query: string) => void) => {
   return [draft, setDraft, flush] as const;
 };
 
-/** The filter controls + a compact, virtualized session list; rows call `onOpen`. */
+/** The filter controls + a compact, virtualized session list; rows link to their session. */
 const SessionListView = ({
   headers,
   selectedId,
-  onOpen,
 }: {
   readonly headers: readonly SessionHeader[];
   readonly selectedId: string | null;
-  readonly onOpen: (id: string) => void;
 }) => {
   const [stored, patch] = useListFilters();
   const [draft, setDraft, flush] = useSearchDraft(stored.query, (query) =>
@@ -668,7 +670,7 @@ const SessionListView = ({
       {rows.length === 0 ? (
         <NoMatches onReset={reset} />
       ) : (
-        <VirtualRows onOpen={onOpen} rows={rows} selectedId={selectedId} />
+        <VirtualRows rows={rows} selectedId={selectedId} />
       )}
     </div>
   );

@@ -29,17 +29,13 @@ const HEADERS = [
 
 const LIST_ITEM = /<li[\s>]/g;
 const SKIP = /data-testid="skip-link"/g;
-const TAB_STOP = /<button[^>]*tabindex="0"[^>]*>/g;
+const TAB_STOP = /<a[^>]*tabindex="0"[^>]*>/g;
 const ROW = /data-testid="session-row"/g;
 
 const renderList = (selectedId: string | null) =>
   renderToStaticMarkup(
     <TooltipProvider>
-      <SessionList
-        headers={HEADERS}
-        onOpen={() => undefined}
-        selectedId={selectedId}
-      />
+      <SessionList headers={HEADERS} selectedId={selectedId} />
     </TooltipProvider>
   );
 
@@ -68,7 +64,7 @@ describe("session list", () => {
     );
     const html = renderToStaticMarkup(
       <TooltipProvider>
-        <SessionList headers={many} onOpen={() => undefined} selectedId="m3" />
+        <SessionList headers={many} selectedId="m3" />
       </TooltipProvider>
     );
     expect((html.match(ROW) ?? []).length).toBeLessThan(many.length);

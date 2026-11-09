@@ -27,7 +27,7 @@ import {
 } from "@workspace/ui/components/sheet";
 import { type UIEvent, useState } from "react";
 import { ResultView } from "../../lib/result-view";
-import { openSessionMarked } from "../../lib/routes";
+import { markedSessionHash } from "../../lib/routes";
 import { DRILL_PAGE } from "../../lib/stats-atoms";
 import { hms, n } from "../../lib/stats-format";
 
@@ -53,17 +53,14 @@ const Hit = ({
   readonly hit: DrillHit;
 }) => (
   <div className="flex flex-col gap-1" data-testid="drill-hit">
-    <button
-      className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left hover:bg-muted/50"
-      onClick={() =>
-        openSessionMarked({
-          id: hit.sid,
-          parent: hit.parent,
-          mark: detector ?? "",
-          call: hit.toolUseId,
-        })
-      }
-      type="button"
+    <a
+      className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/30"
+      href={markedSessionHash({
+        id: hit.sid,
+        parent: hit.parent,
+        mark: detector ?? "",
+        call: hit.toolUseId,
+      })}
     >
       <div className="flex items-baseline gap-2 text-xs">
         <span className="font-medium">{hit.tool}</span>
@@ -93,23 +90,25 @@ const Hit = ({
         {hit.project}/{(hit.parent ?? hit.sid).slice(0, SID_HEAD)} · {hit.kind}{" "}
         · {hit.ts ?? "no timestamp"}
       </span>
-    </button>
+    </a>
     {hit.pairLine === null ? null : (
       <Button
+        asChild
         className="h-6 self-end px-2 text-xs"
-        data-testid="drill-retry"
-        onClick={() =>
-          openSessionMarked({
+        size="sm"
+        variant="ghost"
+      >
+        <a
+          data-testid="drill-retry"
+          href={markedSessionHash({
             id: hit.sid,
             parent: hit.parent,
             mark: "retry",
             call: hit.pairToolUseId,
-          })
-        }
-        size="sm"
-        variant="ghost"
-      >
-        Open the retry
+          })}
+        >
+          Open the retry
+        </a>
       </Button>
     )}
   </div>

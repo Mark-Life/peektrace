@@ -26,7 +26,6 @@ import { SESSION_DETAIL_ID } from "../lib/landmarks";
 import { ResultView } from "../lib/result-view";
 import {
   closeSession,
-  openSession,
   useHashParam,
   useSelectedSessionId,
 } from "../lib/routes";
@@ -152,7 +151,6 @@ export const SessionsRoute = () => {
               >
                 <SessionList
                   headers={headers}
-                  onOpen={openSession}
                   selectedId={parent ?? selected}
                 />
               </div>

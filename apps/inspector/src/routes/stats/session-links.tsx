@@ -7,7 +7,7 @@
 import type { SampleRef } from "@workspace/core/services/stats/schema";
 import { Button } from "@workspace/ui/components/button";
 import { ArrowUpRightIcon } from "lucide-react";
-import { openSessionMarked } from "../../lib/routes";
+import { markedSessionHash } from "../../lib/routes";
 import { sessionChip } from "../../lib/stats-format";
 
 /** The hover text: every id behind the chip, then the evidence line. */
@@ -16,7 +16,7 @@ const titleOf = (sample: SampleRef) =>
     ? `${sample.project} · ${sample.sid} · ${sample.line}`
     : `${sample.project} · ${sample.parent} · subagent ${sample.sid} · ${sample.line}`;
 
-/** One session button, labelled by project so two links are told apart. A
+/** One session link, labelled by project so two links are told apart. A
  * subagent call names its parent session and opens the subagent through it. */
 const SessionLink = ({
   detector,
@@ -28,28 +28,30 @@ const SessionLink = ({
   const chip = sessionChip(sample);
   return (
     <Button
+      asChild
       className="h-6 min-w-0 max-w-full gap-1 px-2 font-mono text-xs"
-      data-testid="stats-session-link"
-      onClick={() =>
-        openSessionMarked({
+      size="sm"
+      variant="outline"
+    >
+      <a
+        data-testid="stats-session-link"
+        href={markedSessionHash({
           id: sample.sid,
           parent: sample.parent,
           mark: detector ?? "",
           call: sample.toolUseId,
-        })
-      }
-      size="sm"
-      title={titleOf(sample)}
-      variant="outline"
-    >
-      <ArrowUpRightIcon className="size-3 shrink-0" />
-      <span className="flex min-w-0">
-        <span className="truncate">{chip.project}</span>
-        <span className="shrink-0">/{chip.session}</span>
-        {chip.subagent ? (
-          <span className="shrink-0 text-muted-foreground"> · subagent</span>
-        ) : null}
-      </span>
+        })}
+        title={titleOf(sample)}
+      >
+        <ArrowUpRightIcon className="size-3 shrink-0" />
+        <span className="flex min-w-0">
+          <span className="truncate">{chip.project}</span>
+          <span className="shrink-0">/{chip.session}</span>
+          {chip.subagent ? (
+            <span className="shrink-0 text-muted-foreground"> · subagent</span>
+          ) : null}
+        </span>
+      </a>
     </Button>
   );
 };
