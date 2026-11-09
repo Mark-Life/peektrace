@@ -60,7 +60,9 @@ describe("memoryCrudVerdict", () => {
         opencode: { level: "planned" },
       }),
     ];
-    expect(memoryCrudVerdict(caps).canWrite).toBe(true);
+    expect(memoryCrudVerdict({ caps, readOnly: false })).toMatchObject({
+      blockedBy: null,
+    });
   });
 
   test("blocks with the note when Claude is not supported", () => {
@@ -72,14 +74,30 @@ describe("memoryCrudVerdict", () => {
         opencode: { level: "planned" },
       }),
     ];
-    expect(memoryCrudVerdict(caps)).toEqual({
+    expect(memoryCrudVerdict({ caps, readOnly: false })).toEqual({
       level: "planned",
       note: "soon",
-      canWrite: false,
+      blockedBy: "capability",
     });
   });
 
   test("a missing cell counts as unsupported", () => {
-    expect(memoryCrudVerdict([]).level).toBe("unsupported");
+    expect(memoryCrudVerdict({ caps: [], readOnly: false }).level).toBe(
+      "unsupported"
+    );
+  });
+
+  test("a read-only server blocks even a supported cell", () => {
+    const caps = [
+      crud({
+        claude: { level: "supported" },
+        codex: { level: "planned" },
+        pi: { level: "planned" },
+        opencode: { level: "planned" },
+      }),
+    ];
+    expect(memoryCrudVerdict({ caps, readOnly: true })).toMatchObject({
+      blockedBy: "read-only",
+    });
   });
 });

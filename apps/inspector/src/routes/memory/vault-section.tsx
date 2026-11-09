@@ -3,8 +3,8 @@
  * Composes the parity forensics — budget gauge, type donut, index↔files diff,
  * link graph — above the sortable browse table, plus the per-project Create
  * action and the edit/delete dialogs. All write paths are hidden unless
- * `canWrite` (the capability gate). Link clicks and graph-node clicks expand the
- * target row in place.
+ * `canWrite` (supported capability, writable server). Link clicks and
+ * graph-node clicks expand the target row in place.
  */
 import type {
   MemoryEntry,

@@ -24,6 +24,7 @@ import { useState } from "react";
 import { ResultView } from "../lib/result-view";
 import { setHashParam, useHashParam } from "../lib/routes";
 import {
+  firstPassStart,
   useStatsDrill,
   useStatsRefresh,
   useStatsReport,
@@ -35,6 +36,7 @@ import { Clusters, Waiting } from "./stats/evidence";
 import { FailTable } from "./stats/fail-table";
 import { Findings } from "./stats/findings";
 import { agentOf, daysOf, ReportHeader } from "./stats/report-header";
+import { StatsPending } from "./stats/stats-pending";
 import { TimeTable } from "./stats/time-table";
 
 /** One open drill: which table, which key. */
@@ -98,6 +100,7 @@ const ReportView = ({
   onPage,
   onRescan,
   report,
+  rescanning,
 }: {
   readonly agent: AgentId | null;
   readonly days: number;
@@ -106,6 +109,7 @@ const ReportView = ({
   readonly onPage: (offset: number) => void;
   readonly onRescan: () => void;
   readonly report: StatsReport;
+  readonly rescanning: boolean;
 }) => {
   const [showAllFindings, setShowAllFindings] = useState(false);
   const openDrill = (table: DrillTable, key: string) =>
@@ -123,6 +127,7 @@ const ReportView = ({
         onRescan={onRescan}
         prompt={prompt({ table: "report" })}
         report={report}
+        rescanning={rescanning}
       />
 
       <section className="flex flex-col gap-3">
@@ -236,15 +241,8 @@ export const StatsRoute = () => {
   return (
     <div className="flex flex-col gap-8" data-testid="stats-route">
       <ResultView
-        pending={
-          <p
-            className="text-muted-foreground text-sm"
-            data-testid="stats-pending"
-          >
-            Reading every transcript on disk. The first pass parses them all;
-            the next reads the fact cache and only re-parses what changed.
-          </p>
-        }
+        onRetry={rescan}
+        pending={<StatsPending since={firstPassStart(scope)} />}
         result={report}
       >
         {(value) => (
@@ -256,6 +254,7 @@ export const StatsRoute = () => {
             onPage={(next) => setPage({ id: drillId, offset: next })}
             onRescan={rescan}
             report={value}
+            rescanning={report.waiting}
           />
         )}
       </ResultView>

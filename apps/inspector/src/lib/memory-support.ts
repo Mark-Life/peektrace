@@ -44,14 +44,24 @@ export const memorySupportSummary = (caps: readonly Capability[]) => {
 };
 
 /**
- * Whether memories can be written. Only Claude has a memory folder, so the
- * Claude cell decides; the note explains a blocked verdict.
+ * Whether memories can be written. A read-only server blocks first; otherwise
+ * only Claude has a memory folder, so the Claude cell decides and its note
+ * explains a blocked verdict.
  */
-export const memoryCrudVerdict = (caps: readonly Capability[]) => {
+export const memoryCrudVerdict = ({
+  caps,
+  readOnly,
+}: {
+  readonly caps: readonly Capability[];
+  readonly readOnly: boolean;
+}) => {
   const support = crudCap(caps)?.perAgent.claude;
+  const capable = support?.level === "supported";
+  const blocker = capable ? null : ("capability" as const);
   return {
     level: support?.level ?? "unsupported",
     note: support?.note,
-    canWrite: support?.level === "supported",
+    /** What stops writes, or null when memories can be written. */
+    blockedBy: readOnly ? "read-only" : blocker,
   } as const;
 };

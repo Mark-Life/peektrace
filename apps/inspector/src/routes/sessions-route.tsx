@@ -8,7 +8,7 @@
  * (list ⇄ detail) and the detail's Back button returns to the rail. Selection is
  * local state, so the rail stays mounted and returning is instant.
  */
-import { useAtomValue } from "@effect-atom/atom-react";
+import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import {
   Empty,
   EmptyContent,
@@ -19,9 +19,9 @@ import {
 } from "@workspace/ui/components/empty";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { cn } from "@workspace/ui/lib/utils";
-import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
+import { MousePointerClickIcon } from "lucide-react";
 import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
-import { sessionHeadersAtom } from "../lib/atoms";
+import { sessionHeadersAtom, sessionsListAtom } from "../lib/atoms";
 import { SESSION_DETAIL_ID } from "../lib/landmarks";
 import { ResultView } from "../lib/result-view";
 import {
@@ -29,6 +29,7 @@ import {
   useHashParam,
   useSelectedSessionId,
 } from "../lib/routes";
+import { NoSessionsFromServer } from "./sessions/no-sessions";
 import { SessionList } from "./sessions/session-list";
 
 /** The detail pane only mounts once a session is picked, and it owns the two
@@ -115,6 +116,7 @@ const useNarrowFocusHandoff = ({
 /** Sessions section route: responsive master-detail. */
 export const SessionsRoute = () => {
   const result = useAtomValue(sessionHeadersAtom);
+  const retry = useAtomRefresh(sessionsListAtom);
   const selected = useSelectedSessionId();
   // A subagent opens through its parent, which is what the rail lists.
   const parent = useHashParam("parent");
@@ -124,20 +126,10 @@ export const SessionsRoute = () => {
 
   return (
     <div className="flex flex-col">
-      <ResultView result={result}>
+      <ResultView onRetry={retry} result={result}>
         {(headers) =>
           headers.length === 0 ? (
-            <Empty className="border" data-testid="sessions-placeholder">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <MessagesSquareIcon />
-                </EmptyMedia>
-                <EmptyTitle>No sessions found</EmptyTitle>
-                <EmptyDescription>
-                  No Claude transcripts were discovered under the projects root.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <NoSessionsFromServer />
           ) : (
             <div className="flex flex-col gap-6 md:flex-row md:items-start">
               {/* Rail height: the viewport less the shell header (h-11) and

@@ -12,8 +12,10 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@workspace/ui/components/alert";
+import { Button } from "@workspace/ui/components/button";
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Cause } from "effect";
+import { RotateCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { wireErrorMessage, wireErrorOfCause } from "./wire-error";
 
@@ -26,12 +28,48 @@ const DefaultPending = () => (
   </div>
 );
 
+/** Outline Retry button that spins and disables while the refetch runs. */
+export const RetryButton = ({
+  onRetry,
+  retrying,
+  testId,
+  className,
+}: {
+  readonly onRetry: () => void;
+  readonly retrying: boolean;
+  readonly testId: string;
+  readonly className?: string;
+}) => (
+  <Button
+    className={className}
+    data-testid={testId}
+    disabled={retrying}
+    onClick={onRetry}
+    size="sm"
+    variant="outline"
+  >
+    <RotateCwIcon
+      aria-hidden
+      className={retrying ? "motion-safe:animate-spin" : undefined}
+    />
+    {retrying ? "Retrying…" : "Retry"}
+  </Button>
+);
+
 /**
  * Render a failed query. When the `Cause` carries a typed Peektrace wire error we
  * show its friendly message; otherwise (defects, transport faults) we fall back
  * to the pretty-printed cause so nothing is ever swallowed or blank-screened.
  */
-const FailureView = ({ cause }: { cause: Cause.Cause<unknown> }) => {
+const FailureView = ({
+  cause,
+  onRetry,
+  retrying,
+}: {
+  readonly cause: Cause.Cause<unknown>;
+  readonly onRetry?: () => void;
+  readonly retrying: boolean;
+}) => {
   const wire = wireErrorOfCause(cause);
   return (
     <Alert data-testid="result-error" variant="destructive">
@@ -46,6 +84,14 @@ const FailureView = ({ cause }: { cause: Cause.Cause<unknown> }) => {
             {Cause.pretty(cause)}
           </pre>
         )}
+        {onRetry ? (
+          <RetryButton
+            className="mt-2 text-foreground"
+            onRetry={onRetry}
+            retrying={retrying}
+            testId="result-retry"
+          />
+        ) : null}
       </AlertDescription>
     </Alert>
   );
@@ -53,19 +99,28 @@ const FailureView = ({ cause }: { cause: Cause.Cause<unknown> }) => {
 
 /**
  * Branch a `Result<A, E>` into pending / failure / success renderers.
- * `children` receives the success value; `pending` overrides the skeleton.
+ * `children` receives the success value; `pending` overrides the skeleton;
+ * `onRetry` adds a Retry button to the failure view.
  */
 export const ResultView = <A, E>({
   result,
   children,
   pending,
+  onRetry,
 }: {
   readonly result: Result.Result<A, E>;
   readonly children: (value: A) => ReactNode;
   readonly pending?: ReactNode;
+  readonly onRetry?: () => void;
 }) => {
   if (Result.isFailure(result)) {
-    return <FailureView cause={result.cause} />;
+    return (
+      <FailureView
+        cause={result.cause}
+        onRetry={onRetry}
+        retrying={result.waiting}
+      />
+    );
   }
   if (Result.isSuccess(result)) {
     // A refetch over data already on screen renders that data and nothing else:
