@@ -4,6 +4,27 @@
 
 ### Added
 
+- **Estimated session cost in the inspector and TUI** (#145). The session
+  header and the TUI summary show an `Est. cost` row when the session has a
+  cost: the total (`—` when nothing is priced), who reported it, the
+  subagents' share and any unpriced models, all as visible text.
+- **Keyboard navigation** (#160). The session list is one Tab stop moved by
+  the arrows or `j` / `k`, `/` focuses search, `[` and `]` step between turns,
+  `?` opens a shortcuts sheet, and skip links lead to the content and the open
+  session.
+- **Jump from the summary into the transcript** (#164). The dumb-zone,
+  compaction and subagent chips and the growth timeline land on their turn or
+  call, a "Jump to history" button sits at the top, and the history toolbar
+  stays in view with a way back to the summary.
+- **Pause live** (#147) holds live reloads while you read, and the header says
+  when updates are waiting.
+- **Create the first memory from an empty Memory page** (#142). "New memory
+  in…" asks for a Claude project, most recently used first. The Agent selector
+  is gone.
+- **Loading, retry, empty and read-only states** (#159). Failed queries offer
+  Retry, the first stats load shows a report skeleton with elapsed time, an
+  empty session list names the folders it scanned, and a read-only server
+  shows a lock badge and hides edits.
 - **`peektrace mcp`** (#153), a stdio MCP server for Claude Code, Codex and
   other clients, with five read-only tools: `stats_report`, `stats_drill`,
   `sessions_list`, `sessions_search` and `sessions_analyze`. Each returns the
@@ -54,6 +75,22 @@
 
 ### Changed
 
+- **A compact session list** (#150). Rows are two lines, newest activity
+  first, with a dot on sessions written in the last 5 minutes, and only the
+  rows in view are drawn.
+- **Session list filters live in the URL** (#157), so search and filters
+  survive reload, Back, opening a session and leaving the section.
+- **Session links are real links** (#152). Rail rows, subagent and parent
+  links and stats chips open in a new tab or copy like any link, and each tab
+  is titled by its page or session.
+- **Stats chips name sessions by title** (#163), and samples of one session
+  fold into one chip with `×N`. Unchanged repeated context chips in the chat
+  fold into one, and Capabilities moved from the sidebar into Settings.
+- **Session detail fits a 390 px phone** (#135). The stat grid uses 2, 3 or 6
+  columns by width, and narrow tool cards move the preview to a second row.
+- **Accessibility fixes** (#166). Chat toggles report `aria-expanded` and
+  `aria-controls`, the search boxes are labelled, and light-theme muted text
+  is darker so it passes AA.
 - **Non-loopback binds require a token** (#130). `serve --host 0.0.0.0` (and
   `tui --host`) used to expose every transcript, and writes, to anyone who
   could reach the port. Every route now needs a token, random per start or
@@ -134,6 +171,12 @@
 
 ### Performance
 
+- **Long transcripts are virtualized** (#140). Chat and table mount only the
+  rows in view, so long sessions open and scroll without stalling. Transcripts
+  of 150 items or fewer still render in full, so find-in-page works.
+- **A growing live session no longer freezes the inspector** (#147). Reloads
+  are debounced (1.5 s, at most 4 s), and unchanged sessions keep their rows,
+  so one changed session re-renders one row.
 - **Session lists are cached** (#122). Each list re-read and re-parsed every
   transcript. Headers are now reused while a file's size and mtime match, and
   an agent filter reads only that agent's files. On a ~480-session corpus a
