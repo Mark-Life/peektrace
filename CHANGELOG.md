@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## cli-v0.12.0 — 2026-11-09
 
 ### Added
 
@@ -16,6 +16,10 @@
   compaction and subagent chips and the growth timeline land on their turn or
   call, a "Jump to history" button sits at the top, and the history toolbar
   stays in view with a way back to the summary.
+- **Search the full history text** (#148). The history search matches the
+  full text of every event, not just what is on screen. Enter and the arrow
+  buttons step through matches, a counter shows the current hit, and the
+  query clears when you switch sessions.
 - **Pause live** (#147) holds live reloads while you read, and the header says
   when updates are waiting.
 - **Create the first memory from an empty Memory page** (#142). "New memory
