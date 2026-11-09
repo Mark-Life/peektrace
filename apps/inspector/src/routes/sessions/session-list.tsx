@@ -51,6 +51,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { AGENT_LABEL } from "../../lib/agent-label";
 import {
   sessionHash,
   setHashParams,
@@ -60,7 +61,6 @@ import {
 import { ariaKeys } from "../../lib/shortcuts";
 import { DateRangeFilter } from "./date-range-filter";
 import {
-  AGENT_LABEL,
   ANY,
   activeCount,
   activeDays,

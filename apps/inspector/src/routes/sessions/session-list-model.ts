@@ -1,16 +1,9 @@
 /** Pure helpers behind the session rail: filtering, ordering and row labels. */
 import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import type { DateRange } from "react-day-picker";
+import { AGENT_LABEL } from "../../lib/agent-label";
 import type { ListKey } from "../../lib/routes";
 import { fromDayKey, toDayKey } from "./date-range-filter";
-
-/** Human-readable label per agent id for the badge. */
-export const AGENT_LABEL: Record<string, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  pi: "Pi",
-  opencode: "OpenCode",
-};
 
 /** Sentinel option meaning "this facet is not constraining the list". */
 export const ANY = "all";
