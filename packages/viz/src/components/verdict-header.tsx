@@ -168,7 +168,7 @@ export const VerdictHeader = ({
     : 0;
   return (
     <section
-      className="flex flex-col gap-4 rounded-lg border border-border p-4"
+      className="@container flex flex-col gap-4 rounded-lg border border-border p-3 md:p-4"
       data-testid="verdict-header"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -198,7 +198,7 @@ export const VerdictHeader = ({
 
       <PeakGauge a={a} />
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(10rem,1fr))] gap-2">
+      <div className="grid @4xl:grid-cols-6 @lg:grid-cols-3 grid-cols-2 gap-2">
         <Meta k="Peak context">
           <span className={ZONE_CLASSES[zone].text}>
             {fmt(a.peakContextTokens)}

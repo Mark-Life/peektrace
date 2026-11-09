@@ -35,7 +35,7 @@ export const BudgetBar = ({ a }: { readonly a: AnalyzedSession }) => {
   const free = Math.max(0, a.contextWindow - a.peakContextTokens);
   return (
     <section
-      className="flex flex-col gap-3 rounded-lg border border-border p-4"
+      className="flex flex-col gap-3 rounded-lg border border-border p-3 md:p-4"
       data-testid="budget-bar"
     >
       <div>

@@ -361,7 +361,7 @@ export const GrowthTimeline = ({
 
   return (
     <section
-      className="flex flex-col gap-2 rounded-lg border border-border p-4"
+      className="flex flex-col gap-2 rounded-lg border border-border p-3 md:p-4"
       data-testid="growth-timeline"
     >
       <div>

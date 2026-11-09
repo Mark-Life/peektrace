@@ -465,3 +465,59 @@ test("the hidden note says which kind of jump the filters hide", () => {
     renderToStaticMarkup(<HiddenNote hidden={false} onClear={noop} />)
   ).toBe("");
 });
+
+test("a failed tool card keeps its badges out of the preview row", () => {
+  const events = EVENTS.map((e) => {
+    if (e.index === 3) {
+      return { ...e, preview: "read b.ts" };
+    }
+    return e.index === 4 ? { ...e, isError: true } : e;
+  });
+  const a = { ...SESSION, events };
+  const marks: ToolMarks = new Map([
+    [
+      "t1",
+      [
+        {
+          detector: "piped-exit-code",
+          label: "printed a failure (tsc) and exited 0",
+          seq: 4,
+          toolUseId: "t1",
+        },
+      ],
+    ],
+  ]);
+  const html = renderToStaticMarkup(
+    <TranscriptChat
+      a={a}
+      activeMark={null}
+      allOpen={false}
+      bulkKey={0}
+      crossEvtIdx={9}
+      isOpen={() => false}
+      jump={null}
+      landing={LANDING}
+      marks={marks}
+      onToggle={noop}
+      queryActive={false}
+      rows={events
+        .map((e, pos) => ({ e, pos }))
+        .filter(({ e }) => e.kind !== "system")}
+      stickyHeight={0}
+      tools={indexTools(a)}
+      turns={TURNS}
+    />
+  );
+  const start = html.indexOf('data-tool-use-id="t1"');
+  const end = html.indexOf("data-kind=", start);
+  const card = html.slice(start, end === -1 ? undefined : end);
+  const [header = "", summary = ""] = card.split('data-testid="tool-summary"');
+
+  expect(countOf(card, 'data-testid="tool-summary"')).toBe(1);
+  expect(header).toContain('data-testid="stats-marker"');
+  expect(header).toContain(">error</span>");
+  expect(summary).not.toContain(">error</span>");
+  expect(summary).not.toContain('data-testid="stats-marker"');
+  expect(summary).toContain("b.ts");
+  expect(summary).toContain("~0 → ~0");
+});

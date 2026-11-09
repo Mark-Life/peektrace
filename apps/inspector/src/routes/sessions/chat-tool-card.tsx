@@ -130,7 +130,7 @@ const ChatToolCardBody = ({
     <ChatRow lane="agent" sidechain={anchor?.isSidechain === true}>
       <Tool
         className={cn(
-          "w-full max-w-[92%] rounded-xl border",
+          "@container w-full max-w-[92%] rounded-xl border",
           result?.isError === true && "border-destructive/40"
         )}
         data-kind={call ? "tool-call" : "tool-result"}
@@ -144,7 +144,7 @@ const ChatToolCardBody = ({
         open={open}
       >
         <ToolHeader
-          className="px-3 py-2 text-sm hover:bg-muted/40"
+          className="flex-wrap px-3 py-2 text-sm hover:bg-muted/40"
           icon={
             call ? undefined : (
               <CornerDownLeftIcon className="size-3.5 shrink-0 text-muted-foreground" />
@@ -171,14 +171,19 @@ const ChatToolCardBody = ({
               mark={mark}
             />
           ))}
-          <span className="truncate text-muted-foreground text-xs">
-            {(view ? view.summary : result?.preview) || "(empty)"}
-          </span>
           <span
-            className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
-            title={cost.title}
+            className="flex min-w-0 @md:flex-1 @md:basis-0 basis-full items-center gap-2 @md:pl-0 pl-5.5"
+            data-testid="tool-summary"
           >
-            {cost.short}
+            <span className="min-w-0 truncate text-muted-foreground text-xs">
+              {(view ? view.summary : result?.preview) || "(empty)"}
+            </span>
+            <span
+              className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
+              title={cost.title}
+            >
+              {cost.short}
+            </span>
           </span>
         </ToolHeader>
         <ToolContent className="max-h-96 overflow-auto">

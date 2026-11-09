@@ -71,7 +71,7 @@ const OnDiskTable = ({ a }: { readonly a: AnalyzedSession }) => {
 /** Loaded artifacts section. */
 export const LoadedArtifacts = ({ a }: { readonly a: AnalyzedSession }) => (
   <section
-    className="flex flex-col gap-5 rounded-lg border border-border p-4"
+    className="flex flex-col gap-5 rounded-lg border border-border p-3 md:p-4"
     data-testid="loaded-artifacts"
   >
     <div>

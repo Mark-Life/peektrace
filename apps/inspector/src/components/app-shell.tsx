@@ -227,7 +227,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
         >
           <div
             className={cn(
-              "mx-auto px-6 py-6",
+              "mx-auto px-3 py-4 md:px-6 md:py-6",
               route === "sessions" ? "max-w-[1800px]" : "max-w-6xl"
             )}
           >
