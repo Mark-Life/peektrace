@@ -15,17 +15,25 @@ import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
-import { useMemo } from "react";
+import { memo, type RefObject, useMemo, useRef } from "react";
 import {
   buildChatPlan,
   type ChatNode,
+  chatNodeKeys,
   laneOf,
+  planIndexOfCall,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
 import type { ToolMarks } from "../../lib/session-markers";
 import { chatCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import { toolNameOf, toolState } from "../../lib/tool-event";
+import {
+  CHAT_ITEM_CLASS,
+  estimateChatNode,
+} from "../../lib/transcript-estimate";
+import { useVirtualJump } from "../../lib/virtual-jump";
+import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ChatContextRun } from "./chat-context-run";
 import {
   ChatBand,
@@ -36,23 +44,7 @@ import {
 } from "./chat-message";
 import { ChatNotice } from "./chat-notice";
 import { ChatToolCard } from "./chat-tool-card";
-
-/** Off-screen nodes skip layout; the transcript is long and mostly unread. */
-const NODE = "[content-visibility:auto] [contain-intrinsic-size:auto_80px]";
-
-/** A stable React key per node — position-based, like every collapse id here. */
-const keyOf = (n: ChatNode, i: number) => {
-  if (n.type === "message" || n.type === "band" || n.type === "notice") {
-    return `n${n.row.pos}`;
-  }
-  if (n.type === "tool") {
-    return `n${n.call?.pos ?? n.result?.pos ?? i}`;
-  }
-  if (n.type === "run") {
-    return `run${n.items[0]?.pos ?? i}`;
-  }
-  return `${n.type}${i}`;
-};
+import { VirtualList } from "./virtual-list";
 
 /** What a band says about its event: compaction and summary are fixed notices,
  *  a system prompt reads its own title (first prompt vs. a later update). */
@@ -132,8 +124,8 @@ const Band = ({
 /** No marks on this call: one shared empty array keeps the card memo stable. */
 const NO_MARKS: readonly SessionMarker[] = [];
 
-/** One node of the plan. Split out of the map so the switch stays readable. */
-const renderNode = ({
+/** One node of the plan, as the transcript draws it. */
+const ChatNodeViewBody = ({
   a,
   activeMark,
   allOpen,
@@ -262,13 +254,19 @@ const renderNode = ({
   );
 };
 
-/** The transcript as a conversation. */
+export const ChatNodeView = memo(ChatNodeViewBody);
+
+/** The transcript as a conversation. Only the blocks near the screen are
+ *  mounted; `callId` is the tool call a link asked to land on. */
 export const TranscriptChat = ({
   a,
   activeMark,
   allOpen,
+  bulkKey,
+  callId,
   crossEvtIdx,
   isOpen,
+  jumpDone,
   marks,
   onToggle,
   queryActive,
@@ -280,8 +278,13 @@ export const TranscriptChat = ({
   /** The detector id the reader arrived with, highlighted where it applies. */
   readonly activeMark: string | null;
   readonly allOpen: boolean;
+  /** Bumped by expand or collapse all, when every height changes at once. */
+  readonly bulkKey: number;
+  readonly callId: string | null;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** The call link already landed on, shared by both layouts. */
+  readonly jumpDone: RefObject<string | null>;
   /** Stats marks for this session, keyed by tool-use id. */
   readonly marks: ToolMarks;
   readonly onToggle: (id: string, open: boolean) => void;
@@ -295,6 +298,14 @@ export const TranscriptChat = ({
     () => buildChatPlan({ crossEvtIdx, rows, turns }),
     [crossEvtIdx, rows, turns]
   );
+  const keys = useMemo(() => chatNodeKeys(plan), [plan]);
+  const list = useRef<VirtualListHandle>(null);
+  useVirtualJump({
+    done: jumpDone,
+    index: callId === null ? -1 : planIndexOfCall(plan, callId),
+    list,
+    target: callId,
+  });
 
   if (rows.length === 0) {
     return (
@@ -305,25 +316,28 @@ export const TranscriptChat = ({
   }
 
   return (
-    <div
-      className="mx-auto flex w-full max-w-3xl flex-col gap-3"
-      data-testid="chat-transcript"
-    >
-      {plan.map((n, i) => (
-        <div className={NODE} key={keyOf(n, i)}>
-          {renderNode({
-            a,
-            activeMark,
-            allOpen,
-            isOpen,
-            marks,
-            n,
-            onToggle,
-            queryActive,
-            tools,
-          })}
-        </div>
-      ))}
-    </div>
+    <VirtualList
+      className="mx-auto w-full max-w-3xl"
+      estimate={(n) => estimateChatNode({ allOpen, isOpen, n })}
+      itemClassName={CHAT_ITEM_CLASS}
+      items={plan}
+      keys={keys}
+      measureKey={bulkKey}
+      ref={list}
+      render={(n) => (
+        <ChatNodeView
+          a={a}
+          activeMark={activeMark}
+          allOpen={allOpen}
+          isOpen={isOpen}
+          marks={marks}
+          n={n}
+          onToggle={onToggle}
+          queryActive={queryActive}
+          tools={tools}
+        />
+      )}
+      testId="chat-transcript"
+    />
   );
 };

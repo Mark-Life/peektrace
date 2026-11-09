@@ -33,8 +33,9 @@ import {
 } from "@workspace/ui/components/collapsible";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo } from "react";
+import { memo, type RefObject, useMemo, useRef } from "react";
 import type { TranscriptRowRef } from "../../lib/chat-lane";
+import { rowIndexOfCall } from "../../lib/history-filter";
 import {
   type HistorySort,
   type HistorySortKey,
@@ -50,12 +51,16 @@ import {
   toolNameOf,
   toolState,
 } from "../../lib/tool-event";
+import { estimateTableRow } from "../../lib/transcript-estimate";
 import { sameEvent } from "../../lib/transcript-row";
+import { useVirtualJump } from "../../lib/virtual-jump";
+import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 import { EventBody } from "./event-body";
 import { EventImages } from "./event-images";
 import { ToolPaneView, ToolResultView } from "./tool-panes";
 import { SortHeader } from "./transcript-sort-header";
+import { VirtualList } from "./virtual-list";
 
 /** Decimal places for the per-event window-share percent (token sort only). */
 const PCT_DECIMALS = 2;
@@ -144,6 +149,7 @@ const ToolEventRowBody = ({
       data-kind={e.kind}
       data-sidechain={e.isSidechain ? "true" : "false"}
       data-testid="history-event"
+      data-tool-use-id={e.toolUseId}
       onOpenChange={onOpenChange}
       open={open}
     >
@@ -241,11 +247,80 @@ const EventRowBody = ({
 /** One transcript row, re-rendered only when its own content or state changes. */
 const EventRow = memo(EventRowBody, sameRow);
 
-/** The bordered list of event rows, with the dumb-zone divider inline. */
+/** The dumb-zone notice, drawn above the row where the session crossed it. */
+const DumbZoneDivider = ({ a }: { readonly a: AnalyzedSession }) => (
+  <div
+    className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
+    data-testid="dumbzone-divider"
+  >
+    entered dumb zone — {Math.round(a.dumbZoneFraction * PERCENT)}% (
+    {fmt(a.dumbZoneFraction * a.contextWindow)} tok) crossed at turn{" "}
+    {a.dumbZoneCrossTurn + 1}
+  </div>
+);
+
+/** One table row, with the divider above it when the session crossed into the
+ *  dumb zone here. */
+const TableRowViewBody = ({
+  a,
+  divider,
+  isOpen,
+  onToggle,
+  row: { e, pos },
+  share,
+  tools,
+  turn,
+}: {
+  readonly a: AnalyzedSession;
+  readonly divider: boolean;
+  readonly isOpen: (id: string) => boolean;
+  readonly onToggle: (id: string, open: boolean) => void;
+  readonly row: TranscriptRowRef;
+  readonly share: number | undefined;
+  readonly tools: ToolIndex;
+  readonly turn: number;
+}) => {
+  const id = eventCollapseId(pos);
+  return (
+    <>
+      {divider ? <DumbZoneDivider a={a} /> : null}
+      {isToolEvent(e) ? (
+        <ToolEventRow
+          collapseId={id}
+          e={e}
+          name={toolNameOf(e, tools)}
+          onToggle={onToggle}
+          open={isOpen(id)}
+          share={share}
+          state={toolState(e, tools)}
+          turn={turn}
+        />
+      ) : (
+        <EventRow
+          collapseId={id}
+          e={e}
+          onToggle={onToggle}
+          open={isOpen(id)}
+          share={share}
+          turn={turn}
+        />
+      )}
+    </>
+  );
+};
+
+export const TableRowView = memo(TableRowViewBody);
+
+/** The bordered list of event rows, with the dumb-zone divider inline. Only
+ *  the rows near the screen are mounted; `callId` is the tool call a link
+ *  asked to land on. */
 export const TranscriptTable = ({
   a,
+  bulkKey,
+  callId,
   crossEvtIdx,
   isOpen,
+  jumpDone,
   onSort,
   onToggle,
   rows,
@@ -254,8 +329,13 @@ export const TranscriptTable = ({
   turns,
 }: {
   readonly a: AnalyzedSession;
+  /** Bumped by expand or collapse all, when every height changes at once. */
+  readonly bulkKey: number;
+  readonly callId: string | null;
   readonly crossEvtIdx: number;
   readonly isOpen: (id: string) => boolean;
+  /** The call link already landed on, shared by both layouts. */
+  readonly jumpDone: RefObject<string | null>;
   readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
   /** Rows already in `sort` order. */
@@ -273,6 +353,19 @@ export const TranscriptTable = ({
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
       : undefined;
+  const dividerAt = (pos: number) => showDivider && pos === crossEvtIdx;
+
+  const keys = useMemo(
+    () => rows.map(({ e, pos }) => `${e.index}-${pos}`),
+    [rows]
+  );
+  const list = useRef<VirtualListHandle>(null);
+  useVirtualJump({
+    done: jumpDone,
+    index: callId === null ? -1 : rowIndexOfCall(rows, callId),
+    list,
+    target: callId,
+  });
 
   return (
     <div className="rounded-md border border-border">
@@ -280,41 +373,31 @@ export const TranscriptTable = ({
         onSort={(key: HistorySortKey) => onSort(nextSort(sort, key))}
         sort={sort}
       />
-      {rows.map(({ e, pos }) => (
-        <div key={`${e.index}-${pos}`}>
-          {showDivider && pos === crossEvtIdx ? (
-            <div
-              className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
-              data-testid="dumbzone-divider"
-            >
-              entered dumb zone — {Math.round(a.dumbZoneFraction * PERCENT)}% (
-              {fmt(a.dumbZoneFraction * a.contextWindow)} tok) crossed at turn{" "}
-              {a.dumbZoneCrossTurn + 1}
-            </div>
-          ) : null}
-          {isToolEvent(e) ? (
-            <ToolEventRow
-              collapseId={eventCollapseId(pos)}
-              e={e}
-              name={toolNameOf(e, tools)}
-              onToggle={onToggle}
-              open={isOpen(eventCollapseId(pos))}
-              share={shareOf(e)}
-              state={toolState(e, tools)}
-              turn={turns[pos] ?? 0}
-            />
-          ) : (
-            <EventRow
-              collapseId={eventCollapseId(pos)}
-              e={e}
-              onToggle={onToggle}
-              open={isOpen(eventCollapseId(pos))}
-              share={shareOf(e)}
-              turn={turns[pos] ?? 0}
-            />
-          )}
-        </div>
-      ))}
+      <VirtualList
+        estimate={({ pos }) =>
+          estimateTableRow({
+            divider: dividerAt(pos),
+            open: isOpen(eventCollapseId(pos)),
+          })
+        }
+        items={rows}
+        keys={keys}
+        measureKey={bulkKey}
+        ref={list}
+        render={(row) => (
+          <TableRowView
+            a={a}
+            divider={dividerAt(row.pos)}
+            isOpen={isOpen}
+            onToggle={onToggle}
+            row={row}
+            share={shareOf(row.e)}
+            tools={tools}
+            turn={turns[row.pos] ?? 0}
+          />
+        )}
+        testId="table-transcript"
+      />
       {rows.length === 0 ? (
         <p className="px-3 py-6 text-center text-muted-foreground text-sm">
           No events match the filters.

@@ -12,9 +12,11 @@ import { EventKind } from "@workspace/core/services/sessions/schema";
 import {
   buildChatPlan,
   chatIdsOf,
+  chatNodeKeys,
   chipLabel,
   laneOf,
   needsClamp,
+  planIndexOfCall,
 } from "../src/lib/chat-lane";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
@@ -239,5 +241,79 @@ describe("chatIdsOf", () => {
       ])
     );
     expect(ids).toEqual(["chat:0", "chat:1", "chat:3"]);
+  });
+});
+
+describe("planIndexOfCall", () => {
+  const events = [
+    evt({ kind: "user-prompt", requestId: "r1" }),
+    evt({ kind: "tool-call", requestId: "r1", toolUseId: "a" }),
+    evt({ kind: "tool-result", requestId: "r1", toolUseId: "a" }),
+    evt({ kind: "tool-result", requestId: "r1", toolUseId: "orphan" }),
+  ];
+  const plan = buildChatPlan({
+    crossEvtIdx: -1,
+    rows: rows(events),
+    turns: [1, 1, 1, 1],
+  });
+
+  test("finds the card of a paired call", () => {
+    const i = planIndexOfCall(plan, "a");
+    expect(plan[i]).toMatchObject({ type: "tool", call: { pos: 1 } });
+  });
+
+  test("finds a result whose call is not shown", () => {
+    const i = planIndexOfCall(plan, "orphan");
+    expect(plan[i]).toMatchObject({
+      type: "tool",
+      call: null,
+      result: { pos: 3 },
+    });
+  });
+
+  test("finds a result alone when the filter hid its call", () => {
+    const only = buildChatPlan({
+      crossEvtIdx: -1,
+      rows: rows(events).filter(({ e }) => e.kind === "tool-result"),
+      turns: [1, 1, 1, 1],
+    });
+    const i = planIndexOfCall(only, "a");
+    expect(only[i]).toMatchObject({ call: null, result: { pos: 2 } });
+  });
+
+  test("-1 for an id no node carries", () => {
+    expect(planIndexOfCall(plan, "missing")).toBe(-1);
+  });
+});
+
+describe("chatNodeKeys", () => {
+  test("keys follow events, not list positions", () => {
+    const events = [
+      evt({ kind: "user-prompt", requestId: "r1" }),
+      evt({ requestId: "r1" }),
+      evt({ requestId: "r2" }),
+    ];
+    const all = rows(events);
+    const turns = [1, 1, 2];
+    const full = chatNodeKeys(
+      buildChatPlan({ crossEvtIdx: -1, rows: all, turns })
+    );
+    const filtered = chatNodeKeys(
+      buildChatPlan({ crossEvtIdx: -1, rows: all.slice(1), turns })
+    );
+    expect(full).toEqual(["turn1", "n0", "n1", "turn2", "n2"]);
+    expect(filtered).toEqual(["turn1", "n1", "turn2", "n2"]);
+  });
+
+  test("a turn drawn twice gets distinct keys", () => {
+    const events = [
+      evt({ requestId: "r1" }),
+      evt({ requestId: "r2" }),
+      evt({ requestId: "r1" }),
+    ];
+    const keys = chatNodeKeys(
+      buildChatPlan({ crossEvtIdx: -1, rows: rows(events), turns: [1, 2, 1] })
+    );
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

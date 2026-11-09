@@ -28,9 +28,15 @@ import {
   MessagesSquareIcon,
   SettingsIcon,
 } from "lucide-react";
-import type { ComponentType, CSSProperties, ReactNode } from "react";
+import {
+  type ComponentType,
+  type CSSProperties,
+  type ReactNode,
+  useState,
+} from "react";
 import { hasInsetTitlebar } from "../lib/host";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
+import { ScrollRootContext } from "../lib/scroll-root";
 import { ThemeToggle } from "../lib/theme";
 import { WatchStatus } from "./watch-status";
 
@@ -139,6 +145,7 @@ const ShellFooter = () => {
 export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const route = useRoute();
   const active = NAV_ITEMS.find((item) => item.id === route);
+  const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   return (
     <SidebarProvider
       className="h-dvh min-h-0"
@@ -196,14 +203,17 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
       </Sidebar>
       <SidebarInset className="min-w-0 overflow-hidden">
         <ShellHeader active={active} />
-        <div className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto">
+        <div
+          className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto"
+          ref={setScrollRoot}
+        >
           <div
             className={cn(
               "mx-auto px-6 py-6",
               route === "sessions" ? "max-w-[1800px]" : "max-w-6xl"
             )}
           >
-            {children}
+            <ScrollRootContext value={scrollRoot}>{children}</ScrollRootContext>
           </div>
         </div>
       </SidebarInset>
