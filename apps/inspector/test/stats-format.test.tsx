@@ -487,3 +487,26 @@ test("a closed row renders no prompt button", () => {
   );
   expect(html).not.toContain('data-testid="fail-prompt"');
 });
+
+test("session titles never reach the copied prompts", () => {
+  const fail = failRow({
+    key: "scan:tsc",
+    samples: [
+      {
+        agent: "claude",
+        kind: "subagent",
+        line: "Bash: ls",
+        parent: "aaaaaaaa-1111",
+        project: "demo-app",
+        seq: 0,
+        sid: "sub-0",
+        toolUseId: null,
+        ts: null,
+      },
+    ],
+  });
+  const rep = report({ fails: [fail], time: [] });
+  const prompt = promptsOf(rep, null)({ table: "fail", key: "scan:tsc" });
+  expect(prompt).toContain("scan:tsc");
+  expect(prompt).not.toContain("Fix the test");
+});

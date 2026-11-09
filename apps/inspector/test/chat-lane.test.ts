@@ -317,3 +317,75 @@ describe("chatNodeKeys", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 });
+
+describe("repeat chips", () => {
+  const style = (over: Partial<TimelineEvent> = {}) =>
+    evt({
+      attachmentType: "output_style",
+      body: "Style: concise",
+      kind: "attachment",
+      title: "output_style",
+      ...over,
+    });
+  const turnsOf = (n: number) =>
+    evt({ kind: "assistant-text", body: `reply ${n}` });
+  const repeatsOf = (events: readonly TimelineEvent[], turns?: number[]) =>
+    buildChatPlan({
+      crossEvtIdx: -1,
+      rows: rows(events),
+      turns: turns ?? [],
+    }).flatMap((n) => (n.type === "run" ? n.items.map((i) => i.repeat) : []));
+
+  test("the same chip in later turns repeats; the first is fresh", () => {
+    const events = [style(), turnsOf(1), style(), turnsOf(2), style()];
+    expect(repeatsOf(events)).toEqual([false, true, true]);
+  });
+
+  test("a changed body is fresh, then the new body is the baseline", () => {
+    const events = [
+      style(),
+      turnsOf(1),
+      style({ body: "Style: verbose" }),
+      turnsOf(2),
+      style({ body: "Style: verbose" }),
+    ];
+    expect(repeatsOf(events)).toEqual([false, false, true]);
+  });
+
+  test("the same label under another attachment type is fresh", () => {
+    const events = [
+      style(),
+      turnsOf(1),
+      style({ attachmentType: "other_type" }),
+    ];
+    expect(repeatsOf(events)).toEqual([false, false]);
+  });
+
+  test("a sidechain chip does not fold against a main-thread one", () => {
+    const events = [style(), turnsOf(1), style({ isSidechain: true })];
+    expect(repeatsOf(events)).toEqual([false, false]);
+  });
+
+  test("different images with the same label never fold", () => {
+    const image = () =>
+      style({
+        attachmentType: "image",
+        body: "[image: image/png]",
+        title: "image",
+      });
+    const events = [image(), turnsOf(1), image(), turnsOf(2), image()];
+    expect(repeatsOf(events)).toEqual([false, false, false]);
+  });
+
+  test("a run keeps its items and order when some repeat", () => {
+    const plan = buildChatPlan({
+      crossEvtIdx: -1,
+      rows: rows([style(), turnsOf(1), style(), style({ title: "other" })]),
+      turns: [],
+    });
+    const run = plan.filter((n) => n.type === "run").at(-1);
+    expect(run?.type === "run" ? run.items.map((i) => i.pos) : []).toEqual([
+      2, 3,
+    ]);
+  });
+});

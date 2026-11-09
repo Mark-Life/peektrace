@@ -40,6 +40,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { settingsAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
+import { navigate } from "../lib/routes";
 import { updateSettingsAtom } from "../lib/settings-atoms";
 import { wireErrorMessage, wireErrorOf } from "../lib/wire-error";
 
@@ -312,6 +313,22 @@ export const SettingsRoute = () => {
           />
         )}
       </ResultView>
+      <Card>
+        <CardHeader>
+          <CardTitle>Capabilities</CardTitle>
+          <CardDescription>What each agent supports</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            data-testid="settings-capabilities"
+            onClick={() => navigate("capabilities")}
+            type="button"
+            variant="outline"
+          >
+            Open
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

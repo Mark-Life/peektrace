@@ -28,14 +28,17 @@ import {
 import { type UIEvent, useState } from "react";
 import { ResultView } from "../../lib/result-view";
 import { markedSessionHash } from "../../lib/routes";
+import { sessionTitlesAtom } from "../../lib/session-titles";
 import { DRILL_PAGE } from "../../lib/stats-atoms";
-import { hms, n } from "../../lib/stats-format";
+import {
+  chipLabelOf,
+  hms,
+  n,
+  type SessionTitles,
+} from "../../lib/stats-format";
 
 /** One open drill, as the sheet reads it. */
 type DrillAtom = Atom.Atom<Result.Result<DrillResult, WireError>>;
-
-/** Chars of a session id a hit shows. */
-const SID_HEAD = 8;
 
 /** Hits mounted at once, and added each time the list is scrolled to its end. */
 const STEP = 30;
@@ -43,14 +46,24 @@ const STEP = 30;
 /** Distance from the bottom, in px, that counts as "scrolled to the end". */
 const NEAR_END = 240;
 
+/** The hit's session: the title with project and short id, else `project/id`. */
+const drillLabel = (hit: DrillHit, titles: SessionTitles) => {
+  const chip = chipLabelOf(hit, titles);
+  return chip.id === null
+    ? chip.label
+    : `${chip.label} · ${chip.project}/${chip.id}`;
+};
+
 /** One call: when, where, how long, and whether it failed. A cause hit that a
  * later call corrected also links the retry, marked as one. */
 const Hit = ({
   hit,
   detector,
+  titles,
 }: {
   readonly detector: string | null;
   readonly hit: DrillHit;
+  readonly titles: SessionTitles;
 }) => (
   <div className="flex flex-col gap-1" data-testid="drill-hit">
     <a
@@ -61,6 +74,7 @@ const Hit = ({
         mark: detector ?? "",
         call: hit.toolUseId,
       })}
+      title={`${hit.project} · ${hit.parent ?? hit.sid}`}
     >
       <div className="flex items-baseline gap-2 text-xs">
         <span className="font-medium">{hit.tool}</span>
@@ -87,8 +101,7 @@ const Hit = ({
         </code>
       )}
       <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
-        {hit.project}/{(hit.parent ?? hit.sid).slice(0, SID_HEAD)} · {hit.kind}{" "}
-        · {hit.ts ?? "no timestamp"}
+        {drillLabel(hit, titles)} · {hit.kind} · {hit.ts ?? "no timestamp"}
       </span>
     </a>
     {hit.pairLine === null ? null : (
@@ -163,6 +176,7 @@ const Hits = ({
   readonly onPage: (offset: number) => void;
   readonly result: DrillResult;
 }) => {
+  const titles = useAtomValue(sessionTitlesAtom);
   const [shown, setShown] = useState(STEP);
   const visible = result.hits.slice(0, shown);
   const onScroll = (event: UIEvent<HTMLDivElement>) => {
@@ -180,7 +194,12 @@ const Hits = ({
     >
       <div className="flex flex-col gap-2 px-4 pb-6">
         {visible.map((hit) => (
-          <Hit detector={detector} hit={hit} key={`${hit.sid}:${hit.seq}`} />
+          <Hit
+            detector={detector}
+            hit={hit}
+            key={`${hit.sid}:${hit.seq}`}
+            titles={titles}
+          />
         ))}
         <PageNote onPage={onPage} result={result} />
       </div>

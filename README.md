@@ -181,7 +181,9 @@ mtime.
 A feature × agent matrix for Claude, Codex, Pi and OpenCode. Click a cell to see
 why a capability is supported, partial, planned or unsupported. In the web app,
 session browsing is live for all four. Context debugging is full on Claude and
-partial on Codex, Pi and OpenCode. Memory tooling is Claude-only.
+partial on Codex, Pi and OpenCode. Memory tooling is Claude-only. Open the
+matrix from Settings in the web app. The terminal UI keeps its own
+Capabilities screen.
 
 ## Scripting
 
