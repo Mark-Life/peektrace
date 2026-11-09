@@ -49,7 +49,7 @@ module in the async chunk that needs it and hoists a shared one into the entry.
 
 | Boundary | Deferred | Trigger |
 |---|---:|---|
-| `memory` / `capabilities` / `settings` routes | 134 KiB (`@tanstack/charts` 86.5, `d3-*` 5.7, the memory dialogs) | nav click |
+| `memory` / `capabilities` / `settings` routes | 134 KiB (`@tanstack/charts` 86.5, `d3-*` 5.7, the memory dialogs) | nav click (`capabilities`: Settings link) |
 | `SessionDetail` inside the sessions route | 44 KiB (`@tanstack/highlight` 12.5, the forensic charts, the transcript) | picking a session |
 | `Calendar` inside the date filter's popover | 72 KiB (`react-day-picker` 39, `date-fns` 22, `@date-fns/tz` 4) | opening the date facet |
 | `Toaster` | 33 KiB (`sonner`) | mounts on its own after the entry runs |

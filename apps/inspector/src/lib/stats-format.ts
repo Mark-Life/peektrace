@@ -115,3 +115,71 @@ export const sessionChip = (
   session: (ref.parent ?? ref.sid).slice(0, SID_HEAD),
   subagent: ref.parent !== null,
 });
+
+/** Session titles by `titleKey`, as the sessions list knows them. */
+export type SessionTitles = ReadonlyMap<string, string>;
+
+/** The key a session title is stored under: agent plus transcript id. */
+export const titleKey = (agent: AgentId, id: string) => `${agent}:${id}`;
+
+/** Longest title a chip shows before it is cut. */
+const TITLE_MAX = 40;
+
+/** A title cut to `TITLE_MAX` chars, with an ellipsis. */
+const clip = (title: string) => {
+  const chars = Array.from(title);
+  return chars.length > TITLE_MAX
+    ? `${chars.slice(0, TITLE_MAX - 1).join("")}…`
+    : title;
+};
+
+/** A title on one line, or null when it says nothing. */
+const cleanTitle = (title: string | undefined) => {
+  const flat = title?.replace(/\s+/g, " ").trim();
+  return flat ? flat : null;
+};
+
+/** What a sample's chip says: the session title, else `project/id`. `id` is
+ * the short session id, shown beside a title so equal titles stay apart. */
+export const chipLabelOf = (
+  ref: Pick<SampleRef, "agent" | "parent" | "project" | "sid">,
+  titles: SessionTitles
+) => {
+  const chip = sessionChip(ref);
+  const title = cleanTitle(
+    titles.get(titleKey(ref.agent, ref.parent ?? ref.sid))
+  );
+  const fallback = `${chip.project}/${chip.session}`;
+  return {
+    ...chip,
+    id: title ? chip.session : null,
+    label: title ? clip(title) : fallback,
+  };
+};
+
+/** Samples that name one session, folded into one chip. */
+export interface SessionChipGroup {
+  /** The sample a click opens. */
+  readonly first: SampleRef;
+  readonly samples: readonly SampleRef[];
+}
+
+/** Fold samples by the session they name (`agent:(parent ?? sid)`), keeping
+ * first-seen order, so three subagent calls under one parent read as one chip. */
+export const sessionChips = (
+  samples: readonly SampleRef[]
+): readonly SessionChipGroup[] => {
+  const groups = new Map<string, SampleRef[]>();
+  for (const sample of samples) {
+    const key = titleKey(sample.agent, sample.parent ?? sample.sid);
+    const group = groups.get(key);
+    if (group) {
+      group.push(sample);
+    } else {
+      groups.set(key, [sample]);
+    }
+  }
+  return [...groups.values()].flatMap((group) =>
+    group[0] ? [{ first: group[0], samples: group }] : []
+  );
+};

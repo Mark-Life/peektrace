@@ -68,16 +68,20 @@ const NAV_ITEMS: readonly NavItem[] = [
   },
   { id: "memory", label: "Memory", icon: DatabaseIcon, hint: "All projects" },
   {
-    id: "capabilities",
-    label: "Capabilities",
-    icon: LayoutGridIcon,
-    hint: "Support matrix",
-  },
-  {
     id: "settings",
     label: "Settings",
     icon: SettingsIcon,
     hint: "Agent roots",
+  },
+];
+
+/** Pages reached by a link, not the rail; they still title the header. */
+const PAGE_ITEMS: readonly NavItem[] = [
+  {
+    id: "capabilities",
+    label: "Capabilities",
+    icon: LayoutGridIcon,
+    hint: "Support matrix",
   },
 ];
 
@@ -150,7 +154,9 @@ const ShellFooter = ({ onHelp }: { readonly onHelp: () => void }) => {
 /** The shell: collapsible sidebar + a scrollable content region. */
 export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const route = useRoute();
-  const active = NAV_ITEMS.find((item) => item.id === route);
+  const active = [...NAV_ITEMS, ...PAGE_ITEMS].find(
+    (item) => item.id === route
+  );
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   useThemeShortcut();

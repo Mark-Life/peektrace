@@ -27,7 +27,11 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
-import { chipLabel, type TranscriptRowRef } from "../../lib/chat-lane";
+import {
+  chipLabel,
+  type RunItem,
+  type TranscriptRowRef,
+} from "../../lib/chat-lane";
 import { chatCollapseId } from "../../lib/session-view";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 import { EventBody } from "./event-body";
@@ -177,6 +181,50 @@ export const segmentsOf = (
   return out;
 };
 
+/** Hide chips that repeat an earlier one unchanged, unless something asks to
+ *  see them: the user, "Expand all", an active filter, or an opened repeat.
+ *  Hiding is render-only; `items` and their order are never changed. */
+export const foldRepeats = ({
+  allOpen,
+  forceExpand,
+  items,
+  opened,
+  showRepeats,
+}: {
+  readonly allOpen: boolean;
+  readonly forceExpand: boolean;
+  readonly items: readonly RunItem[];
+  readonly opened: (item: RunItem) => boolean;
+  readonly showRepeats: boolean;
+}) => {
+  const reveal =
+    showRepeats ||
+    allOpen ||
+    forceExpand ||
+    items.some((item) => item.repeat && opened(item));
+  const visible = reveal ? items : items.filter((item) => !item.repeat);
+  return { folded: items.length - visible.length, visible };
+};
+
+/** The chips on screen. One `showAll` flag lifts both the repeat fold and the
+ *  `CHIP_LIMIT` cap, so a single click never swaps one hidden chip for another. */
+export const chipWindow = ({
+  showAll,
+  ...args
+}: Omit<Parameters<typeof foldRepeats>[0], "showRepeats"> & {
+  readonly showAll: boolean;
+}) => {
+  const { folded, visible } = foldRepeats({ ...args, showRepeats: showAll });
+  const lastOpened = visible.reduce(
+    (last, item, i) => (args.opened(item) ? i : last),
+    -1
+  );
+  const expanded =
+    showAll || args.allOpen || args.forceExpand || lastOpened >= CHIP_LIMIT;
+  const shown = expanded ? visible : visible.slice(0, CHIP_LIMIT);
+  return { folded, hidden: visible.length - shown.length, shown };
+};
+
 const ChipRow = ({ children }: { readonly children: ReactNode }) => (
   <div className="flex flex-wrap items-center justify-center gap-1.5">
     {children}
@@ -197,28 +245,48 @@ export const ChatContextRun = ({
   /** A filter is active: never let the "+N more" fold hide a match. */
   readonly forceExpand: boolean;
   readonly isOpen: (id: string) => boolean;
-  readonly items: readonly TranscriptRowRef[];
+  readonly items: readonly RunItem[];
   readonly onToggle: (id: string, open: boolean) => void;
 }) => {
   const [showAll, setShowAll] = useState(false);
   const opened = (item: TranscriptRowRef) => isOpen(chatCollapseId(item.pos));
-  const lastOpened = items.reduce(
-    (last, item, i) => (opened(item) ? i : last),
-    -1
-  );
-  const expanded =
-    showAll || allOpen || forceExpand || lastOpened >= CHIP_LIMIT;
-  const shown = expanded ? items : items.slice(0, CHIP_LIMIT);
-  const hidden = items.length - shown.length;
+  const { folded, hidden, shown } = chipWindow({
+    allOpen,
+    forceExpand,
+    items,
+    opened,
+    showAll,
+  });
   const tokens = items.reduce((n, { e }) => n + eventTokens(e).tokens, 0);
   const segments = segmentsOf(shown, opened);
-  const more =
-    hidden > 0 ? (
-      <Badge asChild variant="outline">
-        <button className={CHIP} onClick={() => setShowAll(true)} type="button">
-          +{hidden} more
-        </button>
-      </Badge>
+  const extras =
+    folded > 0 || hidden > 0 ? (
+      <>
+        {folded > 0 ? (
+          <Badge asChild variant="outline">
+            <button
+              className={`${CHIP} text-muted-foreground`}
+              data-testid="chat-chip-unchanged"
+              onClick={() => setShowAll(true)}
+              title="Same as earlier in this session"
+              type="button"
+            >
+              {folded} unchanged
+            </button>
+          </Badge>
+        ) : null}
+        {hidden > 0 ? (
+          <Badge asChild variant="outline">
+            <button
+              className={CHIP}
+              onClick={() => setShowAll(true)}
+              type="button"
+            >
+              +{hidden} more
+            </button>
+          </Badge>
+        ) : null}
+      </>
     ) : null;
 
   return (
@@ -236,12 +304,12 @@ export const ChatContextRun = ({
             {seg.items.map((item) => (
               <ContextChip item={item} key={item.pos} onToggle={onToggle} />
             ))}
-            {i === segments.length - 1 ? more : null}
+            {i === segments.length - 1 ? extras : null}
           </ChipRow>
         )
       )}
-      {segments.at(-1)?.type === "card" && more ? (
-        <ChipRow>{more}</ChipRow>
+      {segments.at(-1)?.type !== "chips" && extras ? (
+        <ChipRow>{extras}</ChipRow>
       ) : null}
     </div>
   );
