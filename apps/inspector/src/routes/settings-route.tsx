@@ -38,19 +38,12 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { AGENT_LABEL } from "../lib/agent-label";
 import { settingsAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
 import { navigate } from "../lib/routes";
 import { updateSettingsAtom } from "../lib/settings-atoms";
 import { wireErrorMessage, wireErrorOf } from "../lib/wire-error";
-
-/** Human label per agent id. */
-const AGENT_LABEL: Record<AgentId, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  pi: "Pi",
-  opencode: "OpenCode",
-};
 
 /** One editable extra-root row. */
 interface Row {

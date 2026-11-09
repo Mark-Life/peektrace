@@ -191,12 +191,19 @@ export const makeRead = (deps: ReadDeps) => {
       Effect.withSpan("Memory.buildVault", { attributes: { slug: args.slug } })
     );
 
-  const listProjects = (): Effect.Effect<readonly ProjectSummary[]> =>
+  const claudeLabels = agents.listProjectSlugs("claude").pipe(
+    Effect.orElseSucceed(() => [] as readonly string[]),
+    Effect.map((slugs) => ({ slugs, labels: labelSlugs(slugs) }))
+  );
+
+  const summarize = ({
+    slugs,
+    labels,
+  }: {
+    readonly slugs: readonly string[];
+    readonly labels: ReadonlyMap<string, string>;
+  }): Effect.Effect<readonly ProjectSummary[]> =>
     Effect.gen(function* () {
-      const slugs = yield* agents
-        .listProjectSlugs("claude")
-        .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-      const labels = labelSlugs(slugs);
       const summaries = yield* Effect.forEach(slugs, (slug) =>
         Effect.gen(function* () {
           const memoryDir = yield* agents
@@ -226,7 +233,13 @@ export const makeRead = (deps: ReadDeps) => {
         .sort(
           (a, b) => b.fileCount - a.fileCount || a.slug.localeCompare(b.slug)
         );
-    }).pipe(Effect.withSpan("Memory.listProjects"));
+    });
+
+  const listProjects = () =>
+    claudeLabels.pipe(
+      Effect.flatMap(summarize),
+      Effect.withSpan("Memory.listProjects")
+    );
 
   const getVault = (slug: string): Effect.Effect<MemoryVault> =>
     Effect.gen(function* () {
@@ -241,11 +254,16 @@ export const makeRead = (deps: ReadDeps) => {
 
   const getAllVaults = (): Effect.Effect<AllVaults> =>
     Effect.gen(function* () {
-      const projects = yield* listProjects();
+      const known = yield* claudeLabels;
+      const projects = yield* summarize(known);
       const vaults = yield* Effect.forEach(projects, (p) =>
         buildVault({ slug: p.slug, label: p.project })
       );
-      return { projects, vaults };
+      const labels = [...known.labels].map(([slug, project]) => ({
+        slug,
+        project,
+      }));
+      return { projects, vaults, labels };
     }).pipe(Effect.withSpan("Memory.getAllVaults"));
 
   return { buildVault, listProjects, getVault, getAllVaults };

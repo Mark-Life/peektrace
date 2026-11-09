@@ -165,6 +165,10 @@ describe("read model", () => {
         const all = yield* mem.getAllVaults();
         expect(all.projects.length).toBe(2);
         expect(all.vaults.length).toBe(2);
+        expect(all.labels).toEqual([
+          { slug: SLUG_A, project: "a" },
+          { slug: SLUG_B, project: "b" },
+        ]);
       })
     ));
 });
@@ -215,6 +219,57 @@ describe("create", () => {
         if (result._tag === "Left") {
           expect(result.left._tag).toBe("MemoryValidationError");
         }
+      })
+    ));
+});
+
+describe("create in a project without a memory folder", () => {
+  const SLUG_NEW = "-tmp-proj-new";
+
+  test("creates the folder, the file and MEMORY.md", () =>
+    run(
+      Effect.gen(function* () {
+        mkdirSync(join(root, SLUG_NEW), { recursive: true });
+        const mem = yield* MemoryService;
+        yield* mem.create({
+          project: SLUG_NEW,
+          name: "first-note",
+          description: "The first note",
+          type: "project",
+          body: "First.\n",
+        });
+        const memDir = join(root, SLUG_NEW, "memory");
+        expect(existsSync(join(memDir, "first-note.md"))).toBe(true);
+        expect(readFileSync(join(memDir, "MEMORY.md"), "utf8")).toContain(
+          "(first-note.md)"
+        );
+        const vault = yield* mem.getVault(SLUG_NEW);
+        expect(vault.entries.map((e) => e.slug)).toEqual(["first-note"]);
+      })
+    ));
+
+  test.each([
+    "-tmp-proj-missing",
+    "..",
+    "a/b",
+  ])("rejects unknown project %p and creates nothing", (slug) =>
+    run(
+      Effect.gen(function* () {
+        const mem = yield* MemoryService;
+        const result = yield* Effect.either(
+          mem.create({
+            project: slug,
+            name: "stray",
+            description: "nope",
+            type: "user",
+            body: "x",
+          })
+        );
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("MemoryValidationError");
+        }
+        expect(existsSync(join(root, slug, "memory", "stray.md"))).toBe(false);
       })
     ));
 });

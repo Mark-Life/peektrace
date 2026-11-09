@@ -208,10 +208,19 @@ export const ProjectSummary = Schema.Struct({
 });
 export type ProjectSummary = typeof ProjectSummary.Type;
 
-/** The cross-project default: project overview + every vault. */
+/** A Claude project dir and its display label. */
+export const ProjectLabel = Schema.Struct({
+  slug: Schema.String,
+  project: Schema.String,
+});
+export type ProjectLabel = typeof ProjectLabel.Type;
+
+/** The cross-project default: project overview + every vault, plus the
+ * label of every Claude project dir (with or without memory). */
 export const AllVaults = Schema.Struct({
   projects: Schema.Array(ProjectSummary),
   vaults: Schema.Array(MemoryVault),
+  labels: Schema.Array(ProjectLabel),
 });
 export type AllVaults = typeof AllVaults.Type;
 

@@ -111,7 +111,7 @@ export const VaultSection = ({
         onDone={onRefresh}
         onOpenChange={setCreating}
         open={creating}
-        project={vault.slug}
+        target={{ kind: "fixed", slug: vault.slug }}
       />
       {editing ? (
         <EditDialog

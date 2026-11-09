@@ -1,11 +1,8 @@
-/** Capability verdict banner shown when the selected agent can't edit memory.
+/** Read-only notice shown when the capability matrix blocks memory editing.
  *
- * Drives Phase 7.6: for any non-Claude agent the `memory.crud` matrix cell is
- * not `supported`, so every write affordance is hidden and this banner shows the
- * verdict + note (e.g. "Codex memory: planned"). Claude (supported) shows
- * nothing.
+ * Every write affordance is hidden while `memory.crud` is not `supported`; this
+ * banner says why: the matrix note, or the per-agent support summary.
  */
-import type { AgentId } from "@workspace/core/services/agent-id";
 import {
   Alert,
   AlertDescription,
@@ -21,24 +18,17 @@ const VERDICT: Record<string, string> = {
   supported: "supported",
 };
 
-/** Render the read-only verdict for a gated agent. */
+/** Render the read-only verdict. */
 export const CapabilityBanner = ({
-  agent,
   level,
-  note,
+  detail,
 }: {
-  readonly agent: AgentId;
   readonly level: string;
-  readonly note?: string;
+  readonly detail: string;
 }) => (
-  <Alert className="mb-4" data-testid="capability-banner">
+  <Alert data-testid="capability-banner">
     <LockIcon className="size-4" />
-    <AlertTitle className="capitalize">
-      {agent} memory editing is {VERDICT[level] ?? level}
-    </AlertTitle>
-    <AlertDescription>
-      {note ??
-        `The capability matrix marks memory.crud as "${level}" for ${agent}; editing is read-only here. Claude is the only agent with markdown memory CRUD today.`}
-    </AlertDescription>
+    <AlertTitle>Memory editing is {VERDICT[level] ?? level}</AlertTitle>
+    <AlertDescription>{detail}</AlertDescription>
   </Alert>
 );
