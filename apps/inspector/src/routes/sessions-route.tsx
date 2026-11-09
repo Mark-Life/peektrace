@@ -21,7 +21,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton";
 import { cn } from "@workspace/ui/lib/utils";
 import { MessagesSquareIcon, MousePointerClickIcon } from "lucide-react";
 import { lazy, Suspense } from "react";
-import { sessionsListAtom } from "../lib/atoms";
+import { sessionHeadersAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
 import {
   closeSession,
@@ -75,7 +75,7 @@ const NoSelection = () => (
 
 /** Sessions section route: responsive master-detail. */
 export const SessionsRoute = () => {
-  const result = useAtomValue(sessionsListAtom);
+  const result = useAtomValue(sessionHeadersAtom);
   const selected = useSelectedSessionId();
   // A subagent opens through its parent, which is what the rail lists.
   const parent = useHashParam("parent");

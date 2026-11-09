@@ -12,7 +12,7 @@ import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { ArrowLeftIcon } from "lucide-react";
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { ResultView } from "../../lib/result-view";
 import { openSession } from "../../lib/routes";
 import { useAnalyzedSession } from "../../lib/session-atoms";
@@ -43,7 +43,7 @@ const ParentNote = ({ parent }: { readonly parent: string }) => (
 
 /** The full debug view for one session id; `onBack` returns to the list. A
  * `parent` means `id` is a subagent transcript, resolved through that session. */
-export const SessionDetail = ({
+const SessionDetailView = ({
   id,
   onBack,
   parent,
@@ -86,3 +86,6 @@ export const SessionDetail = ({
     </div>
   );
 };
+
+/** Memoized: its props are stable, so a list reload leaves the transcript alone. */
+export const SessionDetail = memo(SessionDetailView);

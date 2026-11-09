@@ -48,7 +48,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import { DateRangeFilter, toDayKey } from "./date-range-filter";
 
@@ -240,7 +240,7 @@ const Truncated = ({
 );
 
 /** One session row in the rail; highlighted when it is the active selection. */
-const SessionRow = ({
+const SessionRowView = ({
   h,
   active,
   onOpen,
@@ -307,6 +307,9 @@ const SessionRow = ({
   </Item>
 );
 
+/** Memoized: list reloads keep unchanged headers as the same objects. */
+const SessionRow = memo(SessionRowView);
+
 /** Shown when every session is filtered out; the action clears all facets. */
 const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
   <Empty className="border" data-testid="session-no-matches">
@@ -334,7 +337,7 @@ const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
 );
 
 /** The filter controls + a compact, scrollable session list; rows call `onOpen`. */
-export const SessionList = ({
+const SessionListView = ({
   headers,
   selectedId,
   onOpen,
@@ -484,3 +487,6 @@ export const SessionList = ({
     </div>
   );
 };
+
+/** Memoized: an unchanged header list (same array) skips the whole rail. */
+export const SessionList = memo(SessionListView);
