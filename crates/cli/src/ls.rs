@@ -137,9 +137,7 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
         })
         .into_iter()
         .collect();
-    let roots = AgentRoots {
-        claude: roots::claude_sources(&ctx.roots_env, &settings.claude),
-    };
+    let roots = AgentRoots::resolve(&ctx.roots_env, &settings);
     let filter = ListFilter {
         agent,
         project: args.project.clone(),
@@ -193,10 +191,11 @@ mod tests {
     fn agent_parsing() {
         assert_eq!(parse_agent(None), Ok(None));
         assert_eq!(parse_agent(Some("claude")), Ok(Some(Agent::Claude)));
+        assert_eq!(parse_agent(Some("pi")), Ok(Some(Agent::Pi)));
         assert_eq!(
-            parse_agent(Some("codex")),
+            parse_agent(Some("opencode")),
             Err(UserError::Invalid(
-                "Agent \"codex\" is not supported yet. Supported: claude.".to_owned()
+                "Agent \"opencode\" is not supported yet. Supported: claude, codex, pi.".to_owned()
             ))
         );
         assert_eq!(

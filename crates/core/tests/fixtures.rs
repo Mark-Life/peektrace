@@ -24,6 +24,7 @@ fn roots_at(projects: &str) -> AgentRoots {
     };
     AgentRoots {
         claude: claude_sources(&env, &[]),
+        ..AgentRoots::default()
     }
 }
 
@@ -112,7 +113,7 @@ fn subagents_are_not_listed() {
 }
 
 #[test]
-fn other_agents_list_nothing() {
+fn agents_without_roots_list_nothing() {
     let filter = ListFilter {
         agent: Some(Agent::Codex),
         project: None,
@@ -152,7 +153,7 @@ const GOLDEN_ID: &str = "11111111-1111-4111-8111-111111111111";
 fn analyze_golden_session_with_subagent() {
     let roots = roots_at(&fixtures("sessions/projects"));
     let env = SessionEnv {
-        claude: &roots.claude,
+        roots: &roots,
         unsearched: &[],
         local: &Utc,
     };
@@ -183,7 +184,7 @@ fn analyze_golden_session_with_subagent() {
 fn export_golden_session() {
     let roots = roots_at(&fixtures("sessions/projects"));
     let env = SessionEnv {
-        claude: &roots.claude,
+        roots: &roots,
         unsearched: &[],
         local: &Utc,
     };
@@ -221,7 +222,7 @@ fn session_image_reads_bytes_by_line_and_block() {
     .expect("copy");
     let roots = roots_at(&dir.to_string_lossy());
     let env = SessionEnv {
-        claude: &roots.claude,
+        roots: &roots,
         unsearched: &[],
         local: &Utc,
     };

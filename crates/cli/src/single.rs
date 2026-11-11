@@ -4,7 +4,7 @@
 use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::{self, LocalZone};
 use peektrace_core::js::{num, text};
-use peektrace_core::roots::{self, RootsEnv, Source};
+use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::service::{SessionEnv, analyze_session, get_session};
@@ -62,9 +62,9 @@ fn plan_target(
     }
 }
 
-/// Claude roots from the environment and `settings.json`, plus the warning
-/// for unparseable settings.
-fn claude_roots(ctx: &Context) -> (Vec<Source>, Vec<String>) {
+/// Every agent's roots from the environment and `settings.json`, plus the
+/// warning for unparseable settings.
+fn agent_roots(ctx: &Context) -> (AgentRoots, Vec<String>) {
     let settings = ctx
         .settings
         .as_deref()
@@ -80,10 +80,7 @@ fn claude_roots(ctx: &Context) -> (Vec<Source>, Vec<String>) {
         })
         .into_iter()
         .collect();
-    (
-        roots::claude_sources(&ctx.roots_env, &settings.claude),
-        warnings,
-    )
+    (AgentRoots::resolve(&ctx.roots_env, &settings), warnings)
 }
 
 /// Agents this build cannot read whose sessions root holds something.
@@ -117,7 +114,7 @@ fn search_note(t: &TargetArgs, typed: &str, resolved: &str, unsearched: &[Agent]
 fn resolve_target(
     t: &TargetArgs,
     ctx: &Context,
-    claude: &[Source],
+    roots: &AgentRoots,
     zone: &dyn LocalZone,
 ) -> Result<(String, Option<usize>), UserError> {
     let cwd = t.cwd.as_deref().map(|c| {
@@ -132,12 +129,7 @@ fn resolve_target(
     )? {
         Plan::Picked(id) => Ok((id, None)),
         Plan::Newest(cwd) => {
-            let listing = list_sessions(
-                &AgentRoots {
-                    claude: claude.to_vec(),
-                },
-                &ListFilter::default(),
-            );
+            let listing = list_sessions(roots, &ListFilter::default());
             let unreadable = listing.unreadable.len();
             let picked = select::select_sessions(
                 listing.headers,
@@ -286,12 +278,12 @@ pub fn run_analyze(
     globals: Globals,
     ctx: &Context,
 ) -> Result<Output, UserError> {
-    let (claude, warnings) = claude_roots(ctx);
+    let (roots, warnings) = agent_roots(ctx);
     let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
-    let (target, unreadable) = resolve_target(&args.target, ctx, &claude, &zone)?;
+    let (target, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
     let env = SessionEnv {
-        claude: &claude,
+        roots: &roots,
         unsearched: &unsearched,
         local: &zone,
     };
@@ -349,12 +341,12 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
             })
         })
         .transpose()?;
-    let (claude, warnings) = claude_roots(ctx);
+    let (roots, warnings) = agent_roots(ctx);
     let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
-    let (target, unreadable) = resolve_target(&args.target, ctx, &claude, &zone)?;
+    let (target, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
     let env = SessionEnv {
-        claude: &claude,
+        roots: &roots,
         unsearched: &unsearched,
         local: &zone,
     };

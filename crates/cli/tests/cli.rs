@@ -138,7 +138,7 @@ fn json_rows() {
     assert_eq!(
         err,
         "2 more hidden, use --limit 0 to show all\n\
-         codex, pi and opencode sessions are not listed: not supported yet\n"
+         opencode sessions are not listed: not supported yet\n"
     );
 }
 
@@ -211,8 +211,8 @@ fn user_errors_exit_1() {
             "Unknown agent \"bogus\". Known: claude, codex, pi, opencode, all.\n",
         ),
         (
-            &["sessions", "ls", "--json", "--agent", "codex"],
-            "Agent \"codex\" is not supported yet. Supported: claude.\n",
+            &["sessions", "ls", "--json", "--agent", "opencode"],
+            "Agent \"opencode\" is not supported yet. Supported: claude, codex, pi.\n",
         ),
         (
             &["sessions", "ls", "--since", "xx"],
@@ -562,10 +562,10 @@ fn unread_agents_are_named_when_they_have_sessions() {
     let (_, _, err) = f.run(&["sessions", "analyze", "zzz"]);
     assert_eq!(err, "Session \"zzz\" not found (searched all agents).\n");
 
-    let codex = f.home.join(".codex/sessions/2026/01/01");
-    fs::create_dir_all(&codex).expect("mkdir");
-    fs::write(codex.join("rollout-x.jsonl"), "{}\n").expect("write");
-    let note = "codex sessions are not searched: not supported yet\n";
+    let opencode = f.home.join(".local/share/opencode");
+    fs::create_dir_all(&opencode).expect("mkdir");
+    fs::write(opencode.join("opencode.db"), "").expect("write");
+    let note = "opencode sessions are not searched: not supported yet\n";
     for args in [
         &["sessions", "analyze", "--latest"][..],
         &["sessions", "analyze", "s"],
@@ -580,7 +580,7 @@ fn unread_agents_are_named_when_they_have_sessions() {
     assert_eq!(code, 1);
     assert_eq!(
         err,
-        "Session \"zzz\" not found (searched claude only; codex not supported yet).\n"
+        "Session \"zzz\" not found (searched claude, codex, pi; opencode not supported yet).\n"
     );
 }
 

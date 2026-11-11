@@ -45,6 +45,25 @@ pub fn parse_rows_where(text: &str, keep: impl Fn(&str) -> bool) -> Vec<JsValue>
         .collect()
 }
 
+/// Every line that parses, plus the count of malformed lines, as
+/// `scanJsonl` gives them. A bad last line is a live session's partial
+/// write, not damage, so it is not counted.
+pub fn scan_rows(text: &str) -> (Vec<JsValue>, u64) {
+    let lines: Vec<&str> = text
+        .split('\n')
+        .filter(|l| !text::is_blank(l.as_bytes()))
+        .collect();
+    let parsed: Vec<Option<JsValue>> = if lines.len() < PARALLEL_LINES {
+        lines.into_iter().map(JsValue::parse).collect()
+    } else {
+        lines.into_par_iter().map(JsValue::parse).collect()
+    };
+    let last_bad = parsed.last().is_some_and(Option::is_none);
+    let bad = parsed.iter().filter(|p| p.is_none()).count() as u64;
+    let rows = parsed.into_iter().flatten().collect();
+    (rows, if last_bad { bad - 1 } else { bad })
+}
+
 /// Row `n` as [`parse_rows`] numbers it, parsing only that line: the `n`-th
 /// line whose trimmed text starts with `{` and ends with `}`. `None` when
 /// there is no such line or it does not parse.
@@ -65,6 +84,13 @@ mod tests {
         let rows = parse_rows("{\"a\":1}\n\n  \nbad\nnull\r\n[1]\n");
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[1], JsValue::Null);
+    }
+
+    #[test]
+    fn scan_counts_bad_lines_but_the_last() {
+        let (rows, bad) = scan_rows("x\n{\"a\":1}\n\ny\nnull\nz");
+        assert_eq!((rows.len(), bad), (2, 2));
+        assert_eq!(scan_rows("{}\n x \n").1, 0);
     }
 
     #[test]

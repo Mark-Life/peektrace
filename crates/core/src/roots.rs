@@ -64,35 +64,14 @@ impl RootsEnv {
     }
 }
 
-/// Where each agent this build cannot read keeps its sessions.
+/// Where each agent this build cannot read keeps its sessions: the
+/// default root of each.
 pub fn unread_roots(env: &RootsEnv) -> Vec<(Agent, String)> {
-    let join = |parts: &[&str]| env.style.join(parts);
-    let non_empty = |v: &Option<String>| v.clone().filter(|s| !s.is_empty());
-    let codex = env.codex_sessions.clone().unwrap_or_else(|| {
-        let home = env
-            .codex_home
-            .clone()
-            .unwrap_or_else(|| join(&[&env.home, ".codex"]));
-        join(&[&home, "sessions"])
-    });
-    let pi = env
-        .pi_sessions
-        .clone()
-        .unwrap_or_else(|| join(&[&env.home, ".pi", "agent", "sessions"]));
-    let opencode = non_empty(&env.opencode_data).unwrap_or_else(|| {
-        non_empty(&env.xdg_data_home).map_or_else(
-            || join(&[&env.home, ".local", "share", "opencode"]),
-            |x| join(&[&x, "opencode"]),
-        )
-    });
-    [
-        (Agent::Codex, codex),
-        (Agent::Pi, pi),
-        (Agent::Opencode, opencode),
-    ]
-    .into_iter()
-    .filter(|(a, _)| !a.has_reader())
-    .collect()
+    Agent::ALL
+        .into_iter()
+        .filter(|a| !a.has_reader())
+        .map(|a| (a, default_source(a, env).projects_root))
+        .collect()
 }
 
 /// One extra root a user declares in `settings.json`.
@@ -137,13 +116,28 @@ fn root_entry(v: &Value, escaped: bool) -> Option<RootEntry> {
     Some(RootEntry { path, label })
 }
 
-/// What root resolution takes from `settings.json`.
+/// What root resolution takes from `settings.json`: each agent's extra
+/// roots.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Settings {
-    /// Claude's extra roots.
     pub claude: Vec<RootEntry>,
+    pub codex: Vec<RootEntry>,
+    pub pi: Vec<RootEntry>,
+    pub opencode: Vec<RootEntry>,
     /// The file has text but yields no `roots`; the caller warns.
     pub unparseable: bool,
+}
+
+impl Settings {
+    /// One agent's extra roots.
+    pub fn extras(&self, agent: Agent) -> &[RootEntry] {
+        match agent {
+            Agent::Claude => &self.claude,
+            Agent::Codex => &self.codex,
+            Agent::Pi => &self.pi,
+            Agent::Opencode => &self.opencode,
+        }
+    }
 }
 
 /// Valid entries of one agent's root list, `None` when it is not a list.
@@ -254,19 +248,24 @@ pub fn parse_settings(raw: &str) -> Settings {
     }
     let Some((roots, escaped)) = parse_json(trimmed) else {
         return Settings {
-            claude: Vec::new(),
             unparseable: true,
+            ..Settings::default()
         };
     };
     let roots = roots.as_ref();
     let has_roots = roots.is_some_and(|r| roots_decode(r) || roots_salvage(r));
-    let claude = roots
-        .and_then(Value::as_object)
-        .and_then(|r| r.get(Agent::Claude.as_str()))
-        .and_then(|v| entries_of(v, escaped))
-        .unwrap_or_default();
+    let of = |agent: Agent| {
+        roots
+            .and_then(Value::as_object)
+            .and_then(|r| r.get(agent.as_str()))
+            .and_then(|v| entries_of(v, escaped))
+            .unwrap_or_default()
+    };
     Settings {
-        claude,
+        claude: of(Agent::Claude),
+        codex: of(Agent::Codex),
+        pi: of(Agent::Pi),
+        opencode: of(Agent::Opencode),
         unparseable: !has_roots,
     }
 }
@@ -289,28 +288,77 @@ fn expand_home(path: &str, home: &str, style: PathStyle) -> String {
         .map_or_else(|| path.to_owned(), |rest| style.join(&[home, rest]))
 }
 
-/// Every Claude root to scan: the default first, then each configured extra,
-/// skipping roots already seen (the default wins) and giving each a unique
-/// label.
-pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
-    let claude_home = first_dir(env.claude_config_dir.as_deref(), env.style)
-        .map_or_else(|| env.style.join(&[&env.home, ".claude"]), str::to_owned);
-    let default_root = env
-        .claude_projects
-        .clone()
-        .unwrap_or_else(|| env.style.join(&[&claude_home, "projects"]));
-    let default = Source {
-        id: "claude".to_owned(),
-        label: "default".to_owned(),
-        home: claude_home,
-        projects_root: default_root,
+/// An agent's sessions root under one of its config dirs.
+fn projects_root_in(agent: Agent, home: &str, style: PathStyle) -> String {
+    match agent {
+        Agent::Claude => style.join(&[home, "projects"]),
+        Agent::Codex => style.join(&[home, "sessions"]),
+        Agent::Pi => style.join(&[home, "agent", "sessions"]),
+        Agent::Opencode => home.to_owned(),
+    }
+}
+
+/// `opencode`'s data dir: `PEEKTRACE_OPENCODE_DATA`, else under
+/// `XDG_DATA_HOME`, else `~/.local/share/opencode`.
+fn opencode_data(env: &RootsEnv) -> String {
+    let non_empty = |v: &Option<String>| v.clone().filter(|s| !s.is_empty());
+    non_empty(&env.opencode_data).unwrap_or_else(|| {
+        non_empty(&env.xdg_data_home).map_or_else(
+            || env.style.join(&[&env.home, ".local", "share", "opencode"]),
+            |x| env.style.join(&[&x, "opencode"]),
+        )
+    })
+}
+
+/// An agent's root from the environment alone. `CODEX_HOME` is used
+/// verbatim, `""` included.
+fn default_source(agent: Agent, env: &RootsEnv) -> Source {
+    let join = |parts: &[&str]| env.style.join(parts);
+    let under = |home: String, root: &Option<String>| {
+        let root = root
+            .clone()
+            .unwrap_or_else(|| projects_root_in(agent, &home, env.style));
+        (home, root)
     };
+    let (home, projects_root) = match agent {
+        Agent::Claude => under(
+            first_dir(env.claude_config_dir.as_deref(), env.style)
+                .map_or_else(|| join(&[&env.home, ".claude"]), str::to_owned),
+            &env.claude_projects,
+        ),
+        Agent::Codex => under(
+            env.codex_home
+                .clone()
+                .unwrap_or_else(|| join(&[&env.home, ".codex"])),
+            &env.codex_sessions,
+        ),
+        Agent::Pi => under(join(&[&env.home, ".pi"]), &env.pi_sessions),
+        Agent::Opencode => under(opencode_data(env), &None),
+    };
+    Source {
+        id: agent.as_str().to_owned(),
+        label: "default".to_owned(),
+        home,
+        projects_root,
+    }
+}
+
+/// Every Claude root to scan; see [`sources`].
+pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
+    sources(Agent::Claude, env, extras)
+}
+
+/// Every root of `agent` to scan: the default first, then each configured
+/// extra, skipping roots already seen (the default wins) and giving each a
+/// unique label.
+pub fn sources(agent: Agent, env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
+    let default = default_source(agent, env);
     extras.iter().fold(vec![default], |mut sources, entry| {
         let home = expand_home(text::trim(&entry.path), &env.home, env.style);
         if home.is_empty() {
             return sources;
         }
-        let projects_root = env.style.join(&[&home, "projects"]);
+        let projects_root = projects_root_in(agent, &home, env.style);
         if sources.iter().any(|s| s.projects_root == projects_root) {
             return sources;
         }
@@ -332,7 +380,7 @@ pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
             base
         };
         sources.push(Source {
-            id: format!("claude:{label}"),
+            id: format!("{agent}:{label}"),
             label,
             home,
             projects_root,
@@ -374,28 +422,74 @@ mod tests {
                 .map(|(_, r)| r)
                 .collect::<Vec<_>>()
         };
-        assert_eq!(
-            roots(&env()),
-            [
-                "/home/u/.codex/sessions",
-                "/home/u/.pi/agent/sessions",
-                "/home/u/.local/share/opencode",
-            ]
-        );
+        assert_eq!(roots(&env()), ["/home/u/.local/share/opencode"]);
         let e = RootsEnv {
-            codex_home: Some("/c".to_owned()),
-            pi_sessions: Some("/p".to_owned()),
             opencode_data: Some(String::new()),
             xdg_data_home: Some("/x".to_owned()),
             ..env()
         };
-        assert_eq!(roots(&e), ["/c/sessions", "/p", "/x/opencode"]);
+        assert_eq!(roots(&e), ["/x/opencode"]);
         let e = RootsEnv {
-            codex_sessions: Some("/s".to_owned()),
             opencode_data: Some("/o".to_owned()),
             ..e
         };
-        assert_eq!(roots(&e), ["/s", "/p", "/o"]);
+        assert_eq!(roots(&e), ["/o"]);
+    }
+
+    #[test]
+    fn codex_and_pi_roots() {
+        let root = |a: Agent, e: &RootsEnv, extras: &[RootEntry]| {
+            sources(a, e, extras)
+                .into_iter()
+                .map(|s| (s.id, s.projects_root))
+                .collect::<Vec<_>>()
+        };
+        let pair = |id: &str, r: &str| (id.to_owned(), r.to_owned());
+        assert_eq!(
+            root(Agent::Codex, &env(), &[]),
+            [pair("codex", "/home/u/.codex/sessions")]
+        );
+        assert_eq!(
+            root(Agent::Pi, &env(), &[]),
+            [pair("pi", "/home/u/.pi/agent/sessions")]
+        );
+        let e = RootsEnv {
+            codex_home: Some(String::new()),
+            ..env()
+        };
+        assert_eq!(root(Agent::Codex, &e, &[]), [pair("codex", "sessions")]);
+        let e = RootsEnv {
+            codex_home: Some("/c".to_owned()),
+            codex_sessions: Some("/s".to_owned()),
+            pi_sessions: Some("/p".to_owned()),
+            ..env()
+        };
+        let extras = [
+            entry("/c", None),
+            entry("~/work", Some("w")),
+            entry("/s/..", None),
+        ];
+        assert_eq!(
+            root(Agent::Codex, &e, &extras),
+            [
+                pair("codex", "/s"),
+                pair("codex:c", "/c/sessions"),
+                pair("codex:w", "/home/u/work/sessions"),
+                pair("codex:..", "/sessions"),
+            ]
+        );
+        assert_eq!(
+            root(Agent::Pi, &e, &[entry("~/.pi", None), entry("/p2", None)]),
+            [
+                pair("pi", "/p"),
+                pair("pi:.pi", "/home/u/.pi/agent/sessions"),
+                pair("pi:p2", "/p2/agent/sessions"),
+            ]
+        );
+        let s = parse_settings(
+            r#"{"roots":{"codex":[{"path":"/a"}],"pi":[{"path":"/b","label":"x"}]}}"#,
+        );
+        assert_eq!((s.codex.len(), s.pi.len(), s.claude.len()), (1, 1, 0));
     }
 
     #[test]
@@ -507,7 +601,7 @@ mod tests {
             parse_settings(&raw),
             Settings {
                 claude: vec![entry("/a", Some("work"))],
-                unparseable: false,
+                ..Settings::default()
             }
         );
         let last = parse_settings(
@@ -523,7 +617,7 @@ mod tests {
             parse_settings(raw),
             Settings {
                 claude: vec![entry("~/a", Some("x")), entry("/c", None)],
-                unparseable: false,
+                ..Settings::default()
             }
         );
         assert_eq!(parse_settings(r#"{"roots":{"claude":{}}}"#).claude, []);
