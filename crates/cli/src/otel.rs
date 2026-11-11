@@ -58,7 +58,7 @@ impl Visit for Attrs {
         self.set(field.name(), value.to_string());
     }
     fn record_f64(&mut self, field: &Field, value: f64) {
-        self.set(field.name(), num::to_js_string(value));
+        self.set(field.name(), num::to_json(value));
     }
     fn record_str(&mut self, field: &Field, value: &str) {
         self.set(field.name(), Self::quoted(value));

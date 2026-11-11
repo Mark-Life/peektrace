@@ -5,12 +5,13 @@
 //! value, and everything else is skipped without being built.
 
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::fmt;
 
 use serde::Deserialize;
 use serde::de::{self, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
-use crate::js::text;
+use crate::js::json;
 
 /// Answer `$value` for every listed JSON shape, consuming nested values.
 macro_rules! otherwise {
@@ -114,13 +115,13 @@ impl<'de> Deserialize<'de> for Str<'de> {
                 f.write_str("any JSON value")
             }
             fn visit_borrowed_str<E: de::Error>(self, v: &'de str) -> Result<Self::Value, E> {
-                Ok(Str(Some(Cow::Borrowed(v))))
+                Ok(Str(overflow(v).is_none().then_some(Cow::Borrowed(v))))
             }
             fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
-                Ok(Str(Some(Cow::Owned(v.to_owned()))))
+                Ok(Str(overflow(v).is_none().then(|| Cow::Owned(v.to_owned()))))
             }
             fn visit_string<E: de::Error>(self, v: String) -> Result<Self::Value, E> {
-                Ok(Str(Some(Cow::Owned(v))))
+                Ok(Str(overflow(&v).is_none().then_some(Cow::Owned(v))))
             }
             otherwise!(Str(None); bool, num, unit, seq, map);
         }
@@ -151,7 +152,10 @@ impl<'de> Deserialize<'de> for Num {
             fn visit_f64<E: de::Error>(self, v: f64) -> Result<Self::Value, E> {
                 Ok(Num(Some(v)))
             }
-            otherwise!(Num(None); bool, str, unit, seq, map);
+            fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(Num(overflow(v)))
+            }
+            otherwise!(Num(None); bool, unit, seq, map);
         }
         d.deserialize_any(V)
     }
@@ -288,70 +292,28 @@ loose_object!(Line<'de>, arrays: false, {
     "message" => message,
 });
 
+thread_local! {
+    /// Set while a repaired line is parsed, so overflow sentinels read as
+    /// numbers there and as plain strings everywhere else.
+    static REPAIRED: Cell<bool> = const { Cell::new(false) };
+}
+
+/// `±Infinity` when `s` stands for an out-of-range number in a repaired line.
+fn overflow(s: &str) -> Option<f64> {
+    json::overflow_value(s).filter(|_| REPAIRED.get())
+}
+
 /// Parse one line as strict JSON. `Err` marks the line malformed.
 pub fn parse_line(text: &str) -> Result<Line<'_>, serde_json::Error> {
     serde_json::from_str(text)
 }
 
-/// The UTF-16 unit of the `\uXXXX` escape at `at`, if there is one.
-fn escape_at(b: &[u8], at: usize) -> Option<u16> {
-    let hex = b.get(at..at + 6)?.strip_prefix(b"\\u")?;
-    let hex = std::str::from_utf8(hex).ok()?;
-    u16::from_str_radix(hex, 16).ok()
-}
-
-/// The code point a `\\uHIGH\\uLOW` escape pair at `at` encodes.
-fn pair_at(b: &[u8], at: usize) -> Option<char> {
-    let high = escape_at(b, at).filter(|u| (0xD800..0xDC00).contains(u))?;
-    let low = escape_at(b, at + 6).filter(|u| (0xDC00..0xE000).contains(u))?;
-    char::decode_utf16([high, low]).next()?.ok()
-}
-
-/// `text` with each unpaired surrogate escape (`\\ud800`) replaced by its
-/// stand-in char, or `None` when there is none. `JSON.parse` accepts unpaired
-/// surrogates; `serde_json` rejects them in strings it decodes. Strings parsed
-/// from the result are already transcript text: real chars that could pass
-/// for a stand-in are escaped too.
-pub fn replace_lone_surrogates(text: &str) -> Option<String> {
-    let b = text.as_bytes();
-    let mut out = String::with_capacity(text.len());
-    let mut lone = false;
-    let mut copied = 0;
-    let mut at = 0;
-    while at < b.len() {
-        // A reserved char, raw (UTF-8 lead byte 0xF4) or as an escape pair.
-        let literal = match b[at] {
-            0xF4 => text[at..].chars().next().map(|c| (c, c.len_utf8())),
-            b'\\' => pair_at(b, at).map(|c| (c, 12)),
-            _ => None,
-        };
-        if let Some((c, len)) = literal {
-            if text::reserved(c) {
-                out.push_str(&text[copied..at]);
-                text::push_literal(&mut out, c);
-                copied = at + len;
-            }
-            at += len;
-            continue;
-        }
-        if b[at] != b'\\' {
-            at += 1;
-            continue;
-        }
-        match escape_at(b, at).map(|unit| (unit, text::surrogate_stand_in(unit))) {
-            None => at += 2,
-            Some((_, Some(stand_in))) => {
-                out.push_str(&text[copied..at]);
-                out.push(stand_in);
-                lone = true;
-                at += 6;
-                copied = at;
-            }
-            Some((_, None)) => at += 6,
-        }
-    }
-    out.push_str(&text[copied..]);
-    lone.then_some(out)
+/// Parse a line rewritten by [`json::repair`] with [`json::Overflow::Sentinel`].
+pub fn parse_repaired(text: &str) -> Result<Line<'_>, serde_json::Error> {
+    REPAIRED.set(true);
+    let line = serde_json::from_str(text);
+    REPAIRED.set(false);
+    line
 }
 
 #[cfg(test)]
@@ -407,22 +369,18 @@ mod tests {
     }
 
     #[test]
-    fn reserved_chars_escape_beside_lone_surrogates() {
-        let raw = "{\"a\":\"\\ud801\u{10F801}\\udbfe\\udc01\\ud83d\\ude00\"}";
-        assert_eq!(
-            replace_lone_surrogates(raw).as_deref(),
-            Some("{\"a\":\"\u{10F801}\u{10F7FF}\u{10F801}\u{10F7FF}\u{10F801}\\ud83d\\ude00\"}")
-        );
-    }
-
-    #[test]
-    fn lone_surrogates() {
-        assert_eq!(
-            replace_lone_surrogates(r#"{"a":"\ud800","b":"\\ud800","c":"\ud83d\ude00\udc00"}"#)
-                .as_deref(),
-            Some("{\"a\":\"\u{10F800}\",\"b\":\"\\\\ud800\",\"c\":\"\\ud83d\\ude00\u{10FC00}\"}")
-        );
-        assert_eq!(replace_lone_surrogates(r#"{"a":"\u0041"}"#), None);
+    fn out_of_range_numbers_read_as_infinity() {
+        let raw = r#"{"type":"assistant","timestamp":1e400,"message":{"model":"m","usage":{"input_tokens":1e400,"output_tokens":-1e400}}}"#;
+        assert!(parse_line(raw).is_err());
+        let fixed = json::repair(raw, json::Overflow::Sentinel).expect("repaired");
+        let line = parse_repaired(&fixed).expect("valid");
+        assert!(line.message.model.is("m"));
+        assert_eq!(line.timestamp.get(), None);
+        assert_eq!(line.message.usage.input_tokens.0, Some(f64::INFINITY));
+        assert_eq!(line.message.usage.output_tokens.0, Some(f64::NEG_INFINITY));
+        let strict = "{\"timestamp\":\"\u{10F7FF}+\"}";
+        let line = parse_line(strict).expect("valid");
+        assert_eq!(line.timestamp.get(), Some("\u{10F7FF}+"));
     }
 
     #[test]

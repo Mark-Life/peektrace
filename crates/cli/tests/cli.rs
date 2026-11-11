@@ -258,6 +258,18 @@ fn settings_with_invalid_utf8_keep_roots() {
     assert!(out.contains("\"source\": \"claude:w\u{FFFD}k\""), "{out}");
 }
 
+#[test]
+fn settings_with_lone_surrogate_keep_roots() {
+    let f = Fixture::new();
+    let extra = f.home.join("work/.claude/projects/-w");
+    fs::create_dir_all(&extra).expect("mkdir");
+    fs::write(extra.join("w1.jsonl"), "{\"type\":\"user\"}\n").expect("write");
+    f.settings(br#"{"roots":{"claude":[{"path":"~/work/.claude","label":"w\ud800"}]}}"#);
+    let (code, out, err) = f.run(&["sessions", "ls", "--json", "--project", "-w"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert!(out.contains(r#""sourceLabel": "w\ud800""#), "{out}");
+}
+
 #[cfg(unix)]
 #[test]
 fn deleted_working_dir_is_fine_without_relative_cwd() {

@@ -68,10 +68,10 @@ fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
             "unpricedModels",
             h.unpriced_models.as_deref().map(Value::List),
         ),
-        ("source", h.source.as_ref().map(|s| Value::Str(&s.id))),
+        ("source", h.source.as_ref().map(|s| Value::Text(&s.id))),
         (
             "sourceLabel",
-            h.source.as_ref().map(|s| Value::Str(&s.label)),
+            h.source.as_ref().map(|s| Value::Text(&s.label)),
         ),
     ];
     [
@@ -95,7 +95,7 @@ fn push_value(out: &mut String, v: &Value<'_>, indent: &str) {
         Value::Int(n) => {
             let _ = write!(out, "{n}");
         }
-        Value::Float(x) => out.push_str(&num::to_js_string(*x)),
+        Value::Float(x) => out.push_str(&num::to_json(*x)),
         Value::List([]) => out.push_str("[]"),
         Value::List(items) => {
             out.push('[');
@@ -303,6 +303,7 @@ mod tests {
         assert_eq!(usd_cell(Some(0.001)), "<$0.01");
         assert_eq!(usd_cell(Some(0.0)), "~$0.00");
         assert_eq!(usd_cell(None), "-");
+        assert_eq!(usd_cell(Some(f64::INFINITY)), "~$Infinity");
     }
 
     #[test]

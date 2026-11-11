@@ -1,9 +1,11 @@
 //! Where Claude transcripts live: the default root from the environment plus
 //! extra roots from `settings.json`. Pure: the caller passes env and file text.
 
+use std::borrow::Cow;
+
 use serde_json::Value;
 
-use crate::js::text;
+use crate::js::{json, text};
 use crate::model::Agent;
 use crate::paths::PathStyle;
 
@@ -12,7 +14,8 @@ use crate::paths::PathStyle;
 pub struct RootsEnv {
     /// The user's home dir (`os.homedir()`).
     pub home: String,
-    /// `CLAUDE_CONFIG_DIR`, a `:`-separated list; the first entry wins.
+    /// `CLAUDE_CONFIG_DIR`, a list split on the platform's `PATH` delimiter;
+    /// the first entry wins.
     pub claude_config_dir: Option<String>,
     /// `PEEKTRACE_CLAUDE_PROJECTS`: the default projects root, used verbatim.
     pub claude_projects: Option<String>,
@@ -48,10 +51,11 @@ impl RootsEnv {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootEntry {
     pub path: String,
+    /// Transcript text (see [`text::units`]).
     pub label: Option<String>,
 }
 
-/// One root scanned for transcripts.
+/// One root scanned for transcripts. `id` and `label` are transcript text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Source {
     pub id: String,
@@ -60,13 +64,25 @@ pub struct Source {
 }
 
 /// A root entry when `v` is an object with a string `path` and an optional
-/// string `label`.
-fn root_entry(v: &Value) -> Option<RootEntry> {
+/// string `label`. `escaped` says the strings are already transcript text;
+/// the path then drops to plain text, as Node's `fs` sees it.
+fn root_entry(v: &Value, escaped: bool) -> Option<RootEntry> {
     let obj = v.as_object()?;
-    let path = obj.get("path")?.as_str()?.to_owned();
+    let path = obj.get("path")?.as_str()?;
     let label = match obj.get("label") {
         None => None,
-        Some(l) => Some(l.as_str()?.to_owned()),
+        Some(l) => Some(l.as_str()?),
+    };
+    let (path, label) = if escaped {
+        (
+            text::to_display(path).into_owned(),
+            label.map(str::to_owned),
+        )
+    } else {
+        (
+            path.to_owned(),
+            label.map(|l| text::escape_reserved(l).into_owned()),
+        )
     };
     Some(RootEntry { path, label })
 }
@@ -81,9 +97,9 @@ pub struct Settings {
 }
 
 /// Valid entries of one agent's root list, `None` when it is not a list.
-fn entries_of(v: &Value) -> Option<Vec<RootEntry>> {
+fn entries_of(v: &Value, escaped: bool) -> Option<Vec<RootEntry>> {
     v.as_array()
-        .map(|list| list.iter().filter_map(root_entry).collect())
+        .map(|list| list.iter().filter_map(|e| root_entry(e, escaped)).collect())
 }
 
 /// True when `roots` decodes whole: an object whose known agents each map
@@ -95,7 +111,7 @@ fn roots_decode(roots: &Value) -> bool {
             .filter_map(|a| map.get(a.as_str()))
             .all(|v| {
                 v.as_array()
-                    .is_some_and(|list| list.iter().all(|e| root_entry(e).is_some()))
+                    .is_some_and(|list| list.iter().all(|e| root_entry(e, false).is_some()))
             })
     })
 }
@@ -105,9 +121,19 @@ fn roots_salvage(roots: &Value) -> bool {
     roots.as_object().is_some_and(|map| {
         Agent::ALL
             .into_iter()
-            .filter_map(|a| map.get(a.as_str()).and_then(entries_of))
+            .filter_map(|a| map.get(a.as_str()).and_then(|v| entries_of(v, false)))
             .any(|entries| !entries.is_empty())
     })
+}
+
+/// Settings text as a JSON value, read as leniently as `JSON.parse`. The
+/// flag says strings are transcript text.
+fn parse_json(raw: &str) -> Option<(Value, bool)> {
+    if let Ok(v) = serde_json::from_str::<Value>(raw) {
+        return Some((v, false));
+    }
+    let fixed = json::repair(raw, json::Overflow::Zero)?;
+    serde_json::from_str(&fixed).ok().map(|v| (v, true))
 }
 
 /// Parse `settings.json` text. Tolerant: bad JSON yields no roots, and each
@@ -118,7 +144,7 @@ pub fn parse_settings(raw: &str) -> Settings {
     if trimmed.is_empty() {
         return Settings::default();
     }
-    let Ok(json) = serde_json::from_str::<Value>(trimmed) else {
+    let Some((json, escaped)) = parse_json(trimmed) else {
         return Settings {
             claude: Vec::new(),
             unparseable: true,
@@ -129,7 +155,7 @@ pub fn parse_settings(raw: &str) -> Settings {
     let claude = roots
         .and_then(Value::as_object)
         .and_then(|r| r.get(Agent::Claude.as_str()))
-        .and_then(entries_of)
+        .and_then(|v| entries_of(v, escaped))
         .unwrap_or_default();
     Settings {
         claude,
@@ -137,9 +163,13 @@ pub fn parse_settings(raw: &str) -> Settings {
     }
 }
 
-/// First non-empty, trimmed entry of a `:`-separated list.
-fn first_dir(value: Option<&str>) -> Option<&str> {
-    value?.split(':').map(text::trim).find(|p| !p.is_empty())
+/// First non-empty, trimmed entry of a `PATH`-style list. Splitting on `:`
+/// everywhere, as TS does, would cut a Windows drive letter off.
+fn first_dir(value: Option<&str>, style: PathStyle) -> Option<&str> {
+    value?
+        .split(style.delimiter())
+        .map(text::trim)
+        .find(|p| !p.is_empty())
 }
 
 /// Expand a leading `~` or `~/` against `home`. `~\\` stays as is, as in TS.
@@ -155,7 +185,7 @@ fn expand_home(path: &str, home: &str, style: PathStyle) -> String {
 /// skipping roots already seen (the default wins) and giving each a unique
 /// label.
 pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
-    let claude_home = first_dir(env.claude_config_dir.as_deref())
+    let claude_home = first_dir(env.claude_config_dir.as_deref(), env.style)
         .map_or_else(|| env.style.join(&[&env.home, ".claude"]), str::to_owned);
     let default_root = env
         .claude_projects
@@ -176,14 +206,13 @@ pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
             return sources;
         }
         let base = [
-            entry.label.as_deref().map(text::trim),
-            Some(env.style.basename(&home)),
+            entry.label.as_deref().map(|l| Cow::Borrowed(text::trim(l))),
+            Some(text::escape_reserved(env.style.basename(&home))),
         ]
         .into_iter()
         .flatten()
         .find(|l| !l.is_empty())
-        .unwrap_or("source")
-        .to_owned();
+        .map_or_else(|| "source".to_owned(), Cow::into_owned);
         let taken = |l: &str| l == "default" || sources.iter().any(|s| s.label == l);
         let label = if taken(&base) {
             (2..=sources.len() + 2)
@@ -292,6 +321,37 @@ mod tests {
             ]
         );
         assert_eq!(s[1].label, ".claude");
+        let e = RootsEnv {
+            claude_config_dir: Some(" ; C:\\x\\.claude;D:\\y".to_owned()),
+            ..e
+        };
+        assert_eq!(
+            claude_sources(&e, &[])[0].projects_root,
+            "C:\\x\\.claude\\projects"
+        );
+    }
+
+    #[test]
+    fn settings_with_lone_surrogates_keep_roots() {
+        let s = parse_settings(
+            "{\"roots\":{\"claude\":[{\"path\":\"/w\\ud800\",\"label\":\"w\\ud800\"},\
+             {\"path\":\"/x\u{10F801}\",\"label\":\"x\u{10F801}\"}]}}",
+        );
+        assert!(!s.unparseable);
+        assert_eq!(
+            s.claude,
+            [
+                entry("/w\u{FFFD}", Some("w\u{10F800}")),
+                entry("/x\u{10F801}", Some("x\u{10F7FF}\u{10F801}")),
+            ]
+        );
+        let strict = parse_settings(
+            "{\"roots\":{\"claude\":[{\"path\":\"/x\",\"label\":\"x\u{10F801}\"}]}}",
+        );
+        assert_eq!(strict.claude, [entry("/x", Some("x\u{10F7FF}\u{10F801}"))]);
+        let big =
+            parse_settings(r#"{"n":1e400,"roots":{"claude":[{"path":1e400},{"path":"/a"}]}}"#);
+        assert_eq!(big.claude, [entry("/a", None)]);
     }
 
     #[test]

@@ -14,11 +14,13 @@ fn shortest_digits(x: f64) -> (String, i32) {
     (digits, exp + 1)
 }
 
-/// `Number.prototype.toString()` (radix 10), as `JSON.stringify` writes
-/// finite numbers. Non-finite values return `null`, as JSON does.
+/// `Number.prototype.toString()` (radix 10).
 pub fn to_js_string(x: f64) -> String {
-    if !x.is_finite() {
-        return "null".to_owned();
+    if x.is_nan() {
+        return "NaN".to_owned();
+    }
+    if x.is_infinite() {
+        return if x > 0.0 { "Infinity" } else { "-Infinity" }.to_owned();
     }
     if x == 0.0 {
         return "0".to_owned();
@@ -44,6 +46,15 @@ pub fn to_js_string(x: f64) -> String {
         format!("{first}{dot}{rest}e{e_sign}{}", e.abs())
     };
     format!("{sign}{body}")
+}
+
+/// A number as `JSON.stringify` writes it: non-finite values are `null`.
+pub fn to_json(x: f64) -> String {
+    if x.is_finite() {
+        to_js_string(x)
+    } else {
+        "null".to_owned()
+    }
 }
 
 /// `floor(|x| * 10^f)` when `|x| * 10^f` lies exactly halfway between two
@@ -189,10 +200,16 @@ mod tests {
             (-0.0, "0"),
             (-2.5, "-2.5"),
             (0.1 + 0.2, "0.30000000000000004"),
+            (f64::INFINITY, "Infinity"),
+            (f64::NEG_INFINITY, "-Infinity"),
+            (f64::NAN, "NaN"),
         ];
         for (x, want) in cases {
             assert_eq!(to_js_string(x), want, "{x}");
         }
+        assert_eq!(to_json(f64::INFINITY), "null");
+        assert_eq!(to_json(f64::NAN), "null");
+        assert_eq!(to_json(-2.5), "-2.5");
     }
 
     #[test]
@@ -209,6 +226,9 @@ mod tests {
         assert_eq!(to_fixed(0.5, 0), "1");
         assert_eq!(to_fixed(9.995, 2), "9.99");
         assert_eq!(to_fixed(99.95, 1), "100.0");
+        assert_eq!(to_fixed(f64::INFINITY, 2), "Infinity");
+        assert_eq!(to_fixed(f64::NEG_INFINITY, 2), "-Infinity");
+        assert_eq!(to_fixed(f64::NAN, 2), "NaN");
     }
 
     #[test]

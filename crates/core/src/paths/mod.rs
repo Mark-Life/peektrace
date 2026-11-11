@@ -20,6 +20,14 @@ impl PathStyle {
         Self::Posix
     };
 
+    /// `path.delimiter`: the separator of `PATH`-style lists.
+    pub const fn delimiter(self) -> char {
+        match self {
+            Self::Posix => ':',
+            Self::Windows => ';',
+        }
+    }
+
     /// `path.join`.
     pub fn join(self, parts: &[&str]) -> String {
         match self {

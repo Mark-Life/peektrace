@@ -70,7 +70,8 @@ string_id!(
 );
 
 /// Which configured root a transcript came from. Set only when more than one
-/// root is configured.
+/// root is configured. Both fields are transcript text (see
+/// [`crate::js::text::units`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceTag {
     pub id: String,

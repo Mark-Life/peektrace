@@ -4,8 +4,8 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use super::line::{Line, Usage, parse_line, replace_lone_surrogates};
-use crate::js::{text, time};
+use super::line::{Line, Usage, parse_line, parse_repaired};
+use crate::js::{json, text, time};
 use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
 use crate::pricing::{CostTokens, card_for, turn_cost};
 
@@ -92,8 +92,8 @@ impl HeaderAcc {
         if let Ok(row) = parse_line(line) {
             return self.accept(&row, false);
         }
-        if let Some(fixed) = replace_lone_surrogates(line)
-            && let Ok(row) = parse_line(&fixed)
+        if let Some(fixed) = json::repair(line, json::Overflow::Sentinel)
+            && let Ok(row) = parse_repaired(&fixed)
         {
             return self.accept(&row, true);
         }
@@ -376,6 +376,20 @@ mod tests {
             decoded(mixed.title),
             [text::Unit::Lone(0xD801), text::Unit::Char('\u{10F801}')]
         );
+    }
+
+    #[test]
+    fn out_of_range_usage_keeps_the_line() {
+        let text = [
+            r#"{"type":"assistant","requestId":"a","message":{"model":"claude-opus-5-5","usage":{"input_tokens":1e400}}}"#,
+            r#"{"type":"user"}"#,
+        ]
+        .join("\n");
+        let h = build_header(&text, meta());
+        assert_eq!(h.message_count, 2);
+        assert_eq!(h.model.as_deref(), Some("claude-opus-5-5"));
+        assert_eq!(h.malformed_lines, None);
+        assert!(h.cost_usd.is_some_and(f64::is_infinite));
     }
 
     #[test]
