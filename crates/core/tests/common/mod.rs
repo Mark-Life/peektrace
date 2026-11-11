@@ -1,16 +1,24 @@
-//! Helpers shared by the ported TS session tests.
+//! Helpers shared by the ported TS session tests, plus throwaway `OpenCode`
+//! data dirs and SQLite stores built with the DDL of
+//! `packages/core/test/fixtures/opencode-db.ts`.
 #![allow(dead_code)]
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use peektrace_core::claude::{ParseArgs, parse_claude_session};
 use peektrace_core::js::time::Utc;
+use peektrace_core::roots;
 use peektrace_core::roots::{RootsEnv, Source, claude_sources};
 use peektrace_core::sessions::analyze::{AnalyzeOptions, analyze};
 use peektrace_core::sessions::model::{AnalyzedSession, EventKind, ParsedSession, TimelineEvent};
 use peektrace_core::sessions::service::SessionEnv;
-use peektrace_core::{AgentRoots, FileStamp, ProjectSlug, SessionFileRef, SessionId};
+use peektrace_core::{
+    Agent, AgentRoots, FileStamp, ListFilter, ProjectSlug, SessionFileRef, SessionHeader,
+    SessionId, list_sessions,
+};
+use rusqlite::{Connection, params};
 use serde_json::Value;
 
 /// A path under `packages/core/test/fixtures`.
@@ -107,6 +115,87 @@ pub fn claude_roots(home: &str, projects: &str) -> AgentRoots {
         claude: sources(home, projects),
         ..AgentRoots::default()
     }
+}
+
+const SESSION_DDL: &str = "CREATE TABLE session (id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, title TEXT, version TEXT, model TEXT, agent TEXT, cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, time_created INTEGER, time_updated INTEGER)";
+const MESSAGE_DDL: &str = "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
+const PART_DDL: &str = "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
+
+pub fn path_str(p: &Path) -> String {
+    p.to_string_lossy().into_owned()
+}
+
+pub fn create_db(path: &Path) -> Connection {
+    let db = Connection::open(path).expect("open");
+    for ddl in [SESSION_DDL, MESSAGE_DDL, PART_DDL] {
+        db.execute(ddl, []).expect("ddl");
+    }
+    db
+}
+
+/// `writeGoodDb`: one text-only session.
+pub fn write_good_db(path: &Path, id: &str, directory: &str) {
+    let db = create_db(path);
+    db.execute(
+        "INSERT INTO session (id, directory, title, time_created, time_updated) VALUES (?, ?, ?, ?, ?)",
+        params![id, directory, "Good session", 1000, 2000],
+    )
+    .expect("session");
+    db.execute(
+        "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
+        params![
+            format!("{id}-m"),
+            id,
+            1500,
+            r#"{"role":"user","time":{"created":1500}}"#
+        ],
+    )
+    .expect("message");
+    db.execute(
+        "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
+        params![
+            format!("{id}-p"),
+            format!("{id}-m"),
+            id,
+            1501,
+            format!(r#"{{"type":"text","text":"hi from {id}"}}"#)
+        ],
+    )
+    .expect("part");
+}
+
+pub fn write_json(path: &Path, body: &str) {
+    fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+    fs::write(path, body).expect("write");
+}
+
+/// Roots with only `data` as the `OpenCode` data dir.
+pub fn opencode_roots(data: &str) -> AgentRoots {
+    let env = RootsEnv {
+        home: "/nonexistent-home".to_owned(),
+        opencode_data: Some(data.to_owned()),
+        ..RootsEnv::default()
+    };
+    AgentRoots {
+        opencode: roots::sources(Agent::Opencode, &env, &[]),
+        ..AgentRoots::default()
+    }
+}
+
+/// `OpenCode` list headers under `data`.
+pub fn headers(data: &str) -> Vec<SessionHeader> {
+    list_sessions(
+        &opencode_roots(data),
+        &ListFilter {
+            agent: Some(Agent::Opencode),
+            project: None,
+        },
+    )
+    .headers
+}
+
+pub fn ids(refs: &[SessionFileRef]) -> Vec<&str> {
+    refs.iter().map(|r| r.id.as_str()).collect()
 }
 
 pub fn session_env(roots: &AgentRoots) -> SessionEnv<'_> {

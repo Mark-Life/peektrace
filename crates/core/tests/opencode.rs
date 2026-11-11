@@ -2,110 +2,23 @@
 //! with the DDL of `packages/core/test/fixtures/opencode-db.ts`. Expected
 //! values come from the TS reader and parser tests.
 
+mod common;
+
 use std::fs;
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
+use common::{
+    create_db, headers, ids, opencode_roots, path_str, temp_dir, write_good_db, write_json,
+};
 use peektrace_core::js::time::Utc;
 use peektrace_core::opencode::{list_session_files, load_session, parse_opencode_session};
-use peektrace_core::roots::{RootsEnv, sources};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
-use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
+use peektrace_core::{ListFilter, list_sessions};
 use rusqlite::{Connection, params};
-
-const SESSION_DDL: &str = "CREATE TABLE session (id TEXT PRIMARY KEY, project_id TEXT, directory TEXT, title TEXT, version TEXT, model TEXT, agent TEXT, cost REAL, tokens_input INTEGER, tokens_output INTEGER, tokens_reasoning INTEGER, tokens_cache_read INTEGER, tokens_cache_write INTEGER, time_created INTEGER, time_updated INTEGER)";
-const MESSAGE_DDL: &str = "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
-const PART_DDL: &str = "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT)";
-
-/// A fresh, empty data dir.
-fn temp_dir() -> PathBuf {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let n = NEXT.fetch_add(1, Ordering::Relaxed);
-    let dir = std::env::temp_dir().join(format!("peektrace-oc-{}-{n}", std::process::id()));
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).expect("mkdir");
-    dir
-}
-
-fn path_str(p: &std::path::Path) -> String {
-    p.to_string_lossy().into_owned()
-}
-
-fn create_db(path: &std::path::Path) -> Connection {
-    let db = Connection::open(path).expect("open");
-    for ddl in [SESSION_DDL, MESSAGE_DDL, PART_DDL] {
-        db.execute(ddl, []).expect("ddl");
-    }
-    db
-}
-
-/// `writeGoodDb`: one text-only session.
-fn write_good_db(path: &std::path::Path, id: &str, directory: &str) {
-    let db = create_db(path);
-    db.execute(
-        "INSERT INTO session (id, directory, title, time_created, time_updated) VALUES (?, ?, ?, ?, ?)",
-        params![id, directory, "Good session", 1000, 2000],
-    )
-    .expect("session");
-    db.execute(
-        "INSERT INTO message (id, session_id, time_created, data) VALUES (?, ?, ?, ?)",
-        params![
-            format!("{id}-m"),
-            id,
-            1500,
-            r#"{"role":"user","time":{"created":1500}}"#
-        ],
-    )
-    .expect("message");
-    db.execute(
-        "INSERT INTO part (id, message_id, session_id, time_created, data) VALUES (?, ?, ?, ?, ?)",
-        params![
-            format!("{id}-p"),
-            format!("{id}-m"),
-            id,
-            1501,
-            format!(r#"{{"type":"text","text":"hi from {id}"}}"#)
-        ],
-    )
-    .expect("part");
-}
-
-fn write_json(path: &std::path::Path, body: &str) {
-    fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
-    fs::write(path, body).expect("write");
-}
-
-fn roots(data: &str) -> AgentRoots {
-    let env = RootsEnv {
-        home: "/nonexistent-home".to_owned(),
-        opencode_data: Some(data.to_owned()),
-        ..RootsEnv::default()
-    };
-    AgentRoots {
-        opencode: sources(Agent::Opencode, &env, &[]),
-        ..AgentRoots::default()
-    }
-}
-
-fn headers(data: &str) -> Vec<SessionHeader> {
-    list_sessions(
-        &roots(data),
-        &ListFilter {
-            agent: Some(Agent::Opencode),
-            project: None,
-        },
-    )
-    .headers
-}
-
-fn ids(refs: &[peektrace_core::SessionFileRef]) -> Vec<&str> {
-    refs.iter().map(|r| r.id.as_str()).collect()
-}
 
 #[test]
 fn db_wins_over_tree_and_tree_only_is_kept() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     write_good_db(&dir.join("opencode.db"), "ses_db1", "/db/proj");
     let st = dir.join("storage");
@@ -125,10 +38,11 @@ fn db_wins_over_tree_and_tree_only_is_kept() {
         &st.join("part/msg_a/prt_1.json"),
         r#"{"type":"text","text":"hi from tree"}"#,
     );
-    let refs = list_session_files(&roots(&data).opencode);
+    let refs = list_session_files(&opencode_roots(&data).opencode);
     assert_eq!(ids(&refs), ["ses_db1", "ses_tree"]);
     assert_eq!(refs[0].slug.as_str(), "/db/proj");
     assert_eq!(refs[0].path, format!("{data}#ses_db1"));
+    assert_eq!(refs[1].slug.as_str(), "/tree/proj");
     let hs = headers(&data);
     let db1 = hs.iter().find(|h| h.id.as_str() == "ses_db1").expect("db1");
     assert_eq!(db1.cwd.as_deref(), Some("/db/proj"));
@@ -143,13 +57,14 @@ fn db_wins_over_tree_and_tree_only_is_kept() {
         &tree.path,
         "ses_tree",
     );
+    assert_eq!(p.session_id, "ses_tree");
     assert_eq!(p.events.len(), 1);
     assert_eq!(p.events[0].body, "hi from tree");
 }
 
 #[test]
 fn json_time_beats_the_column_and_round_trips() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     let db = create_db(&dir.join("opencode.db"));
     db.execute(
@@ -178,6 +93,8 @@ fn json_time_beats_the_column_and_round_trips() {
     let [h] = headers(&data).try_into().expect("one header");
     assert_eq!(h.project.as_str(), "project");
     assert_eq!(h.message_count, 1);
+    // `mtimeMs` is the `time_updated` column.
+    assert_eq!(h.updated_at, "1970-01-01T00:00:02.000Z");
     // The JSONL text the TS reader builds for this session, byte for byte.
     let dialect = [
         r#"{"kind":"session","id":"ses_a","timeCreated":1000,"timeUpdated":2000,"cost":0,"tokensInput":0,"tokensOutput":0,"tokensReasoning":0,"tokensCacheRead":0,"tokensCacheWrite":0,"directory":"/demo/project","title":"T"}"#,
@@ -190,7 +107,7 @@ fn json_time_beats_the_column_and_round_trips() {
 
 #[test]
 fn broken_stores_are_skipped() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     fs::write(dir.join("opencode-bad.db"), "not a database at all").expect("write");
     fs::write(dir.join("opencode-empty.db"), "").expect("write");
@@ -210,7 +127,7 @@ fn broken_stores_are_skipped() {
 
 #[test]
 fn malformed_message_json_drops_the_session_from_ls_only() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     let db = create_db(&dir.join("opencode.db"));
     db.execute(
@@ -225,13 +142,13 @@ fn malformed_message_json_drops_the_session_from_ls_only() {
     .expect("message");
     drop(db);
     assert_eq!(
-        ids(&list_session_files(&roots(&data).opencode)),
+        ids(&list_session_files(&opencode_roots(&data).opencode)),
         ["ses_bad"]
     );
     assert_eq!(headers(&data), Vec::new());
     let a = analyze_session(
         SessionEnv {
-            roots: &roots(&data),
+            roots: &opencode_roots(&data),
             unsearched: &[],
             local: &Utc,
         },
@@ -271,12 +188,12 @@ fn cost_db(dir: &std::path::Path, session_cost: f64, message_costs: &[Option<f64
 const EST: f64 = (1000.0 * 5.0 + 1000.0 * 30.0) / 1e6;
 
 fn cost_of(session_cost: f64, message_costs: &[Option<f64>]) -> (Option<f64>, bool, f64) {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     cost_db(&dir, session_cost, message_costs);
     let a = analyze_session(
         SessionEnv {
-            roots: &roots(&data),
+            roots: &opencode_roots(&data),
             unsearched: &[],
             local: &Utc,
         },
@@ -310,7 +227,7 @@ fn costs_follow_the_agent_figure_else_estimate() {
 
 #[test]
 fn wal_store_reads_the_last_commit_while_a_writer_is_open() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     let db = create_db(&dir.join("opencode.db"));
     db.pragma_update(None, "journal_mode", "WAL").expect("wal");
@@ -335,7 +252,7 @@ fn wal_store_reads_the_last_commit_while_a_writer_is_open() {
 
 #[test]
 fn locked_rollback_store_is_read_once_the_lock_goes() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     write_good_db(&dir.join("opencode.db"), "ses_l", "/w/l");
     let db = Connection::open(dir.join("opencode.db")).expect("open");
@@ -353,12 +270,12 @@ fn locked_rollback_store_is_read_once_the_lock_goes() {
 
 #[test]
 fn project_filter_uses_the_cwd_basename() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     write_good_db(&dir.join("opencode.db"), "ses_p", "/w/proj");
     let list = |p: &str| {
         list_sessions(
-            &roots(&data),
+            &opencode_roots(&data),
             &ListFilter {
                 agent: None,
                 project: Some(p.to_owned()),
