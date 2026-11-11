@@ -24,9 +24,14 @@ pub fn decode(bytes: Vec<u8>) -> String {
 /// Every line that parses as JSON, in file order. Blank and malformed lines
 /// are skipped, so a row's position is not its line number.
 pub fn parse_rows(text: &str) -> Vec<JsValue> {
+    parse_rows_where(text, |_| true)
+}
+
+/// [`parse_rows`] over only the lines `keep` accepts.
+pub fn parse_rows_where(text: &str, keep: impl Fn(&str) -> bool) -> Vec<JsValue> {
     let lines: Vec<&str> = text
         .split('\n')
-        .filter(|l| !text::is_blank(l.as_bytes()))
+        .filter(|l| !text::is_blank(l.as_bytes()) && keep(l))
         .collect();
     if lines.len() < PARALLEL_LINES {
         return lines.into_iter().filter_map(JsValue::parse).collect();

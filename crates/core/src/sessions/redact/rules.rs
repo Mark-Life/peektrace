@@ -143,8 +143,13 @@ enum Outcome {
     Reject,
 }
 
-/// Replace every match of `re` in `src`, left to right, without overlaps.
-fn replace_each(re: &Regex, src: &str, mut f: impl FnMut(&Captures<'_>) -> Outcome) -> String {
+/// Replace every match of `re` in `src`, left to right, without overlaps;
+/// `None` when nothing was replaced.
+fn replace_each(
+    re: &Regex,
+    src: &str,
+    mut f: impl FnMut(&Captures<'_>) -> Outcome,
+) -> Option<String> {
     let mut out = String::new();
     let mut last = 0;
     let mut at = 0;
@@ -176,10 +181,10 @@ fn replace_each(re: &Regex, src: &str, mut f: impl FnMut(&Captures<'_>) -> Outco
         }
     }
     if last == 0 {
-        return src.to_owned();
+        return None;
     }
     out.push_str(&src[last..]);
-    out
+    Some(out)
 }
 
 fn group<'a>(c: &Captures<'a>, i: usize) -> &'a str {
@@ -189,7 +194,8 @@ fn group<'a>(c: &Captures<'a>, i: usize) -> &'a str {
 /// How one rule rewrites text.
 pub(super) enum Action {
     Static(&'static str),
-    Dynamic(fn(&Regex, &str) -> String),
+    /// `None` when the text is unchanged.
+    Dynamic(fn(&Regex, &str) -> Option<String>),
 }
 
 pub(super) struct Rule {
@@ -197,7 +203,7 @@ pub(super) struct Rule {
     pub(super) action: Action,
 }
 
-fn openai_key(re: &Regex, src: &str) -> String {
+fn openai_key(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         let m = group(c, 0);
         if m["sk-".len()..].starts_with("ant-") {
@@ -208,25 +214,25 @@ fn openai_key(re: &Regex, src: &str) -> String {
     })
 }
 
-fn bearer(re: &Regex, src: &str) -> String {
+fn bearer(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         Outcome::Replace(format!("{}[REDACTED:bearer-token]", group(c, 1)))
     })
 }
 
-fn basic_auth(re: &Regex, src: &str) -> String {
+fn basic_auth(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         Outcome::Replace(format!("{}[REDACTED:basic-credentials]", group(c, 1)))
     })
 }
 
-fn url_credentials(re: &Regex, src: &str) -> String {
+fn url_credentials(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         Outcome::Replace(format!("{}://{}:[REDACTED]@", group(c, 1), group(c, 2)))
     })
 }
 
-fn aws_secret(re: &Regex, src: &str) -> String {
+fn aws_secret(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         if entropy(group(c, 2)) >= ENTROPY_AWS {
             Outcome::Replace(format!(
@@ -240,7 +246,7 @@ fn aws_secret(re: &Regex, src: &str) -> String {
     })
 }
 
-fn twilio(re: &Regex, src: &str) -> String {
+fn twilio(re: &Regex, src: &str) -> Option<String> {
     let mut named = None;
     replace_each(re, src, |_| {
         if *named.get_or_insert_with(|| src.to_ascii_lowercase().contains("twilio")) {
@@ -251,7 +257,7 @@ fn twilio(re: &Regex, src: &str) -> String {
     })
 }
 
-fn credential(re: &Regex, src: &str) -> String {
+fn credential(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         if is_placeholder(group(c, 3)) {
             Outcome::Keep
@@ -305,8 +311,9 @@ fn is_line_break(c: char) -> bool {
 
 /// `KEY=value` lines with a sensitive key: the multi-line JS rule, applied
 /// to each line on its own since `.` stops at every JS line break.
-fn env_secret(re: &Regex, src: &str) -> String {
+fn env_secret(re: &Regex, src: &str) -> Option<String> {
     let mut out = String::with_capacity(src.len());
+    let mut changed = false;
     let mut rest = src;
     loop {
         let end = rest.find(is_line_break).unwrap_or(rest.len());
@@ -319,6 +326,7 @@ fn env_secret(re: &Regex, src: &str) -> String {
                 if !sensitive || descriptive || is_placeholder(quote_trim(val)) {
                     out.push_str(line);
                 } else {
+                    changed = true;
                     out.push_str(key);
                     out.push_str(sep);
                     out.push_str("[REDACTED:env-secret]");
@@ -332,7 +340,7 @@ fn env_secret(re: &Regex, src: &str) -> String {
         out.push(brk);
         rest = &rest[end + brk.len_utf8()..];
     }
-    out
+    changed.then_some(out)
 }
 
 /// Payload prefixes of base64 blobs (PNG, JPEG, PDF, zip, GIF, WebP, gzip).
@@ -348,7 +356,7 @@ const BLOB_MAGIC: [&str; 9] = [
     "data:",
 ];
 
-fn high_entropy(re: &Regex, src: &str) -> String {
+fn high_entropy(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         let Some(m) = c.get(0) else {
             return Outcome::Keep;
@@ -370,7 +378,7 @@ fn high_entropy(re: &Regex, src: &str) -> String {
     })
 }
 
-fn high_entropy_hex(re: &Regex, src: &str) -> String {
+fn high_entropy_hex(re: &Regex, src: &str) -> Option<String> {
     replace_each(re, src, |c| {
         let Some(m) = c.get(0) else {
             return Outcome::Keep;
@@ -395,7 +403,7 @@ pub(super) static RULES: LazyLock<Vec<Rule>> = LazyLock::new(|| {
         re: re(&re_src),
         action: Action::Static(to),
     };
-    let d = |re_src: String, f: fn(&Regex, &str) -> String| Rule {
+    let d = |re_src: String, f: fn(&Regex, &str) -> Option<String>| Rule {
         re: re(&re_src),
         action: Action::Dynamic(f),
     };

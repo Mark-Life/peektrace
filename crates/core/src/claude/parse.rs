@@ -13,7 +13,7 @@ use super::records::{
 use crate::js::units;
 use crate::js::value::{JsValue, defined, js_key_order, js_string, str_of};
 use crate::sessions::cost::turns_cost;
-use crate::sessions::jsonl::parse_rows;
+use crate::sessions::jsonl::{parse_rows, parse_rows_where};
 use crate::sessions::measure::measure_tokens;
 use crate::sessions::model::{EventKind, EventShape, ParsedSession, Provider, TimelineEvent, Turn};
 use crate::sessions::prompt::{PromptArgs, prompt_event};
@@ -178,6 +178,31 @@ fn push_block(state: &mut State, base: &AssistantBase<'_>, block: Option<&JsValu
     }
 }
 
+/// Register an assistant row's turn, or merge it into the turn its earlier
+/// streamed lines started. Returns the turn key and model.
+fn track_turn(o: &JsValue, index: usize, ts: Option<&str>, map: &mut TurnMap) -> (String, String) {
+    let msg = defined(o.get("message"));
+    let model = js_string(Some(
+        msg.and_then(|m| defined(m.get("model")))
+            .unwrap_or(&JsValue::Str("unknown".to_owned())),
+    ));
+    let request_id =
+        str_field(o, "requestId").map_or_else(|| format!("line-{index}"), str::to_owned);
+    let usage = msg.and_then(|m| defined(m.get("usage")));
+    if let Some(turn) = map.get_mut(&request_id) {
+        merge_streamed_usage(turn, usage);
+    } else if let Some(t) = new_turn(&NewTurn {
+        request_id: &request_id,
+        model: &model,
+        ts,
+        usage,
+        effort: str_field(o, "effort"),
+    }) {
+        map.insert(t);
+    }
+    (request_id, model)
+}
+
 /// Register an assistant line's turn and, on a live branch, add its block
 /// events. A row on a rewound branch keeps its billed turn only.
 fn handle_assistant(
@@ -186,34 +211,17 @@ fn handle_assistant(
     include_sidechain_turns: bool,
     off_branch: bool,
 ) {
-    let msg = defined(row.o.get("message"));
-    let model = js_string(Some(
-        msg.and_then(|m| defined(m.get("model")))
-            .unwrap_or(&JsValue::Str("unknown".to_owned())),
-    ));
-    if model != SYNTHETIC_MODEL && !state.models.contains(&model) {
-        state.models.push(model.clone());
-    }
-    let request_id =
-        str_field(row.o, "requestId").map_or_else(|| format!("line-{}", row.index), str::to_owned);
-    let usage = msg.and_then(|m| defined(m.get("usage")));
     let countable = include_sidechain_turns || !row.is_sidechain;
     let map = if countable {
         &mut state.turns
     } else {
         &mut state.sidechain
     };
-    if let Some(turn) = map.get_mut(&request_id) {
-        merge_streamed_usage(turn, usage);
-    } else if let Some(t) = new_turn(&NewTurn {
-        request_id: &request_id,
-        model: &model,
-        ts: row.ts,
-        usage,
-        effort: str_field(row.o, "effort"),
-    }) {
-        map.insert(t);
+    let (request_id, model) = track_turn(row.o, row.index, row.ts, map);
+    if model != SYNTHETIC_MODEL && !state.models.contains(&model) {
+        state.models.push(model);
     }
+    let msg = defined(row.o.get("message"));
     if off_branch {
         return;
     }
@@ -335,6 +343,45 @@ fn measure_thinking(events: &mut [TimelineEvent], turns: &[Turn]) {
     }
 }
 
+/// What a parent session keeps of a subagent transcript.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SubagentTurns {
+    pub turns: Vec<Turn>,
+    /// First non-empty `timestamp`.
+    pub started_at: Option<String>,
+}
+
+fn is_assistant(o: &JsValue) -> bool {
+    str_field(o, "type") == Some("assistant")
+}
+
+/// The turns of a subagent's own file, as [`parse_claude_session`] counts
+/// them with sidechain turns on, without building events. Only lines that
+/// mention `"assistant"` are parsed.
+pub fn parse_subagent_turns(text: &str) -> SubagentTurns {
+    let rows = parse_rows_where(text, |l| l.contains("\"assistant\""));
+    let mut map = TurnMap::default();
+    for (index, o) in rows.iter().filter(|o| is_assistant(o)).enumerate() {
+        track_turn(o, index, str_field(o, "timestamp"), &mut map);
+    }
+    SubagentTurns {
+        turns: map.turns,
+        started_at: first_timestamp(text),
+    }
+}
+
+/// `startedAt` of a transcript: the first row's non-empty `timestamp`.
+fn first_timestamp(text: &str) -> Option<String> {
+    text.split('\n')
+        .filter(|l| !crate::js::text::is_blank(l.as_bytes()))
+        .filter_map(JsValue::parse)
+        .find_map(|o| {
+            str_field(&o, "timestamp")
+                .filter(|t| !t.is_empty())
+                .map(str::to_owned)
+        })
+}
+
 /// Parse a Claude Code transcript.
 pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
     let rows = parse_rows(args.text);
@@ -410,4 +457,55 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
     };
     measure_tokens(&mut parsed);
     parsed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Streamed lines, a missing request id, a synthetic model, a sidechain
+    /// row, a rewound branch, a `null` row and a line that only quotes
+    /// `"assistant"`.
+    const SUB: &str = r#"{"type":"user","uuid":"u1","timestamp":"","message":{"content":"go"}}
+{"type":"user","uuid":"u2","parentUuid":"u1","timestamp":"2026-01-01T10:00:00.000Z","message":{"content":"say \"assistant\""}}
+{"type":"assistant","uuid":"a1","parentUuid":"u2","requestId":"r1","timestamp":"2026-01-01T10:00:01.000Z","message":{"model":"claude-opus-4-1","usage":{"input_tokens":10,"cache_read_input_tokens":200,"output_tokens":5},"content":[{"type":"thinking","thinking":"hm"}]}}
+{"type":"assistant","uuid":"a2","parentUuid":"a1","requestId":"r1","message":{"model":"claude-opus-4-1","usage":{"input_tokens":10,"output_tokens":40,"server_tool_use":{"web_search_requests":2}},"content":[{"type":"text","text":"hi"}]}}
+null
+{"type":"assistant","uuid":"a3","parentUuid":"a2","isSidechain":true,"message":{"model":"claude-sonnet-4-5","usage":{"input_tokens":7,"cache_creation_input_tokens":3000}}}
+{"type":"assistant","uuid":"a4","parentUuid":"a3","message":{"model":"<synthetic>","usage":{"input_tokens":9}}}
+{"type":"user","uuid":"u3","parentUuid":"a2","message":{"content":"retry"}}
+{"type":"assistant","uuid":"a5","parentUuid":"u3","requestId":"r2","effort":"high","message":{"model":5,"usage":{"input_tokens":1,"cache_creation":{"ephemeral_1h_input_tokens":4}}}}
+"#;
+
+    #[test]
+    fn subagent_turns_match_full_parse() {
+        let full = parse_claude_session(&ParseArgs {
+            text: SUB,
+            include_sidechain_turns: true,
+            ..ParseArgs::default()
+        });
+        let quick = parse_subagent_turns(SUB);
+        let key = |t: &Turn| {
+            (
+                t.model.clone(),
+                t.context_tokens,
+                t.output_tokens,
+                t.web_search_requests,
+                t.cache_creation_1h_tokens,
+                t.effort.clone(),
+                t.ts.clone(),
+            )
+        };
+        assert_eq!(full.turns.len(), 3);
+        assert_eq!(
+            quick.turns.iter().map(key).collect::<Vec<_>>(),
+            full.turns.iter().map(key).collect::<Vec<_>>()
+        );
+        assert_eq!(turns_cost(&quick.turns), turns_cost(&full.turns));
+        assert_eq!(quick.started_at, full.started_at);
+        assert_eq!(
+            quick.started_at.as_deref(),
+            Some("2026-01-01T10:00:00.000Z")
+        );
+    }
 }

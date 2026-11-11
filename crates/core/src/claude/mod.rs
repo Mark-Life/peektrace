@@ -17,7 +17,7 @@ use tracing::{Span, debug, field, info_span};
 
 pub use discover::list_session_files;
 use header::FileMeta;
-pub use parse::{ParseArgs, parse_claude_session};
+pub use parse::{ParseArgs, SubagentTurns, parse_claude_session, parse_subagent_turns};
 use read::{Loaded, load_file};
 
 use crate::model::{Agent, SessionFileRef, SessionHeader, UnreadableSession};

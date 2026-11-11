@@ -4,27 +4,35 @@
 
 mod rules;
 
+use std::borrow::Cow;
+
+use rayon::prelude::*;
 use regex::NoExpand;
 
 use super::model::{AnalyzedSession, ContextEdit, ParsedSession, SubagentRef, TimelineEvent};
 use rules::{Action, RULES};
 
-/// Redact secret-looking substrings from one string.
-pub fn redact_text(s: &str) -> String {
+/// Redact secret-looking substrings from one string. Copies only when some
+/// rule matches.
+pub fn redact_text(s: &str) -> Cow<'_, str> {
     if s.is_empty() {
-        return String::new();
+        return Cow::Borrowed(s);
     }
-    RULES
-        .iter()
-        .fold(s.to_owned(), |out, rule| match rule.action {
-            Action::Static(to) => rule.re.replace_all(&out, NoExpand(to)).into_owned(),
+    RULES.iter().fold(Cow::Borrowed(s), |out, rule| {
+        let next = match rule.action {
+            Action::Static(to) => match rule.re.replace_all(&out, NoExpand(to)) {
+                Cow::Borrowed(_) => None,
+                Cow::Owned(o) => Some(o),
+            },
             Action::Dynamic(f) => f(&rule.re, &out),
-        })
+        };
+        next.map_or(out, Cow::Owned)
+    })
 }
 
 fn redact_if_set(s: &mut String) {
-    if !s.is_empty() {
-        *s = redact_text(s);
+    if let Cow::Owned(o) = redact_text(s) {
+        *s = o;
     }
 }
 
@@ -48,8 +56,8 @@ fn redact_subagent(s: &mut SubagentRef) {
 /// Redact every transcript-derived string of a parsed session in place.
 pub fn redact_parsed(p: &mut ParsedSession) {
     p.title.iter_mut().for_each(redact_if_set);
-    p.events.iter_mut().for_each(redact_event);
-    p.subagents.iter_mut().for_each(redact_subagent);
+    p.events.par_iter_mut().for_each(redact_event);
+    p.subagents.par_iter_mut().for_each(redact_subagent);
 }
 
 /// Redact an analyzed session in place.
@@ -87,6 +95,17 @@ mod tests {
         );
         assert_eq!(redact_text("password=changeme"), "password=changeme");
         assert_eq!(redact_text("ſecret=abcdefgh"), "ſecret=abcdefgh");
+    }
+
+    #[test]
+    fn clean_text_is_not_copied() {
+        for clean in ["", "plain text, no secrets", "API_URL=https://x\nNAME=y"] {
+            assert!(matches!(redact_text(clean), Cow::Borrowed(_)), "{clean}");
+        }
+        assert!(matches!(
+            redact_text("export API_TOKEN=abc123xyz"),
+            Cow::Owned(_)
+        ));
     }
 
     #[test]

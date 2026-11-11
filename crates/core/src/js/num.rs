@@ -4,14 +4,35 @@
 
 use super::text;
 
-/// Shortest round-trip digits of a finite, non-zero `x` and its decimal
-/// exponent `n`, so that `|x| = 0.d1d2... * 10^n`.
-fn shortest_digits(x: f64) -> (String, i32) {
-    let sci = format!("{:e}", x.abs());
-    let (mantissa, exp) = sci.split_once('e').unwrap_or((sci.as_str(), "0"));
+/// Digits and decimal exponent of a `{:e}`-formatted number.
+fn split_sci(sci: &str) -> (String, i32) {
+    let (mantissa, exp) = sci.split_once('e').unwrap_or((sci, "0"));
     let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
     let exp: i32 = exp.parse().unwrap_or(0);
     (digits, exp + 1)
+}
+
+/// Shortest round-trip digits of a finite, non-zero `x` and its decimal
+/// exponent `n`, so that `|x| = 0.d1d2... * 10^n`. When two digit strings of
+/// that length round-trip, JS takes the one closest to `x`, ties to even;
+/// Rust's shortest form may take the other, so the closest one is formatted
+/// exactly and used when it round-trips.
+fn shortest_digits(x: f64) -> (String, i32) {
+    let abs = x.abs();
+    let (digits, n) = split_sci(&format!("{abs:e}"));
+    let prec = digits.len().saturating_sub(1);
+    let closest = format!("{abs:.prec$e}");
+    if closest
+        .parse::<f64>()
+        .is_ok_and(|v| v.to_bits() == abs.to_bits())
+    {
+        let (exact, m) = split_sci(&closest);
+        let exact = exact.trim_end_matches('0');
+        if !exact.is_empty() && exact.len() <= digits.len() {
+            return (exact.to_owned(), m);
+        }
+    }
+    (digits, n)
 }
 
 /// `Number.prototype.toString()` (radix 10).
@@ -206,6 +227,9 @@ mod tests {
             (-0.0, "0"),
             (-2.5, "-2.5"),
             (0.1 + 0.2, "0.30000000000000004"),
+            (1_170.828_186_035_156_2, "1170.8281860351562"),
+            (5e-324, "5e-324"),
+            (1.797_693_134_862_315_7e308, "1.7976931348623157e+308"),
             (f64::INFINITY, "Infinity"),
             (f64::NEG_INFINITY, "-Infinity"),
             (f64::NAN, "NaN"),

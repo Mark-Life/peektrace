@@ -4,12 +4,12 @@
 use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::{self, LocalZone};
 use peektrace_core::js::{num, text};
-use peektrace_core::roots::{self, Source};
+use peektrace_core::roots::{self, RootsEnv, Source};
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::service::{SessionEnv, analyze_session, get_session};
 use peektrace_core::sessions::write::analyzed_json;
-use peektrace_core::{AgentRoots, ListFilter, list_sessions};
+use peektrace_core::{Agent, AgentRoots, ListFilter, list_sessions};
 
 use crate::args::{AnalyzeArgs, ExportArgs, TargetArgs};
 use crate::ls::{Context, Globals, UserError};
@@ -29,6 +29,8 @@ pub struct Output {
     pub warnings: Vec<String>,
     /// Sessions the `--latest` listing could not read.
     pub unreadable: Option<usize>,
+    /// Printed on stderr after everything else.
+    pub notes: Vec<String>,
 }
 
 /// The validated target: an explicit id, or the newest session.
@@ -82,6 +84,32 @@ fn claude_roots(ctx: &Context) -> (Vec<Source>, Vec<String>) {
         roots::claude_sources(&ctx.roots_env, &settings.claude),
         warnings,
     )
+}
+
+/// Agents this build cannot read whose sessions root holds something.
+fn unsearched_agents(env: &RootsEnv) -> Vec<Agent> {
+    roots::unread_roots(env)
+        .into_iter()
+        .filter(|(_, root)| std::fs::read_dir(root).is_ok_and(|mut d| d.next().is_some()))
+        .map(|(agent, _)| agent)
+        .collect()
+}
+
+/// The picked session came from an id prefix; a path never does.
+fn by_prefix(typed: &str, resolved: &str) -> bool {
+    let id = typed.strip_suffix(".jsonl").unwrap_or(typed);
+    !id.contains(['/', '\\']) && id != resolved
+}
+
+/// Note for a pick that other agents' sessions could have changed: the
+/// newest session, or a top-level id prefix.
+fn search_note(t: &TargetArgs, typed: &str, resolved: &str, unsearched: &[Agent]) -> Vec<String> {
+    let open_ended = t.id.is_none() || (t.parent.is_none() && by_prefix(typed, resolved));
+    open_ended
+        .then(|| render::skipped_note(unsearched, "searched"))
+        .flatten()
+        .into_iter()
+        .collect()
 }
 
 /// The session id to run on, and how many listed sessions were unreadable
@@ -258,14 +286,17 @@ pub fn run_analyze(
     ctx: &Context,
 ) -> Result<Output, UserError> {
     let (claude, warnings) = claude_roots(ctx);
+    let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
     let (target, unreadable) = resolve_target(&args.target, ctx, &claude, &zone)?;
     let env = SessionEnv {
         claude: &claude,
+        unsearched: &unsearched,
         local: &zone,
     };
     let a = analyze_session(env, &target, args.target.parent.as_deref(), true)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
+    let notes = search_note(&args.target, &target, &a.parsed.session_id, &unsearched);
     let stdout = if globals.json {
         analyzed_json(&a)
     } else {
@@ -276,6 +307,7 @@ pub fn run_analyze(
         write: None,
         warnings,
         unreadable,
+        notes,
     })
 }
 
@@ -317,15 +349,18 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
         })
         .transpose()?;
     let (claude, warnings) = claude_roots(ctx);
+    let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
     let (target, unreadable) = resolve_target(&args.target, ctx, &claude, &zone)?;
     let env = SessionEnv {
         claude: &claude,
+        unsearched: &unsearched,
         local: &zone,
     };
     let redact = !args.no_redact;
     let session = get_session(env, &target, args.target.parent.as_deref(), redact)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
+    let notes = search_note(&args.target, &target, &session.session_id, &unsearched);
     let out_path = args.out.as_deref().filter(|p| *p != "-");
     #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
     let exported_at = time::to_iso_string(ctx.now_ms as i64);
@@ -345,12 +380,14 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
             write: None,
             warnings,
             unreadable,
+            notes,
         },
         Some(path) => Output {
             stdout: None,
             write: Some((path.to_owned(), rendered)),
             warnings,
             unreadable,
+            notes,
         },
     })
 }
@@ -386,6 +423,42 @@ mod tests {
             plan_target(None, false, Some("/a"), None),
             Ok(Plan::Newest(Some("/a".to_owned())))
         );
+    }
+
+    #[test]
+    fn prefix_picks() {
+        assert!(by_prefix("abc", "abcdef"));
+        assert!(by_prefix("abc.jsonl", "abcdef"));
+        assert!(!by_prefix("abcdef", "abcdef"));
+        assert!(!by_prefix("abcdef.jsonl", "abcdef"));
+        assert!(!by_prefix("/p/abcdef.jsonl", "abcdef"));
+        assert!(!by_prefix("C:\\p\\abcdef.jsonl", "abcdef"));
+    }
+
+    #[test]
+    fn search_notes() {
+        let target = |id: Option<&str>, parent: Option<&str>| TargetArgs {
+            id: id.map(str::to_owned),
+            parent: parent.map(str::to_owned),
+            ..TargetArgs::default()
+        };
+        let note = vec!["codex sessions are not searched: not supported yet".to_owned()];
+        let codex = [Agent::Codex];
+        let quiet: Vec<String> = Vec::new();
+        assert_eq!(search_note(&target(None, None), "s1", "s1", &codex), note);
+        assert_eq!(
+            search_note(&target(Some("s"), None), "s", "s1", &codex),
+            note
+        );
+        assert_eq!(
+            search_note(&target(Some("s1"), None), "s1", "s1", &codex),
+            quiet
+        );
+        assert_eq!(
+            search_note(&target(Some("a"), Some("s1")), "a", "a1", &codex),
+            quiet
+        );
+        assert_eq!(search_note(&target(None, None), "s1", "s1", &[]), quiet);
     }
 
     #[test]

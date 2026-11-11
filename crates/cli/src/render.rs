@@ -3,46 +3,12 @@
 
 use std::fmt::Write as _;
 
+use peektrace_core::js::json_out::{push_str, push_text};
 use peektrace_core::js::num;
-use peektrace_core::js::text::{self, Unit};
+use peektrace_core::js::text;
 use peektrace_core::{Agent, SessionHeader};
 
 use crate::width::display_width;
-
-/// Append `units` as a JSON string, escaped the way `JSON.stringify` does.
-fn push_json_units(out: &mut String, units: impl Iterator<Item = Unit>) {
-    out.push('"');
-    for u in units {
-        match u {
-            Unit::Char('"') => out.push_str("\\\""),
-            Unit::Char('\\') => out.push_str("\\\\"),
-            Unit::Char('\u{08}') => out.push_str("\\b"),
-            Unit::Char('\u{0C}') => out.push_str("\\f"),
-            Unit::Char('\n') => out.push_str("\\n"),
-            Unit::Char('\r') => out.push_str("\\r"),
-            Unit::Char('\t') => out.push_str("\\t"),
-            Unit::Char(c) if u32::from(c) < 0x20 => {
-                let _ = write!(out, "\\u{:04x}", u32::from(c));
-            }
-            Unit::Char(c) => out.push(c),
-            Unit::Lone(unit) => {
-                let _ = write!(out, "\\u{unit:04x}");
-            }
-        }
-    }
-    out.push('"');
-}
-
-/// Append a plain string as JSON.
-pub fn push_json_string(out: &mut String, s: &str) {
-    push_json_units(out, s.chars().map(Unit::Char));
-}
-
-/// Append transcript text (see [`text::units`]) as JSON; unpaired
-/// surrogates print as `\\udXXX` escapes.
-fn push_json_text(out: &mut String, s: &str) {
-    push_json_units(out, text::units(s));
-}
 
 /// One JSON value in a header object.
 enum Value<'a> {
@@ -90,8 +56,8 @@ fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
 
 fn push_value(out: &mut String, v: &Value<'_>, indent: &str) {
     match v {
-        Value::Str(s) => push_json_string(out, s),
-        Value::Text(s) => push_json_text(out, s),
+        Value::Str(s) => push_str(out, s),
+        Value::Text(s) => push_text(out, s),
         Value::Int(n) => {
             let _ = write!(out, "{n}");
         }
@@ -103,7 +69,7 @@ fn push_value(out: &mut String, v: &Value<'_>, indent: &str) {
                 out.push_str(if i == 0 { "\n" } else { ",\n" });
                 out.push_str(indent);
                 out.push_str("  ");
-                push_json_text(out, item);
+                push_text(out, item);
             }
             out.push('\n');
             out.push_str(indent);
@@ -122,7 +88,7 @@ pub fn json_rows(rows: &[SessionHeader]) -> String {
         out.push_str(if i == 0 { "\n  {" } else { ",\n  {" });
         for (j, (key, value)) in header_fields(h).iter().enumerate() {
             out.push_str(if j == 0 { "\n    " } else { ",\n    " });
-            push_json_string(&mut out, key);
+            push_str(&mut out, key);
             out.push_str(": ");
             push_value(&mut out, value, "    ");
         }
@@ -290,12 +256,13 @@ fn and_list(names: &[&str]) -> String {
     }
 }
 
-/// Note for agents left out because this build cannot read them.
-pub fn skipped_note(skipped: &[Agent]) -> Option<String> {
+/// Note for agents left out because this build cannot read them; `verb`
+/// says what was not done to their sessions (`listed`, `searched`).
+pub fn skipped_note(skipped: &[Agent], verb: &str) -> Option<String> {
     let names = skipped.iter().map(|a| a.as_str()).collect::<Vec<_>>();
     (!names.is_empty()).then(|| {
         format!(
-            "{} sessions are not listed: not supported yet",
+            "{} sessions are not {verb}: not supported yet",
             and_list(&names)
         )
     })
@@ -306,21 +273,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn escapes_like_json_stringify() {
-        let mut out = String::new();
-        push_json_string(&mut out, "a\"b\\c\n\u{1}\u{7f}\u{2028}é");
-        assert_eq!(out, "\"a\\\"b\\\\c\\n\\u0001\u{7f}\u{2028}é\"");
-    }
-
-    #[test]
-    fn stand_ins_print_as_escapes() {
-        let mut out = String::new();
-        push_json_text(&mut out, "a\u{10F800}");
-        assert_eq!(out, "\"a\\ud800\"");
+    fn stand_ins_print_as_replacement() {
         assert_eq!(printable("a\u{10FC00}"), "a\u{FFFD}");
-        out.clear();
-        push_json_string(&mut out, "a\u{10F800}");
-        assert_eq!(out, "\"a\u{10F800}\"");
     }
 
     #[test]
@@ -347,9 +301,13 @@ mod tests {
         );
         assert_eq!(list_notes(0, vec![], 0), Vec::<String>::new());
         assert_eq!(
-            skipped_note(&[Agent::Codex, Agent::Pi, Agent::Opencode]).as_deref(),
+            skipped_note(&[Agent::Codex, Agent::Pi, Agent::Opencode], "listed").as_deref(),
             Some("codex, pi and opencode sessions are not listed: not supported yet")
         );
-        assert_eq!(skipped_note(&[]), None);
+        assert_eq!(
+            skipped_note(&[Agent::Codex], "searched").as_deref(),
+            Some("codex sessions are not searched: not supported yet")
+        );
+        assert_eq!(skipped_note(&[], "listed"), None);
     }
 }

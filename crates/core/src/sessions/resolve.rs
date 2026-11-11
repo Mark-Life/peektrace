@@ -109,8 +109,23 @@ fn scan_for_id(claude: &[Source], wanted: &str) -> Option<Resolution> {
     }
 }
 
+/// What a failed lookup says it searched: every agent, or Claude only when
+/// `unsearched` names agents whose sessions this build cannot read.
+fn searched_label(unsearched: &[Agent]) -> String {
+    if unsearched.is_empty() {
+        return "all agents".to_owned();
+    }
+    let names = unsearched.iter().map(|a| a.as_str()).collect::<Vec<_>>();
+    format!("claude only; {} not supported yet", names.join(", "))
+}
+
 /// Resolve an id (or direct `.jsonl` path) to its owning agent and file.
-pub fn resolve_session(claude: &[Source], id_or_path: &str) -> Result<Resolution, SessionError> {
+/// `unsearched` lists agents that have sessions on disk but no reader.
+pub fn resolve_session(
+    claude: &[Source],
+    unsearched: &[Agent],
+    id_or_path: &str,
+) -> Result<Resolution, SessionError> {
     let _span = info_span!("Sessions.resolve", idOrPath = id_or_path).entered();
     if let Some(r) = resolve_direct_path(claude, id_or_path) {
         return Ok(r);
@@ -118,7 +133,7 @@ pub fn resolve_session(claude: &[Source], id_or_path: &str) -> Result<Resolution
     let wanted = strip_jsonl(id_or_path);
     scan_for_id(claude, wanted).ok_or_else(|| SessionError::NotFound {
         id: wanted.to_owned(),
-        searched: "all agents".to_owned(),
+        searched: searched_label(unsearched),
     })
 }
 
@@ -356,5 +371,22 @@ mod tests {
         assert_eq!(slash_join(&["/a//", "/b", "c"]), "/a/b/c");
         assert_eq!(dirname("/a/b"), "/a");
         assert_eq!(basename("/a/b.jsonl"), "b.jsonl");
+    }
+
+    #[test]
+    fn not_found_names_what_was_searched() {
+        let err = |unsearched: &[Agent]| {
+            resolve_session(&[], unsearched, "zzz.jsonl")
+                .err()
+                .map(|e| e.to_string())
+        };
+        assert_eq!(
+            err(&[]).as_deref(),
+            Some("Session \"zzz\" not found (searched all agents).")
+        );
+        assert_eq!(
+            err(&[Agent::Codex, Agent::Pi]).as_deref(),
+            Some("Session \"zzz\" not found (searched claude only; codex, pi not supported yet).")
+        );
     }
 }

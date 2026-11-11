@@ -162,13 +162,6 @@ impl Writer {
         items.into_iter().for_each(|s| self.elem().text(s));
         self.end_arr();
     }
-
-    /// An array of numbers.
-    pub fn nums(&mut self, items: impl IntoIterator<Item = f64>) {
-        self.begin_arr();
-        items.into_iter().for_each(|x| self.elem().num(x));
-        self.end_arr();
-    }
 }
 
 #[cfg(test)]
@@ -204,5 +197,11 @@ mod tests {
         let mut out = String::new();
         push_str(&mut out, "a\"b\\c\n\u{1}\u{7f}\u{2028}é");
         assert_eq!(out, "\"a\\\"b\\\\c\\n\\u0001\u{7f}\u{2028}é\"");
+        out.clear();
+        push_text(&mut out, "a\u{10F800}");
+        assert_eq!(out, "\"a\\ud800\"");
+        out.clear();
+        push_str(&mut out, "a\u{10F800}");
+        assert_eq!(out, "\"a\u{10F800}\"");
     }
 }

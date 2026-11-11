@@ -100,7 +100,7 @@ pub struct LsArgs {
 }
 
 /// Which session a single-session command runs on.
-#[derive(Debug, Args)]
+#[derive(Debug, Default, Args)]
 pub struct TargetArgs {
     /// Session id, short id, or transcript path
     #[arg(allow_hyphen_values = true, value_parser = lossy())]

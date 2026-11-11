@@ -15,7 +15,7 @@ use super::resolve::{
     SessionError, SubagentStub, find_subagents, read_text, resolve_claude_session, resolve_session,
 };
 use super::workflows::{WorkflowCall, pick_workflow_call, workflow_calls_by_run};
-use crate::claude::{ParseArgs, parse_claude_session};
+use crate::claude::{ParseArgs, parse_claude_session, parse_subagent_turns};
 use crate::js::time::{self, LocalZone};
 use crate::js::value::JsValue;
 use crate::model::Agent;
@@ -25,6 +25,8 @@ use crate::roots::Source;
 #[derive(Clone, Copy)]
 pub struct SessionEnv<'a> {
     pub claude: &'a [Source],
+    /// Agents with sessions on disk that this build cannot read.
+    pub unsearched: &'a [Agent],
     /// Zone for timestamps without an offset.
     pub local: &'a (dyn LocalZone + Sync),
 }
@@ -73,7 +75,7 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         id: id.to_owned(),
         searched: format!("subagents of {parent}"),
     };
-    let owner = resolve_session(env.claude, parent)?;
+    let owner = resolve_session(env.claude, env.unsearched, parent)?;
     if owner.agent != Agent::Claude {
         return Err(not_found());
     }
@@ -102,7 +104,7 @@ fn load(env: SessionEnv<'_>, id: &str, parent: Option<&str>) -> Result<Loaded, S
     if let Some(parent) = parent {
         return load_nested(env, id, parent);
     }
-    let r = resolve_session(env.claude, id)?;
+    let r = resolve_session(env.claude, env.unsearched, id)?;
     Ok(Loaded {
         text: load_transcript(&r.file.path)?,
         id: r.file.id.as_str().to_owned(),
@@ -175,17 +177,11 @@ impl Linker {
     }
 }
 
-/// Parse one subagent file into its ref (its own turns, sidechain on).
+/// One subagent file as its ref: its own turns, peak and cost.
 fn parse_subagent(stub: &SubagentStub, linker: &Linker, local: &dyn LocalZone) -> SubagentRef {
     match read_text(&stub.path) {
         Ok(text) => {
-            let parsed = parse_claude_session(&ParseArgs {
-                text: &text,
-                path: &stub.path,
-                session_id: &stub.id,
-                include_sidechain_turns: true,
-                skip_system_prompt: false,
-            });
+            let parsed = parse_subagent_turns(&text);
             SubagentRef {
                 turns: parsed.turns.len(),
                 peak_context_tokens: parsed

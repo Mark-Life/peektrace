@@ -113,15 +113,6 @@ fn write_parsed_fields(w: &mut Writer, p: &ParsedSession) {
     }
 }
 
-/// `JSON.stringify(parsed, null, 2)`.
-pub fn parsed_json(p: &ParsedSession) -> String {
-    let mut w = Writer::new(true);
-    w.begin_obj();
-    write_parsed_fields(&mut w, p);
-    w.end_obj();
-    w.finish()
-}
-
 fn write_slices(w: &mut Writer, s: &BudgetSlices) {
     const ORDER: [BudgetKey; 10] = [
         BudgetKey::SystemTools,
