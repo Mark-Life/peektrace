@@ -353,7 +353,7 @@ fn a_mixed_model_day_sums_each_model_at_its_rates() {
     );
     assert_eq!(out.totals.agg.usd, want);
     assert_eq!(out.totals.total_tokens, 2_000_050.0);
-    assert!(out.unpriced_models.is_empty());
+    assert_eq!(out.unpriced_models, Vec::<String>::new());
 }
 
 #[test]
