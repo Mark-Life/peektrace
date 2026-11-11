@@ -1,40 +1,15 @@
 //! Stream a transcript file into a header without holding the whole file.
 
 use std::borrow::Cow;
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::header::{FileMeta, HeaderAcc};
 use crate::model::SessionHeader;
 
 const BOM: &[u8] = b"\xEF\xBB\xBF";
 const READ_BUFFER: usize = 64 * 1024;
-
-/// File size and mtime, as `fs.stat` reports them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FileStamp {
-    pub size_bytes: u64,
-    pub mtime_ms: i64,
-}
-
-/// Milliseconds since the epoch, truncated toward zero like a JS `Date`.
-fn epoch_ms(t: SystemTime) -> i64 {
-    match t.duration_since(UNIX_EPOCH) {
-        Ok(d) => i64::try_from(d.as_millis()).unwrap_or(i64::MAX),
-        Err(e) => -i64::try_from(e.duration().as_millis()).unwrap_or(i64::MAX),
-    }
-}
-
-/// Stat `path`, following symlinks. A missing mtime reads as 0.
-pub fn stat_stamp(path: &Path) -> io::Result<FileStamp> {
-    let meta = fs::metadata(path)?;
-    Ok(FileStamp {
-        size_bytes: meta.len(),
-        mtime_ms: meta.modified().map_or(0, epoch_ms),
-    })
-}
 
 /// What one transcript yields: a header, or nothing for an empty file.
 #[derive(Debug, Clone, PartialEq)]

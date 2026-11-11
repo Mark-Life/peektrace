@@ -21,22 +21,14 @@ pub struct ListFilter {
     pub project: Option<String>,
 }
 
-/// Transcript files of one agent. Codex, Pi and `OpenCode` have no reader and
-/// list nothing.
-fn session_files(agent: Agent, roots: &AgentRoots) -> Vec<SessionFileRef> {
+/// Transcript files of one agent. A Claude row's project is its slug, so
+/// `project` drops other slug dirs before any of them is read. Codex, Pi and
+/// `OpenCode` have no reader and list nothing.
+fn session_files(agent: Agent, roots: &AgentRoots, project: Option<&str>) -> Vec<SessionFileRef> {
     let _span = info_span!("AgentRegistry.listSessionFiles", agent = agent.as_str()).entered();
     match agent {
-        Agent::Claude => claude::list_session_files(&roots.claude),
+        Agent::Claude => claude::list_session_files(&roots.claude, project),
         Agent::Codex | Agent::Pi | Agent::Opencode => Vec::new(),
-    }
-}
-
-/// A Claude row's project is its slug, so `--project` can drop refs before
-/// any file is read.
-fn claude_refs_in(refs: Vec<SessionFileRef>, project: Option<&str>) -> Vec<SessionFileRef> {
-    match project.filter(|p| !p.is_empty()) {
-        Some(p) => refs.into_iter().filter(|r| r.slug.as_str() == p).collect(),
-        None => refs,
     }
 }
 
@@ -47,9 +39,9 @@ fn agent_outcomes(
     project: Option<&str>,
     parent: &Span,
 ) -> Vec<Outcome> {
-    let refs = session_files(agent, roots);
+    let refs = session_files(agent, roots, project);
     match agent {
-        Agent::Claude => claude::load_headers(&claude_refs_in(refs, project), parent),
+        Agent::Claude => claude::load_headers(&refs, parent),
         Agent::Codex | Agent::Pi | Agent::Opencode => Vec::new(),
     }
 }
@@ -111,32 +103,4 @@ pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing 
         .sum();
     span.record("malformedLines", malformed);
     filter_project(listing, filter.project.as_deref())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::model::{ProjectSlug, SessionId};
-
-    fn file(slug: &str) -> SessionFileRef {
-        SessionFileRef {
-            id: SessionId::new("s"),
-            slug: ProjectSlug::new(slug),
-            path: format!("/r/{slug}/s.jsonl"),
-            source: None,
-        }
-    }
-
-    #[test]
-    fn project_drops_claude_refs_before_reading() {
-        let refs = || vec![file("-a"), file("-b"), file("-a")];
-        let slugs = |rs: Vec<SessionFileRef>| {
-            rs.into_iter()
-                .map(|r| r.slug.as_str().to_owned())
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(slugs(claude_refs_in(refs(), Some("-a"))), ["-a", "-a"]);
-        assert_eq!(slugs(claude_refs_in(refs(), Some(""))).len(), 3);
-        assert_eq!(slugs(claude_refs_in(refs(), None)).len(), 3);
-    }
 }

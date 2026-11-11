@@ -12,7 +12,7 @@ pub mod select;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions};
 pub use model::{
-    Agent, ProjectSlug, SessionFileRef, SessionHeader, SessionId, SessionListing, SourceTag,
-    UnreadableSession,
+    Agent, FileStamp, ProjectSlug, SessionFileRef, SessionHeader, SessionId, SessionListing,
+    SourceTag, UnreadableSession,
 };
 pub use paths::PathStyle;

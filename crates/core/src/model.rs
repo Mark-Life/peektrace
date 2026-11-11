@@ -83,12 +83,21 @@ pub struct SourceTag {
     pub label: String,
 }
 
-/// One transcript located on disk, before its body is read.
+/// File size and mtime, as `fs.stat` reports them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FileStamp {
+    pub size_bytes: u64,
+    pub mtime_ms: i64,
+}
+
+/// One transcript located on disk, before its body is read. `stamp` is from
+/// the discovery `stat`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SessionFileRef {
     pub id: SessionId,
     pub slug: ProjectSlug,
     pub path: String,
+    pub stamp: FileStamp,
     pub source: Option<SourceTag>,
 }
 

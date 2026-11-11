@@ -12,7 +12,7 @@ use tracing::{Span, debug, field, info_span};
 
 pub use discover::list_session_files;
 use header::FileMeta;
-use read::{Loaded, load_file, stat_stamp};
+use read::{Loaded, load_file};
 
 use crate::model::{Agent, SessionFileRef, SessionHeader, UnreadableSession};
 use crate::paths::PathStyle;
@@ -34,13 +34,9 @@ fn unreadable(r: &SessionFileRef, reason: &std::io::Error) -> Outcome {
     })
 }
 
-/// Stat and fold one transcript. A stat or read error marks it unreadable.
+/// Fold one transcript. A read error marks it unreadable.
 fn header_for(r: &SessionFileRef, parent: &Span) -> Outcome {
     let path = Path::new(&r.path);
-    let stamp = match stat_stamp(path) {
-        Ok(s) => s,
-        Err(e) => return unreadable(r, &e),
-    };
     let span = info_span!(
         parent: parent,
         "AgentRegistry.loadTranscript",
@@ -52,8 +48,8 @@ fn header_for(r: &SessionFileRef, parent: &Span) -> Outcome {
         id: r.id.clone(),
         slug: r.slug.clone(),
         path: r.path.clone(),
-        size_bytes: stamp.size_bytes,
-        mtime_ms: stamp.mtime_ms,
+        size_bytes: r.stamp.size_bytes,
+        mtime_ms: r.stamp.mtime_ms,
         source: r.source.clone(),
     };
     match load_file(path, meta) {
