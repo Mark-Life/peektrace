@@ -4,9 +4,9 @@ use crate::js::json_out::Writer;
 use crate::model::Agent;
 
 pub const STATS_SCHEMA_VERSION: &str = "peektrace-stats/v2";
-pub const DETECTOR_VERSION: i64 = 2;
+pub const DETECTOR_VERSION: f64 = 2.0;
 /// Part of the cache key: shards from another extractor are re-extracted.
-pub const EXTRACTOR_VERSION: i64 = 13;
+pub const EXTRACTOR_VERSION: f64 = 13.0;
 
 macro_rules! str_enum {
     ($(#[$doc:meta])* $name:ident { $($var:ident = $s:literal),+ $(,)? }) => {

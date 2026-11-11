@@ -5,3 +5,4 @@ pub mod causes;
 pub mod failures;
 pub mod timing;
 pub mod waiting;
+pub mod rules;
