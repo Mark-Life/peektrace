@@ -11,6 +11,11 @@ type Row = Record<string, unknown>;
 
 const LONG_LINE = 199;
 const BIG_TEXT = 4000;
+/** Past `serde_json`'s default 128-level limit. */
+const DEEP = 200;
+
+const deep = (levels: number): unknown =>
+  Array.from({ length: levels }).reduce<unknown>((v) => ({ d: v }), 1);
 
 export const open = (path: string) => {
   mkdirSync(dirname(path), { recursive: true });
@@ -388,5 +393,37 @@ export const edgeSessions = (a: Database) => {
     cost: "1.5",
     time_created: "100",
     time_updated: 9000.9,
+  });
+  session(a, {
+    id: "ses_deep",
+    directory: "/w/deep",
+    title: "deeply nested JSON",
+    time_created: 1,
+    time_updated: 8100,
+  });
+  message(a, "ses_deep", "m1", 1, { role: "user", time: { created: 10 } });
+  part(a, "ses_deep", "m1", "p1", {
+    type: "text",
+    text: "deep user part",
+    metadata: deep(DEEP),
+  });
+  message(a, "ses_deep", "m2", 2, {
+    role: "assistant",
+    modelID: "claude-sonnet-4-5",
+    providerID: "anthropic",
+    tokens: { input: 10, output: 5 },
+    time: { created: 20, completed: 30 },
+    deep: deep(DEEP),
+  });
+  part(a, "ses_deep", "m2", "p2", {
+    type: "tool",
+    tool: "mcp_config",
+    callID: "c1",
+    state: {
+      status: "completed",
+      input: deep(DEEP),
+      output: "ok",
+      time: { start: 21, end: 22 },
+    },
   });
 };

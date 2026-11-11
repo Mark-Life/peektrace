@@ -190,3 +190,22 @@ impl Session {
         u64::try_from(bytes + lines - 1).unwrap_or(u64::MAX)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn deep_data_keeps_its_fields() {
+        let deep = format!("{}1{}", r#"{"d":"#.repeat(200), "}".repeat(200));
+        let raw = format!(r#"{{"role":"assistant","modelID":"m","deep":{deep}}}"#);
+        let o = parse_object(&raw);
+        assert_eq!(
+            o.as_ref()
+                .and_then(|o| o.get("role"))
+                .and_then(JsValue::as_str),
+            Some("assistant")
+        );
+        assert_eq!(o.map(|o| o.json_len()), Some(raw.len()));
+    }
+}

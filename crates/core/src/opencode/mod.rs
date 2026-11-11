@@ -8,7 +8,7 @@ mod parse;
 mod session;
 mod tree;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use rayon::prelude::*;
 use tracing::{Span, info_span};
@@ -72,8 +72,13 @@ fn locate<'a>(path: &'a str, id: &'a str, default_root: &'a str) -> (&'a str, &'
 }
 
 /// Load one session from DBs open on its data dir, else from the tree.
-fn load_with(dbs: &[db::Db], data_dir: &str, id: &str) -> Option<Session> {
-    db::load_from_dbs(dbs, id).or_else(|| tree::load_from_tree(data_dir, id))
+fn load_with(
+    dbs: &[db::Db],
+    data_dir: &str,
+    id: &str,
+    index: Option<&tree::TreeIndex>,
+) -> Option<Session> {
+    db::load_from_dbs(dbs, id).or_else(|| tree::load_from_tree(data_dir, id, index))
 }
 
 /// Load the session `path` names (see [`locate`]); `None` when no store
@@ -85,12 +90,20 @@ pub fn load_session(path: &str, id: &str, default_root: &str) -> Option<Session>
     )
     .entered();
     let (data_dir, id) = locate(path, id, default_root);
-    load_with(&db::open_dbs(data_dir), data_dir, id)
+    load_with(&db::open_dbs(data_dir), data_dir, id, None)
 }
 
 /// One outcome per ref, in `refs` order. A ref that no store can load (bad
 /// message JSON, a tree file named apart from its id) is skipped.
 pub fn load_headers(refs: &[SessionFileRef], default_root: &str, parent: &Span) -> Vec<Outcome> {
+    let data_dirs: HashSet<&str> = refs
+        .iter()
+        .map(|r| locate(&r.path, r.id.as_str(), default_root).0)
+        .collect();
+    let indexes: HashMap<&str, tree::TreeIndex> = data_dirs
+        .into_par_iter()
+        .map(|dir| (dir, tree::TreeIndex::build(dir)))
+        .collect();
     refs.par_iter()
         .map_init(
             || None::<(String, Vec<db::Db>)>,
@@ -106,7 +119,7 @@ pub fn load_headers(refs: &[SessionFileRef], default_root: &str, parent: &Span) 
                     *open = Some((data_dir.to_owned(), db::open_dbs(data_dir)));
                 }
                 let dbs = open.as_ref().map_or(&[][..], |(_, dbs)| dbs.as_slice());
-                load_with(dbs, data_dir, id).map_or(Outcome::Skip, |s| {
+                load_with(dbs, data_dir, id, indexes.get(data_dir)).map_or(Outcome::Skip, |s| {
                     Outcome::Header(Box::new(header::build_header(&s, r)))
                 })
             },

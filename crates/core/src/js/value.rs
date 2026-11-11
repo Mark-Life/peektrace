@@ -289,21 +289,40 @@ pub fn str_of(v: Option<&JsValue>) -> String {
     }
 }
 
+/// Deepest array/object nesting [`JsValue::parse`] accepts. `JSON.parse` has
+/// no limit; this one sits far past real transcripts and keeps the recursive
+/// parse, copy and print inside a 2 MiB thread stack, even in debug builds.
+const MAX_DEPTH: u32 = 512;
+
 fn parse_with(src: &str, repaired: bool) -> Result<JsValue, serde_json::Error> {
     let mut de = serde_json::Deserializer::from_str(src);
-    let v = Seed { repaired }.deserialize(&mut de)?;
+    de.disable_recursion_limit();
+    let v = Seed { repaired, depth: 0 }.deserialize(&mut de)?;
     de.end()?;
     Ok(v)
 }
 
 /// Builds a [`JsValue`]. `repaired` says strings are already transcript text
-/// and overflow sentinels stand for `±Infinity`.
+/// and overflow sentinels stand for `±Infinity`. `depth` counts the arrays
+/// and objects around the value.
 #[derive(Clone, Copy)]
 struct Seed {
     repaired: bool,
+    depth: u32,
 }
 
 impl Seed {
+    /// The seed for a child of an array or object.
+    fn nested<E: de::Error>(self) -> Result<Self, E> {
+        if self.depth >= MAX_DEPTH {
+            return Err(E::custom("JSON nested too deep"));
+        }
+        Ok(Self {
+            depth: self.depth + 1,
+            ..self
+        })
+    }
+
     fn string(self, s: &str) -> String {
         if self.repaired {
             s.to_owned()
@@ -374,16 +393,18 @@ impl<'de> Visitor<'de> for Seed {
         Ok(JsValue::Str(self.string(v)))
     }
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<JsValue, A::Error> {
+        let child = self.nested()?;
         let mut items = Vec::with_capacity(seq.size_hint().unwrap_or(0));
-        while let Some(v) = seq.next_element_seed(self)? {
+        while let Some(v) = seq.next_element_seed(child)? {
             items.push(v);
         }
         Ok(JsValue::Arr(items))
     }
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<JsValue, A::Error> {
+        let child = self.nested()?;
         let mut entries = Vec::new();
         while let Some(k) = map.next_key_seed(KeySeed(self))? {
-            let v = map.next_value_seed(self)?;
+            let v = map.next_value_seed(child)?;
             entries.push((k, v));
         }
         Ok(JsValue::Obj(JsObject::from_entries(entries)))
@@ -454,6 +475,22 @@ mod tests {
                 .map(f64::is_sign_negative),
             Some(false)
         );
+    }
+
+    fn nested(levels: usize) -> String {
+        format!("{}1{}", r#"{"a":["#.repeat(levels), "]}".repeat(levels))
+    }
+
+    #[test]
+    fn deep_nesting_parses() {
+        let src = nested(200);
+        assert_eq!(rt(&src), src);
+        let limit = usize::try_from(MAX_DEPTH).unwrap_or(usize::MAX);
+        let deepest = nested(limit / 2);
+        let v = JsValue::parse(&deepest).unwrap_or(JsValue::Null);
+        assert_eq!(v.clone().round_trip().json_len(), deepest.len());
+        assert!(v.stringify(true).len() > deepest.len());
+        assert_eq!(JsValue::parse(&format!("[{deepest}]")), None);
     }
 
     #[test]

@@ -63,6 +63,40 @@ fn db_wins_over_tree_and_tree_only_is_kept() {
 }
 
 #[test]
+fn tree_sessions_load_across_many_project_dirs() {
+    let dir = temp_dir();
+    let data = path_str(&dir);
+    let st = dir.join("storage/session");
+    for n in 0..20 {
+        write_json(
+            &st.join(format!("p{n}/ses_{n}.json")),
+            &format!(
+                r#"{{"id":"ses_{n}","directory":"/w/p{n}","time":{{"created":1,"updated":{n}}}}}"#
+            ),
+        );
+    }
+    write_json(
+        &st.join("pa/ses_x.json"),
+        r#"{"id":"ses_y","directory":"/w/a"}"#,
+    );
+    write_json(
+        &st.join("pb/ses_x.json"),
+        r#"{"id":"ses_x","directory":"/w/b"}"#,
+    );
+    let hs = headers(&data);
+    let mut got: Vec<_> = hs.iter().map(|h| h.id.as_str()).collect();
+    got.sort_unstable();
+    let mut want: Vec<_> = (0..20).map(|n| format!("ses_{n}")).collect();
+    want.push("ses_x".to_owned());
+    want.sort_unstable();
+    assert_eq!(got, want);
+    let x = hs.iter().find(|h| h.id.as_str() == "ses_x").expect("ses_x");
+    assert_eq!(x.cwd.as_deref(), Some("/w/b"));
+    let p7 = hs.iter().find(|h| h.id.as_str() == "ses_7").expect("ses_7");
+    assert_eq!(p7.cwd.as_deref(), Some("/w/p7"));
+}
+
+#[test]
 fn json_time_beats_the_column_and_round_trips() {
     let dir = temp_dir("oc");
     let data = path_str(&dir);

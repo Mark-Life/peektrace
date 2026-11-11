@@ -1,6 +1,7 @@
 //! `OpenCode`'s legacy JSON tree under `<data>/storage/`: one file per
 //! session, message and part.
 
+use std::collections::HashMap;
 use std::fs;
 
 use super::db::entries;
@@ -120,18 +121,65 @@ fn load_parts(data_dir: &str, id: &str, message_id: &str) -> Vec<JsObject> {
         .collect()
 }
 
-/// The session from the tree, when a session file named after `id` holds
-/// that id.
-pub(super) fn load_from_tree(data_dir: &str, id: &str) -> Option<Session> {
+/// Session file paths of one tree by file stem, each list in the order a
+/// project-dir scan meets them. Built once per data dir so loading many
+/// sessions does not rescan every project dir per session.
+#[derive(Debug, Default)]
+pub(super) struct TreeIndex(HashMap<String, Vec<String>>);
+
+impl TreeIndex {
+    pub(super) fn build(data_dir: &str) -> Self {
+        let root = session_root(data_dir);
+        Self(
+            subdirs(&root)
+                .iter()
+                .flat_map(|proj| {
+                    let dir = STYLE.join(&[&root, proj]);
+                    json_names(&dir).into_iter().map(move |name| {
+                        let path = STYLE.join(&[&dir, &name]);
+                        (stem(&name).to_owned(), path)
+                    })
+                })
+                .fold(HashMap::new(), |mut by_stem, (stem, path)| {
+                    by_stem.entry(stem).or_insert_with(Vec::new).push(path);
+                    by_stem
+                }),
+        )
+    }
+
+    fn paths(&self, id: &str) -> &[String] {
+        self.0.get(id).map_or(&[], Vec::as_slice)
+    }
+}
+
+/// The first of `paths` that holds an object with this `id`.
+fn find_info(paths: impl IntoIterator<Item = String>, id: &str) -> Option<JsObject> {
+    paths.into_iter().find_map(|path| {
+        read_object(&path).filter(|o| o.get("id").and_then(JsValue::as_str) == Some(id))
+    })
+}
+
+/// The session file for `id`, probing `<proj>/<id>.json` in every project dir.
+fn scan_info(data_dir: &str, id: &str) -> Option<JsObject> {
     let root = session_root(data_dir);
     let file = format!("{id}{JSON_EXT}");
-    let info = subdirs(&root).into_iter().find_map(|proj| {
-        let path = STYLE.join(&[&root, &proj, &file]);
-        if fs::metadata(&path).is_err() {
-            return None;
-        }
-        read_object(&path).filter(|o| o.get("id").and_then(JsValue::as_str) == Some(id))
-    })?;
+    let paths = subdirs(&root)
+        .into_iter()
+        .map(|proj| STYLE.join(&[&root, &proj, &file]));
+    find_info(paths, id)
+}
+
+/// The session from the tree, when a session file named after `id` holds
+/// that id. `index` answers exact names; the probe scan still runs on a miss,
+/// since a case-insensitive disk also matches other spellings.
+pub(super) fn load_from_tree(
+    data_dir: &str,
+    id: &str,
+    index: Option<&TreeIndex>,
+) -> Option<Session> {
+    let info = index
+        .and_then(|ix| find_info(ix.paths(id).iter().cloned(), id))
+        .or_else(|| scan_info(data_dir, id))?;
     let message_dir = STYLE.join(&[data_dir, "storage", "message", id]);
     let messages = sorted_json_names(&message_dir)
         .iter()
