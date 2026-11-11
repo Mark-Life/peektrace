@@ -110,4 +110,35 @@ mod tests {
             "\rscanning 3/3 transcripts…\r\x1b[2K"
         );
     }
+
+    #[test]
+    fn a_pass_inside_the_delay_prints_nothing() {
+        let (clock, out) = rig();
+        let (c, o) = (clock.clone(), out.clone());
+        let p = Progress::new(move || c.get(), move |s: &str| o.borrow_mut().push_str(s));
+        clock.set(100.0);
+        p.on_file(1, 2);
+        clock.set(200.0);
+        p.on_file(2, 2);
+        p.clear();
+        assert_eq!(out.borrow().as_str(), "");
+    }
+
+    #[test]
+    fn redraws_at_most_every_100ms_plus_the_final_count() {
+        let (clock, out) = rig();
+        let (c, o) = (clock.clone(), out.clone());
+        let p = Progress::new(move || c.get(), move |s: &str| o.borrow_mut().push_str(s));
+        for (at, done) in [(300.0, 1), (350.0, 2), (400.0, 1240), (410.0, 2240)] {
+            clock.set(at);
+            p.on_file(done, 2240);
+        }
+        assert_eq!(
+            out.borrow().as_str(),
+            "\rscanning 1/2,240 transcripts…\rscanning 1,240/2,240 transcripts…\rscanning 2,240/2,240 transcripts…"
+        );
+        p.clear();
+        p.clear();
+        assert!(out.borrow().ends_with("transcripts…\r\x1b[2K"));
+    }
 }
