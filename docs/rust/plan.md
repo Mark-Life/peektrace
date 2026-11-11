@@ -14,14 +14,15 @@ Work happens on a long-lived `rust` branch until the Rust version reaches parity
 | `apps/inspector` | ~21k lines React, 22-method RPC contract (`packages/rpc/src/contract.ts`) |
 | `apps/desktop` | Electrobun webview around the inspector |
 
-Spike numbers, macOS arm64, 702 Claude sessions (1.0 GB of main transcripts, warm page cache). TS is the compiled `peektrace` 0.12.0; Rust is the release build. Measured with `hyperfine` and `/usr/bin/time -l`.
+Spike numbers: Bun binary and Rust release binary, both built from the same commit. Command: `sessions ls --agent claude --json --limit 0`, warm page cache, median of 10 runs (`hyperfine -N`). Peak RSS is the median of 5 interleaved runs. Mac: M1 Max, 702 sessions, 1.0 GB. Linux: rs8000 (EPYC 9645), 424 sessions, 1.3 GB dir.
 
-| Item | TS | Rust |
-|---|---|---|
-| Binary, macOS arm64 | 71.4 MB | 0.9 MB |
-| Startup (`-v`) | 497 ms, 138 MB RSS | 2 ms, 2 MB RSS |
-| `sessions ls --agent claude --json --limit 0` | 2.06 s | 0.088 s |
-| Peak RSS for that listing | 1.6 GB | 32 MB |
+| Item | Bun, Mac | Rust, Mac | Bun, Linux | Rust, Linux |
+|---|---|---|---|---|
+| Binary, raw | 92.5 MiB | 1.0 MiB | 111.7 MiB | 1.2 MiB |
+| Binary, gzip -9 | 40.9 MiB | 0.5 MiB | 51.3 MiB | 0.6 MiB |
+| Startup (`--version`) | 129 ms | 2.1 ms | 395 ms | 2 ms |
+| `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
+| Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
 Parity: `bun scripts/rust/parity.ts` shows no differences for Claude sessions, on the fixtures and on the real corpus. It does not cover Codex, Pi or OpenCode, which have no Rust reader yet (see known differences).
 
