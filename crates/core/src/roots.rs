@@ -62,6 +62,8 @@ pub struct RootEntry {
 pub struct Source {
     pub id: String,
     pub label: String,
+    /// The agent's config dir for this root (`~/.claude` for the default).
+    pub home: String,
     pub projects_root: String,
 }
 
@@ -254,6 +256,7 @@ pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
     let default = Source {
         id: "claude".to_owned(),
         label: "default".to_owned(),
+        home: claude_home,
         projects_root: default_root,
     };
     extras.iter().fold(vec![default], |mut sources, entry| {
@@ -285,6 +288,7 @@ pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
         sources.push(Source {
             id: format!("claude:{label}"),
             label,
+            home,
             projects_root,
         });
         sources

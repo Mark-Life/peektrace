@@ -1,9 +1,14 @@
 //! Claude Code transcripts: discovery, line decoding and header folding.
 
+mod attachments;
+mod blocks;
+mod branches;
 mod discover;
 mod header;
 mod line;
+pub mod parse;
 mod read;
+mod records;
 
 use std::path::Path;
 
@@ -12,6 +17,7 @@ use tracing::{Span, debug, field, info_span};
 
 pub use discover::list_session_files;
 use header::FileMeta;
+pub use parse::{ParseArgs, parse_claude_session};
 use read::{Loaded, load_file};
 
 use crate::model::{Agent, SessionFileRef, SessionHeader, UnreadableSession};

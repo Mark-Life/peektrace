@@ -1,7 +1,7 @@
 //! Path strings with Node `path` semantics for the platform's style. Paths
 //! stay strings because they are output verbatim and compared as strings.
 
-mod posix;
+pub(crate) mod posix;
 mod win32;
 
 /// Which `node:path` flavour to follow.
