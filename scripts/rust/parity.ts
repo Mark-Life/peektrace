@@ -8,6 +8,7 @@
  *   bun scripts/rust/parity.ts --bin target/debug/peektrace
  *   bun scripts/rust/parity.ts --real-all      # every real session in the
  *                                              # analyze/export stages
+ *   bun scripts/rust/parity.ts --stats-only    # only the `stats` stage
  *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
@@ -20,6 +21,7 @@
  *   Only `--json` output is compared, row by row.
  * - `sessions analyze` and `sessions export` run after the `ls` suites; see
  *   `parity-analyze.ts` for their cases and normalisation.
+ * - `stats` runs last; see `parity-stats.ts`.
  */
 import {
   chmodSync,
@@ -55,6 +57,7 @@ import {
 } from "./parity-lib";
 import { runOpencodeStage } from "./parity-opencode";
 import { storeStamp } from "./parity-opencode-stamp";
+import { runStatsStage } from "./parity-stats";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
@@ -370,26 +373,30 @@ const main = async () => {
   rmSync(WORK, { recursive: true, force: true });
   mkdirSync(WORK, { recursive: true });
   const suites = fixtureSuites();
-  if (!flag("--real-only")) {
+  const statsOnly = flag("--stats-only");
+  if (!(flag("--real-only") || statsOnly)) {
     for (const suite of suites) {
       runSuite(suite);
     }
   }
   const realRoot = join(process.env.HOME ?? "", ".claude", "projects");
   const real = !flag("--fixtures-only") && existsSync(realRoot);
-  if (real) {
+  if (real && !statsOnly) {
     runReal();
   }
-  await runOpencodeStage({
-    fixtures: !flag("--real-only"),
-    real: !flag("--fixtures-only"),
-    realAll: flag("--real-all"),
-  });
-  await runAnalyzeStage({
-    fixtures: flag("--real-only") ? [] : suites,
-    real,
-    realAll: flag("--real-all"),
-  });
+  if (!statsOnly) {
+    await runOpencodeStage({
+      fixtures: !flag("--real-only"),
+      real: !flag("--fixtures-only"),
+      realAll: flag("--real-all"),
+    });
+    await runAnalyzeStage({
+      fixtures: flag("--real-only") ? [] : suites,
+      real,
+      realAll: flag("--real-all"),
+    });
+  }
+  runStatsStage({ fixtures: !flag("--real-only"), real });
   for (const path of locked.filter((p) => existsSync(p))) {
     chmodSync(path, READ_WRITE);
   }

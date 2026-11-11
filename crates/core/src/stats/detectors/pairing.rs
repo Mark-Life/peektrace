@@ -287,6 +287,9 @@ static SHELL_EDITS: [LazyRe; 5] = [
     js_re!(r"\btee\s+(?:-a\s+)?(?!\/dev\/|-)\S"),
 ];
 
+/// Substrings each `SHELL_EDITS` pattern needs, checked before the regex runs.
+const EDIT_GATES: [&[&str]; 5] = [&["-"], &["open("], &["write"], &["cat", ">"], &["tee"]];
+
 fn shell_line_of(f: &CallFact) -> Option<&str> {
     match &f.bash {
         Some(b) => Some(&b.cmd),
@@ -299,7 +302,12 @@ fn edits_file(f: &CallFact) -> bool {
     if FILE_EDIT_TOOLS.contains(&f.tool.as_str()) || f.bash.as_ref().is_some_and(|b| b.bin == "apply_patch") {
         return true;
     }
-    shell_line_of(f).is_some_and(|l| SHELL_EDITS.iter().any(|re| re.is_match(l)))
+    shell_line_of(f).is_some_and(|l| {
+        SHELL_EDITS
+            .iter()
+            .zip(EDIT_GATES)
+            .any(|(re, gate)| gate.iter().all(|g| l.contains(g)) && re.is_match(l))
+    })
 }
 
 #[derive(Clone, Copy)]
