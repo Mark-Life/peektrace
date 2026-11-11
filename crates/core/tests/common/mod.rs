@@ -547,3 +547,54 @@ pub fn facts_of(steps: &[Step], sid: &str) -> Vec<Fact> {
 pub fn calls(facts: &[Fact]) -> Vec<&CallFact> {
     facts.iter().filter_map(Fact::as_call).collect()
 }
+
+/// A fresh, canonical temp dir removed on drop. Tests never touch `$HOME`.
+pub struct TempDir(pub std::path::PathBuf);
+
+impl TempDir {
+    pub fn new(tag: &str) -> Self {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static N: AtomicUsize = AtomicUsize::new(0);
+        let n = N.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("peektrace-{tag}-{}-{n}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("temp dir");
+        Self(std::fs::canonicalize(&dir).expect("canonical temp dir"))
+    }
+
+    pub fn path(&self, rel: &str) -> String {
+        self.0.join(rel).to_string_lossy().into_owned()
+    }
+
+    /// Write `text` at `rel`, creating parent dirs.
+    pub fn write(&self, rel: &str, text: &str) -> String {
+        let p = self.0.join(rel);
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).expect("parent dir");
+        }
+        std::fs::write(&p, text).expect("write file");
+        p.to_string_lossy().into_owned()
+    }
+
+    pub fn mkdir(&self, rel: &str) -> String {
+        let p = self.0.join(rel);
+        std::fs::create_dir_all(&p).expect("mkdir");
+        p.to_string_lossy().into_owned()
+    }
+}
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// Set a file's mtime to `ms` since the epoch.
+pub fn set_mtime(path: &str, ms: u64) {
+    let t = std::time::UNIX_EPOCH + std::time::Duration::from_millis(ms);
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .and_then(|f| f.set_modified(t))
+        .expect("set mtime");
+}
