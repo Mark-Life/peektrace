@@ -26,7 +26,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 
 Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). For Claude sessions it also covers every `stats` command (report, drill, prompt, usage, refresh), on the fixtures and on the real corpus. `stats` does not scan Codex, Pi or OpenCode yet (see known differences).
 
-`stats` on the Mac corpus (7,172 transcripts): cold `stats refresh --force` takes 13.8 s in Rust and 23.4 s in TS. A warm report takes 4.3 s in Rust and 2.3 to 9.7 s in TS.
+`stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
 ## Target layout
 

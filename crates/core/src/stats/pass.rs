@@ -26,7 +26,7 @@ use crate::sessions::model::ParsedSession;
 use crate::sessions::resolve::read_text;
 
 /// Files whose facts are held in memory at once before they are folded.
-const CHUNK: usize = 64;
+const CHUNK: usize = 512;
 
 /// What a pass reads from the environment.
 pub struct PassEnv<'a> {

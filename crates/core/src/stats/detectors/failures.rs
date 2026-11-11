@@ -18,8 +18,11 @@ use crate::stats::schema::{CallFact, Fact, WriteExt};
 
 const PIPED_EXIT_CODE: &str = "piped-exit-code";
 
+/// The TS pattern opens with `(?<![\w./-])`; for a yes/no test that
+/// lookbehind changes nothing (a match inside a path run also matches from
+/// the run's start), so it is dropped to keep the scan linear.
 pub static LINT_RE: LazyRe =
-    js_re!(r"(?:(?<![\w./-])[\w./-]+:\d+:\d+\s+lint\/[a-z]+\/\w+|\bFound \d+ errors?\b)");
+    js_re!(r"(?:[\w./-]+:\d+:\d+\s+lint\/[a-z]+\/\w+|\bFound \d+ errors?\b)");
 
 struct Signature {
     id: &'static str,

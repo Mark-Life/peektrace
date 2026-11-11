@@ -101,8 +101,8 @@ static CURL_RETRY: LazyRe = js_re!(r"\bcurl\b[^\n]*--retry");
 pub fn wait_shape(cmd: &str) -> Option<WaitShape> {
     let text = strip_comments(&strip_heredoc_bodies(cmd));
     let st = mask_quoted(&text);
-    let shell_loop =
-        (LOOP_HEAD.is_match(&st) || FOR_HEAD.is_match(&st)) && !LIST_ITERATION.is_match(&st);
+    let loop_head = (st.contains("while") || st.contains("until")) && LOOP_HEAD.is_match(&st);
+    let shell_loop = (loop_head || FOR_HEAD.is_match(&st)) && !LIST_ITERATION.is_match(&st);
     let inline_loop =
         INTERPRETER.is_match(&st) && LOOP_ANY.is_match(&text) && LONG_INLINE_DELAY.is_match(&text);
     if (shell_loop && DELAY_ANYWHERE.is_match(&text)) || inline_loop {
