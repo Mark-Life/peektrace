@@ -5,6 +5,7 @@
 pub mod json;
 pub mod json_out;
 pub mod num;
+pub mod regex;
 pub mod text;
 pub mod time;
 pub mod units;
