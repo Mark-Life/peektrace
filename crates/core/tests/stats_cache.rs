@@ -184,7 +184,7 @@ fn one_usage_fact_per_parsed_turn() {
             _ => None,
         })
         .collect();
-    assert!(!parsed.turns.is_empty());
+    assert_ne!(parsed.turns.len(), 0);
     let want: Vec<&str> = parsed.turns.iter().map(|t| t.request_id.as_str()).collect();
     assert_eq!(reqs, want);
 }
@@ -197,7 +197,7 @@ fn only_tool_and_bash_rows_are_call_facts() {
         .iter()
         .filter(|f| matches!(f, Fact::Usage(_)))
         .collect();
-    assert!(!usage.is_empty());
+    assert_ne!(usage.len(), 0);
     assert!(usage.iter().all(|f| f.as_call().is_none()));
 }
 
