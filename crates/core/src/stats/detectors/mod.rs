@@ -11,3 +11,4 @@ pub mod clustering;
 pub mod corpus;
 pub mod pairing;
 pub mod retries;
+pub mod usage;

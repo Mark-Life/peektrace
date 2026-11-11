@@ -14,3 +14,6 @@ pub mod rule_dates;
 pub mod schema;
 pub mod shell_lex;
 pub mod walk;
+pub mod pass;
+pub mod service;
+pub mod usage_service;
