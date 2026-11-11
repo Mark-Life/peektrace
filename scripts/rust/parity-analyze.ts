@@ -9,8 +9,10 @@
  *   and `--latest` see Claude sessions only, as the Rust CLI does.
  * - `exportedAt` (JSON), the `Exported:` line (md) and `<dt>Exported</dt>`
  *   (html) are the only time-based values; their stamp is masked.
- * - A TS defect (an Effect stack on stdout, e.g. a `null` row) skips the case
- *   and is counted.
+ * - A TS defect (an Effect stack on stdout, e.g. a `null` row) skips the
+ *   comparison, but Rust must still exit 0 with clean, parseable output. In
+ *   fixture suites only the `KNOWN_DEFECTS` sessions may hit one, and each of
+ *   them must.
  * - Real corpus: a sample by default (newest, largest, with subagents, with
  *   compaction); `--real-all` runs every session. Cases whose transcript or
  *   subagent tree changed during the run are skipped as live.
@@ -24,7 +26,7 @@ import {
   rmSync,
   statSync,
 } from "node:fs";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { buildAnalyzeEdge, LOCKED } from "./parity-analyze-fixtures";
 import {
   compareRun,
@@ -46,6 +48,10 @@ const JSONL = /\.jsonl$/;
 const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
 const SUBAGENTS_PER_SESSION = 3;
 const SAMPLE = { newest: 30, largest: 10, subagents: 20, compaction: 10 };
+/** Fixture sessions the TS CLI fails on; see "Known differences" in the plan. */
+const KNOWN_DEFECTS = new Set(["nonobj", "nullrow"]);
+const REAL = "real";
+const STDERR_SHOWN = 200;
 
 interface Case {
   readonly args: readonly string[];
@@ -60,6 +66,41 @@ interface Row {
 }
 
 const stats = { cases: 0, defects: 0, live: 0 };
+const defectsSeen = new Set<string>();
+
+const isJsonOut = (args: readonly string[]) =>
+  args.includes("--json") ||
+  args.some((a, i) => a === "--format" && args[i + 1] === "json");
+
+/** The known-defect session a case targets, by id or transcript path. */
+const knownDefect = (args: readonly string[]) =>
+  args.map((a) => basename(a, ".jsonl")).find((a) => KNOWN_DEFECTS.has(a));
+
+/** TS failed, so there is nothing to compare: Rust must still succeed. */
+const checkDefect = (suite: string, label: string, c: Case, rust: Run) => {
+  stats.defects += 1;
+  const known = knownDefect(c.args);
+  if (known) {
+    defectsSeen.add(known);
+  } else if (suite !== REAL) {
+    report(`${label}: unexpected TS defect`);
+  }
+  if (rust.code !== 0 || rust.stderr !== "") {
+    report(
+      `${label}: on TS defect rust exit=${rust.code} stderr=${JSON.stringify(rust.stderr.slice(0, STDERR_SHOWN))}`
+    );
+  }
+  if (rust.stdout === "" || DEFECT.test(rust.stdout)) {
+    report(`${label}: on TS defect rust stdout is empty or a defect`);
+  }
+  if (isJsonOut(c.args)) {
+    try {
+      JSON.parse(rust.stdout);
+    } catch {
+      report(`${label}: on TS defect rust --json output does not parse`);
+    }
+  }
+};
 
 /** Mask the export stamp on the lines that carry it. */
 const mask = (text: string) =>
@@ -147,7 +188,7 @@ const runCase = async (
   }
   stats.cases += 1;
   if (DEFECT.test(ts.stdout)) {
-    stats.defects += 1;
+    checkDefect(suite, label, c, rust);
     return;
   }
   if (live?.()) {
@@ -430,6 +471,11 @@ export const runAnalyzeStage = async (args: {
         },
         true
       );
+      for (const name of KNOWN_DEFECTS) {
+        if (!defectsSeen.has(name)) {
+          report(`known TS defect ${name} no longer fails: compare it`);
+        }
+      }
     } finally {
       for (const rel of LOCKED) {
         chmodSync(join(home, rel), READ_WRITE);

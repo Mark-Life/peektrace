@@ -583,3 +583,39 @@ fn unread_agents_are_named_when_they_have_sessions() {
         "Session \"zzz\" not found (searched claude only; codex not supported yet).\n"
     );
 }
+
+/// TS fails on these rows; Rust skips the `null` line and reads non-array
+/// assistant content as no events.
+#[test]
+fn null_rows_and_non_array_content_are_skipped() {
+    let f = Fixture::new();
+    let msg = |ts: u8, req: &str, content: &str| {
+        format!(
+            r#"{{"type":"assistant","timestamp":"2026-01-01T10:00:0{ts}.000Z","requestId":"{req}","message":{{"model":"claude-opus-5-5","content":{content}}}}}"#
+        )
+    };
+    let body = [
+        r#"{"type":"user","timestamp":"2026-01-01T10:00:00.000Z","message":{"content":"x"}}"#
+            .to_owned(),
+        "null".to_owned(),
+        msg(1, "r1", "7"),
+        msg(2, "r2", "true"),
+        msg(3, "r3", r#"{"type":"text","text":"obj"}"#),
+        msg(4, "r4", r#"[{"type":"text","text":"y"}]"#),
+    ]
+    .join("\n");
+    fs::write(f.home.join(".claude/projects/-tmp-proj/odd.jsonl"), body).expect("write");
+
+    let (code, out, err) = f.run(&["sessions", "analyze", "odd", "--json"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert!(out.contains("\"sessionId\": \"odd\""), "{out}");
+
+    let (code, out, err) = f.run(&["sessions", "export", "odd", "--format", "md"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    let (_, timeline) = out.split_once("## Timeline\n\n").expect("timeline");
+    assert_eq!(
+        timeline,
+        "### 1. User (2026-01-01T10:00:00.000Z)\n\nx\n\n\
+         ### 2. Assistant (2026-01-01T10:00:04.000Z)\n\ny\n"
+    );
+}
