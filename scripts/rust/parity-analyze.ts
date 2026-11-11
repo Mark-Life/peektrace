@@ -6,7 +6,8 @@
  *
  * Normalisation:
  * - The OpenCode root points at an empty dir, so TS prefix lookups and
- *   `--latest` see the agents the Rust CLI reads.
+ *   `--latest` see the same sessions as the Rust CLI. `parity-opencode.ts`
+ *   runs the OpenCode cases.
  * - `exportedAt` (JSON), the `Exported:` line (md) and `<dt>Exported</dt>`
  *   (html) are the only time-based values; their stamp is masked.
  * - A TS defect (an Effect stack on stdout, e.g. a `null` row) skips the
@@ -39,6 +40,7 @@ import {
 import { buildAnalyzeEdge, LOCKED } from "./parity-analyze-fixtures";
 import {
   compareRun,
+  DEFECT,
   firstLineDiff,
   fixtureEnv,
   pool,
@@ -52,7 +54,6 @@ import {
 } from "./parity-lib";
 
 const READ_WRITE = 0o644;
-const DEFECT = /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#/;
 const JSONL = /\.jsonl$/;
 const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
 const SAMPLE = { newest: 30, largest: 10, subagents: 20, compaction: 10 };
@@ -63,6 +64,7 @@ const KNOWN_DEFECTS = new Set([
   "nullrow",
   "rollout-nullrow",
   "pi-nullrow",
+  "ses_far",
 ]);
 const REAL = "real";
 const STDERR_SHOWN = 200;
@@ -167,7 +169,7 @@ const readOut = (path: string) => {
 };
 
 /** Run one case on both CLIs and compare; `live` skips a changed session. */
-const runCase = async (
+export const runCase = async (
   suite: string,
   env: Record<string, string>,
   c: Case,

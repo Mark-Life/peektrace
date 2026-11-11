@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex and Pi sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It does not cover OpenCode, which has no Rust reader yet (see known differences).
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`).
 
 ## Target layout
 
@@ -67,15 +67,14 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Non-ISO timestamps (`2026/01/07 10:00:00`, `2026-01-31 10:00:00`, `Jan 31 2026`) | `Date.parse` reads them as local time | not parsed: the row sorts last and `--since` drops it. Claude Code writes ISO with `Z`. |
 | `--pretty` widths | `Bun.stringWidth` | same per char and for Lam-Alef. A few sequences still differ, e.g. a keycap with no VS16 (`#⃣`) or a prepend mark before an emoji. |
 | `--otel` `Sessions.list` `malformedLines` and root `cli` `sessions.unreadable` with `--project` | count every Claude transcript | count only the kept project. The stderr note on unreadable sessions matches. |
-| OpenCode sessions | listed | no reader yet. `--agent opencode` exits 1 with `not supported yet`. Without `--agent`, Claude, Codex and Pi rows, plus a note on stderr. |
-| `sessions analyze` / `export` with `--latest`, `--cwd` or an id prefix | pick among every agent's sessions; a prefix must be unique across all of them | pick among Claude, Codex and Pi sessions. When the OpenCode root holds files, stderr says `opencode sessions are not searched: not supported yet`. |
-| `sessions analyze` / `export` with an OpenCode id | analyzed | exit 1 with `Session "<id>" not found (searched claude, codex, pi; opencode not supported yet).` When the OpenCode root is empty, the TS text `(searched all agents)` is kept. |
 | A `null` line in a Claude, Codex or Pi transcript, or Claude assistant `content` that is a number, boolean or object | `analyze` / `export` fail with an Effect error on stdout | the `null` line is skipped and keeps its row index; the content yields no events |
 | A symlink loop under the Codex sessions root | each pass round the loop lists the same rollouts again under a longer path, until the OS fails the path | a dir already on the walk's path is not entered again, so each rollout is listed once per real path |
 | Tie order by id (same `updatedAt`) for non-ASCII ids | ICU `localeCompare` | ASCII in CLDR root order, other chars after ASCII by code point. Session ids are ASCII in practice. |
-| Two roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once |
+| Two Claude, Codex or Pi roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once. OpenCode roots follow TS. |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |
 | `CLAUDE_CONFIG_DIR` on Windows | split on `:`, so `C:\x` becomes `C` | split on `;`, as `path.delimiter` |
+| OpenCode store locked by a writer (rollback-journal DB under `BEGIN EXCLUSIVE`) | that DB is skipped at once (busy timeout 0) | waits up to 1 s for the lock, then skips the DB. WAL stores, which OpenCode uses, read the last commit in both. |
+| OpenCode time above 8.64e15 ms | `ls` and `analyze` fail with an Effect `RangeError` on stdout | the time reads as no date: `startedAt`, `ts` and `endedAt` are left out, and `updatedAt` prints `1970-01-01T00:00:00.000Z` |
 
 ## Risks
 

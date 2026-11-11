@@ -16,6 +16,7 @@
  * - Without `--agent` the Rust CLI names on stderr the agents it has no
  *   reader for (SKIPPED_NOTE); that line is dropped before comparing. The
  *   fixture HOMEs hold no sessions of those agents.
+ * - OpenCode suites run after the `ls` suites; see `parity-opencode.ts`.
  * - Real corpus: sessions written to during the run (size or mtime changed
  *   between the first and last stat) are left out of the comparison and
  *   counted as "live". Only `--json` output is compared, row by row.
@@ -50,15 +51,16 @@ import {
   report,
   run,
   rustBin,
+  SKIPPED_NOTE,
   type Suite,
   TS_CMD,
   WORK,
 } from "./parity-lib";
+import { runOpencodeStage } from "./parity-opencode";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
 const READ_WRITE = 0o644;
-const SKIPPED_NOTE = /^[a-z, ]+ sessions are not listed: not supported yet\n/m;
 const AGENTS = ["claude", "codex", "pi"] as const;
 /** Files the edge trees make unreadable; restored at the end. */
 const locked: string[] = [];
@@ -374,6 +376,10 @@ const main = async () => {
   if (real) {
     runReal();
   }
+  await runOpencodeStage({
+    fixtures: !flag("--real-only"),
+    real: !flag("--fixtures-only"),
+  });
   await runAnalyzeStage({
     fixtures: flag("--real-only") ? [] : suites,
     real,

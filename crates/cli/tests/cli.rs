@@ -82,6 +82,17 @@ fn empty_results() {
     );
 }
 
+#[test]
+fn opencode_with_no_sessions_lists_none() {
+    let f = Fixture::new();
+    let (code, out, err) = f.run(&["sessions", "ls", "--agent", "opencode"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert_eq!(
+        out,
+        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
+    );
+}
+
 /// Node decodes `argv` lossily, so a non-UTF-8 path still runs.
 #[cfg(unix)]
 #[test]
