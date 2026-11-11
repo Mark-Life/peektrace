@@ -226,6 +226,26 @@ fn costs_follow_the_agent_figure_else_estimate() {
 }
 
 #[test]
+fn unrecorded_cost_bills_reasoning_at_the_output_rate() {
+    let dir = temp_dir("oc");
+    let data = path_str(&dir);
+    cost_db(&dir, 0.0, &[Some(0.0)]);
+    let a = analyze_session(
+        SessionEnv {
+            roots: &opencode_roots(&data),
+            unsearched: &[],
+            local: &Utc,
+        },
+        Target::Lookup("ses_x"),
+        None,
+        false,
+    )
+    .expect("analyze");
+    let turn = a.parsed.turns[0].cost_usd.unwrap_or_default();
+    assert!((turn - EST).abs() < 1e-12);
+}
+
+#[test]
 fn wal_store_reads_the_last_commit_while_a_writer_is_open() {
     let dir = temp_dir("oc");
     let data = path_str(&dir);

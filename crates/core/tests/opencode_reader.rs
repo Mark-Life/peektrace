@@ -99,11 +99,7 @@ fn opencode_is_a_readable_agent_with_a_root() {
         home: "/home/u".to_owned(),
         ..RootsEnv::default()
     };
-    assert!(
-        !sources(Agent::Opencode, &env, &[])[0]
-            .projects_root
-            .is_empty()
-    );
+    assert_ne!(sources(Agent::Opencode, &env, &[])[0].projects_root, "");
 }
 
 #[test]
