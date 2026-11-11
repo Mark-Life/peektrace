@@ -11,8 +11,8 @@ use rayon::prelude::*;
 use tracing::{Span, debug, field, info_span};
 
 pub use discover::list_session_files;
-pub use header::{FileMeta, HeaderAcc, build_header};
-pub use read::{FileStamp, Loaded, load_file, read_transcript, stat_stamp};
+use header::FileMeta;
+use read::{Loaded, load_file, stat_stamp};
 
 use crate::model::{Agent, SessionFileRef, SessionHeader, UnreadableSession};
 use crate::paths;

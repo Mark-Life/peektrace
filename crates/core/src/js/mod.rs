@@ -3,4 +3,4 @@
 
 pub mod num;
 pub mod text;
-pub mod time;
+pub(crate) mod time;

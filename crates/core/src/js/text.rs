@@ -51,7 +51,7 @@ pub fn is_blank(line: &[u8]) -> bool {
 const STAND_IN_BASE: u32 = 0x10_F800;
 
 /// The stand-in char for an unpaired surrogate `unit`.
-pub fn surrogate_stand_in(unit: u16) -> Option<char> {
+pub(crate) fn surrogate_stand_in(unit: u16) -> Option<char> {
     (0xD800..0xE000)
         .contains(&unit)
         .then(|| char::from_u32(STAND_IN_BASE + u32::from(unit - 0xD800)))
@@ -67,7 +67,7 @@ pub fn stand_in_surrogate(c: char) -> Option<u16> {
 }
 
 /// Default `Array.prototype.sort` order: UTF-16 code units.
-pub fn cmp_utf16(a: &str, b: &str) -> Ordering {
+pub(crate) fn cmp_utf16(a: &str, b: &str) -> Ordering {
     a.encode_utf16().cmp(b.encode_utf16())
 }
 
@@ -98,7 +98,7 @@ fn collation_key(c: char) -> Option<(u32, u8)> {
 /// reach it (ties on `updatedAt`). ASCII follows the CLDR root order
 /// (punctuation, digits, then letters with lowercase first); other chars
 /// sort after ASCII by code point. ICU's full collation is not reproduced.
-pub fn locale_compare(a: &str, b: &str) -> Ordering {
+pub(crate) fn locale_compare(a: &str, b: &str) -> Ordering {
     let keys = |s: &str| s.chars().filter_map(collation_key).collect::<Vec<_>>();
     let (ka, kb) = (keys(a), keys(b));
     let primary = |k: &[(u32, u8)]| k.iter().map(|&(p, _)| p).collect::<Vec<_>>();

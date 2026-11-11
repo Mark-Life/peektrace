@@ -345,13 +345,19 @@ fn estimate_cost(t: &CostTokens, r: &ModelPrice) -> f64 {
         / 1e6
 }
 
-/// USD for one model call, `None` when the model is unpriced. The long tier
-/// applies to the whole call when its prompt exceeds the card's threshold.
-pub fn turn_cost(model: &str, t: &CostTokens) -> Option<f64> {
+/// The rate card for `model_id`, `None` when it is unpriced.
+pub fn card_for(model_id: &str) -> Option<PriceCard> {
+    price_for(model_id).map(|(_, card)| card)
+}
+
+/// USD for one model call at `card` (from [`card_for`]), `None` when the
+/// model is unpriced. The long tier applies to the whole call when its prompt
+/// exceeds the card's threshold.
+pub fn turn_cost(card: Option<&PriceCard>, t: &CostTokens) -> Option<f64> {
     if t.input == 0.0 && t.output == 0.0 && t.cache_read == 0.0 && t.cache_creation == 0.0 {
         return Some(0.0);
     }
-    let (_, card) = price_for(model)?;
+    let card = card?;
     let prompt = t.input + t.cache_read + t.cache_creation;
     let rates = match card.long {
         Some((over, long)) if prompt > over => long,
@@ -401,9 +407,10 @@ mod tests {
             cache_creation: 3000.0,
             cache_creation_1h: Some(1000.0),
         };
-        assert_eq!(turn_cost("claude-opus-5-5", &t), Some(0.0234));
-        assert_eq!(turn_cost("mystery", &t), None);
-        assert_eq!(turn_cost("mystery", &CostTokens::default()), Some(0.0));
+        let opus = card_for("claude-opus-5-5");
+        assert_eq!(turn_cost(opus.as_ref(), &t), Some(0.0234));
+        assert_eq!(turn_cost(card_for("mystery").as_ref(), &t), None);
+        assert_eq!(turn_cost(None, &CostTokens::default()), Some(0.0));
     }
 
     #[test]
@@ -412,7 +419,7 @@ mod tests {
             input: 100_001.0,
             ..CostTokens::default()
         };
-        let cost = turn_cost("claude-haiku-5-5", &t).unwrap_or_default();
+        let cost = turn_cost(card_for("claude-haiku-5-5").as_ref(), &t).unwrap_or_default();
         assert!((cost - 100_001.0 * 0.5 / 1e6).abs() < 1e-12);
     }
 }

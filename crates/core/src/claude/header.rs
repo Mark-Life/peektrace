@@ -1,12 +1,12 @@
 //! Fold Claude JSONL lines into a session header: timestamps, cwd, branch,
 //! model, title, message count and estimated cost. No timeline is built.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use super::line::{Line, Usage, parse_line, replace_lone_surrogates};
 use crate::js::{text, time};
 use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
-use crate::pricing::{CostTokens, turn_cost};
+use crate::pricing::{CostTokens, card_for, turn_cost};
 
 /// Model id Claude Code writes on harness-made messages.
 const SYNTHETIC_MODEL: &str = "<synthetic>";
@@ -25,7 +25,8 @@ pub struct FileMeta {
 /// One priced model call, folded over the lines that share its request id.
 #[derive(Debug, Clone, PartialEq)]
 struct Turn {
-    model: String,
+    /// Index into `HeaderAcc::models`.
+    model: usize,
     tokens: CostTokens,
 }
 
@@ -39,10 +40,12 @@ pub struct HeaderAcc {
     model: Option<String>,
     title: Option<String>,
     users: u64,
-    request_ids: HashSet<String>,
+    /// Each request id seen, with the index of its priced turn if it has one.
+    requests: HashMap<String, Option<usize>>,
     line_keyed: u64,
     turns: Vec<Turn>,
-    turn_by_request: HashMap<String, usize>,
+    /// Distinct turn models, first seen first.
+    models: Vec<String>,
     bad: u64,
     last_bad: bool,
 }
@@ -136,34 +139,47 @@ impl HeaderAcc {
     /// and fold its usage into that request's turn.
     fn apply_assistant(&mut self, o: &Line<'_>) {
         let request = o.request_id.get();
-        match request {
-            Some(id) if !self.request_ids.contains(id) => {
-                self.request_ids.insert(id.to_owned());
+        let turn_at = if let Some(id) = request {
+            if let Some(at) = self.requests.get(id) {
+                *at
+            } else {
+                self.requests.insert(id.to_owned(), None);
+                None
             }
-            Some(_) => {}
-            None => self.line_keyed += 1,
-        }
+        } else {
+            self.line_keyed += 1;
+            None
+        };
         let usage = &o.message.usage;
         if !usage.is_object {
             return;
         }
-        let model = o.message.model.get().unwrap_or("unknown");
-        if let Some(&at) = request.and_then(|id| self.turn_by_request.get(id)) {
+        if let Some(at) = turn_at {
             let turn = &mut self.turns[at];
             turn.tokens.output = turn.tokens.output.max(usage.output_tokens.0.unwrap_or(0.0));
             return;
         }
+        let model = o.message.model.get().unwrap_or("unknown");
         let tokens = call_tokens(usage);
         let context = tokens.input + tokens.cache_read + tokens.cache_creation;
         if context > 0.0 && model != SYNTHETIC_MODEL {
-            if let Some(id) = request {
-                self.turn_by_request.insert(id.to_owned(), self.turns.len());
+            if let Some(slot) = request.and_then(|id| self.requests.get_mut(id)) {
+                *slot = Some(self.turns.len());
             }
-            self.turns.push(Turn {
-                model: model.to_owned(),
-                tokens,
-            });
+            let model = self.model_index(model);
+            self.turns.push(Turn { model, tokens });
         }
+    }
+
+    /// Index of `model` in `models`, adding it when new.
+    fn model_index(&mut self, model: &str) -> usize {
+        self.models
+            .iter()
+            .position(|m| m == model)
+            .unwrap_or_else(|| {
+                self.models.push(model.to_owned());
+                self.models.len() - 1
+            })
     }
 
     /// Bad lines, not counting a bad last line (a live session mid-write).
@@ -175,16 +191,19 @@ impl HeaderAcc {
         }
     }
 
-    /// Sum priced turns in first-seen order; name the unpriced models.
+    /// Sum priced turns in first-seen order; name the unpriced models. Each
+    /// distinct model resolves to its card once.
     fn cost(&self) -> (Option<f64>, Option<Vec<String>>) {
+        let cards: Vec<_> = self.models.iter().map(|m| card_for(m)).collect();
         let (usd, mut unpriced) = self.turns.iter().fold(
             (None::<f64>, Vec::<&str>::new()),
             |(usd, mut unpriced), t| {
-                if let Some(c) = turn_cost(&t.model, &t.tokens) {
+                if let Some(c) = turn_cost(cards[t.model].as_ref(), &t.tokens) {
                     return (Some(usd.unwrap_or(0.0) + c), unpriced);
                 }
-                if !unpriced.contains(&t.model.as_str()) {
-                    unpriced.push(&t.model);
+                let model = self.models[t.model].as_str();
+                if !unpriced.contains(&model) {
+                    unpriced.push(model);
                 }
                 (usd, unpriced)
             },
@@ -205,7 +224,7 @@ impl HeaderAcc {
             agent: Agent::Claude,
             path: meta.path,
             project: meta.slug,
-            message_count: self.users + self.request_ids.len() as u64 + self.line_keyed,
+            message_count: self.users + self.requests.len() as u64 + self.line_keyed,
             size_bytes: meta.size_bytes,
             updated_at: self
                 .updated_at
@@ -229,7 +248,8 @@ fn is_not_user_written(o: &Line<'_>) -> bool {
 }
 
 /// Build a header from a whole transcript's text.
-pub fn build_header(text: &str, meta: FileMeta) -> SessionHeader {
+#[cfg(test)]
+fn build_header(text: &str, meta: FileMeta) -> SessionHeader {
     let text = text.strip_prefix('\u{FEFF}').unwrap_or(text);
     let mut acc = HeaderAcc::default();
     text.split('\n').for_each(|line| acc.push_line(line));
@@ -297,6 +317,30 @@ mod tests {
         );
         assert_eq!(h.message_count, 2);
         assert_eq!(h.malformed_lines, None);
+    }
+
+    #[test]
+    fn request_seen_before_its_usage() {
+        let text = [
+            r#"{"type":"assistant","requestId":"r1","message":{"model":"claude-opus-5-5"}}"#,
+            r#"{"type":"assistant","requestId":"r1","message":{"model":"claude-opus-5-5","usage":{"input_tokens":1000,"output_tokens":10}}}"#,
+            r#"{"type":"assistant","requestId":"r1","message":{"model":"claude-opus-5-5","usage":{"input_tokens":1000,"output_tokens":50}}}"#,
+            r#"{"type":"assistant","requestId":"r2","message":{"model":"mystery","usage":{"input_tokens":1}}}"#,
+            r#"{"type":"assistant","requestId":"r3","message":{"model":"mystery","usage":{"input_tokens":1}}}"#,
+        ]
+        .join("\n");
+        let h = build_header(&text, meta());
+        assert_eq!(h.message_count, 3);
+        let one_turn = turn_cost(
+            card_for("claude-opus-5-5").as_ref(),
+            &CostTokens {
+                input: 1000.0,
+                output: 50.0,
+                ..CostTokens::default()
+            },
+        );
+        assert_eq!(h.cost_usd, one_turn);
+        assert_eq!(h.unpriced_models, Some(vec!["mystery".to_owned()]));
     }
 
     #[test]

@@ -10,12 +10,12 @@ use crate::paths;
 const MAX_DATE_MS: f64 = 8.64e15;
 
 /// `updatedAt` as epoch ms, or `None` when it does not parse.
-pub fn time_of(h: &SessionHeader) -> Option<i64> {
+fn time_of(h: &SessionHeader) -> Option<i64> {
     time::parse_date(&h.updated_at)
 }
 
 /// Newest first; rows with no parseable time last; ties broken by id.
-pub fn by_updated_desc(a: &SessionHeader, b: &SessionHeader) -> Ordering {
+fn by_updated_desc(a: &SessionHeader, b: &SessionHeader) -> Ordering {
     match (time_of(a), time_of(b)) {
         (ta, tb) if ta == tb => text::locale_compare(a.id.as_str(), b.id.as_str()),
         (None, _) => Ordering::Greater,
@@ -137,7 +137,7 @@ fn is_windows_path(p: &str) -> bool {
 
 /// True when `have` is `want` or inside it. Both `/` and `\` separate;
 /// Windows paths compare case-insensitively.
-pub fn matches_cwd(have: Option<&str>, want: &str) -> bool {
+fn matches_cwd(have: Option<&str>, want: &str) -> bool {
     let Some(have) = have else {
         return false;
     };

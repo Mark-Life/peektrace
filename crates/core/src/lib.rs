@@ -1,12 +1,12 @@
 //! peektrace core: find coding-agent sessions on disk, fold each transcript
 //! into a list header, and select the rows `sessions ls` shows.
 
-pub mod claude;
+mod claude;
 pub mod js;
 pub mod listing;
 pub mod model;
-pub mod paths;
-pub mod pricing;
+mod paths;
+mod pricing;
 pub mod roots;
 pub mod select;
 

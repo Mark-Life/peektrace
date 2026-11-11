@@ -148,7 +148,7 @@ fn zone(c: &mut Cursor<'_>) -> Option<i64> {
 /// `None` stands for NaN. A date-time with no offset is local time in JS;
 /// here it is read as UTC. Non-ISO strings, which JS hands to a lenient
 /// legacy parser, are `None`.
-pub fn parse_date(s: &str) -> Option<i64> {
+pub(crate) fn parse_date(s: &str) -> Option<i64> {
     let mut c = Cursor {
         s: s.as_bytes(),
         at: 0,
@@ -179,7 +179,7 @@ pub fn parse_date(s: &str) -> Option<i64> {
 }
 
 /// `new Date(ms).toISOString()`.
-pub fn to_iso_string(ms: i64) -> String {
+pub(crate) fn to_iso_string(ms: i64) -> String {
     let days = ms.div_euclid(MS_PER_DAY);
     let rem = ms.rem_euclid(MS_PER_DAY);
     let (year, month, day) = civil_from_days(days);
