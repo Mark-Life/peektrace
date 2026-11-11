@@ -70,6 +70,10 @@ fn claude_fixture_costs_and_counts() {
     );
     let h = &listing.headers;
     assert_eq!(h.len(), 7);
+    assert!(
+        h.iter()
+            .all(|row| row.project.as_str() == "sessions-claude")
+    );
     let cases = [
         ("thinking-tokens", 4, Some(0.039_082)),
         ("server-tools", 2, Some(0.016_64)),

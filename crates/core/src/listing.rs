@@ -60,20 +60,8 @@ fn to_listing(outcomes: Vec<Outcome>) -> SessionListing {
         })
 }
 
-/// Keep rows of `project` (unreadable rows with no project too).
-fn filter_project(mut listing: SessionListing, project: Option<&str>) -> SessionListing {
-    if let Some(p) = project.filter(|p| !p.is_empty()) {
-        listing.headers.retain(|h| h.project.as_str() == p);
-        listing
-            .unreadable
-            .retain(|u| u.project == p || u.project.is_empty());
-    }
-    listing
-}
-
-/// Headers for every agent (or the filtered one), then the project filter.
-/// Agents with no reader are listed in `skipped`.
-/// `malformedLines` on the span counts only the rows `--project` keeps.
+/// Headers for every agent (or the filtered one), only from the `project`
+/// slug when one is set. Agents with no reader are listed in `skipped`.
 pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing {
     let span = info_span!(
         "Sessions.list",
@@ -102,5 +90,5 @@ pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing 
         .filter_map(|h| h.malformed_lines)
         .sum();
     span.record("malformedLines", malformed);
-    filter_project(listing, filter.project.as_deref())
+    listing
 }
