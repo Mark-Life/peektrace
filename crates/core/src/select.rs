@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use crate::js::time::{self, LocalZone, Utc};
 use crate::js::{num, text};
 use crate::model::SessionHeader;
-use crate::paths;
+use crate::paths::PathStyle;
 
 const MAX_DATE_MS: f64 = 8.64e15;
 
@@ -124,19 +124,23 @@ fn strip_separators(path: &str) -> &str {
     if s.is_empty() { "/" } else { s }
 }
 
-/// True when resolving `input` as `--cwd` reads the working directory.
-pub fn needs_base_dir(input: &str) -> bool {
-    !(input == "~" || input.starts_with("~/") || input.starts_with('/'))
-}
-
-/// Resolve a `--cwd` argument against `cwd`, expanding a leading `~`.
-pub fn resolve_cwd(input: &str, home: &str, cwd: &str) -> String {
-    let expanded = if input == "~" || input.starts_with("~/") {
+/// `--cwd` with a leading `~` or `~/` expanded against `home`.
+fn expand_tilde(input: &str, home: &str) -> String {
+    if input == "~" || input.starts_with("~/") {
         format!("{home}{}", &input[1..])
     } else {
         input.to_owned()
-    };
-    strip_separators(&paths::resolve(cwd, &expanded)).to_owned()
+    }
+}
+
+/// True when resolving `input` as `--cwd` reads the working directory.
+pub fn needs_base_dir(input: &str, home: &str, style: PathStyle) -> bool {
+    !style.ignores_cwd(&expand_tilde(input, home))
+}
+
+/// Resolve a `--cwd` argument against `cwd`, expanding a leading `~`.
+pub fn resolve_cwd(input: &str, home: &str, cwd: &str, style: PathStyle) -> String {
+    strip_separators(&style.resolve(cwd, &expand_tilde(input, home))).to_owned()
 }
 
 fn is_windows_path(p: &str) -> bool {
@@ -330,9 +334,18 @@ mod tests {
 
     #[test]
     fn cwd_resolution_and_match() {
-        assert_eq!(resolve_cwd("~/x/", "/home/u", "/w"), "/home/u/x");
-        assert_eq!(resolve_cwd("a/../b", "/home/u", "/w"), "/w/b");
-        assert_eq!(resolve_cwd("/", "/home/u", "/w"), "/");
+        let posix = |input| resolve_cwd(input, "/home/u", "/w", PathStyle::Posix);
+        assert_eq!(posix("~/x/"), "/home/u/x");
+        assert_eq!(posix("a/../b"), "/w/b");
+        assert_eq!(posix("/"), "/");
+        let win = |input| resolve_cwd(input, "C:\\Users\\u", "C:\\Users\\u\\w", PathStyle::Windows);
+        assert_eq!(win("C:\\proj"), "C:\\proj");
+        assert_eq!(win("~/x"), "C:\\Users\\u\\x");
+        assert_eq!(win("sub\\..\\a"), "C:\\Users\\u\\w\\a");
+        assert!(matches_cwd(Some("C:\\proj\\x"), &win("c:/proj/")));
+        assert!(!needs_base_dir("~", "C:\\Users\\u", PathStyle::Windows));
+        assert!(needs_base_dir("\\x", "C:\\Users\\u", PathStyle::Windows));
+        assert!(!needs_base_dir("/x", "/h", PathStyle::Posix));
         assert!(matches_cwd(Some("/a/b/"), "/a/b"));
         assert!(matches_cwd(Some("/a/b/c"), "/a/b"));
         assert!(!matches_cwd(Some("/a/bc"), "/a/b"));

@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::js::text;
 use crate::model::Agent;
-use crate::paths;
+use crate::paths::PathStyle;
 
 /// The environment inputs root resolution reads.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -18,16 +18,19 @@ pub struct RootsEnv {
     pub claude_projects: Option<String>,
     /// `PEEKTRACE_DIR`: where `settings.json` lives.
     pub peektrace_dir: Option<String>,
+    /// How paths join on this platform.
+    pub style: PathStyle,
 }
 
 impl RootsEnv {
     /// Read the variables through `var`, so tests need no process env.
-    pub fn from_vars(home: String, var: impl Fn(&str) -> Option<String>) -> Self {
+    pub fn from_vars(home: String, style: PathStyle, var: impl Fn(&str) -> Option<String>) -> Self {
         Self {
             home,
             claude_config_dir: var("CLAUDE_CONFIG_DIR"),
             claude_projects: var("PEEKTRACE_CLAUDE_PROJECTS"),
             peektrace_dir: var("PEEKTRACE_DIR"),
+            style,
         }
     }
 
@@ -36,8 +39,8 @@ impl RootsEnv {
         let dir = self
             .peektrace_dir
             .clone()
-            .unwrap_or_else(|| paths::join(&[&self.home, ".peektrace"]));
-        paths::join(&[&dir, "settings.json"])
+            .unwrap_or_else(|| self.style.join(&[&self.home, ".peektrace"]));
+        self.style.join(&[&dir, "settings.json"])
     }
 }
 
@@ -139,13 +142,13 @@ fn first_dir(value: Option<&str>) -> Option<&str> {
     value?.split(':').map(text::trim).find(|p| !p.is_empty())
 }
 
-/// Expand a leading `~` or `~/` against `home`.
-fn expand_home(path: &str, home: &str) -> String {
+/// Expand a leading `~` or `~/` against `home`. `~\\` stays as is, as in TS.
+fn expand_home(path: &str, home: &str, style: PathStyle) -> String {
     if path == "~" {
         return home.to_owned();
     }
     path.strip_prefix("~/")
-        .map_or_else(|| path.to_owned(), |rest| paths::join(&[home, rest]))
+        .map_or_else(|| path.to_owned(), |rest| style.join(&[home, rest]))
 }
 
 /// Every Claude root to scan: the default first, then each configured extra,
@@ -153,28 +156,28 @@ fn expand_home(path: &str, home: &str) -> String {
 /// label.
 pub fn claude_sources(env: &RootsEnv, extras: &[RootEntry]) -> Vec<Source> {
     let claude_home = first_dir(env.claude_config_dir.as_deref())
-        .map_or_else(|| paths::join(&[&env.home, ".claude"]), str::to_owned);
+        .map_or_else(|| env.style.join(&[&env.home, ".claude"]), str::to_owned);
     let default_root = env
         .claude_projects
         .clone()
-        .unwrap_or_else(|| paths::join(&[&claude_home, "projects"]));
+        .unwrap_or_else(|| env.style.join(&[&claude_home, "projects"]));
     let default = Source {
         id: "claude".to_owned(),
         label: "default".to_owned(),
         projects_root: default_root,
     };
     extras.iter().fold(vec![default], |mut sources, entry| {
-        let home = expand_home(text::trim(&entry.path), &env.home);
+        let home = expand_home(text::trim(&entry.path), &env.home, env.style);
         if home.is_empty() {
             return sources;
         }
-        let projects_root = paths::join(&[&home, "projects"]);
+        let projects_root = env.style.join(&[&home, "projects"]);
         if sources.iter().any(|s| s.projects_root == projects_root) {
             return sources;
         }
         let base = [
             entry.label.as_deref().map(text::trim),
-            Some(paths::basename(&home)),
+            Some(env.style.basename(&home)),
         ]
         .into_iter()
         .flatten()
@@ -265,6 +268,30 @@ mod tests {
                 ("claude:source", "/projects"),
             ]
         );
+    }
+
+    #[test]
+    fn windows_roots() {
+        let e = RootsEnv {
+            home: "C:\\Users\\u".to_owned(),
+            style: PathStyle::Windows,
+            ..RootsEnv::default()
+        };
+        assert_eq!(e.settings_path(), "C:\\Users\\u\\.peektrace\\settings.json");
+        let s = claude_sources(
+            &e,
+            &[entry("~/work/.claude", None), entry("D:/x/", Some("x"))],
+        );
+        let roots: Vec<_> = s.iter().map(|s| s.projects_root.as_str()).collect();
+        assert_eq!(
+            roots,
+            [
+                "C:\\Users\\u\\.claude\\projects",
+                "C:\\Users\\u\\work\\.claude\\projects",
+                "D:\\x\\projects",
+            ]
+        );
+        assert_eq!(s[1].label, ".claude");
     }
 
     #[test]

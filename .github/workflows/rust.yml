@@ -1,7 +1,8 @@
 name: Rust
 
-# Format, lint and tests for the Rust crates on macOS and Linux, plus the
-# parity harness that diffs the Rust CLI against the TS CLI on fixtures.
+# Format, lint and tests for the Rust crates on macOS and Linux, lint and unit
+# tests on Windows, plus the parity harness that diffs the Rust CLI against
+# the TS CLI on fixtures.
 
 on:
   push:
@@ -54,6 +55,30 @@ jobs:
 
       - name: Test
         run: cargo test --locked
+
+  windows:
+    # Lint and unit tests only: the end-to-end tests drive a POSIX HOME.
+    name: check (windows-latest)
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install toolchain
+        run: rustup toolchain install || rustup show
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Clippy
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      - name: Unit tests
+        run: cargo test --locked --lib --bins
 
   parity:
     name: parity (fixtures)

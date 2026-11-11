@@ -15,7 +15,7 @@ use header::FileMeta;
 use read::{Loaded, load_file, stat_stamp};
 
 use crate::model::{Agent, SessionFileRef, SessionHeader, UnreadableSession};
-use crate::paths;
+use crate::paths::PathStyle;
 
 /// What one listed transcript yields.
 #[derive(Debug, Clone, PartialEq)]
@@ -29,7 +29,7 @@ fn unreadable(r: &SessionFileRef, reason: &std::io::Error) -> Outcome {
     debug!(path = %r.path, reason = %reason, "session unreadable");
     Outcome::Unreadable(UnreadableSession {
         agent: Agent::Claude,
-        project: paths::basename(r.slug.as_str()).to_owned(),
+        project: PathStyle::NATIVE.basename(r.slug.as_str()).to_owned(),
         path: r.path.clone(),
     })
 }

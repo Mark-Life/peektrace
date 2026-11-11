@@ -102,10 +102,10 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     let limit = parse_limit(&args.limit)?;
     let agent = parse_agent(args.agent.as_deref())?;
     let (limit, since_ms) = parse_bounds(limit, args.since.as_deref(), ctx.now_ms)?;
-    let cwd = args
-        .cwd
-        .as_deref()
-        .map(|c| select::resolve_cwd(c, &ctx.roots_env.home, ctx.cwd.as_deref().unwrap_or("")));
+    let cwd = args.cwd.as_deref().map(|c| {
+        let env = &ctx.roots_env;
+        select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
+    });
     let settings = ctx
         .settings
         .as_deref()

@@ -5,7 +5,10 @@ use std::collections::HashSet;
 use std::fs::{self, DirEntry};
 
 use crate::model::{ProjectSlug, SessionFileRef, SessionId, SourceTag};
-use crate::paths;
+use crate::paths::PathStyle;
+
+/// Paths found on disk use the platform's separator.
+const STYLE: PathStyle = PathStyle::NATIVE;
 use crate::roots::Source;
 
 const JSONL: &str = ".jsonl";
@@ -34,14 +37,14 @@ fn entries(dir: &str) -> Vec<(String, DirEntry)> {
 fn list_root(root: &str) -> Vec<(ProjectSlug, SessionId, String)> {
     entries(root)
         .into_iter()
-        .filter(|(name, e)| entry_is(e, &paths::join(&[root, name]), fs::FileType::is_dir))
+        .filter(|(name, e)| entry_is(e, &STYLE.join(&[root, name]), fs::FileType::is_dir))
         .flat_map(|(slug, _)| {
-            let dir = paths::join(&[root, &slug]);
+            let dir = STYLE.join(&[root, &slug]);
             entries(&dir)
                 .into_iter()
                 .filter_map(|(name, e)| {
                     let id = name.strip_suffix(JSONL)?.to_owned();
-                    let path = paths::join(&[&dir, &name]);
+                    let path = STYLE.join(&[&dir, &name]);
                     entry_is(&e, &path, fs::FileType::is_file).then_some((id, path))
                 })
                 .map(|(id, path)| (ProjectSlug::new(slug.clone()), SessionId::new(id), path))

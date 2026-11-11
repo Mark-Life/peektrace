@@ -15,3 +15,4 @@ pub use model::{
     Agent, ProjectSlug, SessionFileRef, SessionHeader, SessionId, SessionListing, SourceTag,
     UnreadableSession,
 };
+pub use paths::PathStyle;

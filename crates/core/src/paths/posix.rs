@@ -1,5 +1,4 @@
-//! POSIX path string helpers with Node `path` semantics. Paths stay strings
-//! because they are output verbatim and compared as strings.
+//! `path.posix` from Node.
 
 /// Resolve `.` and `..` segments and collapse repeated separators.
 fn normalize_segments(path: &str, allow_above_root: bool) -> String {
@@ -21,7 +20,7 @@ fn normalize_segments(path: &str, allow_above_root: bool) -> String {
 }
 
 /// `path.posix.normalize`.
-pub fn normalize(path: &str) -> String {
+fn normalize(path: &str) -> String {
     if path.is_empty() {
         return ".".to_owned();
     }

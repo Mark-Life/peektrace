@@ -14,6 +14,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context as _;
 use clap::Parser as _;
 use clap::error::ErrorKind;
+use peektrace_core::PathStyle;
 use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{field, info_span};
@@ -32,7 +33,7 @@ fn gather_context(args: &LsArgs) -> anyhow::Result<Context> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let roots_env = RootsEnv::from_vars(home, |k| {
+    let roots_env = RootsEnv::from_vars(home, PathStyle::NATIVE, |k| {
         std::env::var_os(k).map(|v| v.to_string_lossy().into_owned())
     });
     let settings = std::fs::read(roots_env.settings_path())
@@ -41,7 +42,7 @@ fn gather_context(args: &LsArgs) -> anyhow::Result<Context> {
     let cwd = args
         .cwd
         .as_deref()
-        .filter(|c| select::needs_base_dir(c))
+        .filter(|c| select::needs_base_dir(c, &roots_env.home, roots_env.style))
         .map(|_| {
             std::env::current_dir()
                 .context("reading the current directory")
