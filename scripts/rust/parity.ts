@@ -9,8 +9,8 @@
  *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
- *   `TZ=UTC` is needed because JS reads an offset-less date-time as local
- *   time and Rust reads it as UTC; the edge fixture has such timestamps.
+ *   The edge suite runs again under `TZ=Asia/Tokyo`, because both CLIs read
+ *   an offset-less date-time as local time and the edge fixture has some.
  * - Real corpus: sessions written to during the run (size or mtime changed
  *   between the first and last stat) are left out of the comparison and
  *   counted as "live". Only `--json` output is compared, row by row.
@@ -205,6 +205,7 @@ const fixtureSuites = (): Suite[] => {
   const emptyHome = join(WORK, "empty-home");
   mkdirSync(emptyHome, { recursive: true });
   const fixtures = join(REPO, "packages/core/test/fixtures");
+  const edgeHome = buildEdge();
   return [
     {
       name: "ts-fixtures",
@@ -218,7 +219,12 @@ const fixtureSuites = (): Suite[] => {
       }),
       args: COMMON_ARGS,
     },
-    { name: "edge", env: fixtureEnv(buildEdge()), args: COMMON_ARGS },
+    { name: "edge", env: fixtureEnv(edgeHome), args: COMMON_ARGS },
+    {
+      name: "edge-tokyo",
+      env: fixtureEnv(edgeHome, { TZ: "Asia/Tokyo" }),
+      args: COMMON_ARGS,
+    },
   ];
 };
 

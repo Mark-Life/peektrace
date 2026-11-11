@@ -121,13 +121,38 @@ fn time_of_day(c: &mut Cursor<'_>) -> Option<i64> {
     valid.then_some(((hours * 60 + minutes) * 60 + seconds) * 1000 + ms)
 }
 
-/// Offset east of UTC in minutes for `Z` or `±HH[:]mm`. An absent zone reads
-/// as UTC; `None` means a malformed one.
-fn zone(c: &mut Cursor<'_>) -> Option<i64> {
+/// Local time as `Date` sees it: the offset from UTC, in ms, that applies
+/// at a wall-clock time (given as ms since 1970 read as if UTC). Skipped and
+/// repeated wall times resolve the way `Date.parse` does: a skipped time
+/// moves forward, a repeated one takes the earlier instant.
+pub trait LocalZone {
+    fn offset_at_wall_ms(&self, wall_ms: i64) -> i64;
+}
+
+/// UTC as the local zone.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Utc;
+
+impl LocalZone for Utc {
+    fn offset_at_wall_ms(&self, _wall_ms: i64) -> i64 {
+        0
+    }
+}
+
+/// The zone part of an ISO string.
+enum Zone {
+    /// Minutes east of UTC.
+    Offset(i64),
+    /// No zone given.
+    Absent,
+}
+
+/// `Z`, `±HH[:]mm` or nothing; `None` means a malformed zone.
+fn zone(c: &mut Cursor<'_>) -> Option<Zone> {
     match c.peek() {
         Some(b'Z' | b'z') => {
             c.at += 1;
-            Some(0)
+            Some(Zone::Offset(0))
         }
         Some(sign @ (b'+' | b'-')) => {
             c.at += 1;
@@ -138,17 +163,17 @@ fn zone(c: &mut Cursor<'_>) -> Option<i64> {
                 return None;
             }
             let offset = hours * 60 + minutes;
-            Some(if sign == b'-' { -offset } else { offset })
+            Some(Zone::Offset(if sign == b'-' { -offset } else { offset }))
         }
-        _ => Some(0),
+        _ => Some(Zone::Absent),
     }
 }
 
 /// `Date.parse` for the ISO format `JavaScriptCore` accepts, in epoch ms.
-/// `None` stands for NaN. A date-time with no offset is local time in JS;
-/// here it is read as UTC. Non-ISO strings, which JS hands to a lenient
-/// legacy parser, are `None`.
-pub(crate) fn parse_date(s: &str) -> Option<i64> {
+/// `None` stands for NaN. A date-time with no offset is `local` time; a date
+/// alone is UTC. Non-ISO strings, which JS hands to a lenient legacy parser,
+/// are `None`.
+pub(crate) fn parse_date(s: &str, local: &dyn LocalZone) -> Option<i64> {
     let mut c = Cursor {
         s: s.as_bytes(),
         at: 0,
@@ -164,7 +189,8 @@ pub(crate) fn parse_date(s: &str) -> Option<i64> {
     if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return None;
     }
-    let time = if matches!(c.peek(), Some(b'T' | b't')) {
+    let has_time = matches!(c.peek(), Some(b'T' | b't'));
+    let time = if has_time {
         c.at += 1;
         time_of_day(&mut c)?
     } else {
@@ -174,7 +200,13 @@ pub(crate) fn parse_date(s: &str) -> Option<i64> {
     if c.at != c.s.len() {
         return None;
     }
-    let ms = days_from_civil(year, month, day) * MS_PER_DAY + time - offset * 60_000;
+    let wall = days_from_civil(year, month, day) * MS_PER_DAY + time;
+    let offset_ms = match offset {
+        Zone::Offset(minutes) => minutes * 60_000,
+        Zone::Absent if has_time => local.offset_at_wall_ms(wall),
+        Zone::Absent => 0,
+    };
+    let ms = wall - offset_ms;
     (ms.abs() <= MAX_TIME).then_some(ms)
 }
 
@@ -281,8 +313,31 @@ mod tests {
     #[test]
     fn parses_like_bun() {
         for &(input, want) in CASES {
-            assert_eq!(parse_date(input), want, "{input:?}");
+            assert_eq!(parse_date(input, &Utc), want, "{input:?}");
         }
+    }
+
+    /// Fixed `+09:00`, as `TZ=Asia/Tokyo`.
+    struct Tokyo;
+
+    impl LocalZone for Tokyo {
+        fn offset_at_wall_ms(&self, _wall_ms: i64) -> i64 {
+            9 * 3_600_000
+        }
+    }
+
+    /// Expected values from Bun `Date.parse` under `TZ=Asia/Tokyo`.
+    #[test]
+    fn date_times_without_offset_are_local() {
+        assert_eq!(
+            parse_date("2026-01-06T10:00:00", &Tokyo),
+            Some(1_767_661_200_000)
+        );
+        assert_eq!(parse_date("2026-01-06", &Tokyo), Some(1_767_657_600_000));
+        assert_eq!(
+            parse_date("2026-01-06T05:00:00Z", &Tokyo),
+            Some(1_767_675_600_000)
+        );
     }
 
     #[test]
@@ -310,7 +365,7 @@ mod tests {
             1_709_164_800_000,
             253_402_300_799_999,
         ] {
-            assert_eq!(parse_date(&to_iso_string(ms)), Some(ms));
+            assert_eq!(parse_date(&to_iso_string(ms), &Utc), Some(ms));
         }
     }
 }

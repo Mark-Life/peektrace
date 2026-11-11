@@ -3,20 +3,24 @@
 
 use std::cmp::Ordering;
 
-use crate::js::{num, text, time};
+use crate::js::time::{self, LocalZone, Utc};
+use crate::js::{num, text};
 use crate::model::SessionHeader;
 use crate::paths;
 
 const MAX_DATE_MS: f64 = 8.64e15;
 
 /// `updatedAt` as epoch ms, or `None` when it does not parse.
-fn time_of(h: &SessionHeader) -> Option<i64> {
-    time::parse_date(&h.updated_at)
+fn time_of(h: &SessionHeader, local: &dyn LocalZone) -> Option<i64> {
+    time::parse_date(&h.updated_at, local)
 }
 
 /// Newest first; rows with no parseable time last; ties broken by id.
-fn by_updated_desc(a: &SessionHeader, b: &SessionHeader) -> Ordering {
-    match (time_of(a), time_of(b)) {
+fn by_updated_desc(
+    (ta, a): &(Option<i64>, SessionHeader),
+    (tb, b): &(Option<i64>, SessionHeader),
+) -> Ordering {
+    match (*ta, *tb) {
         (ta, tb) if ta == tb => text::locale_compare(a.id.as_str(), b.id.as_str()),
         (None, _) => Ordering::Greater,
         (_, None) => Ordering::Less,
@@ -73,7 +77,7 @@ fn zone_suffix_len(s: &[u8]) -> Option<usize> {
 /// True when the leading `YYYY-MM-DD` is a real calendar day.
 fn is_real_day(s: &str) -> bool {
     let day = &s[..10];
-    time::parse_date(&format!("{day}T00:00:00Z"))
+    time::parse_date(&format!("{day}T00:00:00Z"), &Utc)
         .is_some_and(|ms| time::to_iso_string(ms).get(..10) == Some(day))
 }
 
@@ -89,7 +93,7 @@ fn parse_iso(s: &str) -> Option<f64> {
         iso
     };
     #[expect(clippy::cast_precision_loss, reason = "dates are within 8.64e15")]
-    time::parse_date(&iso).map(|ms| ms as f64)
+    time::parse_date(&iso, &Utc).map(|ms| ms as f64)
 }
 
 /// `--since`: a relative value (`7d`, `12h`, `2w`) or ISO date, as epoch ms.
@@ -178,19 +182,25 @@ pub struct Selection {
     pub hidden: usize,
 }
 
-/// Apply `--since`, `--cwd`, sort, then `--limit`.
-pub fn select_sessions(headers: Vec<SessionHeader>, opts: &SelectOptions) -> Selection {
+/// Apply `--since`, `--cwd`, sort, then `--limit`. `local` is the zone for
+/// `updatedAt` values with no offset.
+pub fn select_sessions(
+    headers: Vec<SessionHeader>,
+    opts: &SelectOptions,
+    local: &dyn LocalZone,
+) -> Selection {
     #[expect(clippy::cast_precision_loss, reason = "dates are within 8.64e15")]
     let mut kept: Vec<_> = headers
         .into_iter()
         .filter(|h| {
-            opts.since_ms
-                .is_none_or(|since| time_of(h).is_some_and(|t| t as f64 >= since))
-        })
-        .filter(|h| {
             opts.cwd
                 .as_deref()
                 .is_none_or(|want| matches_cwd(h.cwd.as_deref(), want))
+        })
+        .map(|h| (time_of(&h, local), h))
+        .filter(|(t, _)| {
+            opts.since_ms
+                .is_none_or(|since| t.is_some_and(|t| t as f64 >= since))
         })
         .collect();
     kept.sort_by(by_updated_desc);
@@ -199,7 +209,10 @@ pub fn select_sessions(headers: Vec<SessionHeader>, opts: &SelectOptions) -> Sel
         kept.truncate(opts.limit);
     }
     let hidden = total - kept.len();
-    Selection { rows: kept, hidden }
+    Selection {
+        rows: kept.into_iter().map(|(_, h)| h).collect(),
+        hidden,
+    }
 }
 
 #[cfg(test)]
@@ -259,6 +272,60 @@ mod tests {
         ] {
             assert_eq!(parse_since(bad, NOW), None, "{bad}");
         }
+    }
+
+    fn row(id: &str, updated_at: &str) -> SessionHeader {
+        SessionHeader {
+            id: crate::model::SessionId::new(id),
+            agent: crate::model::Agent::Claude,
+            path: String::new(),
+            project: crate::model::ProjectSlug::new("-p"),
+            message_count: 0,
+            size_bytes: 0,
+            updated_at: updated_at.to_owned(),
+            cwd: None,
+            git_branch: None,
+            model: None,
+            title: None,
+            started_at: None,
+            malformed_lines: None,
+            cost_usd: None,
+            unpriced_models: None,
+            source: None,
+        }
+    }
+
+    struct Tokyo;
+
+    impl LocalZone for Tokyo {
+        fn offset_at_wall_ms(&self, _wall_ms: i64) -> i64 {
+            9 * 3_600_000
+        }
+    }
+
+    /// Same rows and `--since` as TS under `TZ=Asia/Tokyo`.
+    #[test]
+    fn offsetless_times_are_local() {
+        let rows = || {
+            vec![
+                row("local", "2026-01-06T10:00:00"),
+                row("utc", "2026-01-06T05:00:00Z"),
+            ]
+        };
+        let ids = |s: Selection| {
+            s.rows
+                .into_iter()
+                .map(|h| h.id.as_str().to_owned())
+                .collect::<Vec<_>>()
+        };
+        let all = SelectOptions::default();
+        assert_eq!(ids(select_sessions(rows(), &all, &Tokyo)), ["utc", "local"]);
+        assert_eq!(ids(select_sessions(rows(), &all, &Utc)), ["local", "utc"]);
+        let since = SelectOptions {
+            since_ms: parse_since("2026-01-06T03:00Z", NOW),
+            ..all
+        };
+        assert_eq!(ids(select_sessions(rows(), &since, &Tokyo)), ["utc"]);
     }
 
     #[test]

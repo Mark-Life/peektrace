@@ -12,6 +12,7 @@ publish = false
 [workspace.dependencies]
 peektrace-core = { path = "crates/core" }
 anyhow = "1.0.104"
+jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
 clap = { version = "4.6", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 rayon = "1.12"
 serde = "1.0"

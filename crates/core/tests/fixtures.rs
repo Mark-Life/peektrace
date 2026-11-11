@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use peektrace_core::js::time::Utc;
 use peektrace_core::roots::{RootsEnv, claude_sources};
 use peektrace_core::select::{SelectOptions, select_sessions};
 use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
@@ -125,6 +126,7 @@ fn selection_sorts_newest_first_and_limits() {
             limit: 3,
             ..SelectOptions::default()
         },
+        &Utc,
     );
     let ids: Vec<_> = picked.rows.iter().map(|h| h.id.as_str()).collect();
     assert_eq!(ids, ["prompt-origin", "thinking-tokens", "server-tools"]);

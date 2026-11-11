@@ -7,6 +7,7 @@ use peektrace_core::{Agent, AgentRoots, ListFilter, list_sessions};
 
 use crate::args::LsArgs;
 use crate::render;
+use crate::zone::SystemZone;
 
 /// What the process reads from its surroundings, gathered by `main`.
 #[derive(Debug, Clone)]
@@ -136,6 +137,7 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
             cwd,
             limit,
         },
+        &SystemZone::default(),
     );
     let (stdout, table_notes) = if globals.json {
         (render::json_rows(&picked.rows), Vec::new())
