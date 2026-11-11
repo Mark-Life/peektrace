@@ -291,6 +291,9 @@ use peektrace_core::stats::shell_lex::ran_bins;
 use peektrace_core::stats::walk::TranscriptRef;
 use serde_json::{Value, json};
 
+pub mod causes;
+pub mod rules;
+
 pub fn base(sid: &str) -> FactBase {
     FactBase {
         sid: sid.to_owned(),
