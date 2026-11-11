@@ -1,5 +1,4 @@
 //! The usage sink: day, month and block buckets over synthetic usage rows.
-#![expect(clippy::float_cmp, reason = "turn counts are whole numbers")]
 
 use std::cell::Cell;
 
