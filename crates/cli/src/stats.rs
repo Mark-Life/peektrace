@@ -91,10 +91,7 @@ fn prepare(ctx: &Context, agents: Option<&[Agent]>) -> Prepared {
         .into_iter()
         .collect();
     let skipped: Vec<Agent> = if agents.is_none() {
-        roots::unread_roots(&ctx.roots_env)
-            .into_iter()
-            .map(|(a, _)| a)
-            .collect()
+        crate::single::unsearched_agents(&ctx.roots_env)
     } else {
         Vec::new()
     };
