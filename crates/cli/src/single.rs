@@ -175,6 +175,11 @@ fn percent(fraction: f64) -> String {
     format!("{}%", num::to_fixed(fraction * 100.0, 1))
 }
 
+/// Share of the window, 0 when the window is unknown.
+fn fraction_of(tokens: f64, window: f64) -> f64 {
+    if window > 0.0 { tokens / window } else { 0.0 }
+}
+
 fn verdict(fraction: f64, dumb_zone: f64) -> &'static str {
     if fraction < dumb_zone {
         "Healthy"
@@ -223,11 +228,7 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
 
 /// The `sessions analyze` summary and budget tables.
 fn render_analysis(a: &AnalyzedSession, pretty: bool) -> String {
-    let fraction = if a.context_window > 0.0 {
-        a.peak_context_tokens / a.context_window
-    } else {
-        0.0
-    };
+    let fraction = fraction_of(a.peak_context_tokens, a.context_window);
     let cross = if a.dumb_zone_cross_turn < 0 {
         "never".to_owned()
     } else {
@@ -393,94 +394,5 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn plans() {
-        let err = |m: &str| Err(UserError::Invalid(m.to_owned()));
-        assert_eq!(
-            plan_target(Some("--cwd"), false, None, None),
-            err("Missing value for --cwd.")
-        );
-        assert_eq!(
-            plan_target(None, false, None, Some("p")),
-            err("--parent needs an explicit subagent id.")
-        );
-        assert_eq!(
-            plan_target(Some("x"), true, None, None),
-            err("Pass either a session id or --latest/--cwd, not both.")
-        );
-        assert_eq!(
-            plan_target(None, false, None, None),
-            err("Pass a session id, --latest, or --cwd <dir>.")
-        );
-        assert_eq!(
-            plan_target(Some("x"), false, None, None),
-            Ok(Plan::Picked("x".to_owned()))
-        );
-        assert_eq!(
-            plan_target(None, false, Some("/a"), None),
-            Ok(Plan::Newest(Some("/a".to_owned())))
-        );
-    }
-
-    #[test]
-    fn prefix_picks() {
-        assert!(by_prefix("abc", "abcdef"));
-        assert!(by_prefix("abc.jsonl", "abcdef"));
-        assert!(!by_prefix("abcdef", "abcdef"));
-        assert!(!by_prefix("abcdef.jsonl", "abcdef"));
-        assert!(!by_prefix("/p/abcdef.jsonl", "abcdef"));
-        assert!(!by_prefix("C:\\p\\abcdef.jsonl", "abcdef"));
-    }
-
-    #[test]
-    fn search_notes() {
-        let target = |id: Option<&str>, parent: Option<&str>| TargetArgs {
-            id: id.map(str::to_owned),
-            parent: parent.map(str::to_owned),
-            ..TargetArgs::default()
-        };
-        let note = vec!["codex sessions are not searched: not supported yet".to_owned()];
-        let codex = [Agent::Codex];
-        let quiet: Vec<String> = Vec::new();
-        assert_eq!(search_note(&target(None, None), "s1", "s1", &codex), note);
-        assert_eq!(
-            search_note(&target(Some("s"), None), "s", "s1", &codex),
-            note
-        );
-        assert_eq!(
-            search_note(&target(Some("s1"), None), "s1", "s1", &codex),
-            quiet
-        );
-        assert_eq!(
-            search_note(&target(Some("a"), Some("s1")), "a", "a1", &codex),
-            quiet
-        );
-        assert_eq!(search_note(&target(None, None), "s1", "s1", &[]), quiet);
-    }
-
-    #[test]
-    fn formats() {
-        assert_eq!(pick_format(None, false, Some("x.HTM")), ExportFormat::Html);
-        assert_eq!(pick_format(None, false, Some(".md")), ExportFormat::Md);
-        assert_eq!(pick_format(None, true, Some("x.html")), ExportFormat::Json);
-        assert_eq!(
-            pick_format(Some(ExportFormat::Md), true, None),
-            ExportFormat::Md
-        );
-        assert_eq!(pick_format(None, false, Some("a.json")), ExportFormat::Json);
-    }
-
-    #[test]
-    fn verdicts_and_cells() {
-        assert_eq!(verdict(0.1, 0.4), "Healthy");
-        assert_eq!(verdict(0.5, 0.4), "Degrading");
-        assert_eq!(verdict(0.7, 0.4), "Rotting");
-        assert_eq!(tokens(1150.0), "1.1k");
-        assert_eq!(tokens(999.4), "999");
-        assert_eq!(tokens(2_500_000.0), "2.5M");
-        assert_eq!(percent(0.115), "11.5%");
-    }
-}
+#[path = "single_tests.rs"]
+mod tests;
