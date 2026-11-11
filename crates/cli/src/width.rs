@@ -100,26 +100,92 @@ fn visible_width(s: &str) -> usize {
     base.saturating_add_signed(delta)
 }
 
-/// Terminal columns `s` takes, as `Bun.stringWidth` counts them: ANSI CSI
-/// sequences and control chars take none.
-pub fn display_width(s: &str) -> usize {
-    if !s.chars().any(char::is_control) {
-        return visible_width(s);
+/// Where Bun's escape-sequence recognizer is, between chars.
+#[derive(Clone, Copy)]
+enum Scan {
+    Ground,
+    Escape,
+    SkipOne,
+    Csi,
+    Osc,
+    OscEscape,
+    Str,
+    StrEscape,
+}
+
+/// The char after an ESC: the next state, or `None` when it starts nothing.
+fn after_esc(c: char) -> Option<Scan> {
+    match c {
+        '\u{1b}' => Some(Scan::Escape),
+        '[' => Some(Scan::Csi),
+        ']' => Some(Scan::Osc),
+        'P' | 'X' | '^' | '_' => Some(Scan::Str),
+        '\u{20}'..='\u{2f}' => Some(Scan::SkipOne),
+        '\u{18}' | '\u{1a}' | '\u{30}'..='\u{7e}' | '\u{9c}' => Some(Scan::Ground),
+        _ => None,
     }
+}
+
+/// One step of Bun's `consumeANSI` (`ANSIHelpers.h`): the state after `c`,
+/// or `None` when `c` is visible text and the escapes end before it.
+fn step(state: Scan, c: char) -> Option<Scan> {
+    match state {
+        Scan::Ground => match c {
+            '\u{1b}' => Some(Scan::Escape),
+            '\u{9b}' => Some(Scan::Csi),
+            '\u{9d}' => Some(Scan::Osc),
+            '\u{90}' | '\u{98}' | '\u{9e}' | '\u{9f}' => Some(Scan::Str),
+            _ => None,
+        },
+        Scan::OscEscape | Scan::StrEscape if c == '\\' => Some(Scan::Ground),
+        Scan::Escape | Scan::OscEscape | Scan::StrEscape => after_esc(c),
+        Scan::SkipOne if c == '\u{1b}' => Some(Scan::Escape),
+        Scan::SkipOne => Some(Scan::Ground),
+        Scan::Csi => Some(match c {
+            '\u{1b}' => Scan::Escape,
+            '\u{40}'..='\u{7e}' | '\u{18}' | '\u{1a}' | '\u{9c}' => Scan::Ground,
+            _ => Scan::Csi,
+        }),
+        Scan::Osc => Some(match c {
+            '\u{1b}' => Scan::OscEscape,
+            '\u{7}' | '\u{18}' | '\u{1a}' | '\u{9c}' => Scan::Ground,
+            _ => Scan::Osc,
+        }),
+        Scan::Str => Some(match c {
+            '\u{1b}' => Scan::StrEscape,
+            '\u{18}' | '\u{1a}' | '\u{9c}' => Scan::Ground,
+            _ => Scan::Str,
+        }),
+    }
+}
+
+/// `s` without escape sequences (CSI, OSC, DCS/SOS/PM/APC strings, short
+/// ESC sequences, and their C1 forms) and without other control chars.
+fn strip_escapes(s: &str) -> String {
     let mut visible = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\u{1b}' && chars.peek() == Some(&'[') {
-            chars.next();
-            while chars
-                .next()
-                .is_some_and(|f| !('\u{40}'..='\u{7e}').contains(&f))
-            {}
-        } else if !c.is_control() {
-            visible.push(c);
+    let mut state = Scan::Ground;
+    for c in s.chars() {
+        // A char that ends a sequence may open the next one.
+        if let Some(next) = step(state, c).or_else(|| step(Scan::Ground, c)) {
+            state = next;
+        } else {
+            state = Scan::Ground;
+            if !c.is_control() {
+                visible.push(c);
+            }
         }
     }
-    visible_width(&visible)
+    visible
+}
+
+/// Terminal columns `s` takes, as `Bun.stringWidth` counts them: escape
+/// sequences and control chars take none.
+pub fn display_width(s: &str) -> usize {
+    if s.chars().any(char::is_control) {
+        visible_width(&strip_escapes(s))
+    } else {
+        visible_width(s)
+    }
 }
 
 #[cfg(test)]
@@ -133,6 +199,39 @@ mod tests {
         assert_eq!(display_width("\u{7f}\u{85}"), 0);
         assert_eq!(display_width("👨\u{200d}👩\u{200d}👧"), 2);
         assert_eq!(display_width("1\u{fe0f}\u{20e3}"), 2);
+    }
+
+    /// Expected values from `Bun.stringWidth` in Bun 1.4.4.
+    #[test]
+    fn escape_sequences_like_bun() {
+        let cases = [
+            ("\u{1b}]8;;http://x\u{7}link\u{1b}]8;;\u{7}", 4),
+            ("\u{1b}]0;title\u{1b}\\vis", 3),
+            ("\u{9b}31mX", 1),
+            ("\u{1b}Xabc", 0),
+            ("\u{1b}Xabc\u{7}vis", 0),
+            ("\u{1b}Pabc\u{1b}\\vis", 3),
+            ("\u{1b}_abc\u{9c}vis", 3),
+            ("\u{9d}0;t\u{7}vis", 3),
+            ("\u{98}abc\u{9c}vis", 3),
+            ("\u{1b}]0;title", 0),
+            ("\u{1b}]0;a\u{1b}xb\u{7}vis", 4),
+            ("\u{1b}Xa\u{1b}xb\u{1b}\\vis", 4),
+            ("\u{1b}Mvis", 3),
+            ("\u{1b}(Bvis", 3),
+            ("\u{1b}(😀vis", 3),
+            ("\u{1b}\u{1b}[31mvis", 3),
+            ("\u{1b}\u{9b}31mX", 1),
+            ("\u{1b}[3日m", 0),
+            ("\u{1b}[1;2 qvis", 3),
+            ("\u{9b}1;2\u{7}vis", 2),
+            ("\u{1b}]0;日本\u{7}日", 2),
+            ("a\u{1b}\u{1}b", 2),
+            ("a\u{1b}", 1),
+        ];
+        for (s, want) in cases {
+            assert_eq!(display_width(s), want, "{s:?}");
+        }
     }
 
     /// Expected values from `Bun.stringWidth` in Bun 1.4.4.
