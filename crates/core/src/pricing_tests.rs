@@ -84,6 +84,7 @@ fn claude_generations_have_their_own_rates() {
     assert_eq!(input_rate("claude-opus-4-20250514"), Some(15.0));
     assert_eq!(input_rate("claude-sonnet-5-5"), Some(2.0));
     assert_eq!(input_rate("claude-sonnet-5.5"), Some(2.0));
+    assert!(card_for("claude-haiku-4-5-20251001").is_some());
 }
 
 #[test]
@@ -153,4 +154,28 @@ fn unknown_model_has_no_cost_and_zero_usage_costs_nothing() {
     };
     assert_eq!(cost("example-model-1", &t), None);
     assert_eq!(cost("<synthetic>", &CostTokens::default()), Some(0.0));
+}
+
+#[test]
+fn an_unknown_id_is_unpriced_and_its_base_cost_is_zero() {
+    assert!(card_for("<synthetic>").is_none());
+    let t = CostTokens {
+        input: 1e6,
+        output: 1e6,
+        ..CostTokens::default()
+    };
+    assert_eq!(base_cost(None, &t), 0.0);
+}
+
+#[test]
+fn cache_reads_and_writes_bill_apart_from_input() {
+    let card = card_for("claude-sonnet-4-6").expect("priced");
+    let t = CostTokens {
+        input: 1e6,
+        cache_read: 1e6,
+        cache_creation: 1e6,
+        ..CostTokens::default()
+    };
+    let r = card.rates;
+    assert!((base_cost(Some(&card), &t) - (r.input + r.cache_read + r.cache_write)).abs() < 5e-7);
 }
