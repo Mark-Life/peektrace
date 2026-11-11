@@ -6,7 +6,7 @@
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
-#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode
+#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
@@ -171,9 +171,18 @@ suite_analyze_codex() { analyze_top codex; }
 suite_analyze_pi() { analyze_top pi; }
 suite_analyze_opencode() { analyze_top opencode; }
 
+suite_stats() {
+  # Each CLI keeps its own fact cache (TS: ~/.peektrace/stats, Rust: ~/.peektrace/stats-rs),
+  # so the warmup runs fill both before the warm rows are timed.
+  add_case stats-report-warm 1 5 "cpu rss" "\`stats --agent claude --json\` (warm cache)" stats --agent claude --json
+  add_case stats-usage-block 1 5 "rss" "\`stats usage --by block --agent claude --json\`" stats usage --by block --agent claude --json
+  add_case stats-refresh-cold 0 3 "cpu rss" "\`stats refresh --force --agent claude\` (cold: re-extract every transcript)" stats refresh --force --agent claude
+  METHOD_EXTRA+=("Stats: the warm rows read cached fact shards; the cold row clears the cache and extracts every transcript again.")
+}
+
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done

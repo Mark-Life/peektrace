@@ -24,7 +24,9 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`).
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). For Claude sessions it also covers every `stats` command (report, drill, prompt, usage, refresh), on the fixtures and on the real corpus. `stats` does not scan Codex, Pi or OpenCode yet (see known differences).
+
+`stats` on the Mac corpus (7,172 transcripts): cold `stats refresh --force` takes 13.8 s in Rust and 23.4 s in TS. A warm report takes 4.3 s in Rust and 2.3 to 9.7 s in TS.
 
 ## Target layout
 
@@ -72,6 +74,13 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Tie order by id (same `updatedAt`) for non-ASCII ids | ICU `localeCompare` | ASCII in CLDR root order, other chars after ASCII by code point. Session ids are ASCII in practice. |
 | Two Claude, Codex or Pi roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once. OpenCode roots follow TS. |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |
+| `stats` fact cache | `$PEEKTRACE_DIR/stats/` | `$PEEKTRACE_DIR/stats-rs/`, same layout and extractor version 13. Both read and write the one `rule-lines.json` beside it. |
+| `stats` without `--agent`, or `--agent codex`, `pi`, `opencode` | every agent | Claude only. `--agent codex`, `pi` or `opencode` exits 1 with `not supported yet`. Without `--agent`, stderr says `<agents> sessions are not scanned: not supported yet` when those roots hold files. |
+| `stats` on a transcript with a `null` line | the whole command fails: `Could not scan the corpus: TypeError: ...` | the line is skipped |
+| `stats --days` so large the window start is not a valid date | Effect `ERROR (#n)` dump on stdout | `--days N reaches past the earliest date` on stderr, exit 1 |
+| `stats` with `--otel` | also prints `RpcServer.stats.*` and `RpcClient.stats.*` spans | no RPC spans |
+| `stats usage --tz` | ICU `Intl` names and aliases | jiff names (any case) and fixed offsets `±HH`, `±HHMM`, `±HH:MM`. Rare ICU-only aliases may be rejected. |
+| `stats` nested transcript walk | follows symlinked dirs with no loop guard | stops 64 dirs deep |
 | `CLAUDE_CONFIG_DIR` on Windows | split on `:`, so `C:\x` becomes `C` | split on `;`, as `path.delimiter` |
 | OpenCode store locked by a writer (rollback-journal DB under `BEGIN EXCLUSIVE`) | that DB is skipped at once (busy timeout 0) | waits up to 1 s for the lock, then skips the DB. WAL stores, which OpenCode uses, read the last commit in both. |
 | JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
@@ -92,4 +101,8 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 
 ## Unresolved questions
 
-None yet.
+1. `stats --days` overflow: keep the Rust message, or pick one TS can share?
+2. Keep `EXTRACTOR_VERSION` 13 in Rust, or start a Rust-only counter now that the cache dirs are separate?
+3. Should `stats` (report) take `--force`, as `refresh` and `usage` do? TS has none.
+4. A nested transcript of the default Claude source carries no `source` while its main does. Copy TS (done) or fix both? It changes rule reach only with 2+ Claude sources.
+5. The real-corpus parity suite copies `~/.claude/projects` (about 1 GB) per run: keep it local-only?
