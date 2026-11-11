@@ -6,13 +6,69 @@ use jiff::Timestamp;
 use jiff::tz::{Offset, TimeZone};
 use peektrace_core::js::time::LocalZone;
 
-/// `TZ`, else the OS zone, else UTC.
+/// tzdb names with a POSIX rule shape that Bun reads as UTC.
+const POSIX_SHAPED: [&str; 5] = ["EST5EDT", "CST6CDT", "MST7MDT", "PST8PDT", "posixrules"];
+
+/// True when `name` looks like an IANA id: `/`-separated parts of letters,
+/// digits, `_`, `+` and `-`. Paths, `..` and POSIX rules fail.
+fn iana_shaped(name: &str) -> bool {
+    name.split('/').all(|part| {
+        !part.is_empty()
+            && part
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'+' | b'-'))
+    }) && !POSIX_SHAPED.iter().any(|p| p.eq_ignore_ascii_case(name))
+}
+
+/// The `TZ` environment variable as the process sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TzVar<'a> {
+    Unset,
+    Text(&'a str),
+    NotUtf8,
+}
+
+/// The zone Bun uses for `TZ`. Unset means the OS zone. An IANA name, after
+/// an optional `:` and `posix/` or `right/`, is that zone. Anything else
+/// (POSIX rules, file paths, unknown names, non-UTF-8) is UTC.
+fn zone_for(
+    tz: TzVar<'_>,
+    lookup: impl Fn(&str) -> Option<TimeZone>,
+    system: impl FnOnce() -> TimeZone,
+) -> TimeZone {
+    let text = match tz {
+        TzVar::Unset => return system(),
+        TzVar::NotUtf8 => return TimeZone::UTC,
+        TzVar::Text(t) => t,
+    };
+    let name = text.strip_prefix(':').unwrap_or(text);
+    let name = ["posix/", "right/"]
+        .iter()
+        .find_map(|p| name.strip_prefix(p))
+        .unwrap_or(name);
+    Some(name)
+        .filter(|n| iana_shaped(n))
+        .and_then(lookup)
+        .unwrap_or(TimeZone::UTC)
+}
+
+fn load() -> TimeZone {
+    let tz = std::env::var_os("TZ");
+    let var = match tz.as_deref().map(std::ffi::OsStr::to_str) {
+        None => TzVar::Unset,
+        Some(Some(t)) => TzVar::Text(t),
+        Some(None) => TzVar::NotUtf8,
+    };
+    zone_for(var, |name| TimeZone::get(name).ok(), TimeZone::system)
+}
+
+/// The `TZ` zone as Bun reads it, else the OS zone, else UTC.
 #[derive(Debug, Default)]
 pub struct SystemZone(OnceLock<TimeZone>);
 
 impl LocalZone for SystemZone {
     fn offset_at_wall_ms(&self, wall_ms: i64) -> i64 {
-        let tz = self.0.get_or_init(TimeZone::system);
+        let tz = self.0.get_or_init(load);
         let min = Timestamp::MIN.as_millisecond();
         let max = Timestamp::MAX.as_millisecond();
         let Ok(wall) = Timestamp::from_millisecond(wall_ms.clamp(min, max)) else {
@@ -56,5 +112,51 @@ mod tests {
             -4 * hour
         );
         assert_eq!(zone("Asia/Tokyo").offset_at_wall_ms(0), 9 * hour);
+    }
+
+    /// Hours east of UTC on 2026-07-01 for `TZ`, with UTC as the OS zone.
+    fn hours(tz: TzVar<'_>) -> i64 {
+        let tz = zone_for(tz, |name| TimeZone::get(name).ok(), || TimeZone::UTC);
+        let at = "2026-07-01T00:00:00Z"
+            .parse::<Timestamp>()
+            .unwrap_or_default();
+        i64::from(tz.to_offset(at).seconds()) / 3600
+    }
+
+    /// Expected values come from Bun 1.4 under the same `TZ`.
+    #[test]
+    fn tz_is_read_like_bun() {
+        let system = || TimeZone::get("Asia/Tokyo").unwrap_or(TimeZone::UTC);
+        let at = "2026-07-01T00:00:00Z"
+            .parse::<Timestamp>()
+            .unwrap_or_default();
+        let unset = zone_for(TzVar::Unset, |_| None, system);
+        assert_eq!(unset.to_offset(at).seconds(), 9 * 3600);
+        let cases = [
+            ("America/New_York", -4),
+            (":America/New_York", -4),
+            ("asia/tokyo", 9),
+            ("posix/Asia/Tokyo", 9),
+            ("Etc/GMT-3", 3),
+            ("Japan", 9),
+            ("EST", -5),
+            ("", 0),
+            ("UTC", 0),
+            ("Foo/Bar", 0),
+            ("EST5EDT", 0),
+            ("PST8PDT", 0),
+            ("UTC+5", 0),
+            ("GMT-3", 0),
+            ("posixrules", 0),
+            ("/usr/share/zoneinfo/Asia/Tokyo", 0),
+            ("/etc/localtime", 0),
+            (":/etc/localtime", 0),
+            ("::Asia/Tokyo", 0),
+            ("Asia/Tokyo/", 0),
+            (" Asia/Tokyo", 0),
+        ];
+        let got = cases.map(|(tz, _)| (tz, hours(TzVar::Text(tz))));
+        assert_eq!(got, cases);
+        assert_eq!(hours(TzVar::NotUtf8), 0);
     }
 }
