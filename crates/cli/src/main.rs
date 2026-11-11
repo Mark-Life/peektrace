@@ -91,7 +91,11 @@ fn print_help(path: &[&str]) -> ExitCode {
 /// `sessions ls` under the root `cli` span. Every failure, including an
 /// early `?` exit, records `error` on that span.
 fn run(cli: &Cli, args: &LsArgs) -> anyhow::Result<ExitCode> {
-    let command_line = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
+    let command_line = std::env::args_os()
+        .skip(1)
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect::<Vec<_>>()
+        .join(" ");
     let root = info_span!(
         "cli",
         peektrace.root = true,

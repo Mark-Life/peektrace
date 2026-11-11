@@ -53,7 +53,7 @@ impl Fixture {
         Self { home }
     }
 
-    fn run(&self, args: &[&str]) -> (i32, String, String) {
+    fn run(&self, args: &[impl AsRef<std::ffi::OsStr>]) -> (i32, String, String) {
         let out = Command::new(env!("CARGO_BIN_EXE_peektrace"))
             .args(args)
             .env_clear()
@@ -155,6 +155,34 @@ fn empty_results() {
         out,
         "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
     );
+}
+
+/// Node decodes `argv` lossily, so a non-UTF-8 path still runs.
+#[cfg(unix)]
+#[test]
+fn non_utf8_flag_values_run() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt as _;
+    let f = Fixture::new();
+    let bad = OsStr::from_bytes(b"/tmp/a\xff");
+    let args = [
+        OsStr::new("--otel"),
+        OsStr::new("sessions"),
+        OsStr::new("ls"),
+        OsStr::new("--agent"),
+        OsStr::new("claude"),
+        OsStr::new("--cwd"),
+        bad,
+        OsStr::new("--project"),
+        bad,
+    ];
+    let (code, out, err) = f.run(&args);
+    assert_eq!(code, 0, "{err}");
+    assert_eq!(
+        out,
+        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
+    );
+    assert!(err.contains("/tmp/a\u{FFFD}"), "{err}");
 }
 
 #[test]
