@@ -6,8 +6,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use peektrace_core::claude::{ParseArgs, parse_claude_session};
 use peektrace_core::js::time::Utc;
+use peektrace_core::roots::{RootsEnv, Source, claude_sources};
 use peektrace_core::sessions::analyze::{AnalyzeOptions, analyze};
 use peektrace_core::sessions::model::{AnalyzedSession, EventKind, ParsedSession, TimelineEvent};
+use peektrace_core::sessions::service::SessionEnv;
 use serde_json::Value;
 
 /// A path under `packages/core/test/fixtures`.
@@ -86,6 +88,24 @@ pub fn first_of(p: &ParsedSession, kind: EventKind) -> &TimelineEvent {
         .iter()
         .find(|e| e.kind == kind)
         .unwrap_or_else(|| panic!("no {} event", kind.as_str()))
+}
+
+/// Claude roots with `projects` as the default projects root.
+pub fn sources(home: &str, projects: &str) -> Vec<Source> {
+    let env = RootsEnv {
+        home: home.to_owned(),
+        claude_projects: Some(projects.to_owned()),
+        ..RootsEnv::default()
+    };
+    claude_sources(&env, &[])
+}
+
+pub fn session_env(claude: &[Source]) -> SessionEnv<'_> {
+    SessionEnv {
+        claude,
+        unsearched: &[],
+        local: &Utc,
+    }
 }
 
 /// A fresh directory under the system temp dir, removed on drop.
