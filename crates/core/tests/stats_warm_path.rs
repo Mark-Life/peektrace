@@ -5,6 +5,8 @@
 
 mod common;
 
+use std::fmt::Write as _;
+
 use common::{bash_fact, bash_mut, bash_step, calls, facts_of, facts_of_text, step, transcript_of};
 use peektrace_core::Agent;
 use peektrace_core::js::time::Utc;
@@ -85,7 +87,8 @@ fn shipped(redact: &Redactor, facts: &[CallFact], drills: &[(DrillTable, String)
             sample_cap: 3,
             caveats: Vec::new(),
         };
-        out.push_str(&format!(
+        let _ = write!(
+            out,
             "{:?}{:?}{:?}{:?}{:?}{:?}{:?}{:?}",
             time.finish(&mut ctx),
             time.drill(&ctx),
@@ -95,7 +98,7 @@ fn shipped(redact: &Redactor, facts: &[CallFact], drills: &[(DrillTable, String)
             fail.drill(&ctx),
             cluster.finish(&mut ctx),
             cluster.drill(&ctx),
-        ));
+        );
     }
     out
 }
