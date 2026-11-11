@@ -195,6 +195,7 @@ dependencies = [
  "clap",
  "jiff",
  "peektrace-core",
+ "serde_json",
  "thiserror",
  "tracing",
  "tracing-subscriber",
