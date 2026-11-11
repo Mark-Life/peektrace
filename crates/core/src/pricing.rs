@@ -346,6 +346,40 @@ fn estimate_cost(t: &CostTokens, r: &ModelPrice) -> f64 {
         / 1e6
 }
 
+/// USD for a token block at a card's base rates (no long tier); an unpriced
+/// model costs 0.
+pub fn base_cost(card: Option<&PriceCard>, t: &CostTokens) -> f64 {
+    card.map_or(0.0, |c| estimate_cost(t, &c.rates))
+}
+
+/// The cards `model_ids` resolve to, as `key in/out/write/read` rows plus the
+/// date the prices were checked.
+pub fn pricing_echo<'a>(model_ids: impl IntoIterator<Item = &'a str>) -> String {
+    let mut rows: Vec<(&'static str, String)> = Vec::new();
+    for id in model_ids {
+        if let Some((key, card)) = price_for(id) {
+            let r = card.rates;
+            let row = [r.input, r.output, r.cache_write, r.cache_read]
+                .map(crate::js::num::to_js_string)
+                .join("/");
+            match rows.iter_mut().find(|(k, _)| *k == key) {
+                Some(found) => found.1 = row,
+                None => rows.push((key, row)),
+            }
+        }
+    }
+    rows.sort_by(|a, b| a.0.cmp(b.0));
+    let body = rows
+        .iter()
+        .map(|(k, r)| format!("{k} {r}"))
+        .collect::<Vec<_>>()
+        .join("; ");
+    let body = if body.is_empty() { "no priced models".to_owned() } else { body };
+    format!("{body} (checked {PRICES_CHECKED})")
+}
+
+pub const PRICES_CHECKED: &str = "2026-11-08";
+
 /// The rate card for `model_id`, `None` when it is unpriced.
 pub fn card_for(model_id: &str) -> Option<PriceCard> {
     price_for(model_id).map(|(_, card)| card)

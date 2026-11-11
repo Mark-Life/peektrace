@@ -6,3 +6,8 @@ pub mod failures;
 pub mod timing;
 pub mod waiting;
 pub mod rules;
+pub mod cells;
+pub mod clustering;
+pub mod corpus;
+pub mod pairing;
+pub mod retries;
