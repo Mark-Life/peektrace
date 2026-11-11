@@ -43,9 +43,15 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Command {
-    /// Session listing
+    /// List and analyze sessions
+    Sessions(SessionsArgs),
+}
+
+/// `sessions` with no subcommand prints its help and exits 0.
+#[derive(Debug, Args)]
+pub struct SessionsArgs {
     #[command(subcommand)]
-    Sessions(SessionsCommand),
+    pub command: Option<SessionsCommand>,
 }
 
 #[derive(Debug, Subcommand)]

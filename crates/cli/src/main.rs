@@ -16,7 +16,7 @@ use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{field, info_span};
 
-use crate::args::{Cli, Command, LsArgs, SessionsCommand};
+use crate::args::{Cli, Command, LsArgs, SessionsArgs, SessionsCommand};
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -72,10 +72,20 @@ fn print_stderr(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
 }
 
-fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
-    let Some(Command::Sessions(SessionsCommand::Ls(args))) = &cli.command else {
-        anyhow::bail!("no command given");
-    };
+/// Help for the command at `path` (empty for the root), exit 0.
+fn print_help(path: &[&str]) -> ExitCode {
+    let mut cmd = <Cli as clap::CommandFactory>::command();
+    cmd.build();
+    let target = path
+        .iter()
+        .try_fold(&mut cmd, |c, name| c.find_subcommand_mut(name));
+    match target.map(clap::Command::print_help) {
+        Some(Ok(())) => ExitCode::SUCCESS,
+        _ => ExitCode::FAILURE,
+    }
+}
+
+fn run(cli: &Cli, args: &LsArgs) -> anyhow::Result<ExitCode> {
     let command_line = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
     let root = info_span!(
         "cli",
@@ -128,13 +138,18 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::FAILURE,
         };
     }
-    if cli.command.is_none() {
-        let _ = <Cli as clap::CommandFactory>::command().print_help();
-        return ExitCode::SUCCESS;
-    }
+    let args = match &cli.command {
+        None => return print_help(&[]),
+        Some(Command::Sessions(SessionsArgs { command: None })) => {
+            return print_help(&["sessions"]);
+        }
+        Some(Command::Sessions(SessionsArgs {
+            command: Some(SessionsCommand::Ls(args)),
+        })) => args,
+    };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);
-    run(&cli).unwrap_or_else(|e| {
+    run(&cli, args).unwrap_or_else(|e| {
         print_stderr(&format!("{e:#}"));
         ExitCode::FAILURE
     })

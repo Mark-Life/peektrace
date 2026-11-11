@@ -280,3 +280,11 @@ fn deleted_working_dir_is_fine_without_relative_cwd() {
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert!(String::from_utf8_lossy(&out.stdout).contains("-tmp-proj"));
 }
+
+#[test]
+fn bare_sessions_prints_help() {
+    let f = Fixture::new();
+    let (code, out, err) = f.run(&["sessions"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert!(out.contains("Usage: peektrace sessions"), "{out}");
+}
