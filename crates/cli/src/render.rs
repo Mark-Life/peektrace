@@ -139,7 +139,7 @@ const CENT: f64 = 0.005;
 const KB: f64 = 1024.0;
 
 /// `~$1.23`, `<$0.01` below half a cent, `-` when absent.
-fn usd_cell(n: Option<f64>) -> String {
+pub fn usd_cell(n: Option<f64>) -> String {
     match n {
         None => "-".to_owned(),
         Some(n) if n > 0.0 && n < CENT => "<$0.01".to_owned(),
@@ -187,8 +187,12 @@ fn row_cells(h: &SessionHeader) -> Vec<String> {
 }
 
 /// Tab-separated table with lowercase headers; `(none)` when empty.
-fn compact_table(rows: &[Vec<String>]) -> String {
-    let head = HEADERS.map(str::to_lowercase).join("\t");
+fn compact_table(headers: &[&str], rows: &[Vec<String>]) -> String {
+    let head = headers
+        .iter()
+        .map(|h| h.to_lowercase())
+        .collect::<Vec<_>>()
+        .join("\t");
     if rows.is_empty() {
         return format!("{head}\n(none)");
     }
@@ -199,8 +203,8 @@ fn compact_table(rows: &[Vec<String>]) -> String {
 }
 
 /// Columns sized to their widest cell, two spaces apart, with a rule line.
-fn pretty_table(rows: &[Vec<String>]) -> String {
-    let widths: Vec<usize> = HEADERS
+fn pretty_table(headers: &[&str], rows: &[Vec<String>]) -> String {
+    let widths: Vec<usize> = headers
         .iter()
         .enumerate()
         .map(|(col, h)| {
@@ -218,7 +222,7 @@ fn pretty_table(rows: &[Vec<String>]) -> String {
             .join("  ");
         text::trim_end(&padded).to_owned()
     };
-    let head = line(&HEADERS);
+    let head = line(headers);
     let rule = widths
         .iter()
         .map(|&w| "-".repeat(w))
@@ -237,14 +241,19 @@ fn pretty_table(rows: &[Vec<String>]) -> String {
         .join("\n")
 }
 
+/// A table: padded for people with `pretty`, else tab-separated.
+pub fn table(headers: &[&str], rows: &[Vec<String>], pretty: bool) -> String {
+    if pretty {
+        pretty_table(headers, rows)
+    } else {
+        compact_table(headers, rows)
+    }
+}
+
 /// The `sessions ls` table and the notes it adds.
 pub fn session_table(rows: &[SessionHeader], pretty: bool) -> (String, Vec<String>) {
     let cells: Vec<_> = rows.iter().map(row_cells).collect();
-    let table = if pretty {
-        pretty_table(&cells)
-    } else {
-        compact_table(&cells)
-    };
+    let table = table(&HEADERS, &cells, pretty);
     let notes = [
         rows.iter()
             .any(|h| h.cost_usd.is_some())

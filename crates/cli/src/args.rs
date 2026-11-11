@@ -63,6 +63,10 @@ pub struct SessionsArgs {
 pub enum SessionsCommand {
     /// List session headers, newest first
     Ls(LsArgs),
+    /// Show context forensics for one session
+    Analyze(AnalyzeArgs),
+    /// Export one session to HTML, Markdown or JSON
+    Export(ExportArgs),
 }
 
 /// Flag text with bytes that are not UTF-8 turned into U+FFFD, as Node
@@ -93,4 +97,103 @@ pub struct LsArgs {
     /// Max sessions to list, newest first (0 = all)
     #[arg(long, default_value = "30", allow_hyphen_values = true, value_parser = lossy())]
     pub limit: String,
+}
+
+/// Which session a single-session command runs on.
+#[derive(Debug, Args)]
+pub struct TargetArgs {
+    /// Session id, short id, or transcript path
+    #[arg(allow_hyphen_values = true, value_parser = lossy())]
+    pub id: Option<String>,
+
+    /// Use the newest session of any agent (combine with --cwd to scope it)
+    #[arg(long)]
+    pub latest: bool,
+
+    /// Only sessions run in this directory or below (path on this machine)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub cwd: Option<String>,
+
+    /// Parent session id, when <id> is a subagent transcript (agent-*)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub parent: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct AnalyzeArgs {
+    #[command(flatten)]
+    pub target: TargetArgs,
+}
+
+#[derive(Debug, Args)]
+pub struct ExportArgs {
+    #[command(flatten)]
+    pub target: TargetArgs,
+
+    /// Output format: html|md|json (default: from --json or the --out
+    /// extension, else md)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub format: Option<String>,
+
+    /// Write to this file instead of stdout (`-` is stdout)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub out: Option<String>,
+
+    /// Keep secrets and home paths in the output (redacted by default)
+    #[arg(long = "no-redact")]
+    pub no_redact: bool,
+}
+
+/// Flags of `sessions analyze` and `sessions export` that take a value.
+const VALUE_FLAGS: [&str; 5] = ["--cwd", "--parent", "--format", "--out", "--log-level"];
+
+/// The flag `@effect/cli` reports as missing its value: a value flag that
+/// ends the command line of a single-session command given no id. It reads
+/// the flag as the id and prints `Missing value for <flag>.`
+pub fn missing_value(argv: &[String]) -> Option<&str> {
+    let at = argv
+        .iter()
+        .position(|a| a == "analyze" || a == "export")
+        .filter(|&i| i > 0 && argv[..i].iter().any(|a| a == "sessions"))?;
+    let rest = &argv[at + 1..];
+    let mut i = 0;
+    while i < rest.len() {
+        let a = rest[i].as_str();
+        if VALUE_FLAGS.contains(&a) {
+            if i + 1 == rest.len() {
+                return Some(a);
+            }
+            i += 2;
+            continue;
+        }
+        if !a.starts_with('-') {
+            return None;
+        }
+        i += 1;
+    }
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn argv(s: &str) -> Vec<String> {
+        s.split(' ').map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn missing_values() {
+        assert_eq!(
+            missing_value(&argv("pt sessions analyze --cwd")),
+            Some("--cwd")
+        );
+        assert_eq!(
+            missing_value(&argv("pt sessions export --latest --out")),
+            Some("--out")
+        );
+        assert_eq!(missing_value(&argv("pt sessions analyze x --cwd")), None);
+        assert_eq!(missing_value(&argv("pt sessions analyze --cwd /")), None);
+        assert_eq!(missing_value(&argv("pt sessions ls --cwd")), None);
+    }
 }
