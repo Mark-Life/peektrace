@@ -5,7 +5,10 @@ use std::collections::HashMap;
 use thiserror::Error;
 use tracing::info_span;
 
-use super::accumulate::{CorpusSummary, CorpusTotals, DrillHit, DrillTable, DrillTarget, FinishCtx, SampleRef, StatsWindow};
+use super::accumulate::{
+    CorpusSummary, CorpusTotals, DrillHit, DrillTable, DrillTarget, FinishCtx, SampleRef,
+    StatsWindow,
+};
 use super::cache::StatsCache;
 use super::detectors::clustering::{ClusterRow, ClusterTable};
 use super::detectors::corpus::{CorpusPanelSink, CorpusPanels};
@@ -75,7 +78,10 @@ pub struct ReportRequest {
 pub fn window_of(now: f64, days: f64) -> Result<StatsWindow, StatsError> {
     let from = now - days * MS_PER_DAY;
     if !from.is_finite() || from.abs() > MAX_TIME {
-        return Err(StatsError::Scan(format!("--days {} reaches past the earliest date", to_js_string(days))));
+        return Err(StatsError::Scan(format!(
+            "--days {} reaches past the earliest date",
+            to_js_string(days)
+        )));
     }
     #[expect(clippy::cast_possible_truncation)]
     Ok(StatsWindow {
@@ -164,7 +170,11 @@ struct Prepared<'a> {
     limit: f64,
 }
 
-fn prepare<'a>(env: &'a StatsEnv<'a>, req: &ReportRequest, drill: Option<&DrillTarget>) -> Result<Prepared<'a>, StatsError> {
+fn prepare<'a>(
+    env: &'a StatsEnv<'a>,
+    req: &ReportRequest,
+    drill: Option<&DrillTarget>,
+) -> Result<Prepared<'a>, StatsError> {
     let window = window_of(env.now_ms, req.days.unwrap_or(DEFAULT_DAYS))?;
     let (from_ms, to_ms) = window_ms(&window, env.local);
     let scope = scope_of(req.agents.as_deref());
@@ -206,7 +216,11 @@ pub struct StatsReport {
     pub paths: Vec<(String, String)>,
 }
 
-fn paths_of<'s>(paths: &HashMap<String, String>, redact: &Redactor, sids: impl IntoIterator<Item = &'s str>) -> Vec<(String, String)> {
+fn paths_of<'s>(
+    paths: &HashMap<String, String>,
+    redact: &Redactor,
+    sids: impl IntoIterator<Item = &'s str>,
+) -> Vec<(String, String)> {
     uniq_sorted(sids)
         .into_iter()
         .filter_map(|sid| paths.get(&sid).map(|p| (sid.clone(), redact.text(p))))
@@ -280,8 +294,10 @@ impl StatsReport {
         self.panels.write_web(&mut w);
         w.key("cost");
         self.panels.write_cost(&mut w);
-        w.key("skipped").texts(self.skipped.iter().map(String::as_str));
-        w.key("caveats").texts(self.caveats.iter().map(String::as_str));
+        w.key("skipped")
+            .texts(self.skipped.iter().map(String::as_str));
+        w.key("caveats")
+            .texts(self.caveats.iter().map(String::as_str));
         w.key("paths");
         paths_json(&mut w, &self.paths);
         w.end_obj();
@@ -402,10 +418,18 @@ pub fn drill_key_of(table: DrillTable, key: &str) -> String {
 }
 
 /// The calls behind one row, first page.
-pub fn drill(env: &StatsEnv<'_>, req: &ReportRequest, table: DrillTable, raw_key: &str) -> Result<DrillResult, StatsError> {
+pub fn drill(
+    env: &StatsEnv<'_>,
+    req: &ReportRequest,
+    table: DrillTable,
+    raw_key: &str,
+) -> Result<DrillResult, StatsError> {
     let key = drill_key_of(table, raw_key);
     let _span = info_span!("Stats.drill", table = table.as_str()).entered();
-    let target = DrillTarget { table, key: key.clone() };
+    let target = DrillTarget {
+        table,
+        key: key.clone(),
+    };
     let mut p = prepare(env, req, Some(&target))?;
     let corpus = std::mem::take(&mut p.detectors.corpus).finish();
     let redact = Redactor::new(true);
@@ -426,11 +450,18 @@ pub fn drill(env: &StatsEnv<'_>, req: &ReportRequest, table: DrillTable, raw_key
         DrillTable::Wait => d.waiting.drill(&ctx),
     };
     if hits.is_empty() {
-        return Err(StatsError::RowNotFound { table: table.as_str(), key });
+        return Err(StatsError::RowNotFound {
+            table: table.as_str(),
+            key,
+        });
     }
     let total = hits.len();
     let shown: Vec<DrillHit> = hits.into_iter().take(DEFAULT_DRILL_PAGE).collect();
-    let paths = paths_of(&p.result.paths, &redact, shown.iter().map(|h| h.sample.sid.as_str()));
+    let paths = paths_of(
+        &p.result.paths,
+        &redact,
+        shown.iter().map(|h| h.sample.sid.as_str()),
+    );
     Ok(DrillResult {
         table,
         key,
@@ -451,7 +482,11 @@ pub struct RefreshSummary {
 }
 
 /// Refresh the fact cache; `force` re-extracts (and clears it on a full scope).
-pub fn refresh(env: &StatsEnv<'_>, agents: Option<&[Agent]>, force: bool) -> Result<RefreshSummary, StatsError> {
+pub fn refresh(
+    env: &StatsEnv<'_>,
+    agents: Option<&[Agent]>,
+    force: bool,
+) -> Result<RefreshSummary, StatsError> {
     let _span = info_span!("Stats.refresh").entered();
     let scope = scope_of(agents);
     if force && is_full_scope(&scope) {

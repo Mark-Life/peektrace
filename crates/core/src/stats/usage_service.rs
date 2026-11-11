@@ -45,7 +45,10 @@ fn fixed_offset(name: &str) -> Option<TimeZone> {
         return None;
     }
     let h: i32 = digits[..2].parse().ok()?;
-    let m: i32 = digits.get(2..).filter(|s| !s.is_empty()).map_or(Some(0), |s| s.parse().ok())?;
+    let m: i32 = digits
+        .get(2..)
+        .filter(|s| !s.is_empty())
+        .map_or(Some(0), |s| s.parse().ok())?;
     if h > 23 || m > 59 {
         return None;
     }
@@ -114,7 +117,8 @@ impl UsageReport {
         w.key("totals").begin_obj();
         r.totals.write_fields(&mut w);
         w.end_obj();
-        w.key("unpricedModels").texts(r.unpriced_models.iter().map(String::as_str));
+        w.key("unpricedModels")
+            .texts(r.unpriced_models.iter().map(String::as_str));
         w.key("skipped").begin_obj();
         w.key("noTimestamp").num(r.skipped.no_timestamp);
         w.key("zeroTokens").num(r.skipped.zero_tokens);
@@ -138,10 +142,15 @@ pub fn usage(env: &StatsEnv<'_>, req: &UsageRequest) -> Result<UsageReport, Stat
             "days must be a whole number from 1 to {MAX_USAGE_DAYS}: {days}"
         )));
     }
-    let tz = zone_of(&tz_name).ok_or_else(|| StatsError::Scan(format!("unknown time zone: {tz_name}")))?;
+    let tz = zone_of(&tz_name)
+        .ok_or_else(|| StatsError::Scan(format!("unknown time zone: {tz_name}")))?;
     let now = env.now_ms as i64;
     let from_ms = now - days * DAY_MS;
-    let widen = if req.by == UsageBy::Month { MONTH_WIDEN_DAYS * DAY_MS } else { DAY_MS };
+    let widen = if req.by == UsageBy::Month {
+        MONTH_WIDEN_DAYS * DAY_MS
+    } else {
+        DAY_MS
+    };
     let scope = scope_of(req.agents.as_deref());
     let pass_env = PassEnv {
         claude: env.claude,
@@ -164,7 +173,11 @@ pub fn usage(env: &StatsEnv<'_>, req: &UsageRequest) -> Result<UsageReport, Stat
         sink.finish()
     };
     let first = run(Some(from_ms - widen), req.force);
-    let result = if first.chain_cut { run(None, false) } else { first };
+    let result = if first.chain_cut {
+        run(None, false)
+    } else {
+        first
+    };
     Ok(UsageReport {
         generated_at: env.now_ms,
         by: req.by,

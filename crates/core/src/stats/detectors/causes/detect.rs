@@ -54,16 +54,28 @@ static RM_GUARD: LazyRe = js_re!(
     r"^(?:Dangerous rm operation detected|Permission for this command was denied by a built-in Claude Code safety check[\s\S]{0,200}removals)"
 );
 static SCRATCH_MODULE: [LazyRe; 3] = [
-    js_re!(r"^(?:error: )?Cannot find (?:module|package) '[^']+' from '([^']+)'", "m"),
+    js_re!(
+        r"^(?:error: )?Cannot find (?:module|package) '[^']+' from '([^']+)'",
+        "m"
+    ),
     js_re!(
         r"^Error \[ERR_MODULE_NOT_FOUND\]: Cannot find (?:module|package) '[^']+' imported from (?:file:\/\/)?(.+)$",
         "m"
     ),
-    js_re!(r"^Error: Cannot find module '[^']+'\r?\nRequire stack:\r?\n- (.+)$", "m"),
+    js_re!(
+        r"^Error: Cannot find module '[^']+'\r?\nRequire stack:\r?\n- (.+)$",
+        "m"
+    ),
 ];
-static SCRATCH_DIR: LazyRe = js_re!(r"^(?:[^/]*[-_.])?(?:tmp|temp|scratch)(?:[-_.][^/]*|\d*)$", "i");
+static SCRATCH_DIR: LazyRe = js_re!(
+    r"^(?:[^/]*[-_.])?(?:tmp|temp|scratch)(?:[-_.][^/]*|\d*)$",
+    "i"
+);
 const SCRIPT_RUNTIMES: [&str; 5] = ["bun", "bunx", "node", "tsx", "npx"];
-static UGREP: LazyRe = js_re!(r"^ugrep: error: (?:error at position|.*exceeds complexity)", "m");
+static UGREP: LazyRe = js_re!(
+    r"^ugrep: error: (?:error at position|.*exceeds complexity)",
+    "m"
+);
 static GREP_WORD: LazyRe = js_re!(r"\b(?:u?grep|egrep)\b");
 static EXIT_HEADER: LazyRe = js_re!(r"^Exit code \d+\n?");
 static TOOL_USE_ERROR_OPEN: LazyRe = js_re!(r"^<tool_use_error>");
@@ -138,7 +150,10 @@ fn command_glob(cmd: &str, word: &str) -> Option<String> {
     if let Some(at) = at {
         let head = &word[..=at];
         if cmd.contains(head) {
-            let re = Re::new(&format!(r"{WORD_EDGE}({}[^\s;&|()<>`]*)", escape_re(head)), "g");
+            let re = Re::new(
+                &format!(r"{WORD_EDGE}({}[^\s;&|()<>`]*)", escape_re(head)),
+                "g",
+            );
             if unquoted_word(cmd, &re).is_some_and(|b| b.contains('{')) {
                 return Some(word.to_owned());
             }
@@ -149,8 +164,15 @@ fn command_glob(cmd: &str, word: &str) -> Option<String> {
     while let Some(s) = slash.filter(|&s| s < at) {
         let tail = &word[s..];
         if cmd.contains(tail) {
-            let re = Re::new(&format!("{WORD_EDGE}({EXPANDED_HEAD}{}){WORD_END}", escape_re(tail)), "");
-            if let Some(m) = re.captures(cmd).and_then(|c| c.get(1)).filter(|g| !g.is_empty()) {
+            let re = Re::new(
+                &format!("{WORD_EDGE}({EXPANDED_HEAD}{}){WORD_END}", escape_re(tail)),
+                "",
+            );
+            if let Some(m) = re
+                .captures(cmd)
+                .and_then(|c| c.get(1))
+                .filter(|g| !g.is_empty())
+            {
                 return Some(m.to_owned());
             }
         }
@@ -193,7 +215,8 @@ pub fn bin_use(bin: &str, flags: &str) -> Re {
 
 fn runs_for_real(cmd: &str, bin: &str) -> bool {
     bin_use(bin, "g").captures_all(cmd).iter().any(|m| {
-        !(COMMAND_V.is_match(m.get(1).unwrap_or("")) || VERSION_ARGS.is_match(m.get(2).unwrap_or("")))
+        !(COMMAND_V.is_match(m.get(1).unwrap_or(""))
+            || VERSION_ARGS.is_match(m.get(2).unwrap_or("")))
     })
 }
 
@@ -223,7 +246,9 @@ fn cnf_focus(cmd: &str, bin: &str, scrub: Scrub<'_>) -> Option<String> {
         .iter()
         .filter_map(|s| {
             let words: Vec<&str> = s.split(' ').collect();
-            let at = words.iter().position(|w| *w == bin || w.ends_with(&suffix))?;
+            let at = words
+                .iter()
+                .position(|w| *w == bin || w.ends_with(&suffix))?;
             Some(words[at + 1..].join(" "))
         })
         .collect();
@@ -267,16 +292,19 @@ fn detect_equals(i: &ShellInput<'_>) -> Option<CauseHit> {
     if !i.output.contains(": =") {
         return None;
     }
-    EQUALS_LINE.captures_all(i.output).into_iter().find_map(|m| {
-        let word = format!("={}", m.get(1).unwrap_or(""));
-        Re::new(&format!("{WORD_EDGE}{}", escape_re(&word)), "")
-            .is_match(i.cmd)
-            .then(|| CauseHit {
-                arg: Some(word),
-                line: Some(m.all().to_owned()),
-                ..hit(CauseId::ZshEqualsAbort)
-            })
-    })
+    EQUALS_LINE
+        .captures_all(i.output)
+        .into_iter()
+        .find_map(|m| {
+            let word = format!("={}", m.get(1).unwrap_or(""));
+            Re::new(&format!("{WORD_EDGE}{}", escape_re(&word)), "")
+                .is_match(i.cmd)
+                .then(|| CauseHit {
+                    arg: Some(word),
+                    line: Some(m.all().to_owned()),
+                    ..hit(CauseId::ZshEqualsAbort)
+                })
+        })
 }
 
 fn detect_cnf(i: &ShellInput<'_>) -> Option<CauseHit> {
@@ -322,7 +350,9 @@ fn detect_scratch(i: &ShellInput<'_>) -> Option<CauseHit> {
     }
     let m = SCRATCH_MODULE.iter().find_map(|re| re.captures(i.output))?;
     let ok = is_scratch_path(m.get(1).unwrap_or(""))
-        && SCRIPT_RUNTIMES.iter().any(|b| bin_use(b, "").is_match(i.cmd));
+        && SCRIPT_RUNTIMES
+            .iter()
+            .any(|b| bin_use(b, "").is_match(i.cmd));
     ok.then(|| CauseHit {
         line: Some(m.all().split('\n').next().unwrap_or("").to_owned()),
         ..hit(CauseId::ScratchModuleResolution)
@@ -366,13 +396,14 @@ fn detect_shell(i: &ShellInput<'_>) -> Option<CauseHit> {
     if let Some(h) = detect_scratch(i) {
         return Some(h);
     }
-    if i.output.contains("ugrep: error") && GREP_WORD.is_match(i.cmd) {
-        if let Some(m) = UGREP.captures(i.output) {
-            return Some(CauseHit {
-                line: Some(m.all().to_owned()),
-                ..hit(CauseId::UgrepComplexity)
-            });
-        }
+    if i.output.contains("ugrep: error")
+        && GREP_WORD.is_match(i.cmd)
+        && let Some(m) = UGREP.captures(i.output)
+    {
+        return Some(CauseHit {
+            line: Some(m.all().to_owned()),
+            ..hit(CauseId::UgrepComplexity)
+        });
     }
     detect_persisted(i.output)
 }

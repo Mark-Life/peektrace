@@ -120,7 +120,12 @@ fn str_of(o: &JsObject, k: &str) -> String {
 fn strs(o: &JsObject, k: &str) -> Vec<String> {
     o.get(k)
         .and_then(JsValue::as_arr)
-        .map(|a| a.iter().filter_map(JsValue::as_str).map(str::to_owned).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(JsValue::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -144,8 +149,14 @@ fn call_of(o: &JsObject, bash: bool) -> Option<CallFact> {
             bin: str_of(o, "bin"),
             family: str_of(o, "family"),
             job: Job::parse(o.get("job")?.as_str()?)?,
-            present: strs(o, "present").iter().filter_map(|j| Job::parse(j)).collect(),
-            wait: o.get("wait").and_then(JsValue::as_str).and_then(WaitShape::parse),
+            present: strs(o, "present")
+                .iter()
+                .filter_map(|j| Job::parse(j))
+                .collect(),
+            wait: o
+                .get("wait")
+                .and_then(JsValue::as_str)
+                .and_then(WaitShape::parse),
             declared_delay_sec: num(o, "declaredDelaySec").unwrap_or(0.0),
             piped: flag("piped"),
             bg: flag("bg"),
@@ -172,14 +183,29 @@ fn call_of(o: &JsObject, bash: bool) -> Option<CallFact> {
         side: flag("side"),
         req: opt_str(o, "req"),
         ctx_tok: num(o, "ctxTok"),
-        cause: o.get("cause").and_then(JsValue::as_str).and_then(CauseId::parse),
+        cause: o
+            .get("cause")
+            .and_then(JsValue::as_str)
+            .and_then(CauseId::parse),
         cause_arg: opt_str(o, "causeArg"),
         focus: opt_str(o, "focus"),
         bash,
     })
 }
 
-fn fact_of(v: &JsValue) -> Option<Option<Fact>> {
+/// A shard line that is not a fact row.
+struct Corrupt;
+
+/// One shard line: a fact, `None` for a row of another kind.
+fn fact_of(v: &JsValue) -> Result<Option<Fact>, Corrupt> {
+    fact_or_skip(v).ok_or(Corrupt)
+}
+
+#[expect(
+    clippy::option_option,
+    reason = "outer None is a corrupt line, inner None a foreign row"
+)]
+fn fact_or_skip(v: &JsValue) -> Option<Option<Fact>> {
     let o = v.as_obj()?;
     let row = o.get("row").and_then(JsValue::as_str).unwrap_or("");
     let n = |k: &str| num(o, k).unwrap_or(0.0);
@@ -223,7 +249,7 @@ fn fact_of(v: &JsValue) -> Option<Option<Fact>> {
 fn parse_shard(raw: &str) -> Option<Vec<Fact>> {
     let mut out = Vec::new();
     for line in raw.split('\n').filter(|l| !l.is_empty()) {
-        if let Some(f) = fact_of(&JsValue::parse(line)?)? {
+        if let Some(f) = fact_of(&JsValue::parse(line)?).ok()? {
             out.push(f);
         }
     }
@@ -295,7 +321,13 @@ impl StatsCache {
 
     /// Write one transcript's facts; `None` when it is not cacheable or the write fails.
     #[expect(clippy::cast_precision_loss)]
-    pub fn write(&self, path: &str, stat: FileStat, facts: &[Fact], local: &dyn LocalZone) -> Option<CacheEntry> {
+    pub fn write(
+        &self,
+        path: &str,
+        stat: FileStat,
+        facts: &[Fact],
+        local: &dyn LocalZone,
+    ) -> Option<CacheEntry> {
         if !is_cacheable(stat) {
             return None;
         }
@@ -341,10 +373,19 @@ impl StatsCache {
 
     /// Delete every shard not named in `keep`.
     pub fn prune(&self, keep: &std::collections::HashSet<String>) {
-        let Ok(read) = fs::read_dir(&self.shards_dir) else { return };
+        let Ok(read) = fs::read_dir(&self.shards_dir) else {
+            return;
+        };
         for e in read.filter_map(Result::ok) {
-            let Ok(name) = e.file_name().into_string() else { continue };
-            if name.ends_with(".jsonl") && !keep.contains(&name) {
+            let Ok(name) = e.file_name().into_string() else {
+                continue;
+            };
+            #[expect(
+                clippy::case_sensitive_file_extension_comparisons,
+                reason = "shard names are written lowercase"
+            )]
+            let shard = name.ends_with(".jsonl");
+            if shard && !keep.contains(&name) {
                 let _ = fs::remove_file(e.path());
             }
         }
@@ -370,7 +411,11 @@ impl StatsCache {
                     .map(|(path, lines)| {
                         let lines = lines
                             .as_obj()
-                            .map(|l| l.entries().map(|(k, v)| (k.to_owned(), v.as_num())).collect())
+                            .map(|l| {
+                                l.entries()
+                                    .map(|(k, v)| (k.to_owned(), v.as_num()))
+                                    .collect()
+                            })
                             .unwrap_or_default();
                         (path.to_owned(), lines)
                     })

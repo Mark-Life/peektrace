@@ -9,7 +9,9 @@ use peektrace_core::stats::detectors::pairing::RETRY_WINDOW;
 use peektrace_core::stats::detectors::retries::CauseRow;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::usage::{UsageBy, UsageTotals};
-use peektrace_core::stats::findings::{NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules};
+use peektrace_core::stats::findings::{
+    NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules,
+};
 use peektrace_core::stats::format::{hms, percent, rate_text, tokens};
 use peektrace_core::stats::schema::{DETECTOR_VERSION, Job, STATS_SCHEMA_VERSION};
 use peektrace_core::stats::service::{DrillResult, StatsReport};
@@ -23,7 +25,9 @@ const FINDINGS_SHOWN: usize = 5;
 
 fn job_fix(job: Job) -> &'static str {
     match job {
-        Job::WaitPoll => "poll a condition instead of sleeping; background the job and check it once",
+        Job::WaitPoll => {
+            "poll a condition instead of sleeping; background the job and check it once"
+        }
         Job::Test => "scope the run to the changed package or file",
         Job::Build => "reuse the build cache; build once per change, not once per check",
         Job::Typecheck => "typecheck the package you touched, not the repo",
@@ -73,11 +77,19 @@ fn refs_of(samples: &[SampleRef]) -> String {
         }
     }
     ids.truncate(REFS_PER_ROW);
-    if ids.is_empty() { "-".to_owned() } else { ids.join(",") }
+    if ids.is_empty() {
+        "-".to_owned()
+    } else {
+        ids.join(",")
+    }
 }
 
 fn share_cell(fraction: f64, bash_sec: f64) -> String {
-    if bash_sec > 0.0 { percent(fraction) } else { "not measured".to_owned() }
+    if bash_sec > 0.0 {
+        percent(fraction)
+    } else {
+        "not measured".to_owned()
+    }
 }
 
 fn n(x: f64) -> String {
@@ -96,14 +108,20 @@ fn findings_block(r: &StatsReport) -> String {
         lines.push(format!("   {}", f.spread));
     }
     if found.len() > FINDINGS_SHOWN {
-        lines.push(format!("   … {} more in the tables below", found.len() - FINDINGS_SHOWN));
+        lines.push(format!(
+            "   … {} more in the tables below",
+            found.len() - FINDINGS_SHOWN
+        ));
     }
     lines.join("\n")
 }
 
 fn cause_cells(row: &CauseRow) -> Vec<String> {
     vec![
-        row.key.strip_prefix("cause:").unwrap_or(&row.key).to_owned(),
+        row.key
+            .strip_prefix("cause:")
+            .unwrap_or(&row.key)
+            .to_owned(),
         row.kind.as_str().to_owned(),
         n(row.hits),
         n(row.pairs),
@@ -115,8 +133,16 @@ fn cause_cells(row: &CauseRow) -> Vec<String> {
             rate_text(row.per1k.main, row.hits_by.main),
             rate_text(row.per1k.nested, row.hits_by.nested)
         ),
-        if row.sec_measured == 0.0 { "-".to_owned() } else { hms(row.retry_sec) },
-        if row.tokens_measured == 0.0 { "-".to_owned() } else { tokens(row.retry_ctx_tokens) },
+        if row.sec_measured == 0.0 {
+            "-".to_owned()
+        } else {
+            hms(row.retry_sec)
+        },
+        if row.tokens_measured == 0.0 {
+            "-".to_owned()
+        } else {
+            tokens(row.retry_ctx_tokens)
+        },
         row.rule.as_ref().map_or_else(|| "-".to_owned(), rule_line),
         clip_cell(row.fix.as_deref().unwrap_or(NO_RULE)),
         refs_of(&row.samples),
@@ -144,7 +170,9 @@ fn fail_cells(row: &FailRow) -> Vec<String> {
         n(row.flagged),
         row.r#where.clone(),
         clip_cell(&row.label),
-        row.note.as_deref().map_or_else(|| NO_RULE.to_owned(), clip_cell),
+        row.note
+            .as_deref()
+            .map_or_else(|| NO_RULE.to_owned(), clip_cell),
         refs_of(&row.samples),
         format!("--fail {}", row.key),
     ]
@@ -159,8 +187,16 @@ fn time_cells(row: &TimeRow, bash_sec: f64) -> Vec<String> {
         share_cell(row.share, bash_sec),
         hms(row.median_sec),
         hms(row.p95_sec),
-        if row.capped_runs == 0.0 { "-".to_owned() } else { format!("{} / {}", n(row.capped_runs), hms(row.capped_sec)) },
-        if row.bg_runs == 0.0 { "-".to_owned() } else { format!("{} / {}", n(row.bg_runs), hms(row.bg_sec)) },
+        if row.capped_runs == 0.0 {
+            "-".to_owned()
+        } else {
+            format!("{} / {}", n(row.capped_runs), hms(row.capped_sec))
+        },
+        if row.bg_runs == 0.0 {
+            "-".to_owned()
+        } else {
+            format!("{} / {}", n(row.bg_runs), hms(row.bg_sec))
+        },
         job_fix(row.key).to_owned(),
         refs_of(&row.samples),
         format!("--time {}", row.key.as_str()),
@@ -233,8 +269,12 @@ fn footer(r: &StatsReport) -> String {
         "HITS M/S splits hits between main sessions and subagents; PER 1K IN WINDOW M/S is hits per 1,000 calls that could have hit, per side, over the whole window (a RULE rate counts only since its rule line appeared)".to_owned(),
         "drill a row with: peektrace stats drill <DRILL>".to_owned(),
     ]);
-    let skipped = (!r.skipped.is_empty())
-        .then(|| format!("{} files could not be read and are not counted", r.skipped.len()));
+    let skipped = (!r.skipped.is_empty()).then(|| {
+        format!(
+            "{} files could not be read and are not counted",
+            r.skipped.len()
+        )
+    });
     std::iter::once("NOTES".to_owned())
         .chain(notes.chain(skipped).map(|x| format!("- {x}")))
         .collect::<Vec<_>>()
@@ -245,7 +285,11 @@ fn footer(r: &StatsReport) -> String {
 pub fn render_report(r: &StatsReport, pretty: bool) -> String {
     let causes: Vec<Vec<String>> = r.causes.iter().map(cause_cells).collect();
     let fails: Vec<Vec<String>> = r.fails.iter().map(fail_cells).collect();
-    let time: Vec<Vec<String>> = r.time.iter().map(|t| time_cells(t, r.corpus.bash_sec)).collect();
+    let time: Vec<Vec<String>> = r
+        .time
+        .iter()
+        .map(|t| time_cells(t, r.corpus.bash_sec))
+        .collect();
     [
         header(r),
         String::new(),
@@ -304,7 +348,11 @@ pub fn render_drill(d: &DrillResult, pretty: bool) -> String {
                 clip_cell(&s.line),
             ];
             if paired {
-                row.push(h.pair_line.as_deref().map_or_else(|| "-".to_owned(), clip_cell));
+                row.push(
+                    h.pair_line
+                        .as_deref()
+                        .map_or_else(|| "-".to_owned(), clip_cell),
+                );
             }
             row
         })
@@ -335,7 +383,11 @@ fn models_cell(models: &[String]) -> String {
         return "-".to_owned();
     }
     let shown = models.iter().take(3).cloned().collect::<Vec<_>>().join(",");
-    if models.len() > 3 { format!("{shown} +{}", models.len() - 3) } else { shown }
+    if models.len() > 3 {
+        format!("{shown} +{}", models.len() - 3)
+    } else {
+        shown
+    }
 }
 
 fn tail_cells(t: &UsageTotals) -> Vec<String> {
@@ -362,7 +414,9 @@ pub fn render_usage(u: &UsageReport, pretty: bool) -> String {
     if blocks {
         headers.extend(["END", "ACTIVE"]);
     }
-    headers.extend(["INPUT", "OUTPUT", "CACHE W", "CACHE R", "TOTAL", "COST", "MODELS"]);
+    headers.extend([
+        "INPUT", "OUTPUT", "CACHE W", "CACHE R", "TOTAL", "COST", "MODELS",
+    ]);
     let mut rows: Vec<Vec<String>> = u
         .result
         .rows
@@ -395,7 +449,11 @@ pub fn render_usage(u: &UsageReport, pretty: bool) -> String {
         u.tz,
         n(u.result.totals.agg.turns)
     ))
-    .chain([table(&headers, &rows, pretty), String::new(), "NOTES".to_owned()])
+    .chain([
+        table(&headers, &rows, pretty),
+        String::new(),
+        "NOTES".to_owned(),
+    ])
     .chain(u.result.caveats.iter().map(|c| format!("- {c}")))
     .collect::<Vec<_>>()
     .join("\n")

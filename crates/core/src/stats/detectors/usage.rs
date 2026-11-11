@@ -12,7 +12,7 @@ use crate::js::time::{LocalZone, parse_date, to_iso_string};
 use crate::js_re;
 use crate::model::Agent;
 use crate::pricing::{CostTokens, card_for, pricing_echo, turn_cost};
-use crate::stats::rank::{asc, cmp_str, round, uniq_sorted};
+use crate::stats::rank::{cmp_str, round, uniq_sorted};
 use crate::stats::schema::{Fact, UsageFact};
 
 pub const HOUR_MS: i64 = 3_600_000;
@@ -128,7 +128,12 @@ impl DayKey {
             return k.clone();
         }
         let key = Timestamp::from_millisecond(slot * SLOT_MS)
-            .map(|t| t.to_zoned(self.tz.clone()).date().strftime("%Y-%m-%d").to_string())
+            .map(|t| {
+                t.to_zoned(self.tz.clone())
+                    .date()
+                    .strftime("%Y-%m-%d")
+                    .to_string()
+            })
             .unwrap_or_default();
         self.memo.insert(slot, key.clone());
         key
@@ -137,7 +142,11 @@ impl DayKey {
 
 fn days_before(day: &str, n: i64) -> String {
     let mut it = day.split('-').map(|p| p.parse::<i64>().unwrap_or(0));
-    let (y, m, d) = (it.next().unwrap_or(0), it.next().unwrap_or(1), it.next().unwrap_or(1));
+    let (y, m, d) = (
+        it.next().unwrap_or(0),
+        it.next().unwrap_or(1),
+        it.next().unwrap_or(1),
+    );
     let ms = crate::js::time::utc_ms(y, m - 1, d - n);
     to_iso_string(ms)[..10].to_owned()
 }
@@ -188,7 +197,8 @@ impl UsageTotals {
         w.key("cacheReadTokens").num(self.agg.cache_read);
         w.key("cacheCreationTokens").num(self.agg.cache_creation);
         w.key("totalTokens").num(self.total_tokens);
-        w.key("models").texts(self.models.iter().map(String::as_str));
+        w.key("models")
+            .texts(self.models.iter().map(String::as_str));
     }
 }
 
@@ -235,10 +245,21 @@ fn fold(target: &mut IndexMap<String, Agg>, model: &str, t: &Agg) {
 }
 
 impl<'a> UsageSink<'a> {
-    pub fn new(by: UsageBy, days: i64, from_ms: Option<i64>, now_ms: i64, tz: TimeZone, local: &'a dyn LocalZone) -> Self {
+    pub fn new(
+        by: UsageBy,
+        days: i64,
+        from_ms: Option<i64>,
+        now_ms: i64,
+        tz: TimeZone,
+        local: &'a dyn LocalZone,
+    ) -> Self {
         let mut day_key = DayKey::new(tz);
         let cutoff_day = days_before(&day_key.of(now_ms), days - 1);
-        let cutoff_key = if by == UsageBy::Month { cutoff_day[..7].to_owned() } else { cutoff_day };
+        let cutoff_key = if by == UsageBy::Month {
+            cutoff_day[..7].to_owned()
+        } else {
+            cutoff_day
+        };
         Self {
             by,
             from_ms,
@@ -288,11 +309,19 @@ impl<'a> UsageSink<'a> {
             return;
         }
         let day = self.day_key.of(ms);
-        let key = if self.by == UsageBy::Month { day[..7.min(day.len())].to_owned() } else { day };
+        let key = if self.by == UsageBy::Month {
+            day[..7.min(day.len())].to_owned()
+        } else {
+            day
+        };
         if cmp_str(&key, &self.cutoff_key).is_lt() || self.is_duplicate(f) {
             return;
         }
-        fold(self.buckets.entry(key).or_default(), &f.model, &priced_of(f));
+        fold(
+            self.buckets.entry(key).or_default(),
+            &f.model,
+            &priced_of(f),
+        );
     }
 
     fn trusted_calls(&self) -> (Vec<BlockCall>, bool) {
@@ -317,9 +346,12 @@ impl<'a> UsageSink<'a> {
         }
     }
 
-    fn block_rows(&self, kept: &[BlockCall]) -> Vec<(String, IndexMap<String, Agg>, Option<UsageBlock>)> {
+    fn block_rows(
+        &self,
+        kept: &[BlockCall],
+    ) -> Vec<(String, IndexMap<String, Agg>, Option<UsageBlock>)> {
         let mut sorted = kept.to_vec();
-        sorted.sort_by(|a, b| asc(a.ms as f64, b.ms as f64));
+        sorted.sort_by_key(|c| c.ms);
         let mut open: Vec<(i64, i64, Vec<BlockCall>)> = Vec::new();
         for c in sorted {
             match open.last_mut() {
@@ -368,7 +400,10 @@ impl<'a> UsageSink<'a> {
             ));
         }
         if s.no_timestamp > 0.0 {
-            out.push(format!("{} model calls carry no timestamp and are left out", s.no_timestamp));
+            out.push(format!(
+                "{} model calls carry no timestamp and are left out",
+                s.no_timestamp
+            ));
         }
         if self.by == UsageBy::Block {
             out.push("a block is the 5 hours from the UTC hour of its first call; a later call opens the next block".to_owned());
@@ -401,7 +436,11 @@ impl<'a> UsageSink<'a> {
                 all.entry(m.clone()).or_default().add(a, a.turns);
             }
         }
-        let unpriced = uniq_sorted(all.keys().map(String::as_str).filter(|m| card_for(m).is_none()));
+        let unpriced = uniq_sorted(
+            all.keys()
+                .map(String::as_str)
+                .filter(|m| card_for(m).is_none()),
+        );
         let models: Vec<&str> = all.keys().map(String::as_str).collect();
         UsageResult {
             caveats: self.caveats_of(&models, &unpriced),

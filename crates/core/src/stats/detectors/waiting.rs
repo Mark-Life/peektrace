@@ -22,7 +22,12 @@ const P95: f64 = 0.95;
 /// Longest first, then chronological.
 pub fn compare_drill_hits(a: &DrillHit, b: &DrillHit) -> Ordering {
     desc(a.dur_sec.unwrap_or(0.0), b.dur_sec.unwrap_or(0.0))
-        .then_with(|| cmp_str(a.sample.ts.as_deref().unwrap_or(""), b.sample.ts.as_deref().unwrap_or("")))
+        .then_with(|| {
+            cmp_str(
+                a.sample.ts.as_deref().unwrap_or(""),
+                b.sample.ts.as_deref().unwrap_or(""),
+            )
+        })
         .then_with(|| cmp_str(&a.sample.sid, &b.sample.sid))
         .then_with(|| asc(a.sample.seq, b.sample.seq))
 }
@@ -96,8 +101,10 @@ static CURL_RETRY: LazyRe = js_re!(r"\bcurl\b[^\n]*--retry");
 pub fn wait_shape(cmd: &str) -> Option<WaitShape> {
     let text = strip_comments(&strip_heredoc_bodies(cmd));
     let st = mask_quoted(&text);
-    let shell_loop = (LOOP_HEAD.is_match(&st) || FOR_HEAD.is_match(&st)) && !LIST_ITERATION.is_match(&st);
-    let inline_loop = INTERPRETER.is_match(&st) && LOOP_ANY.is_match(&text) && LONG_INLINE_DELAY.is_match(&text);
+    let shell_loop =
+        (LOOP_HEAD.is_match(&st) || FOR_HEAD.is_match(&st)) && !LIST_ITERATION.is_match(&st);
+    let inline_loop =
+        INTERPRETER.is_match(&st) && LOOP_ANY.is_match(&text) && LONG_INLINE_DELAY.is_match(&text);
     if (shell_loop && DELAY_ANYWHERE.is_match(&text)) || inline_loop {
         return Some(WaitShape::LoopPoll);
     }
@@ -107,7 +114,9 @@ pub fn wait_shape(cmd: &str) -> Option<WaitShape> {
     if CURL_RETRY.is_match(&st) {
         return Some(WaitShape::CurlRetry);
     }
-    if DELAY_AT_CMD.is_match(&st) || (INTERPRETER.is_match(&st) && LONG_INLINE_DELAY.is_match(&text)) {
+    if DELAY_AT_CMD.is_match(&st)
+        || (INTERPRETER.is_match(&st) && LONG_INLINE_DELAY.is_match(&text))
+    {
         return Some(WaitShape::BareDelay);
     }
     None
@@ -119,7 +128,10 @@ pub fn is_waiting(cmd: &str) -> bool {
 
 static SLEEP_LITERAL: LazyRe = js_re!(r"\b(?:\S*\/)?sleep\s+(\.?\d[\d.]*)", "g");
 static PY_SLEEP_LITERAL: LazyRe = js_re!(r"\btime\.sleep\s*\(\s*(\.?\d[\d.]*)", "g");
-static PERL_SLEEP_LITERAL: LazyRe = js_re!(r"select\s+undef\s*,\s*undef\s*,\s*undef\s*,\s*(\.?\d[\d.]*)", "g");
+static PERL_SLEEP_LITERAL: LazyRe = js_re!(
+    r"select\s+undef\s*,\s*undef\s*,\s*undef\s*,\s*(\.?\d[\d.]*)",
+    "g"
+);
 
 /// The literal seconds a line asked to sleep for.
 pub fn declared_delay_sec(cmd: &str) -> f64 {
@@ -231,7 +243,10 @@ impl WaitPanelSink {
                 .or_default()
                 .add(f, Some(sample));
         } else {
-            self.tallies.entry(ALL.to_owned()).or_default().add(f, Some(sample));
+            self.tallies
+                .entry(ALL.to_owned())
+                .or_default()
+                .add(f, Some(sample));
         }
         if b.bg {
             self.bg_runs += 1.0;
@@ -262,7 +277,9 @@ impl WaitPanelSink {
                 }
             })
             .collect();
-        by_shape.sort_by(|a, b| desc(a.total_sec, b.total_sec).then_with(|| cmp_str(a.key.as_str(), b.key.as_str())));
+        by_shape.sort_by(|a, b| {
+            desc(a.total_sec, b.total_sec).then_with(|| cmp_str(a.key.as_str(), b.key.as_str()))
+        });
         WaitPanel {
             calls: total.rows,
             total_sec: round(total.total_sec),

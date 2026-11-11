@@ -47,6 +47,11 @@ struct Matcher<'a> {
 
 impl Matcher<'_> {
     /// `find_longest_match(alo, ahi, blo, bhi)` with no junk predicate.
+    #[expect(
+        clippy::similar_names,
+        clippy::needless_range_loop,
+        reason = "follows difflib"
+    )]
     fn longest(&mut self, alo: usize, ahi: usize, blo: usize, bhi: usize) -> (usize, usize, usize) {
         let (a, b) = (self.a, self.b);
         let (mut besti, mut bestj, mut bestsize) = (alo, blo, 0usize);
@@ -86,13 +91,17 @@ impl Matcher<'_> {
             bestj -= 1;
             bestsize += 1;
         }
-        while besti + bestsize < ahi && bestj + bestsize < bhi && a[besti + bestsize] == b[bestj + bestsize] {
+        while besti + bestsize < ahi
+            && bestj + bestsize < bhi
+            && a[besti + bestsize] == b[bestj + bestsize]
+        {
             bestsize += 1;
         }
         (besti, bestj, bestsize)
     }
 }
 
+#[expect(clippy::many_single_char_names, reason = "follows difflib")]
 fn matched_points(a: &[u32], b: &[u32]) -> usize {
     let mut m = Matcher {
         a,
@@ -198,7 +207,11 @@ pub fn segments(cmd: &str) -> Vec<String> {
         })
         .map(norm_seg)
         .collect();
-    if kept.is_empty() { vec![norm_seg(cmd)] } else { kept }
+    if kept.is_empty() {
+        vec![norm_seg(cmd)]
+    } else {
+        kept
+    }
 }
 
 /// Separator between the segments stored in a fact's `focus`.
@@ -244,7 +257,11 @@ pub fn hybrid_similarity(
     split: &dyn Fn(&str) -> Vec<String>,
 ) -> SimilarityHit {
     let score = |a: &str, b: &str, bar: f64| {
-        if bar > 0.0 { ratio_at_least(a, b, bar) } else { ratio(a, b) }
+        if bar > 0.0 {
+            ratio_at_least(a, b, bar)
+        } else {
+            ratio(a, b)
+        }
     };
     let focus = match (&failed.focus, failed.shell, failed.mode) {
         (Some(f), true, mode) if mode != FocusMode::Whole => f,
@@ -256,7 +273,8 @@ pub fn hybrid_similarity(
         }
     };
     let base = split(retry);
-    let mut candidates: Vec<(String, &str)> = base.iter().map(|s| (s.clone(), s.as_str())).collect();
+    let mut candidates: Vec<(String, &str)> =
+        base.iter().map(|s| (s.clone(), s.as_str())).collect();
     if failed.mode == FocusMode::Cnf {
         candidates.extend(base.iter().map(|s| (drop_first_word(s), s.as_str())));
     }
@@ -266,7 +284,11 @@ pub fn hybrid_similarity(
     };
     for f in focus.split(FOCUS_SEP).filter(|s| !s.is_empty()) {
         for (cmp, seg) in &candidates {
-            let bar = if floor > 0.0 { floor.max(best.score) } else { 0.0 };
+            let bar = if floor > 0.0 {
+                floor.max(best.score)
+            } else {
+                0.0
+            };
             let mut s = score(f, cmp, bar);
             if failed.mode == FocusMode::Sleep && cmp.contains(last_word(f)) {
                 s = s.max(SLEEP_HIT);
@@ -288,7 +310,8 @@ mod tests {
 
     #[test]
     fn difflib_golden() {
-        let raw = include_str!("../../../../../packages/core/test/fixtures/stats/difflib-golden.json");
+        let raw =
+            include_str!("../../../../../packages/core/test/fixtures/stats/difflib-golden.json");
         let v: serde_json::Value = serde_json::from_str(raw).unwrap_or_default();
         let cases = v.as_array().cloned().unwrap_or_default();
         assert!(cases.len() >= 20);
@@ -296,7 +319,11 @@ mod tests {
             let a = c["a"].as_str().unwrap_or_default();
             let b = c["b"].as_str().unwrap_or_default();
             let r = c["r"].as_f64().unwrap_or(-1.0);
-            assert!(ratio(a, b).to_bits() == r.to_bits(), "{a:?} {b:?} {} != {r}", ratio(a, b));
+            assert!(
+                ratio(a, b).to_bits() == r.to_bits(),
+                "{a:?} {b:?} {} != {r}",
+                ratio(a, b)
+            );
         }
     }
 

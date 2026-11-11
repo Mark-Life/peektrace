@@ -88,11 +88,16 @@ fn model_slices(s: &SessionAgg) -> Vec<(String, Tokens)> {
         uniq_sorted(s.models.iter().map(String::as_str))
     };
     let slice = 1.0 / models.len() as f64;
-    models.into_iter().map(|m| (m, s.tokens.map(|n| n * slice))).collect()
+    models
+        .into_iter()
+        .map(|m| (m, s.tokens.map(|n| n * slice)))
+        .collect()
 }
 
 fn session_cost(s: &SessionAgg) -> f64 {
-    model_slices(s).iter().fold(0.0, |acc, (m, t)| acc + t.cost(m))
+    model_slices(s)
+        .iter()
+        .fold(0.0, |acc, (m, t)| acc + t.cost(m))
 }
 
 /// Token counts short enough to read inside a sentence.
@@ -228,6 +233,9 @@ impl CorpusPanels {
     }
 }
 
+/// Per workflow run: prefix tokens, sessions per project, agent ids.
+type RunAgg = (f64, IndexMap<String, f64>, HashSet<String>);
+
 #[derive(Default)]
 struct WebAgg {
     calls: f64,
@@ -277,7 +285,11 @@ fn cost_block(
             (k, est, row)
         })
         .collect();
-    let ranked = rank(builds, |x, y| desc(x.1, y.1).then_with(|| cmp_str(&x.0, &y.0)), b.limit);
+    let ranked = rank(
+        builds,
+        |x, y| desc(x.1, y.1).then_with(|| cmp_str(&x.0, &y.0)),
+        b.limit,
+    );
     note_dropped(ctx, ranked.dropped, b.what);
     ranked.rows.into_iter().map(|(_, _, r)| r).collect()
 }
@@ -301,13 +313,19 @@ impl CorpusPanelSink {
                     e.0 += 1.0;
                     e.1 += c.dur_sec.unwrap_or(0.0);
                 }
-                if c.bash.is_none() && WEB_TOOLS.contains(&c.tool.as_str()) {
-                    if let Some(arg) = c.arg.as_deref().filter(|a| !a.is_empty()) {
+                if c.bash.is_none()
+                    && WEB_TOOLS.contains(&c.tool.as_str())
+                    && let Some(arg) = c.arg.as_deref().filter(|a| !a.is_empty())
+                {
+                    {
                         self.web_calls += 1.0;
-                        let agg = self.web.entry(format!("{} {arg}", c.tool)).or_insert_with(|| WebAgg {
-                            tool: c.tool.clone(),
-                            ..WebAgg::default()
-                        });
+                        let agg =
+                            self.web
+                                .entry(format!("{} {arg}", c.tool))
+                                .or_insert_with(|| WebAgg {
+                                    tool: c.tool.clone(),
+                                    ..WebAgg::default()
+                                });
                         agg.calls += 1.0;
                         agg.chars += c.out_chars;
                         agg.sessions.insert(c.base.sid.clone());
@@ -325,7 +343,12 @@ impl CorpusPanelSink {
                 if prev.run.is_none() {
                     prev.run.clone_from(&f.base.run);
                 }
-                let all: Vec<&str> = prev.models.iter().chain(&f.models).map(String::as_str).collect();
+                let all: Vec<&str> = prev
+                    .models
+                    .iter()
+                    .chain(&f.models)
+                    .map(String::as_str)
+                    .collect();
                 prev.models = uniq_sorted(all);
                 prev.max_context_tokens = prev.max_context_tokens.max(f.max_context_tokens);
                 prev.first_turn_cache_creation += f.first_turn_cache_creation;
@@ -350,14 +373,27 @@ impl CorpusPanelSink {
         }
     }
 
-    #[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[expect(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     fn context_panel(&self, ctx: &mut FinishCtx<'_>) -> Vec<ContextRow> {
-        let mains: Vec<&SessionAgg> = self.sessions.values().filter(|s| s.kind == Kind::Main).collect();
+        let mains: Vec<&SessionAgg> = self
+            .sessions
+            .values()
+            .filter(|s| s.kind == Kind::Main)
+            .collect();
         let total_read = mains.iter().fold(0.0, |a, s| a + s.tokens.cache_read);
         let head = ((mains.len() as f64 * CONCENTRATION_HEAD).ceil() as usize).max(1);
         let mut by_read = mains.clone();
-        by_read.sort_by(|a, b| desc(a.tokens.cache_read, b.tokens.cache_read).then_with(|| cmp_str(&a.sid, &b.sid)));
-        let head_read = by_read.iter().take(head).fold(0.0, |a, s| a + s.tokens.cache_read);
+        by_read.sort_by(|a, b| {
+            desc(a.tokens.cache_read, b.tokens.cache_read).then_with(|| cmp_str(&a.sid, &b.sid))
+        });
+        let head_read = by_read
+            .iter()
+            .take(head)
+            .fold(0.0, |a, s| a + s.tokens.cache_read);
         if total_read > 0.0 {
             ctx.caveat(format!(
                 "Context: the top 1% of main sessions ({head} of {}) hold {} of {} cache-read tokens — compact or split those sessions before tuning anything else",
@@ -368,7 +404,10 @@ impl CorpusPanelSink {
         }
         let ranked = rank(
             mains,
-            |a, b| desc(a.max_context_tokens, b.max_context_tokens).then_with(|| cmp_str(&a.sid, &b.sid)),
+            |a, b| {
+                desc(a.max_context_tokens, b.max_context_tokens)
+                    .then_with(|| cmp_str(&a.sid, &b.sid))
+            },
             ctx.limit,
         );
         note_dropped(ctx, ranked.dropped, "context sessions");
@@ -394,9 +433,11 @@ impl CorpusPanelSink {
         let agents: Vec<&SessionAgg> = self
             .sessions
             .values()
-            .filter(|s| s.kind == Kind::WorkflowAgent && s.run.as_deref().is_some_and(|r| !r.is_empty()))
+            .filter(|s| {
+                s.kind == Kind::WorkflowAgent && s.run.as_deref().is_some_and(|r| !r.is_empty())
+            })
             .collect();
-        let mut by_run: IndexMap<String, (f64, IndexMap<String, f64>, HashSet<String>)> = IndexMap::new();
+        let mut by_run: IndexMap<String, RunAgg> = IndexMap::new();
         for s in &agents {
             let e = by_run.entry(s.run.clone().unwrap_or_default()).or_default();
             e.0 += s.first_turn_cache_creation;
@@ -404,7 +445,9 @@ impl CorpusPanelSink {
             e.2.insert(s.sid.clone());
         }
         let created = agents.iter().fold(0.0, |a, s| a + s.tokens.cache_creation);
-        let prefix = agents.iter().fold(0.0, |a, s| a + s.first_turn_cache_creation);
+        let prefix = agents
+            .iter()
+            .fold(0.0, |a, s| a + s.first_turn_cache_creation);
         if created > 0.0 {
             ctx.caveat(format!(
                 "Fan-out: {} of workflow cache creation ({} of {} tokens) is first-turn prefix, re-paid by every agent a run spawns — shrink the shared prefix or spawn fewer agents; filtered to {} workflow-agent transcripts across {} runs",
@@ -453,7 +496,10 @@ impl CorpusPanelSink {
                 same_run: a.runs.len() == 1 && !a.runs.contains(""),
             })
             .collect();
-        let in_run = repeats.iter().filter(|r| r.same_run).fold(0.0, |a, r| a + (r.calls - 1.0));
+        let in_run = repeats
+            .iter()
+            .filter(|r| r.same_run)
+            .fold(0.0, |a, r| a + (r.calls - 1.0));
         if !repeats.is_empty() {
             ctx.caveat(format!(
                 "Web: {} of {} web calls re-fetched a url or query already answered inside the same run — cache the fetch at run level; {} urls were fetched more than once overall",
@@ -462,7 +508,11 @@ impl CorpusPanelSink {
                 repeats.len()
             ));
         }
-        let ranked = rank(repeats, |a, b| desc(a.calls, b.calls).then_with(|| cmp_str(&a.key, &b.key)), ctx.limit);
+        let ranked = rank(
+            repeats,
+            |a, b| desc(a.calls, b.calls).then_with(|| cmp_str(&a.key, &b.key)),
+            ctx.limit,
+        );
         note_dropped(ctx, ranked.dropped, "repeated web fetches");
         ranked.rows
     }
@@ -518,20 +568,41 @@ impl CorpusPanelSink {
         let redact = ctx.redact;
         let mut out = cost_block(
             ctx,
-            &CostBlock { aggs: &by_kind, limit: by_kind.len() as f64, prefix: "kind", what: "session kinds" },
+            &CostBlock {
+                aggs: &by_kind,
+                limit: by_kind.len() as f64,
+                prefix: "kind",
+                what: "session kinds",
+            },
             &|k| k.to_owned(),
             &|k, _| usd_by_kind.get(k).copied().unwrap_or(0.0),
         );
         let limit = ctx.limit;
         out.extend(cost_block(
             ctx,
-            &CostBlock { aggs: &by_model, limit, prefix: "model", what: "models" },
-            &|k| if card_for(k).is_some() { k.to_owned() } else { format!("{k} (unpriced)") },
+            &CostBlock {
+                aggs: &by_model,
+                limit,
+                prefix: "model",
+                what: "models",
+            },
+            &|k| {
+                if card_for(k).is_some() {
+                    k.to_owned()
+                } else {
+                    format!("{k} (unpriced)")
+                }
+            },
             &|k, a| a.tokens.cost(k),
         ));
         out.extend(cost_block(
             ctx,
-            &CostBlock { aggs: &by_project, limit, prefix: "project", what: "projects" },
+            &CostBlock {
+                aggs: &by_project,
+                limit,
+                prefix: "project",
+                what: "projects",
+            },
             &|k| redact.text(k),
             &|k, _| usd_by_project.get(k).copied().unwrap_or(0.0),
         ));

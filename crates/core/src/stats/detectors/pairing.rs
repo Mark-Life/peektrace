@@ -117,6 +117,7 @@ fn unclipped_words(cmd: &str) -> Vec<String> {
     w
 }
 
+#[expect(clippy::many_single_char_names, reason = "LCS table indexes")]
 fn word_diff(a: &[String], b: &[String]) -> (Vec<String>, Vec<String>) {
     let mut t = vec![vec![0u32; b.len() + 1]; a.len() + 1];
     for i in (0..a.len()).rev() {
@@ -179,7 +180,11 @@ fn culprit_of(cause: CauseId, arg: Option<&str>) -> Option<Culprit<'_>> {
     }
 }
 
-fn learned_diff(failed_cmd: &str, retry_cmd: &str, culprit: Option<Culprit<'_>>) -> Option<LearnedDiff> {
+fn learned_diff(
+    failed_cmd: &str,
+    retry_cmd: &str,
+    culprit: Option<Culprit<'_>>,
+) -> Option<LearnedDiff> {
     let (rem, add) = word_diff(&unclipped_words(failed_cmd), &unclipped_words(retry_cmd));
     let moved: HashSet<&String> = rem.iter().filter(|w| add.contains(w)).collect();
     let removed: Vec<String> = rem.iter().filter(|w| !moved.contains(w)).cloned().collect();
@@ -190,10 +195,10 @@ fn learned_diff(failed_cmd: &str, retry_cmd: &str, culprit: Option<Culprit<'_>>)
     }
     let mut best: Option<(&str, &str, f64)> = None;
     for from in &removed {
-        if let Some((to, score)) = rewrite_of(from, &added) {
-            if best.is_none_or(|b| score > b.2) {
-                best = Some((from, to, score));
-            }
+        if let Some((to, score)) = rewrite_of(from, &added)
+            && best.is_none_or(|b| score > b.2)
+        {
+            best = Some((from, to, score));
         }
     }
     best.and_then(|(f, t, _)| diff_of_sides(f, t))
@@ -232,7 +237,9 @@ fn wait_in(cmd: &str, wait: Option<WaitShape>) -> Option<WaitShape> {
 }
 
 fn wait_of(retry: &CallFact) -> String {
-    let Some(b) = &retry.bash else { return "(no wait)".into() };
+    let Some(b) = &retry.bash else {
+        return "(no wait)".into();
+    };
     if b.bg {
         return "run_in_background".into();
     }
@@ -266,13 +273,19 @@ struct Seed {
 }
 
 fn diff_of(seed: &Seed, retry: &CallFact, segment: &str) -> Option<LearnedDiff> {
-    let (Some(fb), Some(rb)) = (&seed.fact.bash, &retry.bash) else { return None };
+    let (Some(fb), Some(rb)) = (&seed.fact.bash, &retry.bash) else {
+        return None;
+    };
     let arg = seed.fact.cause_arg.as_deref();
     match seed.cause {
         CauseId::CommandNotFound | CauseId::SleepBlocked if arg.is_none() => None,
         CauseId::SleepBlocked => diff_of_sides(arg.unwrap_or(""), &wait_of(retry)),
         CauseId::CommandNotFound => {
-            let ran = seed.input.focus.as_ref().and_then(|_| command_word_of(segment))?;
+            let ran = seed
+                .input
+                .focus
+                .as_ref()
+                .and_then(|_| command_word_of(segment))?;
             diff_of_sides(arg.unwrap_or(""), &ran)
         }
         cause => learned_diff(&fb.cmd, &rb.cmd, culprit_of(cause, arg)),
@@ -299,7 +312,9 @@ fn shell_line_of(f: &CallFact) -> Option<&str> {
 }
 
 fn edits_file(f: &CallFact) -> bool {
-    if FILE_EDIT_TOOLS.contains(&f.tool.as_str()) || f.bash.as_ref().is_some_and(|b| b.bin == "apply_patch") {
+    if FILE_EDIT_TOOLS.contains(&f.tool.as_str())
+        || f.bash.as_ref().is_some_and(|b| b.bin == "apply_patch")
+    {
         return true;
     }
     shell_line_of(f).is_some_and(|l| {
@@ -325,11 +340,15 @@ impl Clock<'_> {
 }
 
 fn in_reach(seed: &Seed, retry: &CallFact, clock: Clock<'_>) -> bool {
-    let same_tool = retry.tool == seed.fact.tool || (seed.cause == CauseId::CommandNotFound && retry.is_bash());
+    let same_tool =
+        retry.tool == seed.fact.tool || (seed.cause == CauseId::CommandNotFound && retry.is_bash());
     if !same_tool || are_siblings(&seed.fact, retry) {
         return false;
     }
-    if clock.gap(&seed.fact, retry).is_some_and(|g| !(0.0..=MAX_RETRY_GAP_SEC).contains(&g)) {
+    if clock
+        .gap(&seed.fact, retry)
+        .is_some_and(|g| !(0.0..=MAX_RETRY_GAP_SEC).contains(&g))
+    {
         return false;
     }
     !(seed.cause == CauseId::Unclassified && seed.edit_seen)
@@ -340,15 +359,20 @@ fn same_call(a: &CallFact, b: &CallFact) -> bool {
 }
 
 fn reads_back(seed: &Seed, f: &CallFact) -> bool {
-    let Some(name) = seed.fact.cause_arg.as_deref() else { return false };
+    let Some(name) = seed.fact.cause_arg.as_deref() else {
+        return false;
+    };
     if same_call(&seed.fact, f) || are_siblings(&seed.fact, f) {
         return false;
     }
-    f.arg.as_deref().is_some_and(|a| a.contains(name)) || f.bash.as_ref().is_some_and(|b| b.cmd.contains(name))
+    f.arg.as_deref().is_some_and(|a| a.contains(name))
+        || f.bash.as_ref().is_some_and(|b| b.cmd.contains(name))
 }
 
 fn close_seed(seed: Seed, clock: Clock<'_>, out: &mut Vec<RetryPair>) {
-    let Some(best) = seed.best.as_ref() else { return };
+    let Some(best) = seed.best.as_ref() else {
+        return;
+    };
     let diff = if seed.read_back {
         None
     } else {
@@ -370,7 +394,12 @@ enum Verdict {
     Score(f64, String),
 }
 
-fn verdict_of(seed: &Seed, f: &CallFact, split: &dyn Fn(&str) -> Vec<String>, clock: Clock<'_>) -> Verdict {
+fn verdict_of(
+    seed: &Seed,
+    f: &CallFact,
+    split: &dyn Fn(&str) -> Vec<String>,
+    clock: Clock<'_>,
+) -> Verdict {
     if !in_reach(seed, f, clock) {
         return Verdict::Skip;
     }
@@ -411,7 +440,9 @@ fn offer_to(seeds: &mut [Seed], f: &CallFact, clock: Clock<'_>) -> HashSet<usize
             Verdict::Skip => {}
             Verdict::Score(score, segment) => match &seed.best {
                 None => open = Some((i, score, segment)),
-                Some(b) if better.is_none() && score > b.score => better = Some((i, score, segment)),
+                Some(b) if better.is_none() && score > b.score => {
+                    better = Some((i, score, segment));
+                }
                 Some(_) => {}
             },
         }

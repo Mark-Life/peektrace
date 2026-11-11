@@ -76,7 +76,10 @@ pub fn bump_cell(series: &mut CellSeries, f: &CallFact, origin: &Origin) {
     }
 }
 
-pub fn sum_cells<'a>(series: impl IntoIterator<Item = &'a CellSeries>, keep: &dyn Fn(&Cell) -> bool) -> Split {
+pub fn sum_cells<'a>(
+    series: impl IntoIterator<Item = &'a CellSeries>,
+    keep: &dyn Fn(&Cell) -> bool,
+) -> Split {
     let mut out = Split::default();
     for s in series {
         for cell in s.values().filter(|c| keep(c)) {
@@ -108,7 +111,9 @@ fn package_of(b: &str) -> &str {
         "objdump" => "binutils (objdump)",
         "readelf" => "binutils (readelf)",
         "rg" => "ripgrep (rg)",
-        "fd" => "fd (on Debian/Ubuntu: apt install fd-find, then mkdir -p ~/.local/bin && ln -s $(command -v fdfind) ~/.local/bin/fd)",
+        "fd" => {
+            "fd (on Debian/Ubuntu: apt install fd-find, then mkdir -p ~/.local/bin && ln -s $(command -v fdfind) ~/.local/bin/fd)"
+        }
         other => other,
     }
 }
@@ -138,11 +143,18 @@ pub fn command_not_found_fix(bins: &[String]) -> Option<String> {
     if !install.is_empty() {
         parts.push(format!(
             "install {}",
-            install.iter().map(|b| package_of(b)).collect::<Vec<_>>().join(", ")
+            install
+                .iter()
+                .map(|b| package_of(b))
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
     if !on_path.is_empty() {
-        parts.push(format!("put {} on PATH in {PATH_FILES}", on_path.join(" and ")));
+        parts.push(format!(
+            "put {} on PATH in {PATH_FILES}",
+            on_path.join(" and ")
+        ));
     }
     let mut all = Vec::new();
     if !parts.is_empty() {
@@ -158,7 +170,9 @@ pub fn call_fix_of(cause: CauseId, arg: Option<&str>) -> Option<String> {
     let Some(arg) = arg else { return fix };
     match cause {
         CauseId::CommandNotFound => command_not_found_fix(&[arg.to_owned()]).or(fix),
-        CauseId::StructuredOutputSchema => Some(format!("{} Missing: '{arg}'.", fix.unwrap_or_default())),
+        CauseId::StructuredOutputSchema => {
+            Some(format!("{} Missing: '{arg}'.", fix.unwrap_or_default()))
+        }
         _ => fix,
     }
 }

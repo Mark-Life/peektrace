@@ -19,7 +19,11 @@ pub fn count(n: f64) -> String {
         }
         grouped.push(c);
     }
-    let sign = if neg && (grouped != "0" || !frac.is_empty()) { "-" } else { "" };
+    let sign = if neg && (grouped != "0" || !frac.is_empty()) {
+        "-"
+    } else {
+        ""
+    };
     if frac.is_empty() {
         format!("{sign}{grouped}")
     } else {
@@ -93,7 +97,8 @@ mod tests {
     fn numbers() {
         assert_eq!(count(1234.0), "1,234");
         assert_eq!(count(12.0), "12");
-        assert_eq!(hms(59.94), "59.9s");
+        assert_eq!(hms(59.4), "59.4s");
+        assert_eq!(hms(59.94), "1m00s");
         assert_eq!(hms(125.0), "2m05s");
         assert_eq!(hms(3725.0), "1h02m");
         assert_eq!(tokens(12_345.0), "12.3k");

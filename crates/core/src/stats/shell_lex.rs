@@ -412,10 +412,11 @@ impl Lexer<'_> {
             self.escaped = true;
             return i + 1;
         }
-        if code && c == b'<' {
-            if let Some(past) = self.heredoc_op(i) {
-                return past;
-            }
+        if code
+            && c == b'<'
+            && let Some(past) = self.heredoc_op(i)
+        {
+            return past;
         }
         if code && c == b'\n' && !self.pending.is_empty() {
             return self.heredoc_bodies(i);
@@ -499,9 +500,7 @@ pub fn unescaped(cmd: &str) -> Unescaped {
     let mut text = Vec::with_capacity(b.len());
     let mut from = Vec::with_capacity(b.len());
     for (i, &c) in b.iter().enumerate() {
-        let escape = c == b'\\'
-            && ctx[i].is_code()
-            && ctx.get(i + 1) == Some(&Ctx::Quoted);
+        let escape = c == b'\\' && ctx[i].is_code() && ctx.get(i + 1) == Some(&Ctx::Quoted);
         if !escape {
             text.push(c);
             from.push(i);

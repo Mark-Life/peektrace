@@ -57,6 +57,7 @@ fn meaningful_segment(segments: &[String]) -> &str {
 }
 
 #[derive(Default)]
+#[expect(clippy::struct_excessive_bools, reason = "independent scan flags")]
 struct FamilyScan {
     kept: Vec<String>,
     pending_flag_value: bool,
@@ -183,8 +184,7 @@ static LEADING_BIN: LazyRe = js_re!(r"^([a-z][\w.-]*):\s");
 static SENTENCE_END: LazyRe = js_re!(r"[.!?](?:\s|$)");
 static CLAUSE_SPLIT: LazyRe = js_re!(r",\s+");
 static SHELL_TOOL: LazyRe = js_re!(r"(?:^|_)(?:bash|shell|run_command|execute_command)", "i");
-static VALIDATION_LIST: LazyRe =
-    js_re!(r"^(.{6,80}?):\s+(?:[\w./#[\]-]{1,60}|<path>|<n>):\s+\S");
+static VALIDATION_LIST: LazyRe = js_re!(r"^(.{6,80}?):\s+(?:[\w./#[\]-]{1,60}|<path>|<n>):\s+\S");
 
 fn mask_literals(s: &str) -> String {
     let s = URL.replace_all_str(s, "<url>");
@@ -207,14 +207,15 @@ fn mask_leading_bin(line: &str) -> String {
 }
 
 fn non_empty_lines(s: &str) -> Vec<&str> {
-    s.split('\n').map(text::trim).filter(|l| !l.is_empty()).collect()
+    s.split('\n')
+        .map(text::trim)
+        .filter(|l| !l.is_empty())
+        .collect()
 }
 
 fn first_sentence(s: &str) -> &str {
     let line = non_empty_lines(s).first().copied().unwrap_or("");
-    SENTENCE_END
-        .find(line)
-        .map_or(line, |r| &line[..=r.start])
+    SENTENCE_END.find(line).map_or(line, |r| &line[..=r.start])
 }
 
 /// `s.replace(/\s+/g, " ").trim()`.
@@ -251,7 +252,11 @@ fn finish_sig(body: &str, prefix: &str) -> String {
 fn shell_signature(s: &str) -> String {
     let lines = non_empty_lines(s);
     let exit = lines.first().and_then(|l| EXIT_CODE.captures(l));
-    let body = if exit.is_some() { &lines[1..] } else { &lines[..] };
+    let body = if exit.is_some() {
+        &lines[1..]
+    } else {
+        &lines[..]
+    };
     let tail = body.last().copied().unwrap_or("");
     let prefix = exit
         .and_then(|e| e.get(1))
@@ -332,8 +337,11 @@ mod tests {
             Some("Exit code 1 <bin>: <path>: No such file")
         );
         assert_eq!(
-            error_signature("<tool_use_error>File does not exist. Try again.</tool_use_error>", "Read")
-                .as_deref(),
+            error_signature(
+                "<tool_use_error>File does not exist. Try again.</tool_use_error>",
+                "Read"
+            )
+            .as_deref(),
             Some("File does not exist.")
         );
     }

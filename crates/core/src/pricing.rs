@@ -374,7 +374,11 @@ pub fn pricing_echo<'a>(model_ids: impl IntoIterator<Item = &'a str>) -> String 
         .map(|(k, r)| format!("{k} {r}"))
         .collect::<Vec<_>>()
         .join("; ");
-    let body = if body.is_empty() { "no priced models".to_owned() } else { body };
+    let body = if body.is_empty() {
+        "no priced models".to_owned()
+    } else {
+        body
+    };
     format!("{body} (checked {PRICES_CHECKED})")
 }
 

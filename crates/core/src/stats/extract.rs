@@ -81,14 +81,20 @@ fn command_of(input: Option<&JsObject>) -> String {
 
 fn arg_of(input: Option<&JsObject>) -> Option<&str> {
     let input = input?;
-    ARG_KEYS
-        .iter()
-        .find_map(|k| input.get(k).and_then(JsValue::as_str).filter(|s| !s.is_empty()))
+    ARG_KEYS.iter().find_map(|k| {
+        input
+            .get(k)
+            .and_then(JsValue::as_str)
+            .filter(|s| !s.is_empty())
+    })
 }
 
 #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
 fn duration_of(call: Option<&str>, result: Option<&str>, local: &dyn LocalZone) -> Option<f64> {
-    let (call, result) = (call.filter(|s| !s.is_empty())?, result.filter(|s| !s.is_empty())?);
+    let (call, result) = (
+        call.filter(|s| !s.is_empty())?,
+        result.filter(|s| !s.is_empty())?,
+    );
     let a = parse_date(call, local)?;
     let b = parse_date(result, local)?;
     Some(round_to(((b - a) as f64 / 1000.0).max(0.0), 3))
@@ -112,7 +118,13 @@ struct Ctx<'a> {
 }
 
 #[expect(clippy::cast_precision_loss, reason = "counts fit f64")]
-fn call_fact(ctx: &Ctx<'_>, seq: usize, call: &PendingCall<'_>, result: Option<&TimelineEvent>, ctx_tok: Option<f64>) -> CallFact {
+fn call_fact(
+    ctx: &Ctx<'_>,
+    seq: usize,
+    call: &PendingCall<'_>,
+    result: Option<&TimelineEvent>,
+    ctx_tok: Option<f64>,
+) -> CallFact {
     let redact = ctx.redact;
     let output = result.map_or("", |r| r.body.as_str());
     let err = result.is_some_and(|r| r.is_error == Some(true));
@@ -120,12 +132,19 @@ fn call_fact(ctx: &Ctx<'_>, seq: usize, call: &PendingCall<'_>, result: Option<&
     let input = as_object(call.input);
     let arg = arg_of(input.as_ref());
     let shell = is_shell_tool(call.tool);
-    let cmd = if shell { command_of(input.as_ref()) } else { String::new() };
+    let cmd = if shell {
+        command_of(input.as_ref())
+    } else {
+        String::new()
+    };
     let scrub = |s: &str| redact.text(s);
     let hit = detect_cause(call.tool, &cmd, output, &scrub);
     let failed = scan.failed || hit.as_ref().is_some_and(|h| spec(h.cause).failing);
     let sig = if failed || err {
-        let text = hit.as_ref().and_then(|h| h.line.as_deref()).unwrap_or(output);
+        let text = hit
+            .as_ref()
+            .and_then(|h| h.line.as_deref())
+            .unwrap_or(output);
         error_signature(text, call.tool)
     } else {
         None
@@ -254,7 +273,9 @@ pub fn extract_facts(input: &ExtractInput<'_>) -> Vec<Fact> {
     let mut matched: HashSet<&str> = HashSet::new();
     let mut calls: Vec<CallFact> = Vec::new();
     for e in &input.parsed.events {
-        let Some(id) = e.tool_use_id.as_deref().filter(|s| !s.is_empty()) else { continue };
+        let Some(id) = e.tool_use_id.as_deref().filter(|s| !s.is_empty()) else {
+            continue;
+        };
         if e.kind == EventKind::ToolCall {
             pending.insert(
                 id,
@@ -274,7 +295,13 @@ pub fn extract_facts(input: &ExtractInput<'_>) -> Vec<Fact> {
         }
         if let Some(call) = pending.shift_remove(id) {
             matched.insert(id);
-            calls.push(call_fact(&ctx, calls.len(), &call, Some(e), ctx_of(call.req)));
+            calls.push(call_fact(
+                &ctx,
+                calls.len(),
+                &call,
+                Some(e),
+                ctx_of(call.req),
+            ));
         }
     }
     for call in pending.values() {

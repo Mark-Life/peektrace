@@ -48,7 +48,11 @@ pub fn round(n: f64) -> f64 {
 }
 
 pub fn safe_div(a: f64, b: f64) -> f64 {
-    if b == 0.0 || !b.is_finite() { 0.0 } else { a / b }
+    if b == 0.0 || !b.is_finite() {
+        0.0
+    } else {
+        a / b
+    }
 }
 
 pub fn share(part: f64, total: f64) -> f64 {
@@ -62,7 +66,11 @@ fn sorted(values: &[f64]) -> Vec<f64> {
 }
 
 /// Nearest-rank percentile; 0 for an empty list.
-#[expect(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss
+)]
 pub fn percentile(values: &[f64], p: f64) -> f64 {
     if values.is_empty() {
         return 0.0;
@@ -88,7 +96,11 @@ pub fn median(values: &[f64]) -> f64 {
 
 /// Sorted unique strings.
 pub fn uniq_sorted<'a>(values: impl IntoIterator<Item = &'a str>) -> Vec<String> {
-    let mut v: Vec<&str> = values.into_iter().collect::<HashSet<_>>().into_iter().collect();
+    let mut v: Vec<&str> = values
+        .into_iter()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
     v.sort_by(|a, b| cmp_str(a, b));
     v.into_iter().map(str::to_owned).collect()
 }
@@ -123,7 +135,11 @@ pub struct Ranking<T> {
 /// `max(0, floor(limit))` as a row count.
 #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn cap_of(limit: f64) -> usize {
-    if limit.is_nan() { 0 } else { limit.floor().max(0.0).min(1e15) as usize }
+    if limit.is_nan() {
+        0
+    } else {
+        limit.floor().clamp(0.0, 1e15) as usize
+    }
 }
 
 /// Sort by `cmp` (stable), keep the first `limit` rows.
@@ -192,13 +208,13 @@ mod tests {
         assert!((round(1.005) - 1.0).abs() < 1e-12 || (round(1.005) - 1.01).abs() < 1e-12);
         assert_eq!(round(-0.001).to_bits(), 0f64.to_bits());
         assert!((share(1.0, 3.0) - 0.3333).abs() < 1e-12);
-        assert!(round(f64::NAN) == 0.0);
+        assert_eq!(round(f64::NAN).to_bits(), 0f64.to_bits());
     }
 
     #[test]
     fn percentiles() {
         assert!((percentile(&[3.0, 1.0, 2.0], 0.95) - 3.0).abs() < 1e-12);
         assert!((median(&[4.0, 1.0, 2.0, 3.0]) - 2.5).abs() < 1e-12);
-        assert!(percentile(&[], 0.5) == 0.0);
+        assert_eq!(percentile(&[], 0.5).to_bits(), 0f64.to_bits());
     }
 }

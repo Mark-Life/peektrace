@@ -10,7 +10,9 @@ use indexmap::IndexMap;
 use rayon::prelude::*;
 use tracing::{field, info_span};
 
-use super::cache::{CacheEntry, FileStat, StatsCache, fact_ms, is_fresh, is_past_window, merge_index};
+use super::cache::{
+    CacheEntry, FileStat, StatsCache, fact_ms, is_fresh, is_past_window, merge_index,
+};
 use super::extract::{ExtractInput, extract_facts};
 use super::rank::uniq_sorted;
 use super::redact::Redactor;
@@ -116,7 +118,11 @@ fn stat_of(path: &str) -> FileStat {
 }
 
 fn load_transcript(r: &TranscriptRef) -> Option<String> {
-    let span = info_span!("AgentRegistry.loadTranscript", agent = r.agent.as_str(), error = field::Empty);
+    let span = info_span!(
+        "AgentRegistry.loadTranscript",
+        agent = r.agent.as_str(),
+        error = field::Empty
+    );
     let _e = span.enter();
     read_text(&r.path)
         .map_err(|e| span.record("error", field::display(&e)))
@@ -130,18 +136,43 @@ fn facts_for(
     args: &PassArgs<'_>,
 ) -> FileResult {
     let stat = stat_of(&r.path);
-    if let Some(entry) = index.get(&r.path).filter(|e| !args.force && is_fresh(e, &r.path, stat)) {
+    if let Some(entry) = index
+        .get(&r.path)
+        .filter(|e| !args.force && is_fresh(e, &r.path, stat))
+    {
         if is_past_window(entry, args.from_ms) {
-            return FileResult { cached: true, entry: Some(entry.clone()), facts: Vec::new(), skipped: false };
+            return FileResult {
+                cached: true,
+                entry: Some(entry.clone()),
+                facts: Vec::new(),
+                skipped: false,
+            };
         }
         if let Some(facts) = env.cache.read(entry) {
-            return FileResult { cached: true, entry: Some(entry.clone()), facts, skipped: false };
+            return FileResult {
+                cached: true,
+                entry: Some(entry.clone()),
+                facts,
+                skipped: false,
+            };
         }
     }
-    let skipped = FileResult { cached: false, entry: None, facts: Vec::new(), skipped: true };
-    let Some(parse) = parse_for(r.agent) else { return skipped };
-    let Some(text) = load_transcript(r) else { return skipped };
-    let parsed = parse(&ParseInput { text: &text, r#ref: r });
+    let skipped = FileResult {
+        cached: false,
+        entry: None,
+        facts: Vec::new(),
+        skipped: true,
+    };
+    let Some(parse) = parse_for(r.agent) else {
+        return skipped;
+    };
+    let Some(text) = load_transcript(r) else {
+        return skipped;
+    };
+    let parsed = parse(&ParseInput {
+        text: &text,
+        r#ref: r,
+    });
     let project = if r.slug.is_empty() {
         encode_slug(parsed.cwd.as_deref().unwrap_or(""))
     } else {
@@ -156,7 +187,12 @@ fn facts_for(
         local: env.local,
     });
     let entry = env.cache.write(&r.path, stat, &facts, env.local);
-    FileResult { cached: false, entry, facts, skipped: false }
+    FileResult {
+        cached: false,
+        entry,
+        facts,
+        skipped: false,
+    }
 }
 
 fn in_window(f: &Fact, from_ms: f64, to_ms: f64, local: &dyn LocalZone) -> bool {
@@ -185,7 +221,10 @@ pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fa
     {
         let _span = info_span!("Stats.foldCorpus", transcripts = refs.len()).entered();
         for chunk in refs.chunks(CHUNK) {
-            let results: Vec<FileResult> = chunk.par_iter().map(|r| facts_for(env, &index, r, args)).collect();
+            let results: Vec<FileResult> = chunk
+                .par_iter()
+                .map(|r| facts_for(env, &index, r, args))
+                .collect();
             for (r, res) in chunk.iter().zip(results) {
                 if res.skipped {
                     skipped.push(&r.path);
@@ -197,7 +236,11 @@ pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fa
                 } else {
                     out.extracted += 1;
                 }
-                for f in res.facts.iter().filter(|f| in_window(f, args.from_ms, args.to_ms, env.local)) {
+                for f in res
+                    .facts
+                    .iter()
+                    .filter(|f| in_window(f, args.from_ms, args.to_ms, env.local))
+                {
                     if !matches!(f, Fact::Usage(_)) {
                         out.facts += 1;
                     }
@@ -208,12 +251,21 @@ pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fa
     }
     if is_full_scope(args.scope) && args.only.is_none() {
         env.cache.commit(&entries);
-        env.cache.prune(&entries.iter().map(|e| e.shard.clone()).collect::<HashSet<_>>());
+        env.cache.prune(
+            &entries
+                .iter()
+                .map(|e| e.shard.clone())
+                .collect::<HashSet<_>>(),
+        );
     } else {
         let scanned: Vec<String> = refs.iter().map(|r| r.path.clone()).collect();
-        env.cache.commit(&merge_index(&env.cache.load(), &entries, &scanned));
+        env.cache
+            .commit(&merge_index(&env.cache.load(), &entries, &scanned));
     }
-    out.paths = refs.iter().map(|r| (r.id.clone(), r.path.clone())).collect();
+    out.paths = refs
+        .iter()
+        .map(|r| (r.id.clone(), r.path.clone()))
+        .collect();
     out.skipped = uniq_sorted(skipped);
     out
 }

@@ -58,7 +58,9 @@ fn nested_in(dir: &str, parts: &mut Vec<String>, out: &mut Vec<(String, Vec<Stri
         .collect();
     for name in names {
         let path = format!("{dir}/{name}");
-        let Ok(meta) = fs::metadata(&path) else { continue };
+        let Ok(meta) = fs::metadata(&path) else {
+            continue;
+        };
         if meta.is_dir() {
             parts.push(name);
             nested_in(&path, parts, out);
@@ -80,7 +82,11 @@ fn nested_refs(sources: &[Source]) -> Vec<TranscriptRef> {
         });
         for slug in project_slugs(sources) {
             let mut found = Vec::new();
-            nested_in(&format!("{}/{slug}", source.projects_root), &mut Vec::new(), &mut found);
+            nested_in(
+                &format!("{}/{slug}", source.projects_root),
+                &mut Vec::new(),
+                &mut found,
+            );
             out.extend(found.into_iter().map(|(path, parts)| {
                 let name = parts.last().map_or("", String::as_str);
                 let id = name.strip_suffix(JSONL).unwrap_or(name).to_owned();
@@ -164,7 +170,13 @@ mod tests {
             (Kind::Subagent, Some("id".into()), None)
         );
         assert_eq!(
-            classify_parts(&parts(&["id", "subagents", "workflows", "wf_x", "agent-1.jsonl"])),
+            classify_parts(&parts(&[
+                "id",
+                "subagents",
+                "workflows",
+                "wf_x",
+                "agent-1.jsonl"
+            ])),
             (Kind::WorkflowAgent, Some("id".into()), Some("wf_x".into()))
         );
     }

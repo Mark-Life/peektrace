@@ -6,11 +6,13 @@ use crate::js::json_out::Writer;
 use crate::js::regex::LazyRe;
 use crate::js_re;
 use crate::stats::accumulate::{
-    DrillHit, DrillTable, DrillTarget, FinishCtx, SampleRef, Tally, hit_of, sample_line,
-    sample_of, samples_of, write_samples,
+    DrillHit, DrillTable, DrillTarget, FinishCtx, SampleRef, Tally, hit_of, sample_line, sample_of,
+    samples_of, write_samples,
 };
 use crate::stats::normalize::{cluster_key_of, details_of};
-use crate::stats::rank::{asc, bump, clip, cmp_str, collapse_ws, desc, rank, round, top_key, uniq_sorted};
+use crate::stats::rank::{
+    asc, bump, clip, cmp_str, collapse_ws, desc, rank, round, top_key, uniq_sorted,
+};
 use crate::stats::redact::Redactor;
 use crate::stats::schema::{CallFact, Fact};
 
@@ -22,7 +24,10 @@ static TRAILING_PUNCT: LazyRe = js_re!(r"[:,\s]+$");
 
 /// A one-line label for a signature: no trailing colon or comma.
 pub fn cluster_label(sig: &str) -> String {
-    clip(&TRAILING_PUNCT.replace_first(&collapse_ws(sig), |_| String::new()), LABEL_MAX)
+    clip(
+        &TRAILING_PUNCT.replace_first(&collapse_ws(sig), |_| String::new()),
+        LABEL_MAX,
+    )
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,7 +96,9 @@ impl ClusterTable {
 
     pub fn add(&mut self, fact: &Fact, redact: &Redactor) {
         let Fact::Call(f) = fact else { return };
-        let Some(sig) = f.sig.as_deref().filter(|s| !s.is_empty()) else { return };
+        let Some(sig) = f.sig.as_deref().filter(|s| !s.is_empty()) else {
+            return;
+        };
         let key = cluster_key_of(sig, &|s| redact.text(s));
         let c = self.clusters.entry(key.clone()).or_default();
         c.tally.add(f, Some(sample_of(f, sample_line(sig))));
@@ -112,9 +119,10 @@ impl ClusterTable {
             .iter()
             .map(|(key, c)| ClusterRow {
                 key: key.clone(),
-                label: ctx
-                    .redact
-                    .line_max(&format!("{}{}", cluster_label(key), detail_suffix(&c.details)), LABEL_MAX),
+                label: ctx.redact.line_max(
+                    &format!("{}{}", cluster_label(key), detail_suffix(&c.details)),
+                    LABEL_MAX,
+                ),
                 tool: top_key(&c.tools),
                 rows: c.tally.rows,
                 sessions: c.tally.session_count(),
@@ -133,7 +141,10 @@ impl ClusterTable {
             ctx.limit,
         );
         if ranked.dropped > 0 {
-            ctx.caveat(format!("{} of {} error clusters not shown", ranked.dropped, ranked.total));
+            ctx.caveat(format!(
+                "{} of {} error clusters not shown",
+                ranked.dropped, ranked.total
+            ));
         }
         ranked.rows
     }
@@ -141,7 +152,8 @@ impl ClusterTable {
     pub fn drill(&self, ctx: &FinishCtx<'_>) -> Vec<DrillHit> {
         let mut facts: Vec<&CallFact> = self.drilled.iter().collect();
         facts.sort_by(|a, b| {
-            cmp_str(a.ts.as_deref().unwrap_or(""), b.ts.as_deref().unwrap_or("")).then_with(|| asc(a.seq, b.seq))
+            cmp_str(a.ts.as_deref().unwrap_or(""), b.ts.as_deref().unwrap_or(""))
+                .then_with(|| asc(a.seq, b.seq))
         });
         facts
             .into_iter()

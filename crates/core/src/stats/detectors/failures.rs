@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use indexmap::IndexMap;
 
 use super::causes::{is_shell_tool, spec};
+use crate::js::json_out::Writer;
 use crate::js::regex::LazyRe;
 use crate::js::{text, units};
 use crate::js_re;
@@ -14,7 +15,6 @@ use crate::stats::accumulate::{
 };
 use crate::stats::rank::{asc, bump, cmp_str, desc, rank, round_to, share, top_key};
 use crate::stats::schema::{CallFact, Fact, WriteExt};
-use crate::js::json_out::Writer;
 
 const PIPED_EXIT_CODE: &str = "piped-exit-code";
 
@@ -35,11 +35,31 @@ static TRACEBACK: LazyRe = js_re!(r"Traceback \(most recent call last\):");
 static NODE: LazyRe = js_re!(r"\n\s+at [^\n]*(?::\d+:\d+\)|\.(?:ts|tsx|js|mjs|cjs):\d+)");
 
 static SIGNATURES: [Signature; 5] = [
-    Signature { id: "tsc", label: "error TS####", re: &TSC },
-    Signature { id: "lint", label: "lint diagnostic", re: &LINT_RE },
-    Signature { id: "test", label: "N failing tests", re: &TEST },
-    Signature { id: "traceback", label: "python traceback", re: &TRACEBACK },
-    Signature { id: "node", label: "node stack frame", re: &NODE },
+    Signature {
+        id: "tsc",
+        label: "error TS####",
+        re: &TSC,
+    },
+    Signature {
+        id: "lint",
+        label: "lint diagnostic",
+        re: &LINT_RE,
+    },
+    Signature {
+        id: "test",
+        label: "N failing tests",
+        re: &TEST,
+    },
+    Signature {
+        id: "traceback",
+        label: "python traceback",
+        re: &TRACEBACK,
+    },
+    Signature {
+        id: "node",
+        label: "node stack frame",
+        re: &NODE,
+    },
 ];
 
 static PIPED: LazyRe =
@@ -47,7 +67,9 @@ static PIPED: LazyRe =
 static EXIT_HEADER: LazyRe = js_re!(r"^Exit code (\d+)");
 static EXIT_PREFIX: LazyRe = js_re!(r"^Exit code \d+\n?");
 static CHAIN: LazyRe = js_re!(r";|&&|\|\||\n");
-const ABSENCE_BINS: [&str; 9] = ["ls", "which", "type", "stat", "test", "find", "du", "wc", "file"];
+const ABSENCE_BINS: [&str; 9] = [
+    "ls", "which", "type", "stat", "test", "find", "du", "wc", "file",
+];
 static ABSENT_TEXT: LazyRe = js_re!(r"No such file or directory|not found|does not exist", "i");
 static ERROR_TEXT: LazyRe = js_re!(
     r"Traceback|error TS\d|SyntaxError|TypeError|KeyError|ValueError|AssertionError|Cannot find module|ERR_MODULE_NOT_FOUND|fatal:|ModuleNotFoundError|timed out|rate limit|<tool_use_error>|FAIL |error:"
@@ -88,8 +110,7 @@ fn tail_of(cmd: &str) -> &str {
     text::trim(
         parts
             .into_iter()
-            .filter(|s| !text::trim(s).is_empty())
-            .next_back()
+            .rfind(|s| !text::trim(s).is_empty())
             .unwrap_or(cmd),
     )
 }
@@ -124,8 +145,10 @@ pub fn benign_filter(cmd: &str, output: &str, cause: bool) -> Option<&'static st
     if probes && (ABSENT_TEXT.is_match(output) || body.is_empty()) {
         return Some("absence-probe");
     }
-    (CHAIN.is_match(cmd) && units::len(output) >= CHAINED_TAIL_MIN_CHARS && !ERROR_TEXT.is_match(body))
-        .then_some("chained-tail")
+    (CHAIN.is_match(cmd)
+        && units::len(output) >= CHAINED_TAIL_MIN_CHARS
+        && !ERROR_TEXT.is_match(body))
+    .then_some("chained-tail")
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -154,13 +177,20 @@ fn key_of(f: &CallFact) -> Option<(String, FailKind, String)> {
         return None;
     }
     if f.err {
-        return f
-            .benign
-            .is_none()
-            .then(|| (format!("flag:{}", f.tool), FailKind::Flag, format!("{} errors", f.tool)));
+        return f.benign.is_none().then(|| {
+            (
+                format!("flag:{}", f.tool),
+                FailKind::Flag,
+                format!("{} errors", f.tool),
+            )
+        });
     }
     match (&f.fail_reason, f.failed) {
-        (Some(r), true) => Some((format!("scan:{r}"), FailKind::Scan, label_for_reason(r).to_owned())),
+        (Some(r), true) => Some((
+            format!("scan:{r}"),
+            FailKind::Scan,
+            label_for_reason(r).to_owned(),
+        )),
         _ => None,
     }
 }
@@ -174,9 +204,12 @@ fn line_of(f: &CallFact) -> &str {
 
 /// Chronological, then sid and seq.
 pub fn compare_hits(a: &DrillHit, b: &DrillHit) -> Ordering {
-    cmp_str(a.sample.ts.as_deref().unwrap_or(""), b.sample.ts.as_deref().unwrap_or(""))
-        .then_with(|| cmp_str(&a.sample.sid, &b.sample.sid))
-        .then_with(|| asc(a.sample.seq, b.sample.seq))
+    cmp_str(
+        a.sample.ts.as_deref().unwrap_or(""),
+        b.sample.ts.as_deref().unwrap_or(""),
+    )
+    .then_with(|| cmp_str(&a.sample.sid, &b.sample.sid))
+    .then_with(|| asc(a.sample.seq, b.sample.seq))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -242,7 +275,9 @@ impl FailTable {
                 self.claimed += 1.0;
             }
         }
-        let Some((key, kind, label)) = key_of(f) else { return };
+        let Some((key, kind, label)) = key_of(f) else {
+            return;
+        };
         let line = sample_line(line_of(f));
         self.tallies
             .entry(key.clone())

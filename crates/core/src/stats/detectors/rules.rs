@@ -269,7 +269,13 @@ pub fn check_row(
     }
     let reaches = |doc: &MemoryDoc| {
         counts
-            .since(row.key, &[CoverSince { after_day: String::new(), cover: &doc.cover }])
+            .since(
+                row.key,
+                &[CoverSince {
+                    after_day: String::new(),
+                    cover: &doc.cover,
+                }],
+            )
             .0
             .total()
             > 0.0

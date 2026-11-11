@@ -43,7 +43,13 @@ const CODEX_FILES: FileSet = FileSet {
 };
 const PI_FILES: FileSet = FileSet {
     pick: Pick::First,
-    names: &["AGENTS.override.md", "AGENTS.md", "AGENTS.MD", "CLAUDE.md", "CLAUDE.MD"],
+    names: &[
+        "AGENTS.override.md",
+        "AGENTS.md",
+        "AGENTS.MD",
+        "CLAUDE.md",
+        "CLAUDE.MD",
+    ],
 };
 
 const fn project_files(agent: Agent) -> FileSet {
@@ -102,7 +108,9 @@ fn ancestors(dir: &str, user_home: Option<&str>) -> Vec<String> {
 
 fn tilde(path: &str, user_home: Option<&str>) -> String {
     match user_home {
-        Some(h) if path == h || path.starts_with(&format!("{h}/")) => format!("~{}", &path[h.len()..]),
+        Some(h) if path == h || path.starts_with(&format!("{h}/")) => {
+            format!("~{}", &path[h.len()..])
+        }
         _ => path.to_owned(),
     }
 }
@@ -134,7 +142,12 @@ fn cover_key(c: &RuleCover) -> String {
     .join("\0")
 }
 
-fn file_set_in(dir: &str, files: &FileSet, cover: &RuleCover, skip: Option<&str>) -> Vec<Candidate> {
+fn file_set_in(
+    dir: &str,
+    files: &FileSet,
+    cover: &RuleCover,
+    skip: Option<&str>,
+) -> Vec<Candidate> {
     let first = format!("{dir}\0{}", cover_key(cover));
     files
         .names
@@ -184,7 +197,11 @@ pub struct AgentHomes<'a> {
     pub pi_home: String,
 }
 
-fn global_candidates(homes: &AgentHomes<'_>, scope: &[Agent], user_home: Option<&str>) -> Vec<Candidate> {
+fn global_candidates(
+    homes: &AgentHomes<'_>,
+    scope: &[Agent],
+    user_home: Option<&str>,
+) -> Vec<Candidate> {
     let mut out = Vec::new();
     if scope.contains(&Agent::Claude) {
         let multi = homes.claude.len() > 1;
@@ -202,17 +219,32 @@ fn global_candidates(homes: &AgentHomes<'_>, scope: &[Agent], user_home: Option<
         }
     }
     if scope.contains(&Agent::Codex) {
-        out.extend(file_set_in(&homes.codex_home, &CODEX_FILES, &plain_cover(Agent::Codex, None), None));
+        out.extend(file_set_in(
+            &homes.codex_home,
+            &CODEX_FILES,
+            &plain_cover(Agent::Codex, None),
+            None,
+        ));
     }
     if scope.contains(&Agent::Pi) {
-        out.extend(file_set_in(&join(&[&homes.pi_home, "agent"]), &PI_FILES, &plain_cover(Agent::Pi, None), None));
+        out.extend(file_set_in(
+            &join(&[&homes.pi_home, "agent"]),
+            &PI_FILES,
+            &plain_cover(Agent::Pi, None),
+            None,
+        ));
     }
     if let Some(h) = user_home.filter(|_| scope.contains(&Agent::Opencode)) {
         let set = FileSet {
             pick: Pick::First,
             names: &[".config/opencode/AGENTS.md", ".claude/CLAUDE.md"],
         };
-        out.extend(file_set_in(h, &set, &plain_cover(Agent::Opencode, None), None));
+        out.extend(file_set_in(
+            h,
+            &set,
+            &plain_cover(Agent::Opencode, None),
+            None,
+        ));
     }
     out
 }
@@ -247,9 +279,17 @@ fn candidates_of(
                 codex,
                 ..plain_cover(agent, Some(dir.clone()))
             };
-            out.extend(file_set_in(dir, &project_files(agent), &cover, at_home.then_some(".claude/CLAUDE.md")));
+            out.extend(file_set_in(
+                dir,
+                &project_files(agent),
+                &cover,
+                at_home.then_some(".claude/CLAUDE.md"),
+            ));
             if agent == Agent::Claude && !at_home {
-                out.push(rules_dir_in(&join(&[dir, ".claude"]), &plain_cover(agent, Some(dir.clone()))));
+                out.push(rules_dir_in(
+                    &join(&[dir, ".claude"]),
+                    &plain_cover(agent, Some(dir.clone())),
+                ));
             }
         }
     }
@@ -257,7 +297,12 @@ fn candidates_of(
 }
 
 fn is_under(path: &str, dir: &str) -> bool {
-    path == dir || path.starts_with(&if dir == "/" { "/".to_owned() } else { format!("{dir}/") })
+    path == dir
+        || path.starts_with(&if dir == "/" {
+            "/".to_owned()
+        } else {
+            format!("{dir}/")
+        })
 }
 
 /// For each Codex project dir, how its walk reaches the cwds under it.
@@ -288,12 +333,22 @@ fn codex_dirs_of(project_dirs: &[String], user_home: Option<&str>) -> HashMap<St
     read.into_iter()
         .map(|(dir, rooted)| {
             let mut stops: Vec<String> = if rooted {
-                roots.iter().filter(|r| **r != dir && is_under(r, &dir)).cloned().collect()
+                roots
+                    .iter()
+                    .filter(|r| **r != dir && is_under(r, &dir))
+                    .cloned()
+                    .collect()
             } else {
                 Vec::new()
             };
             stops.sort_by(|a, b| cmp_str(a, b));
-            (dir, CodexCover { exact: !rooted, stops })
+            (
+                dir,
+                CodexCover {
+                    exact: !rooted,
+                    stops,
+                },
+            )
         })
         .collect()
 }
@@ -330,7 +385,8 @@ fn imports_of(lines: &[String], from: &str, user_home: Option<&str>) -> Vec<Stri
                 .captures_all(line)
                 .iter()
                 .filter_map(|m| {
-                    let raw = TRAILING_PUNCT.replace_first(m.get(1).unwrap_or(""), |_| String::new());
+                    let raw =
+                        TRAILING_PUNCT.replace_first(m.get(1).unwrap_or(""), |_| String::new());
                     if PATHLIKE.is_match(&raw) {
                         resolve_import(&raw, from, user_home)
                     } else {
@@ -343,18 +399,35 @@ fn imports_of(lines: &[String], from: &str, user_home: Option<&str>) -> Vec<Stri
 }
 
 fn user_home_of(homes: &AgentHomes<'_>) -> Option<String> {
-    let claude = homes.claude.first().map(|s| s.home.clone()).unwrap_or_default();
+    let claude = homes
+        .claude
+        .first()
+        .map(|s| s.home.clone())
+        .unwrap_or_default();
     [claude, homes.codex_home.clone(), homes.pi_home.clone()]
         .iter()
-        .find_map(|h| AGENT_HOME.captures(&slashed(h)).and_then(|c| c.get(1)).map(str::to_owned))
+        .find_map(|h| {
+            AGENT_HOME
+                .captures(&slashed(h))
+                .and_then(|c| c.get(1))
+                .map(str::to_owned)
+        })
 }
 
 /// Every file under `dir`, relative, recursively.
 fn walk_names(dir: &str, prefix: &str, out: &mut Vec<String>, depth: usize) -> bool {
-    let Ok(read) = fs::read_dir(dir) else { return false };
+    let Ok(read) = fs::read_dir(dir) else {
+        return false;
+    };
     for e in read.filter_map(Result::ok) {
-        let Ok(name) = e.file_name().into_string() else { continue };
-        let rel = if prefix.is_empty() { name.clone() } else { format!("{prefix}/{name}") };
+        let Ok(name) = e.file_name().into_string() else {
+            continue;
+        };
+        let rel = if prefix.is_empty() {
+            name.clone()
+        } else {
+            format!("{prefix}/{name}")
+        };
         out.push(rel.clone());
         if depth < 32 && fs::metadata(e.path()).is_ok_and(|m| m.is_dir()) {
             walk_names(&format!("{dir}/{name}"), &rel, out, depth + 1);
@@ -368,7 +441,11 @@ fn rules_of(dir: &Candidate) -> Vec<Candidate> {
     if !walk_names(&dir.path, "", &mut names, 0) {
         return Vec::new();
     }
-    let mut names: Vec<String> = names.into_iter().filter(|n| MARKDOWN.is_match(n)).map(|n| slashed(&n)).collect();
+    let mut names: Vec<String> = names
+        .into_iter()
+        .filter(|n| MARKDOWN.is_match(n))
+        .map(|n| slashed(&n))
+        .collect();
     names.sort_by(|a, b| cmp_str(a, b));
     names
         .into_iter()
@@ -395,7 +472,8 @@ fn read_context_text(path: &str) -> Option<ContextText> {
     if !exists(path) {
         return None;
     }
-    let real_path = fs::canonicalize(path).map_or_else(|_| path.to_owned(), |p| p.to_string_lossy().into_owned());
+    let real_path = fs::canonicalize(path)
+        .map_or_else(|_| path.to_owned(), |p| p.to_string_lossy().into_owned());
     let meta = fs::metadata(&real_path).ok()?;
     let text = read_text(&real_path).ok()?;
     let mtime_ms = meta
@@ -403,13 +481,21 @@ fn read_context_text(path: &str) -> Option<ContextText> {
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_millis() as f64);
-    Some(ContextText { real_path, mtime_ms, text })
+    Some(ContextText {
+        real_path,
+        mtime_ms,
+        text,
+    })
 }
 
 static NEWLINE: LazyRe = js_re!(r"\r?\n");
 
 /// Read every memory file in scope; a missing file is simply not there.
-pub fn read_memory_docs(homes: &AgentHomes<'_>, scope: &[Agent], project_dirs: &[String]) -> Vec<MemoryDoc> {
+pub fn read_memory_docs(
+    homes: &AgentHomes<'_>,
+    scope: &[Agent],
+    project_dirs: &[String],
+) -> Vec<MemoryDoc> {
     let _span = info_span!("Stats.memoryDocs").entered();
     let user_home = user_home_of(homes);
     let uh = user_home.as_deref();
@@ -418,7 +504,8 @@ pub fn read_memory_docs(homes: &AgentHomes<'_>, scope: &[Agent], project_dirs: &
     } else {
         HashMap::new()
     };
-    let mut queue: VecDeque<Candidate> = candidates_of(homes, scope, project_dirs, uh, &codex_dirs).into();
+    let mut queue: VecDeque<Candidate> =
+        candidates_of(homes, scope, project_dirs, uh, &codex_dirs).into();
     let mut docs = Vec::new();
     let mut seen = HashSet::new();
     let mut settled = HashSet::new();
@@ -432,13 +519,19 @@ pub fn read_memory_docs(homes: &AgentHomes<'_>, scope: &[Agent], project_dirs: &
             }
             continue;
         }
-        let Some(read) = read_context_text(&c.path) else { continue };
+        let Some(read) = read_context_text(&c.path) else {
+            continue;
+        };
         settled.insert(c.group.clone());
         let real_path = slashed(&read.real_path);
         if !seen.insert(format!("{real_path}\0{}", cover_key(&c.cover))) {
             continue;
         }
-        let lines: Vec<String> = NEWLINE.split(&read.text).into_iter().map(str::to_owned).collect();
+        let lines: Vec<String> = NEWLINE
+            .split(&read.text)
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
         let shown = tilde(&c.path, uh);
         let display_path = if real_path == c.path {
             shown

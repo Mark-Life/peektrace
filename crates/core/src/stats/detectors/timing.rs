@@ -5,7 +5,9 @@ use std::sync::LazyLock;
 
 use indexmap::IndexMap;
 
-use super::waiting::{compare_drill_hits, is_waiting, mask_quoted, strip_comments, strip_heredoc_bodies};
+use super::waiting::{
+    compare_drill_hits, is_waiting, mask_quoted, strip_comments, strip_heredoc_bodies,
+};
 use crate::js::json_out::Writer;
 use crate::js::regex::{LazyRe, Re};
 use crate::js::text;
@@ -23,7 +25,10 @@ const DEFAULT_TIMEOUT_LO: f64 = 118.0;
 const DEFAULT_TIMEOUT_HI: f64 = 124.0;
 const MAX_STRIP_PASSES: usize = 4;
 
-static HEREDOC: LazyRe = js_re!(r#"<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?[\s\S]*?(?:\n\1|$)"#, "g");
+static HEREDOC: LazyRe = js_re!(
+    r#"<<-?\s*['"]?([A-Za-z_][A-Za-z0-9_]*)['"]?[\s\S]*?(?:\n\1|$)"#,
+    "g"
+);
 static SPLIT: LazyRe = js_re!(r"&&|\|\||[;|\n]");
 static LEAD: LazyRe = js_re!(
     r#"^\s*(?:\(|\{|!|do\b|then\b|else\b|nohup\b|exec\b|sudo\b|time\b|command\b|timeout\s+\d+m?\b|npx\b|bunx\b|bun\s+x\b|pnpm\s+dlx\b|npm\s+exec\b|xargs\b(?:\s+-\S+)*|--[\w-]+\b|[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)\s+)+"#
@@ -61,7 +66,9 @@ pub fn segments(cmd: &str) -> Vec<String> {
 }
 
 fn runner(script: &str) -> String {
-    format!(r"^(?:bun|pnpm|npm|yarn|turbo|deno)\s+(?:run\s+|run-script\s+)?(?:[\w@/.-]*:)?{script}\b")
+    format!(
+        r"^(?:bun|pnpm|npm|yarn|turbo|deno)\s+(?:run\s+|run-script\s+)?(?:[\w@/.-]*:)?{script}\b"
+    )
 }
 
 static SEGMENT_RULES: LazyLock<Vec<(Job, Re)>> = LazyLock::new(|| {
@@ -100,7 +107,10 @@ static SEGMENT_RULES: LazyLock<Vec<(Job, Re)>> = LazyLock::new(|| {
         (Job::FileIo, r"^(?:cat|bat|head|tail|less|more|sed|awk|cut|tr|sort|uniq|wc|tee|jq|yq|cp|mv|rm|mkdir|rmdir|touch|chmod|chown|ln|ls|tree|du|df|stat|diff|patch|realpath|basename|dirname|readlink|xxd|strings|base64|gzip|gunzip|tar|unzip|zip|split|paste|join|column|pbcopy|pbpaste|open)\b".into()),
         (Job::FileIo, r"^(?:echo|printf|true|false|:)\b".into()),
     ];
-    rules.into_iter().map(|(j, src)| (j, Re::new(&src, ""))).collect()
+    rules
+        .into_iter()
+        .map(|(j, src)| (j, Re::new(&src, "")))
+        .collect()
 });
 
 pub const fn job_label(job: Job) -> &'static str {
@@ -138,7 +148,11 @@ pub fn classify_job(cmd: &str) -> (Job, Vec<Job>) {
         .filter(|j| present[idx(*j)])
         .collect();
     let job = ordered.first().copied().unwrap_or(Job::Other);
-    let present = if ordered.is_empty() { vec![job] } else { ordered };
+    let present = if ordered.is_empty() {
+        vec![job]
+    } else {
+        ordered
+    };
     (job, present)
 }
 
@@ -146,12 +160,14 @@ static BARE_AMP: LazyRe = js_re!(r"(?<![&>\\])&(?![&>])");
 
 /// A lone `&` outside quotes, comments and heredoc bodies.
 pub fn is_backgrounded(cmd: &str) -> bool {
-    cmd.contains('&') && BARE_AMP.is_match(&mask_quoted(&strip_comments(&strip_heredoc_bodies(cmd))))
+    cmd.contains('&')
+        && BARE_AMP.is_match(&mask_quoted(&strip_comments(&strip_heredoc_bodies(cmd))))
 }
 
 /// A duration at a harness ceiling: a floor, not a measurement.
 pub fn is_capped(dur_sec: Option<f64>) -> bool {
-    dur_sec.is_some_and(|d| d >= CEILING_SEC || (DEFAULT_TIMEOUT_LO..=DEFAULT_TIMEOUT_HI).contains(&d))
+    dur_sec
+        .is_some_and(|d| d >= CEILING_SEC || (DEFAULT_TIMEOUT_LO..=DEFAULT_TIMEOUT_HI).contains(&d))
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -306,7 +322,10 @@ mod tests {
     fn jobs() {
         assert_eq!(classify_job("bun run test").0, Job::Test);
         assert_eq!(classify_job("cd x && git status").0, Job::Git);
-        assert_eq!(classify_job("sleep 5 && bun test").1, vec![Job::WaitPoll, Job::Test]);
+        assert_eq!(
+            classify_job("sleep 5 && bun test").1,
+            vec![Job::WaitPoll, Job::Test]
+        );
         assert_eq!(classify_job("weird-thing").1, vec![Job::Other]);
         assert!(is_backgrounded("bun dev &"));
         assert!(!is_backgrounded("a 2>&1 && b"));

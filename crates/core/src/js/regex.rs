@@ -85,11 +85,7 @@ fn push_escape(out: &mut String, c: char, class: bool, fancy: bool) {
         }
         ('b', false) => out.push_str(if fancy { FANCY_B } else { r"(?-u:\b)" }),
         ('B', false) => out.push_str(if fancy { FANCY_NB } else { r"(?-u:\B)" }),
-        ('n' | 't' | 'r' | 'f' | 'v' | 'x' | 'u', _) => {
-            out.push('\\');
-            out.push(c);
-        }
-        ('1'..='9', false) => {
+        ('n' | 't' | 'r' | 'f' | 'v' | 'x' | 'u', _) | ('1'..='9', false) => {
             out.push('\\');
             out.push(c);
         }
@@ -123,7 +119,9 @@ fn translate(src: &str, flags: &str, fancy: bool) -> String {
                 let Some((_, e)) = chars.next() else { break };
                 if e == 'u' || e == 'x' {
                     let n = if e == 'u' { 4 } else { 2 };
-                    let hex: String = (0..n).filter_map(|_| chars.next().map(|(_, h)| h)).collect();
+                    let hex: String = (0..n)
+                        .filter_map(|_| chars.next().map(|(_, h)| h))
+                        .collect();
                     out.push_str("\\x{");
                     out.push_str(&hex);
                     out.push('}');
@@ -225,7 +223,8 @@ impl Re {
             ))
         } else {
             Self(Engine::Std(
-                regex::Regex::new(&pattern).unwrap_or_else(|e| unreachable!("bad pattern {src}: {e}")),
+                regex::Regex::new(&pattern)
+                    .unwrap_or_else(|e| unreachable!("bad pattern {src}: {e}")),
             ))
         }
     }
@@ -268,7 +267,9 @@ impl Re {
         let mut out = Vec::new();
         let mut at = 0;
         while at <= s.len() {
-            let Some(c) = self.captures_at(s, at) else { break };
+            let Some(c) = self.captures_at(s, at) else {
+                break;
+            };
             let end = c.end();
             at = if end == c.start() {
                 end + s[end..].chars().next().map_or(1, char::len_utf8)
@@ -315,7 +316,11 @@ impl Re {
     /// `s.split(re)` for a pattern without capture groups.
     pub fn split<'h>(&self, s: &'h str) -> Vec<&'h str> {
         if s.is_empty() {
-            return if self.find(s).is_some() { vec![] } else { vec![s] };
+            return if self.find(s).is_some() {
+                vec![]
+            } else {
+                vec![s]
+            };
         }
         let mut out = Vec::new();
         let mut last = 0;

@@ -38,7 +38,11 @@ pub fn cause_spread(row: &CauseRow) -> String {
     } else {
         String::new()
     };
-    format!("{hits}{retries} · {} projects · hits {}", count(row.projects), split_of(row.hits_by))
+    format!(
+        "{hits}{retries} · {} projects · hits {}",
+        count(row.projects),
+        split_of(row.hits_by)
+    )
 }
 
 pub fn cause_impact(row: &CauseRow) -> String {
@@ -56,13 +60,18 @@ pub fn cause_impact(row: &CauseRow) -> String {
     } else {
         format!(" · {}", hms(row.retry_sec))
     };
-    format!("{} {what} ({}){sec}{toks}", count(row.pairs), split_of(row.pairs_by))
+    format!(
+        "{} {what} ({}){sec}{toks}",
+        count(row.pairs),
+        split_of(row.pairs_by)
+    )
 }
 
 fn rule_place(rule: &RuleCheck) -> String {
-    rule.matches
-        .first()
-        .map_or_else(|| "memory".to_owned(), |m| format!("{}:{}", m.path, crate::js::num::to_js_string(m.line)))
+    rule.matches.first().map_or_else(
+        || "memory".to_owned(),
+        |m| format!("{}:{}", m.path, crate::js::num::to_js_string(m.line)),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,19 +93,36 @@ pub fn rule_state(rule: &RuleCheck) -> RuleState {
 
 /// `rule in <path>:<line> · quiet since D`, and the other two states.
 pub fn rule_line(rule: &RuleCheck) -> String {
-    let day = rule.since_iso.as_deref().map(|s| crate::js::units::slice(s, 0, 10));
-    let since = day.as_ref().map_or_else(String::new, |d| format!(" since {d}"));
+    let day = rule
+        .since_iso
+        .as_deref()
+        .map(|s| crate::js::units::slice(s, 0, 10));
+    let since = day
+        .as_ref()
+        .map_or_else(String::new, |d| format!(" since {d}"));
     let place = format!("rule in {}", rule_place(rule));
     match rule_state(rule) {
         RuleState::Unmeasured => {
-            let added = day.as_ref().map_or_else(String::new, |d| format!(" (added {d})"));
+            let added = day
+                .as_ref()
+                .map_or_else(String::new, |d| format!(" (added {d})"));
             format!("{place} · not measured yet{added}")
         }
         RuleState::Quiet => format!("{place} · quiet{since}"),
         RuleState::Firing => {
             let sides = [
-                ("main", rule.calls_since.main, rule.hits_since.main, rule.per1k_since.main),
-                ("sub", rule.calls_since.nested, rule.hits_since.nested, rule.per1k_since.nested),
+                (
+                    "main",
+                    rule.calls_since.main,
+                    rule.hits_since.main,
+                    rule.per1k_since.main,
+                ),
+                (
+                    "sub",
+                    rule.calls_since.nested,
+                    rule.hits_since.nested,
+                    rule.per1k_since.nested,
+                ),
             ];
             let rates = sides
                 .iter()
@@ -143,12 +169,21 @@ pub fn no_suggestion_reason(report: &StatsReport) -> Option<&'static str> {
 }
 
 pub fn fail_spread(row: &FailRow) -> String {
-    format!("{} calls · {} projects · {} flagged", count(row.rows), count(row.projects), count(row.flagged))
+    format!(
+        "{} calls · {} projects · {} flagged",
+        count(row.rows),
+        count(row.projects),
+        count(row.flagged)
+    )
 }
 
 pub fn time_spread(row: &TimeRow, bash_sec: f64) -> String {
     if bash_sec > 0.0 {
-        format!("{} of shell time · {} runs", percent(row.share), count(row.runs))
+        format!(
+            "{} of shell time · {} runs",
+            percent(row.share),
+            count(row.runs)
+        )
     } else {
         format!("not measured · {} runs", count(row.runs))
     }

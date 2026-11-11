@@ -282,7 +282,9 @@ impl<'a> CauseTable<'a> {
 
     #[expect(clippy::cast_precision_loss)]
     fn latest(at: &mut HashMap<String, f64>, bin: &str, f: &CallFact, local: &dyn LocalZone) {
-        let Some(ms) = f.ts.as_deref().and_then(|t| parse_date(t, local)) else { return };
+        let Some(ms) = f.ts.as_deref().and_then(|t| parse_date(t, local)) else {
+            return;
+        };
         let ms = ms as f64;
         if at.get(bin).is_none_or(|&cur| ms > cur) {
             at.insert(bin.to_owned(), ms);
@@ -298,7 +300,7 @@ impl<'a> CauseTable<'a> {
         })
     }
 
-    fn on_pair(&mut self, pair: RetryPair) {
+    fn on_pair(&mut self, pair: &RetryPair) {
         let drill_key = self.drill_key.clone();
         let (failed, retry) = (&pair.failed, &pair.retry);
         let agg = self.agg_for(pair.cause, &failed.tool);
@@ -314,7 +316,10 @@ impl<'a> CauseTable<'a> {
             let id = format!(
                 "{}\0{}",
                 retry.base.sid,
-                retry.req.clone().unwrap_or_else(|| crate::js::num::to_js_string(retry.seq))
+                retry
+                    .req
+                    .clone()
+                    .unwrap_or_else(|| crate::js::num::to_js_string(retry.seq))
             );
             if agg.ctx_seen.insert(id) {
                 agg.retry_ctx_tokens += tok;
@@ -333,7 +338,11 @@ impl<'a> CauseTable<'a> {
             agg.pair_samples = pick_pair_samples(&agg.pair_samples, SAMPLE_POOL);
         }
         if drill_key.as_deref() == Some(cause_key_of(pair.cause, &failed.tool).as_str()) {
-            let id = format!("{}#{}", failed.base.sid, crate::js::num::to_js_string(failed.seq));
+            let id = format!(
+                "{}#{}",
+                failed.base.sid,
+                crate::js::num::to_js_string(failed.seq)
+            );
             if let Some(hit) = self.drill_hits.get_mut(&id) {
                 hit.pair_tool_use_id.clone_from(&retry.tool_use_id);
                 hit.pair_line = Some(retry_line);
@@ -357,7 +366,10 @@ impl<'a> CauseTable<'a> {
         if let Some(d) = &detail {
             bump(&mut agg.details, d, 1.0);
         }
-        if f.bash.as_ref().is_some_and(|b| b.family.starts_with("git diff")) {
+        if f.bash
+            .as_ref()
+            .is_some_and(|b| b.family.starts_with("git diff"))
+        {
             agg.git_diff_hits += 1.0;
         }
         let line = sample_line(line_of(f));
@@ -393,31 +405,40 @@ impl<'a> CauseTable<'a> {
             Fact::Call(c) => c,
             Fact::Usage(_) => return,
         };
-        let origin = self.session_origin.get(&f.base.sid).cloned().unwrap_or_default();
+        let origin = self
+            .session_origin
+            .get(&f.base.sid)
+            .cloned()
+            .unwrap_or_default();
         if f.is_bash() {
             bump_cell(&mut self.den.shell, f, &origin);
         }
-        bump_cell(self.den.tools.entry(f.tool.clone()).or_default(), f, &origin);
+        bump_cell(
+            self.den.tools.entry(f.tool.clone()).or_default(),
+            f,
+            &origin,
+        );
         let cause = hit_cause_of(f);
         if let Some(c) = cause {
             self.add_hit(f, c, &origin);
         }
-        if let Some(b) = &f.bash {
-            if !f.err && cause != Some(CauseId::CommandNotFound) {
-                for bin in &b.ran {
-                    Self::latest(&mut self.last_ran, bin, f, self.local);
-                }
+        if let Some(b) = &f.bash
+            && !f.err
+            && cause != Some(CauseId::CommandNotFound)
+        {
+            for bin in &b.ran {
+                Self::latest(&mut self.last_ran, bin, f, self.local);
             }
         }
         for pair in self.pairer.step(f) {
-            self.on_pair(pair);
+            self.on_pair(&pair);
         }
     }
 
     fn settle(&mut self) {
         if !self.flushed {
             for pair in self.pairer.flush() {
-                self.on_pair(pair);
+                self.on_pair(&pair);
             }
             self.flushed = true;
         }
@@ -431,7 +452,12 @@ impl<'a> CauseTable<'a> {
                     .into_iter()
                     .map(|(b, _)| b)
                     .collect();
-                let missing: Vec<String> = bins.iter().filter(|b| !self.installed(b)).take(4).cloned().collect();
+                let missing: Vec<String> = bins
+                    .iter()
+                    .filter(|b| !self.installed(b))
+                    .take(4)
+                    .cloned()
+                    .collect();
                 if !bins.is_empty() && missing.is_empty() {
                     return None;
                 }
@@ -461,7 +487,11 @@ impl<'a> CauseTable<'a> {
         let s = spec(agg.cause());
         let redact = ctx.redact;
         let hits_by = agg.hits();
-        let projects: HashSet<&str> = agg.hits_by_cell.values().map(|c| c.project.as_str()).collect();
+        let projects: HashSet<&str> = agg
+            .hits_by_cell
+            .values()
+            .map(|c| c.project.as_str())
+            .collect();
         let re = |x: &SampleRef| SampleRef {
             line: redact.line(&x.line),
             ..x.clone()
@@ -499,11 +529,18 @@ impl<'a> CauseTable<'a> {
                     let mut it = pair.split('\0');
                     let from = it.next().unwrap_or("");
                     let to = it.next().unwrap_or("");
-                    (redact.line_max(from, VALUE_MAX), redact.line_max(to, VALUE_MAX), n)
+                    (
+                        redact.line_max(from, VALUE_MAX),
+                        redact.line_max(to, VALUE_MAX),
+                        n,
+                    )
                 })
                 .collect(),
             rule: None,
-            samples: pick_samples(&agg.samples, ctx.sample_cap).iter().map(re).collect(),
+            samples: pick_samples(&agg.samples, ctx.sample_cap)
+                .iter()
+                .map(re)
+                .collect(),
             pair_samples: pick_pair_samples(&agg.pair_samples, ctx.sample_cap)
                 .iter()
                 .map(|p| PairSample {
@@ -531,13 +568,19 @@ impl<'a> CauseTable<'a> {
     }
 
     fn cwd_of(&self, cell: &super::cells::Cell) -> Option<String> {
-        cell.cwd.clone().or_else(|| self.project_cwd.get(&cell.project).cloned())
+        cell.cwd
+            .clone()
+            .or_else(|| self.project_cwd.get(&cell.project).cloned())
     }
 
     /// The working dirs each cause hit most in, sorted, unique.
     pub fn project_dirs(&self) -> Vec<String> {
         let mut dirs: HashSet<String> = HashSet::new();
-        for agg in self.aggs.values().filter(|a| a.cause() != CauseId::Unclassified) {
+        for agg in self
+            .aggs
+            .values()
+            .filter(|a| a.cause() != CauseId::Unclassified)
+        {
             let mut by_dir: IndexMap<String, f64> = IndexMap::new();
             for cell in agg.hits_by_cell.values() {
                 if let Some(cwd) = self.cwd_of(cell) {
@@ -556,24 +599,30 @@ impl<'a> CauseTable<'a> {
         let hits: Vec<DrillHit> = self.drill_hits.values().cloned().collect();
         let mut hits = redact_hits(&hits, redact);
         hits.sort_by(|a, b| {
-            asc(f64::from(u8::from(a.pair_line.is_none())), f64::from(u8::from(b.pair_line.is_none())))
-                .then_with(|| cmp_str(a.sample.ts.as_deref().unwrap_or(""), b.sample.ts.as_deref().unwrap_or("")))
-                .then_with(|| cmp_str(&a.sample.sid, &b.sample.sid))
-                .then_with(|| asc(a.sample.seq, b.sample.seq))
+            asc(
+                f64::from(u8::from(a.pair_line.is_none())),
+                f64::from(u8::from(b.pair_line.is_none())),
+            )
+            .then_with(|| {
+                cmp_str(
+                    a.sample.ts.as_deref().unwrap_or(""),
+                    b.sample.ts.as_deref().unwrap_or(""),
+                )
+            })
+            .then_with(|| cmp_str(&a.sample.sid, &b.sample.sid))
+            .then_with(|| asc(a.sample.seq, b.sample.seq))
         });
         hits
     }
 
     fn miss_count(&self, bin: &str) -> f64 {
-        self.aggs
-            .get("cause:command-not-found")
-            .map_or(0.0, |a| {
-                a.details
-                    .iter()
-                    .filter(|(v, _)| bin_name(v) == bin)
-                    .map(|(_, n)| *n)
-                    .sum()
-            })
+        self.aggs.get("cause:command-not-found").map_or(0.0, |a| {
+            a.details
+                .iter()
+                .filter(|(v, _)| bin_name(v) == bin)
+                .map(|(_, n)| *n)
+                .sum()
+        })
     }
 
     /// Binaries a not-found named that no later call ran, most hits first.
@@ -584,7 +633,9 @@ impl<'a> CauseTable<'a> {
             .filter(|b| !self.ran_since(b))
             .cloned()
             .collect();
-        bins.sort_by(|a, b| desc(self.miss_count(a), self.miss_count(b)).then_with(|| cmp_str(a, b)));
+        bins.sort_by(|a, b| {
+            desc(self.miss_count(a), self.miss_count(b)).then_with(|| cmp_str(a, b))
+        });
         bins
     }
 

@@ -1,5 +1,6 @@
 //! `peektrace stats` and its subcommands: validate flags, run core, print.
 
+use peektrace_core::Agent;
 use peektrace_core::js::num;
 use peektrace_core::js::text;
 use peektrace_core::roots::{self, RootsEnv};
@@ -9,7 +10,6 @@ use peektrace_core::stats::detectors::usage::UsageBy;
 use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
 use peektrace_core::stats::service::{ReportRequest, StatsEnv, StatsError, drill, refresh, report};
 use peektrace_core::stats::usage_service::{MAX_USAGE_DAYS, UsageRequest, usage, zone_of};
-use peektrace_core::Agent;
 
 use crate::args::{StatsCommon, StatsDrillArgs, StatsPromptArgs, StatsRefreshArgs, StatsUsageArgs};
 use crate::ls::{Context, Globals, UserError};
@@ -40,10 +40,16 @@ fn parse_agent(raw: Option<&str>) -> Result<Option<Vec<Agent>>, UserError> {
     }
     let Some(agent) = Agent::parse(value) else {
         let known = Agent::ALL.map(Agent::as_str).join(", ");
-        return Err(UserError::Invalid(format!("Unknown agent \"{value}\". Known: {known}, all.")));
+        return Err(UserError::Invalid(format!(
+            "Unknown agent \"{value}\". Known: {known}, all."
+        )));
     };
     if !agent.has_reader() {
-        let supported: Vec<&str> = Agent::ALL.into_iter().filter(|a| a.has_reader()).map(Agent::as_str).collect();
+        let supported: Vec<&str> = Agent::ALL
+            .into_iter()
+            .filter(|a| a.has_reader())
+            .map(Agent::as_str)
+            .collect();
         return Err(UserError::Invalid(format!(
             "Agent \"{value}\" is not supported yet. Supported: {}.",
             supported.join(", ")
@@ -67,14 +73,26 @@ struct Prepared {
 }
 
 fn prepare(ctx: &Context, agents: Option<&[Agent]>) -> Prepared {
-    let settings = ctx.settings.as_deref().map(roots::parse_settings).unwrap_or_default();
+    let settings = ctx
+        .settings
+        .as_deref()
+        .map(roots::parse_settings)
+        .unwrap_or_default();
     let warnings = settings
         .unparseable
-        .then(|| format!("peektrace: ignoring unparseable settings at {}", ctx.roots_env.settings_path()))
+        .then(|| {
+            format!(
+                "peektrace: ignoring unparseable settings at {}",
+                ctx.roots_env.settings_path()
+            )
+        })
         .into_iter()
         .collect();
     let skipped: Vec<Agent> = if agents.is_none() {
-        roots::unread_roots(&ctx.roots_env).into_iter().map(|(a, _)| a).collect()
+        roots::unread_roots(&ctx.roots_env)
+            .into_iter()
+            .map(|(a, _)| a)
+            .collect()
     } else {
         Vec::new()
     };
@@ -89,7 +107,10 @@ fn env_of<'a>(ctx: &Context, p: &'a Prepared, zone: &'a SystemZone) -> StatsEnv<
     let e = &ctx.roots_env;
     StatsEnv {
         claude: &p.claude,
-        codex_home: e.codex_home.clone().unwrap_or_else(|| e.style.join(&[&e.home, ".codex"])),
+        codex_home: e
+            .codex_home
+            .clone()
+            .unwrap_or_else(|| e.style.join(&[&e.home, ".codex"])),
         pi_home: e.style.join(&[&e.home, ".pi"]),
         cache: StatsCache::new(cache_root(e)),
         local: zone,
@@ -104,9 +125,9 @@ fn scan_error(e: StatsError) -> UserError {
     }
 }
 
-fn output(p: Prepared, stdout: String) -> Output {
+fn output(p: Prepared, stdout: &str) -> Output {
     Output {
-        stdout: Some(text::to_display(&stdout).into_owned()),
+        stdout: Some(text::to_display(stdout).into_owned()),
         write: None,
         warnings: p.warnings,
         unreadable: None,
@@ -132,8 +153,12 @@ pub fn run_report(common: &StatsCommon, g: Globals, ctx: &Context) -> Result<Out
     let p = prepare(ctx, req.agents.as_deref());
     let zone = SystemZone::default();
     let r = report(&env_of(ctx, &p, &zone), &req).map_err(scan_error)?;
-    let out = if g.json { r.to_json(true) } else { render_report(&r, g.pretty) };
-    Ok(output(p, out))
+    let out = if g.json {
+        r.to_json(true)
+    } else {
+        render_report(&r, g.pretty)
+    };
+    Ok(output(p, &out))
 }
 
 /// `stats drill`: the calls behind one row.
@@ -157,8 +182,12 @@ pub fn run_drill(a: &StatsDrillArgs, g: Globals, ctx: &Context) -> Result<Output
     let p = prepare(ctx, req.agents.as_deref());
     let zone = SystemZone::default();
     let d = drill(&env_of(ctx, &p, &zone), &req, table_, key).map_err(scan_error)?;
-    let out = if g.json { d.to_json(true) } else { render_drill(&d, g.pretty) };
-    Ok(output(p, out))
+    let out = if g.json {
+        d.to_json(true)
+    } else {
+        render_drill(&d, g.pretty)
+    };
+    Ok(output(p, &out))
 }
 
 /// `stats prompt`: the investigation prompt for the report or one row.
@@ -172,7 +201,9 @@ pub fn run_prompt(a: &StatsPromptArgs, ctx: &Context) -> Result<Output, UserErro
     .flatten()
     .collect();
     if picked.len() > 1 {
-        return Err(UserError::Invalid("Pass at most one of --cause, --fail or --time.".to_owned()));
+        return Err(UserError::Invalid(
+            "Pass at most one of --cause, --fail or --time.".to_owned(),
+        ));
     }
     let target = picked.into_iter().next().unwrap_or(PromptTarget::Report);
     let req = request(&a.common)?;
@@ -191,10 +222,14 @@ pub fn run_prompt(a: &StatsPromptArgs, ctx: &Context) -> Result<Output, UserErro
             "No {table_} row \"{key}\" in this window's top rows. List the keys with: peektrace stats; for a row ranked past 20, pass the --limit that lists it"
         )));
     };
-    Ok(output(p, text))
+    Ok(output(p, &text))
 }
 
 /// `stats refresh`: re-extract the cache.
+#[expect(
+    clippy::many_single_char_names,
+    reason = "short names for args, globals and summary"
+)]
 pub fn run_refresh(a: &StatsRefreshArgs, g: Globals, ctx: &Context) -> Result<Output, UserError> {
     let agents = parse_agent(a.agent.as_deref())?;
     let p = prepare(ctx, agents.as_deref());
@@ -226,7 +261,7 @@ pub fn run_refresh(a: &StatsRefreshArgs, g: Globals, ctx: &Context) -> Result<Ou
         .collect();
         table(&["FIELD", "VALUE"], &rows, g.pretty)
     };
-    Ok(output(p, out))
+    Ok(output(p, &out))
 }
 
 /// The machine's zone name, as `Intl.DateTimeFormat().resolvedOptions()` gives it.
@@ -243,7 +278,9 @@ pub fn run_usage(a: &StatsUsageArgs, g: Globals, ctx: &Context) -> Result<Output
     let by = match a.by.as_deref() {
         None => UsageBy::Day,
         Some(raw) => UsageBy::parse(raw).ok_or_else(|| {
-            UserError::Validation("Expected one of the following cases: day, month, block".to_owned())
+            UserError::Validation(
+                "Expected one of the following cases: day, month, block".to_owned(),
+            )
         })?,
     };
     let days = parse_opt_int(a.days.as_deref())?;
@@ -277,6 +314,10 @@ pub fn run_usage(a: &StatsUsageArgs, g: Globals, ctx: &Context) -> Result<Output
         tz: Some(tz),
     };
     let u = usage(&env_of(ctx, &p, &zone), &req).map_err(scan_error)?;
-    let out = if g.json { u.to_json(true) } else { render_usage(&u, g.pretty) };
-    Ok(output(p, out))
+    let out = if g.json {
+        u.to_json(true)
+    } else {
+        render_usage(&u, g.pretty)
+    };
+    Ok(output(p, &out))
 }

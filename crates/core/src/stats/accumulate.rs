@@ -112,7 +112,8 @@ impl DrillHit {
         w.key("durSec").opt_num(self.dur_sec);
         w.key("tool").text(&self.tool);
         w.key("failed").bool(self.failed);
-        w.key("pairToolUseId").opt_text(self.pair_tool_use_id.as_deref());
+        w.key("pairToolUseId")
+            .opt_text(self.pair_tool_use_id.as_deref());
         w.key("pairLine").opt_text(self.pair_line.as_deref());
         w.end_obj();
     }
@@ -293,8 +294,14 @@ impl CorpusTotals {
                 self.transcripts += 1.0;
                 self.sessions.insert(s.base.sid.clone());
                 self.projects.insert(s.base.project.clone());
-                *self.kinds.entry(s.base.kind.as_str().to_owned()).or_default() += 1.0;
-                *self.agents.entry(s.base.agent.as_str().to_owned()).or_default() += 1.0;
+                *self
+                    .kinds
+                    .entry(s.base.kind.as_str().to_owned())
+                    .or_default() += 1.0;
+                *self
+                    .agents
+                    .entry(s.base.agent.as_str().to_owned())
+                    .or_default() += 1.0;
             }
             Fact::Call(c) => {
                 self.tool_calls += 1.0;
