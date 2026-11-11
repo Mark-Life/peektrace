@@ -88,6 +88,15 @@ fn overflow_token(token: &str, mode: Overflow) -> Option<String> {
     })
 }
 
+/// Append `text[from..to]` to `out`, sizing `out` for the whole of `text` on
+/// first use so a line with nothing to fix never allocates.
+fn copy_span(out: &mut String, text: &str, from: usize, to: usize) {
+    if out.capacity() == 0 {
+        out.reserve(text.len());
+    }
+    out.push_str(&text[from..to]);
+}
+
 /// `text` with each unpaired surrogate escape (`\\ud800`) replaced by its
 /// stand-in char and each number beyond the `f64` range replaced per `mode`,
 /// or `None` when there is neither. Strings parsed from the result are
@@ -95,7 +104,7 @@ fn overflow_token(token: &str, mode: Overflow) -> Option<String> {
 /// escaped too.
 pub fn repair(text: &str, mode: Overflow) -> Option<String> {
     let b = text.as_bytes();
-    let mut out = String::with_capacity(text.len());
+    let mut out = String::new();
     let mut changed = false;
     let mut in_string = false;
     let mut copied = 0;
@@ -106,7 +115,7 @@ pub fn repair(text: &str, mode: Overflow) -> Option<String> {
             if let Some(token) = text.get(at..at + len)
                 && let Some(fixed) = overflow_token(token, mode)
             {
-                out.push_str(&text[copied..at]);
+                copy_span(&mut out, text, copied, at);
                 out.push_str(&fixed);
                 changed = true;
                 copied = at + len;
@@ -127,7 +136,7 @@ pub fn repair(text: &str, mode: Overflow) -> Option<String> {
         };
         if let Some((c, len)) = literal {
             if text::reserved(c) {
-                out.push_str(&text[copied..at]);
+                copy_span(&mut out, text, copied, at);
                 text::push_literal(&mut out, c);
                 copied = at + len;
             }
@@ -141,7 +150,7 @@ pub fn repair(text: &str, mode: Overflow) -> Option<String> {
         match escape_at(b, at).map(text::surrogate_stand_in) {
             None => at += 2,
             Some(Some(stand_in)) => {
-                out.push_str(&text[copied..at]);
+                copy_span(&mut out, text, copied, at);
                 out.push(stand_in);
                 changed = true;
                 at += 6;
@@ -150,8 +159,10 @@ pub fn repair(text: &str, mode: Overflow) -> Option<String> {
             Some(None) => at += 6,
         }
     }
-    out.push_str(&text[copied..]);
-    changed.then_some(out)
+    changed.then(|| {
+        out.push_str(&text[copied..]);
+        out
+    })
 }
 
 #[cfg(test)]

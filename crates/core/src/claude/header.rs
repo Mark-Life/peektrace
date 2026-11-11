@@ -82,6 +82,22 @@ fn call_tokens(u: &Usage) -> CostTokens {
     }
 }
 
+/// True when `e` may come from a token [`json::repair`] rewrites: a number or
+/// a `\u` escape. `serde_json` reports the byte column just past the bad
+/// token, so the bytes up to it hold a digit or a `\` (a surrogate pair is
+/// 12 bytes). A line cut short stays cut short after repair.
+fn repairable(line: &str, e: &serde_json::Error) -> bool {
+    if e.is_eof() {
+        return false;
+    }
+    let b = line.as_bytes();
+    let end = e.column().saturating_add(1).min(b.len());
+    let start = e.column().saturating_sub(13).min(end);
+    b[start..end]
+        .iter()
+        .any(|c| c.is_ascii_digit() || *c == b'\\')
+}
+
 impl HeaderAcc {
     /// Fold one raw line (no trailing `\n`). Blank lines are skipped; a line
     /// that is not valid JSON counts as malformed.
@@ -89,14 +105,20 @@ impl HeaderAcc {
         if text::is_blank(line.as_bytes()) {
             return;
         }
-        if let Ok(row) = parse_line(line) {
-            return self.accept(&row, false);
+        match parse_line(line) {
+            Ok(row) => return self.accept(&row, false),
+            Err(e) if !repairable(line, &e) => return self.reject(),
+            Err(_) => {}
         }
         if let Some(fixed) = json::repair(line, json::Overflow::Sentinel)
             && let Ok(row) = parse_repaired(&fixed)
         {
             return self.accept(&row, true);
         }
+        self.reject();
+    }
+
+    fn reject(&mut self) {
         self.bad += 1;
         self.last_bad = true;
     }
@@ -390,6 +412,40 @@ mod tests {
         assert_eq!(h.model.as_deref(), Some("claude-opus-5-5"));
         assert_eq!(h.malformed_lines, None);
         assert!(h.cost_usd.is_some_and(f64::is_infinite));
+    }
+
+    #[test]
+    fn cut_short_lines_are_malformed_even_when_repairable() {
+        let text = [
+            r#"{"type":"user","x":"\ud800","n":1e400"#,
+            r#"{"type":"user","x":"\ud800","n":1e400}"#,
+            r#"{"type":"user","x":"\ud800"#,
+        ]
+        .join("\n");
+        let h = build_header(&text, meta());
+        assert_eq!(h.message_count, 1);
+        assert_eq!(h.malformed_lines, Some(1));
+    }
+
+    #[test]
+    fn repair_runs_only_near_numbers_and_escapes() {
+        let repairable = |line: &str| parse_line(line).err().is_some_and(|e| repairable(line, &e));
+        assert!(repairable(r#"{"type":"ai-title","aiTitle":"\ud800"}"#));
+        assert!(repairable(
+            r#"{"type":"ai-title","aiTitle":"\ud800\u0041"}"#
+        ));
+        assert!(repairable(r#"{"type":"ai-title","aiTitle":"\udc00x"}"#));
+        assert!(repairable(
+            r#"{"type":"assistant","message":{"usage":{"input_tokens":1e400}}}"#
+        ));
+        let long = format!(
+            r#"{{"type":"assistant","message":{{"usage":{{"output_tokens":{}}}}}}}"#,
+            "9".repeat(400)
+        );
+        assert!(repairable(&long));
+        assert!(!repairable("\0\0\0\0"));
+        assert!(!repairable("not json"));
+        assert!(!repairable(r#"{"type":"user","x":"\ud800""#));
     }
 
     #[test]
