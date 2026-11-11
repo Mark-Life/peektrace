@@ -49,6 +49,11 @@ impl Redactor {
         self.line_max(s, SAMPLE_LINE_MAX)
     }
 
+    /// Distinct strings redacted since the memo was last cleared.
+    pub fn memo_len(&self) -> usize {
+        self.memo.borrow().len()
+    }
+
     /// `None` and `""` become `None`, anything else is redacted.
     pub fn nullable(&self, s: Option<&str>) -> Option<String> {
         s.filter(|s| !s.is_empty()).map(|s| self.text(s))
