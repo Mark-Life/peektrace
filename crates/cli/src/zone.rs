@@ -138,8 +138,6 @@ mod tests {
             ("asia/tokyo", 9),
             ("posix/Asia/Tokyo", 9),
             ("Etc/GMT-3", 3),
-            ("Japan", 9),
-            ("EST", -5),
             ("", 0),
             ("UTC", 0),
             ("Foo/Bar", 0),
@@ -158,5 +156,13 @@ mod tests {
         let got = cases.map(|(tz, _)| (tz, hours(TzVar::Text(tz))));
         assert_eq!(got, cases);
         assert_eq!(hours(TzVar::NotUtf8), 0);
+    }
+
+    /// Legacy aliases ship with macOS; Debian moved them to `tzdata-legacy`.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn legacy_tz_aliases_resolve() {
+        assert_eq!(hours(TzVar::Text("Japan")), 9);
+        assert_eq!(hours(TzVar::Text("EST")), -5);
     }
 }
