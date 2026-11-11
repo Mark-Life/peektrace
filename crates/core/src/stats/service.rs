@@ -513,3 +513,31 @@ pub fn refresh(
         facts: r.facts,
     })
 }
+
+/// Markers for one session, from a pass over that session's transcripts.
+pub fn markers(
+    env: &StatsEnv<'_>,
+    sid: &str,
+    agents: Option<&[Agent]>,
+    force: bool,
+) -> Result<Vec<super::markers::SessionMarker>, StatsError> {
+    let _span = info_span!("Stats.markers").entered();
+    let window = window_of(env.now_ms, ALL_DAYS)?;
+    let (from_ms, to_ms) = window_ms(&window, env.local);
+    let scope = scope_of(agents);
+    let redact = Redactor::new(true);
+    let mut collector = super::markers::MarkerCollector::new(sid, &redact, env.local);
+    let only = |r: &super::walk::TranscriptRef| r.id == sid;
+    run_pass(
+        &env.pass_env(),
+        &PassArgs {
+            scope: &scope,
+            force,
+            from_ms,
+            to_ms,
+            only: Some(&only),
+        },
+        &mut |f| collector.add(f),
+    );
+    Ok(collector.finish())
+}

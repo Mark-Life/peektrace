@@ -12,6 +12,7 @@ pub mod extract;
 pub mod findings;
 pub mod format;
 pub mod host_bins;
+pub mod markers;
 pub mod memory_files;
 pub mod normalize;
 pub mod pass;
