@@ -361,12 +361,16 @@ pub fn render_drill(d: &DrillResult, pretty: bool) -> String {
     if paired {
         headers.push("RETRY");
     }
+    let (count, total, offset) = (d.hits.len(), d.total, d.offset);
+    let shown = match (offset, count) {
+        (0, _) => format!("{count} of {total} calls"),
+        (_, 0) => format!("0 of {total} calls (offset {offset} is past the end)"),
+        _ => format!("calls {}-{} of {total}", offset + 1, offset + count),
+    };
     format!(
-        "{} {}: {} of {} calls\n{}",
+        "{} {}: {shown}\n{}",
         d.table.as_str(),
         d.key,
-        d.hits.len(),
-        d.total,
         table(&headers, &rows, pretty)
     )
 }

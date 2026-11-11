@@ -8,6 +8,8 @@ mod single;
 mod stats;
 mod stats_progress;
 mod stats_render;
+#[cfg(test)]
+mod stats_render_tests;
 mod width;
 mod zone;
 
