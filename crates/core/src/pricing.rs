@@ -423,4 +423,89 @@ mod tests {
         let cost = turn_cost(card_for("claude-haiku-5-5").as_ref(), &t).unwrap_or_default();
         assert!((cost - 100_001.0 * 0.5 / 1e6).abs() < 1e-12);
     }
+
+    // TS `cost.test.ts`, Claude cases of the price table and turn cost.
+
+    fn input_rate(id: &str) -> Option<f64> {
+        card_for(id).map(|c| c.rates.input)
+    }
+
+    #[test]
+    fn claude_generations_have_their_own_rates() {
+        let opus = card_for("claude-opus-4-8").expect("priced");
+        assert_eq!((opus.rates.input, opus.rates.output), (5.0, 25.0));
+        assert_eq!(input_rate("claude-opus-4-1-20250805"), Some(15.0));
+        assert_eq!(input_rate("claude-opus-4-20250514"), Some(15.0));
+        assert_eq!(input_rate("claude-sonnet-5-5"), Some(2.0));
+        assert_eq!(input_rate("claude-sonnet-5.5"), Some(2.0));
+    }
+
+    #[test]
+    fn family_aliases_and_prefixes() {
+        assert_eq!(key("claude-opus"), Some("opus-5-5"));
+        assert_eq!(key("anthropic/claude-sonnet-latest"), Some("sonnet-5-5"));
+        assert!(key("anthropic/claude-sonnet-4-6").is_some());
+        assert_eq!(
+            key("us.anthropic.claude-opus-4-1-20250805-v1:0"),
+            Some("opus-4-1")
+        );
+        assert_eq!(key("claude-opus-4-8[1m]"), Some("opus-4-8"));
+    }
+
+    #[test]
+    fn unknown_versions_stay_unpriced() {
+        for id in [
+            "claude-opus-4-9",
+            "claude-opus-4-1-thinking",
+            "claude-sonnet-4-6-fast",
+            "claude-3-opus-20240229",
+            "claude-3-5-haiku-20241022",
+            "claude-3-7-sonnet-latest",
+        ] {
+            assert_eq!(key(id), None, "{id}");
+        }
+    }
+
+    fn cost(model: &str, t: &CostTokens) -> Option<f64> {
+        turn_cost(card_for(model).as_ref(), t)
+    }
+
+    fn close(a: Option<f64>, b: f64) -> bool {
+        a.is_some_and(|a| (a - b).abs() < 1e-8)
+    }
+
+    #[test]
+    fn one_hour_writes_bill_at_the_one_hour_rate() {
+        let split = CostTokens {
+            cache_creation: 2_000_000.0,
+            cache_creation_1h: Some(1_000_000.0),
+            ..CostTokens::default()
+        };
+        assert!(close(cost("claude-sonnet-4-6", &split), 9.75));
+        let plain = CostTokens {
+            cache_creation: 1_000_000.0,
+            ..CostTokens::default()
+        };
+        assert!(close(cost("claude-sonnet-4-6", &plain), 3.75));
+    }
+
+    #[test]
+    fn haiku_bills_the_whole_request_at_the_long_tier() {
+        let input = |n: f64| CostTokens {
+            input: n,
+            ..CostTokens::default()
+        };
+        assert!(close(cost("claude-haiku-5-5", &input(99_000.0)), 0.0099));
+        assert!(close(cost("claude-haiku-5-5", &input(101_000.0)), 0.0505));
+    }
+
+    #[test]
+    fn unknown_model_has_no_cost_and_zero_usage_costs_nothing() {
+        let t = CostTokens {
+            input: 10.0,
+            ..CostTokens::default()
+        };
+        assert_eq!(cost("example-model-1", &t), None);
+        assert_eq!(cost("<synthetic>", &CostTokens::default()), Some(0.0));
+    }
 }
