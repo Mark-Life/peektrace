@@ -175,6 +175,12 @@ pub fn parse_number(s: &str) -> f64 {
     unsigned.parse::<f64>().map_or(f64::NAN, |v| sign * v)
 }
 
+/// `Math.round`: the nearest integer, ties toward +Infinity.
+pub fn js_round(x: f64) -> f64 {
+    let floor = x.floor();
+    if x - floor >= 0.5 { floor + 1.0 } else { floor }
+}
+
 /// `Number.isSafeInteger`.
 #[expect(clippy::float_cmp, reason = "exact integer test")]
 pub fn is_safe_integer(x: f64) -> bool {
@@ -229,6 +235,16 @@ mod tests {
         assert_eq!(to_fixed(f64::INFINITY, 2), "Infinity");
         assert_eq!(to_fixed(f64::NEG_INFINITY, 2), "-Infinity");
         assert_eq!(to_fixed(f64::NAN, 2), "NaN");
+    }
+
+    #[test]
+    fn rounds_like_math_round() {
+        assert_eq!(js_round(0.499_999_999_999_999_94), 0.0);
+        assert_eq!(js_round(2.5), 3.0);
+        assert_eq!(js_round(-2.5), -2.0);
+        assert_eq!(js_round(-2.6), -3.0);
+        assert!(js_round(f64::NAN).is_nan());
+        assert_eq!(js_round(f64::INFINITY), f64::INFINITY);
     }
 
     #[test]
