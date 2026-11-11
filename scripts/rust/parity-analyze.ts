@@ -68,6 +68,7 @@ const KNOWN_DEFECTS = new Set([
 ]);
 const REAL = "real";
 const STDERR_SHOWN = 200;
+const TS_RETRIES = 3;
 
 const stats = { cases: 0, defects: 0, live: 0 };
 const defectsSeen = new Set<string>();
@@ -173,7 +174,8 @@ export const runCase = async (
   suite: string,
   env: Record<string, string>,
   c: Case,
-  live?: () => boolean
+  live?: () => boolean,
+  retryTs?: (ts: Run) => boolean
 ) => {
   const label = `${suite} [${c.args.join(" ")}]`;
   const tsArgs = [...TS_CMD, "--no-telemetry", ...c.args];
@@ -194,6 +196,9 @@ export const runCase = async (
       runAsync(tsArgs, env),
       runAsync(rustArgs, env),
     ]);
+  }
+  for (let n = 0; n < TS_RETRIES && retryTs?.(ts); n++) {
+    ts = await runAsync(tsArgs, env);
   }
   stats.cases += 1;
   if (DEFECT.test(ts.stdout)) {

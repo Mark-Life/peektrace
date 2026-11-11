@@ -8,6 +8,8 @@
  *   SKIPPED_NOTE for them; that line is dropped.
  * - `ses_far` holds a time past what a JS `Date` holds: TS prints an Effect
  *   error, so Rust only has to succeed with parseable output.
+ * - Real data: TS reads SQLite with no busy timeout, so a concurrent reader
+ *   can make it miss a store; a TS "not found" is run again.
  * - Real data: OpenCode may write while the stage runs. The `opencode*.db`
  *   and `-wal` files and the `storage/` tree are stamped before and after; if
  *   any changed, `ls` compares only rows with the same `updatedAt` in both
@@ -328,8 +330,11 @@ const realStage = async () => {
   console.log(
     `suite oc-real analyze: ${rustRows.length} sessions, ${cases.length} cases`
   );
+  // TS opens SQLite with no busy timeout, so a concurrent reader can make it
+  // miss a store and answer "not found"; run it again then.
+  const missed = (ts: { stderr: string }) => ts.stderr.includes(" not found ");
   await pool(cases, (c) =>
-    runCase("real", env, c, () => stampOf(dir) !== before)
+    runCase("real", env, c, () => stampOf(dir) !== before, missed)
   );
 };
 
