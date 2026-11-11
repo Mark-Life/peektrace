@@ -293,6 +293,34 @@ fn deleted_working_dir_is_fine_without_relative_cwd() {
     assert!(String::from_utf8_lossy(&out.stdout).contains("-tmp-proj"));
 }
 
+#[cfg(unix)]
+#[test]
+fn unsearchable_project_dir_is_skipped() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let f = Fixture::new();
+    let dir = f.home.join(".claude/projects/-q");
+    fs::create_dir_all(&dir).expect("mkdir");
+    fs::write(dir.join("b.jsonl"), "{\"type\":\"user\"}\n").expect("write");
+    let mode = |m| fs::set_permissions(&dir, fs::Permissions::from_mode(m)).expect("chmod");
+    mode(0o444);
+    let (code, out, err) = f.run(&["sessions", "ls", "--agent", "claude", "--limit", "0"]);
+    mode(0o755);
+    assert_eq!(code, 0);
+    assert!(!out.contains("-q"), "{out}");
+    assert!(!err.contains("could not be read"), "{err}");
+}
+
+#[cfg(unix)]
+#[test]
+fn root_alias_is_scanned_once() {
+    let f = Fixture::new();
+    std::os::unix::fs::symlink(f.home.join(".claude"), f.home.join("alias")).expect("symlink");
+    f.settings(br#"{"roots":{"claude":[{"path":"~/alias","label":"alias"}]}}"#);
+    let (code, out, _) = f.run(&["sessions", "ls", "--json", "--limit", "0"]);
+    assert_eq!(code, 0);
+    assert_eq!(out.matches("\"id\": \"s1\"").count(), 1, "{out}");
+}
+
 #[test]
 fn bare_sessions_prints_help() {
     let f = Fixture::new();
