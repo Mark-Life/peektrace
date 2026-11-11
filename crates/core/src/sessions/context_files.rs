@@ -456,6 +456,8 @@ mod tests {
         assert_eq!(main_root_of("/w", "gitdir: ../x"), "/w");
     }
 
+    /// Builds real dirs from temp paths and resolves cwds as POSIX, so unix only.
+    #[cfg(unix)]
     #[test]
     fn memory_by_current_then_legacy_slug() -> std::io::Result<()> {
         let base = std::env::temp_dir().join(format!("peektrace-memslug-{}", std::process::id()));
