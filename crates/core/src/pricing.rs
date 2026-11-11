@@ -1,6 +1,7 @@
 //! API list prices per model generation (USD per million tokens) and the
 //! per-turn cost they give. Prices checked 2026-11-08; the table must match
-//! `packages/core/src/services/pricing.ts`.
+//! `packages/core/src/services/pricing.ts`. The parity harness prices one
+//! session per key of that table, so a drift shows up as a `costUsd` diff.
 
 use std::sync::LazyLock;
 

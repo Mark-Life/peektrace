@@ -3,6 +3,7 @@
  * to a projects root (`<slug>/<file>`). Each file targets one rule of the
  * `sessions ls` header fold, so a parity diff names the rule that broke.
  */
+import { PRICE_KEYS } from "../../packages/core/src/services/pricing";
 
 const BOM = "\uFEFF";
 /** `é` in Latin-1: not valid UTF-8 on its own. */
@@ -133,6 +134,28 @@ const bytes = (...parts: (string | Uint8Array)[]) =>
     parts.map((p) => (typeof p === "string" ? encoder.encode(p) : p))
   );
 
+/**
+ * One session per rate card: a short turn bills every base rate (1-hour
+ * writes too), a turn over 272k prompt tokens bills the long tier.
+ */
+const priced = (model: string) =>
+  lines(
+    assistant("p1", model, {
+      input_tokens: 1000,
+      output_tokens: 2000,
+      cache_read_input_tokens: 3000,
+      cache_creation_input_tokens: 4000,
+      cache_creation: { ephemeral_1h_input_tokens: 1500 },
+    }),
+    assistant("p2", model, {
+      input_tokens: 300_000,
+      output_tokens: 500,
+      cache_read_input_tokens: 1000,
+      cache_creation_input_tokens: 2000,
+      cache_creation: { ephemeral_1h_input_tokens: 500 },
+    })
+  );
+
 const TIE_IDS = ["B", "a", "_x", "-y", "10", "9", "A1", "a2", "x.y", "x-y"];
 
 export const edgeFiles: Record<string, string | Uint8Array> = {
@@ -186,6 +209,9 @@ export const edgeFiles: Record<string, string | Uint8Array> = {
   "-edge-b/basic.jsonl": basic,
   ...Object.fromEntries(
     TIE_IDS.map((id) => [`-edge-b/${id}.jsonl`, lines({ type: "user" })])
+  ),
+  ...Object.fromEntries(
+    PRICE_KEYS.map((key) => [`-edge-price/${key}.jsonl`, priced(key)])
   ),
 };
 
