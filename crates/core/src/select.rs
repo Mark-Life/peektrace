@@ -146,6 +146,7 @@ fn matches_cwd(have: Option<&str>, want: &str) -> bool {
     let Some(have) = have else {
         return false;
     };
+    let have = &*text::to_display(have);
     let fold = |p: &str| {
         if is_windows_path(want) {
             p.to_lowercase().replace('/', "\\")

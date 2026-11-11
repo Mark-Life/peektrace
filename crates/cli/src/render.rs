@@ -4,37 +4,51 @@
 use std::fmt::Write as _;
 
 use peektrace_core::SessionHeader;
-use peektrace_core::js::{num, text};
+use peektrace_core::js::num;
+use peektrace_core::js::text::{self, Unit};
 
 use crate::width::display_width;
 
-/// Append `s` as a JSON string, escaped the way `JSON.stringify` does.
-pub fn push_json_string(out: &mut String, s: &str) {
+/// Append `units` as a JSON string, escaped the way `JSON.stringify` does.
+fn push_json_units(out: &mut String, units: impl Iterator<Item = Unit>) {
     out.push('"');
-    for c in s.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\u{08}' => out.push_str("\\b"),
-            '\u{0C}' => out.push_str("\\f"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if u32::from(c) < 0x20 => {
+    for u in units {
+        match u {
+            Unit::Char('"') => out.push_str("\\\""),
+            Unit::Char('\\') => out.push_str("\\\\"),
+            Unit::Char('\u{08}') => out.push_str("\\b"),
+            Unit::Char('\u{0C}') => out.push_str("\\f"),
+            Unit::Char('\n') => out.push_str("\\n"),
+            Unit::Char('\r') => out.push_str("\\r"),
+            Unit::Char('\t') => out.push_str("\\t"),
+            Unit::Char(c) if u32::from(c) < 0x20 => {
                 let _ = write!(out, "\\u{:04x}", u32::from(c));
             }
-            c if let Some(unit) = text::stand_in_surrogate(c) => {
+            Unit::Char(c) => out.push(c),
+            Unit::Lone(unit) => {
                 let _ = write!(out, "\\u{unit:04x}");
             }
-            c => out.push(c),
         }
     }
     out.push('"');
 }
 
+/// Append a plain string as JSON.
+pub fn push_json_string(out: &mut String, s: &str) {
+    push_json_units(out, s.chars().map(Unit::Char));
+}
+
+/// Append transcript text (see [`text::units`]) as JSON; unpaired
+/// surrogates print as `\\udXXX` escapes.
+fn push_json_text(out: &mut String, s: &str) {
+    push_json_units(out, text::units(s));
+}
+
 /// One JSON value in a header object.
 enum Value<'a> {
     Str(&'a str),
+    /// Transcript text.
+    Text(&'a str),
     Int(u64),
     Float(f64),
     List(&'a [String]),
@@ -43,11 +57,11 @@ enum Value<'a> {
 /// The header's keys and values in `--json` key order, absent ones dropped.
 fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
     let optional = [
-        ("cwd", h.cwd.as_deref().map(Value::Str)),
-        ("gitBranch", h.git_branch.as_deref().map(Value::Str)),
-        ("model", h.model.as_deref().map(Value::Str)),
-        ("title", h.title.as_deref().map(Value::Str)),
-        ("startedAt", h.started_at.as_deref().map(Value::Str)),
+        ("cwd", h.cwd.as_deref().map(Value::Text)),
+        ("gitBranch", h.git_branch.as_deref().map(Value::Text)),
+        ("model", h.model.as_deref().map(Value::Text)),
+        ("title", h.title.as_deref().map(Value::Text)),
+        ("startedAt", h.started_at.as_deref().map(Value::Text)),
         ("malformedLines", h.malformed_lines.map(Value::Int)),
         ("costUsd", h.cost_usd.map(Value::Float)),
         (
@@ -67,7 +81,7 @@ fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
         ("project", Value::Str(h.project.as_str())),
         ("messageCount", Value::Int(h.message_count)),
         ("sizeBytes", Value::Int(h.size_bytes)),
-        ("updatedAt", Value::Str(&h.updated_at)),
+        ("updatedAt", Value::Text(&h.updated_at)),
     ]
     .into_iter()
     .chain(optional.into_iter().filter_map(|(k, v)| v.map(|v| (k, v))))
@@ -77,6 +91,7 @@ fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
 fn push_value(out: &mut String, v: &Value<'_>, indent: &str) {
     match v {
         Value::Str(s) => push_json_string(out, s),
+        Value::Text(s) => push_json_text(out, s),
         Value::Int(n) => {
             let _ = write!(out, "{n}");
         }
@@ -88,7 +103,7 @@ fn push_value(out: &mut String, v: &Value<'_>, indent: &str) {
                 out.push_str(if i == 0 { "\n" } else { ",\n" });
                 out.push_str(indent);
                 out.push_str("  ");
-                push_json_string(out, item);
+                push_json_text(out, item);
             }
             out.push('\n');
             out.push_str(indent);
@@ -150,31 +165,25 @@ fn short_id(id: &str) -> &str {
     id.split('-').next().unwrap_or(id)
 }
 
-/// A cell as the terminal gets it: an unpaired surrogate prints as U+FFFD.
-fn printable(cell: String) -> String {
-    if cell.chars().any(|c| text::stand_in_surrogate(c).is_some()) {
-        cell.chars()
-            .map(|c| text::stand_in_surrogate(c).map_or(c, |_| '\u{FFFD}'))
-            .collect()
-    } else {
-        cell
-    }
+/// A transcript text cell as the terminal gets it: an unpaired surrogate
+/// prints as U+FFFD.
+fn printable(cell: &str) -> String {
+    text::to_display(cell).into_owned()
 }
 
 fn row_cells(h: &SessionHeader) -> Vec<String> {
     let star = if h.unpriced_models.is_some() { "*" } else { "" };
-    let cells = vec![
+    vec![
         short_id(h.id.as_str()).to_owned(),
         h.agent.as_str().to_owned(),
         h.project.as_str().to_owned(),
-        h.model.clone().unwrap_or_else(|| "-".to_owned()),
+        printable(h.model.as_deref().unwrap_or("-")),
         h.message_count.to_string(),
         format!("{}{star}", usd_cell(h.cost_usd)),
         bytes(h.size_bytes),
-        h.updated_at.clone(),
-        h.title.clone().unwrap_or_else(|| "-".to_owned()),
-    ];
-    cells.into_iter().map(printable).collect()
+        printable(&h.updated_at),
+        printable(h.title.as_deref().unwrap_or("-")),
+    ]
 }
 
 /// Tab-separated table with lowercase headers; `(none)` when empty.
@@ -277,9 +286,12 @@ mod tests {
     #[test]
     fn stand_ins_print_as_escapes() {
         let mut out = String::new();
-        push_json_string(&mut out, "a\u{10F800}");
+        push_json_text(&mut out, "a\u{10F800}");
         assert_eq!(out, "\"a\\ud800\"");
-        assert_eq!(printable("a\u{10FC00}".to_owned()), "a\u{FFFD}");
+        assert_eq!(printable("a\u{10FC00}"), "a\u{FFFD}");
+        out.clear();
+        push_json_string(&mut out, "a\u{10F800}");
+        assert_eq!(out, "\"a\u{10F800}\"");
     }
 
     #[test]

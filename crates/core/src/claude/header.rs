@@ -1,6 +1,7 @@
 //! Fold Claude JSONL lines into a session header: timestamps, cwd, branch,
 //! model, title, message count and estimated cost. No timeline is built.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use super::line::{Line, Usage, parse_line, replace_lone_surrogates};
@@ -61,6 +62,15 @@ fn set(slot: &mut Option<String>, value: &str) {
     }
 }
 
+/// `s` as transcript text, unless it already is.
+fn keep(s: &str, escaped: bool) -> Cow<'_, str> {
+    if escaped {
+        Cow::Borrowed(s)
+    } else {
+        text::escape_reserved(s)
+    }
+}
+
 /// Token counts of a new call; a missing count reads 0.
 fn call_tokens(u: &Usage) -> CostTokens {
     CostTokens {
@@ -80,38 +90,42 @@ impl HeaderAcc {
             return;
         }
         if let Ok(row) = parse_line(line) {
-            return self.accept(&row);
+            return self.accept(&row, false);
         }
         if let Some(fixed) = replace_lone_surrogates(line)
             && let Ok(row) = parse_line(&fixed)
         {
-            return self.accept(&row);
+            return self.accept(&row, true);
         }
         self.bad += 1;
         self.last_bad = true;
     }
 
-    fn accept(&mut self, row: &Line<'_>) {
+    /// `escaped` says the line's strings are already transcript text (see
+    /// [`text::units`]); otherwise kept strings are escaped here.
+    fn accept(&mut self, row: &Line<'_>, escaped: bool) {
         self.last_bad = false;
         if row.is_object {
-            self.apply(row);
+            self.apply(row, escaped);
         }
     }
 
-    fn apply(&mut self, o: &Line<'_>) {
+    fn apply(&mut self, o: &Line<'_>, escaped: bool) {
+        let keep = |s| keep(s, escaped);
         if let Some(ts) = o.timestamp.non_empty() {
+            let ts = keep(ts);
             if self.started_at.is_none() {
-                self.started_at = Some(ts.to_owned());
+                self.started_at = Some(ts.clone().into_owned());
             }
-            set(&mut self.updated_at, ts);
+            set(&mut self.updated_at, &ts);
         }
         if let Some(cwd) = o.cwd.get()
             && self.cwd.as_deref().is_none_or(str::is_empty)
         {
-            set(&mut self.cwd, cwd);
+            set(&mut self.cwd, &keep(cwd));
         }
         if let Some(branch) = o.git_branch.get() {
-            set(&mut self.git_branch, branch);
+            set(&mut self.git_branch, &keep(branch));
         }
         let assistant = o.kind.is("assistant");
         if assistant
@@ -119,25 +133,25 @@ impl HeaderAcc {
             && let Some(model) = o.message.model.get()
             && model != SYNTHETIC_MODEL
         {
-            set(&mut self.model, model);
+            set(&mut self.model, &keep(model));
         }
         if o.kind.is("ai-title")
             && let Some(title) = o.ai_title.get()
         {
-            set(&mut self.title, title);
+            set(&mut self.title, &keep(title));
         }
         if o.kind.is("user") {
             if !is_not_user_written(o) {
                 self.users += 1;
             }
         } else if assistant {
-            self.apply_assistant(o);
+            self.apply_assistant(o, escaped);
         }
     }
 
     /// Count the assistant message (one per request id, else one per line)
     /// and fold its usage into that request's turn.
-    fn apply_assistant(&mut self, o: &Line<'_>) {
+    fn apply_assistant(&mut self, o: &Line<'_>, escaped: bool) {
         let request = o.request_id.get();
         let turn_at = if let Some(id) = request {
             if let Some(at) = self.requests.get(id) {
@@ -166,7 +180,7 @@ impl HeaderAcc {
             if let Some(slot) = request.and_then(|id| self.requests.get_mut(id)) {
                 *slot = Some(self.turns.len());
             }
-            let model = self.model_index(model);
+            let model = self.model_index(&keep(model, escaped));
             self.turns.push(Turn { model, tokens });
         }
     }
@@ -341,6 +355,27 @@ mod tests {
         );
         assert_eq!(h.cost_usd, one_turn);
         assert_eq!(h.unpriced_models, Some(vec!["mystery".to_owned()]));
+    }
+
+    #[test]
+    fn plane_16_chars_stay_real() {
+        let decoded = |s: Option<String>| text::units(&s.unwrap_or_default()).collect::<Vec<_>>();
+        let real = build_header(
+            "{\"type\":\"ai-title\",\"aiTitle\":\"x\u{10F801}\"}",
+            meta(),
+        );
+        assert_eq!(
+            decoded(real.title),
+            [text::Unit::Char('x'), text::Unit::Char('\u{10F801}')]
+        );
+        let mixed = build_header(
+            "{\"type\":\"ai-title\",\"aiTitle\":\"\\ud801\u{10F801}\"}",
+            meta(),
+        );
+        assert_eq!(
+            decoded(mixed.title),
+            [text::Unit::Lone(0xD801), text::Unit::Char('\u{10F801}')]
+        );
     }
 
     #[test]

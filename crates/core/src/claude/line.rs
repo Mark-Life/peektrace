@@ -300,40 +300,58 @@ fn escape_at(b: &[u8], at: usize) -> Option<u16> {
     u16::from_str_radix(hex, 16).ok()
 }
 
-/// `text` with each unpaired surrogate escape (`\ud800`) replaced by its
+/// The code point a `\\uHIGH\\uLOW` escape pair at `at` encodes.
+fn pair_at(b: &[u8], at: usize) -> Option<char> {
+    let high = escape_at(b, at).filter(|u| (0xD800..0xDC00).contains(u))?;
+    let low = escape_at(b, at + 6).filter(|u| (0xDC00..0xE000).contains(u))?;
+    char::decode_utf16([high, low]).next()?.ok()
+}
+
+/// `text` with each unpaired surrogate escape (`\\ud800`) replaced by its
 /// stand-in char, or `None` when there is none. `JSON.parse` accepts unpaired
-/// surrogates; `serde_json` rejects them in strings it decodes.
+/// surrogates; `serde_json` rejects them in strings it decodes. Strings parsed
+/// from the result are already transcript text: real chars that could pass
+/// for a stand-in are escaped too.
 pub fn replace_lone_surrogates(text: &str) -> Option<String> {
     let b = text.as_bytes();
     let mut out = String::with_capacity(text.len());
-    let mut changed = false;
+    let mut lone = false;
     let mut copied = 0;
     let mut at = 0;
     while at < b.len() {
+        // A reserved char, raw (UTF-8 lead byte 0xF4) or as an escape pair.
+        let literal = match b[at] {
+            0xF4 => text[at..].chars().next().map(|c| (c, c.len_utf8())),
+            b'\\' => pair_at(b, at).map(|c| (c, 12)),
+            _ => None,
+        };
+        if let Some((c, len)) = literal {
+            if text::reserved(c) {
+                out.push_str(&text[copied..at]);
+                text::push_literal(&mut out, c);
+                copied = at + len;
+            }
+            at += len;
+            continue;
+        }
         if b[at] != b'\\' {
             at += 1;
             continue;
         }
-        let Some(unit) = escape_at(b, at) else {
-            at += 2;
-            continue;
-        };
-        let high = (0xD800..0xDC00).contains(&unit);
-        let paired = high && escape_at(b, at + 6).is_some_and(|n| (0xDC00..0xE000).contains(&n));
-        if paired {
-            at += 12;
-        } else if let Some(stand_in) = text::surrogate_stand_in(unit) {
-            out.push_str(&text[copied..at]);
-            out.push(stand_in);
-            changed = true;
-            at += 6;
-            copied = at;
-        } else {
-            at += 6;
+        match escape_at(b, at).map(|unit| (unit, text::surrogate_stand_in(unit))) {
+            None => at += 2,
+            Some((_, Some(stand_in))) => {
+                out.push_str(&text[copied..at]);
+                out.push(stand_in);
+                lone = true;
+                at += 6;
+                copied = at;
+            }
+            Some((_, None)) => at += 6,
         }
     }
     out.push_str(&text[copied..]);
-    changed.then_some(out)
+    lone.then_some(out)
 }
 
 #[cfg(test)]
@@ -385,6 +403,15 @@ mod tests {
                 .expect("valid")
                 .kind
                 .is("user")
+        );
+    }
+
+    #[test]
+    fn reserved_chars_escape_beside_lone_surrogates() {
+        let raw = "{\"a\":\"\\ud801\u{10F801}\\udbfe\\udc01\\ud83d\\ude00\"}";
+        assert_eq!(
+            replace_lone_surrogates(raw).as_deref(),
+            Some("{\"a\":\"\u{10F801}\u{10F7FF}\u{10F801}\u{10F7FF}\u{10F801}\\ud83d\\ude00\"}")
         );
     }
 
