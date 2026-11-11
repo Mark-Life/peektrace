@@ -30,13 +30,17 @@ import {
   DEFECT,
   firstLineDiff,
   fixtureEnv,
+  newTally,
   pool,
   REPO,
   report,
+  reportUnseen,
   run,
   rustBin,
   SKIPPED_NOTE,
+  type Tally,
   TS_CMD,
+  tallyLine,
   WORK,
 } from "./parity-lib";
 import {
@@ -58,6 +62,8 @@ const oc = (...rest: string[]) => [...LS, "--agent", "opencode", ...rest];
 const ALL = ["--limit", "0"];
 /** Listed refs that no store loads: absent from `ls`, still resolvable. */
 const UNLISTED = ["ses_badmsg", "ses_other_name"];
+/** Fixture sessions the TS CLI fails on; see "Known differences" in the plan. */
+const KNOWN_DEFECTS = ["ses_far"];
 
 const LS_ARGS: readonly (readonly string[])[] = [
   ["--no-telemetry", "--json", "sessions", "ls", "--agent", "opencode", ...ALL],
@@ -142,6 +148,7 @@ const allIds = (env: Env, extra: readonly string[]) => {
 };
 
 const runSuite = async (
+  tally: Tally,
   name: string,
   env: Env,
   lsArgs: readonly (readonly string[])[],
@@ -167,10 +174,10 @@ const runSuite = async (
     ...(extra.cases ?? []).map((args) => ({ args })),
   ];
   console.log(`suite ${name}: ${rows.length} sessions, ${cases.length} cases`);
-  await pool(cases, (c) => runCase(name, env, c));
+  await pool(cases, (c) => runCase(tally, name, env, c));
 };
 
-const fixtureStage = async (data: OpencodeData) => {
+const fixtureStage = async (tally: Tally, data: OpencodeData) => {
   const empty = join(WORK, "oc-empty");
   const home = join(WORK, "oc-home");
   mkdirSync(empty, { recursive: true });
@@ -184,6 +191,7 @@ const fixtureStage = async (data: OpencodeData) => {
     });
   writeFileSync(join(data.main, "ses_rich.jsonl"), "not read\n");
   await runSuite(
+    tally,
     "oc-main",
     pin({ PEEKTRACE_OPENCODE_DATA: data.main }),
     LS_ARGS,
@@ -202,6 +210,7 @@ const fixtureStage = async (data: OpencodeData) => {
     }
   );
   await runSuite(
+    tally,
     "oc-mixed",
     pin({
       PEEKTRACE_CLAUDE_PROJECTS: data.mixedClaude,
@@ -222,7 +231,7 @@ const fixtureStage = async (data: OpencodeData) => {
     }
   );
   const xdgEnv = pin({ XDG_DATA_HOME: data.xdg });
-  await runSuite("oc-xdg", xdgEnv, [oc("--json", ...ALL)], {});
+  await runSuite(tally, "oc-xdg", xdgEnv, [oc("--json", ...ALL)], {});
   const rootsHome = join(WORK, "oc-roots-home");
   mkdirSync(join(rootsHome, ".peektrace"), { recursive: true });
   writeFileSync(
@@ -236,15 +245,21 @@ const fixtureStage = async (data: OpencodeData) => {
     HOME: rootsHome,
     PEEKTRACE_DIR: join(rootsHome, ".peektrace"),
   };
-  await runSuite("oc-roots", rootsEnv, [oc("--json", ...ALL), oc(...ALL)], {
-    cases: [analyze("ses_ext", "--json"), analyze("ses_rich", "--json")],
-  });
+  await runSuite(
+    tally,
+    "oc-roots",
+    rootsEnv,
+    [oc("--json", ...ALL), oc(...ALL)],
+    {
+      cases: [analyze("ses_ext", "--json"), analyze("ses_rich", "--json")],
+    }
+  );
   const farEnv = pin({ PEEKTRACE_OPENCODE_DATA: data.far });
   for (const args of [oc("--json", ...ALL), oc(...ALL)]) {
     lsCase("oc-far", farEnv, args);
   }
   for (const args of [analyze("ses_far", "--json"), analyze("ses_far")]) {
-    await runCase("oc-far", farEnv, { args });
+    await runCase(tally, "oc-far", farEnv, { args });
   }
 };
 
@@ -285,7 +300,7 @@ const stampOf = (dir: string) => {
   return parts.join("|");
 };
 
-const realStage = async () => {
+const realStage = async (tally: Tally) => {
   const dir = realDataDir();
   if (!existsSync(dir)) {
     return;
@@ -334,7 +349,7 @@ const realStage = async () => {
   // miss a store and answer "not found"; run it again then.
   const missed = (ts: { stderr: string }) => ts.stderr.includes(" not found ");
   await pool(cases, (c) =>
-    runCase("real", env, c, () => stampOf(dir) !== before, missed)
+    runCase(tally, "real", env, c, () => stampOf(dir) !== before, missed)
   );
 };
 
@@ -342,18 +357,21 @@ export const runOpencodeStage = async (args: {
   readonly fixtures: boolean;
   readonly real: boolean;
 }) => {
+  const tally = newTally(KNOWN_DEFECTS);
   if (args.fixtures) {
     const data = buildOpencodeData(
       join(WORK, "oc"),
       join(REPO, "packages/core/test/fixtures/sessions/projects")
     );
     try {
-      await fixtureStage(data);
+      await fixtureStage(tally, data);
     } finally {
       data.close();
     }
+    reportUnseen(tally);
   }
   if (args.real) {
-    await realStage();
+    await realStage(tally);
   }
+  console.log(tallyLine("opencode", tally));
 };

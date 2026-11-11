@@ -43,13 +43,17 @@ import {
   DEFECT,
   firstLineDiff,
   fixtureEnv,
+  newTally,
   pool,
   type Run,
   report,
+  reportUnseen,
   runAsync,
   rustBin,
   type Suite,
+  type Tally,
   TS_CMD,
+  tallyLine,
   WORK,
 } from "./parity-lib";
 
@@ -59,19 +63,11 @@ const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
 const SAMPLE = { newest: 30, largest: 10, subagents: 20, compaction: 10 };
 const REAL_PER_AGENT = 100;
 /** Fixture sessions the TS CLI fails on; see "Known differences" in the plan. */
-const KNOWN_DEFECTS = new Set([
-  "nonobj",
-  "nullrow",
-  "rollout-nullrow",
-  "pi-nullrow",
-  "ses_far",
-]);
+const KNOWN_DEFECTS = ["nonobj", "nullrow", "rollout-nullrow", "pi-nullrow"];
 const REAL = "real";
 const STDERR_SHOWN = 200;
 const TS_RETRIES = 3;
 
-const stats = { cases: 0, defects: 0, live: 0 };
-const defectsSeen = new Set<string>();
 
 const isJsonOut = (args: readonly string[]) =>
   args.includes("--json") ||
@@ -79,19 +75,25 @@ const isJsonOut = (args: readonly string[]) =>
 
 /** The known-defect session a case targets, by id, short id or transcript
  * path. */
-const knownDefect = (args: readonly string[]) =>
+const knownDefect = (known: ReadonlySet<string>, args: readonly string[]) =>
   args
     .filter((a) => !a.startsWith("-"))
     .map((a) => basename(a, ".jsonl"))
-    .flatMap((a) => [...KNOWN_DEFECTS].filter((k) => k.startsWith(a)))
+    .flatMap((a) => [...known].filter((k) => k.startsWith(a)))
     .at(0);
 
 /** TS failed, so there is nothing to compare: Rust must still succeed. */
-const checkDefect = (suite: string, label: string, c: Case, rust: Run) => {
-  stats.defects += 1;
-  const known = knownDefect(c.args);
+const checkDefect = (
+  tally: Tally,
+  suite: string,
+  label: string,
+  c: Case,
+  rust: Run
+) => {
+  tally.stats.defects += 1;
+  const known = knownDefect(tally.known, c.args);
   if (known) {
-    defectsSeen.add(known);
+    tally.seen.add(known);
   } else if (suite !== REAL) {
     report(`${label}: unexpected TS defect`);
   }
@@ -171,6 +173,7 @@ const readOut = (path: string) => {
 
 /** Run one case on both CLIs and compare; `live` skips a changed session. */
 export const runCase = async (
+  tally: Tally,
   suite: string,
   env: Record<string, string>,
   c: Case,
@@ -200,13 +203,13 @@ export const runCase = async (
   for (let n = 0; n < TS_RETRIES && retryTs?.(ts); n++) {
     ts = await runAsync(tsArgs, env);
   }
-  stats.cases += 1;
+  tally.stats.cases += 1;
   if (DEFECT.test(ts.stdout)) {
-    checkDefect(suite, label, c, rust);
+    checkDefect(tally, suite, label, c, rust);
     return;
   }
   if (live?.()) {
-    stats.live += 1;
+    tally.stats.live += 1;
     return;
   }
   const a = masked(ts);
@@ -229,7 +232,7 @@ const listRows = async (env: Record<string, string>) => {
 };
 
 /** A suite in full, or (`zoneOnly`) just the dates a time zone changes. */
-const runSuite = async (suite: Suite, zoneOnly: boolean) => {
+const runSuite = async (tally: Tally, suite: Suite, zoneOnly: boolean) => {
   const rows = await listRows(suite.env);
   const ids = rows.map((r) => r.id);
   const work = join(WORK, `out-${suite.name}`);
@@ -243,10 +246,10 @@ const runSuite = async (suite: Suite, zoneOnly: boolean) => {
   console.log(
     `suite ${suite.name} analyze: ${rows.length} sessions, ${cases.length} cases`
   );
-  await pool(cases, (c) => runCase(suite.name, suite.env, c));
+  await pool(cases, (c) => runCase(tally, suite.name, suite.env, c));
   if (!zoneOnly) {
     for (const c of fixedCases(rows, work)) {
-      await runCase(suite.name, suite.env, c);
+      await runCase(tally, suite.name, suite.env, c);
     }
   }
 };
@@ -305,7 +308,11 @@ const sampleRows = (rows: readonly Row[], all: boolean) => {
   return [...new Map(picked.map((r) => [r.path, r])).values()];
 };
 
-const runReal = async (pin: Record<string, string>, all: boolean) => {
+const runReal = async (
+  tally: Tally,
+  pin: Record<string, string>,
+  all: boolean
+) => {
   const env = { ...process.env, ...pin, PEEKTRACE_NO_TELEMETRY: "1" } as Record<
     string,
     string
@@ -321,7 +328,7 @@ const runReal = async (pin: Record<string, string>, all: boolean) => {
     `suite real analyze: ${picked.length} of ${rows.length} sessions, ${cases.length} cases`
   );
   await pool(cases, (c) =>
-    runCase("real", env, c, () => {
+    runCase(tally, "real", env, c, () => {
       const r = owner(c);
       return r !== undefined && before.get(r.path) !== stampOf(r.path);
     })
@@ -333,6 +340,7 @@ export const runAnalyzeStage = async (args: {
   readonly real: boolean;
   readonly realAll: boolean;
 }) => {
+  const tally = newTally(KNOWN_DEFECTS);
   const empty = join(WORK, "empty-agents");
   mkdirSync(empty, { recursive: true });
   const pin = { PEEKTRACE_OPENCODE_DATA: empty };
@@ -345,9 +353,10 @@ export const runAnalyzeStage = async (args: {
     ];
     try {
       for (const s of suites) {
-        await runSuite(s, s.env.TZ !== "UTC");
+        await runSuite(tally, s, s.env.TZ !== "UTC");
       }
       await runSuite(
+        tally,
         {
           name: "analyze-edge-tokyo",
           args: [],
@@ -355,11 +364,7 @@ export const runAnalyzeStage = async (args: {
         },
         true
       );
-      for (const name of KNOWN_DEFECTS) {
-        if (!defectsSeen.has(name)) {
-          report(`known TS defect ${name} no longer fails: compare it`);
-        }
-      }
+      reportUnseen(tally);
     } finally {
       for (const rel of LOCKED) {
         chmodSync(join(home, rel), READ_WRITE);
@@ -367,9 +372,7 @@ export const runAnalyzeStage = async (args: {
     }
   }
   if (args.real) {
-    await runReal(pin, args.realAll);
+    await runReal(tally, pin, args.realAll);
   }
-  console.log(
-    `analyze stage: ${stats.cases} cases, ${stats.defects} skipped as TS defects, ${stats.live} skipped as live`
-  );
+  console.log(tallyLine("analyze", tally));
 };

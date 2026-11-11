@@ -224,3 +224,21 @@ pub(super) fn load_from_dbs(dbs: &[Db], id: &str) -> Option<Session> {
         }
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use rusqlite::Connection;
+
+    #[test]
+    fn sqlite_built_without_memstatus() -> rusqlite::Result<()> {
+        // Memory accounting serialises parallel readers on one global mutex.
+        let conn = Connection::open_in_memory()?;
+        let off: bool = conn.query_row(
+            "SELECT sqlite_compileoption_used('DEFAULT_MEMSTATUS=0')",
+            [],
+            |r| r.get(0),
+        )?;
+        assert!(off, "build SQLite with -DSQLITE_DEFAULT_MEMSTATUS=0");
+        Ok(())
+    }
+}
