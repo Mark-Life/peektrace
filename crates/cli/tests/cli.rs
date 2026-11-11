@@ -410,6 +410,31 @@ fn bare_sessions_prints_help() {
 
 #[cfg(unix)]
 #[test]
+fn closed_stdout_exits_0() {
+    let f = Fixture::new();
+    let cases: [&[&str]; 4] = [
+        &[],
+        &["sessions"],
+        &["--help"],
+        &["sessions", "ls", "--limit", "0"],
+    ];
+    for args in cases {
+        let (reader, writer) = std::io::pipe().expect("pipe");
+        drop(reader);
+        let status = Command::new(env!("CARGO_BIN_EXE_peektrace"))
+            .args(args)
+            .env_clear()
+            .env("HOME", &f.home)
+            .env("PEEKTRACE_DIR", f.home.join(".peektrace"))
+            .stdout(writer)
+            .status()
+            .expect("run peektrace");
+        assert_eq!(status.code(), Some(0), "{args:?}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
 fn unreadable_transcript_span_fails_without_error_attr() {
     use std::os::unix::fs::PermissionsExt as _;
     let f = Fixture::new();

@@ -62,13 +62,21 @@ fn gather_context(args: &LsArgs) -> anyhow::Result<Context> {
     })
 }
 
-/// Write to stdout, treating a closed pipe as success.
-fn print_stdout(text: &str) -> io::Result<()> {
+/// Write `parts` to stdout, treating a closed pipe as success.
+fn write_stdout(parts: &[&str]) -> io::Result<()> {
     let mut out = io::stdout().lock();
-    match writeln!(out, "{text}").and_then(|()| out.flush()) {
+    let written = parts
+        .iter()
+        .try_for_each(|p| out.write_all(p.as_bytes()))
+        .and_then(|()| out.flush());
+    match written {
         Err(e) if e.kind() == io::ErrorKind::BrokenPipe => Ok(()),
         other => other,
     }
+}
+
+fn print_stdout(text: &str) -> io::Result<()> {
+    write_stdout(&[text, "\n"])
 }
 
 fn print_stderr(text: &str) {
@@ -79,10 +87,11 @@ fn print_stderr(text: &str) {
 fn print_help(path: &[&str]) -> ExitCode {
     let mut cmd = <Cli as clap::CommandFactory>::command();
     cmd.build();
-    let target = path
+    let help = path
         .iter()
-        .try_fold(&mut cmd, |c, name| c.find_subcommand_mut(name));
-    match target.map(clap::Command::print_help) {
+        .try_fold(&mut cmd, |c, name| c.find_subcommand_mut(name))
+        .map(|c| c.render_help().to_string());
+    match help.map(|h| write_stdout(&[&h])) {
         Some(Ok(())) => ExitCode::SUCCESS,
         _ => ExitCode::FAILURE,
     }
