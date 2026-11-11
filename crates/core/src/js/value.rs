@@ -9,7 +9,7 @@ use std::fmt;
 use serde::de::{self, DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
 
 use super::json::{self, Overflow};
-use super::json_out::Writer;
+use super::json_out::{self, Writer};
 use super::{num, text};
 
 /// One JSON value.
@@ -87,6 +87,29 @@ impl JsObject {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
+
+    /// UTF-8 byte length of `JSON.stringify(o)`.
+    pub fn json_len(&self) -> usize {
+        2 + self.0.len().saturating_sub(1)
+            + self
+                .0
+                .iter()
+                .map(|(k, v)| json_out::text_len(k) + 1 + v.json_len())
+                .sum::<usize>()
+    }
+
+    /// `o[key] = value`: an existing key keeps its position.
+    pub fn set(&mut self, key: &str, value: JsValue) {
+        if let Some(slot) = self.0.iter_mut().find(|(k, _)| k == key) {
+            slot.1 = value;
+            return;
+        }
+        self.0.push((key.to_owned(), value));
+        if index_key(key).is_some() {
+            self.0
+                .sort_by_key(|(k, _)| index_key(k).map_or((1, 0), |n| (0, n)));
+        }
+    }
 }
 
 /// Order `(key, value)` pairs as `Object.fromEntries` would print them.
@@ -159,6 +182,39 @@ impl JsValue {
         let mut w = Writer::new(pretty);
         self.write(&mut w);
         w.finish()
+    }
+
+    /// UTF-8 byte length of `JSON.stringify(v)`, without building it.
+    pub fn json_len(&self) -> usize {
+        let commas = |n: usize| n.saturating_sub(1);
+        match self {
+            Self::Null | Self::Bool(true) => 4,
+            Self::Bool(false) => 5,
+            Self::Num(n) => num::to_json(*n).len(),
+            Self::Str(s) => json_out::text_len(s),
+            Self::Arr(items) => {
+                2 + commas(items.len()) + items.iter().map(Self::json_len).sum::<usize>()
+            }
+            Self::Obj(o) => o.json_len(),
+        }
+    }
+
+    /// The value after a `JSON.stringify` / `JSON.parse` round trip:
+    /// non-finite numbers become `null`, `-0` becomes `0`.
+    #[must_use]
+    pub fn round_trip(self) -> Self {
+        match self {
+            Self::Num(n) if !n.is_finite() => Self::Null,
+            Self::Num(0.0) => Self::Num(0.0),
+            Self::Arr(items) => Self::Arr(items.into_iter().map(Self::round_trip).collect()),
+            Self::Obj(JsObject(entries)) => Self::Obj(JsObject(
+                entries
+                    .into_iter()
+                    .map(|(k, v)| (k, v.round_trip()))
+                    .collect(),
+            )),
+            v => v,
+        }
     }
 
     /// Write this value at the writer's current position.
@@ -369,6 +425,35 @@ mod tests {
     fn lone_surrogates_survive() {
         assert_eq!(rt(r#"["\ud83d","\ud83d\ude00"]"#), "[\"\\ud83d\",\"😀\"]");
         assert_eq!(JsValue::parse("{"), None);
+    }
+
+    #[test]
+    fn json_len_matches_stringify() {
+        for src in [
+            r#"{"a":[1,{"b":null}],"c":{},"d":"x\"\\\n\u0001\ud800é😀\u2028","e":[true,false,1e21,-0.5]}"#,
+            "[]",
+            "{}",
+            r#"["\ud83d"]"#,
+        ] {
+            let v = JsValue::parse(src).unwrap_or(JsValue::Null);
+            assert_eq!(v.json_len(), v.stringify(false).len(), "{src}");
+        }
+    }
+
+    #[test]
+    fn set_and_round_trip() {
+        let mut o = JsObject::from_entries([("b".to_owned(), JsValue::Num(1.0))]);
+        o.set("a", JsValue::Num(f64::INFINITY));
+        o.set("b", JsValue::Num(-0.0));
+        o.set("7", JsValue::Null);
+        let v = JsValue::Obj(o).round_trip();
+        assert_eq!(v.stringify(false), r#"{"7":null,"b":0,"a":null}"#);
+        assert_eq!(
+            v.get("b")
+                .and_then(JsValue::as_num)
+                .map(f64::is_sign_negative),
+            Some(false)
+        );
     }
 
     #[test]

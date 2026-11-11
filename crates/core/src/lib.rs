@@ -9,6 +9,7 @@ mod headers;
 pub mod js;
 pub mod listing;
 pub mod model;
+pub mod opencode;
 mod paths;
 pub mod pi;
 mod pricing;

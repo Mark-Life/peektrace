@@ -19,8 +19,9 @@ use crate::claude::{ParseArgs, parse_claude_session, parse_subagent_turns};
 use crate::codex::parse_codex_session;
 use crate::js::time::{self, LocalZone};
 use crate::js::value::JsValue;
-use crate::listing::AgentRoots;
+use crate::listing::{AgentRoots, default_root};
 use crate::model::{Agent, SessionHeader};
+use crate::opencode;
 use crate::pi::parse_pi_session;
 
 /// What lookups and parses read from the environment.
@@ -52,6 +53,14 @@ impl Target<'_> {
     }
 }
 
+/// What a session's agent reads for it.
+enum Body {
+    /// A JSONL transcript.
+    Text(String),
+    /// `None` when no store holds the session.
+    Opencode(Option<Box<opencode::Session>>),
+}
+
 /// A transcript read through its agent.
 struct Loaded {
     agent: Agent,
@@ -59,7 +68,7 @@ struct Loaded {
     nested: bool,
     path: String,
     source: Option<String>,
-    text: String,
+    body: Body,
 }
 
 /// `String(e)` of the platform error a failed read raises.
@@ -119,7 +128,7 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         nested: true,
         path: stub.path.clone(),
         source: owner.file.source.map(|s| s.id),
-        text: load_transcript(Agent::Claude, &stub.path)?,
+        body: Body::Text(load_transcript(Agent::Claude, &stub.path)?),
     })
 }
 
@@ -143,9 +152,15 @@ fn load(
             (h.agent, h.id.as_str().to_owned(), h.path.clone(), source)
         }
     };
+    let body = match agent {
+        Agent::Opencode => Body::Opencode(
+            opencode::load_session(&path, &id, &default_root(&env.roots.opencode)).map(Box::new),
+        ),
+        Agent::Claude | Agent::Codex | Agent::Pi => Body::Text(load_transcript(agent, &path)?),
+    };
     Ok(Loaded {
         agent,
-        text: load_transcript(agent, &path)?,
+        body,
         id,
         nested: false,
         path,
@@ -281,11 +296,14 @@ pub fn parse_full(
     };
     let _entered = span.enter();
     let result = load(env, target, parent).map(|loaded| {
-        let (text, path, sid) = (&loaded.text, &loaded.path, &loaded.id);
-        let parsed = match loaded.agent {
-            Agent::Codex => parse_codex_session(text, path, sid),
-            Agent::Pi => parse_pi_session(text, path, sid),
-            Agent::Claude | Agent::Opencode => {
+        let (path, sid) = (&loaded.path, &loaded.id);
+        let parsed = match (&loaded.body, loaded.agent) {
+            (Body::Opencode(session), _) => {
+                opencode::parse_opencode_session(session.as_deref(), path, sid)
+            }
+            (Body::Text(text), Agent::Codex) => parse_codex_session(text, path, sid),
+            (Body::Text(text), Agent::Pi) => parse_pi_session(text, path, sid),
+            (Body::Text(text), Agent::Claude | Agent::Opencode) => {
                 let mut parsed = parse_claude_session(&ParseArgs {
                     text,
                     path,
@@ -379,8 +397,10 @@ pub fn session_image(
     item: Option<usize>,
 ) -> Result<Option<super::images::ImageData>, SessionError> {
     let _span = info_span!("Sessions.image", id, line).entered();
-    let loaded = load(env, Target::Lookup(id), parent)?;
+    let Body::Text(text) = load(env, Target::Lookup(id), parent)?.body else {
+        return Ok(None);
+    };
     let at = |raw: Option<JsValue>| raw.and_then(|v| super::images::image_at(&v, block, item));
-    Ok(at(super::jsonl::line_at(&loaded.text, line))
-        .or_else(|| at(super::jsonl::parse_rows(&loaded.text).into_iter().nth(line))))
+    Ok(at(super::jsonl::line_at(&text, line))
+        .or_else(|| at(super::jsonl::parse_rows(&text).into_iter().nth(line))))
 }

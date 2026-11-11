@@ -34,7 +34,7 @@ impl Agent {
             Self::Claude => true,
             Self::Codex => true,
             Self::Pi => true,
-            Self::Opencode => false,
+            Self::Opencode => true,
         }
     }
 

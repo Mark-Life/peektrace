@@ -16,6 +16,7 @@ jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-sy
 clap = { version = "4.6", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 rayon = "1.12"
 regex = { version = "1.13", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat"] }
+rusqlite = { version = "0.42", default-features = false, features = ["bundled"] }
 serde = "1.0"
 serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
 thiserror = "2.0.19"

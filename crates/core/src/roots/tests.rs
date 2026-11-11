@@ -99,6 +99,38 @@ fn codex_and_pi_roots() {
 }
 
 #[test]
+fn opencode_roots() {
+    let data_dir = |e: &RootsEnv| sources(Agent::Opencode, e, &[])[0].projects_root.clone();
+    assert_eq!(data_dir(&env()), "/home/u/.local/share/opencode");
+    let xdg = RootsEnv {
+        xdg_data_home: Some("/xdg".to_owned()),
+        ..env()
+    };
+    assert_eq!(data_dir(&xdg), "/xdg/opencode");
+    let hook = RootsEnv {
+        opencode_data: Some("/t/oc".to_owned()),
+        ..xdg
+    };
+    assert_eq!(data_dir(&hook), "/t/oc");
+    let settings = parse_settings(
+        r#"{"roots":{"opencode":[{"path":"/work/oc"},{"path":"/t/oc"},{"path":"~/x","label":"x"}]}}"#,
+    );
+    let s = sources(Agent::Opencode, &hook, &settings.opencode);
+    let got: Vec<_> = s
+        .iter()
+        .map(|s| (s.id.as_str(), s.home.as_str(), s.projects_root.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("opencode", "/t/oc", "/t/oc"),
+            ("opencode:oc", "/work/oc", "/work/oc"),
+            ("opencode:x", "/home/u/x", "/home/u/x"),
+        ]
+    );
+}
+
+#[test]
 fn config_dir_and_override() {
     let e = RootsEnv {
         claude_config_dir: Some(" : /c/one/ :/c/two".to_owned()),
