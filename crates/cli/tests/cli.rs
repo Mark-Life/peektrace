@@ -126,7 +126,11 @@ fn json_rows() {
             path.display()
         )
     );
-    assert_eq!(err, "2 more hidden, use --limit 0 to show all\n");
+    assert_eq!(
+        err,
+        "2 more hidden, use --limit 0 to show all\n\
+         codex, pi and opencode sessions are not listed: not supported yet\n"
+    );
 }
 
 #[test]
@@ -145,20 +149,18 @@ fn pretty_table() {
 #[test]
 fn empty_results() {
     let f = Fixture::new();
-    let (code, out, err) = f.run(&["sessions", "ls", "--project=nope"]);
+    let (code, out, err) = f.run(&["sessions", "ls", "--agent", "claude", "--project=nope"]);
     assert_eq!((code, err.as_str()), (0, ""));
     assert_eq!(
         out,
         "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
     );
-    let (_, out, _) = f.run(&["sessions", "ls", "--json", "--agent", "codex"]);
-    assert_eq!(out, "[]\n");
 }
 
 #[test]
 fn user_errors_exit_1() {
     let f = Fixture::new();
-    let cases: [(&[&str], &str); 4] = [
+    let cases: [(&[&str], &str); 5] = [
         (
             &["sessions", "ls", "--limit", "abc"],
             "'abc' is not a integer\n\n",
@@ -170,6 +172,10 @@ fn user_errors_exit_1() {
         (
             &["sessions", "ls", "--agent", "bogus"],
             "Unknown agent \"bogus\". Known: claude, codex, pi, opencode, all.\n",
+        ),
+        (
+            &["sessions", "ls", "--json", "--agent", "codex"],
+            "Agent \"codex\" is not supported yet. Supported: claude.\n",
         ),
         (
             &["sessions", "ls", "--since", "xx"],
@@ -235,12 +241,20 @@ fn unparseable_settings_warn() {
         "WARN peektrace: ignoring unparseable settings at {}\n",
         path.display()
     );
-    let (code, _, err) = f.run(&["sessions", "ls", "--json"]);
+    let (code, _, err) = f.run(&["sessions", "ls", "--agent", "claude", "--json"]);
     assert_eq!((code, err.as_str()), (0, warn.as_str()));
-    let (_, _, err) = f.run(&["sessions", "ls", "--json", "--log-level", "error"]);
+    let (_, _, err) = f.run(&[
+        "sessions",
+        "ls",
+        "--agent",
+        "claude",
+        "--json",
+        "--log-level",
+        "error",
+    ]);
     assert_eq!(err, "");
     f.settings(br#"{"roots":{}}"#);
-    let (_, _, err) = f.run(&["sessions", "ls", "--json"]);
+    let (_, _, err) = f.run(&["sessions", "ls", "--agent", "claude", "--json"]);
     assert_eq!(err, "");
 }
 
@@ -265,9 +279,49 @@ fn settings_with_lone_surrogate_keep_roots() {
     fs::create_dir_all(&extra).expect("mkdir");
     fs::write(extra.join("w1.jsonl"), "{\"type\":\"user\"}\n").expect("write");
     f.settings(br#"{"roots":{"claude":[{"path":"~/work/.claude","label":"w\ud800"}]}}"#);
-    let (code, out, err) = f.run(&["sessions", "ls", "--json", "--project", "-w"]);
+    let (code, out, err) = f.run(&[
+        "sessions",
+        "ls",
+        "--agent",
+        "claude",
+        "--json",
+        "--project",
+        "-w",
+    ]);
     assert_eq!((code, err.as_str()), (0, ""));
     assert!(out.contains(r#""sourceLabel": "w\ud800""#), "{out}");
+}
+
+#[cfg(unix)]
+#[test]
+fn early_failure_marks_cli_span_failed() {
+    let f = Fixture::new();
+    let gone = f.home.join("gone-otel");
+    fs::create_dir_all(&gone).expect("mkdir");
+    let out = Command::new("sh")
+        .args([
+            "-c",
+            r#"cd "$1" && rmdir "$1" && exec "$2" --otel sessions ls --cwd foo"#,
+            "sh",
+        ])
+        .arg(&gone)
+        .arg(env!("CARGO_BIN_EXE_peektrace"))
+        .env_clear()
+        .env("HOME", &f.home)
+        .env("PEEKTRACE_DIR", f.home.join(".peektrace"))
+        .output()
+        .expect("run peektrace");
+    assert_eq!(out.status.code(), Some(1), "{out:?}");
+    let err = String::from_utf8_lossy(&out.stderr);
+    let cli = err
+        .lines()
+        .find(|l| l.starts_with("[otel] cli "))
+        .unwrap_or_default();
+    assert!(cli.contains("ms fail "), "{err}");
+    assert!(
+        cli.contains(r#""error":"reading the current directory"#),
+        "{err}"
+    );
 }
 
 #[cfg(unix)]

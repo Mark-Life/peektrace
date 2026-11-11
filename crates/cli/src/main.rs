@@ -17,7 +17,7 @@ use clap::error::ErrorKind;
 use peektrace_core::PathStyle;
 use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
-use tracing::{field, info_span};
+use tracing::{Span, field, info_span};
 
 use crate::args::{Cli, Command, LsArgs, SessionsArgs, SessionsCommand};
 use crate::ls::{Context, Globals};
@@ -88,6 +88,8 @@ fn print_help(path: &[&str]) -> ExitCode {
     }
 }
 
+/// `sessions ls` under the root `cli` span. Every failure, including an
+/// early `?` exit, records `error` on that span.
 fn run(cli: &Cli, args: &LsArgs) -> anyhow::Result<ExitCode> {
     let command_line = std::env::args().skip(1).collect::<Vec<_>>().join(" ");
     let root = info_span!(
@@ -99,6 +101,14 @@ fn run(cli: &Cli, args: &LsArgs) -> anyhow::Result<ExitCode> {
         error = field::Empty
     );
     let _entered = root.enter();
+    let result = run_ls(cli, args, &root);
+    if let Err(e) = &result {
+        root.record("error", field::display(format!("{e:#}")));
+    }
+    result
+}
+
+fn run_ls(cli: &Cli, args: &LsArgs, root: &Span) -> anyhow::Result<ExitCode> {
     let ctx = gather_context(args)?;
     let globals = Globals {
         json: cli.json,

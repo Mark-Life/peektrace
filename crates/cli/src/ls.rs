@@ -57,15 +57,31 @@ fn parse_limit(raw: &str) -> Result<f64, UserError> {
     Ok(n)
 }
 
-/// `--agent`: absent or `all` means every agent.
+/// `--agent`: absent or `all` means every agent. A known agent with no
+/// reader fails rather than list nothing.
 fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError> {
-    match raw.unwrap_or("all") {
-        "all" => Ok(None),
-        value => Agent::parse(value).map(Some).ok_or_else(|| {
-            let known = Agent::ALL.map(Agent::as_str).join(", ");
-            UserError::Invalid(format!("Unknown agent \"{value}\". Known: {known}, all."))
-        }),
+    let value = raw.unwrap_or("all");
+    if value == "all" {
+        return Ok(None);
     }
+    let Some(agent) = Agent::parse(value) else {
+        let known = Agent::ALL.map(Agent::as_str).join(", ");
+        return Err(UserError::Invalid(format!(
+            "Unknown agent \"{value}\". Known: {known}, all."
+        )));
+    };
+    if !agent.has_reader() {
+        let supported = Agent::ALL
+            .into_iter()
+            .filter(|a| a.has_reader())
+            .map(Agent::as_str)
+            .collect::<Vec<_>>()
+            .join(", ");
+        return Err(UserError::Invalid(format!(
+            "Agent \"{value}\" is not supported yet. Supported: {supported}."
+        )));
+    }
+    Ok(Some(agent))
 }
 
 /// Validated `--limit` (as a row count) and `--since` (epoch ms).
@@ -144,10 +160,14 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     } else {
         render::session_table(&picked.rows, globals.pretty)
     };
+    let notes = render::list_notes(unreadable, table_notes, picked.hidden)
+        .into_iter()
+        .chain(render::skipped_note(&listing.skipped))
+        .collect();
     Ok(Output {
         stdout,
         warnings,
-        notes: render::list_notes(unreadable, table_notes, picked.hidden),
+        notes,
         unreadable,
     })
 }
@@ -173,6 +193,12 @@ mod tests {
     fn agent_parsing() {
         assert_eq!(parse_agent(None), Ok(None));
         assert_eq!(parse_agent(Some("claude")), Ok(Some(Agent::Claude)));
+        assert_eq!(
+            parse_agent(Some("codex")),
+            Err(UserError::Invalid(
+                "Agent \"codex\" is not supported yet. Supported: claude.".to_owned()
+            ))
+        );
         assert_eq!(
             parse_agent(Some("bogus")),
             Err(UserError::Invalid(

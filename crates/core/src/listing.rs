@@ -80,6 +80,7 @@ fn filter_project(mut listing: SessionListing, project: Option<&str>) -> Session
 }
 
 /// Headers for every agent (or the filtered one), then the project filter.
+/// Agents with no reader are listed in `skipped`.
 /// `malformedLines` on the span counts only the rows `--project` keeps.
 pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing {
     let span = info_span!(
@@ -91,12 +92,18 @@ pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing 
         span.record("agent", agent.as_str());
     }
     let _entered = span.enter();
-    let outcomes = Agent::ALL
+    let (agents, skipped): (Vec<_>, Vec<_>) = Agent::ALL
         .into_iter()
         .filter(|a| filter.agent.is_none_or(|f| f == *a))
+        .partition(|a| a.has_reader());
+    let outcomes = agents
+        .into_iter()
         .flat_map(|agent| agent_outcomes(agent, roots, filter.project.as_deref(), &span))
         .collect();
-    let listing = to_listing(outcomes);
+    let listing = SessionListing {
+        skipped,
+        ..to_listing(outcomes)
+    };
     let malformed: u64 = listing
         .headers
         .iter()

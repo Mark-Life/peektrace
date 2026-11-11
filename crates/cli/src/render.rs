@@ -3,9 +3,9 @@
 
 use std::fmt::Write as _;
 
-use peektrace_core::SessionHeader;
 use peektrace_core::js::num;
 use peektrace_core::js::text::{self, Unit};
+use peektrace_core::{Agent, SessionHeader};
 
 use crate::width::display_width;
 
@@ -272,6 +272,26 @@ pub fn list_notes(unreadable: usize, table_notes: Vec<String>, hidden: usize) ->
         .collect()
 }
 
+/// Names as prose: `a`, `a and b`, `a, b and c`.
+fn and_list(names: &[&str]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => (*one).to_owned(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// Note for agents left out because this build cannot read them.
+pub fn skipped_note(skipped: &[Agent]) -> Option<String> {
+    let names = skipped.iter().map(|a| a.as_str()).collect::<Vec<_>>();
+    (!names.is_empty()).then(|| {
+        format!(
+            "{} sessions are not listed: not supported yet",
+            and_list(&names)
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,5 +337,10 @@ mod tests {
             ]
         );
         assert_eq!(list_notes(0, vec![], 0), Vec::<String>::new());
+        assert_eq!(
+            skipped_note(&[Agent::Codex, Agent::Pi, Agent::Opencode]).as_deref(),
+            Some("codex, pi and opencode sessions are not listed: not supported yet")
+        );
+        assert_eq!(skipped_note(&[]), None);
     }
 }
