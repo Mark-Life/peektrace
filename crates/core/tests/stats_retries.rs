@@ -240,3 +240,72 @@ fn markers_name_the_cause_and_the_retry() {
     );
     assert_eq!(at(19.0), ["retry"]);
 }
+
+mod common;
+
+/// The labelled retry-pair oracle (40 hand-labelled pairs of real commands).
+/// Runs only when `PEEKTRACE_RETRY_SAMPLE` names the JSONL file.
+#[test]
+fn retry_pairs_against_the_labelled_sample() {
+    use peektrace_core::js::regex::Re;
+    use peektrace_core::stats::detectors::pairing::Pairer;
+    use serde_json::{Value, json};
+    let Some(path) = std::env::var("PEEKTRACE_RETRY_SAMPLE")
+        .ok()
+        .filter(|p| !p.is_empty() && std::path::Path::new(p).exists())
+    else {
+        return;
+    };
+    let text = std::fs::read_to_string(path).unwrap_or_default();
+    let sample: Vec<Value> = text
+        .trim()
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    let s = |v: &Value, k: &str| v[k].as_str().unwrap_or("").to_owned();
+    let input_of = |tool: &str, arg: &str| {
+        if tool == "Bash" {
+            return json!({ "command": arg });
+        }
+        serde_json::from_str::<Value>(arg)
+            .ok()
+            .filter(Value::is_object)
+            .unwrap_or_else(|| json!({ "raw": arg }))
+    };
+    let fail_open = Re::new(r"^(?:Exit code [1-9]|<tool_use_error>)", "");
+    let paired = |p: &Value, i: usize| {
+        let tool = s(p, "tool");
+        let fail_res = s(p, "fail_res");
+        let steps = [
+            common::step(
+                &tool,
+                input_of(&tool, &s(p, "fail_arg")),
+                &fail_res,
+                fail_open.is_match(&fail_res) || tool != "Bash",
+            ),
+            common::step(
+                &tool,
+                input_of(&tool, &s(p, "retry_arg")),
+                "ok",
+                !p["retry_ok"].as_bool().unwrap_or(false),
+            ),
+        ];
+        let facts = common::facts_of(&steps, &format!("pair-{i}"));
+        let mut pairer = Pairer::new(&Utc);
+        let mut found = false;
+        for c in facts.iter().filter_map(Fact::as_call) {
+            found |= !pairer.step(c).is_empty();
+        }
+        found | !pairer.flush().is_empty()
+    };
+    let scored: Vec<(bool, String)> = sample
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (paired(p, i), s(p, "label")))
+        .collect();
+    assert_eq!(sample.len(), 40);
+    assert_eq!(scored.iter().filter(|x| x.1 == "RETRY").count(), 28);
+    let tp = scored.iter().filter(|x| x.0 && x.1 == "RETRY").count();
+    let fp = scored.iter().filter(|x| x.0 && x.1 == "NOT").count();
+    assert_eq!((tp, fp), (21, 2));
+}
