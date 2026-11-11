@@ -12,7 +12,7 @@ pub mod model;
 pub mod opencode;
 mod paths;
 pub mod pi;
-mod pricing;
+pub mod pricing;
 pub mod roots;
 pub mod select;
 pub mod sessions;
