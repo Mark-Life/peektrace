@@ -6,234 +6,31 @@ use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 
-use super::causes::{CauseKind, GIT_DIFF_FIX, Per, glob_value, spec};
+use super::cause_agg::{
+    CauseAgg, Denominators, cause_key_of, compare_cause_rows, detail_of, line_of, pick_pair_samples,
+};
+pub use super::cause_row::{CauseRow, PairSample};
+use super::causes::{GIT_DIFF_FIX, spec};
 use super::cells::{
-    CellSeries, Origin, add_to, bump_cell, command_not_found_fix, is_nested, reaches, sum_cells,
-    top_counts,
+    Origin, add_to, bump_cell, command_not_found_fix, is_nested, reaches, sum_cells, top_counts,
 };
 use super::pairing::{Pairer, RetryPair, hit_cause_of};
-use super::rules::{CauseCounts, CoverSince, RuleCheck, Split, per1k_of};
-use crate::js::json_out::Writer;
+use super::rules::{CauseCounts, CoverSince, Split, per1k_of};
 use crate::js::time::{LocalZone, parse_date};
-use crate::js::units;
 use crate::stats::accumulate::{
     DrillHit, DrillTable, DrillTarget, FinishCtx, SampleRef, hit_of, redact_hits, sample_line,
-    sample_of, write_samples,
+    sample_of,
 };
-use crate::stats::rank::{
-    SAMPLE_POOL, asc, bump, cmp_str, compare_samples, desc, pick_samples, rank, round,
-};
+use crate::stats::rank::{SAMPLE_POOL, asc, bump, cmp_str, desc, pick_samples, rank, round};
 use crate::stats::redact::Redactor;
-use crate::stats::schema::{CallFact, CauseId, Fact, WriteExt};
+use crate::stats::schema::{CallFact, CauseId, Fact};
 use crate::stats::shell_lex::bin_name;
 
 const DETAIL_CAP: usize = 5;
 const DIFF_CAP: usize = 3;
 pub const FIX_MAX: usize = 400;
 const VALUE_MAX: usize = 80;
-const FAMILY_MAX: usize = 40;
 const RULE_DIRS: usize = 5;
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct PairSample {
-    pub failed: SampleRef,
-    pub retry: SampleRef,
-}
-
-/// One row of the cause table.
-#[derive(Debug, Clone, PartialEq)]
-pub struct CauseRow {
-    pub key: String,
-    pub cause: CauseId,
-    pub kind: CauseKind,
-    pub label: String,
-    pub fix: Option<String>,
-    pub failing: bool,
-    pub hits: f64,
-    pub flagged: f64,
-    pub hits_by: Split,
-    pub pairs: f64,
-    pub pairs_by: Split,
-    pub retry_sessions: f64,
-    pub sessions: f64,
-    pub projects: f64,
-    pub retry_sec: f64,
-    pub sec_measured: f64,
-    pub retry_ctx_tokens: f64,
-    pub tokens_measured: f64,
-    pub per1k: Split,
-    pub details: Vec<(String, f64)>,
-    pub diffs: Vec<(String, String, f64)>,
-    pub rule: Option<RuleCheck>,
-    pub samples: Vec<SampleRef>,
-    pub pair_samples: Vec<PairSample>,
-}
-
-impl CauseRow {
-    pub fn write(&self, w: &mut Writer) {
-        w.begin_obj();
-        w.key("key").text(&self.key);
-        w.key("cause").str(self.cause.as_str());
-        w.key("kind").str(self.kind.as_str());
-        w.key("label").text(&self.label);
-        w.key("fix").opt_text(self.fix.as_deref());
-        w.key("failing").bool(self.failing);
-        w.key("hits").num(self.hits);
-        w.key("flagged").num(self.flagged);
-        w.key("hitsBy");
-        self.hits_by.write(w);
-        w.key("pairs").num(self.pairs);
-        w.key("pairsBy");
-        self.pairs_by.write(w);
-        for (k, v) in [
-            ("retrySessions", self.retry_sessions),
-            ("sessions", self.sessions),
-            ("projects", self.projects),
-            ("retrySec", self.retry_sec),
-            ("secMeasured", self.sec_measured),
-            ("retryCtxTokens", self.retry_ctx_tokens),
-            ("tokensMeasured", self.tokens_measured),
-        ] {
-            w.key(k).num(v);
-        }
-        w.key("per1k");
-        self.per1k.write(w);
-        w.key("details").begin_arr();
-        for (value, hits) in &self.details {
-            w.elem().begin_obj();
-            w.key("value").text(value);
-            w.key("hits").num(*hits);
-            w.end_obj();
-        }
-        w.end_arr();
-        w.key("diffs").begin_arr();
-        for (from, to, pairs) in &self.diffs {
-            w.elem().begin_obj();
-            w.key("from").text(from);
-            w.key("to").text(to);
-            w.key("pairs").num(*pairs);
-            w.end_obj();
-        }
-        w.end_arr();
-        match &self.rule {
-            Some(r) => {
-                w.key("rule");
-                r.write(w);
-            }
-            None => w.key("rule").null(),
-        }
-        w.key("samples");
-        write_samples(w, &self.samples);
-        w.key("pairSamples").begin_arr();
-        for p in &self.pair_samples {
-            w.elem().begin_obj();
-            w.key("failed");
-            p.failed.write(w);
-            w.key("retry");
-            p.retry.write(w);
-            w.end_obj();
-        }
-        w.end_arr();
-        w.end_obj();
-    }
-}
-
-#[derive(Default)]
-struct CauseAgg {
-    cause: Option<CauseId>,
-    ctx_seen: HashSet<String>,
-    details: IndexMap<String, f64>,
-    diffs: IndexMap<String, f64>,
-    flagged: f64,
-    git_diff_hits: f64,
-    hits_by_cell: CellSeries,
-    pair_samples: Vec<PairSample>,
-    pairs: f64,
-    pairs_by: Split,
-    retry_ctx_tokens: f64,
-    retry_sec: f64,
-    retry_sessions: HashSet<String>,
-    samples: Vec<SampleRef>,
-    sec_measured: f64,
-    sessions: HashSet<String>,
-    tokens_measured: f64,
-    tool: Option<String>,
-}
-
-impl CauseAgg {
-    fn cause(&self) -> CauseId {
-        self.cause.unwrap_or(CauseId::Unclassified)
-    }
-
-    fn hits(&self) -> Split {
-        sum_cells([&self.hits_by_cell], &|_| true)
-    }
-}
-
-fn cause_key_of(cause: CauseId, tool: &str) -> String {
-    if cause == CauseId::Unclassified {
-        format!("cause:unclassified:{tool}")
-    } else {
-        format!("cause:{}", cause.as_str())
-    }
-}
-
-fn line_of(f: &CallFact) -> &str {
-    match &f.bash {
-        Some(b) => &b.cmd,
-        None => f.sig.as_deref().or(f.arg.as_deref()).unwrap_or(&f.tool),
-    }
-}
-
-fn detail_of(cause: CauseId, f: &CallFact) -> Option<String> {
-    if cause == CauseId::OutputTooLarge {
-        return Some(match &f.bash {
-            Some(b) => units::head(&b.family, FAMILY_MAX).into_owned(),
-            None => f.tool.clone(),
-        });
-    }
-    let arg = f.cause_arg.as_deref()?;
-    Some(if cause == CauseId::ZshGlobFlag {
-        glob_value(arg).to_owned()
-    } else {
-        arg.to_owned()
-    })
-}
-
-fn compare_pair_samples(a: &PairSample, b: &PairSample) -> Ordering {
-    compare_samples(&a.failed, &b.failed)
-}
-
-fn pick_pair_samples(pool: &[PairSample], cap: usize) -> Vec<PairSample> {
-    let mut v = pool.to_vec();
-    v.sort_by(compare_pair_samples);
-    v.truncate(cap);
-    v
-}
-
-fn compare_cause_rows(a: &CauseRow, b: &CauseRow) -> Ordering {
-    desc(a.retry_sessions, b.retry_sessions)
-        .then_with(|| desc(a.sessions, b.sessions))
-        .then_with(|| desc(a.pairs, b.pairs))
-        .then_with(|| cmp_str(&a.key, &b.key))
-}
-
-#[derive(Default)]
-struct Denominators {
-    shell: CellSeries,
-    tools: IndexMap<String, CellSeries>,
-}
-
-impl Denominators {
-    fn of<'a>(&'a self, agg: &CauseAgg) -> Vec<&'a CellSeries> {
-        let tools: Vec<&str> = match spec(agg.cause()).per {
-            Per::Shell => return vec![&self.shell],
-            Per::RowTool => agg.tool.as_deref().into_iter().collect(),
-            Per::Tools(t) => t.to_vec(),
-        };
-        tools.iter().filter_map(|t| self.tools.get(*t)).collect()
-    }
-}
 
 /// The cause table, fed one fact at a time.
 pub struct CauseTable<'a> {
