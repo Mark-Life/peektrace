@@ -17,3 +17,6 @@ pub mod walk;
 pub mod pass;
 pub mod service;
 pub mod usage_service;
+pub mod findings;
+pub mod format;
+pub mod prompts;

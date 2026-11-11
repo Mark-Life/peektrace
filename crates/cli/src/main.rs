@@ -5,6 +5,8 @@ mod ls;
 mod otel;
 mod render;
 mod single;
+mod stats;
+mod stats_render;
 mod width;
 mod zone;
 
@@ -20,7 +22,7 @@ use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{Span, field, info_span};
 
-use crate::args::{Cli, Command, SessionsArgs, SessionsCommand};
+use crate::args::{Cli, Command, SessionsArgs, SessionsCommand, StatsArgs, StatsCommand};
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -104,6 +106,11 @@ enum Run<'a> {
     Ls(&'a args::LsArgs),
     Analyze(&'a args::AnalyzeArgs),
     Export(&'a args::ExportArgs),
+    Stats(&'a args::StatsCommon),
+    StatsDrill(&'a args::StatsDrillArgs),
+    StatsPrompt(&'a args::StatsPromptArgs),
+    StatsRefresh(&'a args::StatsRefreshArgs),
+    StatsUsage(&'a args::StatsUsageArgs),
 }
 
 impl<'a> Run<'a> {
@@ -112,6 +119,7 @@ impl<'a> Run<'a> {
             Self::Ls(a) => a.cwd.as_deref(),
             Self::Analyze(a) => a.target.cwd.as_deref(),
             Self::Export(a) => a.target.cwd.as_deref(),
+            _ => None,
         }
     }
 }
@@ -185,6 +193,11 @@ fn run_command(cli: &Cli, cmd: Run<'_>, root: &Span) -> anyhow::Result<ExitCode>
         },
         Run::Analyze(args) => single::run_analyze(args, globals, &ctx),
         Run::Export(args) => single::run_export(args, globals, &ctx),
+        Run::Stats(args) => stats::run_report(args, globals, &ctx),
+        Run::StatsDrill(args) => stats::run_drill(args, globals, &ctx),
+        Run::StatsPrompt(args) => stats::run_prompt(args, &ctx),
+        Run::StatsRefresh(args) => stats::run_refresh(args, globals, &ctx),
+        Run::StatsUsage(args) => stats::run_usage(args, globals, &ctx),
     };
     let out = match out {
         Ok(out) => out,
@@ -240,6 +253,13 @@ fn main() -> ExitCode {
             SessionsCommand::Ls(a) => Run::Ls(a),
             SessionsCommand::Analyze(a) => Run::Analyze(a),
             SessionsCommand::Export(a) => Run::Export(a),
+        },
+        Some(Command::Stats(StatsArgs { command, common })) => match command {
+            None => Run::Stats(common),
+            Some(StatsCommand::Drill(a)) => Run::StatsDrill(a),
+            Some(StatsCommand::Prompt(a)) => Run::StatsPrompt(a),
+            Some(StatsCommand::Refresh(a)) => Run::StatsRefresh(a),
+            Some(StatsCommand::Usage(a)) => Run::StatsUsage(a),
         },
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
