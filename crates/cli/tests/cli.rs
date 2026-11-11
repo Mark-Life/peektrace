@@ -216,3 +216,67 @@ fn otel_echo_lists_spans() {
     assert!(err.contains(r#""sessions.unreadable":0"#));
     assert_eq!(names.last(), Some(&"cli"));
 }
+
+impl Fixture {
+    fn settings(&self, body: &[u8]) -> PathBuf {
+        let dir = self.home.join(".peektrace");
+        fs::create_dir_all(&dir).expect("mkdir");
+        let path = dir.join("settings.json");
+        fs::write(&path, body).expect("write settings");
+        path
+    }
+}
+
+#[test]
+fn unparseable_settings_warn() {
+    let f = Fixture::new();
+    let path = f.settings(b"{}");
+    let warn = format!(
+        "WARN peektrace: ignoring unparseable settings at {}\n",
+        path.display()
+    );
+    let (code, _, err) = f.run(&["sessions", "ls", "--json"]);
+    assert_eq!((code, err.as_str()), (0, warn.as_str()));
+    let (_, _, err) = f.run(&["sessions", "ls", "--json", "--log-level", "error"]);
+    assert_eq!(err, "");
+    f.settings(br#"{"roots":{}}"#);
+    let (_, _, err) = f.run(&["sessions", "ls", "--json"]);
+    assert_eq!(err, "");
+}
+
+#[test]
+fn settings_with_invalid_utf8_keep_roots() {
+    let f = Fixture::new();
+    let extra = f.home.join("work/.claude/projects/-w");
+    fs::create_dir_all(&extra).expect("mkdir");
+    fs::write(extra.join("w1.jsonl"), "{\"type\":\"user\"}\n").expect("write");
+    let mut body = br#"{"roots":{"claude":[{"path":"~/work/.claude","label":"w"#.to_vec();
+    body.extend_from_slice(b"\xffk\"}]}}");
+    f.settings(&body);
+    let (code, out, _) = f.run(&["sessions", "ls", "--json", "--project", "-w"]);
+    assert_eq!(code, 0);
+    assert!(out.contains("\"source\": \"claude:w\u{FFFD}k\""), "{out}");
+}
+
+#[cfg(unix)]
+#[test]
+fn deleted_working_dir_is_fine_without_relative_cwd() {
+    let f = Fixture::new();
+    let gone = f.home.join("gone");
+    fs::create_dir_all(&gone).expect("mkdir");
+    let out = Command::new("sh")
+        .args([
+            "-c",
+            r#"cd "$1" && rmdir "$1" && exec "$2" sessions ls --limit 1"#,
+            "sh",
+        ])
+        .arg(&gone)
+        .arg(env!("CARGO_BIN_EXE_peektrace"))
+        .env_clear()
+        .env("HOME", &f.home)
+        .env("PEEKTRACE_DIR", f.home.join(".peektrace"))
+        .output()
+        .expect("run peektrace");
+    assert_eq!(out.status.code(), Some(0), "{out:?}");
+    assert!(String::from_utf8_lossy(&out.stdout).contains("-tmp-proj"));
+}

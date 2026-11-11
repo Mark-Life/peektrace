@@ -153,6 +153,12 @@ impl LogLevel {
     }
 }
 
+/// True when warning lines print at `level`; absent means the default level,
+/// which shows them.
+pub fn shows_warnings(level: Option<LogLevel>) -> bool {
+    level.is_none_or(|l| l.filter() >= LevelFilter::WARN)
+}
+
 /// Install a subscriber only when spans or logs are wanted.
 pub fn init(echo: bool, log_level: Option<LogLevel>) {
     if !echo && log_level.is_none() {

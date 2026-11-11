@@ -4,6 +4,7 @@
 use serde_json::Value;
 
 use crate::js::text;
+use crate::model::Agent;
 use crate::paths;
 
 /// The environment inputs root resolution reads.
@@ -67,22 +68,70 @@ fn root_entry(v: &Value) -> Option<RootEntry> {
     Some(RootEntry { path, label })
 }
 
-/// Claude's extra roots from `settings.json` text. Tolerant: bad JSON yields
-/// none, and each invalid entry is dropped on its own.
-pub fn parse_claude_roots(raw: &str) -> Vec<RootEntry> {
+/// What root resolution takes from `settings.json`.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Settings {
+    /// Claude's extra roots.
+    pub claude: Vec<RootEntry>,
+    /// The file has text but yields no `roots`; the caller warns.
+    pub unparseable: bool,
+}
+
+/// Valid entries of one agent's root list, `None` when it is not a list.
+fn entries_of(v: &Value) -> Option<Vec<RootEntry>> {
+    v.as_array()
+        .map(|list| list.iter().filter_map(root_entry).collect())
+}
+
+/// True when `roots` decodes whole: an object whose known agents each map
+/// to a list of valid entries.
+fn roots_decode(roots: &Value) -> bool {
+    roots.as_object().is_some_and(|map| {
+        Agent::ALL
+            .into_iter()
+            .filter_map(|a| map.get(a.as_str()))
+            .all(|v| {
+                v.as_array()
+                    .is_some_and(|list| list.iter().all(|e| root_entry(e).is_some()))
+            })
+    })
+}
+
+/// True when some known agent keeps at least one valid entry.
+fn roots_salvage(roots: &Value) -> bool {
+    roots.as_object().is_some_and(|map| {
+        Agent::ALL
+            .into_iter()
+            .filter_map(|a| map.get(a.as_str()).and_then(entries_of))
+            .any(|entries| !entries.is_empty())
+    })
+}
+
+/// Parse `settings.json` text. Tolerant: bad JSON yields no roots, and each
+/// invalid entry is dropped on its own. Non-blank text that decodes to no
+/// `roots`, even after dropping bad entries, is `unparseable`.
+pub fn parse_settings(raw: &str) -> Settings {
     let trimmed = text::trim(raw);
     if trimmed.is_empty() {
-        return Vec::new();
+        return Settings::default();
     }
     let Ok(json) = serde_json::from_str::<Value>(trimmed) else {
-        return Vec::new();
+        return Settings {
+            claude: Vec::new(),
+            unparseable: true,
+        };
     };
-    json.get("roots")
+    let roots = json.as_object().and_then(|o| o.get("roots"));
+    let has_roots = roots.is_some_and(|r| roots_decode(r) || roots_salvage(r));
+    let claude = roots
         .and_then(Value::as_object)
-        .and_then(|roots| roots.get("claude"))
-        .and_then(Value::as_array)
-        .map(|entries| entries.iter().filter_map(root_entry).collect())
-        .unwrap_or_default()
+        .and_then(|r| r.get(Agent::Claude.as_str()))
+        .and_then(entries_of)
+        .unwrap_or_default();
+    Settings {
+        claude,
+        unparseable: !has_roots,
+    }
 }
 
 /// First non-empty, trimmed entry of a `:`-separated list.
@@ -222,11 +271,46 @@ mod tests {
     fn settings_parse_is_tolerant() {
         let raw = r#"{"roots":{"claude":[{"path":"~/a","label":"x"},{"path":1},{"path":"/b","label":null},{"path":"/c"}],"codex":5}}"#;
         assert_eq!(
-            parse_claude_roots(raw),
-            [entry("~/a", Some("x")), entry("/c", None)]
+            parse_settings(raw),
+            Settings {
+                claude: vec![entry("~/a", Some("x")), entry("/c", None)],
+                unparseable: false,
+            }
         );
-        assert_eq!(parse_claude_roots("not json"), Vec::new());
-        assert_eq!(parse_claude_roots(r#"{"roots":{"claude":{}}}"#), Vec::new());
-        assert_eq!(parse_claude_roots(""), Vec::new());
+        assert_eq!(parse_settings(r#"{"roots":{"claude":{}}}"#).claude, []);
+        assert_eq!(parse_settings(""), Settings::default());
+    }
+
+    /// Which inputs make TS log `ignoring unparseable settings`.
+    #[test]
+    fn unparseable_settings_match_ts() {
+        let warns = [
+            "not json",
+            "{}",
+            "[]",
+            "5",
+            r#"[{"roots":{}}]"#,
+            r#"{"roots":null}"#,
+            r#"{"roots":[]}"#,
+            r#"{"roots":{"claude":null}}"#,
+            r#"{"roots":{"codex":5}}"#,
+            r#"{"roots":{"claude":[{"path":1}]}}"#,
+            r#"{"roots":{"claude":[{"path":"/a","label":null}]}}"#,
+        ];
+        let quiet = [
+            "",
+            " \n ",
+            r#"{"roots":{}}"#,
+            r#"{"roots":{"foo":1}}"#,
+            r#"{"roots":{"claude":[]}}"#,
+            r#"{"roots":{"claude":[{"path":"/a"}],"codex":5}}"#,
+            r#"{"roots":{"pi":[{"path":"/a"}]}}"#,
+        ];
+        for raw in warns {
+            assert!(parse_settings(raw).unparseable, "{raw}");
+        }
+        for raw in quiet {
+            assert!(!parse_settings(raw).unparseable, "{raw}");
+        }
     }
 }

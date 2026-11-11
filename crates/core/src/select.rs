@@ -120,6 +120,11 @@ fn strip_separators(path: &str) -> &str {
     if s.is_empty() { "/" } else { s }
 }
 
+/// True when resolving `input` as `--cwd` reads the working directory.
+pub fn needs_base_dir(input: &str) -> bool {
+    !(input == "~" || input.starts_with("~/") || input.starts_with('/'))
+}
+
 /// Resolve a `--cwd` argument against `cwd`, expanding a leading `~`.
 pub fn resolve_cwd(input: &str, home: &str, cwd: &str) -> String {
     let expanded = if input == "~" || input.starts_with("~/") {

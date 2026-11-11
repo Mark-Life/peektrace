@@ -13,9 +13,10 @@ use anyhow::Context as _;
 use clap::Parser as _;
 use clap::error::ErrorKind;
 use peektrace_core::roots::RootsEnv;
+use peektrace_core::select;
 use tracing::{field, info_span};
 
-use crate::args::{Cli, Command, SessionsCommand};
+use crate::args::{Cli, Command, LsArgs, SessionsCommand};
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -24,16 +25,27 @@ const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
 };
 
 /// Everything `sessions ls` reads from the environment, read once here.
-fn gather_context() -> anyhow::Result<Context> {
+/// Values that are not valid UTF-8 are decoded lossily, as Node does.
+fn gather_context(args: &LsArgs) -> anyhow::Result<Context> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let roots_env = RootsEnv::from_vars(home, |k| std::env::var(k).ok());
-    let settings = std::fs::read_to_string(roots_env.settings_path()).ok();
-    let cwd = std::env::current_dir()
-        .context("reading the current directory")?
-        .to_string_lossy()
-        .into_owned();
+    let roots_env = RootsEnv::from_vars(home, |k| {
+        std::env::var_os(k).map(|v| v.to_string_lossy().into_owned())
+    });
+    let settings = std::fs::read(roots_env.settings_path())
+        .ok()
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
+    let cwd = args
+        .cwd
+        .as_deref()
+        .filter(|c| select::needs_base_dir(c))
+        .map(|_| {
+            std::env::current_dir()
+                .context("reading the current directory")
+                .map(|d| d.to_string_lossy().into_owned())
+        })
+        .transpose()?;
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .context("reading the clock")?;
@@ -74,7 +86,7 @@ fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
         error = field::Empty
     );
     let _entered = root.enter();
-    let ctx = gather_context()?;
+    let ctx = gather_context(args)?;
     let globals = Globals {
         json: cli.json,
         pretty: cli.pretty,
@@ -82,6 +94,11 @@ fn run(cli: &Cli) -> anyhow::Result<ExitCode> {
     match ls::run(args, globals, &ctx) {
         Ok(out) => {
             root.record("sessions.unreadable", out.unreadable);
+            if otel::shows_warnings(cli.log_level) {
+                out.warnings
+                    .iter()
+                    .for_each(|w| print_stderr(&format!("WARN {w}")));
+            }
             print_stdout(&out.stdout)?;
             out.notes.iter().for_each(|n| print_stderr(n));
             Ok(ExitCode::SUCCESS)

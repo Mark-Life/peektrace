@@ -14,7 +14,8 @@ pub struct Context {
     pub roots_env: RootsEnv,
     /// `settings.json` text, when the file could be read.
     pub settings: Option<String>,
-    pub cwd: String,
+    /// The working directory, read only when `--cwd` is relative.
+    pub cwd: Option<String>,
     pub now_ms: f64,
 }
 
@@ -39,6 +40,8 @@ pub enum UserError {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Output {
     pub stdout: String,
+    /// Log lines at warning level, printed before `stdout`.
+    pub warnings: Vec<String>,
     pub notes: Vec<String>,
     pub unreadable: usize,
 }
@@ -101,14 +104,24 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     let cwd = args
         .cwd
         .as_deref()
-        .map(|c| select::resolve_cwd(c, &ctx.roots_env.home, &ctx.cwd));
-    let extras = ctx
+        .map(|c| select::resolve_cwd(c, &ctx.roots_env.home, ctx.cwd.as_deref().unwrap_or("")));
+    let settings = ctx
         .settings
         .as_deref()
-        .map(roots::parse_claude_roots)
+        .map(roots::parse_settings)
         .unwrap_or_default();
+    let warnings = settings
+        .unparseable
+        .then(|| {
+            format!(
+                "peektrace: ignoring unparseable settings at {}",
+                ctx.roots_env.settings_path()
+            )
+        })
+        .into_iter()
+        .collect();
     let roots = AgentRoots {
-        claude: roots::claude_sources(&ctx.roots_env, &extras),
+        claude: roots::claude_sources(&ctx.roots_env, &settings.claude),
     };
     let filter = ListFilter {
         agent,
@@ -131,6 +144,7 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     };
     Ok(Output {
         stdout,
+        warnings,
         notes: render::list_notes(unreadable, table_notes, picked.hidden),
         unreadable,
     })
