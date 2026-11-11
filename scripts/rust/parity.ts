@@ -11,6 +11,9 @@
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
  *   The edge suite runs again under `TZ=Asia/Tokyo`, because both CLIs read
  *   an offset-less date-time as local time and the edge fixture has some.
+ * - The Rust CLI has no Codex, Pi or OpenCode reader yet. Without `--agent`
+ *   it prints SKIPPED_NOTE on stderr; that line is dropped before comparing.
+ *   The fixture HOMEs hold no sessions of those agents.
  * - Real corpus: sessions written to during the run (size or mtime changed
  *   between the first and last stat) are left out of the comparison and
  *   counted as "live". Only `--json` output is compared, row by row.
@@ -35,6 +38,8 @@ const MAX_REPORTED = 20;
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
 const READ_WRITE = 0o644;
+const SKIPPED_NOTE =
+  "codex, pi and opencode sessions are not listed: not supported yet\n";
 
 interface Run {
   readonly code: number;
@@ -196,7 +201,10 @@ const runSuite = (suite: Suite) => {
   console.log(`suite ${suite.name}`);
   for (const args of suite.args) {
     const ts = run([...TS_CMD, ...args], suite.env);
-    const rust = run([rustBin, ...args], suite.env);
+    const raw = run([rustBin, ...args], suite.env);
+    const rust = args.includes("--agent")
+      ? raw
+      : { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
     compareRun(`${suite.name} [${args.join(" ")}]`, ts, rust);
   }
 };

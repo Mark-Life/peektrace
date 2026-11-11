@@ -4,11 +4,12 @@ name: Rust
 # tests on Windows, plus the parity harness that diffs the Rust CLI against
 # the TS CLI on fixtures.
 
+# Push runs only on `rust`: a push to a `rust-*` branch with an open PR
+# already starts a pull_request run, so a push run there would double it.
 on:
   push:
     branches:
       - rust
-      - "rust-*"
   pull_request:
     branches:
       - rust

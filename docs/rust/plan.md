@@ -23,7 +23,7 @@ Spike numbers, macOS arm64, 702 Claude sessions (1.0 GB of main transcripts, war
 | `sessions ls --agent claude --json --limit 0` | 2.06 s | 0.088 s |
 | Peak RSS for that listing | 1.6 GB | 32 MB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences on the fixtures and on the real corpus.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude sessions, on the fixtures and on the real corpus. It does not cover Codex, Pi or OpenCode, which have no Rust reader yet (see known differences).
 
 ## Target layout
 
@@ -66,6 +66,10 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Non-ISO timestamps (`2026/01/07 10:00:00`, `2026-01-31 10:00:00`, `Jan 31 2026`) | `Date.parse` reads them as local time | not parsed: the row sorts last and `--since` drops it. Claude Code writes ISO with `Z`. |
 | `--pretty` widths | `Bun.stringWidth` | same per char and for Lam-Alef. A few sequences still differ, e.g. a keycap with no VS16 (`#⃣`) or a prepend mark before an emoji. |
 | `--otel` `Sessions.list` `malformedLines` with `--project` | counts every Claude transcript | counts only the kept project |
+| Codex, Pi and OpenCode sessions | listed | no reader yet. `--agent codex`, `pi` or `opencode` exits 1 with `not supported yet`. Without `--agent`, only Claude rows, plus a note on stderr. |
+| Tie order by id (same `updatedAt`) for non-ASCII ids | ICU `localeCompare` | ASCII in CLDR root order, other chars after ASCII by code point. Session ids are ASCII in practice. |
+| Two roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once |
+| `CLAUDE_CONFIG_DIR` on Windows | split on `:`, so `C:\x` becomes `C` | split on `;`, as `path.delimiter` |
 
 ## Risks
 
