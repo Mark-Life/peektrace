@@ -1,6 +1,7 @@
 //! Tracing setup. `--otel` (or a non-empty `PEEKTRACE_OTEL`) echoes each
 //! finished span to stderr in the TS format:
-//! `[otel] <name> <ms>ms ok|fail {attrs}`. `--log-level` prints log events.
+//! `[otel] <name> <ms>ms ok|fail {attrs}`. A span fails when it records
+//! `error`. `--log-level` prints log events.
 //! With neither, no subscriber is installed and spans cost nothing.
 
 use std::fmt;
@@ -18,15 +19,26 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 
 use crate::render::push_json_string;
 
-/// A span attribute, kept as the JSON it prints as.
+/// Field that marks a span failed. It is not printed: TS takes `fail` from
+/// the span's exit and prints only its attributes.
+const FAIL_FIELD: &str = "error";
+
+/// Span attributes, kept as the JSON they print as, plus the failure mark.
 #[derive(Default)]
-struct Attrs(Vec<(&'static str, String)>);
+struct Attrs {
+    fields: Vec<(&'static str, String)>,
+    failed: bool,
+}
 
 impl Attrs {
     fn set(&mut self, key: &'static str, json: String) {
-        match self.0.iter_mut().find(|(k, _)| *k == key) {
+        if key == FAIL_FIELD {
+            self.failed = true;
+            return;
+        }
+        match self.fields.iter_mut().find(|(k, _)| *k == key) {
             Some(slot) => slot.1 = json,
-            None => self.0.push((key, json)),
+            None => self.fields.push((key, json)),
         }
     }
 
@@ -38,7 +50,7 @@ impl Attrs {
 
     fn to_json(&self) -> String {
         let body = self
-            .0
+            .fields
             .iter()
             .map(|(k, v)| format!("{}:{v}", Self::quoted(k)))
             .collect::<Vec<_>>()
@@ -108,12 +120,8 @@ where
             return;
         };
         let ms = t.start.elapsed().as_secs_f64() * 1000.0;
-        let status = if t.attrs.0.iter().any(|(k, _)| *k == "error") {
-            "fail"
-        } else {
-            "ok"
-        };
-        let attrs = if t.attrs.0.is_empty() {
+        let status = if t.attrs.failed { "fail" } else { "ok" };
+        let attrs = if t.attrs.fields.is_empty() {
             String::new()
         } else {
             format!(" {}", t.attrs.to_json())

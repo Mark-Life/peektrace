@@ -346,10 +346,7 @@ fn early_failure_marks_cli_span_failed() {
         .find(|l| l.starts_with("[otel] cli "))
         .unwrap_or_default();
     assert!(cli.contains("ms fail "), "{err}");
-    assert!(
-        cli.contains(r#""error":"reading the current directory"#),
-        "{err}"
-    );
+    assert!(!cli.contains(r#""error""#), "{err}");
 }
 
 #[cfg(unix)]
@@ -409,4 +406,25 @@ fn bare_sessions_prints_help() {
     let (code, out, err) = f.run(&["sessions"]);
     assert_eq!((code, err.as_str()), (0, ""));
     assert!(out.contains("Usage: peektrace sessions"), "{out}");
+}
+
+#[cfg(unix)]
+#[test]
+fn unreadable_transcript_span_fails_without_error_attr() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let f = Fixture::new();
+    let file = f.home.join(".claude/projects/-tmp-proj/locked.jsonl");
+    fs::write(&file, "{\"type\":\"user\"}\n").expect("write");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod");
+    let (code, _, err) = f.run(&["--otel", "sessions", "ls", "--agent", "claude"]);
+    assert_eq!(code, 0);
+    let failed: Vec<_> = err
+        .lines()
+        .filter(|l| l.starts_with("[otel] AgentRegistry.loadTranscript ") && l.contains("ms fail"))
+        .collect();
+    assert_eq!(failed.len(), 1, "{err}");
+    assert!(
+        failed[0].ends_with(r#"ms fail {"agent":"claude"}"#),
+        "{err}"
+    );
 }
