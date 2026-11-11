@@ -10,6 +10,7 @@ use peektrace_core::roots::{RootsEnv, Source, claude_sources};
 use peektrace_core::sessions::analyze::{AnalyzeOptions, analyze};
 use peektrace_core::sessions::model::{AnalyzedSession, EventKind, ParsedSession, TimelineEvent};
 use peektrace_core::sessions::service::SessionEnv;
+use peektrace_core::{FileStamp, ProjectSlug, SessionFileRef, SessionId};
 use serde_json::Value;
 
 /// A path under `packages/core/test/fixtures`.
@@ -150,4 +151,55 @@ impl Drop for TempDir {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+pub fn read(rel: &str) -> String {
+    std::fs::read_to_string(fixture(rel)).expect("fixture")
+}
+
+/// `analyze(p)` with the TS defaults: no window override, no disk files.
+pub fn analyzed(p: ParsedSession) -> AnalyzedSession {
+    analyze(
+        p,
+        AnalyzeOptions {
+            dumb_zone_fraction: None,
+            on_disk_context_files: Vec::new(),
+            window: None,
+            local: &Utc,
+        },
+    )
+}
+
+/// The file ref a header builder takes (`HEADER_ARGS` in the TS tests).
+pub fn file_ref(id: &str, slug: &str, path: &str, size_bytes: u64) -> SessionFileRef {
+    SessionFileRef {
+        id: SessionId::new(id),
+        slug: ProjectSlug::new(slug),
+        path: path.to_owned(),
+        stamp: FileStamp {
+            size_bytes,
+            mtime_ms: 0,
+        },
+        source: None,
+    }
+}
+
+/// A fresh empty dir under the system temp dir, unique per call.
+pub fn temp_dir(name: &str) -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    let dir =
+        std::env::temp_dir().join(format!("peektrace-test-{name}-{}-{n}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("mkdir");
+    dir
+}
+
+/// `JSON.stringify(v, null, 2)` for a flat object of string values.
+pub fn pretty(pairs: &[(&str, &str)]) -> String {
+    let body: Vec<String> = pairs
+        .iter()
+        .map(|(k, v)| format!("  \"{k}\": \"{v}\""))
+        .collect();
+    format!("{{\n{}\n}}", body.join(",\n"))
 }
