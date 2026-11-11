@@ -25,10 +25,10 @@ fn key_of(tool: &str, text: &str) -> String {
 
 fn fact_of(seq: usize, sid: &str, text: &str, tool: &str) -> CallFact {
     let mut f = tool_fact();
-    f.base.sid = sid.to_owned();
-    f.base.project = "peektrace".to_owned();
+    sid.clone_into(&mut f.base.sid);
+    "peektrace".clone_into(&mut f.base.project);
     f.seq = f64::from(u32::try_from(seq).unwrap_or(0));
-    f.tool = tool.to_owned();
+    tool.clone_into(&mut f.tool);
     f.ts = Some(format!("2026-08-12T10:00:{seq:02}.000Z"));
     f.err = true;
     f.failed = true;
