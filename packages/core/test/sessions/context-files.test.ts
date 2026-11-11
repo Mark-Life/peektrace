@@ -26,6 +26,7 @@ const worktree = () => join(mainRepo(), ".trees", "feat");
 const outsideTree = () => join(base, "elsewhere", "feat");
 
 const encodeSlug = (p: string) => p.replace(/[/.]/g, "-");
+const spacedRepo = () => join(base, "my_app dir");
 
 const put = (path: string, body: string) => {
   mkdirSync(join(path, ".."), { recursive: true });
@@ -97,6 +98,17 @@ beforeAll(() => {
   put(join(mem, "MEMORY.md"), "- index line\n");
   const longMem = join(projectsRoot, encodeSlug(longCwd()), "memory");
   put(join(longMem, "MEMORY.md"), "- line\n".repeat(300));
+  // Claude Code turns every char outside `[a-zA-Z0-9]` into `-`.
+  mkdirSync(join(spacedRepo(), ".git"), { recursive: true });
+  put(
+    join(
+      projectsRoot,
+      spacedRepo().replace(/[^a-zA-Z0-9]/g, "-"),
+      "memory",
+      "MEMORY.md"
+    ),
+    "- spaced memory\n"
+  );
   // Topic files are read on demand, not injected.
   put(join(mem, "topic.md"), "y".repeat(8000));
 });
@@ -253,6 +265,13 @@ describe("gatherOnDiskContextFiles", () => {
   test("the main checkout itself reads its CLAUDE.md", async () => {
     const paths = (await gather(mainRepo())).map((f) => f.path);
     expect(paths).toContain(join(mainRepo(), "CLAUDE.md"));
+  });
+
+  test("keys MEMORY.md by Claude's slug for a cwd with `_` and a space", async () => {
+    const mem = (await gather(join(spacedRepo(), "src"))).filter(
+      (f) => f.scope === "memory"
+    );
+    expect(mem[0]?.bytes).toBe("- spaced memory".length);
   });
 
   test("caps MEMORY.md at 200 lines", async () => {

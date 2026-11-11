@@ -10,7 +10,7 @@ use tracing::info_span;
 use super::model::{ContextScope, OnDiskContextFile};
 use super::resolve::{exists, read_text, slash_join};
 use crate::js::{num, text, units};
-use crate::paths::posix;
+use crate::paths::{claude_slug, posix};
 
 const MAX_INDEX_LINES: usize = 200;
 /// Claude Code cuts MEMORY.md past this many UTF-16 units, at a newline.
@@ -366,10 +366,16 @@ pub fn cap_memory(text_in: &str) -> String {
     units::slice(&head, 0, if cut > 0 { cut } else { MEMORY_MAX_CHARS })
 }
 
-/// `cwd` as Claude names a project dir in its projects root for memory:
-/// every `/` and `.` becomes `-`.
-pub fn encode_slug(cwd: &str) -> String {
-    cwd.replace(['/', '.'], "-")
+/// Project dir slugs Claude Code may have used for `root`, current rule
+/// first, then the older one where only `/` and `.` become `-`.
+pub fn memory_slugs(root: &str) -> Vec<String> {
+    let current = claude_slug(root);
+    let legacy = root.replace(['/', '.'], "-");
+    if legacy == current {
+        vec![current]
+    } else {
+        vec![current, legacy]
+    }
 }
 
 /// Global, project and memory context files for a session run in `cwd`.
@@ -396,13 +402,13 @@ pub fn gather_on_disk_context_files(
     for path in paths {
         files.extend(read_context_file(&path, &path, ContextScope::Project));
     }
-    let mem_path = slash_join(&[
-        projects_root,
-        &encode_slug(&memory_root),
-        "memory",
-        "MEMORY.md",
-    ]);
-    if let Some(text) = read_context(&mem_path).and_then(|r| r.text) {
+    let memory = memory_slugs(&memory_root).into_iter().find_map(|slug| {
+        let path = slash_join(&[projects_root, &slug, "memory", "MEMORY.md"]);
+        read_context(&path)
+            .and_then(|r| r.text)
+            .map(|text| (path, text))
+    });
+    if let Some((mem_path, text)) = memory {
         let capped = cap_memory(&text);
         #[expect(clippy::cast_precision_loss, reason = "file sizes fit f64")]
         let bytes = text::to_display(&capped).len() as f64;
@@ -441,9 +447,47 @@ mod tests {
     fn dirs_and_slugs() {
         assert_eq!(project_dirs("/a/b/"), ["/a", "/a/b"]);
         assert_eq!(project_dirs("/"), Vec::<String>::new());
-        assert_eq!(encode_slug("/Users/x/.cfg"), "-Users-x--cfg");
+        assert_eq!(memory_slugs("/Users/x/.cfg"), ["-Users-x--cfg"]);
+        assert_eq!(
+            memory_slugs("/home/u/my_app dir"),
+            ["-home-u-my-app-dir", "-home-u-my_app dir"]
+        );
         assert_eq!(main_root_of("/w", "gitdir: /m/.git/worktrees/w\n"), "/m");
         assert_eq!(main_root_of("/w", "gitdir: ../x"), "/w");
+    }
+
+    #[test]
+    fn memory_by_current_then_legacy_slug() -> std::io::Result<()> {
+        let base = std::env::temp_dir().join(format!("peektrace-memslug-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let base_str = base.to_string_lossy().into_owned();
+        let projects = format!("{base_str}/projects");
+        let spaced = format!("{base_str}/my_app dir");
+        let legacy = format!("{base_str}/old_app");
+        for (root, slug) in [
+            (&spaced, claude_slug(&spaced)),
+            (&legacy, legacy.replace(['/', '.'], "-")),
+        ] {
+            fs::create_dir_all(format!("{root}/.git"))?;
+            fs::create_dir_all(format!("{projects}/{slug}/memory"))?;
+            fs::write(format!("{projects}/{slug}/memory/MEMORY.md"), "- note\n")?;
+        }
+        let memory = |cwd: &str| {
+            gather_on_disk_context_files(Some(cwd), &format!("{base_str}/home"), &projects)
+                .into_iter()
+                .filter(|f| f.scope == ContextScope::Memory)
+                .map(|f| f.path)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            memory(&format!("{spaced}/src")),
+            [format!(
+                "{projects}/{}/memory/MEMORY.md",
+                claude_slug(&spaced)
+            )]
+        );
+        assert_eq!(memory(&legacy).len(), 1);
+        fs::remove_dir_all(&base)
     }
 
     #[test]

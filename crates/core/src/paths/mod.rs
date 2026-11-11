@@ -60,3 +60,18 @@ impl PathStyle {
         }
     }
 }
+
+/// How Claude Code names a project dir: every UTF-16 unit outside
+/// `[a-zA-Z0-9]` becomes `-`.
+pub fn claude_slug(path: &str) -> String {
+    path.chars()
+        .flat_map(|c| {
+            let n = if c.is_ascii_alphanumeric() {
+                0
+            } else {
+                c.len_utf16()
+            };
+            std::iter::repeat_n('-', n).chain(c.is_ascii_alphanumeric().then_some(c))
+        })
+        .collect()
+}

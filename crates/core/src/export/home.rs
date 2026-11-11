@@ -12,6 +12,8 @@ use std::sync::LazyLock;
 
 use regex::{Captures, Regex};
 
+use crate::paths::claude_slug;
+
 /// `\p{L}\p{M}\p{N}_` inside a class.
 const WORD: &str = r"\p{L}\p{M}\p{N}_";
 
@@ -179,21 +181,6 @@ fn segments(home: &str) -> Vec<&str> {
     home.split(['\\', '/']).filter(|s| !s.is_empty()).collect()
 }
 
-/// How Claude names a project dir: every UTF-16 unit outside `[a-zA-Z0-9]`
-/// becomes `-`.
-fn slug_of(path: &str) -> String {
-    path.chars()
-        .flat_map(|c| {
-            let n = if c.is_ascii_alphanumeric() {
-                0
-            } else {
-                c.len_utf16()
-            };
-            std::iter::repeat_n('-', n).chain(c.is_ascii_alphanumeric().then_some(c))
-        })
-        .collect()
-}
-
 /// How Pi names one: `--<path>--`, only separators and `:` become `-`.
 fn pi_slug_of(path: &str) -> String {
     let rest = path
@@ -266,7 +253,7 @@ fn exact_patterns(home: &str) -> Option<Vec<Pattern>> {
         to: "--~",
     });
     out.push(Pattern {
-        re: re(&format!("{flags}{}", regex::escape(&slug_of(trimmed)))),
+        re: re(&format!("{flags}{}", regex::escape(&claude_slug(trimmed)))),
         behind: |t, at| before(t, at).is_none_or(|c| !(is_word(c) || c == '-')),
         end: |t, c| {
             let m = c.get(0)?;

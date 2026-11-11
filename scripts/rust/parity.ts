@@ -6,6 +6,8 @@
  *   bun scripts/rust/parity.ts                 # fixtures + real ~/.claude
  *   bun scripts/rust/parity.ts --fixtures-only # CI
  *   bun scripts/rust/parity.ts --bin target/debug/peektrace
+ *   bun scripts/rust/parity.ts --real-all      # every real session in the
+ *                                              # analyze/export stage
  *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
@@ -17,6 +19,8 @@
  * - Real corpus: sessions written to during the run (size or mtime changed
  *   between the first and last stat) are left out of the comparison and
  *   counted as "live". Only `--json` output is compared, row by row.
+ * - `sessions analyze` and `sessions export` run after the `ls` suites; see
+ *   `parity-analyze.ts` for their cases and normalisation.
  */
 import {
   chmodSync,
@@ -28,87 +32,29 @@ import {
   utimesSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
+import { runAnalyzeStage } from "./parity-analyze";
 import { edgeFiles, edgeSettings } from "./parity-fixtures";
+import {
+  compareRun,
+  diffs,
+  firstLineDiff,
+  fixtureEnv,
+  flag,
+  REPO,
+  report,
+  run,
+  rustBin,
+  type Suite,
+  TS_CMD,
+  WORK,
+} from "./parity-lib";
 
-const REPO = resolve(import.meta.dir, "../..");
-const WORK = join(REPO, ".scratch", "parity");
-const TS_CMD = ["bun", join(REPO, "apps/cli/src/index.ts")];
-const MAX_REPORTED = 20;
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
 const READ_WRITE = 0o644;
 const SKIPPED_NOTE =
   "codex, pi and opencode sessions are not listed: not supported yet\n";
-
-interface Run {
-  readonly code: number;
-  readonly stderr: string;
-  readonly stdout: string;
-}
-
-interface Suite {
-  readonly args: readonly (readonly string[])[];
-  readonly env: Record<string, string>;
-  readonly name: string;
-}
-
-const flag = (name: string) => process.argv.includes(name);
-const option = (name: string) => {
-  const at = process.argv.indexOf(name);
-  return at < 0 ? undefined : process.argv[at + 1];
-};
-
-const rustBin = resolve(REPO, option("--bin") ?? "target/release/peektrace");
-
-const run = (cmd: readonly string[], env: Record<string, string>): Run => {
-  const out = Bun.spawnSync([...cmd], { env, cwd: REPO });
-  return {
-    code: out.exitCode ?? -1,
-    stdout: out.stdout.toString(),
-    stderr: out.stderr.toString(),
-  };
-};
-
-const diffs: string[] = [];
-const report = (line: string) => {
-  diffs.push(line);
-  if (diffs.length <= MAX_REPORTED) {
-    console.log(`  DIFF ${line}`);
-  }
-};
-
-const firstLineDiff = (a: string, b: string) => {
-  const al = a.split("\n");
-  const bl = b.split("\n");
-  const at = al.findIndex((line, i) => line !== bl[i]);
-  const i = at < 0 ? al.length : at;
-  return `line ${i + 1}: ts=${JSON.stringify(al[i])} rust=${JSON.stringify(bl[i])}`;
-};
-
-/** Byte-exact comparison of one invocation. */
-const compareRun = (label: string, ts: Run, rust: Run) => {
-  if (ts.code !== rust.code) {
-    report(`${label}: exit ts=${ts.code} rust=${rust.code}`);
-  }
-  if (ts.stdout !== rust.stdout) {
-    report(`${label}: stdout ${firstLineDiff(ts.stdout, rust.stdout)}`);
-  }
-  if (ts.stderr !== rust.stderr) {
-    report(`${label}: stderr ${firstLineDiff(ts.stderr, rust.stderr)}`);
-  }
-};
-
-/** A clean env for fixture runs: nothing from the caller leaks in. */
-const fixtureEnv = (home: string, extra: Record<string, string> = {}) => ({
-  PATH: process.env.PATH ?? "",
-  HOME: home,
-  TZ: "UTC",
-  PEEKTRACE_DIR: join(home, ".peektrace"),
-  PEEKTRACE_NO_TELEMETRY: "1",
-  BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
-  ...extra,
-});
 
 const write = (path: string, body: string | Uint8Array) => {
   mkdirSync(dirname(path), { recursive: true });
@@ -366,22 +312,29 @@ const runReal = () => {
   console.log(`  compared ${compared} rows, skipped ${live.size} live`);
 };
 
-const main = () => {
+const main = async () => {
   if (!existsSync(rustBin)) {
     console.error(`missing ${rustBin}: run cargo build --release`);
     process.exit(2);
   }
   rmSync(WORK, { recursive: true, force: true });
   mkdirSync(WORK, { recursive: true });
+  const suites = fixtureSuites();
   if (!flag("--real-only")) {
-    for (const suite of fixtureSuites()) {
+    for (const suite of suites) {
       runSuite(suite);
     }
   }
   const realRoot = join(process.env.HOME ?? "", ".claude", "projects");
-  if (!flag("--fixtures-only") && existsSync(realRoot)) {
+  const real = !flag("--fixtures-only") && existsSync(realRoot);
+  if (real) {
     runReal();
   }
+  await runAnalyzeStage({
+    fixtures: flag("--real-only") ? [] : suites,
+    real,
+    realAll: flag("--real-all"),
+  });
   const locked = join(WORK, "edge-home/.claude/projects/-edge-c/locked.jsonl");
   if (existsSync(locked)) {
     chmodSync(locked, READ_WRITE);
@@ -392,4 +345,4 @@ const main = () => {
   process.exit(diffs.length === 0 ? 0 : 1);
 };
 
-main();
+await main();
