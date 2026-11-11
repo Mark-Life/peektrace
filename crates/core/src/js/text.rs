@@ -45,6 +45,27 @@ pub fn is_blank(line: &[u8]) -> bool {
     }
 }
 
+/// First stand-in code point for an unpaired UTF-16 surrogate. Rust strings
+/// cannot hold one, so U+D800..U+DFFF map onto the last 2048 code points of
+/// plane 16 (private use) and map back when printed.
+const STAND_IN_BASE: u32 = 0x10_F800;
+
+/// The stand-in char for an unpaired surrogate `unit`.
+pub fn surrogate_stand_in(unit: u16) -> Option<char> {
+    (0xD800..0xE000)
+        .contains(&unit)
+        .then(|| char::from_u32(STAND_IN_BASE + u32::from(unit - 0xD800)))
+        .flatten()
+}
+
+/// The unpaired surrogate a stand-in char represents.
+pub fn stand_in_surrogate(c: char) -> Option<u16> {
+    u32::from(c)
+        .checked_sub(STAND_IN_BASE)
+        .and_then(|d| u16::try_from(d).ok())
+        .map(|d| 0xD800 + d)
+}
+
 /// Default `Array.prototype.sort` order: UTF-16 code units.
 pub fn cmp_utf16(a: &str, b: &str) -> Ordering {
     a.encode_utf16().cmp(b.encode_utf16())

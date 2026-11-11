@@ -10,6 +10,8 @@ use std::fmt;
 use serde::Deserialize;
 use serde::de::{self, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
 
+use crate::js::text;
+
 /// Answer `$value` for every listed JSON shape, consuming nested values.
 macro_rules! otherwise {
     ($value:expr; $($kind:ident),*) => {
@@ -291,6 +293,49 @@ pub fn parse_line(text: &str) -> Result<Line<'_>, serde_json::Error> {
     serde_json::from_str(text)
 }
 
+/// The UTF-16 unit of the `\uXXXX` escape at `at`, if there is one.
+fn escape_at(b: &[u8], at: usize) -> Option<u16> {
+    let hex = b.get(at..at + 6)?.strip_prefix(b"\\u")?;
+    let hex = std::str::from_utf8(hex).ok()?;
+    u16::from_str_radix(hex, 16).ok()
+}
+
+/// `text` with each unpaired surrogate escape (`\ud800`) replaced by its
+/// stand-in char, or `None` when there is none. `JSON.parse` accepts unpaired
+/// surrogates; `serde_json` rejects them in strings it decodes.
+pub fn replace_lone_surrogates(text: &str) -> Option<String> {
+    let b = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut changed = false;
+    let mut copied = 0;
+    let mut at = 0;
+    while at < b.len() {
+        if b[at] != b'\\' {
+            at += 1;
+            continue;
+        }
+        let Some(unit) = escape_at(b, at) else {
+            at += 2;
+            continue;
+        };
+        let high = (0xD800..0xDC00).contains(&unit);
+        let paired = high && escape_at(b, at + 6).is_some_and(|n| (0xDC00..0xE000).contains(&n));
+        if paired {
+            at += 12;
+        } else if let Some(stand_in) = text::surrogate_stand_in(unit) {
+            out.push_str(&text[copied..at]);
+            out.push(stand_in);
+            changed = true;
+            at += 6;
+            copied = at;
+        } else {
+            at += 6;
+        }
+    }
+    out.push_str(&text[copied..]);
+    changed.then_some(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,6 +386,16 @@ mod tests {
                 .kind
                 .is("user")
         );
+    }
+
+    #[test]
+    fn lone_surrogates() {
+        assert_eq!(
+            replace_lone_surrogates(r#"{"a":"\ud800","b":"\\ud800","c":"\ud83d\ude00\udc00"}"#)
+                .as_deref(),
+            Some("{\"a\":\"\u{10F800}\",\"b\":\"\\\\ud800\",\"c\":\"\\ud83d\\ude00\u{10FC00}\"}")
+        );
+        assert_eq!(replace_lone_surrogates(r#"{"a":"\u0041"}"#), None);
     }
 
     #[test]

@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::line::{Line, Usage, parse_line};
+use super::line::{Line, Usage, parse_line, replace_lone_surrogates};
 use crate::js::{text, time};
 use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
 use crate::pricing::{CostTokens, turn_cost};
@@ -77,13 +77,21 @@ impl HeaderAcc {
             return;
         }
         if let Ok(row) = parse_line(line) {
-            self.last_bad = false;
-            if row.is_object {
-                self.apply(&row);
-            }
-        } else {
-            self.bad += 1;
-            self.last_bad = true;
+            return self.accept(&row);
+        }
+        if let Some(fixed) = replace_lone_surrogates(line)
+            && let Ok(row) = parse_line(&fixed)
+        {
+            return self.accept(&row);
+        }
+        self.bad += 1;
+        self.last_bad = true;
+    }
+
+    fn accept(&mut self, row: &Line<'_>) {
+        self.last_bad = false;
+        if row.is_object {
+            self.apply(row);
         }
     }
 
