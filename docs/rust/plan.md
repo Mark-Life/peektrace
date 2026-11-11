@@ -14,7 +14,16 @@ Work happens on a long-lived `rust` branch until the Rust version reaches parity
 | `apps/inspector` | ~21k lines React, 22-method RPC contract (`packages/rpc/src/contract.ts`) |
 | `apps/desktop` | Electrobun webview around the inspector |
 
-Measure startup time, RSS on a large session set and `sessions.list` latency in the spike, and add them to this table.
+Spike numbers, macOS arm64, 702 Claude sessions (1.0 GB of main transcripts, warm page cache). TS is the compiled `peektrace` 0.12.0; Rust is the release build. Measured with `hyperfine` and `/usr/bin/time -l`.
+
+| Item | TS | Rust |
+|---|---|---|
+| Binary, macOS arm64 | 71.4 MB | 0.9 MB |
+| Startup (`-v`) | 497 ms, 138 MB RSS | 2 ms, 2 MB RSS |
+| `sessions ls --agent claude --json --limit 0` | 2.06 s | 0.088 s |
+| Peak RSS for that listing | 1.6 GB | 32 MB |
+
+Parity: `bun scripts/rust/parity.ts` shows no differences on the fixtures and on the real corpus.
 
 ## Target layout
 
