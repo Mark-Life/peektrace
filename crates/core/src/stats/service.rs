@@ -53,6 +53,8 @@ pub struct StatsEnv<'a> {
     pub cache: StatsCache,
     pub local: &'a (dyn LocalZone + Sync),
     pub now_ms: f64,
+    /// Told `(done, total)` after each transcript of a pass.
+    pub progress: Option<&'a dyn Fn(usize, usize)>,
 }
 
 impl StatsEnv<'_> {
@@ -61,6 +63,7 @@ impl StatsEnv<'_> {
             claude: self.claude,
             cache: &self.cache,
             local: self.local,
+            progress: self.progress,
         }
     }
 }

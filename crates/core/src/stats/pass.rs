@@ -33,6 +33,8 @@ pub struct PassEnv<'a> {
     pub claude: &'a [Source],
     pub cache: &'a StatsCache,
     pub local: &'a (dyn LocalZone + Sync),
+    /// Told `(done, total)` after each file is folded.
+    pub progress: Option<&'a dyn Fn(usize, usize)>,
 }
 
 /// The agents a request covers that this build can extract, in matrix order.
@@ -130,7 +132,8 @@ fn load_transcript(r: &TranscriptRef) -> Option<String> {
 }
 
 fn facts_for(
-    env: &PassEnv<'_>,
+    cache: &StatsCache,
+    local: &(dyn LocalZone + Sync),
     index: &IndexMap<String, CacheEntry>,
     r: &TranscriptRef,
     args: &PassArgs<'_>,
@@ -148,7 +151,7 @@ fn facts_for(
                 skipped: false,
             };
         }
-        if let Some(facts) = env.cache.read(entry) {
+        if let Some(facts) = cache.read(entry) {
             return FileResult {
                 cached: true,
                 entry: Some(entry.clone()),
@@ -184,9 +187,9 @@ fn facts_for(
         parsed: &parsed,
         project: &project,
         redact: &redact,
-        local: env.local,
+        local,
     });
-    let entry = env.cache.write(&r.path, stat, &facts, env.local);
+    let entry = cache.write(&r.path, stat, &facts, local);
     FileResult {
         cached: false,
         entry,
@@ -212,20 +215,26 @@ pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fa
         None => all,
     };
     let index = env.cache.load();
+    let (cache, local) = (env.cache, env.local);
     let mut out = PassResult {
         transcripts: refs.len(),
         ..PassResult::default()
     };
     let mut entries: Vec<CacheEntry> = Vec::new();
     let mut skipped: Vec<&str> = Vec::new();
+    let mut done = 0;
     {
         let _span = info_span!("Stats.foldCorpus", transcripts = refs.len()).entered();
         for chunk in refs.chunks(CHUNK) {
             let results: Vec<FileResult> = chunk
                 .par_iter()
-                .map(|r| facts_for(env, &index, r, args))
+                .map(|r| facts_for(cache, local, &index, r, args))
                 .collect();
             for (r, res) in chunk.iter().zip(results) {
+                done += 1;
+                if let Some(p) = env.progress {
+                    p(done, refs.len());
+                }
                 if res.skipped {
                     skipped.push(&r.path);
                     continue;

@@ -15,8 +15,10 @@ use crate::args::{StatsCommon, StatsDrillArgs, StatsPromptArgs, StatsRefreshArgs
 use crate::ls::{Context, Globals, UserError};
 use crate::render::{skipped_note, table};
 use crate::single::Output;
+use crate::stats_progress::Progress;
 use crate::stats_render::{render_drill, render_report, render_usage};
 use crate::zone::SystemZone;
+use std::io::{IsTerminal as _, Write as _};
 
 /// `Options.integer`: `Number(s)` that is a safe integer, blank rejected.
 fn parse_int(raw: &str) -> Result<f64, UserError> {
@@ -103,7 +105,12 @@ fn prepare(ctx: &Context, agents: Option<&[Agent]>) -> Prepared {
     }
 }
 
-fn env_of<'a>(ctx: &Context, p: &'a Prepared, zone: &'a SystemZone) -> StatsEnv<'a> {
+fn env_of<'a>(
+    ctx: &Context,
+    p: &'a Prepared,
+    zone: &'a SystemZone,
+    progress: Option<&'a dyn Fn(usize, usize)>,
+) -> StatsEnv<'a> {
     let e = &ctx.roots_env;
     StatsEnv {
         claude: &p.claude,
@@ -115,7 +122,26 @@ fn env_of<'a>(ctx: &Context, p: &'a Prepared, zone: &'a SystemZone) -> StatsEnv<
         cache: StatsCache::new(cache_root(e)),
         local: zone,
         now_ms: ctx.now_ms,
+        progress,
     }
+}
+
+/// Run `f` with a progress line on a TTY stderr, cleared when it returns.
+fn with_progress<T>(f: impl FnOnce(Option<&dyn Fn(usize, usize)>) -> T) -> T {
+    if !std::io::stderr().is_terminal() {
+        return f(None);
+    }
+    let start = std::time::Instant::now();
+    let sink = Progress::new(
+        move || start.elapsed().as_secs_f64() * 1000.0,
+        |s: &str| {
+            let _ = std::io::stderr().write_all(s.as_bytes());
+        },
+    );
+    let on_file = |done: usize, total: usize| sink.on_file(done, total);
+    let out = f(Some(&on_file));
+    sink.clear();
+    out
 }
 
 fn scan_error(e: StatsError) -> UserError {
@@ -152,7 +178,7 @@ pub fn run_report(common: &StatsCommon, g: Globals, ctx: &Context) -> Result<Out
     let req = request(common)?;
     let p = prepare(ctx, req.agents.as_deref());
     let zone = SystemZone::default();
-    let r = report(&env_of(ctx, &p, &zone), &req).map_err(scan_error)?;
+    let r = with_progress(|pr| report(&env_of(ctx, &p, &zone, pr), &req)).map_err(scan_error)?;
     let out = if g.json {
         r.to_json(true)
     } else {
@@ -181,7 +207,8 @@ pub fn run_drill(a: &StatsDrillArgs, g: Globals, ctx: &Context) -> Result<Output
     let req = request(&a.common)?;
     let p = prepare(ctx, req.agents.as_deref());
     let zone = SystemZone::default();
-    let d = drill(&env_of(ctx, &p, &zone), &req, table_, key).map_err(scan_error)?;
+    let d = with_progress(|pr| drill(&env_of(ctx, &p, &zone, pr), &req, table_, key))
+        .map_err(scan_error)?;
     let out = if g.json {
         d.to_json(true)
     } else {
@@ -209,7 +236,7 @@ pub fn run_prompt(a: &StatsPromptArgs, ctx: &Context) -> Result<Output, UserErro
     let req = request(&a.common)?;
     let p = prepare(ctx, req.agents.as_deref());
     let zone = SystemZone::default();
-    let r = report(&env_of(ctx, &p, &zone), &req).map_err(scan_error)?;
+    let r = with_progress(|pr| report(&env_of(ctx, &p, &zone, pr), &req)).map_err(scan_error)?;
     let agent = req.agents.as_ref().and_then(|v| v.first().copied());
     let Some(text) = stats_prompt(&r, agent, &target) else {
         let (table_, key) = match &target {
@@ -234,7 +261,8 @@ pub fn run_refresh(a: &StatsRefreshArgs, g: Globals, ctx: &Context) -> Result<Ou
     let agents = parse_agent(a.agent.as_deref())?;
     let p = prepare(ctx, agents.as_deref());
     let zone = SystemZone::default();
-    let s = refresh(&env_of(ctx, &p, &zone), agents.as_deref(), a.force).map_err(scan_error)?;
+    let s = with_progress(|pr| refresh(&env_of(ctx, &p, &zone, pr), agents.as_deref(), a.force))
+        .map_err(scan_error)?;
     let out = if g.json {
         let mut w = peektrace_core::js::json_out::Writer::new(true);
         w.begin_obj();
@@ -313,7 +341,7 @@ pub fn run_usage(a: &StatsUsageArgs, g: Globals, ctx: &Context) -> Result<Output
         force: a.force,
         tz: Some(tz),
     };
-    let u = usage(&env_of(ctx, &p, &zone), &req).map_err(scan_error)?;
+    let u = with_progress(|pr| usage(&env_of(ctx, &p, &zone, pr), &req)).map_err(scan_error)?;
     let out = if g.json {
         u.to_json(true)
     } else {

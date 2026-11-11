@@ -156,6 +156,7 @@ pub fn usage(env: &StatsEnv<'_>, req: &UsageRequest) -> Result<UsageReport, Stat
         claude: env.claude,
         cache: &env.cache,
         local: env.local,
+        progress: env.progress,
     };
     let run = |from: Option<i64>, force: bool| {
         let mut sink = UsageSink::new(req.by, days, from, now, tz.clone(), env.local);

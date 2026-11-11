@@ -6,6 +6,7 @@ mod otel;
 mod render;
 mod single;
 mod stats;
+mod stats_progress;
 mod stats_render;
 mod width;
 mod zone;
