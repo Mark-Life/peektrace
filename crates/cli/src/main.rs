@@ -4,6 +4,7 @@ mod args;
 mod ls;
 mod otel;
 mod render;
+mod width;
 
 use std::io::{self, Write as _};
 use std::process::ExitCode;

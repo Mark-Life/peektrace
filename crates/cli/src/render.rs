@@ -5,7 +5,8 @@ use std::fmt::Write as _;
 
 use peektrace_core::SessionHeader;
 use peektrace_core::js::{num, text};
-use unicode_width::UnicodeWidthStr;
+
+use crate::width::display_width;
 
 /// Append `s` as a JSON string, escaped the way `JSON.stringify` does.
 pub fn push_json_string(out: &mut String, s: &str) {
@@ -160,28 +161,6 @@ fn printable(cell: String) -> String {
     }
 }
 
-/// Terminal columns `s` takes, as `Bun.stringWidth` counts them: ANSI CSI
-/// sequences and control chars take none.
-fn display_width(s: &str) -> usize {
-    if !s.chars().any(char::is_control) {
-        return s.width();
-    }
-    let mut visible = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '\u{1b}' && chars.peek() == Some(&'[') {
-            chars.next();
-            while chars
-                .next()
-                .is_some_and(|f| !('\u{40}'..='\u{7e}').contains(&f))
-            {}
-        } else if !c.is_control() {
-            visible.push(c);
-        }
-    }
-    visible.width()
-}
-
 fn row_cells(h: &SessionHeader) -> Vec<String> {
     let star = if h.unpriced_models.is_some() { "*" } else { "" };
     let cells = vec![
@@ -293,14 +272,6 @@ mod tests {
         let mut out = String::new();
         push_json_string(&mut out, "a\"b\\c\n\u{1}\u{7f}\u{2028}é");
         assert_eq!(out, "\"a\\\"b\\\\c\\n\\u0001\u{7f}\u{2028}é\"");
-    }
-
-    #[test]
-    fn widths_like_bun() {
-        assert_eq!(display_width("日本語 🎉 title \u{1} \"q\" \\ end"), 26);
-        assert_eq!(display_width("\u{1b}[31mred\u{1b}[0m"), 3);
-        assert_eq!(display_width("\u{7f}\u{85}"), 0);
-        assert_eq!(display_width("👨\u{200d}👩\u{200d}👧"), 2);
     }
 
     #[test]
