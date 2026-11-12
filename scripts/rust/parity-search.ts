@@ -79,6 +79,13 @@ const suiteArgs = (projects: readonly string[]) => [
   search(""),
   search("walrus", "--limit", "-1"),
   search("walrus", "--limit", "1.5"),
+  search("walrus", "--limit"),
+  search("-rf"),
+  search("--force", "--json"),
+  search("git", "push", "--force", "--limit", "0"),
+  search("push", "-rf", "--json", "--limit", "0"),
+  search("--limit", "0", "--force", "--json"),
+  search("-walrus", "--json"),
   search("walrus", "--since", "bogus"),
   search("walrus", "--since", "99999999999w"),
 ];

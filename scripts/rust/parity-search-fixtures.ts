@@ -61,7 +61,10 @@ export const buildSynthetic = () => {
   );
   put(
     join(proj, slug, `${uuid("b")}.jsonl`),
-    jsonl([claudeLine(cwd, at("04-03"), "quokka in the middle, an old walrus")])
+    jsonl([
+      claudeLine(cwd, at("04-03"), "quokka in the middle, an old walrus"),
+      claudeLine(cwd, at("04-03"), "then git push --force -rf"),
+    ])
   );
   put(
     join(proj, "-home-demo-other", `${uuid("c")}.jsonl`),

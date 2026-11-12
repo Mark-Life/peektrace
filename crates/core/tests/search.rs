@@ -277,7 +277,8 @@ fn stops_scanning_once_the_limit_is_met() {
         ..request("quokka")
     });
     assert!(r.scanned_sessions < 6 + FILLER);
-    assert_eq!(r.scanned_sessions, 8);
+    // Up to the second match, the third session newest first.
+    assert_eq!(r.scanned_sessions, 3);
 }
 
 #[test]

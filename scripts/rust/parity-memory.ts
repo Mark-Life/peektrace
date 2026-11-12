@@ -49,6 +49,7 @@ const views = (cmd: readonly string[], rest: readonly string[]) => [
   [...BASE, "memory", ...cmd, "--", ...rest],
   [...BASE, "memory", ...cmd, "--json", "--", ...rest],
   [...BASE, "--pretty", "memory", ...cmd, "--", ...rest],
+  [...BASE, "memory", ...cmd, "--", ...rest, "--json"],
 ];
 
 /** Every `ls` and `show` case for the projects TS lists, plus extras. */
@@ -185,6 +186,8 @@ const RM_OPS = [
   rm("-Users-demo-proj-a", "flat", "--read-only"),
   [...BASE, "--read-only", "memory", "rm", "--", "-Users-demo-proj-a", "flat"],
   rm("C#proj", "hash"),
+  [...BASE, "memory", "rm", "--", "-Users-demo-proj-a", "ghost", "--json"],
+  [...BASE, "memory", "rm", "--", "-Users-demo-proj-a", "flat", "--read-only"],
   rm("-Users-demo-seed", "b"),
   rm("-Users-demo-seed", "fx-nested", "--json"),
 ];

@@ -138,10 +138,19 @@ fn absent_vault(slug: &str, project: &str, memory_dir: String) -> MemoryVault {
     }
 }
 
+/// Slug an entry path matches in `MEMORY.md`. TS slugs the whole path, so a
+/// `#` or `|` in a parent dir breaks the match; a Windows `\` does not.
+fn index_key(path: &str, style: PathStyle) -> String {
+    match style {
+        PathStyle::Posix => normalize_slug(path),
+        PathStyle::Windows => normalize_slug(&path.replace('\\', "/")),
+    }
+}
+
 fn read_entry(path: &str, indexed: &HashSet<&str>) -> Option<MemoryEntry> {
     let text = read_text(path).ok()?;
     let mtime = stat_mtime(path).ok()?;
-    let in_index = indexed.contains(normalize_slug(path).as_str());
+    let in_index = indexed.contains(index_key(path, PathStyle::NATIVE).as_str());
     Some(build_entry(path, &text, mtime, in_index))
 }
 
@@ -276,5 +285,26 @@ pub fn all_vaults(claude: &[Source]) -> AllVaults {
             .into_iter()
             .map(|(slug, project)| ProjectLabel { slug, project })
             .collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn index_key_is_the_file_slug_on_both_styles() {
+        assert_eq!(
+            index_key(
+                r"C:\Users\x\.claude\projects\p\memory\Foo.md",
+                PathStyle::Windows
+            ),
+            "foo"
+        );
+        assert_eq!(
+            index_key("/home/x/.claude/projects/p/memory/Foo.md", PathStyle::Posix),
+            "foo"
+        );
+        assert_eq!(index_key(r"C:\a\C#p\memory\x.md", PathStyle::Windows), "c");
     }
 }

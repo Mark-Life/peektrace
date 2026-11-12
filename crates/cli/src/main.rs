@@ -6,6 +6,7 @@ mod ls;
 mod memory;
 mod otel;
 mod render;
+mod reorder;
 mod search;
 mod single;
 mod stats;
@@ -271,7 +272,7 @@ fn main() -> ExitCode {
         print_stderr(&format!("Missing value for {flag}."));
         return ExitCode::FAILURE;
     }
-    let cli = match Cli::try_parse() {
+    let cli = match Cli::try_parse_from(reorder::normalize(&argv)) {
         Ok(cli) => cli,
         Err(e) => {
             let _ = e.print();

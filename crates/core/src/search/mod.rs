@@ -1,15 +1,15 @@
 //! Search every session's text for a phrase. Candidates come from the
 //! listing (agent, project, since), newest first. Transcripts load a few at
-//! a time and the scan stops once `limit + 1` sessions matched, so a common
-//! phrase in recent sessions reads little.
+//! a time, newest first, and the scan stops once `limit + 1` sessions
+//! matched, so a common phrase in recent sessions reads little.
 
 mod fold;
 mod matcher;
 mod snippet;
+mod window;
 
 use std::time::Instant;
 
-use rayon::prelude::*;
 use tracing::{field, info_span};
 
 pub use matcher::{
@@ -30,9 +30,6 @@ use crate::sessions::service::load_transcript;
 /// Default `limit` of a search.
 pub const DEFAULT_LIMIT: usize = 20;
 const HITS_PER_SESSION: usize = 3;
-/// Transcripts loaded at once. The scan stops after the batch in which
-/// `limit + 1` sessions matched, so the counts do not depend on timing.
-const BATCH: usize = 8;
 
 /// What to search for and where.
 #[derive(Debug, Clone, Default)]
@@ -202,24 +199,21 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
         env.local,
     )
     .rows;
+    let stop_after = (req.limit > 0).then(|| req.limit + 1);
+    let scans = window::scan_in_order(candidates.len(), stop_after, |i| {
+        let s = span.in_scope(|| scanner.scan(&candidates[i]));
+        let hit = matches!(s, Scan::Read { found: Some(_), .. });
+        (s, hit)
+    });
     let mut found: Vec<SearchSession> = Vec::new();
     let (mut loaded, mut failed, mut bytes) = (0, 0, 0);
-    for batch in candidates.chunks(BATCH) {
-        if req.limit > 0 && found.len() > req.limit {
-            break;
-        }
-        let results: Vec<Scan> = batch
-            .par_iter()
-            .map(|h| span.in_scope(|| scanner.scan(h)))
-            .collect();
-        for s in results {
-            match s {
-                Scan::Failed => failed += 1,
-                Scan::Read { units, found: hit } => {
-                    loaded += 1;
-                    bytes += units;
-                    found.extend(hit);
-                }
+    for s in scans {
+        match s {
+            Scan::Failed => failed += 1,
+            Scan::Read { units, found: hit } => {
+                loaded += 1;
+                bytes += units;
+                found.extend(hit);
             }
         }
     }
