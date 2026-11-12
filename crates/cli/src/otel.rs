@@ -10,6 +10,8 @@ use std::time::Instant;
 
 use peektrace_core::js::num;
 use peektrace_telemetry::{Attrs, SpansOnly, StoreLayer};
+
+use crate::argv;
 use tracing::span::{Attributes, Id, Record};
 use tracing::{Level, Subscriber};
 use tracing_subscriber::filter::LevelFilter;
@@ -181,4 +183,31 @@ pub fn init(echo: bool, log_level: Option<LogLevel>, store: Option<StoreLayer>) 
         .with(echo)
         .with(logs)
         .try_init();
+}
+
+pub fn now_ms() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_secs_f64() * 1000.0)
+        .floor()
+}
+
+/// Start the subscriber: the `--otel` echo, log lines and the telemetry
+/// store, each decided from the raw command line as TS does.
+pub fn start(raw: &[String], version: &str) {
+    let flags = argv::before_separator(raw);
+    let echo = flags.iter().any(|a| a == "--otel")
+        || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
+    let on = argv::telemetry_on(raw, std::env::var_os("PEEKTRACE_NO_TELEMETRY").is_some());
+    let store = on.then(|| {
+        let home = std::env::home_dir()
+            .map(|h| h.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let dir = std::env::var_os("PEEKTRACE_DIR").map(|d| d.to_string_lossy().into_owned());
+        let dir = peektrace_telemetry::store::dir_of(dir.as_deref(), &home).ok();
+        #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
+        let now = now_ms() as i64;
+        peektrace_telemetry::start(dir, version, now)
+    });
+    init(echo, argv::log_level(raw), store);
 }

@@ -191,6 +191,22 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
     )
 }
 
+/// Run `doctor` with this process's environment.
+pub fn run_here(args: &DoctorArgs) -> Result<Vec<String>, UserError> {
+    let home = std::env::home_dir()
+        .map(|h| h.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let peektrace_dir = std::env::var_os("PEEKTRACE_DIR").map(|d| d.to_string_lossy().into_owned());
+    run(
+        args,
+        &DoctorEnv {
+            peektrace_dir: peektrace_dir.as_deref(),
+            home: &home,
+            now_ms: crate::otel::now_ms(),
+        },
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

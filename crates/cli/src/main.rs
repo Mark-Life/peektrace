@@ -2,6 +2,7 @@
 
 mod args;
 mod argv;
+mod dispatch;
 mod doctor;
 mod help;
 mod ls;
@@ -31,16 +32,12 @@ use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context as _;
-use clap::Parser as _;
-use clap::error::ErrorKind;
 use peektrace_core::PathStyle;
 use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{Span, field, info_span};
 
-use crate::args::{
-    Cli, Command, MemoryArgs, MemoryCommand, SessionsArgs, SessionsCommand, StatsArgs, StatsCommand,
-};
+use crate::args::Cli;
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -102,28 +99,6 @@ fn print_stdout(text: &str) -> io::Result<()> {
 
 fn print_stderr(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
-}
-
-/// A page or script that runs before any command, exit 0 (1 for a
-/// `--completions` value that names no shell).
-fn print_early(early: help::Early, failure: Failure<'_>) -> ExitCode {
-    let text = match early {
-        help::Early::RootHelp => format!("{}\n", help::root_page(VERSION)),
-        help::Early::GroupHelp(g) => format!("{}\n", help::group_page(g, VERSION)),
-        help::Early::Completions(Ok(shell)) => help::completions(shell),
-        help::Early::Completions(Err(value)) => {
-            let message = format!(
-                "invalid value '{value}' for '--completions <shell>'\n  [possible values: sh, bash, fish, zsh]"
-            );
-            failure.record(&message);
-            print_stderr(&message);
-            return ExitCode::FAILURE;
-        }
-    };
-    match write_stdout(&[&text]) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(_) => ExitCode::FAILURE,
-    }
 }
 
 /// The command to run, from the parsed command line.
@@ -425,16 +400,7 @@ fn run_tui(
 
 /// `doctor`: write the support bundle and print where it went.
 fn run_doctor(args: &args::DoctorArgs, failure: Failure<'_>) -> ExitCode {
-    let home = std::env::home_dir()
-        .map(|h| h.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let peektrace_dir = std::env::var_os("PEEKTRACE_DIR").map(|d| d.to_string_lossy().into_owned());
-    let env = doctor::DoctorEnv {
-        peektrace_dir: peektrace_dir.as_deref(),
-        home: &home,
-        now_ms: now_ms(),
-    };
-    match doctor::run(args, &env) {
+    match doctor::run_here(args) {
         Ok(lines) => match print_stdout(&lines.join("\n")) {
             Ok(()) => ExitCode::SUCCESS,
             Err(_) => ExitCode::FAILURE,
@@ -443,38 +409,11 @@ fn run_doctor(args: &args::DoctorArgs, failure: Failure<'_>) -> ExitCode {
     }
 }
 
-fn now_ms() -> f64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0.0, |d| d.as_secs_f64() * 1000.0)
-        .floor()
-}
-
-/// Start the subscriber: the `--otel` echo, log lines and the telemetry
-/// store, each decided from the raw command line as TS does.
-fn start_tracing(raw: &[String]) {
-    let flags = argv::before_separator(raw);
-    let echo = flags.iter().any(|a| a == "--otel")
-        || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
-    let on = argv::telemetry_on(raw, std::env::var_os("PEEKTRACE_NO_TELEMETRY").is_some());
-    let store = on.then(|| {
-        let home = std::env::home_dir()
-            .map(|h| h.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        let dir = std::env::var_os("PEEKTRACE_DIR").map(|d| d.to_string_lossy().into_owned());
-        let dir = peektrace_telemetry::store::dir_of(dir.as_deref(), &home).ok();
-        #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
-        let now = now_ms() as i64;
-        peektrace_telemetry::start(dir, VERSION, now)
-    });
-    otel::init(echo, argv::log_level(raw), store);
-}
-
 fn main() -> ExitCode {
     let raw: Vec<String> = std::env::args_os()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
-    start_tracing(&raw);
+    otel::start(&raw, VERSION);
     let argv = reorder::normalize(&raw);
     let command_line = argv::loggable(&argv::version_alias(&argv));
     let code = {
@@ -491,82 +430,8 @@ fn main() -> ExitCode {
             root: &root,
             scrub: argv::has_free_text(&argv),
         };
-        dispatch(&raw, &argv, failure)
+        dispatch::dispatch(&raw, &argv, failure)
     };
     peektrace_telemetry::flush(peektrace_telemetry::EXIT_WAIT);
     code
-}
-
-/// Parse the command line and run what it names.
-fn dispatch(raw: &[String], argv: &[String], failure: Failure<'_>) -> ExitCode {
-    if let Some(early) = help::early(raw) {
-        return print_early(early, failure);
-    }
-    if let Some(flag) = args::missing_value(raw) {
-        let message = format!("Missing value for {flag}.");
-        failure.record(&message);
-        print_stderr(&message);
-        return ExitCode::FAILURE;
-    }
-    let cli = match Cli::try_parse_from(argv) {
-        Ok(cli) => cli,
-        Err(e) => {
-            let _ = e.print();
-            return match e.kind() {
-                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => ExitCode::SUCCESS,
-                _ => {
-                    failure.record(&e.to_string());
-                    ExitCode::FAILURE
-                }
-            };
-        }
-    };
-    if cli.version {
-        return match print_stdout(VERSION) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(_) => ExitCode::FAILURE,
-        };
-    }
-    let cmd = match &cli.command {
-        None => {
-            return match print_stdout(&help::banner()) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(_) => ExitCode::FAILURE,
-            };
-        }
-        Some(Command::Sessions(SessionsArgs { command: None })) => {
-            return print_early(help::Early::GroupHelp("sessions"), failure);
-        }
-        Some(Command::Sessions(SessionsArgs { command: Some(c) })) => match c {
-            SessionsCommand::Ls(a) => Run::Ls(a),
-            SessionsCommand::Analyze(a) => Run::Analyze(a),
-            SessionsCommand::Export(a) => Run::Export(a),
-            SessionsCommand::Search(a) => Run::Search(a),
-        },
-        Some(Command::Memory(MemoryArgs { command: None })) => {
-            return print_early(help::Early::GroupHelp("memory"), failure);
-        }
-        Some(Command::Memory(MemoryArgs { command: Some(c) })) => match c {
-            MemoryCommand::Ls(a) => Run::MemoryLs(a),
-            MemoryCommand::Show(a) => Run::MemoryShow(a),
-            MemoryCommand::Rm(a) => Run::MemoryRm(a),
-        },
-        Some(Command::Stats(StatsArgs { command, common })) => match command {
-            None => Run::Stats(common),
-            Some(StatsCommand::Drill(a)) => Run::StatsDrill(a),
-            Some(StatsCommand::Prompt(a)) => Run::StatsPrompt(a),
-            Some(StatsCommand::Refresh(a)) => Run::StatsRefresh(a),
-            Some(StatsCommand::Usage(a)) => Run::StatsUsage(a),
-        },
-        Some(Command::Serve(a)) => Run::Serve(a),
-        Some(Command::Statusline(a)) => Run::Statusline(a),
-        Some(Command::Mcp) => Run::Mcp,
-        Some(Command::Upgrade(a)) => Run::Upgrade(a),
-        Some(Command::Doctor(a)) => Run::Doctor(a),
-        Some(Command::Tui(a)) => Run::Tui(a),
-    };
-    run(&cli, cmd, failure).unwrap_or_else(|e| {
-        print_stderr(&format!("{e:#}"));
-        ExitCode::FAILURE
-    })
 }
