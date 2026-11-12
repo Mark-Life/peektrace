@@ -6,7 +6,7 @@
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
-#                                               all: startup ls agents analyze analyze-codex analyze-pi
+#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
@@ -75,7 +75,7 @@ rm -f "${OUT:?}"/*.json "${OUT:?}"/*.txt
 
 # --- corpus ----------------------------------------------------------------------
 # One `ls --json` per agent on each binary; ids and sizes for the session cases come from Bun.
-AGENTS=(claude codex pi)
+AGENTS=(claude codex pi opencode)
 ls_json() { echo sessions ls --agent "$1" --json --limit 0; }
 for agent in "${AGENTS[@]}"; do
   # shellcheck disable=SC2046
@@ -95,7 +95,7 @@ corpus_line() {
 
 # size_bytes <agent> <id> -> transcript bytes from the Bun ls output, or "n/a"
 size_bytes() { jq -r --arg id "$2" '(map(select(.id == $id)) | .[0].sizeBytes) // "n/a"' "$OUT/bun-ls-$1.json"; }
-fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else printf "%.2f MiB", $1/1048576 }'; }
+fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 < 1048576) printf "%.1f KiB", $1/1024; else printf "%.2f MiB", $1/1048576 }'; }
 
 # --- cases -----------------------------------------------------------------------
 # add_case <name> <warmup> <runs> <flags> <label> <args...>
@@ -127,12 +127,11 @@ suite_ls() {
 
 suite_agents() {
   local agent
-  for agent in codex pi; do
+  for agent in codex pi opencode; do
     # shellcheck disable=SC2046
     add_case "ls-json-$agent" 2 10 "cpu rss" "\`sessions ls --agent $agent --json --limit 0\`" $(ls_json "$agent")
   done
   add_case ls-json-all 2 10 "cpu rss" "\`sessions ls --json --limit 0\` (all agents)" sessions ls --json --limit 0
-  METHOD_EXTRA+=("All agents: Bun also lists OpenCode sessions; Rust skips them and prints that OpenCode is not supported yet.")
 }
 
 # analyze_top <agent> -> adds `analyze --json` cases for the 3 largest sessions of <agent>
@@ -170,10 +169,11 @@ suite_analyze() {
 
 suite_analyze_codex() { analyze_top codex; }
 suite_analyze_pi() { analyze_top pi; }
+suite_analyze_opencode() { analyze_top opencode; }
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -185,6 +185,7 @@ N_CASES="${#C_NAME[@]}"
   echo "git: $(git -C "$ROOT" rev-parse --short HEAD) ($(git -C "$ROOT" branch --show-current))"
   echo "cpu: $(cpu_info)"
   echo "os: $(os_info)"
+  echo "load at start (1/5/15 min): $(uptime | sed 's/.*load averages*: //')"
   echo "cargo: $(cargo --version)"
   echo "rustc: $(rustc --version)"
   echo "bun: $(bun --version)"
