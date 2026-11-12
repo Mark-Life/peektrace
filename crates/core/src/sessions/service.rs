@@ -301,7 +301,10 @@ pub fn parse_full(
             }
             (Body::Text(text), Agent::Codex) => parse_codex_session(text, path, sid),
             (Body::Text(text), Agent::Pi) => parse_pi_session(text, path, sid),
-            (Body::Text(text), Agent::Claude | Agent::Opencode) => {
+            (Body::Text(_), Agent::Opencode) => {
+                unreachable!("load builds Body::Opencode for every OpenCode session")
+            }
+            (Body::Text(text), Agent::Claude) => {
                 let mut parsed = parse_claude_session(&ParseArgs {
                     text,
                     path,

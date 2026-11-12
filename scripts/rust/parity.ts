@@ -304,8 +304,8 @@ const compareRows = (
   return compared;
 };
 
-/** The real corpus under the caller's env, `--json` only: each agent, then
- * all of them. */
+/** The real corpus under the caller's env, `--json` only: Claude, Codex and
+ * Pi each, then all agents. The OpenCode-only run is in `parity-opencode.ts`. */
 const runReal = () => {
   const env = { ...process.env, PEEKTRACE_NO_TELEMETRY: "1" } as Record<
     string,

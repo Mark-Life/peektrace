@@ -21,7 +21,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCase } from "./parity-analyze";
-import { targetCases } from "./parity-analyze-cases";
+import { analyze, exportOf, targetCases } from "./parity-analyze-cases";
 import {
   compareRun,
   DEFECT,
@@ -119,9 +119,6 @@ const uniquePrefix = (id: string, ids: readonly string[]) => {
   }
   return;
 };
-
-const analyze = (...rest: string[]) => ["sessions", "analyze", ...rest];
-const exportOf = (...rest: string[]) => ["sessions", "export", ...rest];
 
 /** Every mode for one session, plus its shortest unique prefix. */
 const rowCases = (row: Row, allIds: readonly string[]) => {
