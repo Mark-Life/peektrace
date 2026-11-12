@@ -263,11 +263,11 @@ mod tests {
         );
         assert_eq!(
             cache_path(Some("/p"), "/h"),
-            PathBuf::from("/p/update-check.json")
+            Path::new("/p").join("update-check.json")
         );
         assert_eq!(
             cache_path(None, "/h"),
-            PathBuf::from("/h/.peektrace/update-check.json")
+            Path::new("/h").join(".peektrace").join("update-check.json")
         );
     }
 
