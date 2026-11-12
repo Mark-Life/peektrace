@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage).
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs.
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
@@ -106,6 +106,18 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--remote https://` | supported | needs the `https` cargo feature (rustls); the default build has no TLS client and says so |
 | `SettingsWriteError.reason` on IO failure | `String(PlatformError)` | OS error text; the temp file is removed |
 | `/api` JSON over 1 KiB | sent as is | gzip when the client accepts it |
+| Bad search, stats or memory payload (missing field, bad enum, search `limit` -1 or 1.5, blank `q`, `since` `7d`, usage `days` 0, drill table `bogus`) | Effect `Die` | 400 `BadRequestError` |
+| Stats `agents: []` | scans nothing | not expressible: no `agent` param means every agent |
+| Stats `redact: false` | raw strings, cache skipped | 400 `BadRequestError` |
+| Stats `days` past the earliest date (`1e12`) | `Die` (`RangeError: Invalid Date`) | 500 `StatsScanError` (`--days ... reaches past the earliest date`) |
+| Read-only memory write | `MemoryValidationError` in the RPC exit | same body, status 403 |
+| Memory vault of project `""` | an absent vault | 404 `NotFoundError` (no empty path segment) |
+| Search `since` that is not ISO (`June 1, 2026`) | accepted by the legacy `Date.parse` | 400 |
+| Search counts when `truncated` | `scannedSessions` and `unreadable` vary run to run | stable |
+| Session id `search` | reachable through `sessions.get` | `/api/sessions/search` is the search route |
+| Memory write IO failure | `Die` | 500 `text/plain` defect, logged with path and OS text |
+| Stats calls at once | passes run in parallel and race on the cache index | one pass at a time per server |
+| `--remote` for `stats*`, `sessions search`, `memory *` | works | refused with "--remote is not supported for ... in the Rust build yet." (exit 1) |
 
 ## Risks
 
@@ -132,3 +144,7 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 8. TS `serve`, `tui` and the desktop sidecar serve the inspector but answer only `/rpc`, so on the `rust` branch their web UI loads no data. `scripts/rust/ts-ui-guard.ts` makes publish-cli and publish-desktop fail until this is fixed. Accept until cutover, or add a thin `/api` adapter to the TS server?
 9. Watch roots that appear after `serve` starts (fresh machine): keep the TS behaviour (never watched) or watch the nearest existing parent?
 10. `--remote https://` adds rustls (~1 MB). It sits behind the `https` cargo feature, off by default. Turn it on for releases?
+11. Port stats `redact=false` (raw strings, no cache), or keep the 400? Only the TS RPC payload has it; no CLI flag.
+12. Port `--remote` for `stats*`, `sessions search` and `memory *`? The text output needs JSON readers for each result; `--json` could pass the body through.
+13. Should a stats pass waiting on the server lock time out, or should markers skip the lock and read shards only?
+14. An unknown usage `tz` is 500 `StatsScanError` (the TS tag). Move it to 400?
