@@ -8,8 +8,9 @@ use peektrace_core::Agent;
 use peektrace_core::stats::accumulate::{DrillHit, DrillTable, SampleRef};
 use peektrace_core::stats::detectors::failures::FailRow;
 use peektrace_core::stats::detectors::timing::TimeRow;
+use peektrace_core::stats::detectors::waiting::WaitShapeRow;
 use peektrace_core::stats::report::{DrillResult, StatsReport};
-use peektrace_core::stats::schema::{Job, Kind};
+use peektrace_core::stats::schema::{Job, Kind, WaitShape};
 use peektrace_tui::backend::{Backend, Request, Response};
 use peektrace_tui::runtime::settle;
 use peektrace_tui::theme::ColorMode;
@@ -101,6 +102,113 @@ fn fat() -> StatsReport {
     r
 }
 
+fn fail(key: &str, label: &str, edit: impl FnOnce(&mut FailRow)) -> FailRow {
+    let mut r = FailRow {
+        key: key.into(),
+        label: label.into(),
+        r#where: "Bash".into(),
+        rows: 0.0,
+        sessions: 0.0,
+        projects: 0.0,
+        flagged: 0.0,
+        note: None,
+        detector: None,
+        samples: Vec::new(),
+    };
+    edit(&mut r);
+    r
+}
+
+/// A month of one busy corpus: two fail rows, tests and waiting.
+fn busy() -> StatsReport {
+    let mut r = empty();
+    r.window.days = 30.0;
+    r.corpus.transcripts = 2509.0;
+    r.corpus.sessions = 2491.0;
+    r.corpus.projects = 26.0;
+    r.corpus.tool_calls = 64_644.0;
+    r.corpus.bash_calls = 36_324.0;
+    r.corpus.bash_sec = 85_680.0;
+    r.corpus.tool_sec = 90_000.0;
+    r.fails = vec![
+        fail(
+            "detect:zsh-equals-abort",
+            "unquoted echo === separator",
+            |f| {
+                (f.rows, f.sessions, f.projects, f.flagged) = (169.0, 90.0, 11.0, 167.0);
+                f.note = Some(
+                    "quote the separator: echo \"===\" — zsh expands a bare === to a command name"
+                        .into(),
+                );
+                f.detector = Some("zsh-equals-abort".into());
+                f.samples = vec![SampleRef {
+                    sid: "019fd37c-1111".into(),
+                    agent: Agent::Claude,
+                    project: "p".into(),
+                    kind: Kind::Main,
+                    parent: None,
+                    seq: 1.0,
+                    tool_use_id: None,
+                    ts: None,
+                    line: "echo ===".into(),
+                }];
+            },
+        ),
+        fail("scan:tsc", "error TS####", |f| {
+            f.r#where = "Bash exit 0".into();
+            (f.rows, f.sessions, f.projects) = (619.0, 217.0, 11.0);
+            f.note =
+                Some("591 of 619 pipe into head/tail/grep, so the exit code is the pipe's".into());
+        }),
+    ];
+    let time = |key, label, n: [f64; 9]| TimeRow {
+        key,
+        label,
+        runs: n[0],
+        co_present_runs: n[1],
+        total_sec: n[2],
+        share: n[3],
+        median_sec: n[4],
+        p95_sec: n[5],
+        capped_runs: n[6],
+        capped_sec: n[7],
+        bg_runs: n[8],
+        bg_sec: if key == Job::Test { 21.4 } else { 2384.0 },
+        samples: Vec::new(),
+    };
+    r.time = vec![
+        time(
+            Job::Test,
+            "tests",
+            [
+                1752.0, 1764.0, 20_340.0, 0.238, 1.7, 33.5, 15.0, 6060.0, 10.0,
+            ],
+        ),
+        time(
+            Job::WaitPoll,
+            "waiting",
+            [
+                703.0, 703.0, 18_060.0, 0.211, 4.8, 90.0, 18.0, 6480.0, 266.0,
+            ],
+        ),
+    ];
+    let w = &mut r.waiting;
+    (w.calls, w.total_sec, w.share, w.sessions, w.projects) = (703.0, 18_060.0, 0.211, 150.0, 13.0);
+    (w.median_sec, w.p95_sec) = (4.8, 90.0);
+    (w.bg_runs, w.bg_sec, w.bg_declared_sec) = (266.0, 2384.0, 15_300.0);
+    w.by_shape = vec![WaitShapeRow {
+        key: WaitShape::LoopPoll,
+        calls: 217.0,
+        total_sec: 12_900.0,
+        share: 0.7,
+    }];
+    r.caveats = vec![
+        "durSec is the gap between a call and its result: it includes harness overhead".into(),
+        "silent-failure counts are a floor: a detector only sees stored output".into(),
+    ];
+    r
+}
+
 fn open(report: StatsReport, w: u16, h: u16, keys: &[&str]) -> String {
     let backend = Fake(report);
     let mut app = App::new(config(false, ColorMode::TrueColor), Rect::new(0, 0, w, h));
@@ -180,4 +288,33 @@ fn a_finding_title_never_runs_into_a_wide_impact() {
         row.contains("… 123,456,789 sessions") || row.contains("persisted 123,456,789"),
         "{row}"
     );
+}
+
+#[test]
+fn both_ranked_tables_render_with_their_ranking_keys_at_100_columns() {
+    let frame = open(busy(), 100, 44, &[]);
+    for want in [
+        "WHAT COSTS TIME",
+        "FIX FIRST",
+        "ranked by sessions spanned",
+        "SESSIONS",
+        "TIME",
+        "unquoted echo === separator",
+        "waiting",
+        "2,509 transcripts",
+        "NOTE",
+    ] {
+        assert!(frame.contains(want), "{want}: {frame}");
+    }
+    assert!(widest(&frame) <= 100);
+}
+
+#[test]
+fn eighty_columns_drop_the_wide_columns_instead_of_overflowing() {
+    let frame = open(busy(), 80, 42, &[]);
+    assert!(frame.contains("WHAT COSTS TIME"), "{frame}");
+    assert!(frame.contains("WHAT FAILS"));
+    assert!(!frame.contains("WHERE"), "{frame}");
+    assert!(!frame.contains("MEDIAN"), "{frame}");
+    assert!(widest(&frame) <= 80);
 }
