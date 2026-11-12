@@ -377,3 +377,25 @@ mod tests {
         }
     }
 }
+
+/// An IANA zone by name or alias, as ICU knows it. The OS database comes
+/// first; names it lacks (Debian and Ubuntu ship legacy aliases such as
+/// `Asia/Calcutta` in a separate package) fall back to the bundled copy.
+pub fn zone_named(name: &str) -> Option<jiff::tz::TimeZone> {
+    jiff::tz::TimeZone::get(name)
+        .or_else(|_| jiff::tz::TimeZoneDatabase::bundled().get(name))
+        .ok()
+}
+
+#[cfg(test)]
+mod zone_tests {
+    use super::zone_named;
+
+    #[test]
+    fn legacy_aliases_resolve_without_the_os_package() {
+        for name in ["Asia/Calcutta", "Europe/Kiev", "US/Pacific", "Japan", "EST"] {
+            assert!(zone_named(name).is_some(), "{name}");
+        }
+        assert!(zone_named("Mars/Base").is_none());
+    }
+}

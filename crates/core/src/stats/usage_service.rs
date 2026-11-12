@@ -24,7 +24,7 @@ pub fn zone_of(name: &str) -> Option<TimeZone> {
     if name.is_empty() || name.eq_ignore_ascii_case("z") {
         return None;
     }
-    TimeZone::get(name).ok()
+    crate::js::time::zone_named(name)
 }
 
 fn fixed_offset(name: &str) -> Option<TimeZone> {
