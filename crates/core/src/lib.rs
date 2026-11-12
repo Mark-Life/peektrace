@@ -20,8 +20,8 @@ pub mod roots;
 pub mod search;
 pub mod select;
 pub mod sessions;
-pub mod stats;
 pub mod settings_doc;
+pub mod stats;
 pub mod watch;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions, list_sessions_cached};

@@ -4,12 +4,12 @@
 
 use std::hash::{BuildHasher as _, RandomState};
 use std::path::Path;
-use std::time::UNIX_EPOCH;
 
 use tracing::{field, info_span};
 
 use crate::js::json_out::Writer;
 use crate::js::text;
+use crate::js::time::file_time_ms;
 use crate::js::value::{EMPTY_OBJECT, JsObject, JsValue};
 use crate::model::Agent;
 
@@ -141,18 +141,11 @@ pub fn settings_file_text(doc: &SettingsDoc) -> String {
     out
 }
 
-/// `stat(path).mtime.getTime()`: whole ms, 0 when the file cannot be read.
+/// `stat(path).mtime.getTime()`, 0 when the file cannot be read.
 pub fn mtime_ms(path: &str) -> i64 {
     std::fs::metadata(path)
         .and_then(|m| m.modified())
-        .ok()
-        .and_then(|t| match t.duration_since(UNIX_EPOCH) {
-            Ok(d) => i64::try_from(d.as_millis()).ok(),
-            Err(e) => i64::try_from(e.duration().as_nanos().div_ceil(1_000_000))
-                .ok()
-                .map(|ms| -ms),
-        })
-        .unwrap_or(0)
+        .map_or(0, file_time_ms)
 }
 
 /// The settings file as the editor reads it.
