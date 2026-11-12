@@ -135,9 +135,25 @@ pub fn detect_asset(platform: &str, arch: &str) -> Detection {
     }
 }
 
+/// The asset for a build target. The Linux binaries are glibc-only, so a
+/// musl build has none: replacing it would leave a binary that cannot start.
+pub fn target_asset(os: &str, arch: &str, musl: bool) -> Detection {
+    match detect_asset(os, arch) {
+        Detection::Supported { os: Os::Linux, .. } if musl => Detection::Unsupported(
+            "unsupported Linux libc: musl (prebuilt binaries are glibc-only; build from source)"
+                .to_owned(),
+        ),
+        found => found,
+    }
+}
+
 /// The asset for the machine this runs on.
 pub fn host_asset() -> Detection {
-    detect_asset(std::env::consts::OS, std::env::consts::ARCH)
+    target_asset(
+        std::env::consts::OS,
+        std::env::consts::ARCH,
+        cfg!(target_env = "musl"),
+    )
 }
 
 /// The first release whose `tag_name` starts with the tag prefix. The API
@@ -358,6 +374,23 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    /// A musl build never swaps itself for a glibc binary.
+    #[test]
+    fn musl_has_no_asset() {
+        assert!(matches!(
+            target_asset("linux", "x86_64", true),
+            Detection::Unsupported(r) if r.starts_with("unsupported Linux libc: musl")
+        ));
+        assert_eq!(
+            target_asset("linux", "aarch64", false),
+            detect_asset("linux", "aarch64")
+        );
+        assert_eq!(
+            target_asset("macos", "aarch64", true),
+            detect_asset("macos", "aarch64")
+        );
     }
 
     /// TS `upgrade.test.ts` `parseLatestCliTag`.

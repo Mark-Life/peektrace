@@ -3,6 +3,7 @@
 //! for is read from the raw argv, before clap parses it, as the TS CLI does.
 
 use crate::args::Shell;
+use crate::reorder::GLOBAL_VALUES;
 
 /// One-line product description, shared by the banner and the root page.
 pub const DESCRIPTION: &str = "Local, loopback-only inspector for Claude Code, Codex, Pi and OpenCode sessions: context-budget forensics, stats and Claude memory.";
@@ -90,8 +91,6 @@ pub const GROUPS: [(&str, &str); 2] = [
 
 const INDENT: &str = "  ";
 const MAX_WIDTH: usize = 80;
-/// Global flags that take a separate value.
-const VALUE_FLAGS: [&str; 3] = ["--remote", "--log-level", "--completions"];
 
 /// Printed for a bare `peektrace`.
 pub fn banner() -> String {
@@ -204,7 +203,7 @@ fn positionals(args: &[String]) -> Vec<(usize, &str)> {
     let mut i = 0;
     while i < args.len() {
         let a = args[i].as_str();
-        if VALUE_FLAGS.contains(&a) {
+        if GLOBAL_VALUES.contains(&a) {
             i += 1;
         } else if !a.starts_with('-') {
             out.push((i, a));
@@ -301,6 +300,22 @@ mod tests {
             early(&argv("--completions foo")),
             Some(Early::Completions(Err("foo".to_owned())))
         );
+    }
+
+    /// Every global value flag (the list `reorder` checks against clap)
+    /// skips its value before the help page is picked.
+    #[test]
+    fn global_values_skip_their_value() {
+        GLOBAL_VALUES
+            .iter()
+            .filter(|f| **f != "--completions")
+            .for_each(|flag| {
+                assert_eq!(
+                    early(&argv(&format!("{flag} x sessions --help"))),
+                    Some(Early::GroupHelp("sessions")),
+                    "{flag}"
+                );
+            });
     }
 
     #[test]

@@ -1,10 +1,13 @@
 /** `upgrade` parity against a local fake release server; never the real
- * GitHub, and TS `upgrade` never runs without `--check` (from source its
- * running binary is `bun`).
+ * GitHub.
  *
  * - `--check` cases and `install-same` run both CLIs and compare stdout,
  *   stderr, exit and the request log. Bun-specific failure causes (bad JSON,
  *   connection refused) are compared up to the message prefix.
+ * - `install-same` runs a real `upgrade`. It is safe only while both CLIs
+ *   report the dev version, which equals the fake `cli-v0.0.0` tag; else TS
+ *   would replace its running binary (`bun` from source), so the case is
+ *   skipped. Rust always gets a temp `PEEKTRACE_UPGRADE_TARGET`.
  * - The install route compares TS `performUpgrade` on a temp target (run
  *   with `bun -e` from `apps/cli`) with Rust `upgrade --version cli-v9.9.9`
  *   and `PEEKTRACE_UPGRADE_TARGET`: the error text, the target bytes and
@@ -137,6 +140,8 @@ const envFor = (
 interface CheckCase {
   readonly args: readonly string[];
   readonly env?: Record<string, string>;
+  /** Runs a real `upgrade`: needs the dev-version guard. */
+  readonly installs?: boolean;
   readonly mode: string;
   readonly name: string;
   /** Compare stderr only up to this prefix (Bun-specific causes). */
@@ -207,47 +212,20 @@ const CHECK_CASES: readonly CheckCase[] = [
     env: { PEEKTRACE_GITHUB_API: "http://127.0.0.1:1" },
     prefix: true,
   },
-  { name: "install-same", mode: "same", args: ["upgrade"] },
+  { name: "install-same", mode: "same", args: ["upgrade"], installs: true },
 ];
 
-const cut = (r: Run) => ({
-  ...r,
-  stderr: r.stderr.match(PREFIX_OF)?.[1] ?? r.stderr,
-});
+const DEV_VERSION = "0.0.0-dev";
 
-const runChecks = async (fake: Fake, home: string) => {
-  for (const c of CHECK_CASES) {
-    const env = envFor(home, fake.origin, c.env);
-    fake.state.mode = c.mode;
-    fake.state.log = [];
-    const ts = await runAsync([...TS_CMD, ...c.args], env);
-    const tsLog = fake.state.log.join("\n");
-    fake.state.log = [];
-    const rust = await runAsync([rustBin, ...c.args], env);
-    const rustLog = fake.state.log.join("\n");
-    compareRun(
-      `upgrade ${c.name}`,
-      c.prefix ? cut(ts) : ts,
-      c.prefix ? cut(rust) : rust
-    );
-    if (tsLog !== rustLog) {
-      report(
-        `upgrade ${c.name}: requests ts=${JSON.stringify(tsLog)} rust=${JSON.stringify(rustLog)}`
-      );
-    }
-  }
-  return CHECK_CASES.length;
+/** Both CLIs report the dev version, so `upgrade` stops at "Already on the
+ * latest version" instead of replacing a binary. */
+const bothDev = async (env: Record<string, string>) => {
+  const [ts, rust] = await Promise.all([
+    runAsync([...TS_CMD, "--version"], env),
+    runAsync([rustBin, "--version"], env),
+  ]);
+  return ts.stdout.trim() === DEV_VERSION && rust.stdout.trim() === DEV_VERSION;
 };
-
-const INSTALL_MODES = [
-  "ok",
-  "wrong",
-  "nosum",
-  "nosums404",
-  "badgz",
-  "nogz",
-  "noasset",
-];
 
 /** A temp dir holding the old binary; returns the target path. */
 const target = (side: string, mode: string) => {
@@ -266,6 +244,57 @@ const snapshot = (path: string) => {
     files: readdirSync(dir).sort().join(","),
   };
 };
+
+const cut = (r: Run) => ({
+  ...r,
+  stderr: r.stderr.match(PREFIX_OF)?.[1] ?? r.stderr,
+});
+
+const runChecks = async (fake: Fake, home: string) => {
+  const dev = await bothDev(envFor(home, fake.origin));
+  for (const c of CHECK_CASES) {
+    if (c.installs && !dev) {
+      console.log(`upgrade ${c.name}: skipped, not a ${DEV_VERSION} build`);
+      continue;
+    }
+    const env = envFor(home, fake.origin, c.env);
+    fake.state.mode = c.mode;
+    fake.state.log = [];
+    const ts = await runAsync([...TS_CMD, ...c.args], env);
+    const tsLog = fake.state.log.join("\n");
+    fake.state.log = [];
+    const rustTarget = c.installs ? target("rust", c.name) : undefined;
+    const rust = await runAsync(
+      [rustBin, ...c.args],
+      rustTarget ? { ...env, PEEKTRACE_UPGRADE_TARGET: rustTarget } : env
+    );
+    const rustLog = fake.state.log.join("\n");
+    compareRun(
+      `upgrade ${c.name}`,
+      c.prefix ? cut(ts) : ts,
+      c.prefix ? cut(rust) : rust
+    );
+    if (rustTarget && snapshot(rustTarget).bytes !== OLD.join(",")) {
+      report(`upgrade ${c.name}: rust replaced its target`);
+    }
+    if (tsLog !== rustLog) {
+      report(
+        `upgrade ${c.name}: requests ts=${JSON.stringify(tsLog)} rust=${JSON.stringify(rustLog)}`
+      );
+    }
+  }
+  return CHECK_CASES.length;
+};
+
+const INSTALL_MODES = [
+  "ok",
+  "wrong",
+  "nosum",
+  "nosums404",
+  "badgz",
+  "nogz",
+  "noasset",
+];
 
 const tsPerform = async (
   asset: string,
