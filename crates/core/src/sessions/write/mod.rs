@@ -1,9 +1,11 @@
 //! JSON for the session model, in the key order the TS core inserts keys.
 
 mod event;
+mod header;
 
 use event::usize_json;
 pub use event::{write_event, write_turn};
+pub use header::{headers_json, listing_json, write_header};
 
 use crate::js::json_out::Writer;
 use crate::sessions::model::{

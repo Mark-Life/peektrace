@@ -12,6 +12,7 @@ fancy-regex.workspace = true
 icu_collator.workspace = true
 indexmap.workspace = true
 jiff.workspace = true
+notify = "8"
 rayon.workspace = true
 sha1_smol.workspace = true
 regex.workspace = true
