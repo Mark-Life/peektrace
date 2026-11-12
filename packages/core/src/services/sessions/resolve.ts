@@ -2,7 +2,7 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect, Option } from "effect";
 import { type AgentRegistryShape, sourcesOf } from "../agents";
-import { capMemory, projectContext } from "./context-dirs";
+import { capMemory, claudeSlug, projectContext } from "./context-dirs";
 import { rulePaths } from "./context-rules";
 import { SessionNotFoundError } from "./errors";
 import type { OnDiskContextFile, SubagentRef } from "./schema";
@@ -484,22 +484,25 @@ export const gatherOnDiskContextFiles = (args: {
         );
       }
 
-      const memPath = join(
-        projectsRoot,
+      // Current slug first, then the older `/` and `.` only rule.
+      const slugs = new Set([
+        claudeSlug(project.memoryRoot),
         agents.encodeSlug(project.memoryRoot),
-        "memory",
-        "MEMORY.md"
-      );
-      const mem = yield* readContextText({ fs, path: memPath });
-      if (mem) {
-        const text = capMemory(mem.text);
-        files.push({
-          label: "memory/MEMORY.md",
-          path: memPath,
-          bytes: new TextEncoder().encode(text).length,
-          tokensEst: estTokens(text),
-          scope: "memory",
-        });
+      ]);
+      for (const slug of slugs) {
+        const memPath = join(projectsRoot, slug, "memory", "MEMORY.md");
+        const mem = yield* readContextText({ fs, path: memPath });
+        if (mem) {
+          const text = capMemory(mem.text);
+          files.push({
+            label: "memory/MEMORY.md",
+            path: memPath,
+            bytes: new TextEncoder().encode(text).length,
+            tokensEst: estTokens(text),
+            scope: "memory",
+          });
+          break;
+        }
       }
     }
 

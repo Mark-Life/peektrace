@@ -129,6 +129,9 @@ export const projectContext = (args: {
     };
   });
 
+/** Claude Code's project dir slug: every UTF-16 unit outside `[a-zA-Z0-9]` becomes `-`. */
+export const claudeSlug = (path: string) => path.replace(/[^a-zA-Z0-9]/g, "-");
+
 /**
  * Claude Code trims MEMORY.md, keeps 200 lines, then cuts past 25,000
  * characters at the last newline before the limit.

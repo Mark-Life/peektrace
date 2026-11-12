@@ -67,6 +67,15 @@ pub fn resolve(cwd: &str, path: &str) -> String {
     }
 }
 
+/// `path.posix.dirname` of a path with no trailing slash.
+pub fn dirname(path: &str) -> String {
+    match path.rfind('/') {
+        Some(0) => "/".to_owned(),
+        Some(at) => path[..at].to_owned(),
+        None => ".".to_owned(),
+    }
+}
+
 /// `path.posix.basename`.
 pub fn basename(path: &str) -> &str {
     let trimmed = path.trim_end_matches('/');

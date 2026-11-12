@@ -17,7 +17,7 @@ use tracing_subscriber::layer::{Context, Layer, SubscriberExt as _};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt as _;
 
-use crate::render::push_json_string;
+use peektrace_core::js::json_out::push_str;
 
 /// Field that marks a span failed. It is not printed: TS takes `fail` from
 /// the span's exit and prints only its attributes.
@@ -44,7 +44,7 @@ impl Attrs {
 
     fn quoted(s: &str) -> String {
         let mut out = String::new();
-        push_json_string(&mut out, s);
+        push_str(&mut out, s);
         out
     }
 
