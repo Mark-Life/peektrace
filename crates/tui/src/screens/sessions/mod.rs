@@ -21,7 +21,7 @@ use self::growth::Growth;
 use self::history::{History, Out};
 use super::{Ctx, Hit, Query};
 use crate::backend::{Reply, Request, Response};
-use crate::draw::{fill_row, frame, inset, panel, put, seg};
+use crate::draw::{frame, inset, panel, put, seg};
 use crate::fmt::{clip, fmt_bytes, fmt_started, sanitize};
 use crate::input::{Edit, LineInput};
 use crate::list::ListSel;
@@ -298,13 +298,13 @@ impl State {
             _ => {}
         }
         match self.focus {
-            Focus::List => self.list_key(k, cx),
+            Focus::List => self.list_key(k),
             Focus::Detail => self.detail_key(k),
         }
         self.sync(cx);
     }
 
-    fn list_key(&mut self, k: KeyEvent, cx: &mut Ctx<'_>) {
+    fn list_key(&mut self, k: KeyEvent) {
         match k.code {
             KeyCode::Enter | KeyCode::Right => self.focus = Focus::Detail,
             KeyCode::Char('r') => self.redact = !self.redact,
@@ -327,7 +327,6 @@ impl State {
                 }
             }
         }
-        let _ = cx;
     }
 
     fn detail_key(&mut self, k: KeyEvent) {
@@ -673,7 +672,6 @@ impl State {
             ),
             View::Growth => self.growth.draw(buf, region, s, self.generation, term),
         }
-        let _ = fill_row;
     }
 }
 

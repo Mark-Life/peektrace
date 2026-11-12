@@ -12,7 +12,6 @@ use peektrace_core::stats::report::StatsReport;
 use ratatui::buffer::Buffer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::Rect;
-use ratatui::style::Style;
 
 use self::drill::{Drill, DrillOut};
 use self::layout::{MIN_HEIGHT, MIN_WIDTH, columns_of, content_width, layout_of};
@@ -477,6 +476,5 @@ impl State {
             &notes,
             &cols,
         );
-        let _ = Style::new();
     }
 }
