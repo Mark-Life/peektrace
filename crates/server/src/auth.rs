@@ -396,4 +396,69 @@ mod tests {
             "http://h:1/?token=a%20b%2B%2F~!"
         );
     }
+    // serve-auth.test.ts pure helpers, same inputs.
+
+    #[test]
+    fn tokens_equal_cases() {
+        assert!(tokens_equal("abc", "abc"));
+        assert!(!tokens_equal("abc", "abd"));
+        assert!(!tokens_equal("abc", "abcd"));
+        assert!(!tokens_equal("", "x"));
+    }
+
+    #[test]
+    fn serve_posture_table() {
+        let row = |host, read_only, allow_write| {
+            let p = posture(host, read_only, allow_write);
+            (p.auth, p.read_only)
+        };
+        assert_eq!(row("127.0.0.1", false, false), (false, false));
+        assert_eq!(row("localhost", false, true), (false, false));
+        assert_eq!(row("127.0.0.1", true, false), (false, true));
+        assert_eq!(row("0.0.0.0", false, false), (true, true));
+        assert_eq!(row("0.0.0.0", false, true), (true, false));
+        assert_eq!(row("0.0.0.0", true, true), (true, true));
+        assert!(posture("::ffff:127.0.0.1", false, false).auth);
+    }
+
+    #[test]
+    fn auth_outcome_strips_only_the_token_param() {
+        let t = format!("/sessions?titlebar=inset&token={TOKEN}&x=1");
+        assert_eq!(
+            auth_outcome(get(&t), TOKEN, 4321),
+            AuthOutcome::Redirect("/sessions?titlebar=inset&x=1".to_owned())
+        );
+    }
+
+    #[test]
+    fn auth_outcome_ignores_token_on_post() {
+        let t = format!("/?token={TOKEN}");
+        let req = AuthRequest {
+            method: "POST",
+            ..get(&t)
+        };
+        assert_eq!(auth_outcome(req, TOKEN, 4321), AuthOutcome::Unauthorized);
+    }
+
+    #[test]
+    fn auth_outcome_redirects_token_even_with_a_valid_cookie() {
+        let t = format!("/a?token={TOKEN}&x=1");
+        let cookie = format!("{}={TOKEN}", cookie_name(4321));
+        let req = AuthRequest {
+            cookie: Some(&cookie),
+            ..get(&t)
+        };
+        assert_eq!(
+            auth_outcome(req, TOKEN, 4321),
+            AuthOutcome::Redirect("/a?x=1".to_owned())
+        );
+    }
+
+    #[test]
+    fn resolve_token_trims_a_trailing_cr_and_honours_a_long_token() {
+        let long = "x".repeat(40);
+        assert_eq!(resolve_token(Some(&format!("{long}\r"))), Ok(long.clone()));
+        assert_eq!(resolve_token(Some(&long)), Ok(long));
+        assert!(resolve_token(Some("short")).is_err());
+    }
 }

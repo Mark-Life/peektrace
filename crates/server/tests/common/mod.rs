@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use peektrace_core::AgentRoots;
 use peektrace_core::js::time::Utc;
@@ -19,7 +20,12 @@ pub fn fixtures(sub: &str) -> String {
 }
 
 pub fn temp_dir(name: &str) -> PathBuf {
-    let d = std::env::temp_dir().join(format!("peektrace-server-{name}-{}", std::process::id()));
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    let d = std::env::temp_dir().join(format!(
+        "peektrace-server-{name}-{}-{n}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).expect("mkdir");
     d

@@ -316,4 +316,40 @@ mod tests {
         let e = JsValue::parse(r#"{"_tag":"NotPortedYetError","feature":"stats"}"#).unwrap();
         assert_eq!(format_api_error(&e), "Error: NotPortedYetError");
     }
+    // serve-auth.test.ts splitRemote cases and the 403 port hint.
+
+    #[test]
+    fn split_remote_never_leaks_or_loses_the_token() {
+        for raw in [
+            "127.0.0.1:47812/?token=SECRET",
+            "server:4321/?token=SECRET",
+            "localhost:1/?token=SECRET",
+        ] {
+            let (url, token) = split_remote(raw);
+            assert!(!url.contains("SECRET"), "{url}");
+            assert_ne!(url, "null");
+            assert_eq!(token, None);
+        }
+        assert_eq!(split_remote("http://h:1/?token=").1, None);
+    }
+
+    #[test]
+    fn split_remote_separates_the_token_from_the_url() {
+        let token = "t".repeat(43);
+        assert_eq!(
+            split_remote(&format!("http://h:1/?token={token}")),
+            ("http://h:1".to_owned(), Some(token))
+        );
+        assert_eq!(split_remote("http://h:1"), ("http://h:1".to_owned(), None));
+        assert_eq!(split_remote("h:1").1, None);
+    }
+
+    #[test]
+    fn forbidden_maps_to_a_port_hint() {
+        let r = Remote::new("http://127.0.0.1:4321", None);
+        assert!(
+            r.transport_message(&Transport::Status(403))
+                .contains("ports match")
+        );
+    }
 }
