@@ -6,11 +6,12 @@
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
-#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve
+#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
+# The serve suites live in bench-serve.sh, sourced below.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # Bash 3.2 compatible (macOS /bin/bash).
 set -euo pipefail
@@ -254,156 +255,39 @@ suite_search() {
   METHOD_EXTRA+=("Search: \`$word\` is a common word (override with \`BENCH_SEARCH_WORD\`); the miss row searches a string found nowhere, so every transcript is read.")
 }
 
-suite_memory() {
-  # Largest memory file across all projects; the slug and name stay out of the summary.
-  local projects="$OUT/bun-memory-ls.json" entries="$OUT/memory-entries.txt" slug top_slug top_name top_size big_slug
+# memory_scan -> once: sets MEM_TOP_{SIZE,SLUG,NAME} (largest file) and MEM_BIG_SLUG (largest project).
+# Slugs and names stay out of the summary.
+MEM_BIG_SLUG=""
+memory_scan() {
+  [[ -n "$MEM_BIG_SLUG" ]] && return
+  local projects="$OUT/bun-memory-ls.json" entries="$OUT/memory-entries.txt" slug
   "$BUN_BIN" memory ls --json >"$projects"
   : >"$entries"
   for slug in $(jq -r '.[].slug' "$projects"); do
     "$BUN_BIN" memory ls "$slug" --json |
       jq -r '"\(.slug)\t\(.totalBytes)\t" + ([.entries[] | "\(.size) \(.fileName | sub("\\.md$"; ""))"] | join(","))' >>"$entries"
   done
-  read -r top_size top_slug top_name <<<"$(awk -F'\t' '{n = split($3, e, ","); for (i = 1; i <= n; i++) { split(e[i], p, " "); print p[1], $1, p[2] } }' "$entries" | sort -n | tail -1)"
-  big_slug="$(sort -t$'\t' -k2,2n "$entries" | tail -1 | cut -f1)"
-  [[ -n "$top_name" ]] || { echo "no memory files found" >&2; exit 1; }
-  ENV_EXTRA+=("memory: $(jq 'length' "$projects") projects, $(jq '[.[].fileCount] | add' "$projects") files; largest file $(fmt_bytes <<<"$top_size"); largest project $(awk -F'\t' -v s="$big_slug" '$1 == s {print $2}' "$entries" | fmt_bytes)")
-  add_case memory-ls 2 10 "rss" "\`memory ls --json\` (all projects)" memory ls --json
-  add_case memory-ls-project 2 10 "" "\`memory ls <largest project> --json\`" memory ls "$big_slug" --json
-  add_case memory-show 2 10 "rss" "\`memory show <largest file> --json\` ($(fmt_bytes <<<"$top_size"))" memory show "$top_slug" "$top_name" --json
+  read -r MEM_TOP_SIZE MEM_TOP_SLUG MEM_TOP_NAME <<<"$(awk -F'\t' '{n = split($3, e, ","); for (i = 1; i <= n; i++) { split(e[i], p, " "); print p[1], $1, p[2] } }' "$entries" | sort -n | tail -1)"
+  MEM_BIG_SLUG="$(sort -t$'\t' -k2,2n "$entries" | tail -1 | cut -f1)"
+  [[ -n "$MEM_TOP_NAME" ]] || { echo "no memory files found" >&2; exit 1; }
+  ENV_EXTRA+=("memory: $(jq 'length' "$projects") projects, $(jq '[.[].fileCount] | add' "$projects") files; largest file $(fmt_bytes <<<"$MEM_TOP_SIZE"); largest project $(awk -F'\t' -v s="$MEM_BIG_SLUG" '$1 == s {print $2}' "$entries" | fmt_bytes)")
   METHOD_EXTRA+=("Memory: largest file by \`size\` and largest project by \`totalBytes\` from the Bun \`memory ls\` output.")
 }
 
+suite_memory() {
+  memory_scan
+  add_case memory-ls 2 10 "rss" "\`memory ls --json\` (all projects)" memory ls --json
+  add_case memory-ls-project 2 10 "" "\`memory ls <largest project> --json\`" memory ls "$MEM_BIG_SLUG" --json
+  add_case memory-show 2 10 "rss" "\`memory show <largest file> --json\` ($(fmt_bytes <<<"$MEM_TOP_SIZE"))" memory show "$MEM_TOP_SLUG" "$MEM_TOP_NAME" --json
+}
+
 # --- serve -----------------------------------------------------------------------
-# TS serves Effect RPC at `/rpc` (NDJSON); Rust serves JSON at `/api`. Cases call both with curl.
-# Ports are picked when the suite registers; no path may contain a space.
-port_busy() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
-free_port() { local p="$1"; while port_busy "$p"; do p=$((p + 1)); done; echo "$p"; }
-health_url() { echo "http://127.0.0.1:$1/health"; }
-# wait_ready <port> -> waits up to 30 s for /health 200
-wait_ready() {
-  local n=0
-  until curl -sf -o /dev/null "$(health_url "$1")"; do
-    n=$((n + 1))
-    ((n < 600)) || { echo "no server ready on port $1" >&2; return 1; }
-    sleep 0.05
-  done
-}
-# serve_env: no update check, so startup does no network call.
-SERVE_ENV="PEEKTRACE_NO_UPDATE_CHECK=1"
-
-# cold_cmd <bin> <port> <tag>: start serve in the background, then poll /health with curl until 200.
-cold_cmd() {
-  echo "bash -c '$SERVE_ENV $1 serve --port $2 --no-open >$OUT/cold-$3.log 2>&1 & echo \$! >$OUT/cold-$3.pid; n=0; until curl -sf -o /dev/null $(health_url "$2"); do n=\$((n + 1)); [ \$n -lt 5000 ] || exit 1; done'"
-}
-# stop_cmd <tag> <port>: stop the cold-start server and wait until its port is free.
-stop_cmd() {
-  echo "bash -c 'p=\$(cat $OUT/cold-$1.pid); kill \$p; while kill -0 \$p 2>/dev/null; do sleep 0.01; done; while curl -s -o /dev/null $(health_url "$2"); do sleep 0.01; done'"
-}
-
-# HTTP cases: P_* keep the curl args (no -o) so the payload step can reuse them.
-P_NAME=() P_LABEL=() P_BUN=() P_RUST=()
-GZ="-H accept-encoding:gzip"
-# add_http <name> <label> <bun-curl-args> <rust-curl-args> [gzip]
-# "gzip" also adds a case that sends `Accept-Encoding: gzip` to both.
-add_http() {
-  P_NAME+=("$1"); P_LABEL+=("$2"); P_BUN+=("$3"); P_RUST+=("$4")
-  add_pair "serve-$1" 2 10 live "$2" "curl -sf -o /dev/null $3" "curl -sf -o /dev/null $4"
-  if [[ "${5:-}" == gzip ]]; then
-    add_pair "serve-$1-gzip" 2 10 live "$2, \`Accept-Encoding: gzip\`" \
-      "curl -sf -o /dev/null $GZ $3" "curl -sf -o /dev/null $GZ $4"
-  fi
-}
-# rpc_args <port> <tag> <payload-json> -> curl args for one TS RPC call; the body goes to a file.
-rpc_args() {
-  local f="$OUT/rpc-$2-${#P_NAME[@]}.ndjson"
-  printf '{"_tag":"Request","id":"1","tag":"%s","payload":%s,"headers":[]}\n' "$2" "$3" >"$f"
-  echo "-X POST -H content-type:application/ndjson --data-binary @$f http://127.0.0.1:$1/rpc"
-}
-api_args() { echo "http://127.0.0.1:$1/api$2"; }
-
-suite_serve() {
-  BUN_PORT="$(free_port 47810)"; RUST_PORT="$(free_port $((BUN_PORT + 1)))"
-  local cold_bun cold_rust
-  cold_bun="$(free_port $((RUST_PORT + 1)))"; cold_rust="$(free_port $((cold_bun + 1)))"
-  add_pair serve-cold 2 10 "" "\`serve\` cold start to first \`/health\` 200" \
-    "$(cold_cmd "$BUN_BIN" "$cold_bun" bun)" "$(cold_cmd "$RUST_BIN" "$cold_rust" rust)" \
-    "$(stop_cmd bun "$cold_bun")" "$(stop_cmd rust "$cold_rust")"
-
-  add_http list "\`GET /api/sessions\` vs TS \`sessions.list\`" \
-    "$(rpc_args "$BUN_PORT" sessions.list '{}')" "$(api_args "$RUST_PORT" /sessions)"
-  add_http listing "\`GET /api/sessions\` vs TS \`sessions.listing\`" \
-    "$(rpc_args "$BUN_PORT" sessions.listing '{}')" "$(api_args "$RUST_PORT" /sessions)" gzip
-
-  # The 3 largest sessions over all agents, by `sizeBytes` in the Bun ls output.
-  local i=0 agent id bytes size gz
-  while read -r agent id bytes; do
-    i=$((i + 1)); size="$(fmt_bytes <<<"$bytes")"; gz=""
-    ((i == 1)) && { SERVE_TOP=$((${#P_NAME[@]})); gz=gzip; }
-    ENV_EXTRA+=("serve session #$i: $agent $id ($size)")
-    add_http "analyze-$i" "\`GET /api/sessions/<#$i>/analysis\` vs TS \`sessions.analyze\` ($size)" \
-      "$(rpc_args "$BUN_PORT" sessions.analyze "{\"id\":\"$id\"}")" "$(api_args "$RUST_PORT" "/sessions/$id/analysis")" $gz
-  done < <(jq -s -r 'add | sort_by(-.sizeBytes) | .[:3][] | "\(.agent) \(.id) \(.sizeBytes)"' "$OUT"/bun-ls-*.json)
-  ((i > 0)) || { echo "no sessions found" >&2; exit 1; }
-  SERVE=1
-  METHOD_EXTRA+=("Serve: both servers run \`serve --no-open\` on 127.0.0.1 with \`$SERVE_ENV\` and default settings (TS records local telemetry per RPC). Each call is one \`curl\` process, timed by \`hyperfine -N\`; curl startup is in both numbers.")
-  METHOD_EXTRA+=("Cold start: \`bash -c\` starts the server in the background, then runs \`curl /health\` in a loop with no sleep until it gets 200. Shutdown and port release run in \`--conclude\`, untimed.")
-  METHOD_EXTRA+=("Listing: \`GET /api/sessions\` returns the \`sessions.listing\` shape (\`{headers, unreadable}\`); \`sessions.list\` returns the bare header array. Both servers keep list headers in memory between calls, so warm runs hit that cache. Analysis has no cache on either side.")
-  METHOD_EXTRA+=("Payload: raw = body bytes without \`Accept-Encoding\` (TS includes the NDJSON \`Exit\` envelope); gzip -6 = that body through \`gzip -6\`; wire = bytes received with \`Accept-Encoding: gzip\`. Rust gzips responses over 1 KiB through tower-http \`CompressionLayer\`; TS \`/rpc\` sends no compression.")
-  METHOD_EXTRA+=("Serve RSS: per round, start the server under GNU time, wait for \`/health\`, wait 10 s, read RSS with \`ps -o rss=\` (idle), run the \`list\` call and the \`analyze #1\` call, read RSS again, stop the server; peak = GNU time \`%M\` over the whole life. $RSS_ROUNDS rounds, Bun and Rust interleaved, median (min–max).")
-}
-
-LIVE_PIDS=()
-start_live() {
-  # shellcheck disable=SC2086
-  env $SERVE_ENV "$BUN_BIN" serve --port "$BUN_PORT" --no-open >"$OUT/live-bun.log" 2>&1 &
-  LIVE_PIDS+=($!)
-  # shellcheck disable=SC2086
-  env $SERVE_ENV "$RUST_BIN" serve --port "$RUST_PORT" --no-open >"$OUT/live-rust.log" 2>&1 &
-  LIVE_PIDS+=($!)
-  wait_ready "$BUN_PORT"; wait_ready "$RUST_PORT"
-}
-stop_live() {
-  local p
-  for p in ${LIVE_PIDS[@]+"${LIVE_PIDS[@]}"}; do kill "$p" 2>/dev/null || true; wait "$p" 2>/dev/null || true; done
-  LIVE_PIDS=()
-}
-trap stop_live EXIT
-
-# payload_sizes <bun|rust> <curl-args> -> "raw gzip6 wire ok"; the body is deleted, it holds session content.
-payload_sizes() {
-  local tmp="$OUT/payload.tmp" raw gz6 wire ok=no code
-  read -ra argv <<<"$2"
-  code="$(curl -s -o "$tmp" -w '%{http_code}' "${argv[@]}")"
-  raw="$(size_of "$tmp")"; gz6="$(gzip -6 -c "$tmp" | wc -c | tr -d ' ')"
-  if [[ "$1" == bun ]]; then grep -q '"exit":{"_tag":"Success"' "$tmp" && ok=yes; else [[ "$code" == 200 ]] && ok=yes; fi
-  rm -f "$tmp"
-  # shellcheck disable=SC2086
-  wire="$(curl -s -o /dev/null -w '%{size_download}' $GZ "${argv[@]}")"
-  echo "$raw $gz6 $wire $ok"
-}
-
-# serve_rss_round <tag> <bin> <port> <list-args> <analyze-args>
-serve_rss_round() {
-  local tag="$1" bin="$2" port="$3" gpid pid
-  # shellcheck disable=SC2086
-  env $SERVE_ENV "$GTIME" -f %M -o "$OUT/srss-peak.tmp" "$bin" serve --port "$port" --no-open >"$OUT/srss-$tag.log" 2>&1 &
-  gpid=$!
-  wait_ready "$port"
-  pid="$(pgrep -P "$gpid")"
-  sleep 10
-  ps -o rss= -p "$pid" | tr -d ' ' >>"$OUT/srss-idle-$tag.txt"
-  read -ra argv <<<"$4"; curl -sf -o /dev/null "${argv[@]}"
-  read -ra argv <<<"$5"; curl -sf -o /dev/null "${argv[@]}"
-  ps -o rss= -p "$pid" | tr -d ' ' >>"$OUT/srss-used-$tag.txt"
-  kill "$pid"; wait "$gpid" || true
-  # GNU time prints "Command terminated by signal 15" first; %M is the last line.
-  tail -1 "$OUT/srss-peak.tmp" >>"$OUT/srss-peak-$tag.txt"
-  rm -f "$OUT/srss-peak.tmp"
-}
+# shellcheck source=scripts/rust/bench-serve.sh
+. "$ROOT/scripts/rust/bench-serve.sh"
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -450,12 +334,12 @@ done
 if [[ "${SERVE:-0}" == 1 ]]; then
   ((${#LIVE_PIDS[@]} > 0)) || start_live
   for ((p = 0; p < ${#P_NAME[@]}; p++)); do
+    [[ "${P_SIZE[p]}" == yes ]] || continue
     echo "${P_NAME[p]} bun $(payload_sizes bun "${P_BUN[p]}") rust $(payload_sizes rust "${P_RUST[p]}")"
   done | tee "$OUT/payload.txt"
   stop_live
   for ((i = 1; i <= RSS_ROUNDS; i++)); do
-    serve_rss_round bun "$BUN_BIN" "$BUN_PORT" "${P_BUN[0]}" "${P_BUN[SERVE_TOP]}"
-    serve_rss_round rust "$RUST_BIN" "$RUST_PORT" "${P_RUST[0]}" "${P_RUST[SERVE_TOP]}"
+    for ((g = 0; g < ${#G_NAME[@]}; g++)); do serve_rss_round "$g" bun; serve_rss_round "$g" rust; done
   done
 fi
 
@@ -540,15 +424,18 @@ row_rss() {
     echo
     echo "| server RSS | Bun | Rust | Δ (Rust vs Bun) |"
     echo "|---|---|---|---|"
-    row_rss "idle, 10 s after ready" "$OUT/srss-idle"
-    row_rss "after list + analyze #1" "$OUT/srss-used"
-    row_rss "peak over the server life" "$OUT/srss-peak"
+    for ((g = 0; g < ${#G_NAME[@]}; g++)); do
+      row_rss "${G_LABEL[g]}: idle, 10 s after ready" "$OUT/srss-${G_NAME[g]}-idle"
+      row_rss "${G_LABEL[g]}: after the calls" "$OUT/srss-${G_NAME[g]}-used"
+      row_rss "${G_LABEL[g]}: peak over the server life" "$OUT/srss-${G_NAME[g]}-peak"
+    done
     echo
     echo "## Serve payloads"
     echo
     echo "| response | Bun | Rust | Δ (Rust vs Bun) |"
     echo "|---|---|---|---|"
     for ((p = 0; p < ${#P_NAME[@]}; p++)); do
+      [[ "${P_SIZE[p]}" == yes ]] || continue
       # payload.txt: <name> bun <raw> <gz6> <wire> <ok> rust <raw> <gz6> <wire> <ok>
       read -r _ _ braw bgz bwire bok _ rraw rgz rwire rok < <(grep "^${P_NAME[p]} " "$OUT/payload.txt")
       printf '| %s, raw | %s | %s | %s |\n' "${P_LABEL[p]}" "$(fmt_bytes <<<"$braw")" "$(fmt_bytes <<<"$rraw")" "$(delta "$braw" "$rraw" smaller)"
