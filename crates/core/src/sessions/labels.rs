@@ -27,6 +27,26 @@ pub fn event_badge_label(e: &TimelineEvent) -> String {
     }
 }
 
+/// Short tag for an event a later context edit changed.
+pub fn context_edit_tag(e: &TimelineEvent) -> Option<&'static str> {
+    e.context_edit.as_ref().map(|c| match c {
+        ContextEdit::Removed { .. } => "removed",
+        ContextEdit::Replaced { .. } => "edited",
+    })
+}
+
+/// An event's best known size and whether usage measured it.
+pub fn event_tokens(e: &TimelineEvent) -> (f64, bool) {
+    e.tokens_measured
+        .map_or((e.tokens_est, false), |m| (m, true))
+}
+
+/// Size label for an event: `~` marks a chars/4 estimate.
+pub fn token_label(e: &TimelineEvent, format: impl Fn(f64) -> String) -> String {
+    let (tokens, measured) = event_tokens(e);
+    format!("{}{}", if measured { "" } else { "~" }, format(tokens))
+}
+
 /// One paragraph on a context edit, with the original text when kept.
 pub fn context_edit_note(e: &TimelineEvent) -> Option<String> {
     let edit = e.context_edit.as_ref()?;
