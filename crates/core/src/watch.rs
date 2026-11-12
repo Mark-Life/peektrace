@@ -42,11 +42,19 @@ fn segments(rel: &Path) -> Vec<&str> {
         .collect()
 }
 
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "file names match case-sensitively, as in TS"
+)]
 fn is_opencode_store(name: &str) -> bool {
     name.starts_with("opencode") && (name.ends_with(".db") || name.ends_with(".db-wal"))
 }
 
 /// The scope a path relative to an `agent` root invalidates, if any.
+#[expect(
+    clippy::case_sensitive_file_extension_comparisons,
+    reason = "file names match case-sensitively, as in TS"
+)]
 pub fn classify(agent: Agent, rel: &Path) -> Option<Scope> {
     let segs = segments(rel);
     let name = *segs.last()?;

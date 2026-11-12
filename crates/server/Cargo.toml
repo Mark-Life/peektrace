@@ -1,0 +1,32 @@
+[package]
+name = "peektrace-server"
+description = "peektrace HTTP API and web UI server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+peektrace-core.workspace = true
+peektrace-protocol.workspace = true
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query"] }
+base64 = "0.22"
+futures-util = { version = "0.3", default-features = false }
+getrandom = "0.3"
+mime_guess = { version = "2", default-features = false }
+percent-encoding = "2"
+rust-embed = { version = "8", features = ["include-exclude"] }
+serde_json.workspace = true
+sha2 = { version = "0.10", default-features = false }
+thiserror.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "signal", "sync", "time"] }
+tower-http = { version = "0.6", default-features = false, features = ["compression-gzip"] }
+tracing.workspace = true
+url = "2"
+
+[dev-dependencies]
+ureq = { version = "3", default-features = false }
+
+[lints]
+workspace = true

@@ -164,9 +164,23 @@ fn write_cost(w: &mut Writer, c: &SessionCost) {
     w.end_obj();
 }
 
+/// `JSON.stringify(parsed)` or `JSON.stringify(parsed, null, 2)`.
+pub fn parsed_json(p: &ParsedSession, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
+    w.begin_obj();
+    write_parsed_fields(&mut w, p);
+    w.end_obj();
+    w.finish()
+}
+
 /// `JSON.stringify(analyzed, null, 2)`.
 pub fn analyzed_json(a: &AnalyzedSession) -> String {
-    let mut w = Writer::new(true);
+    analyzed_json_with(a, true)
+}
+
+/// `JSON.stringify(analyzed)` or `JSON.stringify(analyzed, null, 2)`.
+pub fn analyzed_json_with(a: &AnalyzedSession, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
     w.begin_obj();
     write_parsed_fields(&mut w, &a.parsed);
     w.key("contextWindow").num(a.context_window);

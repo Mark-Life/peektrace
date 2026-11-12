@@ -219,7 +219,9 @@ fn check_cas(path: &str, expected: Option<f64>) -> Result<(), SettingsUpdateErro
     }
     #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
     let current = mtime_ms(path) as f64;
-    if current == expected {
+    #[expect(clippy::float_cmp, reason = "TS compares with !==")]
+    let same = current == expected;
+    if same {
         Ok(())
     } else {
         changed(ChangeReason::Mtime)
