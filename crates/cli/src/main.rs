@@ -2,6 +2,7 @@
 
 mod args;
 mod argv;
+mod help;
 mod ls;
 mod mcp;
 mod memory;
@@ -101,17 +102,23 @@ fn print_stderr(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
 }
 
-/// Help for the command at `path` (empty for the root), exit 0.
-fn print_help(path: &[&str]) -> ExitCode {
-    let mut cmd = <Cli as clap::CommandFactory>::command();
-    cmd.build();
-    let help = path
-        .iter()
-        .try_fold(&mut cmd, |c, name| c.find_subcommand_mut(name))
-        .map(|c| c.render_help().to_string());
-    match help.map(|h| write_stdout(&[&h])) {
-        Some(Ok(())) => ExitCode::SUCCESS,
-        _ => ExitCode::FAILURE,
+/// A page or script that runs before any command, exit 0 (1 for a
+/// `--completions` value that names no shell).
+fn print_early(early: help::Early) -> ExitCode {
+    let text = match early {
+        help::Early::RootHelp => format!("{}\n", help::root_page(VERSION)),
+        help::Early::GroupHelp(g) => format!("{}\n", help::group_page(g, VERSION)),
+        help::Early::Completions(Ok(shell)) => help::completions(shell),
+        help::Early::Completions(Err(value)) => {
+            print_stderr(&format!(
+                "invalid value '{value}' for '--completions <shell>'\n  [possible values: sh, bash, fish, zsh]"
+            ));
+            return ExitCode::FAILURE;
+        }
+    };
+    match write_stdout(&[&text]) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(_) => ExitCode::FAILURE,
     }
 }
 
@@ -402,6 +409,9 @@ fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args_os()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
+    if let Some(early) = help::early(&argv) {
+        return print_early(early);
+    }
     if let Some(flag) = args::missing_value(&argv) {
         print_stderr(&format!("Missing value for {flag}."));
         return ExitCode::FAILURE;
@@ -424,9 +434,14 @@ fn main() -> ExitCode {
         };
     }
     let cmd = match &cli.command {
-        None => return print_help(&[]),
+        None => {
+            return match print_stdout(&help::banner()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(_) => ExitCode::FAILURE,
+            };
+        }
         Some(Command::Sessions(SessionsArgs { command: None })) => {
-            return print_help(&["sessions"]);
+            return print_early(help::Early::GroupHelp("sessions"));
         }
         Some(Command::Sessions(SessionsArgs { command: Some(c) })) => match c {
             SessionsCommand::Ls(a) => Run::Ls(a),
@@ -434,7 +449,9 @@ fn main() -> ExitCode {
             SessionsCommand::Export(a) => Run::Export(a),
             SessionsCommand::Search(a) => Run::Search(a),
         },
-        Some(Command::Memory(MemoryArgs { command: None })) => return print_help(&["memory"]),
+        Some(Command::Memory(MemoryArgs { command: None })) => {
+            return print_early(help::Early::GroupHelp("memory"));
+        }
         Some(Command::Memory(MemoryArgs { command: Some(c) })) => match c {
             MemoryCommand::Ls(a) => Run::MemoryLs(a),
             MemoryCommand::Show(a) => Run::MemoryShow(a),
