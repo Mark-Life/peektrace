@@ -429,3 +429,34 @@ fn every_screen_mounts_on_an_empty_home() {
     h.keys(&["5"]);
     assert!(h.text().contains("0 transcripts"), "{}", h.text());
 }
+
+#[test]
+fn the_card_shows_the_estimated_cost_and_attachment_badges() {
+    let mut h = sessions();
+    let t = h.text();
+    assert!(t.contains("Est. cost      ~$"), "{t}");
+    assert!(t.contains("[t0] [deferred tools delta]"));
+}
+
+#[test]
+fn a_click_selects_a_card_and_toggles_a_history_row() {
+    use ratatui::crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    let mut h = sessions();
+    let click = |row| MouseEvent {
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: 10,
+        row,
+        modifiers: KeyModifiers::NONE,
+    };
+    h.app.mouse(click(11));
+    h.settle();
+    assert!(h.text().contains("thinking · claude-opus-5-5"), "second card: {}", h.text());
+    let t = h.text();
+    let at = t.lines().position(|l| l.contains("[t0] [user-prompt] why is")).expect("row");
+    h.app.mouse(MouseEvent {
+        column: 60,
+        ..click(u16::try_from(at).expect("row"))
+    });
+    h.settle();
+    assert_eq!(h.text().matches("why is the build slow?").count(), 2, "the row opened");
+}

@@ -374,3 +374,42 @@ fn unreadable_transcript_span_fails_without_error_attr() {
         "{err}"
     );
 }
+
+#[test]
+fn top_help_lists_tui() {
+    let f = Fixture::new();
+    let (code, out, _) = f.run(&["--help"]);
+    assert_eq!(code, 0);
+    assert!(
+        out.lines()
+            .any(|l| l.trim_start().starts_with("tui") && l.contains("Browse sessions in a terminal UI")),
+        "{out}"
+    );
+}
+
+#[test]
+fn tui_checks_the_port_before_the_terminal() {
+    let f = Fixture::new();
+    for (args, port) in [
+        (vec!["tui", "--port", "0", "--no-open"], "0"),
+        (vec!["tui", "--port", "70000", "--no-open"], "70000"),
+        (vec!["tui", "--port", "-1", "--no-open"], "-1"),
+        (vec!["tui", "--host", "0.0.0.0", "--port", "99999"], "99999"),
+    ] {
+        let (code, out, err) = f.run(&args);
+        assert_eq!(code, 1, "{args:?}");
+        assert_eq!(out, "");
+        assert_eq!(
+            err,
+            format!("Invalid --port {port}: must be an integer between 1 and 65535.\n")
+        );
+    }
+}
+
+#[test]
+fn tui_needs_a_terminal() {
+    let f = Fixture::new();
+    let (code, out, err) = f.run(&["tui", "--no-open", "--port", "4398"]);
+    assert_eq!((code, out.as_str()), (1, ""));
+    assert_eq!(err, "peektrace tui needs a terminal\n");
+}
