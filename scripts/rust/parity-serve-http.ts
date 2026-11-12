@@ -317,16 +317,32 @@ export const remoteCli = (
     ["sessions", "ls", "--cwd", "/tmp/demo", "--json"],
     ["sessions", "analyze", "--latest"],
     ["sessions", "analyze", "nope"],
+    ["sessions", "export", "--latest"],
     ...ids.flatMap((id) => [
       ["sessions", "analyze", id],
       ["--json", "sessions", "analyze", id],
+      ...["md", "html", "json"].map((f) => [
+        "sessions",
+        "export",
+        id,
+        "--format",
+        f,
+      ]),
+      ["sessions", "export", id, "--format", "json", "--no-redact"],
     ]),
   ];
+  // `exportedAt` is the clock of each run.
+  const today = new Date().toISOString().slice(0, "2026-01-01".length);
+  const stamp = new RegExp(`${today}T\\d\\d:\\d\\d:\\d\\d\\.\\d{3}Z`, "g");
+  const mask = (r: ReturnType<typeof run>) => ({
+    ...r,
+    stdout: r.stdout.replace(stamp, "<now>"),
+  });
   for (const args of cases) {
     c.cases += 1;
     const ts = run([...TS_CMD, "--no-telemetry", ...args], env);
     const rust = run([rustBin, "--remote", url, ...args], env);
-    compareRun(`serve remote ${args.join(" ")}`, ts, rust);
+    compareRun(`serve remote ${args.join(" ")}`, mask(ts), mask(rust));
   }
 };
 

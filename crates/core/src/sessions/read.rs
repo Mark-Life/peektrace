@@ -4,6 +4,7 @@
 use crate::js::value::JsValue;
 use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
 use crate::sessions::model::SessionCost;
+pub use crate::sessions::read_parsed::parsed_from_json;
 
 fn text(v: &JsValue, key: &str) -> Option<String> {
     v.get(key).and_then(JsValue::as_str).map(str::to_owned)
@@ -78,11 +79,6 @@ pub fn cost_from_json(v: &JsValue) -> Option<SessionCost> {
         #[expect(clippy::cast_possible_truncation, reason = "a small count")]
         unreadable_subagents: count(v, "unreadableSubagents").map(|n| n as usize),
     })
-}
-
-/// A parsed session, as [`super::write::parsed_json`] writes it.
-pub fn parsed_from_json(_v: &JsValue) -> Option<crate::sessions::model::ParsedSession> {
-    None
 }
 
 #[cfg(test)]

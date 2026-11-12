@@ -13,6 +13,7 @@ pub mod model;
 pub mod model_windows;
 pub mod prompt;
 pub mod read;
+mod read_parsed;
 pub mod redact;
 pub mod resolve;
 pub mod service;
