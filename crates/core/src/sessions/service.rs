@@ -20,7 +20,7 @@ use crate::codex::parse_codex_session;
 use crate::js::time::{self, LocalZone};
 use crate::js::value::JsValue;
 use crate::listing::AgentRoots;
-use crate::model::Agent;
+use crate::model::{Agent, SessionHeader};
 use crate::pi::parse_pi_session;
 
 /// What lookups and parses read from the environment.
@@ -31,6 +31,25 @@ pub struct SessionEnv<'a> {
     pub unsearched: &'a [Agent],
     /// Zone for timestamps without an offset.
     pub local: &'a (dyn LocalZone + Sync),
+}
+
+/// The session a command runs on.
+#[derive(Debug, Clone, Copy)]
+pub enum Target<'a> {
+    /// An id, unique id prefix or `.jsonl` path to look up.
+    Lookup(&'a str),
+    /// A session a listing already found, read without another lookup.
+    Listed(&'a SessionHeader),
+}
+
+impl Target<'_> {
+    /// The typed id or path, or the listed session's id.
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Lookup(id) => id,
+            Self::Listed(h) => h.id.as_str(),
+        }
+    }
 }
 
 /// A transcript read through its agent.
@@ -104,18 +123,33 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
     })
 }
 
-fn load(env: SessionEnv<'_>, id: &str, parent: Option<&str>) -> Result<Loaded, SessionError> {
+fn load(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+) -> Result<Loaded, SessionError> {
     if let Some(parent) = parent {
-        return load_nested(env, id, parent);
+        return load_nested(env, target.id(), parent);
     }
-    let r = resolve_session(env.roots, env.unsearched, id)?;
+    let (agent, id, path, source) = match target {
+        Target::Lookup(id) => {
+            let r = resolve_session(env.roots, env.unsearched, id)?;
+            let source = r.file.source.map(|s| s.id);
+            (r.agent, r.file.id.as_str().to_owned(), r.file.path, source)
+        }
+        Target::Listed(h) => {
+            let _span = info_span!("Sessions.resolve", idOrPath = h.id.as_str()).entered();
+            let source = h.source.as_ref().map(|s| s.id.clone());
+            (h.agent, h.id.as_str().to_owned(), h.path.clone(), source)
+        }
+    };
     Ok(Loaded {
-        agent: r.agent,
-        text: load_transcript(r.agent, &r.file.path)?,
-        id: r.file.id.as_str().to_owned(),
+        agent,
+        text: load_transcript(agent, &path)?,
+        id,
         nested: false,
-        path: r.file.path,
-        source: r.file.source.map(|s| s.id),
+        path,
+        source,
     })
 }
 
@@ -237,15 +271,16 @@ pub struct FullParse {
 /// subagent transcript sits under).
 pub fn parse_full(
     env: SessionEnv<'_>,
-    id: &str,
+    target: Target<'_>,
     parent: Option<&str>,
 ) -> Result<FullParse, SessionError> {
+    let id = target.id();
     let span = match parent {
         None => info_span!("Sessions.parse", id, error = field::Empty),
         Some(p) => info_span!("Sessions.parseNested", id, parent = p, error = field::Empty),
     };
     let _entered = span.enter();
-    let result = load(env, id, parent).map(|loaded| {
+    let result = load(env, target, parent).map(|loaded| {
         let (text, path, sid) = (&loaded.text, &loaded.path, &loaded.id);
         let parsed = match loaded.agent {
             Agent::Codex => parse_codex_session(text, path, sid),
@@ -279,11 +314,11 @@ pub fn parse_full(
 /// `sessions.get`: the parsed session, redacted unless `redact` is false.
 pub fn get_session(
     env: SessionEnv<'_>,
-    id: &str,
+    target: Target<'_>,
     parent: Option<&str>,
     redact: bool,
 ) -> Result<ParsedSession, SessionError> {
-    let mut parsed = parse_full(env, id, parent)?.parsed;
+    let mut parsed = parse_full(env, target, parent)?.parsed;
     if redact {
         redact_parsed(&mut parsed);
     }
@@ -294,13 +329,13 @@ pub fn get_session(
 /// for Claude, redacted unless `redact` is false.
 pub fn analyze_session(
     env: SessionEnv<'_>,
-    id: &str,
+    target: Target<'_>,
     parent: Option<&str>,
     redact: bool,
 ) -> Result<AnalyzedSession, SessionError> {
-    let span = info_span!("Sessions.analyze", id, error = field::Empty);
+    let span = info_span!("Sessions.analyze", id = target.id(), error = field::Empty);
     let _entered = span.enter();
-    let result = parse_full(env, id, parent).map(|full| {
+    let result = parse_full(env, target, parent).map(|full| {
         let files = if full.agent == Agent::Claude {
             let owning = full
                 .source
@@ -344,7 +379,7 @@ pub fn session_image(
     item: Option<usize>,
 ) -> Result<Option<super::images::ImageData>, SessionError> {
     let _span = info_span!("Sessions.image", id, line).entered();
-    let loaded = load(env, id, parent)?;
+    let loaded = load(env, Target::Lookup(id), parent)?;
     let at = |raw: Option<JsValue>| raw.and_then(|v| super::images::image_at(&v, block, item));
     Ok(at(super::jsonl::line_at(&loaded.text, line))
         .or_else(|| at(super::jsonl::parse_rows(&loaded.text).into_iter().nth(line))))

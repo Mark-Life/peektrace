@@ -258,3 +258,72 @@ fn export_latest_exports_a_non_claude_session() {
     assert_eq!(doc["session"]["provider"], "codex");
     assert!(!out.contains(&*h.0.to_string_lossy()), "{out}");
 }
+
+/// `--latest` reads the file the listing found; it does not walk every
+/// agent's roots a second time to look the id up.
+#[test]
+fn latest_reads_the_listed_file_without_a_second_lookup() {
+    let h = ls_home();
+    let (code, out, err) = h.run(&["--otel", "sessions", "analyze", "--latest", "--json"]);
+    assert_eq!(code, 0, "{err}");
+    let a: Value = serde_json::from_str(&out).expect("json");
+    assert_eq!(a["sessionId"], CODEX_ID);
+    let walks = err
+        .lines()
+        .filter(|l| l.starts_with("[otel] AgentRegistry.listSessionFiles "))
+        .count();
+    assert_eq!(walks, 3, "{err}");
+    assert!(err.contains("[otel] Sessions.resolve "), "{err}");
+}
+
+#[test]
+fn codex_and_pi_sessions_list_and_analyze() {
+    let f = Home::new("codex-pi");
+    let codex = f.0.join(".codex/sessions/2026/02/01");
+    fs::create_dir_all(&codex).expect("mkdir");
+    let rollout =
+        codex.join("rollout-2026-02-01T10-00-00-019f0000-0000-7000-8000-000000000001.jsonl");
+    fs::write(
+        &rollout,
+        r#"{"timestamp":"2026-02-01T10:00:00.000Z","type":"session_meta","payload":{"id":"019f0000-0000-7000-8000-000000000001","cwd":"/tmp/demo"}}
+{"timestamp":"2026-02-01T10:00:01.000Z","type":"turn_context","payload":{"model":"gpt-5.5","turn_id":"t"}}
+{"timestamp":"2026-02-01T10:00:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"hi"}]}}
+{"timestamp":"2026-02-01T10:00:03.000Z","type":"event_msg","payload":{"type":"token_count","info":{"last_token_usage":{"input_tokens":1000,"cached_input_tokens":0,"output_tokens":5},"model_context_window":258400}}}
+"#,
+    )
+    .expect("write");
+    let pi = f.0.join(".pi/agent/sessions/--tmp-demo--");
+    fs::create_dir_all(&pi).expect("mkdir");
+    fs::write(
+        pi.join("2026-01-15_019f1111-0000-7000-8000-000000000001.jsonl"),
+        r#"{"type":"session","id":"019f1111-0000-7000-8000-000000000001","timestamp":"2026-01-15T10:00:00.000Z","cwd":"/tmp/demo"}
+{"type":"session_info","id":"i","parentId":null,"timestamp":"2026-01-15T10:00:01.000Z","name":"Pi title"}
+"#,
+    )
+    .expect("write");
+
+    let (code, out, err) = f.run(&["sessions", "ls", "--agent", "codex"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert_eq!(
+        out,
+        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n\
+         019f0000\tcodex\tdemo\tgpt-5.5\t1\t-\t612 B\t2026-02-01T10:00:03.000Z\t-\n"
+    );
+    let (code, out, _) = f.run(&["sessions", "ls", "--json", "--agent", "pi"]);
+    assert_eq!(code, 0);
+    let started = out.find("\"startedAt\"").expect("startedAt");
+    assert!(out.find("\"title\"").is_some_and(|t| t > started), "{out}");
+
+    let (code, out, err) = f.run(&["sessions", "analyze", "--cwd", "/tmp/demo"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert!(
+        out.starts_with("field\tvalue\nsession\t019f0000-0000-7000-8000-000000000001\n"),
+        "{out}"
+    );
+    let (code, out, _) = f.run(&["sessions", "export", "019f1111", "--format", "md"]);
+    assert_eq!(code, 0);
+    assert!(out.starts_with("# Pi title\n"), "{out}");
+    let (code, _, err) = f.run(&["sessions", "analyze", "019f"]);
+    assert_eq!(code, 1);
+    assert_eq!(err, "Session \"019f\" not found (searched all agents).\n");
+}

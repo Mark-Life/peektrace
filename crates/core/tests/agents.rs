@@ -10,7 +10,7 @@ use peektrace_core::js::time::Utc;
 use peektrace_core::pi::parse_pi_session;
 use peektrace_core::roots::{RootsEnv, Settings};
 use peektrace_core::sessions::model::{ContextEdit, EventKind, LoadedCategory, ParsedSession};
-use peektrace_core::sessions::service::{SessionEnv, analyze_session};
+use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 fn fixture(rel: &str) -> String {
@@ -385,15 +385,17 @@ fn lists_and_resolves_across_agents() {
         unsearched: &[],
         local: &Utc,
     };
-    let a = analyze_session(env, "rollout-fixture", None, true).expect("codex");
+    let a = analyze_session(env, Target::Lookup("rollout-fixture"), None, true).expect("codex");
     assert_eq!(a.parsed.session_id, CODEX_ID);
     assert_eq!(a.context_window, 258_400.0);
     for h in &pis {
-        let a = analyze_session(env, h.id.as_str(), None, false).expect("pi");
+        let a = analyze_session(env, Target::Lookup(h.id.as_str()), None, false).expect("pi");
+        let listed = analyze_session(env, Target::Listed(h), None, false).expect("listed");
+        assert_eq!(listed.parsed, a.parsed, "{}", h.id);
         assert_eq!(a.cost.and_then(|c| c.total_usd), h.cost_usd, "{}", h.id);
     }
     let err = |id: &str, parent: Option<&str>| {
-        analyze_session(env, id, parent, true)
+        analyze_session(env, Target::Lookup(id), parent, true)
             .err()
             .map(|e| e.to_string())
     };
@@ -406,7 +408,7 @@ fn lists_and_resolves_across_agents() {
         Some("Session \"x\" not found (searched subagents of pi-fixture).")
     );
     let path = fixture("sessions-codex/rollout-fork.jsonl");
-    let direct = analyze_session(env, &path, None, true).expect("path");
+    let direct = analyze_session(env, Target::Lookup(&path), None, true).expect("path");
     assert_eq!(direct.parsed.provider.as_str(), "codex");
     let _ = fs::remove_dir_all(&dir);
 }

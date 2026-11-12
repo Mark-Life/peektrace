@@ -8,7 +8,9 @@ use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::Utc;
 use peektrace_core::roots::{RootsEnv, claude_sources};
 use peektrace_core::select::{SelectOptions, select_sessions};
-use peektrace_core::sessions::service::{SessionEnv, analyze_session, get_session, session_image};
+use peektrace_core::sessions::service::{
+    SessionEnv, Target, analyze_session, get_session, session_image,
+};
 use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 fn fixtures(sub: &str) -> String {
@@ -157,7 +159,7 @@ fn analyze_golden_session_with_subagent() {
         unsearched: &[],
         local: &Utc,
     };
-    let a = analyze_session(env, "1111", None, true).expect("analyze");
+    let a = analyze_session(env, Target::Lookup("1111"), None, true).expect("analyze");
     assert_eq!(a.parsed.session_id, GOLDEN_ID);
     assert_eq!(a.turn_count, 3);
     assert_eq!(a.tool_call_count, 1);
@@ -188,7 +190,7 @@ fn export_golden_session() {
         unsearched: &[],
         local: &Utc,
     };
-    let session = get_session(env, GOLDEN_ID, None, true).expect("session");
+    let session = get_session(env, Target::Lookup(GOLDEN_ID), None, true).expect("session");
     let opts = ExportOptions {
         exported_at: "2026-01-01T00:00:00.000Z".to_owned(),
         home: None,
@@ -206,7 +208,7 @@ fn export_golden_session() {
     );
     let html = render_export(ExportFormat::Html, &session, &opts);
     assert!(html.starts_with("<!doctype html>"), "{html}");
-    let sub = get_session(env, "agent-1", Some("1111"), false).expect("subagent");
+    let sub = get_session(env, Target::Lookup("agent-1"), Some("1111"), false).expect("subagent");
     assert_eq!(sub.session_id, "agent-1");
 }
 

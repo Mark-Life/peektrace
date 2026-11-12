@@ -5,6 +5,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use rayon::prelude::*;
+
 use crate::model::{FileStamp, ProjectSlug, SessionFileRef, SessionId, SourceTag};
 use crate::paths::PathStyle;
 use crate::roots::Source;
@@ -37,14 +39,36 @@ fn stat_as(path: &str, want: fn(&fs::FileType) -> bool) -> Option<fs::Metadata> 
     fs::metadata(path).ok().filter(|m| want(&m.file_type()))
 }
 
-/// Names in `dir`, in directory order, with UTF-8 names only. A read error
-/// yields nothing.
-fn entries(dir: &str) -> Vec<String> {
+/// One directory entry with the type `read_dir` reported (not followed).
+struct Entry {
+    name: String,
+    kind: fs::FileType,
+}
+
+impl Entry {
+    /// A dir, following a symlink with one `stat`; any other entry costs
+    /// no syscall.
+    fn is_dir(&self, path: &str) -> bool {
+        if self.kind.is_symlink() {
+            stat_as(path, fs::FileType::is_dir).is_some()
+        } else {
+            self.kind.is_dir()
+        }
+    }
+}
+
+/// Entries in `dir`, in directory order, with UTF-8 names only. A read
+/// error yields nothing.
+fn entries(dir: &str) -> Vec<Entry> {
     let Ok(read) = fs::read_dir(dir) else {
         return Vec::new();
     };
     read.filter_map(Result::ok)
-        .filter_map(|e| e.file_name().into_string().ok())
+        .filter_map(|e| {
+            let kind = e.file_type().ok()?;
+            let name = e.file_name().into_string().ok()?;
+            Some(Entry { name, kind })
+        })
         .collect()
 }
 
@@ -69,8 +93,11 @@ fn list_slug(root: &str, slug: &str, id_of: IdOf) -> Vec<Found> {
     let dir = STYLE.join(&[root, slug]);
     entries(&dir)
         .into_iter()
-        .filter_map(|name| {
+        .filter_map(|Entry { name, kind }| {
             name.strip_suffix(JSONL)?;
+            if kind.is_dir() {
+                return None;
+            }
             let path = STYLE.join(&[&dir, &name]);
             let meta = stat_as(&path, fs::FileType::is_file)?;
             Some(Found {
@@ -84,14 +111,15 @@ fn list_slug(root: &str, slug: &str, id_of: IdOf) -> Vec<Found> {
 }
 
 /// Transcripts of one slug-layout root, in directory order. A non-empty
-/// `project` skips every other slug dir before it is stat'ed or read.
+/// `project` skips every other slug dir before it is stat'ed or read. Slug
+/// dirs are read in parallel: a Pi root holds thousands, mostly empty.
 pub(crate) fn slug_layout(root: &str, project: Option<&str>, id_of: IdOf) -> Vec<Found> {
     let project = project.filter(|p| !p.is_empty());
     entries(root)
-        .into_iter()
-        .filter(|name| project.is_none_or(|p| p == name))
-        .filter(|name| stat_as(&STYLE.join(&[root, name]), fs::FileType::is_dir).is_some())
-        .flat_map(|slug| list_slug(root, &slug, id_of))
+        .into_par_iter()
+        .filter(|e| project.is_none_or(|p| p == e.name))
+        .filter(|e| e.is_dir(&STYLE.join(&[root, &e.name])))
+        .flat_map_iter(|e| list_slug(root, &e.name, id_of))
         .collect()
 }
 
@@ -111,17 +139,19 @@ pub(crate) fn walk_tree(dir: &str, keep: fn(&str) -> bool, id_of: IdOf) -> Vec<F
             return;
         }
         up.push(key);
-        for name in entries(dir) {
-            let path = STYLE.join(&[dir, &name]);
-            let Ok(meta) = fs::metadata(&path) else {
-                continue;
-            };
-            if meta.is_dir() {
+        for entry in entries(dir) {
+            let path = STYLE.join(&[dir, &entry.name]);
+            if entry.is_dir(&path) {
                 walk(&path, keep, id_of, up, out);
-            } else if meta.is_file() && keep(&name) {
+                continue;
+            }
+            if !keep(&entry.name) {
+                continue;
+            }
+            if let Some(meta) = stat_as(&path, fs::FileType::is_file) {
                 out.push(Found {
                     slug: ProjectSlug::new(""),
-                    id: SessionId::new(id_of(&name)),
+                    id: SessionId::new(id_of(&entry.name)),
                     stamp: stamp_of(&meta),
                     path,
                 });
@@ -239,34 +269,96 @@ mod tests {
         fs::remove_dir_all(&root)
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn tree_walk_lists_every_depth_and_stops_at_loops() -> std::io::Result<()> {
-        let root = std::env::temp_dir().join(format!("peektrace-walk-{}", std::process::id()));
+    fn temp(name: &str) -> std::path::PathBuf {
+        let root = std::env::temp_dir().join(format!("peektrace-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
+        root
+    }
+
+    /// Paths under `root`, with `/` separators, sorted.
+    fn rel_paths(root: &std::path::Path, found: &[Found]) -> Vec<String> {
+        let prefix = root.to_string_lossy().len();
+        let mut names: Vec<_> = found
+            .iter()
+            .map(|f| f.path[prefix..].replace('\\', "/"))
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn slug_layout_keeps_directory_order() -> std::io::Result<()> {
+        let root = temp("slug-order");
+        for n in 0..64 {
+            let slug = root.join(format!("-p{n}"));
+            fs::create_dir_all(&slug)?;
+            if n % 3 == 0 {
+                fs::write(slug.join("a.jsonl"), "")?;
+                fs::write(slug.join("b.jsonl"), "")?;
+            }
+        }
+        fs::create_dir_all(root.join("-p1/dir.jsonl"))?;
+        fs::write(root.join("loose.jsonl"), "")?;
+        let root_str = root.to_string_lossy().into_owned();
+        let want: Vec<_> = entries(&root_str)
+            .into_iter()
+            .filter(|e| e.kind.is_dir())
+            .flat_map(|e| list_slug(&root_str, &e.name, stem))
+            .map(|f| f.path)
+            .collect();
+        let got: Vec<_> = slug_layout(&root_str, None, stem)
+            .into_iter()
+            .map(|f| f.path)
+            .collect();
+        assert_eq!(got.len(), 44);
+        assert_eq!(got, want);
+        fs::remove_dir_all(&root)
+    }
+
+    #[test]
+    fn tree_walk_lists_every_depth() -> std::io::Result<()> {
+        let root = temp("walk");
         fs::create_dir_all(root.join("2026/01/x.jsonl"))?;
         fs::write(root.join("top.jsonl"), "")?;
         fs::write(root.join("2026/01/deep.jsonl"), "")?;
         fs::write(root.join("2026/01/x.jsonl/in.jsonl"), "")?;
         fs::write(root.join("2026/01/skip.txt"), "")?;
-        std::os::unix::fs::symlink(root.join("2026"), root.join("2026/01/loop"))?;
-        std::os::unix::fs::symlink(root.join("2026/01"), root.join("alias"))?;
         let found = walk_tree(&root.to_string_lossy(), |n| n.ends_with(JSONL), stem);
-        let mut names: Vec<_> = found
-            .iter()
-            .map(|f| f.path[root.to_string_lossy().len()..].to_owned())
-            .collect();
-        names.sort();
         assert_eq!(
-            names,
+            rel_paths(&root, &found),
+            [
+                "/2026/01/deep.jsonl",
+                "/2026/01/x.jsonl/in.jsonl",
+                "/top.jsonl",
+            ]
+        );
+        fs::remove_dir_all(&root)
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinks_are_followed_and_loops_stop() -> std::io::Result<()> {
+        use std::os::unix::fs::symlink;
+        let root = temp("walk-links");
+        fs::create_dir_all(root.join("2026/01/x.jsonl"))?;
+        fs::write(root.join("2026/01/deep.jsonl"), "")?;
+        fs::write(root.join("2026/01/x.jsonl/in.jsonl"), "")?;
+        symlink(root.join("2026"), root.join("2026/01/loop"))?;
+        symlink(root.join("2026/01"), root.join("alias"))?;
+        symlink(root.join("2026/01/deep.jsonl"), root.join("linked.jsonl"))?;
+        let found = walk_tree(&root.to_string_lossy(), |n| n.ends_with(JSONL), stem);
+        assert_eq!(
+            rel_paths(&root, &found),
             [
                 "/2026/01/deep.jsonl",
                 "/2026/01/x.jsonl/in.jsonl",
                 "/alias/deep.jsonl",
                 "/alias/x.jsonl/in.jsonl",
-                "/top.jsonl",
+                "/linked.jsonl",
             ]
         );
+        let slugs = slug_layout(&root.to_string_lossy(), None, stem);
+        assert_eq!(rel_paths(&root, &slugs), ["/alias/deep.jsonl"]);
         fs::remove_dir_all(&root)
     }
 }
