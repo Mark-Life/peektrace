@@ -4,6 +4,68 @@
 
 use crate::reorder::command_path;
 
+/// Global flags that take a separate value, as TS skips them.
+const VALUE_FLAGS: [&str; 3] = ["--remote", "--log-level", "--completions"];
+
+/// Args before a bare `--`; after it every word is a positional.
+pub fn before_separator(argv: &[String]) -> &[String] {
+    let end = argv.iter().position(|a| a == "--").unwrap_or(argv.len());
+    &argv[..end]
+}
+
+/// The first positional after the program name, skipping the values of
+/// global value flags. Reads the raw command line, as TS does.
+fn first_positional(argv: &[String]) -> Option<&str> {
+    let mut words = argv.iter().skip(1);
+    while let Some(a) = words.next() {
+        if VALUE_FLAGS.contains(&a.as_str()) {
+            words.next();
+        } else if !a.starts_with('-') {
+            return Some(a);
+        }
+    }
+    None
+}
+
+/// Telemetry records unless `--no-telemetry` comes before any `--`, the
+/// command is `statusline` (it runs on every status-bar refresh), or
+/// `PEEKTRACE_NO_TELEMETRY` is set to anything, empty included.
+pub fn telemetry_on(raw: &[String], opt_out_env: bool) -> bool {
+    !(opt_out_env
+        || before_separator(raw).iter().any(|a| a == "--no-telemetry")
+        || first_positional(raw) == Some("statusline"))
+}
+
+/// The `--log-level` value before any `--`, read before clap runs so log
+/// lines can print from the start. An unknown value is clap's error later.
+pub fn log_level(raw: &[String]) -> Option<crate::otel::LogLevel> {
+    let flags = before_separator(raw);
+    let value = flags
+        .iter()
+        .enumerate()
+        .find_map(|(i, a)| match a.split_once('=') {
+            Some(("--log-level", v)) => Some(v),
+            _ if a == "--log-level" => flags.get(i + 1).map(String::as_str),
+            _ => None,
+        })?;
+    clap::ValueEnum::from_str(value, false).ok()
+}
+
+/// `-v` read as `--version` before any `--`, as TS rewrites it.
+pub fn version_alias(argv: &[String]) -> Vec<String> {
+    let end = before_separator(argv).len();
+    argv.iter()
+        .enumerate()
+        .map(|(i, a)| {
+            if a == "-v" && i < end {
+                "--version".to_owned()
+            } else {
+                a.clone()
+            }
+        })
+        .collect()
+}
+
 /// Index of the `sessions search` word in `argv` (with the program name).
 fn free_text_index(argv: &[String]) -> Option<usize> {
     match command_path(argv)? {
@@ -72,6 +134,50 @@ mod tests {
         assert_eq!(
             logged("pt sessions search -rf --json"),
             "sessions search -- <text> <text>"
+        );
+    }
+
+    fn words(s: &str) -> Vec<String> {
+        s.split(' ').map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn telemetry_opt_outs() {
+        let on = |s: &str| telemetry_on(&words(s), false);
+        assert!(on("pt sessions ls"));
+        assert!(!on("pt --no-telemetry sessions ls"));
+        assert!(!on("pt sessions ls --no-telemetry"));
+        assert!(!on("pt --no-telemetry --telemetry sessions ls"));
+        assert!(on("pt --telemetry sessions ls"));
+        assert!(on("pt sessions ls -- --no-telemetry"));
+        assert!(on("pt sessions ls --no-telemetry=x"));
+        assert!(!on("pt statusline"));
+        assert!(!on("pt --remote http://x statusline"));
+        assert!(!on("pt --log-level info statusline"));
+        assert!(!on("pt --json -- statusline"));
+        assert!(on("pt sessions statusline"));
+        assert!(!telemetry_on(&words("pt sessions ls"), true));
+    }
+
+    #[test]
+    fn raw_flags() {
+        use crate::otel::LogLevel;
+        assert_eq!(
+            log_level(&words("pt --log-level info sessions ls")),
+            Some(LogLevel::Info)
+        );
+        assert_eq!(
+            log_level(&words("pt sessions ls --log-level=debug")),
+            Some(LogLevel::Debug)
+        );
+        assert_eq!(
+            log_level(&words("pt sessions ls -- --log-level debug")),
+            None
+        );
+        assert_eq!(log_level(&words("pt --log-level bogus")), None);
+        assert_eq!(
+            version_alias(&words("pt -v -- -v")),
+            words("pt --version -- -v")
         );
     }
 

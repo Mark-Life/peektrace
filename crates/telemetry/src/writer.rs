@@ -23,6 +23,7 @@ struct Progress {
     done: Mutex<u64>,
     changed: Condvar,
     dead: AtomicBool,
+    ready: AtomicBool,
 }
 
 impl Progress {
@@ -55,7 +56,11 @@ impl Writer {
         let spawned = std::thread::Builder::new()
             .name("telemetry".to_owned())
             .spawn(move || match Store::open(&dir, now_ms) {
-                Ok(store) => drain(store, &rx, &shared),
+                Ok(store) => {
+                    shared.ready.store(true, Ordering::Relaxed);
+                    shared.finish(0);
+                    drain(store, &rx, &shared);
+                }
                 Err(_) => shared.die(),
             });
         if spawned.is_err() {
@@ -80,6 +85,25 @@ impl Writer {
         self.progress.sent.fetch_add(1, Ordering::Relaxed);
         if let Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) = self.tx.try_send(row) {
             self.progress.finish(1);
+        }
+    }
+
+    /// Wait up to `limit` for the store open to finish, so another
+    /// connection in this process does not race its schema setup.
+    pub fn wait_ready(&self, limit: Duration) {
+        let p = &self.progress;
+        let deadline = Instant::now() + limit;
+        let mut done = p.done.lock().unwrap_or_else(PoisonError::into_inner);
+        while !p.ready.load(Ordering::Relaxed) && !p.dead.load(Ordering::Relaxed) {
+            let left = deadline.saturating_duration_since(Instant::now());
+            if left.is_zero() {
+                return;
+            }
+            done = p
+                .changed
+                .wait_timeout(done, left)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
         }
     }
 

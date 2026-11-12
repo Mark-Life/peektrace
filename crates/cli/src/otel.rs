@@ -2,22 +2,20 @@
 //! finished span to stderr in the TS format:
 //! `[otel] <name> <ms>ms ok|fail {attrs}`. A span fails when it records
 //! `error`. `--log-level` prints log events.
-//! With neither, no subscriber is installed and spans cost nothing.
+//! The telemetry store layer records wide events. With none of the three,
+//! no subscriber is installed and spans cost nothing.
 
-use std::fmt;
 use std::io::Write as _;
 use std::time::Instant;
 
 use peektrace_core::js::num;
-use tracing::field::{Field, Visit};
+use peektrace_telemetry::{Attrs, SpansOnly, StoreLayer};
 use tracing::span::{Attributes, Id, Record};
 use tracing::{Level, Subscriber};
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::layer::{Context, Layer, SubscriberExt as _};
 use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt as _;
-
-use peektrace_core::js::json_out::push_str;
 
 /// Lines kept back while the TUI owns the terminal; `None` when stderr is
 /// written directly.
@@ -77,67 +75,6 @@ impl std::io::Write for HoldWriter {
     }
 }
 
-/// Field that marks a span failed. It is not printed: TS takes `fail` from
-/// the span's exit and prints only its attributes.
-const FAIL_FIELD: &str = "error";
-
-/// Span attributes, kept as the JSON they print as, plus the failure mark.
-#[derive(Default)]
-struct Attrs {
-    fields: Vec<(&'static str, String)>,
-    failed: bool,
-}
-
-impl Attrs {
-    fn set(&mut self, key: &'static str, json: String) {
-        if key == FAIL_FIELD {
-            self.failed = true;
-            return;
-        }
-        match self.fields.iter_mut().find(|(k, _)| *k == key) {
-            Some(slot) => slot.1 = json,
-            None => self.fields.push((key, json)),
-        }
-    }
-
-    fn quoted(s: &str) -> String {
-        let mut out = String::new();
-        push_str(&mut out, s);
-        out
-    }
-
-    fn to_json(&self) -> String {
-        let body = self
-            .fields
-            .iter()
-            .map(|(k, v)| format!("{}:{v}", Self::quoted(k)))
-            .collect::<Vec<_>>()
-            .join(",");
-        format!("{{{body}}}")
-    }
-}
-
-impl Visit for Attrs {
-    fn record_bool(&mut self, field: &Field, value: bool) {
-        self.set(field.name(), value.to_string());
-    }
-    fn record_i64(&mut self, field: &Field, value: i64) {
-        self.set(field.name(), value.to_string());
-    }
-    fn record_u64(&mut self, field: &Field, value: u64) {
-        self.set(field.name(), value.to_string());
-    }
-    fn record_f64(&mut self, field: &Field, value: f64) {
-        self.set(field.name(), num::to_json(value));
-    }
-    fn record_str(&mut self, field: &Field, value: &str) {
-        self.set(field.name(), Self::quoted(value));
-    }
-    fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
-        self.set(field.name(), Self::quoted(&format!("{value:?}")));
-    }
-}
-
 struct Timing {
     start: Instant,
     attrs: Attrs,
@@ -178,8 +115,8 @@ where
             return;
         };
         let ms = t.start.elapsed().as_secs_f64() * 1000.0;
-        let status = if t.attrs.failed { "fail" } else { "ok" };
-        let attrs = if t.attrs.fields.is_empty() {
+        let status = if t.attrs.failed() { "fail" } else { "ok" };
+        let attrs = if t.attrs.is_empty() {
             String::new()
         } else {
             format!(" {}", t.attrs.to_json())
@@ -225,9 +162,10 @@ pub fn shows_warnings(level: Option<LogLevel>) -> bool {
     level.is_none_or(|l| l.filter() >= LevelFilter::WARN)
 }
 
-/// Install a subscriber only when spans or logs are wanted.
-pub fn init(echo: bool, log_level: Option<LogLevel>) {
-    if !echo && log_level.is_none() {
+/// Install a subscriber only when spans, logs or the telemetry store are
+/// wanted.
+pub fn init(echo: bool, log_level: Option<LogLevel>, store: Option<StoreLayer>) {
+    if !echo && log_level.is_none() && store.is_none() {
         return;
     }
     let logs = log_level.map(|l| {
@@ -237,7 +175,9 @@ pub fn init(echo: bool, log_level: Option<LogLevel>) {
             .with_filter(l.filter())
     });
     let echo = echo.then_some(EchoLayer.with_filter(LevelFilter::from_level(Level::TRACE)));
+    let store = store.map(|s| s.with_filter(SpansOnly));
     let _ = tracing_subscriber::registry()
+        .with(store)
         .with(echo)
         .with(logs)
         .try_init();

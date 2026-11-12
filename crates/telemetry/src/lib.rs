@@ -46,6 +46,14 @@ pub fn flush(limit: Duration) {
     }
 }
 
+/// Wait up to `limit` for the process writer to open its store. No-op when
+/// telemetry never started.
+pub fn wait_ready(limit: Duration) {
+    if let Some(w) = WRITER.get() {
+        w.wait_ready(limit);
+    }
+}
+
 /// A panic marks the innermost entered root as a defect, then runs the
 /// hook that was there before.
 fn install_panic_hook() {
