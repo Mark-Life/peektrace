@@ -324,4 +324,112 @@ mod tests {
             assert!(completions(shell).contains("peektrace"));
         }
     }
+
+    fn words(s: &[&str]) -> Vec<String> {
+        std::iter::once("pt")
+            .chain(s.iter().copied())
+            .map(str::to_owned)
+            .collect()
+    }
+
+    /// TS `argv.test.ts` `isRootHelp`.
+    #[test]
+    fn root_help_only_without_a_subcommand() {
+        let root = |s: &[&str]| early(&words(s)) == Some(Early::RootHelp);
+        assert!(root(&["--help"]));
+        assert!(root(&["-h"]));
+        assert!(root(&["--remote", "http://x:1", "--help"]));
+        assert!(root(&["--log-level", "debug", "--help"]));
+        assert!(root(&["--json", "-h"]));
+        assert!(!root(&["stats", "--help"]));
+        assert!(!root(&["sessions", "-h"]));
+        assert!(root(&["--help", "sessions"]));
+        assert!(!root(&["--completions", "zsh", "--help"]));
+        assert!(!root(&["--completions=zsh", "--help"]));
+        assert!(root(&["--help=true"]));
+        assert!(!root(&[]));
+    }
+
+    /// TS `argv.test.ts` `helpGroup`. `--help sessions` names the group in
+    /// TS too, but the root page wins there first, as it does here.
+    #[test]
+    fn group_help_only_for_group_then_help() {
+        let group = |s: &[&str]| match early(&words(s)) {
+            Some(Early::GroupHelp(g)) => Some(g),
+            _ => None,
+        };
+        assert_eq!(group(&["sessions", "--help"]), Some("sessions"));
+        assert_eq!(group(&["--json", "memory", "-h"]), Some("memory"));
+        assert_eq!(
+            early(&words(&["--help", "sessions"])),
+            Some(Early::RootHelp)
+        );
+        assert_eq!(group(&["sessions", "ls", "--help"]), None);
+        assert_eq!(group(&["stats", "--help"]), None);
+        assert_eq!(group(&["sessions"]), None);
+        assert_eq!(group(&["--help"]), None);
+        assert_eq!(group(&["sessions", "--completions", "zsh", "--help"]), None);
+    }
+
+    /// TS `help.test.ts` "rows match the real command tree": root commands
+    /// plus group subcommands equal the rows plus the group paths.
+    #[test]
+    fn rows_match_the_real_command_tree() {
+        use std::collections::BTreeSet;
+        let cmd = <crate::args::Cli as clap::CommandFactory>::command();
+        let mut paths = BTreeSet::new();
+        for sub in cmd.get_subcommands() {
+            let name = sub.get_name();
+            paths.insert(name.to_owned());
+            if ["sessions", "memory", "stats"].contains(&name) {
+                for leaf in sub.get_subcommands() {
+                    paths.insert(format!("{name} {}", leaf.get_name()));
+                }
+            }
+        }
+        let want: BTreeSet<String> = COMMAND_ROWS
+            .iter()
+            .map(|(p, _)| (*p).to_owned())
+            .chain(GROUPS.iter().map(|(g, _)| (*g).to_owned()))
+            .collect();
+        assert_eq!(paths, want);
+    }
+
+    /// TS `help.test.ts` "every real root option appears on the page": the
+    /// root flags clap knows, minus those the TS lib adds itself, are the
+    /// page's own rows, and each shows on the page.
+    #[test]
+    fn every_real_root_option_appears_on_the_page() {
+        use std::collections::BTreeSet;
+        const LIB_FLAGS: [&str; 7] = [
+            "--completions",
+            "--log-level",
+            "-h",
+            "--help",
+            "--wizard",
+            "--version",
+            "--telemetry",
+        ];
+        let cmd = <crate::args::Cli as clap::CommandFactory>::command();
+        let real: BTreeSet<String> = cmd
+            .get_arguments()
+            .filter_map(|a| a.get_long().map(|l| format!("--{l}")))
+            .filter(|n| !LIB_FLAGS.contains(&n.as_str()))
+            .collect();
+        assert!(!real.is_empty());
+        let rows: BTreeSet<String> = GLOBAL_FLAGS
+            .iter()
+            .filter_map(|(usage, _)| usage.split(' ').next())
+            .map(str::to_owned)
+            .filter(|n| !LIB_FLAGS.contains(&n.as_str()) && n != "-v," && n != "-h,")
+            .collect();
+        assert_eq!(real, rows);
+        let page = root_page("0.0.0-dev");
+        for name in &real {
+            assert!(page.contains(name.as_str()), "{name}");
+        }
+        for (usage, _) in GLOBAL_FLAGS {
+            assert!(page.contains(usage), "{usage}");
+        }
+    }
 }

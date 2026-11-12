@@ -419,7 +419,8 @@ mod tests {
             Some(&JsValue::Num(f64::from(INVALID_REQUEST)))
         );
         assert_eq!(r.get("id"), Some(&JsValue::Num(5.0)));
-        let r = parsed(r#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"nope"}}"#);
+        let r =
+            parsed(r#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"nope"}}"#);
         assert_eq!(
             field(&r, &["error", "code"]),
             Some(&JsValue::Num(f64::from(INVALID_PARAMS)))

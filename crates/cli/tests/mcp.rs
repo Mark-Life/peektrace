@@ -150,7 +150,11 @@ fn sessions_search_tool() {
         &h,
         &[
             call("hits", "sessions_search", &json!({"q":"HELLO"})),
-            call("none", "sessions_search", &json!({"q":"zz-no-such-text-zz"})),
+            call(
+                "none",
+                "sessions_search",
+                &json!({"q":"zz-no-such-text-zz"}),
+            ),
             call(
                 "json",
                 "sessions_search",

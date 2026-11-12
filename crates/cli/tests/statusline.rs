@@ -108,7 +108,10 @@ fn empty_path_falls_back_to_session_id_and_a_short_id_is_ignored() {
 #[test]
 fn an_unresolvable_transcript_path_falls_back_to_session_id() {
     let f = fixture();
-    for path in [format!("/elsewhere/{ID}.jsonl"), "/nope/missing.jsonl".to_owned()] {
+    for path in [
+        format!("/elsewhere/{ID}.jsonl"),
+        "/nope/missing.jsonl".to_owned(),
+    ] {
         let r = f.run(&json!({ "session_id": ID, "transcript_path": path }).to_string());
         assert_eq!(r.out, "ctx 5% Healthy\n", "{path}");
     }

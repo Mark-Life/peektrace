@@ -437,7 +437,10 @@ mod tests {
             asset("darwin", "arm64").as_deref(),
             Some("peektrace-darwin-arm64")
         );
-        assert_eq!(asset("linux", "x64").as_deref(), Some("peektrace-linux-x64"));
+        assert_eq!(
+            asset("linux", "x64").as_deref(),
+            Some("peektrace-linux-x64")
+        );
         assert_eq!(
             asset("Linux", "aarch64").as_deref(),
             Some("peektrace-linux-arm64")
