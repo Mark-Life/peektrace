@@ -10,18 +10,14 @@
  *   error, so Rust only has to succeed with parseable output.
  * - Real data: TS reads SQLite with no busy timeout, so a concurrent reader
  *   can make it miss a store; a TS "not found" is run again.
+ * - Real data: newest and largest sessions only, unless `--real-all`.
  * - Real data: OpenCode may write while the stage runs. The `opencode*.db`
- *   and `-wal` files and the `storage/` tree are stamped before and after; if
- *   any changed, `ls` compares only rows with the same `updatedAt` in both
- *   runs, and analyze/export cases are skipped as live.
+ *   and `-wal` files and the `storage/` tree are stamped around `ls`; if any
+ *   changed, `ls` compares only rows with the same `updatedAt` in both runs.
+ *   Each analyze/export case is skipped as live when its own session's DB
+ *   rows or tree files changed.
  */
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { runCase } from "./parity-analyze";
 import { targetCases } from "./parity-analyze-cases";
@@ -30,6 +26,7 @@ import {
   DEFECT,
   firstLineDiff,
   fixtureEnv,
+  newestAndLargest,
   newTally,
   pool,
   REPO,
@@ -47,6 +44,7 @@ import {
   buildOpencodeData,
   type OpencodeData,
 } from "./parity-opencode-fixtures";
+import { openSessionStamper, storeStamp } from "./parity-opencode-stamp";
 
 interface Row {
   readonly id: string;
@@ -64,6 +62,8 @@ const ALL = ["--limit", "0"];
 const UNLISTED = ["ses_badmsg", "ses_other_name"];
 /** Fixture sessions the TS CLI fails on; see "Known differences" in the plan. */
 const KNOWN_DEFECTS = ["ses_far"];
+/** Real sessions compared without `--real-all`. */
+const SAMPLE = { newest: 30, largest: 10 };
 
 const LS_ARGS: readonly (readonly string[])[] = [
   ["--no-telemetry", "--json", "sessions", "ls", "--agent", "opencode", ...ALL],
@@ -125,20 +125,22 @@ const uniquePrefix = (id: string, ids: readonly string[]) => {
 const analyze = (...rest: string[]) => ["sessions", "analyze", ...rest];
 const exportOf = (...rest: string[]) => ["sessions", "export", ...rest];
 
-/** Every mode per session, plus its shortest unique prefix. */
+/** Every mode for one session, plus its shortest unique prefix. */
+const rowCases = (row: Row, allIds: readonly string[]) => {
+  const prefix = uniquePrefix(row.id, allIds);
+  return [
+    ...targetCases(row, allIds),
+    ...(prefix
+      ? [
+          { args: analyze(prefix, "--json") },
+          { args: exportOf(prefix, "--format", "md") },
+        ]
+      : []),
+  ];
+};
+
 const sessionCases = (rows: readonly Row[], allIds: readonly string[]) =>
-  rows.flatMap((row) => {
-    const prefix = uniquePrefix(row.id, allIds);
-    return [
-      ...targetCases(row, allIds),
-      ...(prefix
-        ? [
-            { args: analyze(prefix, "--json") },
-            { args: exportOf(prefix, "--format", "md") },
-          ]
-        : []),
-    ];
-  });
+  rows.flatMap((row) => rowCases(row, allIds));
 
 /** Every id any agent lists in `env` (`ls` shows only loadable ones). */
 const allIds = (env: Env, extra: readonly string[]) => {
@@ -274,33 +276,7 @@ const realDataDir = () => {
     : join(env.HOME ?? "", ".local", "share", "opencode");
 };
 
-/** Size and mtime of the stores and the tree. `-shm` changes on every read. */
-const stampOf = (dir: string) => {
-  const parts: string[] = [];
-  const walk = (p: string) => {
-    try {
-      const s = statSync(p);
-      if (s.isDirectory()) {
-        for (const name of readdirSync(p).sort()) {
-          walk(join(p, name));
-        }
-      } else {
-        parts.push(`${p}:${s.size}:${s.mtimeMs}`);
-      }
-    } catch {
-      parts.push(`${p}:missing`);
-    }
-  };
-  for (const name of readdirSync(dir).sort()) {
-    if (name.startsWith("opencode") && !name.endsWith("-shm")) {
-      walk(join(dir, name));
-    }
-  }
-  walk(join(dir, "storage"));
-  return parts.join("|");
-};
-
-const realStage = async (tally: Tally) => {
+const realStage = async (tally: Tally, all: boolean) => {
   const dir = realDataDir();
   if (!existsSync(dir)) {
     return;
@@ -314,10 +290,10 @@ const realStage = async (tally: Tally) => {
     PEEKTRACE_NO_TELEMETRY: "1",
   } as Env;
   const args = ["--no-telemetry", "--json", ...oc(...ALL).slice(1)];
-  const before = stampOf(dir);
+  const before = storeStamp(dir);
   const ts = run([...TS_CMD, ...args], env);
   const rust = run([rustBin, ...args], env);
-  const live = stampOf(dir) !== before;
+  const live = storeStamp(dir) !== before;
   const tsRows = JSON.parse(ts.stdout) as Row[];
   const rustRows = JSON.parse(rust.stdout) as Row[];
   console.log(
@@ -341,21 +317,42 @@ const realStage = async (tally: Tally) => {
     compareRun("oc-real [ls]", ts, rust);
   }
   const ids = allIds(env, []);
-  const cases = sessionCases(rustRows, ids);
+  const picked = all
+    ? rustRows
+    : newestAndLargest(rustRows, SAMPLE.newest, SAMPLE.largest);
+  const stamper = openSessionStamper(dir);
+  const owned = picked.map((row) => ({
+    row,
+    before: stamper.stamp(row.id),
+    cases: rowCases(row, ids),
+  }));
+  const cases = owned.flatMap((o) => o.cases.map((c) => ({ ...o, c })));
   console.log(
-    `suite oc-real analyze: ${rustRows.length} sessions, ${cases.length} cases`
+    `suite oc-real analyze: ${picked.length} of ${rustRows.length} sessions, ${cases.length} cases`
   );
   // TS opens SQLite with no busy timeout, so a concurrent reader can make it
   // miss a store and answer "not found"; run it again then.
   const missed = (ts: { stderr: string }) => ts.stderr.includes(" not found ");
-  await pool(cases, (c) =>
-    runCase(tally, "real", env, c, () => stampOf(dir) !== before, missed)
-  );
+  try {
+    await pool(cases, ({ row, before: was, c }) =>
+      runCase(
+        tally,
+        "real",
+        env,
+        c,
+        () => stamper.stamp(row.id) !== was,
+        missed
+      )
+    );
+  } finally {
+    stamper.close();
+  }
 };
 
 export const runOpencodeStage = async (args: {
   readonly fixtures: boolean;
   readonly real: boolean;
+  readonly realAll: boolean;
 }) => {
   const tally = newTally(KNOWN_DEFECTS);
   if (args.fixtures) {
@@ -371,7 +368,7 @@ export const runOpencodeStage = async (args: {
     reportUnseen(tally);
   }
   if (args.real) {
-    await realStage(tally);
+    await realStage(tally, args.realAll);
   }
   console.log(tallyLine("opencode", tally));
 };

@@ -154,3 +154,19 @@ export const reportUnseen = (t: Tally) => {
 
 export const tallyLine = (stage: string, { stats }: Tally) =>
   `${stage} stage: ${stats.cases} cases, ${stats.defects} skipped as TS defects, ${stats.live} skipped as live`;
+
+/** The first `newest` rows as listed (newest first) plus the `largest`
+ * biggest, one per path. */
+export const newestAndLargest = <R extends { path: string; sizeBytes: number }>(
+  rows: readonly R[],
+  newest: number,
+  largest: number,
+  extra: readonly R[] = []
+) => {
+  const picked = [
+    ...rows.slice(0, newest),
+    ...[...rows].sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, largest),
+    ...extra,
+  ];
+  return [...new Map(picked.map((r) => [r.path, r])).values()];
+};

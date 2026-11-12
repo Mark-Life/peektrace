@@ -7,7 +7,7 @@
  *   bun scripts/rust/parity.ts --fixtures-only # CI
  *   bun scripts/rust/parity.ts --bin target/debug/peektrace
  *   bun scripts/rust/parity.ts --real-all      # every real session in the
- *                                              # analyze/export stage
+ *                                              # analyze/export stages
  *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
@@ -379,6 +379,7 @@ const main = async () => {
   await runOpencodeStage({
     fixtures: !flag("--real-only"),
     real: !flag("--fixtures-only"),
+    realAll: flag("--real-all"),
   });
   await runAnalyzeStage({
     fixtures: flag("--real-only") ? [] : suites,

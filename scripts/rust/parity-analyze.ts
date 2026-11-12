@@ -43,6 +43,7 @@ import {
   DEFECT,
   firstLineDiff,
   fixtureEnv,
+  newestAndLargest,
   newTally,
   pool,
   type Run,
@@ -295,17 +296,12 @@ const sampleRows = (rows: readonly Row[], all: boolean) => {
   });
   const newestOf = (agent: string) =>
     rows.filter((r) => r.agent === agent).slice(0, REAL_PER_AGENT);
-  const picked = [
-    ...rows.slice(0, SAMPLE.newest),
+  return newestAndLargest(rows, SAMPLE.newest, SAMPLE.largest, [
     ...newestOf("codex"),
     ...newestOf("pi"),
-    ...[...rows]
-      .sort((a, b) => b.sizeBytes - a.sizeBytes)
-      .slice(0, SAMPLE.largest),
     ...withSubagents.slice(0, SAMPLE.subagents),
     ...compacted.slice(0, SAMPLE.compaction),
-  ];
-  return [...new Map(picked.map((r) => [r.path, r])).values()];
+  ]);
 };
 
 const runReal = async (
