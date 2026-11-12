@@ -361,4 +361,114 @@ mod tests {
             r#"{"jsonrpc":"2.0","id":"x","result":{"content":[{"type":"text","text":"t"},{"type":"text","text":"a\nb"}]}}"#
         );
     }
+    fn field<'a>(v: &'a JsValue, path: &[&str]) -> Option<&'a JsValue> {
+        path.iter().try_fold(v, |v, k| v.get(k))
+    }
+
+    fn parsed(line: &str) -> JsValue {
+        JsValue::parse(&result(line)).unwrap_or(JsValue::Null)
+    }
+
+    /// TS `mcp-protocol.test.ts` "initialize" and "envelope", with its own
+    /// requests.
+    #[test]
+    fn ts_initialize_and_envelope_cases() {
+        let r = parsed(
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26"}}"#,
+        );
+        assert_eq!(r.get("id"), Some(&JsValue::Num(1.0)));
+        assert_eq!(
+            field(&r, &["result", "protocolVersion"]).and_then(JsValue::as_str),
+            Some("2025-03-26")
+        );
+        assert_eq!(
+            field(&r, &["result", "serverInfo", "name"]).and_then(JsValue::as_str),
+            Some("peektrace")
+        );
+        assert_eq!(
+            field(&r, &["result", "capabilities"]).map(|c| c.stringify(false)),
+            Some(r#"{"tools":{"listChanged":false}}"#.to_owned())
+        );
+        let r = parsed(
+            r#"{"jsonrpc":"2.0","id":2,"method":"initialize","params":{"protocolVersion":"1999-01-01"}}"#,
+        );
+        assert_eq!(
+            field(&r, &["result", "protocolVersion"]).and_then(JsValue::as_str),
+            Some(PROTOCOL_VERSIONS[0])
+        );
+
+        assert_eq!(
+            result(r#"{"jsonrpc":"2.0","id":3,"method":"ping"}"#),
+            r#"{"jsonrpc":"2.0","id":3,"result":{}}"#
+        );
+        let r = parsed(r#"{"jsonrpc":"2.0","id":4,"method":"resources/list"}"#);
+        assert_eq!(
+            field(&r, &["error", "code"]),
+            Some(&JsValue::Num(f64::from(METHOD_NOT_FOUND)))
+        );
+        assert_eq!(r.get("id"), Some(&JsValue::Num(4.0)));
+        let r = parsed("{not json");
+        assert_eq!(
+            field(&r, &["error", "code"]),
+            Some(&JsValue::Num(f64::from(PARSE_ERROR)))
+        );
+        assert_eq!(r.get("id"), Some(&JsValue::Null));
+        let r = parsed(r#"{"id":5,"method":"ping"}"#);
+        assert_eq!(
+            field(&r, &["error", "code"]),
+            Some(&JsValue::Num(f64::from(INVALID_REQUEST)))
+        );
+        assert_eq!(r.get("id"), Some(&JsValue::Num(5.0)));
+        let r = parsed(r#"{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"nope"}}"#);
+        assert_eq!(
+            field(&r, &["error", "code"]),
+            Some(&JsValue::Num(f64::from(INVALID_PARAMS)))
+        );
+    }
+
+    /// TS `mcp-protocol.test.ts` "lists the five read-only tools with object
+    /// schemas".
+    #[test]
+    fn listed_tools_are_read_only_object_schemas() {
+        let r = parsed(r#"{"jsonrpc":"2.0","id":7,"method":"tools/list"}"#);
+        let tools = field(&r, &["result", "tools"])
+            .and_then(JsValue::as_arr)
+            .unwrap_or_default();
+        let names: Vec<&str> = tools
+            .iter()
+            .filter_map(|t| t.get("name").and_then(JsValue::as_str))
+            .collect();
+        for want in [
+            "sessions_list",
+            "sessions_search",
+            "sessions_analyze",
+            "stats_report",
+            "stats_drill",
+        ] {
+            assert!(names.contains(&want), "{want}");
+        }
+        for t in tools {
+            let name = t.get("name").and_then(JsValue::as_str).unwrap_or("");
+            assert!(
+                (1..=64).contains(&name.len())
+                    && name
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-'),
+                "{name}"
+            );
+            let schema = t.get("inputSchema");
+            assert_eq!(
+                schema.and_then(|s| s.get("type")).and_then(JsValue::as_str),
+                Some("object")
+            );
+            assert!(schema.and_then(|s| s.get("$schema")).is_none());
+            let props = schema.and_then(|s| s.get("properties"));
+            assert!(props.and_then(|p| p.get("redact")).is_none(), "{name}");
+            assert!(props.and_then(|p| p.get("force")).is_none(), "{name}");
+            assert_eq!(
+                t.get("annotations").map(|a| a.stringify(false)),
+                Some(r#"{"readOnlyHint":true,"openWorldHint":false}"#.to_owned())
+            );
+        }
+    }
 }

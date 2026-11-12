@@ -58,9 +58,10 @@ fn is_error(r: &Value) -> bool {
 fn initialize_list_and_call_over_stdio() {
     let h = home();
     let lines = [
-        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}).to_string(),
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18",
+            "capabilities":{},"clientInfo":{"name":"test","version":"0"}}}).to_string(),
         json!({"jsonrpc":"2.0","method":"notifications/initialized"}).to_string(),
-        json!({"jsonrpc":"2.0","id":2,"method":"tools/list"}).to_string(),
+        json!({"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}).to_string(),
         call("3", "sessions_list", &json!({})),
     ];
     let by_id = serve(&h, &lines);
@@ -108,7 +109,7 @@ fn sessions_list_tool() {
                 "sessions_list",
                 &json!({"format":"json","limit":1}),
             ),
-            call("tilde", "sessions_list", &json!({"cwd":"~/nowhere"})),
+            call("tilde", "sessions_list", &json!({"cwd":"~/no-such-dir"})),
             call("since", "sessions_list", &json!({"since":"soon"})),
         ],
     );
@@ -148,8 +149,8 @@ fn sessions_search_tool() {
     let by_id = serve(
         &h,
         &[
-            call("hits", "sessions_search", &json!({"q":"hello"})),
-            call("none", "sessions_search", &json!({"q":"zzzz-no-match"})),
+            call("hits", "sessions_search", &json!({"q":"HELLO"})),
+            call("none", "sessions_search", &json!({"q":"zz-no-such-text-zz"})),
             call(
                 "json",
                 "sessions_search",
@@ -164,7 +165,11 @@ fn sessions_search_tool() {
     assert!(hits.contains("44444444") && hits.contains("55555555") && hits.contains("hello"));
     assert_eq!(text(&by_id["none"], 0), "no matches in 2 sessions");
     let result: Value = serde_json::from_str(text(&by_id["json"], 0)).expect("json");
-    assert_eq!(result["sessions"][0]["id"], ID);
+    let ids: Vec<&str> = result["sessions"]
+        .as_array()
+        .map(|s| s.iter().filter_map(|s| s["id"].as_str()).collect())
+        .unwrap_or_default();
+    assert_eq!(ids, [ID]);
     assert_eq!(result["truncated"], true);
     assert_eq!(
         text(&by_id["json"], 1),
@@ -187,7 +192,7 @@ fn sessions_analyze_tool() {
             call(
                 "json",
                 "sessions_analyze",
-                &json!({"id":"44444444","format":"json"}),
+                &json!({"id":ID,"format":"json"}),
             ),
         ],
     );
@@ -215,7 +220,7 @@ fn stats_tools() {
             call(
                 "drill",
                 "stats_drill",
-                &json!({"table":"cause","key":"no-such-cause","days":3650}),
+                &json!({"table":"cause","key":"cause:no-such-cause","days":3650}),
             ),
         ],
     );
@@ -225,7 +230,13 @@ fn stats_tools() {
     assert!(t.contains("drill a row with stats_drill"));
     assert!(!t.contains("peektrace stats drill"));
     let r: Value = serde_json::from_str(text(&by_id["json"], 0)).expect("json");
-    assert!(r["schemaVersion"].is_string() || r["schemaVersion"].is_number());
+    assert!(
+        r["schemaVersion"]
+            .as_str()
+            .is_some_and(|v| v.starts_with("peektrace-stats/")),
+        "{}",
+        r["schemaVersion"]
+    );
     assert!(is_error(&by_id["drill"]));
     let d = text(&by_id["drill"], 0);
     assert!(

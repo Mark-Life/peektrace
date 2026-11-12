@@ -137,6 +137,21 @@ mod tests {
         assert_eq!(got, ["x\u{2029}y"]);
     }
 
+    /// TS `requestLines` "keeps raw U+2028 and U+2029 inside one request",
+    /// with the input cut inside the 3-byte U+2028.
+    #[test]
+    fn keeps_raw_u2028_and_u2029_across_a_chunk_cut() {
+        use std::io::{BufReader, Read as _};
+        let line = "{\"k\":\"a\u{2028}b\u{2029}c\"}";
+        let bytes = format!("{line}\n{{\"n\":2}}\r\n").into_bytes();
+        let cut = bytes.iter().position(|b| *b == 0xe2).map_or(0, |i| i + 1);
+        let (a, b) = bytes.split_at(cut);
+        let mut got = Vec::new();
+        read_lines(BufReader::with_capacity(1, a.chain(b)), |l| got.push(l));
+        assert_eq!(got, [line, "{\"n\":2}"]);
+        assert!(got[0].contains('\u{2028}'));
+    }
+
     #[test]
     fn panics_become_messages() {
         let p = catch_unwind(|| panic!("boom")).err();
