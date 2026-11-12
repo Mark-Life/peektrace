@@ -48,6 +48,8 @@ pub struct Options<'a> {
     pub read_only: bool,
     pub host: &'a str,
     pub token: Option<&'a str>,
+    /// Agent roots; the core fixtures when `None`.
+    pub roots: Option<AgentRoots>,
 }
 
 impl Default for Options<'_> {
@@ -57,6 +59,7 @@ impl Default for Options<'_> {
             read_only: false,
             host: "127.0.0.1",
             token: None,
+            roots: None,
         }
     }
 }
@@ -78,7 +81,7 @@ pub fn start(o: &Options<'_>) -> TestServer {
     let port = listener.local_addr().expect("addr").port();
     let (tx, rx) = tokio::sync::watch::channel(WatchVersions::default());
     let state = AppState {
-        roots: fixture_roots(),
+        roots: o.roots.clone().unwrap_or_else(fixture_roots),
         settings_path: settings_path.clone(),
         user_home: "/home/test".to_owned(),
         read_only: o.read_only,
