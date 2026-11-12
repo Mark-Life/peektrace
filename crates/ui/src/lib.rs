@@ -11,6 +11,7 @@ pub mod source;
 pub mod state;
 pub mod theme;
 pub mod views;
+pub mod web;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -106,6 +107,10 @@ fn poll(s: &mut Ui, clock: f64, tx: &mut Tx) -> bool {
     let had = !s.pending.is_empty();
     dispatch(s);
     let changed = s.tick(clock, wall_ms(), tx);
+    #[cfg(target_arch = "wasm32")]
+    if let Some(sel) = &s.selected {
+        web::write(sel);
+    }
     if !s.now_fixed {
         tx.wake_after(Duration::from_secs_f64(state::NOW_TICK_S));
     }
@@ -267,6 +272,10 @@ pub fn app(source: &Arc<dyn DataSource>) -> App<Ui> {
             now.is_some(),
         );
         s.request_sessions();
+        #[cfg(target_arch = "wasm32")]
+        if let Some(sel) = web::read() {
+            s.select(&sel.id, sel.parent);
+        }
         if headless {
             load_now(&mut s);
         }
