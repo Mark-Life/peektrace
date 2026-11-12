@@ -64,7 +64,7 @@ fn parse_claude(text: &str, r: &TranscriptRef) -> ParsedSession {
 }
 
 /// Load and parse one transcript; `None` when a text transcript cannot be
-/// read. An OpenCode session no store holds parses as an empty session.
+/// read. An `OpenCode` session no store holds parses as an empty session.
 fn parse_ref(r: &TranscriptRef, opencode_root: &str) -> Option<ParsedSession> {
     let parse_text: fn(&str, &TranscriptRef) -> ParsedSession = match r.agent {
         Agent::Claude => parse_claude,
