@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage).
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
@@ -90,6 +90,22 @@ These are deliberate or accepted. The parity harness does not cover them.
 | OpenCode store locked by a writer (rollback-journal DB under `BEGIN EXCLUSIVE`) | that DB is skipped at once (busy timeout 0) | waits up to 1 s for the lock, then skips the DB. WAL stores, which OpenCode uses, read the last commit in both. |
 | JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
 | OpenCode time above 8.64e15 ms | `ls` and `analyze` fail with an Effect `RangeError` on stdout | the time reads as no date: `startedAt`, `ts` and `endedAt` are left out, and `updatedAt` prints `1970-01-01T00:00:00.000Z` |
+| Server transport | Effect RPC NDJSON `POST /rpc` | JSON REST under `/api`, SSE `/api/events` |
+| Live updates | client polls `watch.poll` every 1 s | SSE push; `/api/watch` poll as fallback |
+| Watched roots | Claude roots only | every agent's roots (OpenCode: `opencode*.db[-wal]`, `storage/{session,message,part}/**.json`) |
+| Unknown GET under `/api` | `index.html` 200 | JSON 404 `NotFoundError` |
+| `index.html` cache | `no-store` only when embedded | `no-store` for every source |
+| Bad request payload (`agent=bogus`, settings body without `settings`) | Effect `Die` | 400 `BadRequestError` |
+| Session image | `{data, mediaType}` base64, or `null` | raw bytes, or 404 `ImageNotFoundError` |
+| `serve` startup lines | `RPC: <url>/rpc`, `via watch.poll`, update notice | `API: <url>/api`, `via /api/events`, no update notice (no `upgrade` yet) |
+| `serve --port` near 65535, bind error text | Node messages | `No free port in range ...`, OS message |
+| `serve --port abc` | `@effect/cli` integer error | clap's message. Exit code 1 in both. |
+| `--remote` lenient URLs (`localhost:4630`, `http:/host`) | Bun `fetch` accepts some | parsed with WHATWG rules; no scheme gives the "Include the scheme" error |
+| `--remote` with a base path (`http://h/base`) | `failed (HTTP 404)` | `failed (unexpected response)`: the server answers `index.html` for `/base/api/...` |
+| `--remote --json` key order | Schema order (`provider` first) | local CLI order |
+| `--remote https://` | supported | needs the `https` cargo feature (rustls); the default build has no TLS client |
+| `SettingsWriteError.reason` on IO failure | `String(PlatformError)` | OS error text; the temp file is removed |
+| `/api` JSON over 1 KiB | sent as is | gzip when the client accepts it |
 
 ## Risks
 
@@ -113,3 +129,6 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 5. The real stats parity suite snapshots `~/.claude/projects` and deletes it after. It runs by default on macOS (APFS clone) and needs `--real-stats` elsewhere (full copy). Keep it out of CI?
 6. `memory rm` writes an empty MEMORY.md when the project has none. Rust copies TS. Fix it in both?
 7. `memory` writes (`create`, `update`) have no `expectedHash` check and no file lock in Rust: TS has both in `fs.ts` but nothing calls them. Port them with `serve` if the server needs them?
+8. TS `serve`, `tui` and the desktop sidecar serve the inspector but answer only `/rpc`, so on the `rust` branch their web UI loads no data. Accept until cutover, or add a thin `/api` adapter to the TS server?
+9. Watch roots that appear after `serve` starts (fresh machine): keep the TS behaviour (never watched) or watch the nearest existing parent?
+10. `--remote https://` adds rustls (~1 MB). It sits behind the `https` cargo feature, off by default. Turn it on for releases?
