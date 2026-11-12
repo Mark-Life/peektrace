@@ -20,12 +20,13 @@ use super::rank::{DEFAULT_DRILL_PAGE, DEFAULT_SAMPLE_CAP};
 use super::redact::Redactor;
 use super::rule_dates::date_lines;
 use super::schema::Fact;
+use crate::js::json_out::Writer;
 use crate::js::num::to_js_string;
 use crate::js::time::{LocalZone, parse_date, to_iso_string};
 use crate::listing::AgentRoots;
 use crate::model::Agent;
 
-pub use super::report::{DrillResult, StatsReport};
+pub use super::report::{DrillResult, StatsReport, markers_json};
 use super::report::{paths_of, samples_in};
 
 pub const DEFAULT_DAYS: f64 = 60.0;
@@ -270,12 +271,47 @@ pub fn drill_key_of(table: DrillTable, key: &str) -> String {
     }
 }
 
-/// The calls behind one row, first page.
+/// Which slice of a drill's hits to show; `None` takes the default.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct DrillPage {
+    pub offset: Option<f64>,
+    pub page_size: Option<f64>,
+}
+
+impl DrillPage {
+    /// `max(0, trunc(offset ?? 0))` and `max(1, trunc(pageSize ?? 200))`.
+    fn resolve(self) -> (f64, f64) {
+        #[expect(clippy::cast_precision_loss, reason = "a small constant")]
+        let default_page = DEFAULT_DRILL_PAGE as f64;
+        (
+            self.offset.unwrap_or(0.0).trunc().max(0.0),
+            self.page_size.unwrap_or(default_page).trunc().max(1.0),
+        )
+    }
+}
+
+/// `hits.slice(offset, offset + page)` with JS index clamping.
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "both bounds are non-negative; `as` saturates"
+)]
+fn page_of(hits: Vec<DrillHit>, offset: f64, page: f64) -> Vec<DrillHit> {
+    let start = offset as usize;
+    let end = (offset + page) as usize;
+    hits.into_iter()
+        .skip(start)
+        .take(end.saturating_sub(start))
+        .collect()
+}
+
+/// The calls behind one row, one page of them.
 pub fn drill(
     env: &StatsEnv<'_>,
     req: &ReportRequest,
     table: DrillTable,
     raw_key: &str,
+    page: DrillPage,
 ) -> Result<DrillResult, StatsError> {
     let key = drill_key_of(table, raw_key);
     let _span = info_span!("Stats.drill", table = table.as_str()).entered();
@@ -309,7 +345,8 @@ pub fn drill(
         });
     }
     let total = hits.len();
-    let shown: Vec<DrillHit> = hits.into_iter().take(DEFAULT_DRILL_PAGE).collect();
+    let (offset, size) = page.resolve();
+    let shown = page_of(hits, offset, size);
     let paths = paths_of(
         &p.result.paths,
         &redact,
@@ -319,7 +356,7 @@ pub fn drill(
         table,
         key,
         total,
-        offset: 0,
+        offset,
         hits: shown,
         paths,
     })
@@ -332,6 +369,22 @@ pub struct RefreshSummary {
     pub cached: usize,
     pub skipped: Vec<String>,
     pub facts: usize,
+}
+
+impl RefreshSummary {
+    pub fn to_json(&self, pretty: bool) -> String {
+        let count = |n: usize| i64::try_from(n).unwrap_or(i64::MAX);
+        let mut w = Writer::new(pretty);
+        w.begin_obj();
+        w.key("transcripts").int(count(self.transcripts));
+        w.key("extracted").int(count(self.extracted));
+        w.key("cached").int(count(self.cached));
+        w.key("skipped")
+            .texts(self.skipped.iter().map(String::as_str));
+        w.key("facts").int(count(self.facts));
+        w.end_obj();
+        w.finish()
+    }
 }
 
 /// Refresh the fact cache; `force` re-extracts (and clears it on a full scope).

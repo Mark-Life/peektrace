@@ -9,6 +9,7 @@ use super::detectors::failures::FailRow;
 use super::detectors::retries::CauseRow;
 use super::detectors::timing::TimeRow;
 use super::detectors::waiting::WaitPanel;
+use super::markers::SessionMarker;
 use super::rank::uniq_sorted;
 use super::redact::Redactor;
 use super::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
@@ -125,7 +126,7 @@ pub struct DrillResult {
     pub table: DrillTable,
     pub key: String,
     pub total: usize,
-    pub offset: usize,
+    pub offset: f64,
     pub hits: Vec<DrillHit>,
     pub paths: Vec<(String, String)>,
 }
@@ -137,11 +138,9 @@ impl DrillResult {
         w.key("schemaVersion").str(STATS_SCHEMA_VERSION);
         w.key("table").str(self.table.as_str());
         w.key("key").text(&self.key);
-        #[expect(clippy::cast_possible_wrap)]
-        {
-            w.key("total").int(self.total as i64);
-            w.key("offset").int(self.offset as i64);
-        }
+        w.key("total")
+            .int(i64::try_from(self.total).unwrap_or(i64::MAX));
+        w.key("offset").num(self.offset);
         w.key("hits").begin_arr();
         for h in &self.hits {
             w.elem();
@@ -153,4 +152,21 @@ impl DrillResult {
         w.end_obj();
         w.finish()
     }
+}
+
+/// `SessionMarkers`: the marks one session's calls get.
+pub fn markers_json(sid: &str, markers: &[SessionMarker], pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
+    w.begin_obj();
+    w.key("schemaVersion").str(STATS_SCHEMA_VERSION);
+    w.key("sid").text(sid);
+    w.key("detectorVersion").num(DETECTOR_VERSION);
+    w.key("markers").begin_arr();
+    for m in markers {
+        w.elem();
+        m.write(&mut w);
+    }
+    w.end_arr();
+    w.end_obj();
+    w.finish()
 }

@@ -2,13 +2,14 @@
 
 use peektrace_core::js::num;
 use peektrace_core::js::text;
-use peektrace_core::roots::RootsEnv;
 use peektrace_core::stats::accumulate::DrillTable;
-use peektrace_core::stats::cache::StatsCache;
+use peektrace_core::stats::cache::{StatsCache, cache_root};
 use peektrace_core::stats::detectors::usage::UsageBy;
 use peektrace_core::stats::icu_zones::icu_zone_name;
 use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
-use peektrace_core::stats::service::{ReportRequest, StatsEnv, StatsError, drill, refresh, report};
+use peektrace_core::stats::service::{
+    DrillPage, ReportRequest, StatsEnv, StatsError, drill, refresh, report,
+};
 use peektrace_core::stats::usage_service::{MAX_USAGE_DAYS, UsageRequest, usage, zone_of};
 use peektrace_core::{Agent, AgentRoots};
 
@@ -47,14 +48,6 @@ fn parse_agent(raw: Option<&str>) -> Result<Option<Vec<Agent>>, UserError> {
         )));
     };
     Ok(Some(vec![agent]))
-}
-
-fn cache_root(env: &RootsEnv) -> String {
-    let dir = env
-        .peektrace_dir
-        .clone()
-        .unwrap_or_else(|| env.style.join(&[&env.home, ".peektrace"]));
-    env.style.join(&[&dir, "stats-rs"])
 }
 
 struct Prepared {
@@ -165,8 +158,16 @@ pub fn run_drill(a: &StatsDrillArgs, g: Globals, ctx: &Context) -> Result<Output
     let req = request(&a.common)?;
     let p = prepare(ctx);
     let zone = SystemZone::default();
-    let d = with_progress(|pr| drill(&env_of(ctx, &p, &zone, pr), &req, table_, key))
-        .map_err(scan_error)?;
+    let d = with_progress(|pr| {
+        drill(
+            &env_of(ctx, &p, &zone, pr),
+            &req,
+            table_,
+            key,
+            DrillPage::default(),
+        )
+    })
+    .map_err(scan_error)?;
     let out = if g.json {
         d.to_json(true)
     } else {
@@ -211,10 +212,6 @@ pub fn run_prompt(a: &StatsPromptArgs, ctx: &Context) -> Result<Output, UserErro
 }
 
 /// `stats refresh`: re-extract the cache.
-#[expect(
-    clippy::many_single_char_names,
-    reason = "short names for args, globals and summary"
-)]
 pub fn run_refresh(a: &StatsRefreshArgs, g: Globals, ctx: &Context) -> Result<Output, UserError> {
     let agents = parse_agent(a.agent.as_deref())?;
     let p = prepare(ctx);
@@ -222,18 +219,7 @@ pub fn run_refresh(a: &StatsRefreshArgs, g: Globals, ctx: &Context) -> Result<Ou
     let s = with_progress(|pr| refresh(&env_of(ctx, &p, &zone, pr), agents.as_deref(), a.force))
         .map_err(scan_error)?;
     let out = if g.json {
-        let mut w = peektrace_core::js::json_out::Writer::new(true);
-        w.begin_obj();
-        #[expect(clippy::cast_possible_wrap)]
-        {
-            w.key("transcripts").int(s.transcripts as i64);
-            w.key("extracted").int(s.extracted as i64);
-            w.key("cached").int(s.cached as i64);
-            w.key("skipped").texts(s.skipped.iter().map(String::as_str));
-            w.key("facts").int(s.facts as i64);
-        }
-        w.end_obj();
-        w.finish()
+        s.to_json(true)
     } else {
         let rows: Vec<Vec<String>> = [
             ("transcripts", s.transcripts),

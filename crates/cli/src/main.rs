@@ -243,7 +243,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         Run::MemoryLs(args) => Ok(memory::run_ls(args, globals, &ctx)),
         Run::MemoryShow(args) => Ok(memory::run_show(args, globals, &ctx)),
         Run::MemoryRm(args) => {
-            let tmp = std::env::temp_dir().to_string_lossy().into_owned();
+            let tmp = peektrace_core::js::os::tmpdir();
             memory::run_rm(args, globals, &ctx, &tmp)
         }
         Run::Stats(args) => stats::run_report(args, globals, &ctx),

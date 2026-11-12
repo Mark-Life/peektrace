@@ -15,6 +15,7 @@ use crate::js::json_out::Writer;
 use crate::js::time::{LocalZone, parse_date};
 use crate::js::value::{JsObject, JsValue};
 use crate::model::Agent;
+use crate::roots::RootsEnv;
 
 const INDEX_VERSION: f64 = 1.0;
 const LEDGER_VERSION: f64 = 1.0;
@@ -277,6 +278,16 @@ fn write_atomic(path: &str, body: &str) -> std::io::Result<()> {
     let tmp = format!("{path}.tmp");
     fs::write(&tmp, body)?;
     fs::rename(&tmp, path)
+}
+
+/// `$PEEKTRACE_DIR/stats-rs`, else `~/.peektrace/stats-rs`. Separate from
+/// the TS `stats/` dir, so the two never read each other's shards.
+pub fn cache_root(env: &RootsEnv) -> String {
+    let dir = env
+        .peektrace_dir
+        .clone()
+        .unwrap_or_else(|| env.style.join(&[&env.home, ".peektrace"]));
+    env.style.join(&[&dir, "stats-rs"])
 }
 
 impl StatsCache {
