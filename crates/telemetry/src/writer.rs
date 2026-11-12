@@ -9,12 +9,27 @@ use std::sync::mpsc::{Receiver, SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use crate::store::{Row, Store};
+use crate::store::{Row, Store, StoreError};
 
 /// Events queued at most; more are dropped.
 pub const QUEUE: usize = 1024;
 /// Rows written per transaction at most.
 const BATCH: usize = 256;
+/// How long the writer keeps retrying a store another process holds.
+const RETRY_FOR: Duration = Duration::from_millis(250);
+
+/// Run `f` again while it fails with a held lock, until `RETRY_FOR` passes.
+fn retry<T>(mut f: impl FnMut() -> Result<T, StoreError>) -> Result<T, StoreError> {
+    let deadline = Instant::now() + RETRY_FOR;
+    loop {
+        match f() {
+            Err(e) if e.is_busy() && Instant::now() < deadline => {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            other => return other,
+        }
+    }
+}
 
 /// Counts that let a caller wait until what it queued is written.
 #[derive(Default)]
@@ -55,7 +70,7 @@ impl Writer {
         let shared = Arc::clone(&progress);
         let spawned = std::thread::Builder::new()
             .name("telemetry".to_owned())
-            .spawn(move || match Store::open(&dir, now_ms) {
+            .spawn(move || match retry(|| Store::open(&dir, now_ms)) {
                 Ok(store) => {
                     shared.ready.store(true, Ordering::Relaxed);
                     shared.finish(0);
@@ -136,7 +151,7 @@ fn drain(mut store: Store, rx: &Receiver<Row>, progress: &Progress) {
         batch.extend(rx.try_iter().take(BATCH - 1));
         // A failed batch (lock held past the busy timeout, IO, corruption)
         // is dropped; the next one tries again.
-        let _ = store.record(&batch);
+        let _ = retry(|| store.record(&batch));
         progress.finish(batch.len() as u64);
         batch.clear();
     }

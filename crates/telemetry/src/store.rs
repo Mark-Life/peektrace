@@ -23,6 +23,17 @@ pub const DDL: [&str; 4] = [
     "CREATE INDEX IF NOT EXISTS idx_events_outcome     ON events(outcome, ts)",
 ];
 
+impl StoreError {
+    /// Another connection holds the lock; trying again may work.
+    pub fn is_busy(&self) -> bool {
+        matches!(
+            self,
+            Self::Sqlite(rusqlite::Error::SqliteFailure(e, _))
+                if matches!(e.code, rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked)
+        )
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StoreError {
     #[error("{0}")]
