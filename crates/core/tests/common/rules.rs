@@ -18,6 +18,13 @@ pub fn ms(iso: &str) -> f64 {
 }
 
 /// The TS `beforeAll` layout under `<base>/u`.
+fn symlink_file(target: &str, link: &str) {
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(target, link).expect("symlink");
+    #[cfg(windows)]
+    std::os::windows::fs::symlink_file(target, link).expect("symlink");
+}
+
 pub fn fixture() -> TempDir {
     let t = TempDir::new("rules");
     for d in [
@@ -47,8 +54,8 @@ pub fn fixture() -> TempDir {
         "- rm absolute paths only, never a bare $VAR target\n",
     );
     set_mtime(&shared, 1_785_585_600_000); // 2026-08-01T12:00:00Z
-    std::os::unix::fs::symlink(&shared, t.join("u/.claude/CLAUDE.md")).expect("symlink");
-    std::os::unix::fs::symlink(&shared, t.join("u/.codex/AGENTS.md")).expect("symlink");
+    symlink_file(&shared, &t.join("u/.claude/CLAUDE.md"));
+    symlink_file(&shared, &t.join("u/.codex/AGENTS.md"));
     t.write(
         "u/proj/AGENTS.md",
         "- pkill: never chain it.\n- This host has no jq: use bun -e instead of jq.",
