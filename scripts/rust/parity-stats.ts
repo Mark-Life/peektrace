@@ -1,7 +1,9 @@
 /**
  * `stats` parity stage: report, drill, prompt, usage and refresh, run by TS
  * then by Rust with one shared `PEEKTRACE_DIR` (TS caches in `stats/`, Rust
- * in `stats-rs/`, both read and write the same `rule-lines.json`).
+ * in `stats-rs/`, both read and write the same `rule-lines.json`). Each suite
+ * runs every agent at once first, then one agent at a time, so both sides
+ * walk the same index merge history.
  *
  * Normalisation, only this:
  * - JSON report and usage: `generatedAt`, `window.fromIso` and
@@ -13,262 +15,133 @@
  * - Cases where TS fails with an Effect defect are skipped, not diffed, but
  *   counted; Rust must still exit 0 or 1 there. A skipped key-discovery
  *   case fails the stage, since every keyed drill and prompt case drops.
+ *
+ * The `*nullrow*` Codex and Pi edge files stay out: a `null` line makes the
+ * whole TS scan fail (a known difference), which would drop every case.
  */
-import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import {
-  compareRun,
-  fixtureEnv,
-  REPO,
-  type Run,
-  report,
-  run,
-  rustBin,
-  TS_CMD,
-  WORK,
-} from "./parity-lib";
+  agentsSettings,
+  buildAgentsEdge,
+  buildPiRoot,
+} from "./parity-agents-fixtures";
+import { CODEX_NULLROW } from "./parity-codex-fixtures";
+import { fixtureEnv, REPO, report, rustBin, WORK } from "./parity-lib";
+import { buildOpencodeData } from "./parity-opencode-fixtures";
+import { PI_NULLROW } from "./parity-pi-fixtures";
+import { runCases, runErrors, type Stage } from "./parity-stats-cases";
 import { buildStatsHome, unlockStatsHome } from "./parity-stats-fixtures";
 
-type Args = readonly string[];
+const ALL_DAYS = "36500";
+const REAL_DAYS = "60";
+const FULL_CAP = 50;
+const SMALL_CAP = 3;
+const READ_WRITE = 0o644;
+const OTHER_AGENTS = ["codex", "pi", "opencode"] as const;
+const agent = (a: string) => ["--agent", a];
 
-const TS_DEFECT =
-  /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#|Could not scan the corpus: TypeError/m;
-const WINDOW_LINE = /^peektrace stats {2}(\S+) window {2}.* → .*$/m;
-const BASE = ["--no-telemetry"];
-const GENERATED_AT = /^ {2}"generatedAt": .*\n/m;
-const FROM_ISO = /^ {4}"fromIso": .*\n/m;
-const TO_ISO = /^ {4}"toIso": .*\n/m;
-const CAUSE_PREFIX = /^cause:/;
-
-/** Drop the clock-dependent fields of a report or usage JSON body. */
-const stripClock = (stdout: string): string => {
-  try {
-    const v = JSON.parse(stdout) as Record<string, unknown>;
-    if (typeof v !== "object" || v === null || !("schemaVersion" in v)) {
-      return stdout;
-    }
-    return stdout
-      .replace(GENERATED_AT, "")
-      .replace(FROM_ISO, "")
-      .replace(TO_ISO, "");
-  } catch {
-    return stdout;
+/** Every agent and Claude on the full matrix, the others reduced. */
+const runScopes = (stage: Stage, days: string, cap: number) => {
+  runCases(stage, days, cap, [], true);
+  runCases(stage, days, cap, agent("claude"), true);
+  for (const a of OTHER_AGENTS) {
+    runCases(stage, days, cap, agent(a), false);
   }
-};
-
-const normalise = (r: Run): Run => ({
-  ...r,
-  stdout: stripClock(r.stdout).replace(
-    WINDOW_LINE,
-    "peektrace stats  $1 window  <window>"
-  ),
-});
-
-interface Stage {
-  readonly env: Record<string, string>;
-  readonly name: string;
-  readonly retry: boolean;
-}
-
-const runBoth = (stage: Stage, args: Args) => {
-  const ts = run([...TS_CMD, ...BASE, ...args], stage.env);
-  const rust = run([rustBin, ...BASE, ...args], stage.env);
-  return { raw: ts.stdout, ts: normalise(ts), rust: normalise(rust) };
-};
-
-const same = (a: Run, b: Run) =>
-  a.code === b.code && a.stdout === b.stdout && a.stderr === b.stderr;
-
-let checked = 0;
-let skipped = 0;
-
-/** Run one case; returns the raw TS stdout for key discovery, or null on a TS defect. */
-const check = (stage: Stage, args: Args): string | null => {
-  checked += 1;
-  const label = `${stage.name} [${args.join(" ")}]`;
-  let { raw, ts, rust } = runBoth(stage, args);
-  if (TS_DEFECT.test(ts.stdout) || TS_DEFECT.test(ts.stderr)) {
-    skipped += 1;
-    console.log(`  skip (TS defect) [${args.join(" ")}]`);
-    if (rust.code !== 0 && rust.code !== 1) {
-      report(`${label}: TS defect, rust exit ${rust.code}`);
-    }
-    return null;
-  }
-  if (stage.retry && !same(ts, rust)) {
-    ({ raw, ts, rust } = runBoth(stage, args));
-  }
-  compareRun(label, ts, rust);
-  return raw;
-};
-
-interface Keys {
-  readonly causes: string[];
-  readonly clusters: string[];
-  readonly fails: string[];
-  readonly time: string[];
-}
-
-const NO_KEYS: Keys = { causes: [], fails: [], time: [], clusters: [] };
-
-/** Drill and prompt keys from the raw TS report; a stage without them fails. */
-const keysOf = (stage: Stage, stdout: string | null, cap: number): Keys => {
-  if (stdout === null) {
-    report(
-      `${stage.name}: key discovery skipped (TS defect), keyed cases dropped`
-    );
-    return NO_KEYS;
-  }
-  try {
-    const r = JSON.parse(stdout) as Record<string, { key: string }[]>;
-    const take = (rows: { key: string }[] | undefined) =>
-      (rows ?? []).map((row) => row.key).slice(0, cap);
-    return {
-      causes: take(r.causes),
-      fails: take(r.fails),
-      time: take(r.time),
-      clusters: take(r.clusters),
-    };
-  } catch (e) {
-    report(`${stage.name}: key discovery output is not JSON: ${String(e)}`);
-    return NO_KEYS;
-  }
-};
-
-const runCases = (stage: Stage, days: string, cap: number) => {
-  console.log(`suite stats-${stage.name}`);
-  const before = checked;
-  const skippedBefore = skipped;
-  const scope = ["--agent", "claude", "--days", days];
-  check(stage, ["stats", "refresh", "--agent", "claude", "--force", "--json"]);
-  check(stage, ["stats", "refresh", "--agent", "claude", "--json"]);
-  const keys = keysOf(stage, check(stage, ["stats", ...scope, "--json"]), cap);
-  check(stage, ["stats", ...scope]);
-  check(stage, ["--pretty", "stats", ...scope]);
-  check(stage, ["stats", ...scope, "--limit", "1", "--json"]);
-  check(stage, ["stats", ...scope, "--limit", "0", "--json"]);
-  check(stage, ["stats", "--agent", "claude", "--days", "0", "--json"]);
-  const drill = (flag: string, key: string) =>
-    check(stage, ["stats", "drill", `--${flag}`, key, ...scope, "--json"]);
-  for (const key of keys.causes) {
-    drill("cause", key);
-    drill("cause", key.replace(CAUSE_PREFIX, ""));
-  }
-  for (const k of keys.fails) {
-    drill("fail", k);
-  }
-  for (const k of keys.time) {
-    drill("time", k);
-  }
-  for (const k of keys.clusters) {
-    drill("cluster", k);
-  }
-  for (const k of ["all", "wait/poll", "bare-delay", "loop-poll"]) {
-    drill("wait", k);
-  }
-  const first = keys.causes[0];
-  if (first !== undefined) {
-    check(stage, ["stats", "drill", "--cause", first, ...scope]);
-    check(stage, ["--pretty", "stats", "drill", "--cause", first, ...scope]);
-    check(stage, ["stats", "prompt", "--cause", first, ...scope]);
-    check(stage, [
-      "stats",
-      "prompt",
-      "--cause",
-      first.replace(CAUSE_PREFIX, ""),
-      ...scope,
-    ]);
-  }
-  for (const k of keys.fails.slice(0, 1)) {
-    check(stage, ["stats", "prompt", "--fail", k, ...scope]);
-  }
-  for (const k of keys.time.slice(0, 1)) {
-    check(stage, ["stats", "prompt", "--time", k, ...scope]);
-  }
-  check(stage, ["stats", "prompt", ...scope]);
-  check(stage, ["stats", "prompt", "--cause", "nope", ...scope]);
-  check(stage, ["stats", "prompt", "--cause", "a", "--time", "b", ...scope]);
-  check(stage, ["stats", "drill", "--cause", "nope", ...scope]);
-  check(stage, ["stats", "drill", ...scope]);
-  check(stage, ["stats", "drill", "--cause", "a", "--fail", "b", ...scope]);
-  const usageDays = stage.name === "real" ? [] : ["--days", days];
-  for (const by of ["day", "month", "block"]) {
-    for (const tz of ["UTC", "America/New_York", "Asia/Kolkata", "+05:30"]) {
-      check(stage, [
-        "stats",
-        "usage",
-        "--by",
-        by,
-        "--tz",
-        tz,
-        "--agent",
-        "claude",
-        ...(by === "block" ? [] : usageDays),
-        "--json",
-      ]);
-    }
-  }
-  check(stage, [
-    "stats",
-    "usage",
-    "--by",
-    "block",
-    "--tz",
-    "UTC",
-    "--agent",
-    "claude",
-  ]);
-  check(stage, [
-    "--pretty",
-    "stats",
-    "usage",
-    "--by",
-    "day",
-    "--tz",
-    "UTC",
-    "--agent",
-    "claude",
-    ...usageDays,
-  ]);
-  for (const tz of ["Asia/Kolkata", "US/Pacific", "Etc/UTC", "Europe/Kyiv"]) {
-    const env = { ...stage.env, TZ: tz };
-    const usage = ["stats", "usage", "--agent", "claude", ...usageDays];
-    check({ ...stage, env }, [...usage, "--json"]);
-    check({ ...stage, env }, usage);
-  }
-  check(stage, ["stats", "usage", "--tz", "Mars/Base", "--agent", "claude"]);
-  check(stage, ["stats", "usage", "--days", "0", "--agent", "claude"]);
-  check(stage, ["stats", "usage", "--days", "36501", "--agent", "claude"]);
-  check(stage, ["stats", "usage", "--by", "week", "--agent", "claude"]);
-  check(stage, ["stats", "--agent", "bogus"]);
-  check(stage, ["stats", "--days", "abc", "--agent", "claude"]);
-  check(stage, ["stats", "refresh", "--agent", "claude"]);
-  check(stage, ["--pretty", "stats", "refresh", "--agent", "claude"]);
-  const skips = skipped - skippedBefore;
-  console.log(
-    `  ${checked - before} cases${skips > 0 ? `, ${skips} skipped (TS defect)` : ""}`
-  );
-};
-
-/** Point Codex, Pi and OpenCode at an empty dir: Rust reads Claude only. */
-const otherAgentsEmpty = (root: string) => {
-  const empty = join(root, "empty");
-  mkdirSync(empty, { recursive: true });
-  return {
-    PEEKTRACE_CODEX_SESSIONS: empty,
-    PEEKTRACE_PI_SESSIONS: empty,
-    PEEKTRACE_OPENCODE_DATA: empty,
-  };
+  runErrors(stage);
 };
 
 /**
- * Snapshot `~/.claude/projects` so live sessions cannot move numbers. On
- * macOS `cp -c` makes an APFS clone; elsewhere it is a full copy.
+ * Codex and Pi edge trees plus the OpenCode edge DBs, minus the null-row
+ * files; returns the env and the files to unlock afterwards.
  */
-const snapshotReal = (dest: string): string | null => {
-  const src = join(process.env.HOME ?? "", ".claude/projects");
+const buildAgentsEdgeHome = (root: string) => {
+  const base = join(root, "agents-edge");
+  rmSync(base, { recursive: true, force: true });
+  const home = join(base, "home");
+  mkdirSync(join(home, ".claude/projects"), { recursive: true });
+  const extra = join(base, "extra");
+  const locked = buildAgentsEdge(home, extra);
+  rmSync(join(home, ".codex/sessions", CODEX_NULLROW));
+  rmSync(join(home, ".pi/agent/sessions", PI_NULLROW));
+  const oc = buildOpencodeData(
+    join(base, "oc"),
+    join(REPO, "packages/core/test/fixtures/sessions/projects")
+  );
+  oc.close();
+  mkdirSync(join(home, ".peektrace"), { recursive: true });
+  writeFileSync(
+    join(home, ".peektrace/settings.json"),
+    JSON.stringify({ roots: agentsSettings(extra, join(base, "missing")) })
+  );
+  return {
+    env: fixtureEnv(home, { PEEKTRACE_OPENCODE_DATA: oc.main }),
+    locked,
+  };
+};
+
+const runFixtureSuites = (root: string) => {
+  const home = buildStatsHome(root);
+  const fx: Stage = { name: "fx", env: fixtureEnv(home), retry: false };
+  runScopes(fx, ALL_DAYS, FULL_CAP);
+  const tokyo = {
+    ...fx,
+    name: "fx-tokyo",
+    env: { ...fx.env, TZ: "Asia/Tokyo" },
+  };
+  runCases(tokyo, ALL_DAYS, SMALL_CAP, [], true);
+  runErrors(tokyo);
+  const tsFixtures = join(REPO, "packages/core/test/fixtures");
+  const emptyHome = join(root, "empty-home");
+  const empty = join(root, "empty");
+  rmSync(emptyHome, { recursive: true, force: true });
+  mkdirSync(emptyHome, { recursive: true });
+  mkdirSync(empty, { recursive: true });
+  const piRoot = join(root, "ts-pi");
+  rmSync(piRoot, { recursive: true, force: true });
+  const ts: Stage = {
+    name: "ts-fixtures",
+    env: fixtureEnv(emptyHome, {
+      PEEKTRACE_CLAUDE_PROJECTS: tsFixtures,
+      PEEKTRACE_CODEX_SESSIONS: join(tsFixtures, "sessions-codex"),
+      PEEKTRACE_PI_SESSIONS: buildPiRoot(tsFixtures, piRoot),
+      PEEKTRACE_OPENCODE_DATA: empty,
+    }),
+    retry: false,
+  };
+  runCases(ts, ALL_DAYS, FULL_CAP, [], true);
+  runErrors(ts);
+  unlockStatsHome(home);
+  const edge = buildAgentsEdgeHome(root);
+  try {
+    const stage: Stage = { name: "agents-edge", env: edge.env, retry: false };
+    runCases(stage, ALL_DAYS, SMALL_CAP, [], true);
+    for (const a of OTHER_AGENTS) {
+      runCases(stage, ALL_DAYS, SMALL_CAP, agent(a), false);
+    }
+    runErrors(stage);
+  } finally {
+    for (const path of edge.locked) {
+      chmodSync(path, READ_WRITE);
+    }
+  }
+};
+
+/**
+ * Copy `src` to `dest` so live sessions cannot move numbers. On macOS
+ * `cp -c` makes an APFS clone; elsewhere it is a full copy.
+ */
+const snapshot = (src: string, dest: string): boolean => {
   if (!existsSync(src)) {
-    return null;
+    return false;
   }
   rmSync(dest, { recursive: true, force: true });
   const size = Bun.spawnSync(["du", "-sh", src])
@@ -284,70 +157,89 @@ const snapshotReal = (dest: string): string | null => {
   if (clone.exitCode !== 0) {
     cpSync(src, dest, { recursive: true });
   }
-  return dest;
+  return true;
 };
 
-/** The real suite on a snapshot, deleted afterwards. */
-const runRealCases = (root: string, others: Record<string, string>) => {
-  const projects = snapshotReal(join(root, "real-projects"));
-  if (projects === null) {
+/** The OpenCode data dir: only its DB files and `storage/`. */
+const snapshotOpencode = (src: string, dest: string) => {
+  rmSync(dest, { recursive: true, force: true });
+  mkdirSync(dest, { recursive: true });
+  if (!existsSync(src)) {
+    return;
+  }
+  for (const name of readdirSync(src)) {
+    if (name.startsWith("opencode") && name.includes(".db")) {
+      snapshot(join(src, name), join(dest, name));
+    }
+  }
+  snapshot(join(src, "storage"), join(dest, "storage"));
+};
+
+const opencodeDataDir = (home: string) => {
+  const xdg = process.env.XDG_DATA_HOME;
+  return join(xdg ? xdg : join(home, ".local/share"), "opencode");
+};
+
+/** The real suite on snapshots of every agent's sessions, deleted after.
+ * Memory files stay real. */
+const runRealCases = (root: string) => {
+  const home = process.env.HOME ?? "";
+  const dirs = {
+    projects: join(root, "real-projects"),
+    codex: join(root, "real-codex"),
+    pi: join(root, "real-pi"),
+    opencode: join(root, "real-opencode"),
+    pdir: join(root, "real-pdir"),
+  };
+  if (!snapshot(join(home, ".claude/projects"), dirs.projects)) {
     console.log("suite stats-real: no ~/.claude/projects, skipped");
     return;
   }
   try {
-    const env: Record<string, string> = {
-      ...(process.env as Record<string, string>),
-      ...others,
-      PEEKTRACE_CLAUDE_PROJECTS: projects,
-      PEEKTRACE_DIR: join(root, "real-pdir"),
-      PEEKTRACE_NO_TELEMETRY: "1",
+    const codexHome = process.env.CODEX_HOME || join(home, ".codex");
+    if (!snapshot(join(codexHome, "sessions"), dirs.codex)) {
+      mkdirSync(dirs.codex, { recursive: true });
+    }
+    if (!snapshot(join(home, ".pi/agent/sessions"), dirs.pi)) {
+      mkdirSync(dirs.pi, { recursive: true });
+    }
+    snapshotOpencode(opencodeDataDir(home), dirs.opencode);
+    const stage: Stage = {
+      name: "real",
+      env: {
+        ...(process.env as Record<string, string>),
+        PEEKTRACE_CLAUDE_PROJECTS: dirs.projects,
+        PEEKTRACE_CODEX_SESSIONS: dirs.codex,
+        PEEKTRACE_PI_SESSIONS: dirs.pi,
+        PEEKTRACE_OPENCODE_DATA: dirs.opencode,
+        PEEKTRACE_DIR: dirs.pdir,
+        PEEKTRACE_NO_TELEMETRY: "1",
+      },
+      retry: true,
     };
-    runCases({ name: "real", env, retry: true }, "60", 3);
+    runCases(stage, REAL_DAYS, SMALL_CAP, [], true);
+    for (const a of OTHER_AGENTS) {
+      runCases(stage, ALL_DAYS, SMALL_CAP, agent(a), false);
+    }
   } finally {
-    rmSync(projects, { recursive: true, force: true });
+    for (const dir of Object.values(dirs)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
 };
 
-/** The stats stage: fixture HOME, TS fixtures root, then the real corpus. */
+/** The stats stage: fixture HOMEs and the TS fixtures, then the real corpus. */
 export const runStatsStage = (opts: {
   readonly fixtures: boolean;
   readonly real: boolean;
 }) => {
   const root = join(WORK, "stats");
   mkdirSync(root, { recursive: true });
-  const others = otherAgentsEmpty(root);
   if (opts.fixtures) {
-    const home = buildStatsHome(root);
-    const fx: Stage = {
-      name: "fx",
-      env: fixtureEnv(home, others),
-      retry: false,
-    };
-    runCases(fx, "36500", 50);
-    runCases(
-      { ...fx, name: "fx-tokyo", env: { ...fx.env, TZ: "Asia/Tokyo" } },
-      "36500",
-      3
-    );
-    const tsFixtures = join(REPO, "packages/core/test/fixtures");
-    const emptyHome = join(root, "empty-home");
-    mkdirSync(emptyHome, { recursive: true });
-    runCases(
-      {
-        name: "ts-fixtures",
-        env: fixtureEnv(emptyHome, {
-          ...others,
-          PEEKTRACE_CLAUDE_PROJECTS: tsFixtures,
-        }),
-        retry: false,
-      },
-      "36500",
-      50
-    );
-    unlockStatsHome(home);
+    runFixtureSuites(root);
   }
   if (opts.real) {
-    runRealCases(root, others);
+    runRealCases(root);
   }
   if (!existsSync(rustBin)) {
     report("stats: rust binary missing");

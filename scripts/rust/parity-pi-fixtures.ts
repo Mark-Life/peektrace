@@ -391,6 +391,9 @@ const WINDOW_MODELS = [
   "moonshotai/Kimi-K3",
 ];
 
+/** A session with a `null` line: TS fails the whole `stats` scan on it. */
+export const PI_NULLROW = "--tmp-demo--/pi-nullrow.jsonl";
+
 export const piFiles: Record<string, string> = {
   [`--tmp-demo--/2026-01-02T10-00-00-000Z_${uuid(1, "019f1111")}.jsonl`]:
     piFork,
@@ -463,7 +466,7 @@ export const piFiles: Record<string, string> = {
     },
   ]),
   "--tmp-demo--/prims.jsonl": `${L(session())}\n5\n"x"\n[1]\n${L({ type: "message", id: "a", parentId: null, message: { role: "user", content: "x" } })}\n`,
-  "--tmp-demo--/pi-nullrow.jsonl": doc(...chain(session(), said("x")), "null", {
+  [PI_NULLROW]: doc(...chain(session(), said("x")), "null", {
     type: "message",
     id: "z",
     parentId: "e1",
