@@ -1,9 +1,11 @@
 //! `packages/rpc/test/stats.test.ts` over `/api`, with the server clock
 //! pinned so two reports over one corpus compare byte for byte. The
-//! progress cases have no HTTP form and are not ported.
+//! progress cases have no HTTP form, so they call the core over the same
+//! fixture.
 
 mod common;
 
+use std::cell::RefCell;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -12,7 +14,7 @@ use common::{Options, TestServer, start};
 use peektrace_core::js::time::Utc;
 use peektrace_core::stats::cache::StatsCache;
 use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
-use peektrace_core::stats::service::{ReportRequest, StatsEnv, report};
+use peektrace_core::stats::service::{ReportRequest, StatsEnv, markers, refresh, report};
 use serde_json::{Value, json};
 
 /// A window wide enough to hold the fixture.
@@ -417,6 +419,42 @@ fn an_unknown_session_marks_nothing() {
     let f = fixture("markers-none");
     let m = get(&f, "/api/sessions/no-such-session/markers");
     assert_eq!(m["markers"], json!([]));
+}
+
+// describe("stats progress")
+
+fn progress_calls(name: &str, pass: impl Fn(&StatsEnv<'_>)) -> Vec<(usize, usize)> {
+    let root = common::temp_dir(&format!("stats-{name}"));
+    stats_fixture::build(&root);
+    let cache = common::temp_dir(&format!("stats-{name}-pt")).join("stats-rs");
+    let roots = stats_fixture::roots(&root);
+    let calls = RefCell::new(Vec::new());
+    let hook = |done: usize, total: usize| calls.borrow_mut().push((done, total));
+    let env = StatsEnv {
+        roots: &roots,
+        cache: StatsCache::new(cache.to_string_lossy().into_owned()),
+        local: &Utc,
+        now_ms: FIXED_MS,
+        progress: Some(&hook),
+    };
+    pass(&env);
+    calls.into_inner()
+}
+
+#[test]
+fn a_progress_hook_sees_every_transcript() {
+    let calls = progress_calls("progress-all", |env| {
+        refresh(env, None, true).expect("refresh");
+    });
+    assert_eq!(calls, vec![(1, 2), (2, 2)]);
+}
+
+#[test]
+fn a_narrowed_pass_counts_only_its_own_transcript() {
+    let calls = progress_calls("progress-one", |env| {
+        markers(env, SID, None, false).expect("markers");
+    });
+    assert_eq!(calls, vec![(1, 1)]);
 }
 
 // describe("stats.refresh")
