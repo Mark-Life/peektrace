@@ -144,7 +144,7 @@ fn runs_split_at_pinches() {
     );
     assert!(runs.iter().all(|r| is_simple(r)));
     let flat: Vec<Pt> = xs.iter().map(|&x| [x, 100.0]).collect();
-    assert!(band_runs(&flat, &flat).is_empty());
+    assert_eq!(band_runs(&flat, &flat), Vec::<Vec<Pt>>::new());
     let pinch = [3.0, 0.0, 3.0];
     let top: Vec<Pt> = xs[..3]
         .iter()
@@ -161,7 +161,7 @@ fn hatch_stays_inside_each_segment() {
     let top = [[0.0, 50.0], [40.0, 30.0], [80.0, 60.0]];
     let bottom = [[0.0, 100.0], [40.0, 100.0], [80.0, 100.0]];
     let pieces = hatch_pieces(&top, &bottom, 6.0);
-    assert!(!pieces.is_empty());
+    assert_ne!(pieces.len(), 0);
     let inside = |p: Pt| {
         let seg = usize::from(p[0] > 40.0);
         let (a, b) = (top[seg], top[seg + 1]);
@@ -182,5 +182,5 @@ fn hatch_stays_inside_each_segment() {
 fn dashes_split_a_segment() {
     let d = dash([0.0, 0.0], [10.0, 0.0], 4.0, 3.0);
     assert_eq!(d, vec![([0.0, 0.0], [4.0, 0.0]), ([7.0, 0.0], [10.0, 0.0])]);
-    assert!(dash([1.0, 1.0], [1.0, 1.0], 4.0, 3.0).is_empty());
+    assert_eq!(dash([1.0, 1.0], [1.0, 1.0], 4.0, 3.0), vec![]);
 }

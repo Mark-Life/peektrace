@@ -21,6 +21,7 @@ rune.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rune = { workspace = true, features = ["accessibility", "dbus", "metal-backend", "svg"] }
+tracing-subscriber.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 rune = { workspace = true, features = ["svg"] }

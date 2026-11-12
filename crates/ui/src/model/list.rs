@@ -85,6 +85,7 @@ impl FilterName {
 
 impl Filters {
     /// Only filter `name` of `self`, the rest at their defaults.
+    #[must_use]
     pub fn only(&self, name: FilterName) -> Self {
         let mut f = Self::default();
         match name {

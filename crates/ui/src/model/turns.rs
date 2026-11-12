@@ -53,7 +53,7 @@ mod tests {
         a.turns = vec![turn("r1"), turn("r2")];
         a.events = ["", "r1", "", "r2", "rX", "r1"]
             .into_iter()
-            .map(|r| event(r))
+            .map(event)
             .collect();
         assert_eq!(turn_numbers(&a), [0, 1, 1, 2, 2, 1]);
         a.dumb_zone_cross_turn = 1;

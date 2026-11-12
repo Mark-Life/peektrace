@@ -33,6 +33,7 @@ fn ids(hs: &[SessionHeader], now: f64) -> Vec<&str> {
         .collect()
 }
 
+#[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
 fn at(iso: &str) -> f64 {
     parse_date(iso).map_or(f64::NAN, |ms| ms as f64)
 }
@@ -226,7 +227,7 @@ fn active_days_span_and_range() {
         h.started_at = Some("garbage".into());
         h.updated_at = "2026-13-45T00:00:00Z".into();
     });
-    assert!(active_days(&bad).is_empty());
+    assert_eq!(active_days(&bad), Vec::<String>::new());
     let range = |from: &str, to: Option<&str>| Filters {
         range: Some(DayRange {
             from: from.into(),
@@ -272,6 +273,6 @@ fn hiding_filters_reset_only_what_hides() {
         hiding_filters(&h, &f),
         [FilterName::Agent, FilterName::Model]
     );
-    assert!(hiding_filters(&h, &Filters::default()).is_empty());
+    assert_eq!(hiding_filters(&h, &Filters::default()), vec![]);
     assert_eq!(active_count(&f), 3);
 }

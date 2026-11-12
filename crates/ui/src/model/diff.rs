@@ -151,6 +151,7 @@ mod tests {
 
     #[test]
     fn counts_and_folds() {
+        use RowKind::{Add, Ctx, Del, Gap};
         let before = (1..=10)
             .map(|i| i.to_string())
             .collect::<Vec<_>>()
@@ -159,7 +160,6 @@ mod tests {
         let d = diff_lines(&before, &after);
         assert_eq!((d.added, d.removed), (1, 1));
         let kinds: Vec<RowKind> = d.rows.iter().map(|r| r.kind).collect();
-        use RowKind::{Add, Ctx, Del, Gap};
         assert_eq!(kinds, [Gap, Ctx, Ctx, Ctx, Del, Add, Ctx, Ctx, Ctx, Gap]);
         assert_eq!(d.rows[0].count, 1);
         assert_eq!(diff_lines("", "a\nb").added, 2);

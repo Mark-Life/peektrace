@@ -10,6 +10,7 @@ pub mod json;
 pub mod jstime;
 pub mod labels;
 pub mod list;
+pub mod settle;
 pub mod tools;
 pub mod turns;
 pub mod utf16;

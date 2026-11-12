@@ -2,3 +2,4 @@
 
 pub mod geom;
 pub mod hit;
+pub mod view;

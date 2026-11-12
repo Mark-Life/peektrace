@@ -81,7 +81,7 @@ pub fn fmt(n: f64) -> String {
 /// Compact: `1.2K`, `1M`; whole thousands and millions drop the decimal.
 pub fn fmt_k(n: f64) -> String {
     let scaled = |unit: f64, suffix: &str| {
-        let digits = if n % unit == 0.0 { 0 } else { 1 };
+        let digits = u32::from(n % unit != 0.0);
         format!("{}{suffix}", to_fixed(n / unit, digits))
     };
     if n >= MILLION {
