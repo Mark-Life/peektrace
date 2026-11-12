@@ -3,6 +3,7 @@
 mod args;
 mod argv;
 mod ls;
+mod memory;
 mod otel;
 mod render;
 mod search;
@@ -27,7 +28,9 @@ use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{Span, field, info_span};
 
-use crate::args::{Cli, Command, SessionsArgs, SessionsCommand, StatsArgs, StatsCommand};
+use crate::args::{
+    Cli, Command, MemoryArgs, MemoryCommand, SessionsArgs, SessionsCommand, StatsArgs, StatsCommand,
+};
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -112,6 +115,9 @@ enum Run<'a> {
     Analyze(&'a args::AnalyzeArgs),
     Export(&'a args::ExportArgs),
     Search(&'a args::SearchArgs),
+    MemoryLs(&'a args::MemoryLsArgs),
+    MemoryShow(&'a args::MemoryNameArgs),
+    MemoryRm(&'a args::MemoryNameArgs),
     Stats(&'a args::StatsCommon),
     StatsDrill(&'a args::StatsDrillArgs),
     StatsPrompt(&'a args::StatsPromptArgs),
@@ -207,6 +213,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
     let globals = Globals {
         json: cli.json,
         pretty: cli.pretty,
+        read_only: cli.read_only,
     };
     let out = match cmd {
         Run::Ls(args) => match ls::run(args, globals, &ctx) {
@@ -222,6 +229,12 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         Run::Analyze(args) => single::run_analyze(args, globals, &ctx),
         Run::Export(args) => single::run_export(args, globals, &ctx),
         Run::Search(args) => search::run(args, globals, &ctx),
+        Run::MemoryLs(args) => Ok(memory::run_ls(args, globals, &ctx)),
+        Run::MemoryShow(args) => Ok(memory::run_show(args, globals, &ctx)),
+        Run::MemoryRm(args) => {
+            let tmp = std::env::temp_dir().to_string_lossy().into_owned();
+            memory::run_rm(args, globals, &ctx, &tmp)
+        }
         Run::Stats(args) => stats::run_report(args, globals, &ctx),
         Run::StatsDrill(args) => stats::run_drill(args, globals, &ctx),
         Run::StatsPrompt(args) => stats::run_prompt(args, &ctx),
@@ -285,7 +298,12 @@ fn main() -> ExitCode {
             SessionsCommand::Export(a) => Run::Export(a),
             SessionsCommand::Search(a) => Run::Search(a),
         },
-        Some(Command::Memory(_)) => return print_help(&["memory"]),
+        Some(Command::Memory(MemoryArgs { command: None })) => return print_help(&["memory"]),
+        Some(Command::Memory(MemoryArgs { command: Some(c) })) => match c {
+            MemoryCommand::Ls(a) => Run::MemoryLs(a),
+            MemoryCommand::Show(a) => Run::MemoryShow(a),
+            MemoryCommand::Rm(a) => Run::MemoryRm(a),
+        },
         Some(Command::Stats(StatsArgs { command, common })) => match command {
             None => Run::Stats(common),
             Some(StatsCommand::Drill(a)) => Run::StatsDrill(a),

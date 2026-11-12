@@ -25,6 +25,7 @@ pub struct Context {
 pub struct Globals {
     pub json: bool,
     pub pretty: bool,
+    pub read_only: bool,
 }
 
 /// A failure the user caused. Exit code 1 with the message on stderr.

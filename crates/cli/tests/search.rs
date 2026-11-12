@@ -55,7 +55,7 @@ fn prints_one_row_per_hit_newest_session_first_with_line_numbers() {
     let h = home();
     let r = search(&h, &["walrus"]);
     assert_eq!(r.code, 0, "{}", r.err);
-    let lines: Vec<&str> = r.out.trim().split('\n').collect();
+    let lines: Vec<&str> = r.out.trim().lines().collect();
     assert_eq!(
         lines[0].split('\t').collect::<Vec<_>>(),
         [
