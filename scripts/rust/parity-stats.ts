@@ -5,16 +5,7 @@
  * runs every agent at once first, then one agent at a time, so both sides
  * walk the same index merge history.
  *
- * Normalisation, only this:
- * - JSON report and usage: `generatedAt`, `window.fromIso` and
- *   `window.toIso` are dropped (both runs read their own clock).
- * - Text report: line 1 carries the window bounds and is masked.
- * - Real suite: a JSON or text mismatch is run again once on both sides (a
- *   fact at the window edge, or a block's `active` flag, can move between
- *   the two runs).
- * - Cases where TS fails with an Effect defect are skipped, not diffed, but
- *   counted; Rust must still exit 0 or 1 there. A skipped key-discovery
- *   case fails the stage, since every keyed drill and prompt case drops.
+ * Cases, diffing and normalisation live in `parity-stats-cases.ts`.
  *
  * The `*nullrow*` Codex and Pi edge files stay out: a `null` line makes the
  * whole TS scan fail (a known difference), which would drop every case.

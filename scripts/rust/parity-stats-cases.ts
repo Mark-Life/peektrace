@@ -1,7 +1,17 @@
 /**
  * The `stats` parity cases: each one runs TS then Rust with the same env and
- * diffs exit code, stdout and stderr after the normalisation in
- * `parity-stats.ts`.
+ * diffs exit code, stdout and stderr after the normalisation below.
+ *
+ * Normalisation, only this:
+ * - JSON report and usage: `generatedAt`, `window.fromIso` and
+ *   `window.toIso` are dropped (both runs read their own clock).
+ * - Text report: line 1 carries the window bounds and is masked.
+ * - Real suite: a JSON or text mismatch is run again once on both sides (a
+ *   fact at the window edge, or a block's `active` flag, can move between
+ *   the two runs).
+ * - Cases where TS fails with an Effect defect are skipped, not diffed, but
+ *   counted; Rust must still exit 0 or 1 there. A skipped key-discovery
+ *   case fails the stage, since every keyed drill and prompt case drops.
  */
 import {
   compareRun,
