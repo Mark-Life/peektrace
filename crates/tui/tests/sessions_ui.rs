@@ -4,13 +4,16 @@
 
 mod common;
 
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+
 use common::*;
 use peektrace_core::Agent;
 use peektrace_core::model::{ProjectSlug, SessionHeader, SessionId};
 use peektrace_core::sessions::model::{
     AnalyzedSession, BudgetKey, BudgetSlice, BudgetSlices, EventKind, EventShape, ParsedSession,
-    SessionCost, TimelineEvent, Turn, TurnSnapshot, TurnTokens,
+    SessionCost, SubagentRef, TimelineEvent, Turn, TurnSnapshot, TurnTokens, TurnsCost,
 };
+use peektrace_core::watch::WatchVersions;
 use peektrace_tui::App;
 use peektrace_tui::backend::{Backend, Request, Response};
 use peektrace_tui::runtime::settle;
@@ -328,4 +331,87 @@ fn g_toggles_the_analysis_pane_to_the_growth_chart() {
     assert!(t.contains("200.0K"), "{t}");
     assert!(t.contains('█'), "{t}");
     assert!(t.contains("Tool results"), "{t}");
+}
+
+/// Counts analyses of a session with one subagent; the subagent files'
+/// fingerprint is whatever `stamp` holds.
+struct Nested {
+    analyses: AtomicUsize,
+    stamp: AtomicU64,
+}
+
+impl Backend for Nested {
+    fn call(&self, req: &Request) -> Response {
+        match req {
+            Request::Analyze { .. } => {
+                self.analyses.fetch_add(1, Ordering::SeqCst);
+                let mut s = fake_analyzed("Nested");
+                s.parsed.subagents = vec![SubagentRef {
+                    id: "agent-1".to_owned(),
+                    path: "/p/a/subagents/agent-1.jsonl".to_owned(),
+                    agent_type: None,
+                    description: None,
+                    tool_use_id: None,
+                    parent_agent_id: None,
+                    workflow_run_id: None,
+                    workflow_phase: None,
+                    workflow_phase_index: None,
+                    tool_use_id_linked: false,
+                    turns: 1,
+                    peak_context_tokens: 0.0,
+                    cost: TurnsCost::default(),
+                    unreadable: false,
+                }];
+                Response::Analyze(Ok(Box::new(s)))
+            }
+            Request::Stamp { dirs } => {
+                assert_eq!(dirs, &["/p/a/subagents".to_owned()]);
+                Response::Stamp(Ok(self.stamp.load(Ordering::SeqCst)))
+            }
+            _ => Response::Sessions(Ok(vec![header(
+                "a",
+                Agent::Claude,
+                "Alpha",
+                "2026-07-02T10:00",
+            )])),
+        }
+    }
+}
+
+#[test]
+fn a_session_with_subagents_re_analyzes_only_when_they_change() {
+    let backend = Nested {
+        analyses: AtomicUsize::new(0),
+        stamp: AtomicU64::new(1),
+    };
+    let mut app = App::new(
+        config(false, ColorMode::TrueColor),
+        Rect::new(0, 0, 160, 48),
+    );
+    settle(&mut app, &backend);
+    let tick = |app: &mut App, n: u64| {
+        app.watch(WatchVersions {
+            memory: 0,
+            sessions: n,
+        });
+        settle(app, &backend);
+    };
+    assert_eq!(backend.analyses.load(Ordering::SeqCst), 1);
+    for n in 1..=5 {
+        tick(&mut app, n);
+    }
+    assert_eq!(
+        backend.analyses.load(Ordering::SeqCst),
+        1,
+        "unchanged files, no new analysis"
+    );
+    backend.stamp.store(2, Ordering::SeqCst);
+    tick(&mut app, 6);
+    assert_eq!(
+        backend.analyses.load(Ordering::SeqCst),
+        2,
+        "a subagent file changed"
+    );
+    tick(&mut app, 7);
+    assert_eq!(backend.analyses.load(Ordering::SeqCst), 2);
 }

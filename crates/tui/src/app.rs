@@ -234,7 +234,7 @@ impl App {
 
     pub fn reply(&mut self, r: Reply) {
         self.with_cx(|app, cx| match r.slot {
-            Slot::Sessions | Slot::Analyze => app.sessions.reply(r, cx),
+            Slot::Sessions | Slot::Analyze | Slot::Stamp => app.sessions.reply(r, cx),
             Slot::Vaults => app.memory.reply(r),
             Slot::Settings | Slot::Save => app.settings.reply(r),
             Slot::Report | Slot::Drill | Slot::Refresh => app.stats.reply(r, cx),

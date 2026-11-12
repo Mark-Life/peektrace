@@ -1,6 +1,7 @@
 //! Sessions: a filterable rail of session cards beside the selected
 //! session's analysis.
 
+mod bodies;
 mod decode;
 mod detail;
 mod growth;
@@ -63,6 +64,9 @@ pub struct State {
     analysis: Query<Box<AnalyzedSession>>,
     shown: Option<(String, bool)>,
     stamp: Option<(u64, String)>,
+    /// The subagent files' fingerprint, and the request that asks for it.
+    sub_stamp: Option<u64>,
+    stamp_req: Option<u64>,
     rerun: bool,
     generation: u64,
     pub view: View,
@@ -87,6 +91,8 @@ impl Default for State {
             analysis: Query::default(),
             shown: None,
             stamp: None,
+            sub_stamp: None,
+            stamp_req: None,
             rerun: false,
             generation: 0,
             view: View::History,
@@ -161,6 +167,19 @@ impl State {
         }
     }
 
+    /// Ask for the subagent files' fingerprint, when the analysis has any.
+    fn check_subagents(&mut self, cx: &mut Ctx<'_>) {
+        let dirs = self
+            .analysis
+            .data
+            .as_deref()
+            .map(subagent_dirs)
+            .unwrap_or_default();
+        if !dirs.is_empty() {
+            self.stamp_req = Some(cx.request(Request::Stamp { dirs }));
+        }
+    }
+
     fn analyze(&mut self, cx: &mut Ctx<'_>, id: &str) {
         let req = cx.request(Request::Analyze {
             id: id.to_owned(),
@@ -168,10 +187,13 @@ impl State {
         });
         self.analysis.start(req);
         self.rerun = false;
+        self.sub_stamp = None;
+        self.stamp_req = None;
     }
 
     /// Point the analysis at the selected session.
     fn sync(&mut self, cx: &mut Ctx<'_>) {
+        self.sel.clamp(self.filtered().len());
         let Some(h) = self.selected() else {
             return;
         };
@@ -186,13 +208,17 @@ impl State {
         if self.shown.as_ref().is_none_or(|(old, _)| *old != id) {
             self.history.reset();
             self.growth.reset();
+        } else {
+            self.history.forget_bodies();
         }
         self.shown = Some(target);
         self.stamp = Some(stamp);
         self.analyze(cx, &id);
     }
 
-    /// After a list refresh: re-run the analysis when its session grew.
+    /// After a list refresh: re-run the analysis when its session grew. The
+    /// list does not see subagent files, so a session with subagents asks
+    /// for their fingerprint too.
     fn refresh_analysis(&mut self, cx: &mut Ctx<'_>) {
         let Some(h) = self.selected() else { return };
         let stamp = (h.size_bytes, h.updated_at.clone());
@@ -200,19 +226,32 @@ impl State {
         if self.shown.as_ref().is_none_or(|(s, _)| *s != id) {
             return;
         }
-        let nested = self
-            .analysis
-            .data
-            .as_ref()
-            .is_some_and(|a| !a.parsed.subagents.is_empty());
-        if self.stamp.as_ref() == Some(&stamp) && !nested {
+        if self.stamp.as_ref() == Some(&stamp) {
+            if !self.analysis.loading() {
+                self.check_subagents(cx);
+            }
             return;
         }
         self.stamp = Some(stamp);
+        self.rerun_or_analyze(cx, &id);
+    }
+
+    fn rerun_or_analyze(&mut self, cx: &mut Ctx<'_>, id: &str) {
         if self.analysis.loading() {
             self.rerun = true;
         } else {
-            self.analyze(cx, &id);
+            self.analyze(cx, id);
+        }
+    }
+
+    /// The first fingerprint after an analysis is the baseline; a later
+    /// different one re-runs the analysis.
+    fn stamped(&mut self, cx: &mut Ctx<'_>, stamp: u64) {
+        let old = self.sub_stamp.replace(stamp);
+        if old.is_some_and(|o| o != stamp)
+            && let Some((id, _)) = self.shown.clone()
+        {
+            self.rerun_or_analyze(cx, &id);
         }
     }
 
@@ -253,8 +292,14 @@ impl State {
                         && let Some((id, _)) = self.shown.clone()
                     {
                         self.analyze(cx, &id);
+                    } else {
+                        self.check_subagents(cx);
                     }
                 }
+            }
+            Response::Stamp(Ok(stamp)) if self.stamp_req == Some(r.id) => {
+                self.stamp_req = None;
+                self.stamped(cx, stamp);
             }
             _ => {}
         }
@@ -263,6 +308,7 @@ impl State {
     pub fn paste(&mut self, s: &str) {
         if self.filtering {
             self.filter.insert(s);
+            self.sel.clamp(self.filtered().len());
         }
     }
 
@@ -410,6 +456,20 @@ impl State {
         ]);
         put(buf, area.x, area.bottom() - 1, area.width, &hint_row);
     }
+}
+
+/// The `subagents` dirs holding a session's subagent transcripts.
+fn subagent_dirs(s: &AnalyzedSession) -> Vec<String> {
+    let mut dirs: Vec<String> = Vec::new();
+    for sub in &s.parsed.subagents {
+        if let Some(at) = sub.path.rfind("/subagents/") {
+            let dir = &sub.path[..at + "/subagents".len()];
+            if !dirs.iter().any(|d| d == dir) {
+                dirs.push(dir.to_owned());
+            }
+        }
+    }
+    dirs
 }
 
 /// `startedAt` descending, missing last.

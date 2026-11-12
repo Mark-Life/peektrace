@@ -53,6 +53,21 @@ fn reopening_the_filter_shows_the_query() {
 }
 
 #[test]
+fn clearing_the_filter_keeps_the_row_it_narrowed_to() {
+    let mut h = sessions();
+    h.keys(&["<end>", "/", "f", "i", "x", "<enter>"]);
+    let narrowed = h.backend.count("Analyze");
+    assert!(h.text().contains("Fix the flaky build"));
+    h.keys(&["/", "<bs>", "<bs>", "<bs>", "<enter>"]);
+    assert!(h.text().contains("Sessions (8/8)"), "{}", h.text());
+    assert_eq!(
+        h.backend.count("Analyze"),
+        narrowed,
+        "the clamped row stays selected, not the one picked before the filter"
+    );
+}
+
+#[test]
 fn tab_flips_focus_while_the_filter_stays_open() {
     let mut h = sessions();
     h.keys(&["/", "<tab>", "a"]);

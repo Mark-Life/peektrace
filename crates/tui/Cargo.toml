@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 peektrace-core.workspace = true
+rayon.workspace = true
 ratatui = { version = "0.30", default-features = false, features = ["crossterm", "std"] }
 tracing.workspace = true
 unicode-width.workspace = true

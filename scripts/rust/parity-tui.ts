@@ -54,6 +54,8 @@ const REAL_SESSIONS = 25;
 /** Bodies above this many chars are skipped (both sides go plain anyway
  * past the limits; this keeps the stage fast). */
 const REAL_BODY_MAX = 200_000;
+/** Chars of a failed example's stderr quoted in the report. */
+const STDERR_HEAD = 400;
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
 
@@ -69,11 +71,31 @@ const exampleBin = (pkg: string, name: string) => {
   return join(REPO, "target/release/examples", name);
 };
 
+/** One output line per input line, or `null` (reported) when the example
+ * fails. */
 const pipe = (bin: string, lines: readonly string[]) => {
   const out = Bun.spawnSync([bin], {
     stdin: new TextEncoder().encode(`${lines.join("\n")}\n`),
   });
+  if (out.exitCode !== 0) {
+    report(
+      `tui: example ${bin.split("/").at(-1)} exited ${out.exitCode}: ${out.stderr.toString().slice(0, STDERR_HEAD)}`
+    );
+    return null;
+  }
   return out.stdout.toString().trimEnd().split("\n");
+};
+
+/** `JSON.parse`, or `undefined` for a missing or malformed line. */
+const parseLine = (line: string | undefined): unknown => {
+  if (line === undefined) {
+    return;
+  }
+  try {
+    return JSON.parse(line);
+  } catch {
+    return;
+  }
 };
 
 type Lang = CodeBlockLanguage;
@@ -111,13 +133,17 @@ const compareTokens = (
     bin,
     cases.map((c) => JSON.stringify({ code: c.code, lang: c.lang }))
   );
+  if (!rust) {
+    return 0;
+  }
   cases.forEach((c, i) => {
     const ts = tsTokens(c.code, c.lang);
     if (ts === rust[i]) {
       return;
     }
     const tl = JSON.parse(ts) as unknown[];
-    const rl = JSON.parse(rust[i] ?? "[]") as unknown[];
+    const parsed = parseLine(rust[i]);
+    const rl = Array.isArray(parsed) ? parsed : [];
     const at = tl.findIndex(
       (l, k) => JSON.stringify(l) !== JSON.stringify(rl[k])
     );
@@ -280,11 +306,16 @@ const compareViews = (bin: string) => {
     bin,
     cases.map(([req]) => JSON.stringify(req))
   );
+  if (!rust) {
+    return 0;
+  }
   cases.forEach(([req, ts], i) => {
     const want = JSON.stringify(ts);
-    const got = rust[i] ?? "";
-    if (JSON.stringify(JSON.parse(got)) !== want) {
-      report(`tui view ${JSON.stringify(req)}: ts=${want} rust=${got}`);
+    const got = parseLine(rust[i]);
+    if (got === undefined || JSON.stringify(got) !== want) {
+      report(
+        `tui view ${JSON.stringify(req)}: ts=${want} rust=${rust[i] ?? "<missing>"}`
+      );
     }
   });
   return cases.length;

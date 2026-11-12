@@ -97,27 +97,29 @@ fn styled(lines: &[CodeLine<'_>]) -> Vec<Seg> {
     out
 }
 
-/// `content` sanitized, capped, highlighted for `lang` (`None` is plain)
-/// and wrapped to `w` columns.
-pub fn highlighted(content: &str, lang: Option<Lang>, max_lines: usize, w: usize) -> Vec<Vec<Seg>> {
-    let clean = cap_lines(&sanitize(content), max_lines);
+/// `content` sanitized and capped, ready for [`paint`].
+pub fn capped(content: &str, max_lines: usize) -> String {
+    cap_lines(&sanitize(content), max_lines)
+}
+
+/// The text [`paint`] wraps for `clean`: itself, or a dash when empty.
+pub fn shown_text(clean: &str) -> &str {
+    if clean.is_empty() { "—" } else { clean }
+}
+
+/// `clean` (from [`capped`]) highlighted for `lang` (`None` is plain) and
+/// wrapped to `w` columns.
+pub fn paint(clean: &str, lang: Option<Lang>, w: usize) -> Vec<Vec<Seg>> {
     match lang {
-        Some(lang) if !text::trim(&clean).is_empty() => {
-            let lines = if is_highlightable(&clean, lang) {
-                tokenize_lines(&clean, lang)
+        Some(lang) if !text::trim(clean).is_empty() => {
+            let lines = if is_highlightable(clean, lang) {
+                tokenize_lines(clean, lang)
             } else {
-                plain_lines(&clean)
+                plain_lines(clean)
             };
             wrap(&styled(&lines), w)
         }
-        _ => {
-            let shown = if clean.is_empty() {
-                "—"
-            } else {
-                clean.as_str()
-            };
-            wrap(&[(shown.to_owned(), theme::fg(theme::TEXT))], w)
-        }
+        _ => wrap(&[(shown_text(clean).to_owned(), theme::fg(theme::TEXT))], w),
     }
 }
 
@@ -142,9 +144,45 @@ mod tests {
 
     #[test]
     fn strips_ansi_before_tokenizing() {
-        let rows = highlighted("\u{1b}[31mls\u{1b}[0m -la", Some(Lang::Bash), 10, 40);
+        let rows = paint(
+            &capped("\u{1b}[31mls\u{1b}[0m -la", 10),
+            Some(Lang::Bash),
+            40,
+        );
         let text: String = rows[0].iter().map(|(t, _)| t.as_str()).collect();
         assert_eq!(text, "ls -la");
         assert_eq!(rows[0][0].1, style_of(Some(TokenClass::Command)));
+    }
+
+    #[test]
+    fn the_wrap_count_matches_the_painted_rows() {
+        let samples = [
+            (
+                "export const add = (a: number, b: number) => a + b; // sum\n\n  if (x) { return \"long string with spaces in it\"; }",
+                Some(Lang::Typescript),
+            ),
+            (
+                "{\n  \"key\": [1, 2, 3],\n  \"text\": \"a b c d e f g h i j k l m n o p\"\n}",
+                Some(Lang::Json),
+            ),
+            (
+                "## Title\n\nSome *prose* with `code` and a [link](http://x.y/z) 日本語のテキスト",
+                Some(Lang::Markdown),
+            ),
+            ("ls -la /tmp && echo   done", Some(Lang::Bash)),
+            ("", Some(Lang::Json)),
+            ("   ", Some(Lang::Json)),
+            ("plain\twith tabs\r\nand crlf", None),
+        ];
+        for (body, lang) in samples {
+            let clean = capped(body, 120);
+            for w in [1, 3, 7, 12, 20, 33, 80] {
+                assert_eq!(
+                    crate::draw::wrap_count(shown_text(&clean), w),
+                    paint(&clean, lang, w).len(),
+                    "{body:?} at {w}"
+                );
+            }
+        }
     }
 }

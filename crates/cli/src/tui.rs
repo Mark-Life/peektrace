@@ -3,11 +3,14 @@
 
 use std::io::IsTerminal as _;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
+use std::time::Duration;
 
 use peektrace_core::header_cache::HeaderCache;
 use peektrace_tui::backend::CoreBackend;
 use peektrace_tui::theme::ColorMode;
-use peektrace_tui::{Config, run as run_ui};
+use peektrace_tui::{Config, restore_terminal, run as run_ui};
 
 use crate::ls::{Context, UserError};
 use crate::otel;
@@ -23,6 +26,26 @@ pub fn check_terminal() -> Result<(), UserError> {
             "peektrace tui needs a terminal".to_owned(),
         ))
     }
+}
+
+/// How long the draw loop gets to notice a stop signal.
+const STUCK: Duration = Duration::from_secs(1);
+
+/// A closed terminal can leave the draw loop inside a read that sees end
+/// of file over and over, so it never gets back to check the stop flag.
+/// After a signal, give it `STUCK`, then restore and exit for it.
+fn watchdog(signalled: Receiver<()>, finished: Arc<AtomicBool>) {
+    std::thread::spawn(move || {
+        if signalled.recv().is_err() {
+            return;
+        }
+        std::thread::sleep(STUCK);
+        if !finished.load(Ordering::Relaxed) {
+            restore_terminal();
+            otel::release();
+            std::process::exit(0);
+        }
+    });
 }
 
 fn now_ms() -> f64 {
@@ -65,7 +88,10 @@ pub fn run(p: Prepared, _ctx: &Context) -> anyhow::Result<()> {
     };
     otel::hold();
     let (versions, stopped) = (sibling.versions, Arc::clone(&sibling.stopped));
+    let finished = Arc::new(AtomicBool::new(false));
+    watchdog(sibling.signalled, Arc::clone(&finished));
     let result = run_ui(cfg, Arc::new(backend), &versions, &stopped);
+    finished.store(true, Ordering::Relaxed);
     otel::release();
     sibling.handle.stop();
     result.map_err(Into::into)

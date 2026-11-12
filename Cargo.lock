@@ -1416,6 +1416,7 @@ version = "0.0.0"
 dependencies = [
  "peektrace-core",
  "ratatui",
+ "rayon",
  "serde_json",
  "tracing",
  "unicode-width",

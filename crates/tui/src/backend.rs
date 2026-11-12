@@ -1,6 +1,8 @@
 //! What the TUI asks of core, and the in-process implementation. Each call
 //! runs under a root `tui.<method>` span.
 
+use std::hash::{DefaultHasher, Hash as _, Hasher as _};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use peektrace_core::header_cache::HeaderCache;
@@ -30,6 +32,10 @@ pub enum Request {
         id: String,
         redact: bool,
     },
+    /// A fingerprint of the files under `dirs` (a session's subagents).
+    Stamp {
+        dirs: Vec<String>,
+    },
     Vaults,
     SettingsGet,
     SettingsSave {
@@ -57,6 +63,7 @@ pub enum Request {
 pub enum Slot {
     Sessions,
     Analyze,
+    Stamp,
     Vaults,
     Settings,
     Save,
@@ -70,6 +77,7 @@ impl Request {
         match self {
             Self::Sessions => Slot::Sessions,
             Self::Analyze { .. } => Slot::Analyze,
+            Self::Stamp { .. } => Slot::Stamp,
             Self::Vaults => Slot::Vaults,
             Self::SettingsGet => Slot::Settings,
             Self::SettingsSave { .. } => Slot::Save,
@@ -92,12 +100,30 @@ pub enum SaveError {
 pub enum Response {
     Sessions(Result<Vec<SessionHeader>, String>),
     Analyze(Result<Box<AnalyzedSession>, String>),
+    Stamp(Result<u64, String>),
     Vaults(Result<Box<AllVaults>, String>),
     Settings(Result<StoredSettings, String>),
     Saved(Result<StoredSettings, SaveError>),
     Report(Result<Box<StatsReport>, String>),
     Drill(Result<Box<DrillResult>, String>),
     Refreshed(Result<(), String>),
+}
+
+impl Response {
+    /// The error response for `slot`.
+    pub fn failed(slot: Slot, why: String) -> Self {
+        match slot {
+            Slot::Sessions => Self::Sessions(Err(why)),
+            Slot::Analyze => Self::Analyze(Err(why)),
+            Slot::Stamp => Self::Stamp(Err(why)),
+            Slot::Vaults => Self::Vaults(Err(why)),
+            Slot::Settings => Self::Settings(Err(why)),
+            Slot::Save => Self::Saved(Err(SaveError::Other(why))),
+            Slot::Report => Self::Report(Err(why)),
+            Slot::Drill => Self::Drill(Err(why)),
+            Slot::Refresh => Self::Refreshed(Err(why)),
+        }
+    }
 }
 
 /// A queued call: its id, slot and request.
@@ -164,6 +190,7 @@ fn root_span(req: &Request) -> Span {
     match req {
         Request::Sessions => root!("tui.sessions.list"),
         Request::Analyze { .. } => root!("tui.sessions.analyze"),
+        Request::Stamp { .. } => root!("tui.sessions.stamp"),
         Request::Vaults => root!("tui.memory.allVaults"),
         Request::SettingsGet => root!("tui.settings.get"),
         Request::SettingsSave { .. } => root!("tui.settings.update"),
@@ -171,6 +198,31 @@ fn root_span(req: &Request) -> Span {
         Request::Drill { .. } => root!("tui.stats.drill"),
         Request::Refresh { .. } => root!("tui.stats.refresh"),
     }
+}
+
+/// Path, size and mtime of every file under `dirs`, hashed; a missing or
+/// unreadable dir counts as empty.
+fn tree_stamp(dirs: &[String]) -> u64 {
+    let mut h = DefaultHasher::new();
+    let mut stack: Vec<PathBuf> = dirs.iter().map(PathBuf::from).collect();
+    while let Some(dir) = stack.pop() {
+        let Ok(read) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        let mut entries: Vec<_> = read.filter_map(Result::ok).collect();
+        entries.sort_by_key(std::fs::DirEntry::file_name);
+        for e in entries {
+            let Ok(meta) = e.metadata() else { continue };
+            if meta.is_dir() {
+                stack.push(e.path());
+            } else {
+                e.path().hash(&mut h);
+                meta.len().hash(&mut h);
+                meta.modified().ok().hash(&mut h);
+            }
+        }
+    }
+    h.finish()
 }
 
 fn record<T, E: std::fmt::Display>(span: &Span, r: &Result<T, E>) {
@@ -228,6 +280,7 @@ impl Backend for CoreBackend {
                 record(&span, &r);
                 Response::Analyze(r.map(Box::new).map_err(|e| e.to_string()))
             }
+            Request::Stamp { dirs } => Response::Stamp(Ok(tree_stamp(dirs))),
             Request::Vaults => Response::Vaults(Ok(Box::new(all_vaults(&self.roots.claude)))),
             Request::SettingsGet => Response::Settings(Ok(read_stored(&self.settings_path))),
             Request::SettingsSave { doc, expected } => {

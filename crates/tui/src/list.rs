@@ -14,6 +14,12 @@ impl ListSel {
         self.index.min(count.saturating_sub(1))
     }
 
+    /// Store the clamped index, so a list that shrinks and grows back
+    /// keeps the row shown while it was short.
+    pub fn clamp(&mut self, count: usize) {
+        self.index = self.at(count);
+    }
+
     /// Move for `↑/k`, `↓/j`, `Home`, `End`; true when the key was a move.
     pub fn key(&mut self, code: KeyCode, count: usize) -> bool {
         if count == 0 {
@@ -75,5 +81,8 @@ mod tests {
         assert_eq!(s.index, 2);
         assert!(!s.key(KeyCode::Char('x'), 3));
         assert_eq!(s.at(1), 0);
+        assert_eq!(s.index, 2, "at() only reads");
+        s.clamp(1);
+        assert_eq!(s.at(3), 0, "the clamp sticks once the list grows back");
     }
 }

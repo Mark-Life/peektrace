@@ -171,6 +171,46 @@ pub fn wrap(segs: &[Seg], w: usize) -> Vec<Vec<Seg>> {
     rows.into_iter().map(|r| merge(&r)).collect()
 }
 
+/// Rows [`wrap`] makes of `text` at `w` columns, counted without building
+/// them.
+pub fn wrap_count(text: &str, w: usize) -> usize {
+    let w = w.max(1);
+    let mut rows = 1;
+    let mut widths: Vec<usize> = Vec::new();
+    let mut used = 0usize;
+    let mut last_space: Option<usize> = None;
+    for ch in text.chars() {
+        if ch == '\n' {
+            rows += 1;
+            widths.clear();
+            used = 0;
+            last_space = None;
+            continue;
+        }
+        let cw = char_width(ch);
+        if used + cw > w && used > 0 {
+            match last_space {
+                Some(at) if ch != ' ' && at + 1 < widths.len() => {
+                    widths.drain(..=at);
+                }
+                _ => widths.clear(),
+            }
+            used = widths.iter().sum();
+            rows += 1;
+            last_space = None;
+            if ch == ' ' {
+                continue;
+            }
+        }
+        if ch == ' ' {
+            last_space = Some(widths.len());
+        }
+        widths.push(cw);
+        used += cw;
+    }
+    rows
+}
+
 fn merge(cells: &[(char, Style)]) -> Vec<Seg> {
     let mut out: Vec<Seg> = Vec::new();
     for (c, s) in cells {
@@ -238,5 +278,28 @@ mod tests {
             vec!["abc", "def", "gh"]
         );
         assert_eq!(plain(&wrap_text("a\n\nb", 3, s)), vec!["a", "", "b"]);
+    }
+
+    #[test]
+    fn wrap_count_agrees_with_wrap() {
+        let texts = [
+            "Browse sessions and open a transcript with full history.",
+            "abcdefgh",
+            "a\n\nb",
+            "",
+            "   leading and trailing   ",
+            "word  word   word    wordwordwordword w",
+            "日本語のテキストと english words mixed 日本",
+            "a b\ncd ef gh\n\n  x",
+        ];
+        for t in texts {
+            for w in 0..30 {
+                assert_eq!(
+                    wrap_count(t, w),
+                    wrap_text(t, w, Style::new()).len(),
+                    "{t:?} at {w}"
+                );
+            }
+        }
     }
 }

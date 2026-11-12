@@ -107,6 +107,7 @@ impl State {
     pub fn paste(&mut self, s: &str) {
         if self.searching {
             self.search.insert(s);
+            self.sel.clamp(self.rows().len());
         }
     }
 
@@ -115,6 +116,7 @@ impl State {
             if matches!(self.search.key(k), Edit::Submit | Edit::Cancel) {
                 self.searching = false;
             }
+            self.sel.clamp(self.rows().len());
             return;
         }
         let rows = self.rows();
@@ -171,7 +173,8 @@ impl State {
         put(buf, area.x, area.y, area.width, &top);
         let main = Rect::new(area.x, area.y + 1, area.width, area.height - 3);
         let rows = self.rows();
-        let index = self.sel.at(rows.len());
+        self.sel.clamp(rows.len());
+        let index = self.sel.index;
         let selected = rows.get(index).copied();
         let detail = main.width > DETAIL_W + 24 && selected.is_some();
         let list_w = if detail {

@@ -22,6 +22,7 @@ pub use app::{App, Config, Section};
 use peektrace_core::watch::WatchVersions;
 use ratatui::crossterm::event::{self, Event, KeyEventKind};
 use ratatui::layout::Rect;
+pub use terminal::restore as restore_terminal;
 
 use crate::backend::Backend;
 use crate::runtime::Dispatcher;

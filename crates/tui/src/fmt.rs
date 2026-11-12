@@ -87,7 +87,7 @@ static ESC: LazyRe = peektrace_core::js_re!(r"\u001b[@-Z\\-_]", "g");
 /// Strip escape sequences and control bytes: OSC, CSI and other ESC
 /// sequences, CR/CRLF to LF, tab to two spaces, C0 controls but LF.
 pub fn sanitize(s: &str) -> String {
-    if !s.bytes().any(|b| b < 0x20 || b == 0x7f) {
+    if !s.bytes().any(|b| (b < 0x20 && b != b'\n') || b == 0x7f) {
         return s.to_owned();
     }
     let s = OSC.replace_all_str(s, "");
@@ -133,8 +133,9 @@ pub fn clip(s: &str, max: usize) -> String {
 
 /// First line, sanitized and trimmed, clipped to `max` columns.
 pub fn first_line(s: &str, max: usize) -> String {
-    let clean = sanitize(s.split_once('\n').map_or(s, |(a, _)| a));
-    clip(text::trim(&clean), max)
+    let clean = sanitize(s);
+    let line = clean.split_once('\n').map_or(clean.as_str(), |(a, _)| a);
+    clip(text::trim(line), max)
 }
 
 /// A bar of `width` cells filled to `fraction`.
@@ -213,6 +214,11 @@ mod tests {
         assert_eq!(clip("hello!", 5), "hell…");
         assert_eq!(clip("日本語です", 5), "日本…");
         assert_eq!(first_line("  one\ntwo", 120), "one");
+        assert_eq!(
+            first_line("Downloading 10%\rDownloading 55%\rDownloading 100%", 120),
+            "Downloading 10%",
+            "a carriage return ends the line too"
+        );
         assert_eq!(bar_glyphs(0.5, 4), "██░░");
     }
 }

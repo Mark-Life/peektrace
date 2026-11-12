@@ -1,12 +1,12 @@
 //! The history view: every non-system event as a row, expandable to its
 //! decoded, highlighted body. Rows are laid out by height and only the
-//! ones on screen are drawn; expanded bodies are wrapped once per width.
+//! ones on screen are drawn and highlighted.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use peektrace_core::js::num::to_fixed;
 use peektrace_core::sessions::labels::{
-    context_edit_note, context_edit_tag, event_badge_label, event_tokens, token_label,
+    context_edit_tag, event_badge_label, event_tokens, token_label,
 };
 use peektrace_core::sessions::model::{AnalyzedSession, EventKind, TimelineEvent};
 use ratatui::buffer::Buffer;
@@ -14,18 +14,16 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Style};
 
-use super::decode::{decode_body, turn_tags, visible_events};
-use crate::draw::{Seg, fill_row, put, put_lr, seg, segs_width, wrap_text};
+use super::bodies::Bodies;
+use super::decode::{turn_tags, visible_events};
+use crate::draw::{fill_row, put, put_lr, seg, segs_width};
 use crate::fmt::{clip, first_line, fmt, pad_start, width};
 use crate::list::ListSel;
 use crate::screens::Hit;
-use crate::syntax::highlighted;
 use crate::theme::{self, fg};
 use crate::widgets::button;
 
 const BADGE_MAX: usize = 20;
-const BODY_MAX_LINES: usize = 120;
-const EDIT_NOTE_MAX: usize = 600;
 const SHARE_W: usize = 7;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -55,8 +53,7 @@ pub struct History {
     follow: bool,
     order: Vec<usize>,
     order_key: Option<(u64, Sort)>,
-    bodies: HashMap<usize, Vec<Vec<Seg>>>,
-    bodies_key: Option<(u64, u16)>,
+    bodies: Bodies,
 }
 
 fn kind_color(k: EventKind) -> Color {
@@ -85,23 +82,16 @@ fn row_preview(e: &TimelineEvent) -> String {
     context_edit_tag(e).map_or_else(|| e.preview.clone(), |t| format!("[{t}] {}", e.preview))
 }
 
-/// An expanded body as rows, `w` columns wide (indent excluded).
-fn body_rows(e: &TimelineEvent, w: usize) -> Vec<Vec<Seg>> {
-    let mut rows = context_edit_note(e)
-        .map(|n| wrap_text(&clip(&n, EDIT_NOTE_MAX), w, fg(theme::WARN)))
-        .unwrap_or_default();
-    let d = decode_body(e);
-    match &d.note {
-        Some(note) => rows.extend(wrap_text(note, w, fg(theme::TEXT_FAINT))),
-        None => rows.extend(highlighted(&d.content, d.lang, BODY_MAX_LINES, w)),
-    }
-    rows
-}
-
 impl History {
     /// Forget everything tied to the previous session.
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Forget prepared bodies but keep open rows and scroll: the same
+    /// session, re-read another way (redaction flipped).
+    pub fn forget_bodies(&mut self) {
+        self.bodies.clear();
     }
 
     fn order(&mut self, s: &AnalyzedSession, generation: u64) -> &[usize] {
@@ -186,17 +176,6 @@ impl History {
         } else {
             self.scroll.saturating_sub(3)
         };
-    }
-
-    fn body(&mut self, s: &AnalyzedSession, id: usize, w: u16, generation: u64) -> usize {
-        if self.bodies_key != Some((generation, w)) {
-            self.bodies.clear();
-            self.bodies_key = Some((generation, w));
-        }
-        self.bodies
-            .entry(id)
-            .or_insert_with(|| body_rows(&s.parsed.events[id], usize::from(w)))
-            .len()
     }
 
     /// Draw into `area`. `term_w` sizes the preview as TS does; `hits`
@@ -300,13 +279,19 @@ impl History {
         let count = self.order.len();
         let sel = self.sel.at(count);
         let body_w = list.width.saturating_sub(2);
-        let order = self.order.clone();
+        let order = std::mem::take(&mut self.order);
+        self.bodies.sync(s, generation);
+        let (all, open) = (self.expand_all, &self.open);
+        self.bodies.prepare(
+            s,
+            order.iter().copied().filter(|id| all || open.contains(id)),
+        );
         let mut tops = Vec::with_capacity(count + 1);
         let mut y = 0usize;
         for id in &order {
             tops.push(y);
             let h = 1 + if self.is_open(*id) {
-                self.body(s, *id, body_w, generation)
+                self.bodies.height(s, *id, body_w)
             } else {
                 0
             };
@@ -361,9 +346,8 @@ impl History {
                 );
                 hits.push((Rect::new(list.x, yy, list.width, 1), Hit::HistoryRow(pos)));
             }
-            if self.is_open(id)
-                && let Some(rows) = self.bodies.get(&id)
-            {
+            if self.is_open(id) {
+                let rows = self.bodies.rows(s, id, body_w);
                 for (i, row) in rows.iter().enumerate() {
                     let at = top + 1 + i;
                     if at < self.scroll {
@@ -377,6 +361,7 @@ impl History {
                 }
             }
         }
+        self.order = order;
     }
 
     fn header(
