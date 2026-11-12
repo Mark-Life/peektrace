@@ -6,11 +6,16 @@ use peektrace_core::js::json_out::push_str;
 use peektrace_core::js::num;
 use peektrace_core::js::value::{JsObject, JsValue};
 
-/// What a field holds.
+/// What a field holds. Each kind carries the description `tools/list`
+/// shows.
 #[derive(Debug, Clone, Copy)]
 pub enum Kind {
-    Str,
-    Bool,
+    Str {
+        desc: &'static str,
+    },
+    Bool {
+        desc: &'static str,
+    },
     /// A literal union, named by its description.
     Lit {
         title: &'static str,
@@ -27,14 +32,47 @@ pub enum Kind {
 impl Kind {
     fn name(self) -> &'static str {
         match self {
-            Self::Str => "string",
-            Self::Bool => "boolean",
+            Self::Str { .. } => "string",
+            Self::Bool { .. } => "boolean",
             Self::Lit { title, .. } => title,
             Self::Int { positive: true, .. } => "int & positive",
             Self::Int {
                 positive: false, ..
             } => "int & nonNegative",
         }
+    }
+
+    /// The JSON Schema of a field of this kind, keys in the TS order.
+    fn json_schema(self) -> JsValue {
+        let s = |v: &str| JsValue::Str(v.to_owned());
+        let entries: Vec<(&str, JsValue)> = match self {
+            Self::Str { desc } => vec![("type", s("string")), ("description", s(desc))],
+            Self::Bool { desc } => vec![("type", s("boolean")), ("description", s(desc))],
+            Self::Lit { title, values } => vec![
+                ("type", s("string")),
+                ("enum", JsValue::Arr(values.iter().map(|v| s(v)).collect())),
+                ("description", s(title)),
+            ],
+            Self::Int { positive, desc } => vec![
+                ("type", s("integer")),
+                ("description", s(desc)),
+                (
+                    "title",
+                    s(if positive { "positive" } else { "nonNegative" }),
+                ),
+                (
+                    if positive {
+                        "exclusiveMinimum"
+                    } else {
+                        "minimum"
+                    },
+                    JsValue::Num(0.0),
+                ),
+            ],
+        };
+        JsValue::Obj(JsObject::from_entries(
+            entries.into_iter().map(|(k, v)| (k.to_owned(), v)),
+        ))
     }
 }
 
@@ -43,6 +81,28 @@ pub struct Field {
     pub name: &'static str,
     pub kind: Kind,
     pub required: bool,
+}
+
+/// The `inputSchema` for `fields`: what [`check`] accepts, so the list and
+/// the checks cannot drift.
+pub fn input_schema(fields: &[Field]) -> JsValue {
+    let required = fields
+        .iter()
+        .filter(|f| f.required)
+        .map(|f| JsValue::Str(f.name.to_owned()))
+        .collect();
+    let properties = fields
+        .iter()
+        .map(|f| (f.name.to_owned(), f.kind.json_schema()));
+    JsValue::Obj(JsObject::from_entries([
+        ("type".to_owned(), JsValue::Str("object".to_owned())),
+        ("required".to_owned(), JsValue::Arr(required)),
+        (
+            "properties".to_owned(),
+            JsValue::Obj(JsObject::from_entries(properties)),
+        ),
+        ("additionalProperties".to_owned(), JsValue::Bool(false)),
+    ]))
 }
 
 /// A line of the error tree and the lines under it.
@@ -120,9 +180,9 @@ pub fn type_expr(fields: &[Field]) -> String {
 fn mismatch(kind: Kind, v: &JsValue) -> Option<Node> {
     let actual = fmt(v);
     match kind {
-        Kind::Str => (!matches!(v, JsValue::Str(_)))
+        Kind::Str { .. } => (!matches!(v, JsValue::Str(_)))
             .then(|| leaf(format!("Expected string, actual {actual}"))),
-        Kind::Bool => (!matches!(v, JsValue::Bool(_)))
+        Kind::Bool { .. } => (!matches!(v, JsValue::Bool(_)))
             .then(|| leaf(format!("Expected boolean, actual {actual}"))),
         Kind::Lit { title, values } => {
             let hit = v.as_str().is_some_and(|s| values.contains(&s));
@@ -219,7 +279,7 @@ mod tests {
     const FIELDS: [Field; 4] = [
         Field {
             name: "q",
-            kind: Kind::Str,
+            kind: Kind::Str { desc: "" },
             required: true,
         },
         Field {
@@ -229,7 +289,7 @@ mod tests {
         },
         Field {
             name: "latest",
-            kind: Kind::Bool,
+            kind: Kind::Bool { desc: "" },
             required: false,
         },
         Field {
@@ -243,9 +303,33 @@ mod tests {
     ];
     const EXPR: &str = "{ readonly q: string; readonly agent?: Agent to scope to (default all) | undefined; readonly latest?: boolean | undefined; readonly limit?: int & nonNegative | undefined }";
 
+    fn err_of(args: &JsValue) -> String {
+        check(&FIELDS, args).err().unwrap_or_default()
+    }
+
     fn err(args: &str) -> String {
-        let v = JsValue::parse(args).unwrap_or(JsValue::Null);
-        check(&FIELDS, &v).err().unwrap_or_default()
+        err_of(&JsValue::parse(args).unwrap_or(JsValue::Null))
+    }
+
+    /// Every listed property passes the excess-key check, and only the
+    /// required fields are listed as required.
+    #[test]
+    fn schema_lists_what_check_accepts() {
+        let schema = input_schema(&FIELDS);
+        let props = schema.get("properties").and_then(JsValue::as_obj);
+        let keys: Vec<&str> = props.map(|p| p.keys().collect()).unwrap_or_default();
+        assert_eq!(keys, FIELDS.map(|f| f.name));
+        for k in keys {
+            let args = JsValue::parse(&format!(r#"{{"{k}":null}}"#)).unwrap_or(JsValue::Null);
+            assert!(!err_of(&args).contains("is unexpected"), "{k}");
+        }
+        assert_eq!(
+            schema
+                .get("required")
+                .map(|r| r.stringify(false))
+                .as_deref(),
+            Some(r#"["q"]"#)
+        );
     }
 
     #[test]

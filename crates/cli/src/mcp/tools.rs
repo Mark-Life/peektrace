@@ -12,7 +12,7 @@ use peektrace_core::stats::accumulate::DrillTable;
 use peektrace_core::stats::service::{DrillPage, ReportRequest, StatsError};
 use tracing::{field, info_span};
 
-use super::schema::{Field, Kind, check};
+use super::schema::{Field, Kind, check, input_schema};
 use crate::args::TargetArgs;
 use crate::ls::{self, Context, Globals, InputNames, LsInput, UserError};
 use crate::search::{
@@ -51,10 +51,10 @@ const FORMAT: Field = Field {
     },
     required: false,
 };
-const fn text(name: &'static str) -> Field {
+const fn text(name: &'static str, desc: &'static str) -> Field {
     Field {
         name,
-        kind: Kind::Str,
+        kind: Kind::Str { desc },
         required: false,
     }
 }
@@ -67,10 +67,23 @@ const fn int(name: &'static str, positive: bool, desc: &'static str) -> Field {
 }
 const DAYS: Field = int("days", true, "History window in days (default 60)");
 const ROWS: Field = int("limit", true, "Rows kept per table (default 20)");
+const PROJECT: Field = text(
+    "project",
+    "Project name (Claude/Pi slug, or cwd basename for Codex/OpenCode)",
+);
+const SINCE: Field = text(
+    "since",
+    "Only sessions updated since: ISO date (2026-01-31, UTC) or relative 7d, 12h, 2w",
+);
+const CWD: Field = text(
+    "cwd",
+    "Only sessions run in this directory or below; `~` is the home dir, relative paths resolve against the server's cwd",
+);
 
-/// A tool: its name, inputs in schema order and how it runs.
+/// A tool: its name, description, inputs in schema order and how it runs.
 pub struct Tool {
     pub name: &'static str,
+    pub description: &'static str,
     fields: &'static [Field],
     run: fn(&Args<'_>, &Call<'_>) -> Result<Answer, UserError>,
 }
@@ -295,11 +308,12 @@ fn stats_drill(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
 pub const TOOLS: [Tool; 5] = [
     Tool {
         name: "sessions_list",
+        description: "List local coding-agent sessions (Claude Code, Codex, Pi, OpenCode), newest first: id, agent, project, model, message count, estimated cost, size, update time and title. Use an id with sessions_analyze.",
         fields: &[
             AGENT,
-            text("project"),
-            text("since"),
-            text("cwd"),
+            PROJECT,
+            SINCE,
+            CWD,
             int(
                 "limit",
                 false,
@@ -311,15 +325,18 @@ pub const TOOLS: [Tool; 5] = [
     },
     Tool {
         name: "sessions_search",
+        description: "Find sessions whose transcript contains a phrase (case-insensitive, literal), newest first. Returns each session's id, agent, project, update time, match count and the first matching lines as redacted snippets. Use an id with sessions_analyze.",
         fields: &[
             Field {
                 name: "q",
-                kind: Kind::Str,
+                kind: Kind::Str {
+                    desc: "Text to find",
+                },
                 required: true,
             },
             AGENT,
-            text("project"),
-            text("since"),
+            PROJECT,
+            SINCE,
             int(
                 "limit",
                 false,
@@ -331,26 +348,34 @@ pub const TOOLS: [Tool; 5] = [
     },
     Tool {
         name: "sessions_analyze",
+        description: "Context-budget forensics for one session: verdict, peak and final context, turns, tool calls, estimated cost and the token budget at peak. Pass an id (short id works), or latest:true, or a cwd to pick the newest session there.",
         fields: &[
-            text("id"),
+            text("id", "Session id, short id, or transcript path"),
             Field {
                 name: "latest",
-                kind: Kind::Bool,
+                kind: Kind::Bool {
+                    desc: "Analyze the newest session of any agent",
+                },
                 required: false,
             },
-            text("cwd"),
-            text("parent"),
+            CWD,
+            text(
+                "parent",
+                "Parent session id, when id is a subagent transcript (agent-*)",
+            ),
             FORMAT,
         ],
         run: sessions_analyze,
     },
     Tool {
         name: "stats_report",
+        description: "Cross-session friction report: what to fix first, named causes of retries, what fails and what costs time, with suggested rules for CLAUDE.md / AGENTS.md. Each row has a DRILL cell such as `--cause K`; expand it with stats_drill.",
         fields: &[DAYS, ROWS, AGENT, FORMAT],
         run: stats_report,
     },
     Tool {
         name: "stats_drill",
+        description: "The calls behind one stats_report row. A DRILL cell `--cause K` maps to {table:\"cause\", key:\"K\"}; likewise --fail and --time.",
         fields: &[
             Field {
                 name: "table",
@@ -362,7 +387,9 @@ pub const TOOLS: [Tool; 5] = [
             },
             Field {
                 name: "key",
-                kind: Kind::Str,
+                kind: Kind::Str {
+                    desc: "Key from the DRILL cell, without the --table prefix",
+                },
                 required: true,
             },
             int("offset", false, "First hit to return (default 0)"),
@@ -388,6 +415,23 @@ pub fn find(name: &str) -> Option<&'static Tool> {
 }
 
 impl Tool {
+    /// The tool's `tools/list` entry.
+    pub fn listing(&self) -> JsValue {
+        let annotations = JsObject::from_entries([
+            ("readOnlyHint".to_owned(), JsValue::Bool(true)),
+            ("openWorldHint".to_owned(), JsValue::Bool(false)),
+        ]);
+        JsValue::Obj(JsObject::from_entries([
+            ("name".to_owned(), JsValue::Str(self.name.to_owned())),
+            (
+                "description".to_owned(),
+                JsValue::Str(self.description.to_owned()),
+            ),
+            ("inputSchema".to_owned(), input_schema(self.fields)),
+            ("annotations".to_owned(), JsValue::Obj(annotations)),
+        ]))
+    }
+
     /// Check `args` (`null` reads as `{}`), then run.
     pub fn call(&self, args: &JsValue, shared: &Shared) -> Result<Answer, UserError> {
         let empty = JsValue::Obj(JsObject::default());
@@ -406,68 +450,5 @@ impl Tool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::super::protocol::call_reply;
-    use super::super::run_call;
-    use super::*;
-
-    /// No corpus: an empty home that no test reads, since every case fails
-    /// or dies before a tool touches the disk.
-    fn shared() -> Shared {
-        Shared::new(Context {
-            roots_env: peektrace_core::roots::RootsEnv {
-                home: "/nonexistent-peektrace-home".to_owned(),
-                ..Default::default()
-            },
-            settings: None,
-            cwd: None,
-            now_ms: 0.0,
-        })
-    }
-
-    fn args(text: &str) -> JsValue {
-        JsValue::parse(text).unwrap_or(JsValue::Null)
-    }
-
-    /// TS `mcp-protocol.test.ts` "%s refuses redact:false", one per tool.
-    #[test]
-    fn every_tool_refuses_redact_false() {
-        let s = shared();
-        for tool in &TOOLS {
-            let r = call_reply(
-                &JsValue::Num(8.0),
-                run_call(tool, &args(r#"{"redact":false}"#), &s),
-            );
-            let v = JsValue::parse(&r).unwrap_or(JsValue::Null);
-            let result = v.get("result");
-            assert_eq!(
-                result.and_then(|r| r.get("isError")),
-                Some(&JsValue::Bool(true)),
-                "{}: {r}",
-                tool.name
-            );
-            let text = result
-                .and_then(|r| r.get("content"))
-                .and_then(JsValue::as_arr)
-                .and_then(|c| c.first().and_then(|b| b.get("text")))
-                .and_then(JsValue::as_str)
-                .unwrap_or("");
-            assert!(text.contains("redact"), "{}: {text}", tool.name);
-        }
-    }
-
-    /// TS `mcp-protocol.test.ts` "a defect becomes an isError result".
-    #[test]
-    fn a_defect_becomes_an_is_error_result() {
-        let boom = Tool {
-            name: "boom",
-            fields: &[],
-            run: |_, _| panic!("kaput"),
-        };
-        let outcome = run_call(&boom, &JsValue::Null, &shared());
-        assert_eq!(
-            call_reply(&JsValue::Num(9.0), outcome),
-            r#"{"jsonrpc":"2.0","id":9,"result":{"content":[{"type":"text","text":"kaput"}],"isError":true}}"#
-        );
-    }
-}
+#[path = "tools_tests.rs"]
+mod tests;
