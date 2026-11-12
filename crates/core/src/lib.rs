@@ -14,6 +14,7 @@ mod paths;
 pub mod pi;
 pub mod pricing;
 pub mod roots;
+pub mod search;
 pub mod select;
 pub mod sessions;
 pub mod stats;

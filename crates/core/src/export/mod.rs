@@ -1,7 +1,7 @@
 //! Render a parsed session as HTML, Markdown or JSON. Callers redact first
 //! and pass `redacted`, so home paths are collapsed too.
 
-mod home;
+pub mod home;
 mod html;
 mod markdown;
 mod shared;
