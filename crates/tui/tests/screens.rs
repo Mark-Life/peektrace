@@ -115,3 +115,34 @@ fn shell() {
         "shell-token-80x24",
     );
 }
+
+#[test]
+fn every_screen_draws_at_every_size_without_panicking() {
+    for authed in [false, true] {
+        let mut h = Harness::with(build_home(), 160, 48, config(authed, ColorMode::Ansi256));
+        h.keys(&["<enter>", "E", "<tab>"]);
+        for section in ["1", "2", "3", "4", "5"] {
+            h.keys(&[section]);
+            if section == "5" {
+                h.keys(&["<tab>", "<enter>"]);
+            }
+            for (w, ht) in [
+                (1, 1),
+                (3, 2),
+                (10, 5),
+                (20, 8),
+                (40, 12),
+                (60, 20),
+                (78, 22),
+                (80, 24),
+                (100, 30),
+                (200, 60),
+            ] {
+                h.resize(w, ht);
+                h.draw();
+            }
+            h.resize(160, 48);
+            h.keys(&["<esc>"]);
+        }
+    }
+}
