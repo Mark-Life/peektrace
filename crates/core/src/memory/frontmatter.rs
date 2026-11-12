@@ -235,6 +235,30 @@ mod tests {
     }
 
     #[test]
+    fn unterminated_frontmatter_fence_falls_back_to_whole_text_body() {
+        let text = "---\nname: thing\ndescription: no closing fence\nstill body";
+        let (fm, body) = parse_frontmatter(text);
+        assert_eq!(fm.shape, Shape::None);
+        assert_eq!(body, text);
+    }
+
+    #[test]
+    fn garbage_frontmatter_lines_are_tolerated_not_thrown() {
+        let text =
+            "---\n: : :\nname value with no colon\n\ttab-indented junk\ntype: project\n---\nbody";
+        let (fm, body) = parse_frontmatter(text);
+        assert_eq!(fm.get(Field::Type), Some("project"));
+        assert_eq!(body, "body");
+    }
+
+    #[test]
+    fn round_trip_of_malformed_but_fenced_frontmatter_is_byte_stable() {
+        let text = "---\nname value with no colon\ntype: project\n---\nbody";
+        let (fm, body) = parse_frontmatter(text);
+        assert_eq!(compose_file(&fm, &body), text);
+    }
+
+    #[test]
     fn metadata_lines() {
         assert!(metadata_open("metadata :  "));
         assert!(!metadata_open(" metadata:"));

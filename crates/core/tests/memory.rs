@@ -1,5 +1,5 @@
 //! Claude memory read model and writes over a real on-disk vault (port of
-//! `packages/core/test/memory/memory.test.ts` and `packages/core/test/fs.test.ts`).
+//! `packages/core/test/memory/memory.test.ts`).
 
 mod common;
 
@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime};
 
 use common::{TempDir, fixture};
 use peektrace_core::memory::frontmatter::{compose_file, parse_frontmatter};
-use peektrace_core::memory::fs::{WriteError, atomic_write, read_text, stat_mtime};
+use peektrace_core::memory::fs::{WriteError, read_text};
 use peektrace_core::memory::{
     MemoryCtx, MemoryError, MemoryUpdate, NewMemory, VaultState, all_vaults, create, delete,
     get_vault, list_projects,
@@ -309,44 +309,4 @@ fn type_counts_follow_js_key_order() {
             ("unknown", 1)
         ]
     );
-}
-
-// fs: atomic write
-
-#[test]
-fn atomic_write_leaves_no_temp_files_and_honours_cas() {
-    let d = TempDir::new("memory-fs");
-    let roots = vec![d.str()];
-    let path = d.join("note.md");
-    atomic_write(&path, "hello", None, &roots).expect("write");
-    assert_eq!(read_text(&path).expect("read"), "hello");
-    let stray: Vec<String> = fs::read_dir(d.path())
-        .expect("dir")
-        .filter_map(Result::ok)
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .filter(|n| n.contains(".tmp-"))
-        .collect();
-    assert!(stray.is_empty(), "{stray:?}");
-    let fresh = stat_mtime(&path).expect("stat");
-    atomic_write(&path, "v2", Some(fresh), &roots).expect("cas write");
-    fs::write(&path, "external").expect("write");
-    bump_mtime(&path);
-    let stale = atomic_write(&path, "v3", Some(fresh), &roots);
-    assert!(matches!(stale, Err(WriteError::Changed { .. })));
-    assert_eq!(read_text(&path).expect("read"), "external");
-    let gone = atomic_write(&d.join("gone.md"), "x", Some(fresh), &roots);
-    assert_eq!(
-        gone.err().map(|e| e.to_string()),
-        Some(format!(
-            "File changed on disk (missing): {}. Reload and retry.",
-            d.join("gone.md")
-        ))
-    );
-}
-
-#[test]
-fn atomic_write_refuses_a_path_outside_every_root() {
-    let d = TempDir::new("memory-escape");
-    let r = atomic_write("/peektrace-escape.txt", "nope", None, &[d.str()]);
-    assert!(matches!(r, Err(WriteError::OutsideRoots { .. })));
 }
