@@ -390,9 +390,15 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
 
 /** Which stages run: all by default, or one with `--<stage>-only`. */
 const pickStages = () => {
-  const only = ["base", "stats", "search", "memory", "serve", "cli", "tui"].find(
-    (s) => flag(`--${s}-only`)
-  );
+  const only = [
+    "base",
+    "stats",
+    "search",
+    "memory",
+    "serve",
+    "cli",
+    "tui",
+  ].find((s) => flag(`--${s}-only`));
   return {
     cli: only === undefined || only === "cli",
     base: only === undefined || only === "base",
