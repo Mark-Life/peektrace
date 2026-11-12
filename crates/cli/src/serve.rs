@@ -37,7 +37,11 @@ pub fn banner(host: &str, port: u16, read_only: bool, token: Option<&str>, ui: &
     } else {
         host
     };
-    let url = format!("http://{display}:{port}");
+    let url = if display.parse::<std::net::Ipv6Addr>().is_ok() {
+        format!("http://[{display}]:{port}")
+    } else {
+        format!("http://{display}:{port}")
+    };
     let open_url = token.map_or_else(|| url.clone(), |t| auth::token_url(&url, t));
     let mut stdout = vec![
         format!("Peektrace serving on {url}"),
@@ -252,7 +256,10 @@ mod tests {
         assert_eq!(b.stdout[5], "  Open:   http://127.0.0.1:4620/?token=a%20b");
         assert_eq!(b.stderr.len(), 1);
         let b = banner("::1", 1, false, None, "x");
-        assert_eq!(b.stdout[0], "Peektrace serving on http://::1:1");
+        assert_eq!(b.stdout[0], "Peektrace serving on http://[::1]:1");
+        assert_eq!(b.open_url, "http://[::1]:1");
+        let b = banner("fd7a::1", 2, true, Some("t"), "x");
+        assert_eq!(b.open_url, "http://[fd7a::1]:2/?token=t");
     }
 
     #[cfg(unix)]

@@ -2,9 +2,11 @@
  *
  * One `EventSource` on `/api/events` pushes `{memory, sessions}` on connect
  * and on every change. When the stream cannot open (3 failed tries in a row,
- * or no `EventSource`), `/api/watch` is polled every second instead. After
- * the stream reconnects from an error, every live atom refreshes once: a
- * restarted server counts from 0 again, so no version bump would fire.
+ * the browser gives up on it after an HTTP error, or no `EventSource`),
+ * `/api/watch` is polled every second instead. After the stream reconnects
+ * from an error, or the first poll after it succeeds, every live atom
+ * refreshes once: a restarted server counts from 0 again, so no version bump
+ * would fire.
  *
  * Tabs of one origin share a single stream: the tab holding the `LIVE_LOCK`
  * Web Lock follows the server and relays to the others over a
@@ -17,6 +19,8 @@ import type { WatchVersions } from "./api-types.gen";
 
 const POLL_INTERVAL = 1000;
 const MAX_FAILED_OPENS = 3;
+/** `EventSource.CLOSED`: the browser will not retry this stream. */
+const SOURCE_CLOSED = 2;
 const LIVE_LOCK = "peektrace-live";
 const LIVE_CHANNEL = "peektrace-live";
 
@@ -74,9 +78,19 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
   let timer: ReturnType<typeof setInterval> | undefined;
   let source: EventSource | undefined;
 
-  const startPolling = () => {
+  const startPolling = (recovering: boolean) => {
+    let pending = recovering;
     const tick = () => {
-      deps.poll().then(handlers.onVersions, () => undefined);
+      deps.poll().then(
+        (versions) => {
+          handlers.onVersions(versions);
+          if (pending) {
+            pending = false;
+            handlers.onReconnect();
+          }
+        },
+        () => undefined
+      );
     };
     tick();
     timer = setInterval(tick, POLL_INTERVAL);
@@ -84,7 +98,7 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
 
   const Source = deps.EventSource;
   if (Source === undefined) {
-    startPolling();
+    startPolling(false);
   } else {
     let failures = 0;
     let recovering = false;
@@ -105,10 +119,10 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
     es.addEventListener("error", () => {
       failures += 1;
       recovering = true;
-      if (failures >= MAX_FAILED_OPENS) {
+      if (failures >= MAX_FAILED_OPENS || es.readyState === SOURCE_CLOSED) {
         es.close();
         source = undefined;
-        startPolling();
+        startPolling(true);
       }
     });
   }

@@ -10,6 +10,8 @@ type Listener = (event: { data?: string }) => void;
 class FakeSource {
   static last: FakeSource | undefined;
   closed = false;
+  /** 2 is `EventSource.CLOSED`: the browser stopped retrying. */
+  readyState = 0;
   readonly listeners = new Map<string, Listener[]>();
   readonly url: string;
   constructor(url: string) {
@@ -98,6 +100,33 @@ describe("startLive", () => {
     await Promise.resolve();
     expect(polls).toBe(1);
     expect(t.seen).toEqual([{ memory: 2, sessions: 4 }]);
+    expect(t.reconnects()).toBe(1);
+    stop();
+  });
+
+  test("an HTTP error that closes the stream polls at once and refreshes", async () => {
+    const t = track();
+    let polls = 0;
+    const stop = startLive(t.handlers, {
+      EventSource: FakeSource as unknown as typeof EventSource,
+      poll: () => {
+        polls += 1;
+        return Promise.resolve({ memory: 0, sessions: 7 });
+      },
+    });
+    const es = FakeSource.last;
+    es?.emit("versions", '{"memory":0,"sessions":5}');
+    es?.emit("error");
+    expect(polls).toBe(0);
+    if (es !== undefined) {
+      es.readyState = 2;
+    }
+    es?.emit("error");
+    expect(es?.closed).toBe(true);
+    await Promise.resolve();
+    expect(polls).toBe(1);
+    expect(t.seen.at(-1)).toEqual({ memory: 0, sessions: 7 });
+    expect(t.reconnects()).toBe(1);
     stop();
   });
 
@@ -108,6 +137,7 @@ describe("startLive", () => {
     });
     await Promise.resolve();
     expect(t.seen).toEqual([{ memory: 1, sessions: 1 }]);
+    expect(t.reconnects()).toBe(0);
     stop();
   });
 

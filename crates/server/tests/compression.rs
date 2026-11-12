@@ -2,9 +2,42 @@
 
 mod common;
 
-use common::{Options, start};
+use std::io::{Read as _, Write as _};
+use std::net::TcpStream;
 
-const GZIP: (&str, &str) = ("accept-encoding", "gzip");
+use common::{Options, TestServer, start};
+
+/// Response headers of a raw `GET` that asks for gzip. `ureq` drops
+/// `content-encoding` when its `gzip` feature is on, which the workspace
+/// turns on through the cli crate.
+fn gzip_headers(s: &TestServer, path: &str) -> Vec<(String, String)> {
+    let mut stream = TcpStream::connect(("127.0.0.1", s.port)).expect("connect");
+    write!(
+        stream,
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAccept-Encoding: gzip\r\nConnection: close\r\n\r\n",
+        s.port
+    )
+    .expect("request");
+    let mut raw = Vec::new();
+    stream.read_to_end(&mut raw).expect("response");
+    let end = raw
+        .windows(4)
+        .position(|w| w == b"\r\n\r\n")
+        .expect("header end");
+    String::from_utf8_lossy(&raw[..end])
+        .lines()
+        .skip(1)
+        .filter_map(|line| line.split_once(':'))
+        .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_owned()))
+        .collect()
+}
+
+fn header<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
+    headers
+        .iter()
+        .find(|(k, _)| k == name)
+        .map(|(_, v)| v.as_str())
+}
 
 #[test]
 fn ui_assets_are_gzipped_like_the_api() {
@@ -16,21 +49,25 @@ fn ui_assets_are_gzipped_like_the_api() {
     std::fs::create_dir_all(&assets).expect("mkdir assets");
     std::fs::write(assets.join("app.js"), "console.log(1);\n".repeat(400)).expect("asset");
 
-    let asset = s.call("GET", "/assets/app.js", &[GZIP], None);
-    assert_eq!(asset.status, 200);
-    assert_eq!(asset.header("content-encoding"), Some("gzip"));
+    let asset = gzip_headers(&s, "/assets/app.js");
+    assert_eq!(header(&asset, "content-encoding"), Some("gzip"));
     assert_eq!(
-        asset.header("cache-control"),
+        header(&asset, "cache-control"),
         Some("public, max-age=31536000, immutable")
     );
 
-    let plain = s.get("/assets/app.js");
+    let plain = s.call(
+        "GET",
+        "/assets/app.js",
+        &[("accept-encoding", "identity")],
+        None,
+    );
     assert_eq!(plain.header("content-encoding"), None);
     assert_eq!(plain.body.len(), 6400);
 
-    let api = s.call("GET", "/api/sessions", &[GZIP], None);
-    assert_eq!(api.header("content-encoding"), Some("gzip"));
+    let api = gzip_headers(&s, "/api/sessions");
+    assert_eq!(header(&api, "content-encoding"), Some("gzip"));
 
-    let small = s.call("GET", "/", &[GZIP], None);
-    assert_eq!(small.header("content-encoding"), None);
+    let small = gzip_headers(&s, "/");
+    assert_eq!(header(&small, "content-encoding"), None);
 }
