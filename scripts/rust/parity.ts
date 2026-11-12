@@ -9,6 +9,8 @@
  *   bun scripts/rust/parity.ts --real-all      # every real session in the
  *                                              # analyze/export stages
  *   bun scripts/rust/parity.ts --stats-only    # only the `stats` stage
+ *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
+ *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
@@ -21,7 +23,10 @@
  *   Only `--json` output is compared, row by row.
  * - `sessions analyze` and `sessions export` run after the `ls` suites; see
  *   `parity-analyze.ts` for their cases and normalisation.
- * - `stats` runs last; see `parity-stats.ts`.
+ * - `stats` runs last; see `parity-stats.ts`. Its real suite snapshots
+ *   `~/.claude/projects` into WORK and deletes it after. On macOS that is a
+ *   cheap APFS clone, so the suite runs by default; elsewhere it is a full
+ *   copy and needs `--real-stats`.
  */
 import {
   chmodSync,
@@ -396,7 +401,14 @@ const main = async () => {
       realAll: flag("--real-all"),
     });
   }
-  runStatsStage({ fixtures: !flag("--real-only"), real });
+  const realStats =
+    real &&
+    !flag("--no-real-stats") &&
+    (process.platform === "darwin" || flag("--real-stats"));
+  if (real && !realStats) {
+    console.log("suite stats-real: skipped (pass --real-stats to run)");
+  }
+  runStatsStage({ fixtures: !flag("--real-only"), real: realStats });
   for (const path of locked.filter((p) => existsSync(p))) {
     chmodSync(path, READ_WRITE);
   }

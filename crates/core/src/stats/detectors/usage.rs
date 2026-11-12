@@ -11,7 +11,7 @@ use crate::js::regex::LazyRe;
 use crate::js::time::{LocalZone, parse_date, to_iso_string};
 use crate::js_re;
 use crate::model::Agent;
-use crate::pricing::{CostTokens, card_for, pricing_echo, turn_cost};
+use crate::pricing::{CardCache, CostTokens, PriceCard, card_for, pricing_echo, turn_cost};
 use crate::stats::rank::{cmp_str, round, uniq_sorted};
 use crate::stats::schema::{Fact, UsageFact};
 
@@ -81,7 +81,7 @@ impl Agg {
     }
 }
 
-fn priced_of(f: &UsageFact) -> Agg {
+fn priced_of(f: &UsageFact, card: Option<&PriceCard>) -> Agg {
     let t = CostTokens {
         input: f.input_tokens,
         output: f.output_tokens,
@@ -91,7 +91,7 @@ fn priced_of(f: &UsageFact) -> Agg {
     };
     Agg {
         turns: 0.0,
-        usd: turn_cost(card_for(&f.model).as_ref(), &t).unwrap_or(0.0),
+        usd: turn_cost(card, &t).unwrap_or(0.0),
         input: t.input,
         output: t.output,
         cache_read: t.cache_read,
@@ -237,6 +237,7 @@ pub struct UsageSink<'a> {
     calls: Vec<BlockCall>,
     seen: HashSet<String>,
     skipped: UsageSkipped,
+    cards: CardCache,
     local: &'a dyn LocalZone,
 }
 
@@ -271,6 +272,7 @@ impl<'a> UsageSink<'a> {
             calls: Vec::new(),
             seen: HashSet::new(),
             skipped: UsageSkipped::default(),
+            cards: CardCache::default(),
             local,
         }
     }
@@ -303,7 +305,7 @@ impl<'a> UsageSink<'a> {
                 self.calls.push(BlockCall {
                     ms,
                     model: f.model.clone(),
-                    tokens: priced_of(f),
+                    tokens: priced_of(f, self.cards.get(&f.model).as_ref()),
                 });
             }
             return;
@@ -317,11 +319,8 @@ impl<'a> UsageSink<'a> {
         if cmp_str(&key, &self.cutoff_key).is_lt() || self.is_duplicate(f) {
             return;
         }
-        fold(
-            self.buckets.entry(key).or_default(),
-            &f.model,
-            &priced_of(f),
-        );
+        let priced = priced_of(f, self.cards.get(&f.model).as_ref());
+        fold(self.buckets.entry(key).or_default(), &f.model, &priced);
     }
 
     fn trusted_calls(&self) -> (Vec<BlockCall>, bool) {

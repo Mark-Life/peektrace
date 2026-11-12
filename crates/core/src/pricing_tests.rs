@@ -179,3 +179,19 @@ fn cache_reads_and_writes_bill_apart_from_input() {
     let r = card.rates;
     assert!((base_cost(Some(&card), &t) - (r.input + r.cache_read + r.cache_write)).abs() < 5e-7);
 }
+
+#[test]
+fn card_cache_matches_card_for() {
+    let mut cache = CardCache::default();
+    let ids = [
+        "claude-opus-5-5",
+        "gpt-5.1-codex",
+        "nope-1",
+        "claude-opus-5-5",
+        "nope-1",
+    ];
+    for id in ids {
+        assert_eq!(cache.get(id), card_for(id), "{id}");
+    }
+    assert_eq!(cache.0.len(), 3);
+}

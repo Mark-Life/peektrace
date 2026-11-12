@@ -3,6 +3,7 @@
 //! `packages/core/src/services/pricing.ts`. The parity harness prices one
 //! session per key of that table, so a drift shows up as a `costUsd` diff.
 
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::js::text;
@@ -387,6 +388,21 @@ pub const PRICES_CHECKED: &str = "2026-11-08";
 /// The rate card for `model_id`, `None` when it is unpriced.
 pub fn card_for(model_id: &str) -> Option<PriceCard> {
     price_for(model_id).map(|(_, card)| card)
+}
+
+/// [`card_for`] memoised per model id: a corpus has many calls but few models.
+#[derive(Debug, Default)]
+pub struct CardCache(HashMap<String, Option<PriceCard>>);
+
+impl CardCache {
+    pub fn get(&mut self, model_id: &str) -> Option<PriceCard> {
+        if let Some(card) = self.0.get(model_id) {
+            return *card;
+        }
+        let card = card_for(model_id);
+        self.0.insert(model_id.to_owned(), card);
+        card
+    }
 }
 
 /// USD for one model call at `card` (from [`card_for`]), `None` when the

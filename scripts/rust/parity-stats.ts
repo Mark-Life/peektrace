@@ -261,13 +261,21 @@ const otherAgentsEmpty = (root: string) => {
   };
 };
 
-/** Snapshot `~/.claude/projects` so live sessions cannot move numbers. */
+/**
+ * Snapshot `~/.claude/projects` so live sessions cannot move numbers. On
+ * macOS `cp -c` makes an APFS clone; elsewhere it is a full copy.
+ */
 const snapshotReal = (dest: string): string | null => {
   const src = join(process.env.HOME ?? "", ".claude/projects");
   if (!existsSync(src)) {
     return null;
   }
   rmSync(dest, { recursive: true, force: true });
+  const size = Bun.spawnSync(["du", "-sh", src])
+    .stdout.toString()
+    .split("\t")[0];
+  const how = process.platform === "darwin" ? "cloning" : "copying";
+  console.log(`suite stats-real: ${how} ${src} (${size || "?"}) to ${dest}`);
   const clone = Bun.spawnSync(
     process.platform === "darwin"
       ? ["cp", "-cpR", src, dest]
@@ -277,6 +285,27 @@ const snapshotReal = (dest: string): string | null => {
     cpSync(src, dest, { recursive: true });
   }
   return dest;
+};
+
+/** The real suite on a snapshot, deleted afterwards. */
+const runRealCases = (root: string, others: Record<string, string>) => {
+  const projects = snapshotReal(join(root, "real-projects"));
+  if (projects === null) {
+    console.log("suite stats-real: no ~/.claude/projects, skipped");
+    return;
+  }
+  try {
+    const env: Record<string, string> = {
+      ...(process.env as Record<string, string>),
+      ...others,
+      PEEKTRACE_CLAUDE_PROJECTS: projects,
+      PEEKTRACE_DIR: join(root, "real-pdir"),
+      PEEKTRACE_NO_TELEMETRY: "1",
+    };
+    runCases({ name: "real", env, retry: true }, "60", 3);
+  } finally {
+    rmSync(projects, { recursive: true, force: true });
+  }
 };
 
 /** The stats stage: fixture HOME, TS fixtures root, then the real corpus. */
@@ -318,19 +347,7 @@ export const runStatsStage = (opts: {
     unlockStatsHome(home);
   }
   if (opts.real) {
-    const projects = snapshotReal(join(root, "real-projects"));
-    if (projects === null) {
-      console.log("suite stats-real: no ~/.claude/projects, skipped");
-      return;
-    }
-    const env: Record<string, string> = {
-      ...(process.env as Record<string, string>),
-      ...others,
-      PEEKTRACE_CLAUDE_PROJECTS: projects,
-      PEEKTRACE_DIR: join(root, "real-pdir"),
-      PEEKTRACE_NO_TELEMETRY: "1",
-    };
-    runCases({ name: "real", env, retry: true }, "60", 3);
+    runRealCases(root, others);
   }
   if (!existsSync(rustBin)) {
     report("stats: rust binary missing");

@@ -105,4 +105,4 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 2. Keep `EXTRACTOR_VERSION` 13 in Rust, or start a Rust-only counter now that the cache dirs are separate?
 3. Should `stats` (report) take `--force`, as `refresh` and `usage` do? TS has none.
 4. A nested transcript of the default Claude source carries no `source` while its main does. Copy TS (done) or fix both? It changes rule reach only with 2+ Claude sources.
-5. The real-corpus parity suite copies `~/.claude/projects` (about 1 GB) per run: keep it local-only?
+5. The real stats parity suite snapshots `~/.claude/projects` and deletes it after. It runs by default on macOS (APFS clone) and needs `--real-stats` elsewhere (full copy). Keep it out of CI?
