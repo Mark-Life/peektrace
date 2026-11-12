@@ -21,6 +21,8 @@ pub enum Assets {
     /// An absolute, normalized directory.
     Dir(PathBuf),
     Embedded,
+    /// The Rune web app (`serve --ui rune`).
+    Rune(crate::rune_assets::RuneSource),
 }
 
 /// `path.resolve`: join onto `base` unless absolute, then drop `.` and
@@ -42,7 +44,7 @@ pub fn normalize(base: &Path, path: &Path) -> PathBuf {
 
 /// A URL path as a path under the UI root, or `None` when it leaves the
 /// root or a segment holds a separator or drive mark another OS would read.
-fn under_root(pathname: &str) -> Option<PathBuf> {
+pub(crate) fn under_root(pathname: &str) -> Option<PathBuf> {
     pathname
         .split('/')
         .try_fold(Vec::new(), |mut acc, seg| {
@@ -97,6 +99,12 @@ impl Assets {
 
     /// Answer a GET or HEAD for `raw_path` (no query).
     pub fn respond(&self, raw_path: &str) -> Response<Body> {
+        self.respond_to(raw_path, &axum::http::HeaderMap::new())
+    }
+
+    /// [`Self::respond`] with the request headers, which the Rune app reads
+    /// for brotli and `If-None-Match`.
+    pub fn respond_to(&self, raw_path: &str, req: &axum::http::HeaderMap) -> Response<Body> {
         let Ok(decoded) = percent_encoding::percent_decode_str(raw_path).decode_utf8() else {
             return status(StatusCode::NOT_FOUND, "");
         };
@@ -104,6 +112,7 @@ impl Assets {
         match self {
             Self::Dir(root) => from_dir(root, pathname),
             Self::Embedded => from_embedded(pathname),
+            Self::Rune(src) => src.respond(pathname, req),
         }
     }
 }

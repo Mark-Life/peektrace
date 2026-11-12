@@ -37,6 +37,8 @@ sha2 = { version = "0.10", default-features = false }
 default = []
 # `--remote https://...` support (adds rustls).
 https = ["ureq/rustls"]
+# Built-in Rune web app for `serve --ui rune` (run scripts/rust/build-rune-web.sh first).
+rune-ui = ["peektrace-server/rune-ui"]
 
 [dev-dependencies]
 rusqlite.workspace = true

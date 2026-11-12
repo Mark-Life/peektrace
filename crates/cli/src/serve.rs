@@ -14,10 +14,11 @@ use peektrace_protocol::WatchVersions;
 use peektrace_server::auth::{self, TOKEN_ENV};
 use peektrace_server::bind::bind_free_port;
 use peektrace_server::guard::Allowlist;
+use peektrace_server::rune_assets::RuneSource;
 use peektrace_server::{AppState, Assets, Guards, system_clock};
 use tokio::sync::watch;
 
-use crate::args::ServeArgs;
+use crate::args::{ServeArgs, WebUi};
 use crate::ls::{Context, UserError};
 use crate::signals::stop_signal;
 use crate::single::agent_roots;
@@ -180,8 +181,17 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
     let cwd = std::env::current_dir()
         .map(|d| d.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let client_dir = std::env::var("PEEKTRACE_CLIENT_DIR").ok();
-    let (assets, ui) = Assets::resolve(client_dir.as_deref(), &cwd);
+    let (assets, ui) = match args.ui {
+        WebUi::Inspector => {
+            let client_dir = std::env::var("PEEKTRACE_CLIENT_DIR").ok();
+            Assets::resolve(client_dir.as_deref(), &cwd)
+        }
+        WebUi::Rune => {
+            let rune_dir = std::env::var("PEEKTRACE_RUNE_DIR").ok();
+            let (src, label) = RuneSource::resolve(rune_dir.as_deref(), &cwd);
+            (Assets::Rune(src), format!("{label}, rune"))
+        }
+    };
     let (tx, rx) = watch::channel(WatchVersions::default());
     let (stop, stop_rx) = watch::channel(false);
     let state = AppState {
