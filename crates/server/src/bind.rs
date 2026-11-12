@@ -58,4 +58,31 @@ mod tests {
         assert!(next > port);
         drop(first);
     }
+    // find-free-port.test.ts: a client polling the port does not stall the scan.
+    #[test]
+    fn a_client_connecting_during_the_scan_does_not_stall_it() {
+        let (first, port) = bind_free_port("127.0.0.1", 44_200).unwrap();
+        drop(first);
+        let polling = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let flag = std::sync::Arc::clone(&polling);
+        let poller = std::thread::spawn(move || {
+            let mut sockets = Vec::new();
+            while flag.load(std::sync::atomic::Ordering::Relaxed) {
+                if let Ok(s) = std::net::TcpStream::connect(("127.0.0.1", port)) {
+                    sockets.push(s);
+                }
+                std::thread::yield_now();
+            }
+        });
+        let started = std::time::Instant::now();
+        for _ in 0..200 {
+            let (listener, got) = bind_free_port("127.0.0.1", port).unwrap();
+            assert!(got >= port);
+            drop(listener);
+        }
+        let elapsed = started.elapsed();
+        polling.store(false, std::sync::atomic::Ordering::Relaxed);
+        poller.join().unwrap();
+        assert!(elapsed < std::time::Duration::from_secs(2), "{elapsed:?}");
+    }
 }

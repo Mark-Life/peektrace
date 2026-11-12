@@ -4,7 +4,7 @@
 use std::io::{BufRead as _, BufReader};
 use std::net::TcpListener;
 use std::process::{Child, Command, Stdio};
-use std::sync::mpsc;
+use std::sync::{Mutex, MutexGuard, PoisonError, mpsc};
 use std::time::Duration;
 
 const BIN: &str = env!("CARGO_BIN_EXE_peektrace");
@@ -44,7 +44,23 @@ fn temp(name: &str) -> String {
 /// A running server; killed on drop.
 struct Served {
     child: Child,
+    _serial: MutexGuard<'static, ()>,
     port: u16,
+    /// Stdout up to the ready line.
+    lines: Vec<String>,
+    /// The server's HOME; settings live in `<dir>/.peektrace`.
+    dir: String,
+}
+
+impl Served {
+    /// The token in the printed `Open:` URL.
+    fn printed_token(&self) -> Option<String> {
+        self.lines
+            .iter()
+            .find_map(|l| l.trim_start().strip_prefix("Open:"))
+            .and_then(|url| url.split("?token=").nth(1))
+            .map(str::to_owned)
+    }
 }
 
 impl Drop for Served {
@@ -61,7 +77,12 @@ fn free_port() -> u16 {
         .expect("free port")
 }
 
+/// One server at a time: macOS lets `0.0.0.0:P` and `127.0.0.1:P` both bind,
+/// so two servers whose port scans overlap could answer for each other.
+static SERIAL: Mutex<()> = Mutex::new(());
+
 fn serve(name: &str, args: &[&str], env: &[(&str, &str)]) -> Served {
+    let serial = SERIAL.lock().unwrap_or_else(PoisonError::into_inner);
     let dir = temp(name);
     let mut c = base_command(&dir);
     c.arg("serve").arg("--no-open").args(args);
@@ -76,31 +97,55 @@ fn serve(name: &str, args: &[&str], env: &[(&str, &str)]) -> Served {
     let stdout = child.stdout.take().expect("stdout");
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
+        let mut seen = Vec::new();
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
             if let Some(p) = line.strip_prefix("PEEKTRACE_READY:") {
-                let _ = tx.send(p.parse::<u16>().unwrap_or(0));
+                let port = p.parse::<u16>().unwrap_or(0);
+                let _ = tx.send((port, std::mem::take(&mut seen)));
+            } else {
+                seen.push(line);
             }
         }
     });
-    let port = rx
+    let (port, lines) = rx
         .recv_timeout(Duration::from_secs(20))
         .expect("ready line");
-    Served { child, port }
+    Served {
+        child,
+        _serial: serial,
+        port,
+        lines,
+        dir,
+    }
 }
 
-fn put_settings(port: u16, bearer: Option<&str>) -> u16 {
-    let agent = ureq::Agent::config_builder()
+fn agent() -> ureq::Agent {
+    ureq::Agent::config_builder()
         .http_status_as_error(false)
         .build()
-        .new_agent();
-    let mut req = agent.put(&format!("http://127.0.0.1:{port}/api/settings"));
+        .new_agent()
+}
+
+fn put_settings_body(port: u16, bearer: Option<&str>) -> (u16, String) {
+    let mut req = agent().put(&format!("http://127.0.0.1:{port}/api/settings"));
     if let Some(t) = bearer {
         req = req.header("Authorization", &format!("Bearer {t}"));
     }
-    req.send(r#"{"settings":{}}"#)
-        .expect("put")
-        .status()
-        .as_u16()
+    let mut res = req.send(r#"{"settings":{}}"#).expect("put");
+    let body = res.body_mut().read_to_string().unwrap_or_default();
+    (res.status().as_u16(), body)
+}
+
+fn put_settings(port: u16, bearer: Option<&str>) -> u16 {
+    put_settings_body(port, bearer).0
+}
+
+fn health(port: u16, bearer: Option<&str>) -> u16 {
+    let mut req = agent().get(&format!("http://127.0.0.1:{port}/health"));
+    if let Some(t) = bearer {
+        req = req.header("Authorization", &format!("Bearer {t}"));
+    }
+    req.call().expect("health").status().as_u16()
 }
 
 fn run(dir: &str, args: &[&str], env: &[(&str, &str)]) -> (i32, String, String) {
@@ -215,4 +260,125 @@ fn remote_with_token_url_env_token_or_none() {
     assert_eq!(code, 0);
     let local = run(&dir, &ls, &[]);
     assert_eq!(out, local.1);
+}
+
+// serve-auth-e2e.test.ts cases with the TS assertions. `memory.create` is not
+// in this build, so the write probe is `PUT /api/settings`.
+
+const LONG_TOKEN: &str = "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk";
+
+#[test]
+fn non_loopback_requires_the_token_and_refuses_writes_by_default() {
+    let port = free_port().to_string();
+    let s = serve("e2e-default", &["--host", "0.0.0.0", "--port", &port], &[]);
+    let token = s.printed_token().expect("Open: line");
+    assert_eq!(token.len(), 43);
+    assert_eq!(health(s.port, None), 401);
+    assert_eq!(health(s.port, Some(&token)), 200);
+    let (status, body) = put_settings_body(s.port, Some(&token));
+    assert_eq!(status, 403);
+    assert!(body.contains("read-only"), "{body}");
+    assert!(
+        !std::path::Path::new(&s.dir)
+            .join(".peektrace/settings.json")
+            .exists()
+    );
+}
+
+#[test]
+fn allow_write_permits_a_write() {
+    let port = free_port().to_string();
+    let args = ["--host", "0.0.0.0", "--allow-write", "--port", &port];
+    let s = serve("e2e-allow", &args, &[]);
+    let token = s.printed_token().expect("Open: line");
+    assert_eq!(put_settings(s.port, Some(&token)), 200);
+    assert!(
+        std::path::Path::new(&s.dir)
+            .join(".peektrace/settings.json")
+            .exists()
+    );
+}
+
+#[test]
+fn read_only_wins_over_allow_write() {
+    let port = free_port().to_string();
+    let args = [
+        "--host",
+        "0.0.0.0",
+        "--allow-write",
+        "--read-only",
+        "--port",
+        &port,
+    ];
+    let s = serve("e2e-both", &args, &[]);
+    let token = s.printed_token().expect("Open: line");
+    let (status, body) = put_settings_body(s.port, Some(&token));
+    assert_eq!(status, 403);
+    assert!(body.contains("read-only"), "{body}");
+}
+
+#[test]
+fn peektrace_token_supplies_the_token() {
+    let port = free_port().to_string();
+    let s = serve(
+        "e2e-env",
+        &["--host", "0.0.0.0", "--port", &port],
+        &[("PEEKTRACE_TOKEN", LONG_TOKEN)],
+    );
+    assert_eq!(s.printed_token().as_deref(), Some(LONG_TOKEN));
+}
+
+#[test]
+fn a_short_token_fails_before_binding() {
+    let _serial = SERIAL.lock().unwrap_or_else(PoisonError::into_inner);
+    let dir = temp("e2e-short");
+    let port = free_port();
+    let args = [
+        "serve",
+        "--no-open",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        &port.to_string(),
+    ];
+    let (code, _, err) = run(&dir, &args, &[("PEEKTRACE_TOKEN", "short")]);
+    assert_ne!(code, 0);
+    assert!(err.contains("PEEKTRACE_TOKEN"), "{err}");
+    assert!(std::net::TcpStream::connect(("127.0.0.1", port)).is_err());
+}
+
+#[test]
+fn loopback_ignores_a_long_token_and_needs_no_credentials() {
+    let port = free_port().to_string();
+    let s = serve(
+        "e2e-loopback",
+        &["--port", &port],
+        &[("PEEKTRACE_TOKEN", LONG_TOKEN)],
+    );
+    assert_eq!(s.printed_token(), None);
+    assert_eq!(health(s.port, None), 200);
+}
+
+#[test]
+fn remote_json_ls_with_token_url_env_token_and_the_missing_token_message() {
+    let port = free_port().to_string();
+    let s = serve("e2e-remote", &["--host", "0.0.0.0", "--port", &port], &[]);
+    let token = s.printed_token().expect("Open: line");
+    let dir = temp("e2e-remote-client");
+    let base = format!("http://127.0.0.1:{}", s.port);
+    let ls = ["--json", "sessions", "ls"];
+    let url = format!("{base}/?token={token}");
+    let (code, _, _) = run(&dir, &[&["--remote", url.as_str()][..], &ls].concat(), &[]);
+    assert_eq!(code, 0);
+    let (code, _, _) = run(
+        &dir,
+        &[&["--remote", base.as_str()][..], &ls].concat(),
+        &[("PEEKTRACE_TOKEN", token.as_str())],
+    );
+    assert_eq!(code, 0);
+    let (code, _, err) = run(&dir, &[&["--remote", base.as_str()][..], &ls].concat(), &[]);
+    assert_eq!(code, 1);
+    assert!(err.contains("HTTP 401"), "{err}");
+    assert!(err.contains("PEEKTRACE_TOKEN"), "{err}");
+    assert!(!err.contains(&token), "{err}");
 }
