@@ -71,7 +71,7 @@ const ROWS: Field = int("limit", true, "Rows kept per table (default 20)");
 pub struct Tool {
     pub name: &'static str,
     fields: &'static [Field],
-    run: fn(&Args<'_>, &Shared) -> Result<Answer, UserError>,
+    run: fn(&Args<'_>, &Call<'_>) -> Result<Answer, UserError>,
 }
 
 /// A tool's reply: the main text, and notes sent as their own block so a
@@ -87,6 +87,12 @@ pub struct Answer {
 pub struct Shared {
     pub ctx: Context,
     pub stats: Mutex<()>,
+}
+
+/// One call's view: the context with the clock read now.
+struct Call<'a> {
+    ctx: Context,
+    stats: &'a Mutex<()>,
 }
 
 /// Checked tool arguments.
@@ -157,7 +163,7 @@ fn traced<T>(
     out
 }
 
-fn sessions_list(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
+fn sessions_list(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
     let input = LsInput {
         agent: a.agent(),
         project: a.str("project"),
@@ -173,7 +179,7 @@ fn sessions_list(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
     Ok(answer(Some(out.stdout), out.notes))
 }
 
-fn sessions_search(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
+fn sessions_search(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
     let input = SearchInput {
         q: a.str("q").unwrap_or_default().to_owned(),
         agent: a.agent(),
@@ -200,7 +206,7 @@ fn sessions_search(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
     Ok(answer(Some(text), notes))
 }
 
-fn sessions_analyze(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
+fn sessions_analyze(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
     let target = TargetArgs {
         id: a.str("id").map(str::to_owned),
         latest: a.flag("latest"),
@@ -226,7 +232,7 @@ fn stats_failure(e: StatsError) -> UserError {
     }
 }
 
-fn stats_report(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
+fn stats_report(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
     let req = a.report_request();
     let span = rpc_span!("stats.report");
     let _one = s
@@ -239,7 +245,7 @@ fn stats_report(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
     Ok(answer(out.stdout, Vec::new()))
 }
 
-fn stats_drill(a: &Args<'_>, s: &Shared) -> Result<Answer, UserError> {
+fn stats_drill(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
     let table = a
         .str("table")
         .and_then(DrillTable::parse)
@@ -347,6 +353,13 @@ pub const TOOLS: [Tool; 5] = [
     },
 ];
 
+#[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
+fn now_ms() -> f64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0.0, |d| d.as_millis() as f64)
+}
+
 pub fn find(name: &str) -> Option<&'static Tool> {
     TOOLS.iter().find(|t| t.name == name)
 }
@@ -358,6 +371,12 @@ impl Tool {
         let args = if args.is_null() { &empty } else { args };
         let obj = check(self.fields, args)
             .map_err(|m| UserError::Invalid(format!("Invalid arguments for {}: {m}", self.name)))?;
-        (self.run)(&Args(obj), shared)
+        let mut ctx = shared.ctx.clone();
+        ctx.now_ms = now_ms();
+        let call = Call {
+            ctx,
+            stats: &shared.stats,
+        };
+        (self.run)(&Args(obj), &call)
     }
 }
