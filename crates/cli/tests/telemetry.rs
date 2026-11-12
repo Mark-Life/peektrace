@@ -116,6 +116,32 @@ fn typed_search_words_never_reach_telemetry() {
     }
 }
 
+/// The TS statusline and search tests run with only `HOME` set and read
+/// `<HOME>/.peektrace/telemetry.db`; `HOME` here is the fixture's temp dir.
+#[test]
+fn default_store_lives_under_home() {
+    let f = Fixture::new();
+    let run_home = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_peektrace"))
+            .args(args)
+            .env_clear()
+            .env("HOME", &f.home)
+            .current_dir(&f.home)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run peektrace")
+    };
+    let dir = f.home.join(".peektrace");
+    let out = run_home(&["statusline"]);
+    assert_eq!(out.status.code(), Some(0));
+    assert!(!db(&dir).exists());
+    let out = run_home(&["sessions", "search", "zebrasecret", "--limit", "abcsecret"]);
+    assert_ne!(out.status.code(), Some(0));
+    let all = rows(&dir).join("\n");
+    assert!(all.contains("sessions search"));
+    assert!(!all.contains("zebrasecret") && !all.contains("abcsecret"));
+}
+
 /// Extra env, args, and whether the run records.
 type Case<'a> = (&'a [(&'a str, &'a str)], &'a [&'a str], bool);
 
