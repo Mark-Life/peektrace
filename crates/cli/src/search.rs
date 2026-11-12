@@ -129,8 +129,8 @@ fn query(words: &[String]) -> Result<String, UserError> {
     Ok(q)
 }
 
-/// The listing's unreadable count, which the root span records, and the
-/// command output.
+/// Run `sessions search` against `ctx`. `unreadable` is the listing's
+/// count, which the root span records.
 pub fn run(args: &SearchArgs, globals: Globals, ctx: &Context) -> Result<Output, UserError> {
     let limit = parse_limit(&args.limit)?;
     let agent = parse_agent(args.agent.as_deref())?;
