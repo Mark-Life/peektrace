@@ -318,10 +318,9 @@ const VALUE_FLAGS: [&str; 5] = ["--cwd", "--parent", "--format", "--out", "--log
 /// ends the command line of a single-session command given no id. It reads
 /// the flag as the id and prints `Missing value for <flag>.`
 pub fn missing_value(argv: &[String]) -> Option<&str> {
-    let at = argv
-        .iter()
-        .position(|a| a == "analyze" || a == "export")
-        .filter(|&i| i > 0 && argv[..i].iter().any(|a| a == "sessions"))?;
+    let ("sessions", "analyze" | "export", at) = crate::reorder::command_path(argv)? else {
+        return None;
+    };
     let rest = &argv[at + 1..];
     let mut i = 0;
     while i < rest.len() {
@@ -362,5 +361,17 @@ mod tests {
         assert_eq!(missing_value(&argv("pt sessions analyze x --cwd")), None);
         assert_eq!(missing_value(&argv("pt sessions analyze --cwd /")), None);
         assert_eq!(missing_value(&argv("pt sessions ls --cwd")), None);
+        assert_eq!(
+            missing_value(&argv("pt --log-level debug sessions export --out")),
+            Some("--out")
+        );
+        assert_eq!(
+            missing_value(&argv("pt sessions search export --out")),
+            None
+        );
+        assert_eq!(
+            missing_value(&argv("pt sessions search how to export --format")),
+            None
+        );
     }
 }
