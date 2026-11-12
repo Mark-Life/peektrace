@@ -17,11 +17,8 @@ fn traced(body: impl FnOnce()) -> Vec<WideEvent> {
     );
     let subscriber = tracing_subscriber::registry().with(layer.with_filter(SpansOnly));
     tracing::subscriber::with_default(subscriber, body);
-    let out = events
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .clone();
-    out
+    let mut held = events.lock().unwrap_or_else(PoisonError::into_inner);
+    std::mem::take(&mut *held)
 }
 
 fn root(kind: &'static str) -> tracing::Span {
