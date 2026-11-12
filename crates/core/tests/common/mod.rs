@@ -199,11 +199,7 @@ pub fn ids(refs: &[SessionFileRef]) -> Vec<&str> {
 }
 
 pub fn session_env(roots: &AgentRoots) -> SessionEnv<'_> {
-    SessionEnv {
-        roots,
-        unsearched: &[],
-        local: &Utc,
-    }
+    SessionEnv { roots, local: &Utc }
 }
 
 /// A [`temp_dir`] removed on drop.

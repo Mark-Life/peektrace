@@ -339,7 +339,6 @@ fn lists_and_resolves_across_agents() {
     let dir = temp_dir("list");
     let roots = agent_roots(&dir);
     let all = list_sessions(&roots, &ListFilter::default());
-    assert_eq!(all.skipped, [Agent::Opencode]);
     assert_eq!(by_agent(&all.headers, Agent::Claude).len(), 1);
     let codex = by_agent(&all.headers, Agent::Codex);
     assert_eq!(codex.len(), 4);
@@ -382,7 +381,6 @@ fn lists_and_resolves_across_agents() {
 
     let env = SessionEnv {
         roots: &roots,
-        unsearched: &[],
         local: &Utc,
     };
     let a = analyze_session(env, Target::Lookup("rollout-fixture"), None, true).expect("codex");

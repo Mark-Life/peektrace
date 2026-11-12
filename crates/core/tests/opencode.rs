@@ -64,7 +64,7 @@ fn db_wins_over_tree_and_tree_only_is_kept() {
 
 #[test]
 fn tree_sessions_load_across_many_project_dirs() {
-    let dir = temp_dir();
+    let dir = temp_dir("oc");
     let data = path_str(&dir);
     let st = dir.join("storage/session");
     for n in 0..20 {
@@ -183,7 +183,6 @@ fn malformed_message_json_drops_the_session_from_ls_only() {
     let a = analyze_session(
         SessionEnv {
             roots: &opencode_roots(&data),
-            unsearched: &[],
             local: &Utc,
         },
         Target::Lookup("ses_b"),
@@ -228,7 +227,6 @@ fn cost_of(session_cost: f64, message_costs: &[Option<f64>]) -> (Option<f64>, bo
     let a = analyze_session(
         SessionEnv {
             roots: &opencode_roots(&data),
-            unsearched: &[],
             local: &Utc,
         },
         Target::Lookup("ses_x"),
@@ -267,7 +265,6 @@ fn unrecorded_cost_bills_reasoning_at_the_output_rate() {
     let a = analyze_session(
         SessionEnv {
             roots: &opencode_roots(&data),
-            unsearched: &[],
             local: &Utc,
         },
         Target::Lookup("ses_x"),

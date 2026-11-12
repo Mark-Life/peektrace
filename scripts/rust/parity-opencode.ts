@@ -4,8 +4,8 @@
  * on the real data dir when there is one.
  *
  * Normalisation:
- * - Codex and Pi roots point at an empty dir. Without `--agent` Rust prints
- *   SKIPPED_NOTE for them; that line is dropped.
+ * - Codex and Pi roots point at an empty dir. So does the Claude root in
+ *   every fixture suite but the mixed one.
  * - `ses_far` holds a time past what a JS `Date` holds: TS prints an Effect
  *   error, so Rust only has to succeed with parseable output.
  * - Real data: TS reads SQLite with no busy timeout, so a concurrent reader
@@ -34,7 +34,6 @@ import {
   reportUnseen,
   run,
   rustBin,
-  SKIPPED_NOTE,
   type Tally,
   TS_CMD,
   tallyLine,
@@ -94,10 +93,7 @@ const LS_ARGS: readonly (readonly string[])[] = [
 /** One `ls` run on both CLIs, byte for byte. */
 const lsCase = (suite: string, env: Env, args: readonly string[]) => {
   const ts = run([...TS_CMD, ...args], env);
-  const raw = run([rustBin, ...args], env);
-  const rust = args.includes("--agent")
-    ? raw
-    : { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
+  const rust = run([rustBin, ...args], env);
   const label = `${suite} [${args.join(" ")}]`;
   if (DEFECT.test(ts.stdout)) {
     if (rust.code !== 0 || rust.stdout === "" || DEFECT.test(rust.stdout)) {

@@ -81,9 +81,6 @@ export const pool = async <T, R>(
   return out;
 };
 
-/** Rust's stderr note for agents it cannot list yet (none once all are read). */
-export const SKIPPED_NOTE = /^.+ sessions are not listed: not supported yet\n/m;
-
 /** A TS failure: an Effect error log on stdout. */
 export const DEFECT = /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#/;
 

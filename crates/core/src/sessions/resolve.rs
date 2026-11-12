@@ -7,7 +7,7 @@ use tracing::{debug, info_span};
 
 use super::workflows::{WorkflowRun, parse_workflow_run, to_agent_ref};
 use crate::js::value::JsValue;
-use crate::listing::{AgentRoots, session_files};
+use crate::listing::{AgentRoots, default_root, session_files};
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionId};
 use crate::roots::Source;
 use crate::sessions::jsonl::decode;
@@ -67,18 +67,13 @@ fn strip_jsonl(s: &str) -> &str {
     s.strip_suffix(JSONL).unwrap_or(s)
 }
 
-/// Agents this build reads, in lookup order.
-fn readers() -> impl Iterator<Item = Agent> {
-    Agent::ALL.into_iter().filter(|a| a.has_reader())
-}
-
-/// A direct `.jsonl` path inside some root of an agent with a reader; the
-/// first such agent owns it. Its id is the file name without `.jsonl`.
+/// A direct `.jsonl` path inside some agent's root; the first such agent
+/// owns it. Its id is the file name without `.jsonl`.
 fn resolve_direct_path(roots: &AgentRoots, id_or_path: &str) -> Option<Resolution> {
     if !id_or_path.ends_with(JSONL) || !exists(id_or_path) {
         return None;
     }
-    let agent = readers().find(|&a| {
+    let agent = Agent::ALL.into_iter().find(|&a| {
         roots
             .of(a)
             .iter()
@@ -100,7 +95,7 @@ fn resolve_direct_path(roots: &AgentRoots, id_or_path: &str) -> Option<Resolutio
 /// session across all agents.
 fn scan_for_id(roots: &AgentRoots, wanted: &str) -> Option<Resolution> {
     let mut prefixed = Vec::new();
-    for agent in readers() {
+    for agent in Agent::ALL {
         let refs = session_files(agent, roots, None);
         if let Some(exact) = refs.iter().find(|r| r.id.as_str() == wanted) {
             return Some(Resolution {
@@ -120,30 +115,8 @@ fn scan_for_id(roots: &AgentRoots, wanted: &str) -> Option<Resolution> {
     }
 }
 
-/// What a failed lookup says it searched: every agent, or the agents with a
-/// reader when `unsearched` names agents whose sessions this build cannot
-/// read.
-fn searched_label(unsearched: &[Agent]) -> String {
-    if unsearched.is_empty() {
-        return "all agents".to_owned();
-    }
-    let names = |agents: &mut dyn Iterator<Item = Agent>| {
-        agents.map(Agent::as_str).collect::<Vec<_>>().join(", ")
-    };
-    format!(
-        "{}; {} not supported yet",
-        names(&mut readers()),
-        names(&mut unsearched.iter().copied())
-    )
-}
-
 /// Resolve an id (or direct `.jsonl` path) to its owning agent and file.
-/// `unsearched` lists agents that have sessions on disk but no reader.
-pub fn resolve_session(
-    roots: &AgentRoots,
-    unsearched: &[Agent],
-    id_or_path: &str,
-) -> Result<Resolution, SessionError> {
+pub fn resolve_session(roots: &AgentRoots, id_or_path: &str) -> Result<Resolution, SessionError> {
     let _span = info_span!("Sessions.resolve", idOrPath = id_or_path).entered();
     if let Some(r) = resolve_direct_path(roots, id_or_path) {
         return Ok(r);
@@ -151,7 +124,7 @@ pub fn resolve_session(
     let wanted = strip_jsonl(id_or_path);
     scan_for_id(roots, wanted).ok_or_else(|| SessionError::NotFound {
         id: wanted.to_owned(),
-        searched: searched_label(unsearched),
+        searched: "all agents".to_owned(),
     })
 }
 
@@ -236,10 +209,7 @@ pub fn resolve_claude_session(
         [(sid, dir)] => Ok(with_subagent_dir(sid, dir)),
         _ => Err(SessionError::NotFound {
             id: id.to_owned(),
-            searched: claude
-                .first()
-                .map(|s| s.projects_root.clone())
-                .unwrap_or_default(),
+            searched: default_root(claude),
         }),
     }
 }
@@ -393,20 +363,12 @@ mod tests {
 
     #[test]
     fn not_found_names_what_was_searched() {
-        let err = |unsearched: &[Agent]| {
-            resolve_session(&AgentRoots::default(), unsearched, "zzz.jsonl")
+        assert_eq!(
+            resolve_session(&AgentRoots::default(), "zzz.jsonl")
                 .err()
                 .map(|e| e.to_string())
-        };
-        assert_eq!(
-            err(&[]).as_deref(),
+                .as_deref(),
             Some("Session \"zzz\" not found (searched all agents).")
-        );
-        assert_eq!(
-            err(&[Agent::Opencode]).as_deref(),
-            Some(
-                "Session \"zzz\" not found (searched claude, codex, pi; opencode not supported yet)."
-            )
         );
     }
 }

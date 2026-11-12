@@ -265,27 +265,6 @@ pub fn list_notes(unreadable: usize, table_notes: Vec<String>, hidden: usize) ->
         .collect()
 }
 
-/// Names as prose: `a`, `a and b`, `a, b and c`.
-fn and_list(names: &[&str]) -> String {
-    match names {
-        [] => String::new(),
-        [one] => (*one).to_owned(),
-        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
-    }
-}
-
-/// Note for agents left out because this build cannot read them; `verb`
-/// says what was not done to their sessions (`listed`, `searched`).
-pub fn skipped_note(skipped: &[Agent], verb: &str) -> Option<String> {
-    let names = skipped.iter().map(|a| a.as_str()).collect::<Vec<_>>();
-    (!names.is_empty()).then(|| {
-        format!(
-            "{} sessions are not {verb}: not supported yet",
-            and_list(&names)
-        )
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -318,14 +297,5 @@ mod tests {
             ]
         );
         assert_eq!(list_notes(0, vec![], 0), Vec::<String>::new());
-        assert_eq!(
-            skipped_note(&[Agent::Codex, Agent::Pi, Agent::Opencode], "listed").as_deref(),
-            Some("codex, pi and opencode sessions are not listed: not supported yet")
-        );
-        assert_eq!(
-            skipped_note(&[Agent::Codex], "searched").as_deref(),
-            Some("codex sessions are not searched: not supported yet")
-        );
-        assert_eq!(skipped_note(&[], "listed"), None);
     }
 }

@@ -121,7 +121,7 @@ fn to_listing(outcomes: Vec<Outcome>) -> SessionListing {
 }
 
 /// Headers for every agent (or the filtered one), only from the `project`
-/// when one is set. Agents with no reader are listed in `skipped`.
+/// when one is set.
 pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing {
     let span = info_span!(
         "Sessions.list",
@@ -132,18 +132,12 @@ pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing 
         span.record("agent", agent.as_str());
     }
     let _entered = span.enter();
-    let (agents, skipped): (Vec<_>, Vec<_>) = Agent::ALL
+    let outcomes = Agent::ALL
         .into_iter()
         .filter(|a| filter.agent.is_none_or(|f| f == *a))
-        .partition(|a| a.has_reader());
-    let outcomes = agents
-        .into_iter()
         .flat_map(|agent| agent_outcomes(agent, roots, filter.project.as_deref(), &span))
         .collect();
-    let listing = SessionListing {
-        skipped,
-        ..to_listing(outcomes)
-    };
+    let listing = to_listing(outcomes);
     let malformed: u64 = listing
         .headers
         .iter()

@@ -22,28 +22,6 @@ fn default_root_from_home() {
 }
 
 #[test]
-fn unread_roots_from_env() {
-    let roots = |e: &RootsEnv| {
-        unread_roots(e)
-            .into_iter()
-            .map(|(_, r)| r)
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(roots(&env()), ["/home/u/.local/share/opencode"]);
-    let e = RootsEnv {
-        opencode_data: Some(String::new()),
-        xdg_data_home: Some("/x".to_owned()),
-        ..env()
-    };
-    assert_eq!(roots(&e), ["/x/opencode"]);
-    let e = RootsEnv {
-        opencode_data: Some("/o".to_owned()),
-        ..e
-    };
-    assert_eq!(roots(&e), ["/o"]);
-}
-
-#[test]
 fn codex_and_pi_roots() {
     let root = |a: Agent, e: &RootsEnv, extras: &[RootEntry]| {
         sources(a, e, extras)
@@ -107,6 +85,11 @@ fn opencode_roots() {
         ..env()
     };
     assert_eq!(data_dir(&xdg), "/xdg/opencode");
+    let empty = RootsEnv {
+        opencode_data: Some(String::new()),
+        ..xdg.clone()
+    };
+    assert_eq!(data_dir(&empty), "/xdg/opencode");
     let hook = RootsEnv {
         opencode_data: Some("/t/oc".to_owned()),
         ..xdg

@@ -69,7 +69,6 @@ const REAL = "real";
 const STDERR_SHOWN = 200;
 const TS_RETRIES = 3;
 
-
 const isJsonOut = (args: readonly string[]) =>
   args.includes("--json") ||
   args.some((a, i) => a === "--format" && args[i + 1] === "json");

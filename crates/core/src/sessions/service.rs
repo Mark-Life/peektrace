@@ -28,8 +28,6 @@ use crate::pi::parse_pi_session;
 #[derive(Clone, Copy)]
 pub struct SessionEnv<'a> {
     pub roots: &'a AgentRoots,
-    /// Agents with sessions on disk that this build cannot read.
-    pub unsearched: &'a [Agent],
     /// Zone for timestamps without an offset.
     pub local: &'a (dyn LocalZone + Sync),
 }
@@ -106,7 +104,7 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         id: id.to_owned(),
         searched: format!("subagents of {parent}"),
     };
-    let owner = resolve_session(env.roots, env.unsearched, parent)?;
+    let owner = resolve_session(env.roots, parent)?;
     if owner.agent != Agent::Claude {
         return Err(not_found());
     }
@@ -142,7 +140,7 @@ fn load(
     }
     let (agent, id, path, source) = match target {
         Target::Lookup(id) => {
-            let r = resolve_session(env.roots, env.unsearched, id)?;
+            let r = resolve_session(env.roots, id)?;
             let source = r.file.source.map(|s| s.id);
             (r.agent, r.file.id.as_str().to_owned(), r.file.path, source)
         }

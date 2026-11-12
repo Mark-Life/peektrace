@@ -13,13 +13,11 @@
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
  *   The edge suite runs again under `TZ=Asia/Tokyo`, because both CLIs read
  *   an offset-less date-time as local time and the edge fixture has some.
- * - Without `--agent` the Rust CLI names on stderr the agents it has no
- *   reader for (SKIPPED_NOTE); that line is dropped before comparing. The
- *   fixture HOMEs hold no sessions of those agents.
  * - OpenCode suites run after the `ls` suites; see `parity-opencode.ts`.
  * - Real corpus: sessions written to during the run (size or mtime changed
  *   between the first and last stat) are left out of the comparison and
- *   counted as "live". Only `--json` output is compared, row by row.
+ *   counted as "live". An OpenCode row is live when its whole store changed.
+ *   Only `--json` output is compared, row by row.
  * - `sessions analyze` and `sessions export` run after the `ls` suites; see
  *   `parity-analyze.ts` for their cases and normalisation.
  */
@@ -51,12 +49,12 @@ import {
   report,
   run,
   rustBin,
-  SKIPPED_NOTE,
   type Suite,
   TS_CMD,
   WORK,
 } from "./parity-lib";
 import { runOpencodeStage } from "./parity-opencode";
+import { storeStamp } from "./parity-opencode-stamp";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
@@ -174,8 +172,7 @@ const runSuite = (suite: Suite) => {
   console.log(`suite ${suite.name}`);
   for (const args of suite.args) {
     const ts = run([...TS_CMD, ...args], suite.env);
-    const raw = run([rustBin, ...args], suite.env);
-    const rust = { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
+    const rust = run([rustBin, ...args], suite.env);
     compareRun(`${suite.name} [${args.join(" ")}]`, ts, rust);
   }
 };
@@ -251,7 +248,15 @@ const rawRows = (stdout: string) => {
   );
 };
 
+/** An OpenCode row's path, `<data dir>#<session id>`; other agents' rows are
+ * `.jsonl` files. */
+const OPENCODE_ROW = /#[^/\\]+(?<!\.jsonl)$/;
+
 const stampOf = (path: string) => {
+  const at = path.search(OPENCODE_ROW);
+  if (at >= 0) {
+    return storeStamp(path.slice(0, at));
+  }
   try {
     const s = statSync(path);
     return `${s.size}:${s.mtimeMs}`;
@@ -325,8 +330,7 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
   const pre = JSON.parse(run([rustBin, ...args], env).stdout) as Row[];
   const before = new Map(pre.map((r) => [r.path, stampOf(r.path)]));
   const ts = run([...TS_CMD, ...args], env);
-  const raw = run([rustBin, ...args], env);
-  const rust = { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
+  const rust = run([rustBin, ...args], env);
   const tsRows = rawRows(ts.stdout);
   const rustRows = rawRows(rust.stdout);
   const paths = new Set([

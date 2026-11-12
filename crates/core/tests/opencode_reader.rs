@@ -93,8 +93,7 @@ fn no_hash_path_loads_from_the_default_root() {
 }
 
 #[test]
-fn opencode_is_a_readable_agent_with_a_root() {
-    assert!(Agent::Opencode.has_reader());
+fn opencode_has_a_default_root() {
     let env = RootsEnv {
         home: "/home/u".to_owned(),
         ..RootsEnv::default()

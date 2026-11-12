@@ -156,7 +156,6 @@ fn analyze_golden_session_with_subagent() {
     let roots = roots_at(&fixtures("sessions/projects"));
     let env = SessionEnv {
         roots: &roots,
-        unsearched: &[],
         local: &Utc,
     };
     let a = analyze_session(env, Target::Lookup("1111"), None, true).expect("analyze");
@@ -187,7 +186,6 @@ fn export_golden_session() {
     let roots = roots_at(&fixtures("sessions/projects"));
     let env = SessionEnv {
         roots: &roots,
-        unsearched: &[],
         local: &Utc,
     };
     let session = get_session(env, Target::Lookup(GOLDEN_ID), None, true).expect("session");
@@ -225,7 +223,6 @@ fn session_image_reads_bytes_by_line_and_block() {
     let roots = roots_at(&dir.to_string_lossy());
     let env = SessionEnv {
         roots: &roots,
-        unsearched: &[],
         local: &Utc,
     };
     let in_result = session_image(env, "img", None, 2, 0, Some(0)).expect("image");
