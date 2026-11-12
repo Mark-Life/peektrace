@@ -52,6 +52,9 @@ const QUERIES = [
   "src/app.ts",
   "sk-ant-api03",
   "an old walrus",
+  "k-sign",
+  "s-long ß-sharp",
+  "ΟΔΟΣ",
 ];
 const FAKE_KEY = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
 const JWT =
@@ -242,6 +245,7 @@ const edgeLines = (home: string) => [
   { t: "привет мир walrus ПРИВЕТ МИР" },
   { t: "a\"b walrus 'single'" },
   { t: "an old\n\twalrus" },
+  { t: "\u212A-sign \u017F-long \u1E9E-sharp οδος walrus" },
 ];
 
 /** Generated edge transcripts: one big edge file, CRLF, BOM, invalid UTF-8,
@@ -252,6 +256,10 @@ const buildEdge = () => {
   const rows = edgeLines(home).map((r) => JSON.stringify(r));
   const raw = `${rows.join("\n")}\n{"t":"\\ud800 walrus"}\n{"t":"lone \\udc00\\ud83d walrus"}\nnot json walrus\n\n`;
   put(join(proj, "edge.jsonl"), raw);
+  // One session per line, so every snippet is a shown hit.
+  for (const [i, line] of raw.split("\n").entries()) {
+    put(join(proj, `line-${String(i).padStart(2, "0")}.jsonl`), line);
+  }
   put(join(proj, "crlf.jsonl"), rows.slice(0, 4).join("\r\n"));
   put(join(proj, "bom.jsonl"), `﻿${rows[2]}\n`);
   put(
