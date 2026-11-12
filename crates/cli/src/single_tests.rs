@@ -48,8 +48,8 @@ fn search_notes() {
         parent: parent.map(str::to_owned),
         ..TargetArgs::default()
     };
-    let note = vec!["codex sessions are not searched: not supported yet".to_owned()];
-    let codex = [Agent::Codex];
+    let note = vec!["opencode sessions are not searched: not supported yet".to_owned()];
+    let codex = [Agent::Opencode];
     let quiet: Vec<String> = Vec::new();
     assert_eq!(search_note(&target(None, None), "s1", "s1", &codex), note);
     assert_eq!(

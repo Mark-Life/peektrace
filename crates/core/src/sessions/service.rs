@@ -16,23 +16,45 @@ use super::resolve::{
 };
 use super::workflows::{WorkflowCall, pick_workflow_call, workflow_calls_by_run};
 use crate::claude::{ParseArgs, parse_claude_session, parse_subagent_turns};
+use crate::codex::parse_codex_session;
 use crate::js::time::{self, LocalZone};
 use crate::js::value::JsValue;
-use crate::model::Agent;
-use crate::roots::Source;
+use crate::listing::AgentRoots;
+use crate::model::{Agent, SessionHeader};
+use crate::pi::parse_pi_session;
 
 /// What lookups and parses read from the environment.
 #[derive(Clone, Copy)]
 pub struct SessionEnv<'a> {
-    pub claude: &'a [Source],
+    pub roots: &'a AgentRoots,
     /// Agents with sessions on disk that this build cannot read.
     pub unsearched: &'a [Agent],
     /// Zone for timestamps without an offset.
     pub local: &'a (dyn LocalZone + Sync),
 }
 
+/// The session a command runs on.
+#[derive(Debug, Clone, Copy)]
+pub enum Target<'a> {
+    /// An id, unique id prefix or `.jsonl` path to look up.
+    Lookup(&'a str),
+    /// A session a listing already found, read without another lookup.
+    Listed(&'a SessionHeader),
+}
+
+impl Target<'_> {
+    /// The typed id or path, or the listed session's id.
+    pub fn id(&self) -> &str {
+        match self {
+            Self::Lookup(id) => id,
+            Self::Listed(h) => h.id.as_str(),
+        }
+    }
+}
+
 /// A transcript read through its agent.
 struct Loaded {
+    agent: Agent,
     id: String,
     nested: bool,
     path: String,
@@ -53,10 +75,10 @@ fn read_reason(path: &str, e: &std::io::Error) -> String {
     }
 }
 
-fn load_transcript(path: &str) -> Result<String, SessionError> {
+fn load_transcript(agent: Agent, path: &str) -> Result<String, SessionError> {
     let span = info_span!(
         "AgentRegistry.loadTranscript",
-        agent = "claude",
+        agent = agent.as_str(),
         error = field::Empty
     );
     let _entered = span.enter();
@@ -75,11 +97,11 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         id: id.to_owned(),
         searched: format!("subagents of {parent}"),
     };
-    let owner = resolve_session(env.claude, env.unsearched, parent)?;
+    let owner = resolve_session(env.roots, env.unsearched, parent)?;
     if owner.agent != Agent::Claude {
         return Err(not_found());
     }
-    let loc = resolve_claude_session(env.claude, &owner.file.path)?;
+    let loc = resolve_claude_session(&env.roots.claude, &owner.file.path)?;
     let stubs = find_subagents(loc.subagent_dir.as_deref());
     let mut prefixed = stubs.iter().filter(|s| s.id.starts_with(id));
     let unique = match (prefixed.next(), prefixed.next()) {
@@ -92,25 +114,42 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         .or(unique)
         .ok_or_else(not_found)?;
     Ok(Loaded {
+        agent: Agent::Claude,
         id: stub.id.clone(),
         nested: true,
         path: stub.path.clone(),
         source: owner.file.source.map(|s| s.id),
-        text: load_transcript(&stub.path)?,
+        text: load_transcript(Agent::Claude, &stub.path)?,
     })
 }
 
-fn load(env: SessionEnv<'_>, id: &str, parent: Option<&str>) -> Result<Loaded, SessionError> {
+fn load(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+) -> Result<Loaded, SessionError> {
     if let Some(parent) = parent {
-        return load_nested(env, id, parent);
+        return load_nested(env, target.id(), parent);
     }
-    let r = resolve_session(env.claude, env.unsearched, id)?;
+    let (agent, id, path, source) = match target {
+        Target::Lookup(id) => {
+            let r = resolve_session(env.roots, env.unsearched, id)?;
+            let source = r.file.source.map(|s| s.id);
+            (r.agent, r.file.id.as_str().to_owned(), r.file.path, source)
+        }
+        Target::Listed(h) => {
+            let _span = info_span!("Sessions.resolve", idOrPath = h.id.as_str()).entered();
+            let source = h.source.as_ref().map(|s| s.id.clone());
+            (h.agent, h.id.as_str().to_owned(), h.path.clone(), source)
+        }
+    };
     Ok(Loaded {
-        text: load_transcript(&r.file.path)?,
-        id: r.file.id.as_str().to_owned(),
+        agent,
+        text: load_transcript(agent, &path)?,
+        id,
         nested: false,
-        path: r.file.path,
-        source: r.file.source.map(|s| s.id),
+        path,
+        source,
     })
 }
 
@@ -205,7 +244,7 @@ fn parse_subagent(stub: &SubagentStub, linker: &Linker, local: &dyn LocalZone) -
 /// Fold Claude subagent transcripts into a parsed session. A failure to
 /// locate them keeps the session without subagents.
 fn fold_claude_subagents(env: SessionEnv<'_>, parsed: &mut ParsedSession, id: &str, text: &str) {
-    let loc = match resolve_claude_session(env.claude, id) {
+    let loc = match resolve_claude_session(&env.roots.claude, id) {
         Ok(loc) => loc,
         Err(e) => {
             debug!(id, reason = %e, "subagents not folded");
@@ -232,27 +271,36 @@ pub struct FullParse {
 /// subagent transcript sits under).
 pub fn parse_full(
     env: SessionEnv<'_>,
-    id: &str,
+    target: Target<'_>,
     parent: Option<&str>,
 ) -> Result<FullParse, SessionError> {
+    let id = target.id();
     let span = match parent {
         None => info_span!("Sessions.parse", id, error = field::Empty),
         Some(p) => info_span!("Sessions.parseNested", id, parent = p, error = field::Empty),
     };
     let _entered = span.enter();
-    let result = load(env, id, parent).map(|loaded| {
-        let mut parsed = parse_claude_session(&ParseArgs {
-            text: &loaded.text,
-            path: &loaded.path,
-            session_id: &loaded.id,
-            include_sidechain_turns: loaded.nested,
-            skip_system_prompt: false,
-        });
-        if !loaded.nested {
-            fold_claude_subagents(env, &mut parsed, id, &loaded.text);
-        }
+    let result = load(env, target, parent).map(|loaded| {
+        let (text, path, sid) = (&loaded.text, &loaded.path, &loaded.id);
+        let parsed = match loaded.agent {
+            Agent::Codex => parse_codex_session(text, path, sid),
+            Agent::Pi => parse_pi_session(text, path, sid),
+            Agent::Claude | Agent::Opencode => {
+                let mut parsed = parse_claude_session(&ParseArgs {
+                    text,
+                    path,
+                    session_id: sid,
+                    include_sidechain_turns: loaded.nested,
+                    skip_system_prompt: false,
+                });
+                if !loaded.nested {
+                    fold_claude_subagents(env, &mut parsed, id, text);
+                }
+                parsed
+            }
+        };
         FullParse {
-            agent: Agent::Claude,
+            agent: loaded.agent,
             parsed,
             source: loaded.source,
         }
@@ -266,11 +314,11 @@ pub fn parse_full(
 /// `sessions.get`: the parsed session, redacted unless `redact` is false.
 pub fn get_session(
     env: SessionEnv<'_>,
-    id: &str,
+    target: Target<'_>,
     parent: Option<&str>,
     redact: bool,
 ) -> Result<ParsedSession, SessionError> {
-    let mut parsed = parse_full(env, id, parent)?.parsed;
+    let mut parsed = parse_full(env, target, parent)?.parsed;
     if redact {
         redact_parsed(&mut parsed);
     }
@@ -281,19 +329,19 @@ pub fn get_session(
 /// for Claude, redacted unless `redact` is false.
 pub fn analyze_session(
     env: SessionEnv<'_>,
-    id: &str,
+    target: Target<'_>,
     parent: Option<&str>,
     redact: bool,
 ) -> Result<AnalyzedSession, SessionError> {
-    let span = info_span!("Sessions.analyze", id, error = field::Empty);
+    let span = info_span!("Sessions.analyze", id = target.id(), error = field::Empty);
     let _entered = span.enter();
-    let result = parse_full(env, id, parent).map(|full| {
+    let result = parse_full(env, target, parent).map(|full| {
         let files = if full.agent == Agent::Claude {
             let owning = full
                 .source
                 .as_deref()
-                .and_then(|s| env.claude.iter().find(|c| c.id == s))
-                .or_else(|| env.claude.first());
+                .and_then(|s| env.roots.claude.iter().find(|c| c.id == s))
+                .or_else(|| env.roots.claude.first());
             let (home, root) =
                 owning.map_or(("", ""), |s| (s.home.as_str(), s.projects_root.as_str()));
             gather_on_disk_context_files(full.parsed.cwd.as_deref(), home, root)
@@ -331,7 +379,7 @@ pub fn session_image(
     item: Option<usize>,
 ) -> Result<Option<super::images::ImageData>, SessionError> {
     let _span = info_span!("Sessions.image", id, line).entered();
-    let loaded = load(env, id, parent)?;
+    let loaded = load(env, Target::Lookup(id), parent)?;
     let at = |raw: Option<JsValue>| raw.and_then(|v| super::images::image_at(&v, block, item));
     Ok(at(super::jsonl::line_at(&loaded.text, line))
         .or_else(|| at(super::jsonl::parse_rows(&loaded.text).into_iter().nth(line))))

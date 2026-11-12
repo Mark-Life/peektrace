@@ -1,6 +1,7 @@
 //! Client-side selection for `sessions ls`: `--since`, `--cwd`, newest-first
 //! sort and `--limit`.
 
+use std::borrow::Borrow;
 use std::cmp::Ordering;
 
 use crate::js::time::{self, LocalZone, Utc};
@@ -16,10 +17,11 @@ fn time_of(h: &SessionHeader, local: &dyn LocalZone) -> Option<i64> {
 }
 
 /// Newest first; rows with no parseable time last; ties broken by id.
-fn by_updated_desc(
-    (ta, a): &(Option<i64>, SessionHeader),
-    (tb, b): &(Option<i64>, SessionHeader),
+fn by_updated_desc<H: Borrow<SessionHeader>>(
+    (ta, a): &(Option<i64>, H),
+    (tb, b): &(Option<i64>, H),
 ) -> Ordering {
+    let (a, b) = (a.borrow(), b.borrow());
     match (*ta, *tb) {
         (ta, tb) if ta == tb => text::locale_compare(a.id.as_str(), b.id.as_str()),
         (None, _) => Ordering::Greater,
@@ -181,27 +183,27 @@ pub struct SelectOptions {
 
 /// Rows to show and how many the limit cut.
 #[derive(Debug, Clone, PartialEq)]
-pub struct Selection {
-    pub rows: Vec<SessionHeader>,
+pub struct Selection<H = SessionHeader> {
+    pub rows: Vec<H>,
     pub hidden: usize,
 }
 
 /// Apply `--since`, `--cwd`, sort, then `--limit`. `local` is the zone for
 /// `updatedAt` values with no offset.
-pub fn select_sessions(
-    headers: Vec<SessionHeader>,
+pub fn select_sessions<H: Borrow<SessionHeader>>(
+    headers: Vec<H>,
     opts: &SelectOptions,
     local: &dyn LocalZone,
-) -> Selection {
+) -> Selection<H> {
     #[expect(clippy::cast_precision_loss, reason = "dates are within 8.64e15")]
     let mut kept: Vec<_> = headers
         .into_iter()
         .filter(|h| {
             opts.cwd
                 .as_deref()
-                .is_none_or(|want| matches_cwd(h.cwd.as_deref(), want))
+                .is_none_or(|want| matches_cwd(h.borrow().cwd.as_deref(), want))
         })
-        .map(|h| (time_of(&h, local), h))
+        .map(|h| (time_of(h.borrow(), local), h))
         .filter(|(t, _)| {
             opts.since_ms
                 .is_none_or(|since| t.is_some_and(|t| t as f64 >= since))

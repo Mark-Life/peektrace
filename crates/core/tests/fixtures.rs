@@ -8,7 +8,9 @@ use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::Utc;
 use peektrace_core::roots::{RootsEnv, claude_sources};
 use peektrace_core::select::{SelectOptions, select_sessions};
-use peektrace_core::sessions::service::{SessionEnv, analyze_session, get_session, session_image};
+use peektrace_core::sessions::service::{
+    SessionEnv, Target, analyze_session, get_session, session_image,
+};
 use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 fn fixtures(sub: &str) -> String {
@@ -24,6 +26,7 @@ fn roots_at(projects: &str) -> AgentRoots {
     };
     AgentRoots {
         claude: claude_sources(&env, &[]),
+        ..AgentRoots::default()
     }
 }
 
@@ -112,7 +115,7 @@ fn subagents_are_not_listed() {
 }
 
 #[test]
-fn other_agents_list_nothing() {
+fn agents_without_roots_list_nothing() {
     let filter = ListFilter {
         agent: Some(Agent::Codex),
         project: None,
@@ -152,11 +155,11 @@ const GOLDEN_ID: &str = "11111111-1111-4111-8111-111111111111";
 fn analyze_golden_session_with_subagent() {
     let roots = roots_at(&fixtures("sessions/projects"));
     let env = SessionEnv {
-        claude: &roots.claude,
+        roots: &roots,
         unsearched: &[],
         local: &Utc,
     };
-    let a = analyze_session(env, "1111", None, true).expect("analyze");
+    let a = analyze_session(env, Target::Lookup("1111"), None, true).expect("analyze");
     assert_eq!(a.parsed.session_id, GOLDEN_ID);
     assert_eq!(a.turn_count, 3);
     assert_eq!(a.tool_call_count, 1);
@@ -183,11 +186,11 @@ fn analyze_golden_session_with_subagent() {
 fn export_golden_session() {
     let roots = roots_at(&fixtures("sessions/projects"));
     let env = SessionEnv {
-        claude: &roots.claude,
+        roots: &roots,
         unsearched: &[],
         local: &Utc,
     };
-    let session = get_session(env, GOLDEN_ID, None, true).expect("session");
+    let session = get_session(env, Target::Lookup(GOLDEN_ID), None, true).expect("session");
     let opts = ExportOptions {
         exported_at: "2026-01-01T00:00:00.000Z".to_owned(),
         home: None,
@@ -205,7 +208,7 @@ fn export_golden_session() {
     );
     let html = render_export(ExportFormat::Html, &session, &opts);
     assert!(html.starts_with("<!doctype html>"), "{html}");
-    let sub = get_session(env, "agent-1", Some("1111"), false).expect("subagent");
+    let sub = get_session(env, Target::Lookup("agent-1"), Some("1111"), false).expect("subagent");
     assert_eq!(sub.session_id, "agent-1");
 }
 
@@ -221,7 +224,7 @@ fn session_image_reads_bytes_by_line_and_block() {
     .expect("copy");
     let roots = roots_at(&dir.to_string_lossy());
     let env = SessionEnv {
-        claude: &roots.claude,
+        roots: &roots,
         unsearched: &[],
         local: &Utc,
     };

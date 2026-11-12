@@ -10,6 +10,7 @@ use peektrace_core::roots::{RootsEnv, Source, claude_sources};
 use peektrace_core::sessions::analyze::{AnalyzeOptions, analyze};
 use peektrace_core::sessions::model::{AnalyzedSession, EventKind, ParsedSession, TimelineEvent};
 use peektrace_core::sessions::service::SessionEnv;
+use peektrace_core::{AgentRoots, FileStamp, ProjectSlug, SessionFileRef, SessionId};
 use serde_json::Value;
 
 /// A path under `packages/core/test/fixtures`.
@@ -100,25 +101,28 @@ pub fn sources(home: &str, projects: &str) -> Vec<Source> {
     claude_sources(&env, &[])
 }
 
-pub fn session_env(claude: &[Source]) -> SessionEnv<'_> {
+/// Roots with only the Claude sources of [`sources`].
+pub fn claude_roots(home: &str, projects: &str) -> AgentRoots {
+    AgentRoots {
+        claude: sources(home, projects),
+        ..AgentRoots::default()
+    }
+}
+
+pub fn session_env(roots: &AgentRoots) -> SessionEnv<'_> {
     SessionEnv {
-        claude,
+        roots,
         unsearched: &[],
         local: &Utc,
     }
 }
 
-/// A fresh directory under the system temp dir, removed on drop.
+/// A [`temp_dir`] removed on drop.
 pub struct TempDir(PathBuf);
 
 impl TempDir {
     pub fn new(tag: &str) -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let n = NEXT.fetch_add(1, Ordering::Relaxed);
-        let dir = std::env::temp_dir().join(format!("peektrace-{tag}-{}-{n}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).expect("mkdir temp");
-        Self(dir)
+        Self(temp_dir(tag))
     }
 
     pub fn path(&self) -> &Path {
@@ -150,4 +154,39 @@ impl Drop for TempDir {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.0);
     }
+}
+
+/// The file ref a header builder takes (`HEADER_ARGS` in the TS tests).
+pub fn file_ref(id: &str, slug: &str, path: &str, size_bytes: u64) -> SessionFileRef {
+    SessionFileRef {
+        id: SessionId::new(id),
+        slug: ProjectSlug::new(slug),
+        path: path.to_owned(),
+        stamp: FileStamp {
+            size_bytes,
+            mtime_ms: 0,
+        },
+        source: None,
+    }
+}
+
+/// A fresh empty dir under the system temp dir, unique per call; the
+/// caller removes it.
+pub fn temp_dir(name: &str) -> PathBuf {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    let dir =
+        std::env::temp_dir().join(format!("peektrace-test-{name}-{}-{n}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("mkdir");
+    dir
+}
+
+/// `JSON.stringify(v, null, 2)` for a flat object of string values.
+pub fn pretty(pairs: &[(&str, &str)]) -> String {
+    let body: Vec<String> = pairs
+        .iter()
+        .map(|(k, v)| format!("  \"{k}\": \"{v}\""))
+        .collect();
+    format!("{{\n{}\n}}", body.join(",\n"))
 }

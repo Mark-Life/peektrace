@@ -13,9 +13,9 @@
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
  *   The edge suite runs again under `TZ=Asia/Tokyo`, because both CLIs read
  *   an offset-less date-time as local time and the edge fixture has some.
- * - The Rust CLI has no Codex, Pi or OpenCode reader yet. Without `--agent`
- *   it prints SKIPPED_NOTE on stderr; that line is dropped before comparing.
- *   The fixture HOMEs hold no sessions of those agents.
+ * - Without `--agent` the Rust CLI names on stderr the agents it has no
+ *   reader for (SKIPPED_NOTE); that line is dropped before comparing. The
+ *   fixture HOMEs hold no sessions of those agents.
  * - Real corpus: sessions written to during the run (size or mtime changed
  *   between the first and last stat) are left out of the comparison and
  *   counted as "live". Only `--json` output is compared, row by row.
@@ -33,6 +33,11 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+  agentsSettings,
+  buildAgentsEdge,
+  buildPiRoot,
+} from "./parity-agents-fixtures";
 import { runAnalyzeStage } from "./parity-analyze";
 import { edgeFiles, edgeSettings } from "./parity-fixtures";
 import {
@@ -53,8 +58,10 @@ import {
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
 const READ_WRITE = 0o644;
-const SKIPPED_NOTE =
-  "codex, pi and opencode sessions are not listed: not supported yet\n";
+const SKIPPED_NOTE = /^[a-z, ]+ sessions are not listed: not supported yet\n/m;
+const AGENTS = ["claude", "codex", "pi"] as const;
+/** Files the edge trees make unreadable; restored at the end. */
+const locked: string[] = [];
 
 const write = (path: string, body: string | Uint8Array) => {
   mkdirSync(dirname(path), { recursive: true });
@@ -86,12 +93,15 @@ const buildEdge = () => {
     join(projects, "missing"),
     join(projects, "-edge-c", "dangling.jsonl")
   );
-  const locked = join(projects, "-edge-c", "locked.jsonl");
-  write(locked, '{"type":"user"}\n');
-  chmodSync(locked, NO_ACCESS);
+  const claudeLocked = join(projects, "-edge-c", "locked.jsonl");
+  write(claudeLocked, '{"type":"user"}\n');
+  chmodSync(claudeLocked, NO_ACCESS);
+  const extra = join(WORK, "extra-roots");
+  locked.push(claudeLocked, ...buildAgentsEdge(home, extra));
+  const missing = join(WORK, "missing-home");
   write(
     join(home, ".peektrace", "settings.json"),
-    edgeSettings(work, join(WORK, "missing-home"))
+    edgeSettings(work, missing, agentsSettings(extra, missing))
   );
   return home;
 };
@@ -140,6 +150,21 @@ const COMMON_ARGS: readonly (readonly string[])[] = [
   [...LS, "--agent", "bogus"],
   claudeArgs("--since", "xx"),
   claudeArgs("--since", "2026-02-30"),
+  ...["codex", "pi"].flatMap((agent) => {
+    const args = (...rest: string[]) => [...LS, "--agent", agent, ...rest];
+    return [
+      args("--json", "--limit", "0"),
+      args("--limit", "0"),
+      ["--no-telemetry", "--pretty", ...args("--limit", "0").slice(1)],
+      args("--since", "2026-01-01", "--limit", "0"),
+      args("--cwd", "/", "--limit", "0"),
+      args("--cwd", "/tmp/demo", "--json", "--limit", "0"),
+    ];
+  }),
+  [...LS, "--json", "--limit", "0"],
+  [...LS, "--project", "demo", "--json", "--limit", "0"],
+  [...LS, "--project=--tmp-pi--", "--limit", "0"],
+  [...LS, "--project=-Users-demo-proj", "--limit", "0"],
 ];
 
 /** Run one fixture suite, every arg set, byte for byte. */
@@ -148,9 +173,7 @@ const runSuite = (suite: Suite) => {
   for (const args of suite.args) {
     const ts = run([...TS_CMD, ...args], suite.env);
     const raw = run([rustBin, ...args], suite.env);
-    const rust = args.includes("--agent")
-      ? raw
-      : { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
+    const rust = { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
     compareRun(`${suite.name} [${args.join(" ")}]`, ts, rust);
   }
 };
@@ -163,7 +186,20 @@ const fixtureSuites = (): Suite[] => {
   return [
     {
       name: "ts-fixtures",
-      env: fixtureEnv(emptyHome, { PEEKTRACE_CLAUDE_PROJECTS: fixtures }),
+      env: fixtureEnv(emptyHome, {
+        PEEKTRACE_CLAUDE_PROJECTS: fixtures,
+        PEEKTRACE_CODEX_SESSIONS: fixtures,
+        PEEKTRACE_PI_SESSIONS: fixtures,
+      }),
+      args: COMMON_ARGS,
+    },
+    {
+      name: "agents-fixtures",
+      env: fixtureEnv(emptyHome, {
+        PEEKTRACE_CLAUDE_PROJECTS: join(fixtures, "sessions/projects"),
+        PEEKTRACE_CODEX_SESSIONS: join(fixtures, "sessions-codex"),
+        PEEKTRACE_PI_SESSIONS: buildPiRoot(fixtures, join(WORK, "pi-root")),
+      }),
       args: COMMON_ARGS,
     },
     {
@@ -261,26 +297,34 @@ const compareRows = (
   return compared;
 };
 
-/** The real corpus under the caller's env, `--json` only. */
+/** The real corpus under the caller's env, `--json` only: each agent, then
+ * all of them. */
 const runReal = () => {
   const env = { ...process.env, PEEKTRACE_NO_TELEMETRY: "1" } as Record<
     string,
     string
   >;
+  for (const agent of [...AGENTS, undefined]) {
+    runRealOnce(env, agent);
+  }
+};
+
+const runRealOnce = (env: Record<string, string>, agent?: string) => {
+  const name = `real ${agent ?? "all"}`;
   const args = [
     "--no-telemetry",
     "--json",
     "sessions",
     "ls",
-    "--agent",
-    "claude",
+    ...(agent ? ["--agent", agent] : []),
     "--limit",
     "0",
   ];
   const pre = JSON.parse(run([rustBin, ...args], env).stdout) as Row[];
   const before = new Map(pre.map((r) => [r.path, stampOf(r.path)]));
   const ts = run([...TS_CMD, ...args], env);
-  const rust = run([rustBin, ...args], env);
+  const raw = run([rustBin, ...args], env);
+  const rust = { ...raw, stderr: raw.stderr.replace(SKIPPED_NOTE, "") };
   const tsRows = rawRows(ts.stdout);
   const rustRows = rawRows(rust.stdout);
   const paths = new Set([
@@ -290,13 +334,13 @@ const runReal = () => {
   ]);
   const live = new Set([...paths].filter((p) => before.get(p) !== stampOf(p)));
   console.log(
-    `suite real: ts=${tsRows.size} rust=${rustRows.size} live=${live.size}`
+    `suite ${name}: ts=${tsRows.size} rust=${rustRows.size} live=${live.size}`
   );
   if (ts.code !== rust.code) {
-    report(`real: exit ts=${ts.code} rust=${rust.code}`);
+    report(`${name}: exit ts=${ts.code} rust=${rust.code}`);
   }
   if (ts.stderr !== rust.stderr && live.size === 0) {
-    report(`real: stderr ${firstLineDiff(ts.stderr, rust.stderr)}`);
+    report(`${name}: stderr ${firstLineDiff(ts.stderr, rust.stderr)}`);
   }
   const order = (rows: typeof tsRows) =>
     [...rows.keys()].filter((p) => !live.has(p));
@@ -305,7 +349,7 @@ const runReal = () => {
   const at = tsOrder.findIndex((p, i) => p !== rustOrder[i]);
   if (at >= 0) {
     report(
-      `real: order differs at ${at}: ts=${tsOrder[at]} rust=${rustOrder[at]}`
+      `${name}: order differs at ${at}: ts=${tsOrder[at]} rust=${rustOrder[at]}`
     );
   }
   const compared = compareRows(tsRows, rustRows, live);
@@ -335,9 +379,8 @@ const main = async () => {
     real,
     realAll: flag("--real-all"),
   });
-  const locked = join(WORK, "edge-home/.claude/projects/-edge-c/locked.jsonl");
-  if (existsSync(locked)) {
-    chmodSync(locked, READ_WRITE);
+  for (const path of locked.filter((p) => existsSync(p))) {
+    chmodSync(path, READ_WRITE);
   }
   console.log(
     diffs.length === 0 ? "parity: OK" : `parity: ${diffs.length} difference(s)`

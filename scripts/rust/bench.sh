@@ -6,6 +6,7 @@
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
+#                                               all: startup ls agents analyze analyze-codex analyze-pi
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
@@ -73,20 +74,27 @@ mkdir -p "$OUT"
 rm -f "${OUT:?}"/*.json "${OUT:?}"/*.txt
 
 # --- corpus ----------------------------------------------------------------------
-LS_JSON=(sessions ls --agent claude --json --limit 0)
-"$RUST_BIN" "${LS_JSON[@]}" >"$OUT/rust-ls.json" 2>/dev/null
-"$BUN_BIN" "${LS_JSON[@]}" >"$OUT/bun-ls.json"
-SESSIONS="$(jq length "$OUT/bun-ls.json")"
-RUST_SESSIONS="$(jq length "$OUT/rust-ls.json")"
-BYTES="$(jq '[.[].sizeBytes] | add' "$OUT/bun-ls.json")"
-# Live sessions grow between the two runs, so compare ids, not bytes.
-SAME_OUTPUT=no
-cmp -s "$OUT/bun-ls.json" "$OUT/rust-ls.json" && SAME_OUTPUT=yes
-SAME_IDS=no
-[[ "$(jq -c '[.[].id]' "$OUT/bun-ls.json")" == "$(jq -c '[.[].id]' "$OUT/rust-ls.json")" ]] && SAME_IDS=yes
+# One `ls --json` per agent on each binary; ids and sizes for the session cases come from Bun.
+AGENTS=(claude codex pi)
+ls_json() { echo sessions ls --agent "$1" --json --limit 0; }
+for agent in "${AGENTS[@]}"; do
+  # shellcheck disable=SC2046
+  "$RUST_BIN" $(ls_json "$agent") >"$OUT/rust-ls-$agent.json" 2>/dev/null
+  # shellcheck disable=SC2046
+  "$BUN_BIN" $(ls_json "$agent") >"$OUT/bun-ls-$agent.json"
+done
 
-# size_bytes <id> -> transcript bytes from the Bun ls output, or "n/a" (non-Claude)
-size_bytes() { jq -r --arg id "$1" '(map(select(.id == $id)) | .[0].sizeBytes) // "n/a"' "$OUT/bun-ls.json"; }
+# corpus_line <agent> -> session counts, bytes and id parity between the two binaries.
+# Live sessions grow between the two runs, so compare ids, not bytes.
+corpus_line() {
+  local b="$OUT/bun-ls-$1.json" r="$OUT/rust-ls-$1.json" same_ids=no same_out=no
+  [[ "$(jq -c '[.[].id]' "$b")" == "$(jq -c '[.[].id]' "$r")" ]] && same_ids=yes
+  cmp -s "$b" "$r" && same_out=yes
+  echo "$1: $(jq length "$b") sessions (rust: $(jq length "$r")), $(jq '[.[].sizeBytes] | add // 0' "$b") bytes, ls --json same ids in same order: $same_ids, byte-identical: $same_out"
+}
+
+# size_bytes <agent> <id> -> transcript bytes from the Bun ls output, or "n/a"
+size_bytes() { jq -r --arg id "$2" '(map(select(.id == $id)) | .[0].sizeBytes) // "n/a"' "$OUT/bun-ls-$1.json"; }
 fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else printf "%.2f MiB", $1/1048576 }'; }
 
 # --- cases -----------------------------------------------------------------------
@@ -111,46 +119,61 @@ suite_startup() {
 suite_ls() {
   # TS keeps its header cache in memory only, so every CLI run parses from scratch;
   # "warm" here means the OS page cache holds the transcripts after warmup runs.
-  add_case ls-json 2 10 "cpu rss" "\`sessions ls --agent claude --json --limit 0\`" "${LS_JSON[@]}"
-  add_case ls-text 2 10 "" "\`sessions ls --limit 20\` (Bun: all agents, Rust: Claude only)" sessions ls --limit 20
-  # Rust lists only Claude today; this variant compares the same work.
+  # shellcheck disable=SC2046
+  add_case ls-json 2 10 "cpu rss" "\`sessions ls --agent claude --json --limit 0\`" $(ls_json claude)
+  add_case ls-text 2 10 "" "\`sessions ls --limit 20\` (all agents)" sessions ls --limit 20
   add_case ls-text-claude 2 10 "" "\`sessions ls --agent claude --limit 20\`" sessions ls --agent claude --limit 20
-  METHOD_EXTRA+=("Rust lists only Claude by default and prints that other agents are not supported. Bun lists all agents. The \`--agent claude --limit 20\` row compares the same work.")
+}
+
+suite_agents() {
+  local agent
+  for agent in codex pi; do
+    # shellcheck disable=SC2046
+    add_case "ls-json-$agent" 2 10 "cpu rss" "\`sessions ls --agent $agent --json --limit 0\`" $(ls_json "$agent")
+  done
+  add_case ls-json-all 2 10 "cpu rss" "\`sessions ls --json --limit 0\` (all agents)" sessions ls --json --limit 0
+  METHOD_EXTRA+=("All agents: Bun also lists OpenCode sessions; Rust skips them and prints that OpenCode is not supported yet.")
+}
+
+# analyze_top <agent> -> adds `analyze --json` cases for the 3 largest sessions of <agent>
+# and sets TOP_ID to the largest. Sizes are reported, never titles or content.
+analyze_top() {
+  local agent="$1" ids i=0 id size flags
+  ids="$(jq -r 'sort_by(-.sizeBytes) | .[:3][] | .id' "$OUT/bun-ls-$agent.json")"
+  TOP_ID=""
+  for id in $ids; do
+    i=$((i + 1))
+    size="$(size_bytes "$agent" "$id" | fmt_bytes)"
+    ENV_EXTRA+=("$agent session #$i: $id ($size)")
+    flags=rss
+    if ((i == 1)); then flags="cpu rss"; TOP_ID="$id"; fi
+    add_case "analyze-json-$agent-$i" 2 10 "$flags" "\`sessions analyze <$agent #$i> --json\` ($size)" sessions analyze "$id" --json
+  done
+  [[ -n "$TOP_ID" ]] || { echo "no $agent sessions found" >&2; exit 1; }
+  METHOD_EXTRA+=("Sessions ($agent): the 3 largest transcripts by \`sizeBytes\`; ids in the env block.")
 }
 
 suite_analyze() {
-  local ids i id size top
-  # Top 3 Claude sessions by transcript size. Sizes are reported, never titles or content.
-  ids="$(jq -r 'sort_by(-.sizeBytes) | .[:3][] | .id' "$OUT/bun-ls.json")"
-  i=0
-  for id in $ids; do
-    i=$((i + 1))
-    size="$(size_bytes "$id" | fmt_bytes)"
-    ENV_EXTRA+=("session #$i: $id ($size)")
-    if ((i == 1)); then
-      add_case "analyze-json-$i" 2 10 "cpu rss" "\`sessions analyze <#$i> --json\` ($size)" sessions analyze "$id" --json
-      top="$id"
-    else
-      add_case "analyze-json-$i" 2 10 "rss" "\`sessions analyze <#$i> --json\` ($size)" sessions analyze "$id" --json
-    fi
-  done
-  [[ -n "${top:-}" ]] || { echo "no Claude sessions found" >&2; exit 1; }
-  add_case analyze-json-1-notel 2 10 "" "\`sessions analyze <#1> --json --no-telemetry\`" sessions analyze "$top" --json --no-telemetry
-  add_case export-html-1 2 10 "cpu rss" "\`sessions export <#1> --format html\`" sessions export "$top" --format html
+  analyze_top claude
+  local top="$TOP_ID"
+  add_case analyze-json-claude-1-notel 2 10 "" "\`sessions analyze <claude #1> --json --no-telemetry\`" sessions analyze "$top" --json --no-telemetry
+  add_case export-html-claude-1 2 10 "cpu rss" "\`sessions export <claude #1> --format html\`" sessions export "$top" --format html
   add_case analyze-latest 2 10 "rss" "\`sessions analyze --latest\` (text)" sessions analyze --latest
 
   local bun_latest rust_latest
   bun_latest="$("$BUN_BIN" sessions analyze --latest --json | jq -r .sessionId)"
   rust_latest="$("$RUST_BIN" sessions analyze --latest --json 2>/dev/null | jq -r .sessionId)"
-  ENV_EXTRA+=("latest: $bun_latest ($(size_bytes "$bun_latest" | fmt_bytes) at start), same session in both: $([[ "$bun_latest" == "$rust_latest" ]] && echo yes || echo no)")
-  METHOD_EXTRA+=("Sessions: the 3 largest Claude transcripts by \`sizeBytes\`; ids in the env block. \`--latest\` is the newest session, often a live one that grows during the run.")
+  ENV_EXTRA+=("latest: $bun_latest ($(size_bytes claude "$bun_latest" | fmt_bytes) at start), same session in both: $([[ "$bun_latest" == "$rust_latest" ]] && echo yes || echo no)")
+  METHOD_EXTRA+=("\`--latest\` is the newest session, often a live one that grows during the run.")
   METHOD_EXTRA+=("Telemetry: Bun records local telemetry on each run by default; Rust accepts \`--no-telemetry\` but has no telemetry store yet. Rows use defaults; the \`--no-telemetry\` row shows Bun's telemetry cost.")
-  METHOD_EXTRA+=("Output: stdout is discarded by hyperfine and GNU time, so terminal rendering is not measured.")
 }
+
+suite_analyze_codex() { analyze_top codex; }
+suite_analyze_pi() { analyze_top pi; }
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | analyze) "suite_$suite" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -168,9 +191,7 @@ N_CASES="${#C_NAME[@]}"
   echo "hyperfine: $(hyperfine --version)"
   echo "bun binary: $BUN_BIN ($("$BUN_BIN" --version))"
   echo "rust binary: $RUST_BIN ($("$RUST_BIN" --version))"
-  echo "claude sessions: $SESSIONS (rust: $RUST_SESSIONS)"
-  echo "claude transcript bytes: $BYTES"
-  echo "ls --json output: same ids in same order: $SAME_IDS, byte-identical: $SAME_OUTPUT"
+  for agent in "${AGENTS[@]}"; do corpus_line "$agent"; done
   for line in ${ENV_EXTRA[@]+"${ENV_EXTRA[@]}"}; do echo "$line"; done
 } | tee "$OUT/env.txt"
 
@@ -260,7 +281,8 @@ row_rss() {
   echo "- Times: \`hyperfine -N\` (no shell), median (min–max). \`--version\`: 3 warmup, 20 runs. Other commands: 2 warmup, 10 runs."
   echo "- Cache: TS keeps its header cache in memory per process (\`header-cache.ts\`), with no on-disk cache, so every CLI run parses transcripts from scratch. Rust has no cache. \"Warm\" means only the OS page cache, primed by warmup runs. OS-cold runs are not measured."
   echo "- Peak RSS: GNU time \`-f %M\` (KiB), $RSS_ROUNDS rounds, Bun and Rust interleaved, median (min–max)."
-  echo "- Bytes: sum of \`sizeBytes\` over Claude sessions in the Bun JSON output."
+  echo "- Bytes: sum of \`sizeBytes\` per agent in the Bun \`ls --json\` output."
+  echo "- Output: stdout is discarded by hyperfine and GNU time, so terminal rendering is not measured."
   for line in ${METHOD_EXTRA[@]+"${METHOD_EXTRA[@]}"}; do echo "- $line"; done
   echo
   echo '```'

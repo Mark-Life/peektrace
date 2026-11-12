@@ -3,14 +3,39 @@
 
 use tracing::{Span, field, info_span};
 
-use crate::claude::{self, Outcome};
+use crate::headers::Outcome;
 use crate::model::{Agent, SessionFileRef, SessionListing};
-use crate::roots::Source;
+use crate::roots::{self, RootsEnv, Settings, Source};
+use crate::{claude, codex, pi};
 
 /// Where each agent's transcripts live.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct AgentRoots {
     pub claude: Vec<Source>,
+    pub codex: Vec<Source>,
+    pub pi: Vec<Source>,
+}
+
+impl AgentRoots {
+    /// Every agent's roots from the environment and `settings.json`.
+    pub fn resolve(env: &RootsEnv, settings: &Settings) -> Self {
+        let of = |agent| roots::sources(agent, env, settings.extras(agent));
+        Self {
+            claude: of(Agent::Claude),
+            codex: of(Agent::Codex),
+            pi: of(Agent::Pi),
+        }
+    }
+
+    /// One agent's roots; empty for an agent with no reader.
+    pub fn of(&self, agent: Agent) -> &[Source] {
+        match agent {
+            Agent::Claude => &self.claude,
+            Agent::Codex => &self.codex,
+            Agent::Pi => &self.pi,
+            Agent::Opencode => &[],
+        }
+    }
 }
 
 /// Server-side listing filter.
@@ -21,14 +46,30 @@ pub struct ListFilter {
     pub project: Option<String>,
 }
 
-/// Transcript files of one agent. A Claude row's project is its slug, so
-/// `project` drops other slug dirs before any of them is read. Codex, Pi and
-/// `OpenCode` have no reader and list nothing.
-fn session_files(agent: Agent, roots: &AgentRoots, project: Option<&str>) -> Vec<SessionFileRef> {
+/// Transcript files of one agent. A Claude or Pi row's project is its slug,
+/// so `project` drops other slug dirs before any of them is read. A Codex
+/// row's project comes from its text, so every rollout is listed.
+pub fn session_files(
+    agent: Agent,
+    roots: &AgentRoots,
+    project: Option<&str>,
+) -> Vec<SessionFileRef> {
     let _span = info_span!("AgentRegistry.listSessionFiles", agent = agent.as_str()).entered();
     match agent {
         Agent::Claude => claude::list_session_files(&roots.claude, project),
-        Agent::Codex | Agent::Pi | Agent::Opencode => Vec::new(),
+        Agent::Codex => codex::list_session_files(&roots.codex),
+        Agent::Pi => pi::list_session_files(&roots.pi, project),
+        Agent::Opencode => Vec::new(),
+    }
+}
+
+/// Keep a Codex outcome under `--project`: a header of that project, or an
+/// unreadable rollout, whose project is unknown (`""`).
+fn codex_in_project(o: &Outcome, project: Option<&str>) -> bool {
+    match (o, project.filter(|p| !p.is_empty())) {
+        (_, None) | (Outcome::Skip, _) => true,
+        (Outcome::Header(h), Some(p)) => h.project.as_str() == p,
+        (Outcome::Unreadable(u), Some(p)) => u.project.is_empty() || u.project == p,
     }
 }
 
@@ -42,7 +83,12 @@ fn agent_outcomes(
     let refs = session_files(agent, roots, project);
     match agent {
         Agent::Claude => claude::load_headers(&refs, parent),
-        Agent::Codex | Agent::Pi | Agent::Opencode => Vec::new(),
+        Agent::Codex => codex::load_headers(&refs, parent)
+            .into_iter()
+            .filter(|o| codex_in_project(o, project))
+            .collect(),
+        Agent::Pi => pi::load_headers(&refs, parent),
+        Agent::Opencode => Vec::new(),
     }
 }
 
@@ -61,7 +107,7 @@ fn to_listing(outcomes: Vec<Outcome>) -> SessionListing {
 }
 
 /// Headers for every agent (or the filtered one), only from the `project`
-/// slug when one is set. Agents with no reader are listed in `skipped`.
+/// when one is set. Agents with no reader are listed in `skipped`.
 pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing {
     let span = info_span!(
         "Sessions.list",

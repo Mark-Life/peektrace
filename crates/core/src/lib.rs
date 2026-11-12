@@ -2,11 +2,15 @@
 //! into a list header, and select the rows `sessions ls` shows.
 
 pub mod claude;
+pub mod codex;
+mod discover;
 pub mod export;
+mod headers;
 pub mod js;
 pub mod listing;
 pub mod model;
 mod paths;
+pub mod pi;
 mod pricing;
 pub mod roots;
 pub mod select;

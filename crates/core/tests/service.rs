@@ -5,21 +5,28 @@
 
 mod common;
 
-use common::{TempDir, fixture, read_fixture, session_env, sources};
+use common::{TempDir, claude_roots, fixture, read_fixture, session_env};
+use peektrace_core::AgentRoots;
 use peektrace_core::sessions::model::{EventKind, ParsedSession};
 use peektrace_core::sessions::resolve::SessionError;
-use peektrace_core::sessions::service::{analyze_session, get_session};
+use peektrace_core::sessions::service::{Target, analyze_session, get_session};
 use serde_json::Value;
 
 const SESSION_ID: &str = "11111111-1111-4111-8111-111111111111";
 
-fn golden_sources() -> Vec<peektrace_core::roots::Source> {
-    sources(&fixture("sessions/home"), &fixture("sessions/projects"))
+fn golden_roots() -> AgentRoots {
+    claude_roots(&fixture("sessions/home"), &fixture("sessions/projects"))
 }
 
 fn parse(redact: bool) -> ParsedSession {
-    let claude = golden_sources();
-    get_session(session_env(&claude), SESSION_ID, None, redact).expect("session")
+    let roots = golden_roots();
+    get_session(
+        session_env(&roots),
+        Target::Lookup(SESSION_ID),
+        None,
+        redact,
+    )
+    .expect("session")
 }
 
 #[test]
@@ -57,8 +64,9 @@ fn redact_false_leaves_the_transcript_verbatim() {
 fn analyze_reproduces_golden_peak_and_budget() {
     let golden: Value =
         serde_json::from_str(&read_fixture("sessions/golden.json")).expect("golden");
-    let claude = golden_sources();
-    let a = analyze_session(session_env(&claude), SESSION_ID, None, true).expect("analyze");
+    let roots = golden_roots();
+    let a = analyze_session(session_env(&roots), Target::Lookup(SESSION_ID), None, true)
+        .expect("analyze");
     assert_eq!(
         Some(a.peak_context_tokens),
         golden["peakContextTokens"].as_f64()
@@ -84,14 +92,20 @@ fn analyze_reproduces_golden_peak_and_budget() {
 
 #[test]
 fn a_short_id_prefix_resolves_to_the_full_session() {
-    let claude = golden_sources();
-    let a = analyze_session(session_env(&claude), &SESSION_ID[..8], None, true).expect("analyze");
+    let roots = golden_roots();
+    let a = analyze_session(
+        session_env(&roots),
+        Target::Lookup(&SESSION_ID[..8]),
+        None,
+        true,
+    )
+    .expect("analyze");
     assert_eq!(a.parsed.session_id, SESSION_ID);
 }
 
 fn analyze_err(id: &str, parent: Option<&str>) -> SessionError {
-    let claude = golden_sources();
-    match analyze_session(session_env(&claude), id, parent, true) {
+    let roots = golden_roots();
+    match analyze_session(session_env(&roots), Target::Lookup(id), parent, true) {
         Ok(a) => panic!("expected an error, got {}", a.parsed.session_id),
         Err(e) => e,
     }
@@ -110,18 +124,28 @@ fn a_subagent_id_alone_is_not_a_session() {
 
 #[test]
 fn a_subagent_resolves_through_its_parent() {
-    let claude = golden_sources();
-    let a =
-        analyze_session(session_env(&claude), "agent-1", Some(SESSION_ID), true).expect("analyze");
+    let roots = golden_roots();
+    let a = analyze_session(
+        session_env(&roots),
+        Target::Lookup("agent-1"),
+        Some(SESSION_ID),
+        true,
+    )
+    .expect("analyze");
     assert_eq!(a.parsed.session_id, "agent-1");
     assert_eq!(a.turn_count, 2);
 }
 
 #[test]
 fn short_ids_resolve_through_a_short_parent() {
-    let claude = golden_sources();
-    let a = analyze_session(session_env(&claude), "agent-", Some(&SESSION_ID[..8]), true)
-        .expect("analyze");
+    let roots = golden_roots();
+    let a = analyze_session(
+        session_env(&roots),
+        Target::Lookup("agent-"),
+        Some(&SESSION_ID[..8]),
+        true,
+    )
+    .expect("analyze");
     assert_eq!(a.parsed.session_id, "agent-1");
 }
 
@@ -150,8 +174,8 @@ fn good_tree() -> TempDir {
 
 fn parse_good(dir: &TempDir, id: &str) -> ParsedSession {
     let base = dir.str();
-    let claude = sources(&format!("{base}/home"), &format!("{base}/projects"));
-    get_session(session_env(&claude), id, None, true).expect("session")
+    let roots = claude_roots(&format!("{base}/home"), &format!("{base}/projects"));
+    get_session(session_env(&roots), Target::Lookup(id), None, true).expect("session")
 }
 
 #[test]

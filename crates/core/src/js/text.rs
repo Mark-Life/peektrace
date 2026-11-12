@@ -26,6 +26,11 @@ pub fn trim(s: &str) -> &str {
     s.trim_matches(is_js_whitespace)
 }
 
+/// `String.prototype.trimStart`.
+pub fn trim_start(s: &str) -> &str {
+    s.trim_start_matches(is_js_whitespace)
+}
+
 /// `String.prototype.trimEnd`.
 pub fn trim_end(s: &str) -> &str {
     s.trim_end_matches(is_js_whitespace)

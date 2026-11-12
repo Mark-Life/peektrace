@@ -21,13 +21,27 @@ enum Value<'a> {
 }
 
 /// The header's keys and values in `--json` key order, absent ones dropped.
+/// Pi puts `title` after `startedAt`; a Codex project comes from the cwd,
+/// so it is transcript text.
 fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
+    let title = ("title", h.title.as_deref().map(Value::Text));
+    let started = ("startedAt", h.started_at.as_deref().map(Value::Text));
+    let (first, second) = if h.agent == Agent::Pi {
+        (started, title)
+    } else {
+        (title, started)
+    };
+    let project = if h.agent == Agent::Codex {
+        Value::Text(h.project.as_str())
+    } else {
+        Value::Str(h.project.as_str())
+    };
     let optional = [
         ("cwd", h.cwd.as_deref().map(Value::Text)),
         ("gitBranch", h.git_branch.as_deref().map(Value::Text)),
         ("model", h.model.as_deref().map(Value::Text)),
-        ("title", h.title.as_deref().map(Value::Text)),
-        ("startedAt", h.started_at.as_deref().map(Value::Text)),
+        first,
+        second,
         ("malformedLines", h.malformed_lines.map(Value::Int)),
         ("costUsd", h.cost_usd.map(Value::Float)),
         (
@@ -44,7 +58,7 @@ fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
         ("id", Value::Str(h.id.as_str())),
         ("agent", Value::Str(h.agent.as_str())),
         ("path", Value::Str(&h.path)),
-        ("project", Value::Str(h.project.as_str())),
+        ("project", project),
         ("messageCount", Value::Int(h.message_count)),
         ("sizeBytes", Value::Int(h.size_bytes)),
         ("updatedAt", Value::Text(&h.updated_at)),
@@ -142,7 +156,11 @@ fn row_cells(h: &SessionHeader) -> Vec<String> {
     vec![
         short_id(h.id.as_str()).to_owned(),
         h.agent.as_str().to_owned(),
-        h.project.as_str().to_owned(),
+        if h.agent == Agent::Codex {
+            printable(h.project.as_str())
+        } else {
+            h.project.as_str().to_owned()
+        },
         printable(h.model.as_deref().unwrap_or("-")),
         h.message_count.to_string(),
         format!("{}{star}", usd_cell(h.cost_usd)),
