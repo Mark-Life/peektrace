@@ -101,6 +101,16 @@ impl State {
                     self.sel.index = at;
                 }
             }
+            self.settle_focus();
+        }
+    }
+
+    /// Only an entry has a body to focus; any other selection hands the
+    /// keys back to the list.
+    fn settle_focus(&mut self) {
+        let rows = self.rows();
+        if !matches!(rows.get(self.sel.at(rows.len())), Some(Row::Entry { .. })) {
+            self.body_focused = false;
         }
     }
 
@@ -117,6 +127,7 @@ impl State {
                 self.searching = false;
             }
             self.sel.clamp(self.rows().len());
+            self.settle_focus();
             return;
         }
         let rows = self.rows();
@@ -150,6 +161,7 @@ impl State {
                 }
             }
         }
+        self.settle_focus();
     }
 
     pub fn draw(&mut self, buf: &mut Buffer, area: Rect) {
@@ -330,3 +342,6 @@ impl State {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
