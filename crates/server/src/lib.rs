@@ -82,14 +82,15 @@ async fn guarded(g: &Guards, req: Request, next: Next) -> Response<Body> {
         return text(StatusCode::FORBIDDEN, reason);
     }
     if let Some(token) = &g.token {
-        let target = req
-            .uri()
-            .path_and_query()
-            .map_or_else(|| req.uri().path(), |p| p.as_str());
+        let target = auth::served_target(
+            req.uri()
+                .path_and_query()
+                .map_or_else(|| req.uri().path(), |p| p.as_str()),
+        );
         let outcome = auth::auth_outcome(
             AuthRequest {
                 method: req.method().as_str(),
-                target,
+                target: &target,
                 authorization: header_str(headers, header::AUTHORIZATION),
                 cookie: header_str(headers, header::COOKIE),
             },

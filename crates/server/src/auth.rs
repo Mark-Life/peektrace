@@ -168,6 +168,20 @@ fn strip_token(url: &url::Url) -> String {
     }
 }
 
+/// The request target as the TS server hands it on: the WHATWG-parsed path
+/// and query, so `/.//x` arrives as `//x`.
+pub fn served_target(target: &str) -> String {
+    url::Url::parse("http://peektrace.invalid")
+        .and_then(|base| base.join(target))
+        .map_or_else(
+            |_| target.to_owned(),
+            |u| match u.query() {
+                Some(q) => format!("{}?{q}", u.path()),
+                None => u.path().to_owned(),
+            },
+        )
+}
+
 /// Decide a request: Bearer, then cookie, then `?token=` on GET. A GET with
 /// `?token=` and a valid token by any means redirects.
 pub fn auth_outcome(req: AuthRequest<'_>, token: &str, port: u16) -> AuthOutcome {
@@ -308,6 +322,13 @@ mod tests {
         ));
         let t = format!("/?token=bad&token={TOKEN}");
         assert_eq!(auth_outcome(get(&t), TOKEN, 1), AuthOutcome::Unauthorized);
+    }
+
+    #[test]
+    fn served_target_keeps_the_double_slash() {
+        let t = served_target(&format!("/.//evil.example/x?token={TOKEN}"));
+        assert_eq!(auth_outcome(get(&t), TOKEN, 1), AuthOutcome::Redirect("/x".to_owned()));
+        assert_eq!(served_target("/a%20b/?x=a+b"), "/a%20b/?x=a+b");
     }
 
     #[test]

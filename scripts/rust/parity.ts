@@ -5,6 +5,7 @@
  *
  *   bun scripts/rust/parity.ts                 # fixtures + real ~/.claude
  *   bun scripts/rust/parity.ts --fixtures-only # CI
+ *   bun scripts/rust/parity.ts --serve-only     # only the serve stage
  *   bun scripts/rust/parity.ts --bin target/debug/peektrace
  *   bun scripts/rust/parity.ts --real-all      # every real session in the
  *                                              # analyze/export stages
@@ -69,6 +70,7 @@ import { runMemoryStage } from "./parity-memory";
 import { runOpencodeStage } from "./parity-opencode";
 import { storeStamp } from "./parity-opencode-stamp";
 import { runSearchStage } from "./parity-search";
+import { runServeStage } from "./parity-serve";
 import { runStatsStage } from "./parity-stats";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
@@ -379,17 +381,20 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
 
 /** Which stages run: all by default, or one with `--<stage>-only`. */
 const pickStages = () => {
-  const only = ["stats", "search", "memory"].find((s) => flag(`--${s}-only`));
+  const only = ["stats", "search", "memory", "serve"].find((s) =>
+    flag(`--${s}-only`)
+  );
   return {
     base: only === undefined,
     search: only === undefined || only === "search",
     memory: only === undefined || only === "memory",
     stats: only === undefined || only === "stats",
+    serve: only === undefined || only === "serve",
   };
 };
 
 /** The stages after the `ls` suites: OpenCode, analyze/export, search,
- * memory and stats. */
+ * memory, stats and serve. */
 const runStages = async (
   stages: ReturnType<typeof pickStages>,
   suites: Suite[],
@@ -414,17 +419,19 @@ const runStages = async (
   if (stages.memory) {
     await runMemoryStage({ fixtures, real });
   }
-  if (!stages.stats) {
-    return;
+  if (stages.stats) {
+    const realStats =
+      real &&
+      !flag("--no-real-stats") &&
+      (process.platform === "darwin" || flag("--real-stats"));
+    if (real && !realStats) {
+      console.log("suite stats-real: skipped (pass --real-stats to run)");
+    }
+    runStatsStage({ fixtures, real: realStats });
   }
-  const realStats =
-    real &&
-    !flag("--no-real-stats") &&
-    (process.platform === "darwin" || flag("--real-stats"));
-  if (real && !realStats) {
-    console.log("suite stats-real: skipped (pass --real-stats to run)");
+  if (stages.serve) {
+    await runServeStage({ fixtures, real, realAll: flag("--real-all") });
   }
-  runStatsStage({ fixtures, real: realStats });
 };
 
 const main = async () => {
