@@ -1,0 +1,20 @@
+ Peektrace   1    2    3    4    5                    token
+ ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis╮
+ │                                            │ │         │
+ │ / filter (press /)                         │ │ Fix the │
+ │ agent: all · a to cycle                    │ │         │
+ │                                            │ │  Histor │
+ │ ╭───────────────────────────────────────╮  │ │         │
+ │ │ [Claude] Fix the flaky build          │  │ │ redacte │
+ │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │  E   C  │
+ │ ╰───────────────────────────────────────╯  │ │         │
+ │ ╭───────────────────────────────────────╮  │ │ [t  ~10 │
+ │ │ [Claude] Claude session               │  │ │         │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ [t0  ~0 │
+ │ ╰───────────────────────────────────────╯  │ │         │
+ │                                            │ │         │
+ ╰────────────────────────────────────────────╯ ╰─────────╯
+ ↑↓/jk move  enter/→ open  tab switch  / filter  a agent  r
+ web ▸ http://127.0.0.1:4321/?token=0123456789abcdef0123456
+ 789abcdef01234567
+ 1-5 section  q quit

@@ -1,0 +1,36 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                            loopback only
+ ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis────────────────────────────────────────────────────────────╮
+ │                                            │ │                                                                     │
+ │ / filter (press /)                         │ │ ╭─────────────────────────────────────────────────────────────────╮ │
+ │ agent: all · a to cycle                    │ │ │ Fix the flaky build  ● Healthy                                  │ │
+ │                                            │ │ │ 22222222 · claude-sonnet-4-5 · /Users/demo/long                 │ │
+ │ ╭───────────────────────────────────────╮  │ │ │                                                                 │ │
+ │ │ [Claude] Fix the flaky build          │  │ │ │ ████████████████████████████████████████████████████████        │ │
+ │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │ │ peak 130,320 · 13% of 1,000,000                                 │ │
+ │ ╰───────────────────────────────────────╯  │ │ │                                                                 │ │
+ │ ╭───────────────────────────────────────╮  │ │ │ Turns          150 · 150 tools · 18,000 out                     │ │
+ │ │ [Claude] Claude session               │  │ │ │ System + tools 5,710                                            │ │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ │ Est. cost      ~$3.31                                           │ │
+ │ ╰───────────────────────────────────────╯  │ │ │ Cache / window 100% · 1.0M (assumed)                            │ │
+ │ ╭───────────────────────────────────────╮  │ │ │                                                                 │ │
+ │ │ [Claude] Claude session               │  │ │ │ Budget at peak                                                  │ │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │ │ ████████████████████████████████████████████████████████        │ │
+ │ ╰───────────────────────────────────────╯  │ │ │ ■ Tool results                                     94,720  9.5% │ │
+ │ ╭───────────────────────────────────────╮  │ │ │ ■ Tool schemas & overhead (not in tran…            19,200  1.9% │ │
+ │ │ [Claude] Claude session               │  │ │ │ ■ Assistant thinking (retained)                     8,484  0.8% │ │
+ │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ │ ■ System + tool definitions                         5,710  0.6% │ │
+ │ ╰───────────────────────────────────────╯  │ │ │ ■ Assistant text + tool calls                       2,196  0.2% │ │
+ │ ╭───────────────────────────────────────╮  │ │ ╰─────────────────────────────────────────────────────────────────╯ │
+ │ │ [Pi] Pi session                       │  │ │                                                                     │
+ │ │ claude-sonnet-4-5 · Sep 26, 11:00 ·…  │  │ │  History   Growth   g toggle                                        │
+ │ ╰───────────────────────────────────────╯  │ │                                                                     │
+ │ ╭───────────────────────────────────────╮  │ │ Full history  468 events · 0/150 in dumb zon redacted · r to reveal │
+ │ │ [Claude] Claude session               │  │ │  Expand all   Collapse all   Biggest first                          │
+ │ │ claude-test · Aug 1, 10:00 · 13.5 K…  │  │ │                                                                     │
+ │ ╰───────────────────────────────────────╯  │ │ [t0] [user-prompt] Fix the flaky build and tidy the scri…       ~10 │
+ │ ╭───────────────────────────────────────╮  │ │                                                                     │
+ │ │ [Codex] Codex session                 │  │ │ [t0] [deferred tools delta] deferred_tools_delta                 ~0 │
+ │                                            │ │                                                                     │
+ ╰────────────────────────────────────────────╯ ╰─────────────────────────────────────────────────────────────────────╯
+ ↑↓/jk move  enter/→ open  tab switch  / filter  a agent  r reveal  g chart  click select  q quit
+ web ▸ http://127.0.0.1:4321                                                                        1-5 section  q quit

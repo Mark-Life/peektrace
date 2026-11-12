@@ -13,5 +13,8 @@ ratatui = { version = "0.30", default-features = false, features = ["crossterm",
 tracing.workspace = true
 unicode-width.workspace = true
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

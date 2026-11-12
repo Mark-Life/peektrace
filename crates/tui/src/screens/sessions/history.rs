@@ -277,13 +277,15 @@ impl History {
             x += w + 1;
         }
         let hint = " enter toggle · s sort · shift+E/C all";
-        put(
-            buf,
-            x,
-            r.y,
-            r.right().saturating_sub(x),
-            &[seg(hint, fg(theme::TEXT_FAINT))],
-        );
+        if usize::from(r.right().saturating_sub(x)) >= width(hint) {
+            put(
+                buf,
+                x,
+                r.y,
+                r.right() - x,
+                &[seg(hint, fg(theme::TEXT_FAINT))],
+            );
+        }
     }
 
     fn rows(
@@ -327,9 +329,7 @@ impl History {
         let preview_max = usize::from(term_w)
             .saturating_sub(82 + if size { SHARE_W } else { 0 })
             .max(16);
-        let first = tops
-            .partition_point(|t| *t < self.scroll)
-            .saturating_sub(1);
+        let first = tops.partition_point(|t| *t < self.scroll).saturating_sub(1);
         for pos in first..count {
             let top = tops[pos];
             if top >= self.scroll + view {

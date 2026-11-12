@@ -119,7 +119,11 @@ fn evidence(line: &str, w: usize, expand: bool) -> Vec<String> {
         .collect()
 }
 
-#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "a page offset")]
+#[expect(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    reason = "a page offset"
+)]
 const fn page_offset(o: f64) -> usize {
     o as usize
 }
@@ -170,7 +174,10 @@ impl Drill {
     }
 
     fn at(&self) -> usize {
-        self.q.data.as_ref().map_or(self.offset, |d| page_offset(d.offset))
+        self.q
+            .data
+            .as_ref()
+            .map_or(self.offset, |d| page_offset(d.offset))
     }
 
     fn total(&self) -> usize {

@@ -1,0 +1,48 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
+ Stats ▸ what fails, what costs time                                                                                        60d · all agents · scanned just now
+ 5 transcripts · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
+ peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 10 caveats (c)
+
+ ▌FIX FIRST  rows that name a change  ·  ▲ = a named rule fired
+
+
+ ▌WHAT FAILS  ranked by sessions spanned  ·  2 rows kept
+   SESSIONS▼   CALLS  FLAGGED  PROJ  WHERE             WHAT
+ ▸         1      13       13     1  Bash              Bash errors
+           1       1        1     1  web_fetch         web_fetch errors
+
+
+ ▌WHAT COSTS TIME  ranked by seconds charged  ·  every line charged to exactly one job
+   JOB                                                                             TIME▼   SHARE     RUNS  CO-PRESENT   MEDIAN     P95       CAPPED          BG
+ ▸ file i/o                                                                        8m20s   50.0%       25          50    20.0s   20.0s            —           —
+   tests                                                                           8m20s   50.0%       25          25    20.0s   20.0s            —           —
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ NOTE
+
+
+
+ ↑↓/jk move  tab pane  ⏎ drill  d days  a agent  R re-read  F re-extract  c caveats  f findings
+ web ▸ http://127.0.0.1:4321                                                                                                                1-5 section  q quit

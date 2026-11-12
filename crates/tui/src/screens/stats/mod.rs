@@ -257,7 +257,10 @@ impl State {
         }
     }
 
-    #[expect(clippy::too_many_lines, reason = "header, status, body and hints in order")]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "header, status, body and hints in order"
+    )]
     pub fn draw(
         &mut self,
         buf: &mut Buffer,
@@ -331,7 +334,13 @@ impl State {
             } else {
                 theme::BAD
             });
-            put(buf, area.x, y, area.width, &[seg(clip(&line, content), tone)]);
+            put(
+                buf,
+                area.x,
+                y,
+                area.width,
+                &[seg(clip(&line, content), tone)],
+            );
             y += 1;
         }
         let body = Rect::new(area.x, y, area.width, area.bottom().saturating_sub(y + 1));

@@ -1,0 +1,30 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats        loopback only
+ ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis────────────────────────────────────────╮
+ │                                            │ │                                                 │
+ │ / filter (press /)                         │ │ Fix the f…  ● Healthy  peak 130.3K 13% · 150 tu │
+ │ agent: all · a to cycle                    │ │                                                 │
+ │                                            │ │  History   Growth   g toggle                    │
+ │ ╭───────────────────────────────────────╮  │ │                                                 │
+ │ │ [Claude] Fix the flaky build          │  │ │ Context growth 150 turns · peak 130.3K (13%…    │
+ │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │                                                 │
+ │ ╰───────────────────────────────────────╯  │ │     1.0M                                        │
+ │ ╭───────────────────────────────────────╮  │ │                                                 │
+ │ │ [Claude] Claude session               │  │ │                                                 │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │   750.0K                                        │
+ │ ╰───────────────────────────────────────╯  │ │                                                 │
+ │ ╭───────────────────────────────────────╮  │ │   500.0K                                        │
+ │ │ [Claude] Claude session               │  │ │          ╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌ │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │                                                 │
+ │ ╰───────────────────────────────────────╯  │ │   250.0K                                        │
+ │ ╭───────────────────────────────────────╮  │ │        0             ███████████                │
+ │ │ [Claude] Claude session               │  │ │                                ◆                │
+ │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │     turn 3   19  35  51  67  82  98  114 130 14 │
+ │ ╰───────────────────────────────────────╯  │ │                                                 │
+ │ ╭───────────────────────────────────────╮  │ │ ■ System + tool d…  ■ User prompts              │
+ │ │ [Pi] Pi session                       │  │ │ ■ Tool results  ■ Assistant text …              │
+ │ │ claude-sonnet-4-5 · Sep 26, 11:00 ·…  │  │ │ ■ Assistant think…  ■ Tool schemas & …          │
+ │ ╰───────────────────────────────────────╯  │ │                                                 │
+ │                                            │ │                                                 │
+ ╰────────────────────────────────────────────╯ ╰─────────────────────────────────────────────────╯
+ ↑↓/jk move  enter/→ open  tab switch  / filter  a agent  r reveal  g chart  click select  q quit
+ web ▸ http://127.0.0.1:4321                                                    1-5 section  q quit

@@ -58,7 +58,8 @@ pub fn put(buf: &mut Buffer, x: u16, y: u16, w: u16, segs: &[Seg]) -> u16 {
 /// side is clipped first so the right side always shows.
 pub fn put_lr(buf: &mut Buffer, x: u16, y: u16, w: u16, left: &[Seg], right: &[Seg]) {
     let rw = u16::try_from(segs_width(right)).unwrap_or(u16::MAX).min(w);
-    put(buf, x, y, w - rw, left);
+    let gap = u16::from(rw > 0 && rw < w);
+    put(buf, x, y, w - rw - gap, left);
     put(buf, x + w - rw, y, rw, right);
 }
 

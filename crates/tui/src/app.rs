@@ -256,6 +256,11 @@ impl App {
     }
 
     pub fn draw(&mut self, buf: &mut Buffer) {
+        self.draw_with(buf, self.cfg.color);
+    }
+
+    /// Draw in a given colour mode.
+    pub fn draw_with(&mut self, buf: &mut Buffer, color: ColorMode) {
         self.size = buf.area;
         let size = buf.area;
         buf.set_style(size, Style::new().bg(theme::BG).fg(theme::TEXT));
@@ -276,7 +281,7 @@ impl App {
         }
         self.hits = hits;
         self.footer(buf);
-        theme::apply(buf, self.cfg.color);
+        theme::apply(buf, color);
     }
 
     fn header(&self, buf: &mut Buffer) {

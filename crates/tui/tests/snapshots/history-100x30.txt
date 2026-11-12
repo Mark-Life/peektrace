@@ -1,0 +1,30 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats        loopback only
+ ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis────────────────────────────────────────╮
+ │                                            │ │                                                 │
+ │ / filter (press /)                         │ │ Fix the f…  ● Healthy  peak 130.3K 13% · 150 tu │
+ │ agent: all · a to cycle                    │ │                                                 │
+ │                                            │ │  History   Growth   g toggle                    │
+ │ ╭───────────────────────────────────────╮  │ │                                                 │
+ │ │ [Claude] Fix the flaky build          │  │ │ Full history  468 events redacted · r to reveal │
+ │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │  Expand all   Collapse all   Biggest first      │
+ │ ╰───────────────────────────────────────╯  │ │                                                 │
+ │ ╭───────────────────────────────────────╮  │ │ [t0] [user-prompt] Fix the flaky bui…       ~10 │
+ │ │ [Claude] Claude session               │  │ │                                                 │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ [t0] [deferred tools delta] deferred_tools_  ~0 │
+ │ ╰───────────────────────────────────────╯  │ │                                                 │
+ │ ╭───────────────────────────────────────╮  │ │ [t1] [assistant-text] Step 1: checking …     ~7 │
+ │ │ [Claude] Claude session               │  │ │   Step 1: checking with `Bash`.                 │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │                                                 │
+ │ ╰───────────────────────────────────────╯  │ │ [t1] [Bash] { "command": "npm…              ~15 │
+ │ ╭───────────────────────────────────────╮  │ │                                                 │
+ │ │ [Claude] Claude session               │  │ │ [t1] [tool-result] FAIL case1             1,280 │
+ │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │                                                 │
+ │ ╰───────────────────────────────────────╯  │ │ [t2] [assistant-text] Step 2: checking …     ~7 │
+ │ ╭───────────────────────────────────────╮  │ │                                                 │
+ │ │ [Pi] Pi session                       │  │ │ [t2] [Read] { "file_path": "/…              ~12 │
+ │ │ claude-sonnet-4-5 · Sep 26, 11:00 ·…  │  │ │                                                 │
+ │ ╰───────────────────────────────────────╯  │ │ [t2] [tool-result] [{"text":"## Modu…     1,280 │
+ │                                            │ │                                                 │
+ ╰────────────────────────────────────────────╯ ╰─────────────────────────────────────────────────╯
+ ↑↓/jk move  enter/→ open  tab switch  / filter  a agent  r reveal  g chart  click select  q quit
+ web ▸ http://127.0.0.1:4321                                                    1-5 section  q quit

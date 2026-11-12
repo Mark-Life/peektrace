@@ -107,7 +107,7 @@ impl State {
             }
             let mark = if selected { "› " } else { "  " };
             let mut row = vec![seg(
-                pad_end(&format!("{mark}{}", clip(cap.title, name_w - 2)), name_w),
+                pad_end(&format!("{mark}{}", clip(cap.title, name_w - 3)), name_w),
                 fg(if selected {
                     theme::PRIMARY
                 } else {

@@ -1,0 +1,48 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
+ Stats ▸ what fails, what costs time                                                                                        60d · all agents · scanned just now
+ 5 transcripts · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
+ peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 10 caveats (c)
+
+ ╭─DRILL  --fail flag:Bash────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │                                                                                                                                                            │
+ │ Bash errors                                                                                                                                                │
+ │ 13 calls · 1 sessions · 1 projects · 13 flagged                                                                                                            │
+ │                                                                                                                                                            │
+ │ ▸ 11-11 09:00  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case1 2>&1 | tail -5                                                                                                                 │
+ │   11-11 09:08  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case13 2>&1 | tail -5                                                                                                                │
+ │   11-11 09:16  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case25 2>&1 | tail -5                                                                                                                │
+ │   11-11 09:24  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case37 2>&1 | tail -5                                                                                                                │
+ │   11-11 09:32  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case49 2>&1 | tail -5                                                                                                                │
+ │   11-11 09:40  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case61 2>&1 | tail -5                                                                                                                │
+ │   11-11 09:48  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case73 2>&1 | tail -5                                                                                                                │
+ │   11-11 09:56  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case85 2>&1 | tail -5                                                                                                                │
+ │   11-11 10:04  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case97 2>&1 | tail -5                                                                                                                │
+ │   11-11 10:12  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case109 2>&1 | tail -5                                                                                                               │
+ │   11-11 10:20  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case121 2>&1 | tail -5                                                                                                               │
+ │   11-11 10:28  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case133 2>&1 | tail -5                                                                                                               │
+ │   11-11 10:36  22222222       -Users-demo-long Bash        20.0s  fail                                                                                     │
+ │    npm test -- --grep case145 2>&1 | tail -5                                                                                                               │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │ hits 1–13 of 13 calls                                                                                                                                      │
+ │ open it: peektrace sessions analyze 22222222-2222-4222-8222-222222222222                                                                                   │
+ │ ↑↓/jk move  ⏎ full line  esc close                                                                                                                         │
+ │                                                                                                                                                            │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ esc close drill
+ web ▸ http://127.0.0.1:4321                                                                                                                1-5 section  q quit

@@ -1,0 +1,22 @@
+ Peektrace   1    2    3    4    5                              loopback only
+ terminal too small: stats needs 80×24, this one is 78×22
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ web ▸ http://127.0.0.1:4321                              1-5 section  q quit
