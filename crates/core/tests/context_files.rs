@@ -3,6 +3,7 @@
 //! sit under the system temp dir; ancestor dirs above it are filtered out.
 //! Paths are built as POSIX strings, so the tree tests are unix only.
 #![allow(clippy::float_cmp)]
+#![cfg_attr(not(unix), allow(dead_code))]
 
 mod common;
 
