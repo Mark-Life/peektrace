@@ -6,14 +6,13 @@ use std::sync::Arc;
 
 use peektrace_core::watch::WatchVersions;
 use ratatui::buffer::Buffer;
-use ratatui::crossterm::event::{
-    KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
+use ratatui::crossterm::event::{KeyCode, KeyEvent, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
 
 use crate::backend::{Job, Reply, Slot};
 use crate::draw::{Seg, hard_wrap, put, put_lr, seg, segs_width};
+use crate::input::ctrl;
 use crate::screens::{Ctx, Hit, capabilities, memory, sessions, settings, stats};
 use crate::theme::{self, ColorMode, fg};
 use crate::widgets::{bold, key_hints};
@@ -165,7 +164,7 @@ impl App {
     }
 
     pub fn key(&mut self, k: KeyEvent) {
-        if k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('c') {
+        if ctrl(&k) && k.code == KeyCode::Char('c') {
             self.quit = true;
             return;
         }
@@ -195,7 +194,7 @@ impl App {
 
     pub fn paste(&mut self, s: &str) {
         match self.section {
-            Section::Sessions => self.sessions.paste(s),
+            Section::Sessions => self.with_cx(|app, cx| app.sessions.paste(s, cx)),
             Section::Memory => self.memory.paste(s),
             Section::Settings => self.settings.paste(s),
             Section::Capabilities | Section::Stats => {}
@@ -253,6 +252,13 @@ impl App {
                 app.memory.watched(cx, section == Section::Memory);
             }
         });
+    }
+
+    /// Run work a screen put off; called when the loop is idle.
+    pub fn tick(&mut self) {
+        if self.section == Section::Sessions {
+            self.with_cx(|app, cx| app.sessions.tick(cx));
+        }
     }
 
     pub fn draw(&mut self, buf: &mut Buffer) {

@@ -14,6 +14,12 @@ pub struct LineInput {
     cursor: usize,
 }
 
+/// A Ctrl shortcut. Windows reports `AltGr` as Ctrl+Alt, so that pair is
+/// typed text, not a shortcut.
+pub fn ctrl(k: &KeyEvent) -> bool {
+    k.modifiers.contains(KeyModifiers::CONTROL) && !k.modifiers.contains(KeyModifiers::ALT)
+}
+
 /// What a key did to the field.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Edit {
@@ -53,7 +59,7 @@ impl LineInput {
     }
 
     pub fn key(&mut self, k: KeyEvent) -> Edit {
-        let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+        let ctrl = ctrl(&k);
         let len = self.text.chars().count();
         match k.code {
             KeyCode::Enter => Edit::Submit,
@@ -170,5 +176,19 @@ mod tests {
         assert_eq!(press(&mut i, KeyCode::Enter), Edit::Submit);
         i.insert("x\ny");
         assert_eq!(i.text, "acéxy");
+    }
+
+    #[test]
+    fn altgr_types_text_and_ctrl_alone_stays_a_shortcut() {
+        let altgr = KeyModifiers::CONTROL | KeyModifiers::ALT;
+        let mut i = LineInput::new("C:");
+        assert_eq!(
+            i.key(KeyEvent::new(KeyCode::Char('\\'), altgr)),
+            Edit::Changed
+        );
+        i.key(KeyEvent::new(KeyCode::Char('u'), altgr));
+        assert_eq!(i.text, "C:\\u");
+        i.key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
+        assert_eq!(i.text, "");
     }
 }

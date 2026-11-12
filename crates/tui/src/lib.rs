@@ -86,9 +86,12 @@ fn run_loop(
                 _ => continue,
             }
             dirty = true;
-        } else if last_tick.elapsed() >= TICK {
-            last_tick = Instant::now();
-            dirty = app.ticking();
+        } else {
+            app.tick();
+            if last_tick.elapsed() >= TICK {
+                last_tick = Instant::now();
+                dirty = app.ticking();
+            }
         }
     }
     Ok(())

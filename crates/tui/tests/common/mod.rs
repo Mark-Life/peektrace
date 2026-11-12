@@ -56,6 +56,35 @@ pub fn config(authed: bool, color: ColorMode) -> Config {
     }
 }
 
+/// A clock tests step by hand, in milliseconds since the epoch.
+#[derive(Clone)]
+pub struct Clock(Arc<std::sync::atomic::AtomicU64>);
+
+impl Clock {
+    pub fn new() -> Self {
+        Self(Arc::new(NOW_MS.to_bits().into()))
+    }
+
+    pub fn advance(&self, ms: f64) {
+        let next = self.now() + ms;
+        self.0
+            .store(next.to_bits(), std::sync::atomic::Ordering::SeqCst);
+    }
+
+    pub fn now(&self) -> f64 {
+        f64::from_bits(self.0.load(std::sync::atomic::Ordering::SeqCst))
+    }
+
+    /// The default config, its clock this one.
+    pub fn config(&self) -> Config {
+        let me = self.clone();
+        Config {
+            now: Arc::new(move || me.now()),
+            ..config(false, ColorMode::TrueColor)
+        }
+    }
+}
+
 /// Counts calls per request kind, then runs them on the inner backend.
 pub struct Counting {
     pub inner: CoreBackend,

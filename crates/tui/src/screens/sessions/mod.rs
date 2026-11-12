@@ -32,6 +32,8 @@ use crate::widgets::key_hints;
 const LIST_W: u16 = 46;
 const CARD_H: usize = 4;
 const CARD_CONTENT_W: usize = LIST_W as usize - 10;
+/// Least gap between list refetches that file changes drive.
+const REFETCH_MS: f64 = 1000.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Focus {
@@ -53,6 +55,9 @@ pub struct State {
     list: Query<Vec<SessionHeader>>,
     hay: Vec<String>,
     list_ver: Option<u64>,
+    /// A file change waits for a refetch, and when the last such one began.
+    list_due: bool,
+    list_at: Option<f64>,
     pub focus: Focus,
     filter: LineInput,
     pub filtering: bool,
@@ -83,6 +88,8 @@ impl Default for State {
             list: Query::default(),
             hay: Vec::new(),
             list_ver: None,
+            list_due: false,
+            list_at: None,
             focus: Focus::List,
             filter: LineInput::default(),
             filtering: false,
@@ -155,6 +162,7 @@ impl State {
 
     fn fetch_list(&mut self, cx: &mut Ctx<'_>) {
         self.list_ver = Some(cx.watch.sessions);
+        self.list_due = false;
         let id = cx.request(Request::Sessions);
         self.list.start(id);
     }
@@ -168,6 +176,18 @@ impl State {
 
     pub fn watched(&mut self, cx: &mut Ctx<'_>, active: bool) {
         if active {
+            self.list_due = true;
+            self.tick(cx);
+        }
+    }
+
+    /// Refetch after file changes at most once per `REFETCH_MS`, and never
+    /// while a fetch runs: an agent writing nonstop would otherwise re-list
+    /// the whole corpus back to back.
+    pub fn tick(&mut self, cx: &mut Ctx<'_>) {
+        let ready = self.list_at.is_none_or(|t| cx.now - t >= REFETCH_MS);
+        if self.list_due && ready && !self.list.loading() {
+            self.list_at = Some(cx.now);
             self.fetch_list(cx);
         }
     }
@@ -313,10 +333,11 @@ impl State {
         }
     }
 
-    pub fn paste(&mut self, s: &str) {
+    pub fn paste(&mut self, s: &str, cx: &mut Ctx<'_>) {
         if self.filtering {
             self.filter.insert(s);
-            self.sel.clamp(self.filtered().len());
+            self.follow = true;
+            self.sync(cx);
         }
     }
 

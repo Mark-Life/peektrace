@@ -252,6 +252,17 @@ fn session_cards_render_and_keyboard_selection_drives_the_detail() {
 }
 
 #[test]
+fn pasting_into_the_filter_moves_the_detail_to_the_first_match() {
+    let mut ui = Ui::new(fake_analyzed, 120, 34);
+    ui.keys(&["/"]);
+    ui.app.paste("beta");
+    settle(&mut ui.app, &ui.backend);
+    let t = ui.text();
+    assert!(t.contains("Sessions (1/2)"), "{t}");
+    assert!(t.contains("Analyzed-b"), "{t}");
+}
+
+#[test]
 fn session_detail_summary_shows_the_estimated_cost() {
     let t = Ui::new(priced, 140, 40).text();
     assert!(t.contains("Est. cost"), "{t}");
@@ -384,12 +395,11 @@ fn a_session_with_subagents_re_analyzes_only_when_they_change() {
         analyses: AtomicUsize::new(0),
         stamp: AtomicU64::new(1),
     };
-    let mut app = App::new(
-        config(false, ColorMode::TrueColor),
-        Rect::new(0, 0, 160, 48),
-    );
+    let clock = Clock::new();
+    let mut app = App::new(clock.config(), Rect::new(0, 0, 160, 48));
     settle(&mut app, &backend);
     let tick = |app: &mut App, n: u64| {
+        clock.advance(1000.0);
         app.watch(WatchVersions {
             memory: 0,
             sessions: n,

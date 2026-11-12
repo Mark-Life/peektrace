@@ -6,7 +6,7 @@ pub mod rows;
 use peektrace_core::Agent;
 use peektrace_core::settings_doc::StoredSettings;
 use ratatui::buffer::Buffer;
-use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 
@@ -15,7 +15,7 @@ use super::{Ctx, Query};
 use crate::backend::{Reply, Request, Response, SaveError};
 use crate::draw::{Seg, frame, inset, panel, put, seg};
 use crate::fmt::{clip, pad_end};
-use crate::input::{Edit, LineInput};
+use crate::input::{Edit, LineInput, ctrl};
 use crate::list::{ListSel, window_slice};
 use crate::theme::{self, agent_label, fg};
 use crate::widgets::{key_hints, loading};
@@ -215,7 +215,7 @@ impl State {
                 _ => {}
             }
         }
-        if k.modifiers.contains(KeyModifiers::CONTROL) && k.code == KeyCode::Char('s') {
+        if ctrl(&k) && k.code == KeyCode::Char('s') {
             self.send(cx, true);
             return;
         }

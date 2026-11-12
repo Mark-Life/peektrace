@@ -28,6 +28,7 @@ pub fn put(buf: &mut Buffer, x: u16, y: u16, w: u16, segs: &[Seg]) -> u16 {
     }
     let limit = x.saturating_add(w).min(area.right());
     let mut cx = x;
+    let mut base: Option<u16> = None;
     for (text, style) in segs {
         for ch in text.chars() {
             if ch == '\n' {
@@ -35,6 +36,13 @@ pub fn put(buf: &mut Buffer, x: u16, y: u16, w: u16, segs: &[Seg]) -> u16 {
             }
             let cw = u16::try_from(char_width(ch)).unwrap_or(0);
             if cw == 0 {
+                if attaches(ch)
+                    && let Some(cell) = base.and_then(|bx| buf.cell_mut((bx, y)))
+                {
+                    let mut sym = cell.symbol().to_owned();
+                    sym.push(ch);
+                    cell.set_symbol(&sym);
+                }
                 continue;
             }
             if cx + cw > limit {
@@ -43,6 +51,7 @@ pub fn put(buf: &mut Buffer, x: u16, y: u16, w: u16, segs: &[Seg]) -> u16 {
             if let Some(cell) = buf.cell_mut((cx, y)) {
                 cell.set_char(ch).set_style(*style);
             }
+            base = Some(cx);
             if cw == 2
                 && let Some(cell) = buf.cell_mut((cx + 1, y))
             {
@@ -52,6 +61,14 @@ pub fn put(buf: &mut Buffer, x: u16, y: u16, w: u16, segs: &[Seg]) -> u16 {
         }
     }
     cx - x
+}
+
+/// A zero-width char that joins the glyph before it: combining marks stay
+/// on their base cell. Joiners and variation selectors are dropped, since a
+/// terminal may draw the joined glyph at a width the layout did not count.
+fn attaches(ch: char) -> bool {
+    !ch.is_control()
+        && !matches!(ch, '\u{200b}'..='\u{200d}' | '\u{fe00}'..='\u{fe0f}' | '\u{feff}')
 }
 
 /// Left segments, then right segments flush to the right edge; the left
@@ -257,6 +274,25 @@ mod tests {
         rows.iter()
             .map(|r| r.iter().map(|(t, _)| t.as_str()).collect())
             .collect()
+    }
+
+    #[test]
+    fn combining_marks_stay_on_their_base_cell() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 6, 1));
+        let used = put(
+            &mut buf,
+            0,
+            0,
+            6,
+            &[
+                seg("cafe\u{301}", Style::new()),
+                seg("\u{947}\u{200d}", Style::new()),
+            ],
+        );
+        assert_eq!(used, 4);
+        let cells: Vec<&str> = (0..6).map(|x| buf[(x, 0)].symbol()).collect();
+        assert_eq!(cells, ["c", "a", "f", "e\u{301}\u{947}", " ", " "]);
+        assert_eq!(width("cafe\u{301}"), 4);
     }
 
     #[test]

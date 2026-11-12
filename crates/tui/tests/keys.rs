@@ -260,6 +260,50 @@ fn a_growing_session_re_analyzes_and_keeps_open_rows() {
 }
 
 #[test]
+fn file_changes_refetch_the_list_at_most_once_a_second() {
+    let clock = Clock::new();
+    let mut h = Harness::with(build_home(), 160, 48, clock.config());
+    let lists = h.backend.count("Sessions");
+    let bump = |h: &mut Harness, n: u64| {
+        h.app.watch(WatchVersions {
+            memory: 0,
+            sessions: n,
+        });
+        h.settle();
+    };
+    clock.advance(1000.0);
+    bump(&mut h, 1);
+    assert_eq!(
+        h.backend.count("Sessions"),
+        lists + 1,
+        "first change refetches"
+    );
+    for n in 2..=5 {
+        clock.advance(100.0);
+        bump(&mut h, n);
+    }
+    assert_eq!(h.backend.count("Sessions"), lists + 1, "a burst waits");
+    h.app.tick();
+    h.settle();
+    assert_eq!(
+        h.backend.count("Sessions"),
+        lists + 1,
+        "still inside the window"
+    );
+    clock.advance(600.0);
+    h.app.tick();
+    h.settle();
+    assert_eq!(
+        h.backend.count("Sessions"),
+        lists + 2,
+        "the burst lands as one"
+    );
+    h.app.tick();
+    h.settle();
+    assert_eq!(h.backend.count("Sessions"), lists + 2, "nothing left to do");
+}
+
+#[test]
 fn a_hidden_screen_refetches_only_after_a_change() {
     let mut h = sessions();
     let lists = h.backend.count("Sessions");
