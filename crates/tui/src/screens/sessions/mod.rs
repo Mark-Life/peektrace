@@ -6,6 +6,8 @@ mod detail;
 mod growth;
 pub mod growth_chart;
 mod history;
+mod rail;
+mod view;
 
 pub use decode::{Decoded, decode_body, turn_tags, visible_events};
 
@@ -15,18 +17,16 @@ use peektrace_core::sessions::model::AnalyzedSession;
 use ratatui::buffer::Buffer;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use ratatui::layout::Rect;
-use ratatui::style::Style;
 
 use self::growth::Growth;
 use self::history::{History, Out};
 use super::{Ctx, Hit, Query};
 use crate::backend::{Reply, Request, Response};
-use crate::draw::{frame, inset, panel, put, seg};
-use crate::fmt::{clip, fmt_bytes, fmt_started, sanitize};
+use crate::draw::put;
 use crate::input::{Edit, LineInput};
 use crate::list::ListSel;
-use crate::theme::{self, agent_color, agent_label, fg};
-use crate::widgets::{button, empty, error_line, key_hints, loading};
+use crate::theme::agent_label;
+use crate::widgets::key_hints;
 
 const LIST_W: u16 = 46;
 const CARD_H: usize = 4;
@@ -409,269 +409,6 @@ impl State {
             ("q", "quit"),
         ]);
         put(buf, area.x, area.bottom() - 1, area.width, &hint_row);
-    }
-
-    fn draw_rail(&mut self, buf: &mut Buffer, rail: Rect, hits: &mut Vec<(Rect, Hit)>) {
-        let rows = self.filtered();
-        let total = self.headers().len();
-        let title = format!("Sessions ({}/{total})", rows.len());
-        let inner = panel(buf, rail, &title, self.focus == Focus::List, 1);
-        if inner.height == 0 {
-            return;
-        }
-        let w = inner.width;
-        let slash = fg(if self.filtering {
-            theme::PRIMARY
-        } else {
-            theme::TEXT_FAINT
-        });
-        let mut line = vec![seg("/ ", slash)];
-        if self.filtering {
-            line.extend(
-                self.filter
-                    .view("filter title / id…", usize::from(w.saturating_sub(2))),
-            );
-        } else if self.filter.text.is_empty() {
-            line.push(seg("filter (press /)", fg(theme::TEXT_FAINT)));
-        } else {
-            line.push(seg(self.filter.text.clone(), fg(theme::TEXT)));
-        }
-        put(buf, inner.x, inner.y, w, &line);
-        let facet = self.agent.map_or_else(
-            || "agent: all · a to cycle".to_owned(),
-            |a| format!("agent: {} · a to cycle", agent_label(a)),
-        );
-        put(
-            buf,
-            inner.x,
-            inner.y + 1,
-            w,
-            &[seg(facet, fg(theme::TEXT_FAINT))],
-        );
-        let mut y = inner.y + 2;
-        let mut status = Vec::new();
-        if self.list.loading() && total == 0 {
-            status.push(loading("Loading…"));
-        }
-        if let Some(e) = &self.list.error {
-            status.push(error_line(e));
-        }
-        if !self.list.loading() && self.list.error.is_none() && total == 0 {
-            status.push(empty("No sessions found."));
-        }
-        if total > 0 && rows.is_empty() {
-            status.push(empty("No sessions match the filter."));
-        }
-        for s in &status {
-            if y < inner.bottom() {
-                put(buf, inner.x, y, w, s);
-            }
-            y += 1;
-        }
-        y += 1;
-        if y >= inner.bottom() {
-            return;
-        }
-        let region = Rect::new(inner.x, y, w, inner.bottom() - y);
-        hits.push((region, Hit::Rail));
-        let fits = (usize::from(region.height) / CARD_H).max(1);
-        let sel = self.sel.at(rows.len());
-        if self.follow {
-            if sel < self.rail_top {
-                self.rail_top = sel;
-            } else if sel >= self.rail_top + fits {
-                self.rail_top = sel + 1 - fits;
-            }
-            self.follow = false;
-        }
-        self.rail_top = self.rail_top.min(rows.len().saturating_sub(1));
-        let card_w = w.saturating_sub(1);
-        let mut cy = region.y;
-        for (pos, i) in rows.iter().enumerate().skip(self.rail_top) {
-            if cy >= region.bottom() {
-                break;
-            }
-            let h = u16::try_from(CARD_H).unwrap_or(4).min(region.bottom() - cy);
-            let r = Rect::new(region.x, cy, card_w, h);
-            Self::card(buf, r, &self.headers()[*i], pos == sel);
-            hits.push((r, Hit::Card(pos)));
-            cy += h;
-        }
-    }
-
-    fn card(buf: &mut Buffer, r: Rect, h: &SessionHeader, selected: bool) {
-        let full = Rect::new(r.x, r.y, r.width, u16::try_from(CARD_H).unwrap_or(4));
-        let mut scratch = Buffer::empty(full);
-        let (border, title_style) = if selected {
-            (fg(theme::BORDER_ACTIVE), fg(theme::PRIMARY))
-        } else {
-            (fg(theme::BORDER), fg(theme::TEXT_DIM))
-        };
-        if selected {
-            scratch.set_style(full, Style::new().bg(theme::PANEL_SEL));
-        }
-        let inner = inset(frame(&mut scratch, full, None, border, title_style), 1, 0);
-        let badge = format!("[{}] ", agent_label(h.agent));
-        let title_w = CARD_CONTENT_W.saturating_sub(badge.chars().count()).max(6);
-        let model = h
-            .model
-            .clone()
-            .unwrap_or_else(|| peektrace_core::js::units::slice(h.id.as_str(), 0, 8));
-        let sub = format!(
-            "{model} · {} · {} · {} msgs",
-            fmt_started(h.started_at.as_deref()),
-            fmt_bytes(h.size_bytes),
-            h.message_count
-        );
-        put(
-            &mut scratch,
-            inner.x,
-            inner.y,
-            inner.width,
-            &[
-                seg(badge, fg(agent_color(h.agent))),
-                seg(
-                    clip(&sanitize(&title_of(h)), title_w),
-                    fg(if selected {
-                        theme::PRIMARY
-                    } else {
-                        theme::TEXT
-                    }),
-                ),
-            ],
-        );
-        put(
-            &mut scratch,
-            inner.x,
-            inner.y + 1,
-            inner.width,
-            &[seg(
-                clip(&sanitize(&sub), CARD_CONTENT_W),
-                fg(theme::TEXT_FAINT),
-            )],
-        );
-        for y in r.y..r.bottom() {
-            for x in r.x..r.right() {
-                if let (Some(src), Some(dst)) =
-                    (scratch.cell((x, y)).cloned(), buf.cell_mut((x, y)))
-                {
-                    *dst = src;
-                }
-            }
-        }
-    }
-
-    fn draw_detail(
-        &mut self,
-        buf: &mut Buffer,
-        pane: Rect,
-        term: Rect,
-        hits: &mut Vec<(Rect, Hit)>,
-    ) {
-        if self.selected().is_none() {
-            let inner = panel(buf, pane, "Analysis", false, 1);
-            put(
-                buf,
-                inner.x,
-                inner.y,
-                inner.width,
-                &empty("Select a session to analyze."),
-            );
-            return;
-        }
-        let busy = self.analysis.loading() && self.analysis.data.is_some();
-        let title = if busy { "Analysis ↻" } else { "Analysis" };
-        let inner = panel(buf, pane, title, self.focus == Focus::Detail, 1);
-        let mut y = inner.y;
-        if self.analysis.loading() && self.analysis.data.is_none() {
-            put(buf, inner.x, y, inner.width, &loading("Analyzing…"));
-            y += 1;
-        }
-        if let Some(e) = &self.analysis.error {
-            put(buf, inner.x, y, inner.width, &error_line(e));
-            y += 1;
-        }
-        let Some(s) = self.analysis.data.take() else {
-            if !self.analysis.loading() && self.analysis.error.is_none() {
-                put(
-                    buf,
-                    inner.x,
-                    y,
-                    inner.width,
-                    &empty("No analysis available."),
-                );
-            }
-            return;
-        };
-        let body = Rect::new(inner.x, y, inner.width, inner.bottom().saturating_sub(y));
-        self.layout(buf, body, &s, term, hits);
-        self.analysis.data = Some(s);
-    }
-
-    fn layout(
-        &mut self,
-        buf: &mut Buffer,
-        body: Rect,
-        s: &AnalyzedSession,
-        term: Rect,
-        hits: &mut Vec<(Rect, Hit)>,
-    ) {
-        let pane_w = usize::from(term.width).saturating_sub(51).max(34);
-        let text_w = pane_w
-            .saturating_sub(4)
-            .max(24)
-            .min(usize::from(body.width.saturating_sub(4)));
-        let mut y = body.y;
-        let bottom = body.bottom();
-        let card_h = detail::card_height(s, text_w);
-        if self.view == View::History && body.height >= card_h + 9 {
-            detail::draw_card(buf, Rect::new(body.x, y, body.width, card_h), s, text_w);
-            y += card_h;
-        } else {
-            put(
-                buf,
-                body.x,
-                y,
-                body.width,
-                &detail::compact(s, pane_w.min(usize::from(body.width))),
-            );
-            y += 1;
-        }
-        y += 1;
-        if y < bottom {
-            let h = button("History", self.view == View::History);
-            let g = button("Growth", self.view == View::Growth);
-            let hw = put(buf, body.x, y, body.width, &[h]);
-            hits.push((Rect::new(body.x, y, hw, 1), Hit::ViewHistory));
-            let gx = body.x + hw + 1;
-            let gw = put(buf, gx, y, body.right().saturating_sub(gx), &[g]);
-            hits.push((Rect::new(gx, y, gw, 1), Hit::ViewGrowth));
-            let tx = gx + gw + 1;
-            put(
-                buf,
-                tx,
-                y,
-                body.right().saturating_sub(tx),
-                &[seg(" g toggle", fg(theme::TEXT_FAINT))],
-            );
-        }
-        y += 2;
-        if y >= bottom {
-            return;
-        }
-        let region = Rect::new(body.x, y, body.width, bottom - y);
-        match self.view {
-            View::History => self.history.draw(
-                buf,
-                region,
-                s,
-                self.generation,
-                self.redact,
-                term.width,
-                hits,
-            ),
-            View::Growth => self.growth.draw(buf, region, s, self.generation, term),
-        }
     }
 }
 
