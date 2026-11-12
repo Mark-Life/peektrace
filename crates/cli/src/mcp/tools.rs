@@ -231,7 +231,14 @@ fn sessions_analyze(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
     };
     let span = rpc_span!("sessions.analyze");
     let out = traced(&span, || {
-        single::analyze(&target, &MCP_TARGET, a.globals(), &s.ctx, None)
+        single::analyze(
+            &target,
+            &MCP_TARGET,
+            a.globals(),
+            &s.ctx,
+            None,
+            Some(s.headers),
+        )
     })?;
     if let Some(n) = out.unreadable {
         span.record("sessions.unreadable", n);

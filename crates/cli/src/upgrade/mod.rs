@@ -10,7 +10,7 @@ pub mod release;
 use std::cmp::Ordering;
 use std::path::PathBuf;
 
-use self::release::{Detection, Os, ReleaseConfig, SUPPORTED_PLATFORMS};
+use self::release::{BUILD_FEED, Detection, Os, ReleaseConfig, SUPPORTED_PLATFORMS};
 use crate::args::UpgradeArgs;
 use crate::ls::UserError;
 use crate::render::bytes;
@@ -23,10 +23,14 @@ const WINDOWS_INSTALL_HINT: &str = "Automatic in-place upgrade is not supported 
 Re-run the installer to update:\n  \
 irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.ps1 | iex";
 
+const NO_FEED: &str = "Upgrade is not available in this build: it has no release feed. \
+Set PEEKTRACE_BASE_URL and PEEKTRACE_GITHUB_API to use one.";
+
 /// What `upgrade` reads from the process.
 pub struct UpgradeEnv {
     pub version: &'static str,
-    pub config: ReleaseConfig,
+    /// `None` when neither the build nor the environment names a feed.
+    pub config: Option<ReleaseConfig>,
     pub host: Detection,
     pub exe: String,
     /// The file to replace: the hook, else the real path of the binary.
@@ -42,7 +46,7 @@ impl UpgradeEnv {
             .or_else(|| std::env::current_exe().and_then(std::fs::canonicalize).ok());
         Self {
             version,
-            config: ReleaseConfig::from_env(var),
+            config: ReleaseConfig::from_env(BUILD_FEED, var),
             host: release::host_asset(),
             exe: notice::exe_path(),
             target,
@@ -57,6 +61,9 @@ pub fn run(
     env: &UpgradeEnv,
     print: &mut dyn FnMut(&str),
 ) -> Result<(), UserError> {
+    let Some(config) = &env.config else {
+        return Err(UserError::Invalid(NO_FEED.to_owned()));
+    };
     let (asset, os) = match &env.host {
         Detection::Supported { asset, os } => (asset.as_str(), *os),
         Detection::Unsupported(reason) => {
@@ -67,7 +74,7 @@ pub fn run(
     };
     let agent = release::agent(None);
     let pinned = args.version.as_deref();
-    let tag = release::resolve_target_tag(&agent, &env.config, pinned)?;
+    let tag = release::resolve_target_tag(&agent, config, pinned)?;
     let comparison = release::compare_versions(&tag, env.version);
     if args.check {
         if comparison == Ordering::Greater {
@@ -84,7 +91,7 @@ pub fn run(
         print(WINDOWS_INSTALL_HINT);
         return Ok(());
     }
-    let forced = pinned.is_some() || env.config.pinned_version.is_some();
+    let forced = pinned.is_some() || config.pinned_version.is_some();
     if comparison == Ordering::Equal && !forced {
         print(&format!("Already on the latest version ({tag})."));
         return Ok(());
@@ -95,7 +102,7 @@ pub fn run(
         ));
     };
     print(&format!("Fetching {asset} ({tag})..."));
-    let size = install::perform_upgrade(&agent, &env.config, &tag, asset, target)?;
+    let size = install::perform_upgrade(&agent, config, &tag, asset, target)?;
     print(&format!(
         "Upgraded to {tag} (downloaded {}). It takes effect on the next launch.",
         bytes(size as u64)

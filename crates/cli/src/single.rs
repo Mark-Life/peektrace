@@ -2,6 +2,7 @@
 //! session, then render its analysis or an export.
 
 use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::time::{self, LocalZone};
 use peektrace_core::js::value::JsValue;
 use peektrace_core::js::{num, text};
@@ -11,7 +12,7 @@ use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::read::{cost_from_json, listing_from_json, parsed_from_json};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
 use peektrace_core::sessions::write::analyzed_json;
-use peektrace_core::{AgentRoots, ListFilter, SessionHeader, list_sessions};
+use peektrace_core::{AgentRoots, ListFilter, SessionHeader, list_sessions, list_sessions_cached};
 
 use crate::args::{AnalyzeArgs, ExportArgs, TargetArgs};
 use crate::ls::{Context, Globals, UserError};
@@ -118,7 +119,8 @@ impl Pick {
 }
 
 /// The session to run on, and how many listed sessions were unreadable
-/// when the newest one had to be found. `remote` lists on the server.
+/// when the newest one had to be found. `remote` lists on the server;
+/// `headers` reuses headers from earlier local listings.
 fn resolve_target(
     t: &TargetArgs,
     m: &TargetMessages,
@@ -126,6 +128,7 @@ fn resolve_target(
     roots: &AgentRoots,
     zone: &dyn LocalZone,
     remote: Option<&Remote>,
+    headers: Option<&HeaderCache>,
 ) -> Result<(Pick, Option<usize>), UserError> {
     let cwd = t.cwd.as_deref().map(|c| {
         let env = &ctx.roots_env;
@@ -143,7 +146,11 @@ fn resolve_target(
             let (mut headers, unreadable) = if let Some(r) = remote {
                 listing_from_json(&r.get_json(&["sessions"], &[])?).ok_or_else(|| r.unexpected())?
             } else {
-                let listing = list_sessions(roots, &ListFilter::default());
+                let filter = ListFilter::default();
+                let listing = match headers {
+                    Some(cache) => list_sessions_cached(roots, &filter, cache),
+                    None => list_sessions(roots, &filter),
+                };
                 let n = listing.unreadable.len();
                 (listing.headers, n)
             };
@@ -355,23 +362,25 @@ pub fn run_analyze(
     ctx: &Context,
     remote: Option<&Remote>,
 ) -> Result<Output, UserError> {
-    analyze(&args.target, &CLI_TARGET, globals, ctx, remote)
+    analyze(&args.target, &CLI_TARGET, globals, ctx, remote, None)
 }
 
 /// The analysis of the session `t` picks; `m` words the target messages.
+/// `headers` caches the `--latest`/`--cwd` listing across calls.
 pub fn analyze(
     t: &TargetArgs,
     m: &TargetMessages,
     globals: Globals,
     ctx: &Context,
     remote: Option<&Remote>,
+    headers: Option<&HeaderCache>,
 ) -> Result<Output, UserError> {
     let (roots, warnings) = match remote {
         Some(_) => (AgentRoots::default(), Vec::new()),
         None => agent_roots(ctx),
     };
     let zone = SystemZone::default();
-    let (pick, unreadable) = resolve_target(t, m, ctx, &roots, &zone, remote)?;
+    let (pick, unreadable) = resolve_target(t, m, ctx, &roots, &zone, remote, headers)?;
     let parent = t.parent.as_deref();
     let stdout = if let Some(r) = remote {
         let query: Vec<(&str, &str)> = parent.map(|p| ("parent", p)).into_iter().collect();
@@ -451,7 +460,8 @@ pub fn run_export(
         None => agent_roots(ctx),
     };
     let zone = SystemZone::default();
-    let (pick, unreadable) = resolve_target(&args.target, &CLI_TARGET, ctx, &roots, &zone, remote)?;
+    let (pick, unreadable) =
+        resolve_target(&args.target, &CLI_TARGET, ctx, &roots, &zone, remote, None)?;
     let redact = !args.no_redact;
     let parent = args.target.parent.as_deref();
     let session = if let Some(r) = remote {

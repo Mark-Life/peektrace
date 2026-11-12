@@ -93,3 +93,62 @@ fn plans_like_pick_target() {
         Ok(Plan::Picked("x".to_owned()))
     );
 }
+
+/// `--cwd` picks from the cache when one is passed, so a long-lived MCP
+/// process does not re-read every header per call.
+#[test]
+fn newest_reuses_the_header_cache() {
+    use std::fs;
+    let home = std::env::temp_dir().join(format!("peektrace-single-cache-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&home);
+    let file = home.join(".claude/projects/-proj/s1.jsonl");
+    fs::create_dir_all(file.parent().expect("parent")).expect("mkdir");
+    let transcript = |cwd: &str| {
+        format!(
+            "{{\"type\":\"user\",\"sessionId\":\"s1\",\"cwd\":\"{cwd}\",\"timestamp\":\"2026-01-01T00:00:00.000Z\",\"message\":{{\"role\":\"user\",\"content\":\"hi\"}}}}\n"
+        )
+    };
+    fs::write(&file, transcript("/a")).expect("write");
+    let mtime = fs::metadata(&file)
+        .and_then(|m| m.modified())
+        .expect("mtime");
+    let ctx = Context {
+        roots_env: roots::RootsEnv {
+            home: home.to_string_lossy().into_owned(),
+            ..Default::default()
+        },
+        settings: None,
+        cwd: None,
+        now_ms: 0.0,
+    };
+    let globals = Globals {
+        json: true,
+        pretty: false,
+        read_only: true,
+    };
+    let target = TargetArgs {
+        id: None,
+        latest: false,
+        cwd: Some("/a".to_owned()),
+        parent: None,
+    };
+    let cache = HeaderCache::default();
+    let run = |cache| analyze(&target, &CLI_TARGET, globals, &ctx, None, cache);
+    assert!(run(Some(&cache)).is_ok());
+
+    // Same size and mtime: only the cached header still says `/a`.
+    fs::write(&file, transcript("/b")).expect("rewrite");
+    fs::File::options()
+        .write(true)
+        .open(&file)
+        .and_then(|f| f.set_modified(mtime))
+        .expect("set mtime");
+    let cached = run(Some(&cache));
+    let fresh = run(None);
+    let _ = fs::remove_dir_all(&home);
+    assert!(cached.is_ok(), "{cached:?}");
+    assert_eq!(
+        fresh,
+        Err(UserError::Invalid("No sessions found under /a.".to_owned()))
+    );
+}

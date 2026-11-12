@@ -282,3 +282,27 @@ fn skips_the_delta_path() {
     assert!(s.server.requests().iter().all(|p| !p.ends_with(".patch")));
     assert_eq!(fs::read(&s.target).ok().as_deref(), Some(PAYLOAD));
 }
+
+/// A build with no release feed refuses instead of installing another
+/// CLI's release over itself.
+#[test]
+fn no_release_feed_refuses_and_writes_nothing() {
+    if option_env!("PEEKTRACE_RELEASE_BASE_URL").is_some() {
+        return;
+    }
+    let s = setup(Mode::Ok);
+    let t = s.target.to_string_lossy();
+    for args in [&["upgrade", "--check"][..], &["upgrade"]] {
+        let r = s
+            .home
+            .run_stdin(args, b"", &[("PEEKTRACE_UPGRADE_TARGET", &t)]);
+        assert_eq!(r.code, 1, "{args:?}");
+        assert!(
+            r.err.starts_with("Upgrade is not available in this build"),
+            "{}",
+            r.err
+        );
+    }
+    assert_eq!(fs::read(&s.target).ok().as_deref(), Some(OLD));
+    assert_eq!(s.server.requests(), Vec::<String>::new());
+}

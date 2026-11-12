@@ -166,5 +166,5 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 15. `PEEKTRACE_UPGRADE_TARGET` ships in release builds, so parity runs on the release binary. Keep it, or gate it behind a debug build and run parity on a debug binary?
 16. Turn on the `https` feature (rustls, ~1 MB) by default? Without it `upgrade` and the update notice cannot reach GitHub. Links to question 10.
 17. Windows `upgrade`: keep the "re-run the installer" message, or rename the running `.exe` aside and replace it?
-18. Release builds need `PEEKTRACE_VERSION` at compile time, and `PEEKTRACE_RELEASE_BASE_URL`, `PEEKTRACE_RELEASE_API`, `PEEKTRACE_RELEASE_TAG_PREFIX` and `PEEKTRACE_RELEASE_ASSET_PREFIX` to point `upgrade` at Rust releases. Pick the tag prefix and asset names with `cargo-dist`.
+18. Release builds need `PEEKTRACE_VERSION` at compile time, and `PEEKTRACE_RELEASE_BASE_URL`, `PEEKTRACE_RELEASE_API`, `PEEKTRACE_RELEASE_TAG_PREFIX` and `PEEKTRACE_RELEASE_ASSET_PREFIX` to point `upgrade` at Rust releases. Without all four release vars, `upgrade` refuses and the update notice stays off, unless `PEEKTRACE_BASE_URL` and `PEEKTRACE_GITHUB_API` are set at run time. Pick the tag prefix and asset names with `cargo-dist`.
 19. `PEEKTRACE_DIR=""` puts `update-check.json` in the working dir, as TS does. Treat empty as unset in both?

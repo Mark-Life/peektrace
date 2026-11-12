@@ -146,11 +146,11 @@ fn dev_and_disabled_make_no_request() {
         version: version.to_owned(),
         exe: String::new(),
         cache_path: PathBuf::from("/nonexistent-dir-xyz/update-check.json"),
-        config: ReleaseConfig {
+        config: Some(ReleaseConfig {
             base_url: "http://127.0.0.1:1".to_owned(),
             github_api: "http://127.0.0.1:1".to_owned(),
             pinned_version: None,
-        },
+        }),
         now_ms: 0.0,
         disabled,
     };
@@ -287,11 +287,11 @@ impl NoticeCase {
             version: version.to_owned(),
             exe: exe.to_owned(),
             cache_path: self.cache(),
-            config: ReleaseConfig {
+            config: Some(ReleaseConfig {
                 base_url: self.origin.clone(),
                 github_api: self.origin.clone(),
                 pinned_version: None,
-            },
+            }),
             now_ms: now(),
             disabled,
         })
@@ -415,11 +415,11 @@ fn notice_prints_the_hint_and_writes_the_cache() {
         version: "0.1.0".to_owned(),
         exe: exe.to_owned(),
         cache_path: dir.join("nested/update-check.json"),
-        config: ReleaseConfig {
+        config: Some(ReleaseConfig {
             base_url: api.to_owned(),
             github_api: api.to_owned(),
             pinned_version: None,
-        },
+        }),
         now_ms: 1_000.0,
         disabled: false,
     };

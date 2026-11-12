@@ -368,7 +368,7 @@ fn notice_env(ctx: &Context) -> upgrade::notice::NoticeEnv {
             var("PEEKTRACE_DIR").as_deref(),
             &ctx.roots_env.home,
         ),
-        config: upgrade::release::ReleaseConfig::from_env(var),
+        config: upgrade::release::ReleaseConfig::from_env(upgrade::release::BUILD_FEED, var),
         now_ms: ctx.now_ms,
         disabled: var("PEEKTRACE_NO_UPDATE_CHECK").is_some_and(|v| !v.is_empty()),
     }

@@ -141,7 +141,8 @@ pub struct NoticeEnv {
     pub version: String,
     pub exe: String,
     pub cache_path: PathBuf,
-    pub config: ReleaseConfig,
+    /// `None` when this build has no release feed.
+    pub config: Option<ReleaseConfig>,
     pub now_ms: f64,
     /// `PEEKTRACE_NO_UPDATE_CHECK` is set and not empty.
     pub disabled: bool,
@@ -153,6 +154,7 @@ pub fn notice_line(env: &NoticeEnv) -> Option<String> {
     if env.disabled || is_dev_version(&env.version) {
         return None;
     }
+    let config = env.config.as_ref()?;
     let cache = std::fs::read(&env.cache_path)
         .ok()
         .and_then(|b| parse_cache(&String::from_utf8_lossy(&b)));
@@ -161,7 +163,7 @@ pub fn notice_line(env: &NoticeEnv) -> Option<String> {
         &env.version,
         env.now_ms,
         cache,
-        || fetch_latest_tag(&client, &env.config).ok().flatten(),
+        || fetch_latest_tag(&client, config).ok().flatten(),
         |c| {
             if let Some(dir) = env.cache_path.parent() {
                 let _ = std::fs::create_dir_all(dir);
@@ -175,7 +177,7 @@ pub fn notice_line(env: &NoticeEnv) -> Option<String> {
 /// Run the check on its own thread and hand the line to `print`, unless it
 /// misses the deadline. Never blocks the caller.
 pub fn spawn_notice(env: NoticeEnv, print: impl FnOnce(&str) + Send + 'static) {
-    if env.disabled || is_dev_version(&env.version) {
+    if env.disabled || is_dev_version(&env.version) || env.config.is_none() {
         return;
     }
     let _ = std::thread::Builder::new()

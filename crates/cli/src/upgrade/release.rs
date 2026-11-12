@@ -19,14 +19,27 @@ macro_rules! build_default {
     };
 }
 
-const DEFAULT_BASE_URL: &str = build_default!(
-    "PEEKTRACE_RELEASE_BASE_URL",
-    "https://github.com/Mark-Life/peektrace/releases/download"
-);
-const DEFAULT_GITHUB_API: &str = build_default!(
-    "PEEKTRACE_RELEASE_API",
-    "https://api.github.com/repos/Mark-Life/peektrace"
-);
+/// Release endpoints baked in at build time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Feed {
+    pub base_url: &'static str,
+    pub github_api: &'static str,
+}
+
+/// This build's feed: `None` unless every `PEEKTRACE_RELEASE_*` var was set
+/// at compile time, so a plain build never installs another CLI's release.
+pub const BUILD_FEED: Option<Feed> = match (
+    option_env!("PEEKTRACE_RELEASE_BASE_URL"),
+    option_env!("PEEKTRACE_RELEASE_API"),
+    option_env!("PEEKTRACE_RELEASE_TAG_PREFIX"),
+    option_env!("PEEKTRACE_RELEASE_ASSET_PREFIX"),
+) {
+    (Some(base_url), Some(github_api), Some(_), Some(_)) => Some(Feed {
+        base_url,
+        github_api,
+    }),
+    _ => None,
+};
 /// Prefix of the release tags this binary upgrades to.
 pub const TAG_PREFIX: &str = build_default!("PEEKTRACE_RELEASE_TAG_PREFIX", "cli-v");
 const ASSET_PREFIX: &str = build_default!("PEEKTRACE_RELEASE_ASSET_PREFIX", "peektrace-");
@@ -50,15 +63,16 @@ pub struct ReleaseConfig {
 }
 
 impl ReleaseConfig {
-    /// From the environment; an empty value counts as unset.
-    pub fn from_env(var: impl Fn(&str) -> Option<String>) -> Self {
+    /// From the environment over `feed`; an empty value counts as unset.
+    /// `None` when an endpoint is in neither.
+    pub fn from_env(feed: Option<Feed>, var: impl Fn(&str) -> Option<String>) -> Option<Self> {
         let set = |k: &str| var(k).filter(|v| !v.is_empty());
-        Self {
-            base_url: set("PEEKTRACE_BASE_URL").unwrap_or_else(|| DEFAULT_BASE_URL.to_owned()),
+        Some(Self {
+            base_url: set("PEEKTRACE_BASE_URL").or_else(|| feed.map(|f| f.base_url.to_owned()))?,
             github_api: set("PEEKTRACE_GITHUB_API")
-                .unwrap_or_else(|| DEFAULT_GITHUB_API.to_owned()),
+                .or_else(|| feed.map(|f| f.github_api.to_owned()))?,
             pinned_version: set("PEEKTRACE_VERSION"),
-        }
+        })
     }
 
     pub fn asset_url(&self, tag: &str, asset: &str) -> String {
@@ -330,15 +344,33 @@ mod tests {
 
     #[test]
     fn config_from_env() {
-        let c = ReleaseConfig::from_env(|k| match k {
+        let feed = Feed {
+            base_url: "http://dl",
+            github_api: "http://gh",
+        };
+        let var = |k: &str| match k {
             "PEEKTRACE_BASE_URL" | "PEEKTRACE_VERSION" => Some(String::new()),
             "PEEKTRACE_GITHUB_API" => Some("http://api".to_owned()),
             _ => None,
-        });
-        assert_eq!(c.base_url, DEFAULT_BASE_URL);
+        };
+        let c = ReleaseConfig::from_env(Some(feed), var).expect("feed");
+        assert_eq!(c.base_url, "http://dl");
         assert_eq!(c.github_api, "http://api");
         assert_eq!(c.pinned_version, None);
-        assert_eq!(c.asset_url("t", "a"), format!("{DEFAULT_BASE_URL}/t/a"));
+        assert_eq!(c.asset_url("t", "a"), "http://dl/t/a");
+    }
+
+    /// A build with no feed never falls back to another CLI's releases.
+    #[test]
+    fn no_feed_without_build_or_env_endpoints() {
+        let only_api = |k: &str| (k == "PEEKTRACE_GITHUB_API").then(|| "http://api".to_owned());
+        assert_eq!(ReleaseConfig::from_env(None, |_| None), None);
+        assert_eq!(ReleaseConfig::from_env(None, only_api), None);
+        let both = |k: &str| {
+            matches!(k, "PEEKTRACE_GITHUB_API" | "PEEKTRACE_BASE_URL")
+                .then(|| "http://x".to_owned())
+        };
+        assert!(ReleaseConfig::from_env(None, both).is_some());
     }
 
     /// TS `upgrade.test.ts` `detectAsset`.
