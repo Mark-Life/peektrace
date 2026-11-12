@@ -56,7 +56,7 @@ fn ok(out: &str) -> Run {
 #[test]
 fn transcript_path_prints_percent_and_verdict() {
     let f = fixture();
-    let r = f.run(&json!({ "transcript_path": f.path }).to_string());
+    let r = f.run(&json!({ "transcript_path": f.path, "extra": 1 }).to_string());
     assert_eq!(r, ok("ctx 5% Healthy\n"));
 }
 
@@ -85,9 +85,10 @@ fn context_window_size_overrides_the_default_window() {
 fn json_null_fields_count_as_absent() {
     let f = fixture();
     for payload in [
-        json!({ "session_id": ID, "transcript_path": null }),
-        json!({ "session_id": null, "transcript_path": f.path }),
         json!({ "transcript_path": f.path, "context_window": null }),
+        json!({ "transcript_path": f.path, "context_window": { "context_window_size": null } }),
+        json!({ "transcript_path": f.path, "cwd": null, "session_id": null }),
+        json!({ "transcript_path": null, "session_id": ID }),
     ] {
         assert_eq!(f.run(&payload.to_string()), ok("ctx 5% Healthy\n"));
     }
@@ -98,33 +99,54 @@ fn empty_path_falls_back_to_session_id_and_a_short_id_is_ignored() {
     let f = fixture();
     let r = f.run(&json!({ "transcript_path": "", "session_id": ID }).to_string());
     assert_eq!(r.out, "ctx 5% Healthy\n");
-    let short = f.run(&json!({ "session_id": "44444444" }).to_string());
-    assert_eq!(short.out, FALLBACK);
+    for short in ["4", "44444444"] {
+        let r = f.run(&json!({ "session_id": short }).to_string());
+        assert_eq!(r.out, FALLBACK, "{short}");
+    }
 }
 
 #[test]
 fn an_unresolvable_transcript_path_falls_back_to_session_id() {
     let f = fixture();
-    let r =
-        f.run(&json!({ "transcript_path": "/nope/missing.jsonl", "session_id": ID }).to_string());
-    assert_eq!(r.out, "ctx 5% Healthy\n");
+    for path in [format!("/elsewhere/{ID}.jsonl"), "/nope/missing.jsonl".to_owned()] {
+        let r = f.run(&json!({ "session_id": ID, "transcript_path": path }).to_string());
+        assert_eq!(r.out, "ctx 5% Healthy\n", "{path}");
+    }
 }
 
 #[test]
 fn a_wrongly_typed_context_window_loses_only_the_window() {
     let f = fixture();
     let r = f.run(
-        &json!({ "transcript_path": f.path, "context_window": { "context_window_size": "big" } })
+        &json!({ "transcript_path": f.path, "context_window": { "context_window_size": "200000" } })
             .to_string(),
     );
     assert_eq!(r.out, "ctx 5% Healthy\n");
 }
 
+/// Telemetry stays enabled here: `PEEKTRACE_NO_TELEMETRY` is removed.
 #[test]
-fn writes_no_telemetry() {
+fn writes_no_telemetry_even_when_telemetry_is_enabled() {
+    use std::io::Write as _;
     let f = fixture();
-    let r = f.run(&json!({ "session_id": ID }).to_string());
-    assert_eq!(r.out, "ctx 5% Healthy\n");
+    let mut child = f
+        .home
+        .command(&SLOW_OK)
+        .env_remove("PEEKTRACE_NO_TELEMETRY")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn");
+    let body = json!({ "transcript_path": f.path }).to_string();
+    child
+        .stdin
+        .take()
+        .expect("stdin")
+        .write_all(body.as_bytes())
+        .expect("write stdin");
+    let out = child.wait_with_output().expect("wait");
+    assert_eq!(Run::of(&out).out, "ctx 5% Healthy\n");
     assert!(!f.home.dir().join(".peektrace/telemetry.db").exists());
 }
 
@@ -135,6 +157,7 @@ fn bad_stdin_empty_object_and_unknown_id_fall_back_with_exit_0() {
         "not json".to_owned(),
         "{}".to_owned(),
         String::new(),
+        json!({ "session_id": "no-such-session" }).to_string(),
         json!({ "session_id": "99999999-9999-4999-8999-999999999999" }).to_string(),
     ] {
         assert_eq!(f.run(&stdin), ok(FALLBACK), "{stdin}");
@@ -158,7 +181,7 @@ fn stdin_held_open_times_out_falls_back_and_exits() {
     let started = Instant::now();
     let mut child = f
         .home
-        .command(&["statusline", "--timeout", "300"])
+        .command(&["statusline", "--timeout", "200"])
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
