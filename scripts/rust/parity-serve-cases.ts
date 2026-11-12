@@ -5,22 +5,19 @@ import { join } from "node:path";
 import { report } from "./parity-lib";
 import {
   api,
+  type Pair,
   type RpcExit,
   replaceText,
   rpc,
-  type Server,
   sameJson,
 } from "./parity-serve-lib";
 
-export interface Pair {
-  readonly rust: Server;
-  readonly rustDir: string;
-  readonly ts: Server;
-  readonly tsDir: string;
-}
+export type { Pair } from "./parity-serve-lib";
 
 export interface Counts {
   cases: number;
+  /** Cases of the search, stats and memory routes. */
+  features: number;
   live: number;
 }
 

@@ -8,7 +8,6 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { createServer } from "node:net";
 import { join } from "node:path";
 import { buildPiRoot } from "./parity-agents-fixtures";
 import { fixtureEnv, newestAndLargest, REPO, run, WORK } from "./parity-lib";
@@ -17,13 +16,13 @@ import {
   type Counts,
   imageCases,
   infoCases,
-  type Pair,
   readOnlyCases,
   realCases,
   sessionCases,
   settingsCases,
   watchCases,
 } from "./parity-serve-cases";
+import { fixtureFeatures, realFeatures } from "./parity-serve-features";
 import {
   authHttp,
   loopbackHttp,
@@ -33,23 +32,12 @@ import {
   startupLines,
   staticHttp,
 } from "./parity-serve-http";
-import { startServer, stopServer } from "./parity-serve-lib";
+import { freePort, withPair } from "./parity-serve-lib";
 
 const DIST = join(REPO, "apps/inspector/dist");
 const TOKEN = "parity-token-0123456789abcdefghijklmn";
 const PNG =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-
-/** A free port far from the others in use. */
-const freePort = () =>
-  new Promise<number>((done) => {
-    const srv = createServer();
-    srv.listen(0, "127.0.0.1", () => {
-      const address = srv.address();
-      const port = typeof address === "object" && address ? address.port : 0;
-      srv.close(() => done(port));
-    });
-  });
 
 /** The UI both servers serve: a copy of the built dist, with a file beside
  * it that no traversal may reach. */
@@ -143,60 +131,6 @@ const stampOf = (path: string) => {
   }
 };
 
-/** Start a TS and a Rust server with the same flags; each gets its own
- * `PEEKTRACE_DIR`. */
-const startPair = async (
-  name: string,
-  env: Record<string, string>,
-  flags: readonly string[]
-): Promise<Pair> => {
-  const tsDir = join(WORK, "serve", name, "ts-dir");
-  const rustDir = join(WORK, "serve", name, "rust-dir");
-  mkdirSync(tsDir, { recursive: true });
-  mkdirSync(rustDir, { recursive: true });
-  const ts = await startServer(
-    "ts",
-    ["--port", String(await freePort()), ...flags],
-    {
-      ...env,
-      PEEKTRACE_DIR: tsDir,
-    }
-  );
-  try {
-    const rust = await startServer(
-      "rust",
-      ["--port", String(await freePort()), ...flags],
-      {
-        ...env,
-        PEEKTRACE_DIR: rustDir,
-      }
-    );
-    return { rust, rustDir, ts, tsDir };
-  } catch (e) {
-    await stopServer(ts);
-    throw e;
-  }
-};
-
-const stopPair = async (p: Pair | undefined) => {
-  await stopServer(p?.ts);
-  await stopServer(p?.rust);
-};
-
-const withPair = async (
-  name: string,
-  env: Record<string, string>,
-  flags: readonly string[],
-  use: (p: Pair) => Promise<void>
-) => {
-  const pair = await startPair(name, env, flags);
-  try {
-    await use(pair);
-  } finally {
-    await stopPair(pair);
-  }
-};
-
 const fixtureStage = async (c: Counts) => {
   const root = join(WORK, "serve");
   const fixtures = join(REPO, "packages/core/test/fixtures");
@@ -272,17 +206,19 @@ const fixtureStage = async (c: Counts) => {
   } finally {
     oc.close();
   }
+  await fixtureFeatures(c, dist);
 };
 
 const REAL_NEWEST = 5;
 const REAL_LARGEST = 3;
 
-const realStage = async (c: Counts, realAll: boolean) => {
+const realStage = async (c: Counts, realAll: boolean, realStats: boolean) => {
+  const dist = buildUi(join(WORK, "serve", "real-ui"));
   const env = {
     PATH: process.env.PATH ?? "",
     HOME: process.env.HOME ?? "",
     PEEKTRACE_NO_TELEMETRY: "1",
-    PEEKTRACE_CLIENT_DIR: buildUi(join(WORK, "serve", "real-ui")),
+    PEEKTRACE_CLIENT_DIR: dist,
   };
   await withPair("real", env, ["--read-only"], (pair) =>
     realCases(
@@ -293,19 +229,24 @@ const realStage = async (c: Counts, realAll: boolean) => {
       stampOf
     )
   );
+  await realFeatures(c, dist, realStats);
 };
 
 export const runServeStage = async (args: {
   readonly fixtures: boolean;
   readonly real: boolean;
   readonly realAll: boolean;
+  /** Run the real-corpus stats cases (slow: a cold pass on each side). */
+  readonly realStats: boolean;
 }) => {
-  const c: Counts = { cases: 0, live: 0 };
+  const c: Counts = { cases: 0, features: 0, live: 0 };
   if (args.fixtures) {
     await fixtureStage(c);
   }
   if (args.real) {
-    await realStage(c, args.realAll);
+    await realStage(c, args.realAll, args.realStats);
   }
-  console.log(`serve stage: ${c.cases} cases, ${c.live} live`);
+  console.log(
+    `serve stage: ${c.cases} cases, ${c.live} live, features: ${c.features}`
+  );
 };

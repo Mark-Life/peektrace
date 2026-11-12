@@ -7,6 +7,7 @@
  *   bun scripts/rust/parity.ts --fixtures-only # CI
  *   bun scripts/rust/parity.ts --serve-only     # only the serve stage
  *   bun scripts/rust/parity.ts --bin target/debug/peektrace
+ *   bun scripts/rust/parity.ts --work .scratch/parity-b  # own scratch dir
  *   bun scripts/rust/parity.ts --real-all      # every real session in the
  *                                              # analyze/export stages
  *   bun scripts/rust/parity.ts --stats-only    # only the `stats` stage
@@ -419,18 +420,23 @@ const runStages = async (
   if (stages.memory) {
     await runMemoryStage({ fixtures, real });
   }
+  const realStats =
+    real &&
+    !flag("--no-real-stats") &&
+    (process.platform === "darwin" || flag("--real-stats"));
   if (stages.stats) {
-    const realStats =
-      real &&
-      !flag("--no-real-stats") &&
-      (process.platform === "darwin" || flag("--real-stats"));
     if (real && !realStats) {
       console.log("suite stats-real: skipped (pass --real-stats to run)");
     }
     runStatsStage({ fixtures, real: realStats });
   }
   if (stages.serve) {
-    await runServeStage({ fixtures, real, realAll: flag("--real-all") });
+    await runServeStage({
+      fixtures,
+      real,
+      realAll: flag("--real-all"),
+      realStats,
+    });
   }
 };
 

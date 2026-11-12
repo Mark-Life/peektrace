@@ -4,7 +4,13 @@ import { cpus } from "node:os";
 import { join, resolve } from "node:path";
 
 export const REPO = resolve(import.meta.dir, "../..");
-export const WORK = join(REPO, ".scratch", "parity");
+/** Scratch dir, wiped at start; `--work <dir>` keeps two runs apart. */
+export const WORK = resolve(
+  REPO,
+  process.argv.includes("--work")
+    ? (process.argv[process.argv.indexOf("--work") + 1] ?? "")
+    : join(".scratch", "parity")
+);
 export const TS_CMD = ["bun", join(REPO, "apps/cli/src/index.ts")];
 const MAX_REPORTED = 20;
 

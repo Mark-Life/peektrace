@@ -1,8 +1,10 @@
 /** Serve-stage plumbing: start a TS and a Rust server, call TS `/rpc` and
  * Rust `/api`, send raw HTTP, and diff JSON values key-order-free. */
-import { connect } from "node:net";
+import { mkdirSync } from "node:fs";
+import { connect, createServer } from "node:net";
+import { join } from "node:path";
 import type { Subprocess } from "bun";
-import { REPO, report, rustBin, TS_CMD } from "./parity-lib";
+import { REPO, report, rustBin, TS_CMD, WORK } from "./parity-lib";
 
 const READY = /PEEKTRACE_READY:(\d+)/;
 const START_TIMEOUT_MS = 30_000;
@@ -64,6 +66,79 @@ export const startServer = async (
   }
   proc.kill();
   throw new Error(`${label} serve did not start: ${out.stdout}${out.stderr}`);
+};
+
+/** A TS and a Rust server over the same data. */
+export interface Pair {
+  readonly rust: Server;
+  readonly rustDir: string;
+  readonly ts: Server;
+  readonly tsDir: string;
+}
+
+/** A free port far from the others in use. */
+export const freePort = () =>
+  new Promise<number>((done) => {
+    const srv = createServer();
+    srv.listen(0, "127.0.0.1", () => {
+      const address = srv.address();
+      const port = typeof address === "object" && address ? address.port : 0;
+      srv.close(() => done(port));
+    });
+  });
+
+/** Start a TS and a Rust server with the same flags. Each gets its own
+ * `PEEKTRACE_DIR`, or both get `shared` (TS caches stats in `stats/`, Rust
+ * in `stats-rs/`). */
+export type Side = "ts" | "rust";
+export type PairEnv =
+  | Record<string, string>
+  | ((side: Side) => Record<string, string>);
+
+export const startPair = async (
+  name: string,
+  pairEnv: PairEnv,
+  flags: readonly string[],
+  shared?: string
+): Promise<Pair> => {
+  const env = (side: Side) =>
+    typeof pairEnv === "function" ? pairEnv(side) : pairEnv;
+  const tsDir = shared ?? join(WORK, "serve", name, "ts-dir");
+  const rustDir = shared ?? join(WORK, "serve", name, "rust-dir");
+  mkdirSync(tsDir, { recursive: true });
+  mkdirSync(rustDir, { recursive: true });
+  const ts = await startServer(
+    "ts",
+    ["--port", String(await freePort()), ...flags],
+    { ...env("ts"), PEEKTRACE_DIR: tsDir }
+  );
+  try {
+    const rust = await startServer(
+      "rust",
+      ["--port", String(await freePort()), ...flags],
+      { ...env("rust"), PEEKTRACE_DIR: rustDir }
+    );
+    return { rust, rustDir, ts, tsDir };
+  } catch (e) {
+    await stopServer(ts);
+    throw e;
+  }
+};
+
+export const withPair = async (
+  name: string,
+  env: PairEnv,
+  flags: readonly string[],
+  use: (p: Pair) => Promise<void>,
+  shared?: string
+) => {
+  const pair = await startPair(name, env, flags, shared);
+  try {
+    await use(pair);
+  } finally {
+    await stopServer(pair.ts);
+    await stopServer(pair.rust);
+  }
 };
 
 export const stopServer = async (s: Server | undefined) => {
