@@ -16,6 +16,7 @@ mod stats_progress;
 mod stats_render;
 #[cfg(test)]
 mod stats_render_tests;
+mod statusline;
 mod verdict;
 mod width;
 mod zone;
@@ -46,7 +47,7 @@ const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
 /// Values that are not valid UTF-8 are decoded lossily, as Node does.
 /// `cwd_flag` is the `--cwd` value; the working dir is read only when it is
 /// relative.
-fn gather_context(cwd_flag: Option<&str>) -> anyhow::Result<Context> {
+fn gather_context(cwd_flag: Option<&str>, always_cwd: bool) -> anyhow::Result<Context> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
@@ -56,14 +57,14 @@ fn gather_context(cwd_flag: Option<&str>) -> anyhow::Result<Context> {
     let settings = std::fs::read(roots_env.settings_path())
         .ok()
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
-    let cwd = cwd_flag
-        .filter(|c| select::needs_base_dir(c, &roots_env.home, roots_env.style))
-        .map(|_| {
-            std::env::current_dir()
-                .context("reading the current directory")
-                .map(|d| d.to_string_lossy().into_owned())
-        })
-        .transpose()?;
+    let cwd = (always_cwd
+        || cwd_flag.is_some_and(|c| select::needs_base_dir(c, &roots_env.home, roots_env.style)))
+    .then(|| {
+        std::env::current_dir()
+            .context("reading the current directory")
+            .map(|d| d.to_string_lossy().into_owned())
+    })
+    .transpose()?;
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .context("reading the clock")?;
@@ -128,6 +129,9 @@ enum Run<'a> {
     StatsRefresh(&'a args::StatsRefreshArgs),
     StatsUsage(&'a args::StatsUsageArgs),
     Serve(&'a args::ServeArgs),
+    Statusline(&'a args::StatuslineArgs),
+    Mcp,
+    Upgrade(&'a args::UpgradeArgs),
 }
 
 impl<'a> Run<'a> {
@@ -143,7 +147,13 @@ impl<'a> Run<'a> {
             Self::StatsPrompt(_) => Some("stats prompt"),
             Self::StatsRefresh(_) => Some("stats refresh"),
             Self::StatsUsage(_) => Some("stats usage"),
-            Self::Ls(_) | Self::Analyze(_) | Self::Export(_) | Self::Serve(_) => None,
+            Self::Ls(_)
+            | Self::Analyze(_)
+            | Self::Export(_)
+            | Self::Serve(_)
+            | Self::Statusline(_)
+            | Self::Mcp
+            | Self::Upgrade(_) => None,
         }
     }
 
@@ -233,20 +243,24 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         ));
         return Ok(failure.fail(&e));
     }
-    let ctx = gather_context(cmd.cwd_flag())?;
+    if let Run::Statusline(args) = cmd {
+        let deadline = match statusline::parse_timeout(&args.timeout) {
+            Ok(d) => d,
+            Err(e) => return Ok(failure.fail(&e)),
+        };
+        let ctx = gather_context(None, false)?;
+        print_warnings(cli, &warnings_of(&ctx));
+        let remote = cli.remote.as_deref().map(remote_of);
+        print_stdout(&statusline::run(ctx, remote, deadline))?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let ctx = gather_context(cmd.cwd_flag(), false)?;
     let globals = Globals {
         json: cli.json,
         pretty: cli.pretty,
         read_only: cli.read_only,
     };
-    let remote = cli.remote.as_deref().map(|r| {
-        remote::Remote::new(
-            r,
-            std::env::var(peektrace_server::auth::TOKEN_ENV)
-                .ok()
-                .as_deref(),
-        )
-    });
+    let remote = cli.remote.as_deref().map(remote_of);
     let remote = remote.as_ref();
     let out = match cmd {
         Run::Serve(args) => return run_serve(cli, args, &ctx, failure),
@@ -274,6 +288,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         Run::StatsPrompt(args) => stats::run_prompt(args, &ctx),
         Run::StatsRefresh(args) => stats::run_refresh(args, globals, &ctx),
         Run::StatsUsage(args) => stats::run_usage(args, globals, &ctx),
+        Run::Statusline(_) | Run::Mcp | Run::Upgrade(_) => unreachable!(),
     };
     let out = match out {
         Ok(out) => out,
@@ -295,6 +310,21 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
     }
     out.notes.iter().for_each(|n| print_stderr(n));
     Ok(ExitCode::SUCCESS)
+}
+
+fn remote_of(url: &str) -> remote::Remote {
+    remote::Remote::new(
+        url,
+        std::env::var(peektrace_server::auth::TOKEN_ENV)
+            .ok()
+            .as_deref(),
+    )
+}
+
+/// The unparseable-settings warning, for commands that print no other
+/// output of the listing.
+fn warnings_of(ctx: &Context) -> Vec<String> {
+    single::agent_roots(ctx).1
 }
 
 /// `serve`: print the banner once bound, then serve until stopped.
@@ -375,6 +405,9 @@ fn main() -> ExitCode {
             Some(StatsCommand::Usage(a)) => Run::StatsUsage(a),
         },
         Some(Command::Serve(a)) => Run::Serve(a),
+        Some(Command::Statusline(a)) => Run::Statusline(a),
+        Some(Command::Mcp) => Run::Mcp,
+        Some(Command::Upgrade(a)) => Run::Upgrade(a),
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);
