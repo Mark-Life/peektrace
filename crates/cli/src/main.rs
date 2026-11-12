@@ -16,6 +16,7 @@ mod stats_progress;
 mod stats_render;
 #[cfg(test)]
 mod stats_render_tests;
+mod verdict;
 mod width;
 mod zone;
 

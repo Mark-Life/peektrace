@@ -75,15 +75,30 @@ pub(crate) fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError>
     Ok(Some(agent))
 }
 
+/// How messages name the limit and since inputs: CLI flags or MCP tool
+/// arguments.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InputNames {
+    pub limit: &'static str,
+    pub since: &'static str,
+}
+
+pub const CLI_NAMES: InputNames = InputNames {
+    limit: "--limit",
+    since: "--since",
+};
+
 /// Validated `--limit` (as a row count) and `--since` (epoch ms).
 pub(crate) fn parse_bounds(
     limit: f64,
     since: Option<&str>,
     now_ms: f64,
+    names: InputNames,
 ) -> Result<(usize, Option<f64>), UserError> {
     if limit < 0.0 {
         return Err(UserError::Invalid(format!(
-            "Invalid --limit {}. Use 0 for all, or a positive number.",
+            "Invalid {} {}. Use 0 for all, or a positive number.",
+            names.limit,
             num::to_js_string(limit)
         )));
     }
@@ -91,7 +106,8 @@ pub(crate) fn parse_bounds(
         .map(|raw| {
             select::parse_since(raw, now_ms).ok_or_else(|| {
                 UserError::Invalid(format!(
-                    "Invalid --since \"{raw}\". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w)."
+                    "Invalid {} \"{raw}\". Use an ISO date (2026-01-31) or a relative value (7d, 12h, 2w).",
+                    names.since
                 ))
             })
         })
@@ -145,6 +161,16 @@ fn fetch(
     Ok((listing.headers, listing.unreadable.len(), warnings))
 }
 
+/// Typed `sessions ls` inputs, shared by the CLI and the MCP tool.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct LsInput<'a> {
+    pub agent: Option<Agent>,
+    pub project: Option<&'a str>,
+    pub since: Option<&'a str>,
+    pub cwd: Option<&'a str>,
+    pub limit: f64,
+}
+
 /// Run `sessions ls` against `ctx`, or against `remote` when set.
 pub fn run(
     args: &LsArgs,
@@ -154,12 +180,30 @@ pub fn run(
 ) -> Result<Output, UserError> {
     let limit = parse_limit(&args.limit)?;
     let agent = parse_agent(args.agent.as_deref())?;
-    let (limit, since_ms) = parse_bounds(limit, args.since.as_deref(), ctx.now_ms)?;
-    let cwd = args.cwd.as_deref().map(|c| {
+    let input = LsInput {
+        agent,
+        project: args.project.as_deref(),
+        since: args.since.as_deref(),
+        cwd: args.cwd.as_deref(),
+        limit,
+    };
+    list(&input, CLI_NAMES, globals, ctx, remote)
+}
+
+/// The listing for typed inputs; `names` words the messages and notes.
+pub fn list(
+    input: &LsInput<'_>,
+    names: InputNames,
+    globals: Globals,
+    ctx: &Context,
+    remote: Option<&Remote>,
+) -> Result<Output, UserError> {
+    let (limit, since_ms) = parse_bounds(input.limit, input.since, ctx.now_ms, names)?;
+    let cwd = input.cwd.map(|c| {
         let env = &ctx.roots_env;
         select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
     });
-    let (headers, unreadable, warnings) = fetch(agent, args.project.as_deref(), ctx, remote)?;
+    let (headers, unreadable, warnings) = fetch(input.agent, input.project, ctx, remote)?;
     let picked = select::select_sessions(
         headers,
         &SelectOptions {
@@ -174,7 +218,7 @@ pub fn run(
     } else {
         render::session_table(&picked.rows, globals.pretty)
     };
-    let notes = render::list_notes(unreadable, table_notes, picked.hidden);
+    let notes = render::list_notes(unreadable, table_notes, picked.hidden, names.limit);
     Ok(Output {
         stdout,
         warnings,
@@ -224,13 +268,13 @@ mod tests {
 
     #[test]
     fn bounds() {
-        assert_eq!(parse_bounds(-0.0, None, 0.0), Ok((0, None)));
+        assert_eq!(parse_bounds(-0.0, None, 0.0, CLI_NAMES), Ok((0, None)));
         assert_eq!(
-            parse_bounds(-1.0, Some("xx"), 0.0),
+            parse_bounds(-1.0, Some("xx"), 0.0, CLI_NAMES),
             Err(UserError::Invalid(
                 "Invalid --limit -1. Use 0 for all, or a positive number.".to_owned()
             ))
         );
-        assert!(parse_bounds(1.0, Some("xx"), 0.0).is_err());
+        assert!(parse_bounds(1.0, Some("xx"), 0.0, CLI_NAMES).is_err());
     }
 }
