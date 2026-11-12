@@ -5,7 +5,7 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::otel::LogLevel;
 
-/// Local, loopback-only inspector for Claude Code, Codex, Pi and OpenCode
+/// Local, loopback-only inspector for Claude Code, Codex, Pi and `OpenCode`
 /// sessions: context-budget forensics, stats and Claude memory.
 #[derive(Debug, Parser)]
 #[expect(clippy::struct_excessive_bools, reason = "independent CLI flags")]
@@ -23,7 +23,7 @@ pub struct Cli {
     #[arg(long = "read-only", global = true)]
     pub read_only: bool,
 
-    /// Log Effect spans to stderr (or set PEEKTRACE_OTEL)
+    /// Log Effect spans to stderr (or set `PEEKTRACE_OTEL`)
     #[arg(long, global = true)]
     pub otel: bool,
 
@@ -45,7 +45,7 @@ pub struct Cli {
     #[arg(long, value_enum, value_name = "shell")]
     pub completions: Option<Shell>,
 
-    /// Use `peektrace serve` over HTTP (PEEKTRACE_TOKEN)
+    /// Use `peektrace serve` over HTTP (`PEEKTRACE_TOKEN`)
     #[arg(long, global = true, value_parser = lossy())]
     pub remote: Option<String>,
 

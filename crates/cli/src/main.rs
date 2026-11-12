@@ -17,6 +17,7 @@ mod stats_render;
 #[cfg(test)]
 mod stats_render_tests;
 mod statusline;
+mod upgrade;
 mod verdict;
 mod width;
 mod zone;
@@ -243,6 +244,16 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         ));
         return Ok(failure.fail(&e));
     }
+    if let Run::Upgrade(args) = cmd {
+        let env = upgrade::UpgradeEnv::from_process(VERSION);
+        let mut print = |line: &str| {
+            let _ = print_stdout(line);
+        };
+        return Ok(match upgrade::run(args, &env, &mut print) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => failure.fail(&e),
+        });
+    }
     if let Run::Statusline(args) = cmd {
         let deadline = match statusline::parse_timeout(&args.timeout) {
             Ok(d) => d,
@@ -327,6 +338,22 @@ fn warnings_of(ctx: &Context) -> Vec<String> {
     single::agent_roots(ctx).1
 }
 
+/// What the startup update check reads.
+fn notice_env(ctx: &Context) -> upgrade::notice::NoticeEnv {
+    let var = |k: &str| std::env::var(k).ok();
+    upgrade::notice::NoticeEnv {
+        version: VERSION.to_owned(),
+        exe: upgrade::notice::exe_path(),
+        cache_path: upgrade::notice::cache_path(
+            var("PEEKTRACE_DIR").as_deref(),
+            &ctx.roots_env.home,
+        ),
+        config: upgrade::release::ReleaseConfig::from_env(var),
+        now_ms: ctx.now_ms,
+        disabled: var("PEEKTRACE_NO_UPDATE_CHECK").is_some_and(|v| !v.is_empty()),
+    }
+}
+
 /// `serve`: print the banner once bound, then serve until stopped.
 fn run_serve(
     cli: &Cli,
@@ -351,6 +378,9 @@ fn run_serve(
         if desktop {
             let _ = print_stdout(&format!("PEEKTRACE_READY:{}", banner.port));
         }
+        upgrade::notice::spawn_notice(notice_env(ctx), |line| {
+            let _ = print_stdout(line);
+        });
     })?;
     Ok(ExitCode::SUCCESS)
 }

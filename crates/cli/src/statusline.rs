@@ -152,21 +152,25 @@ fn analyze_local(ctx: &Context, id: &str, window: Option<f64>) -> Result<String,
         })
 }
 
-fn analyze_remote(r: &Remote, id: &str, window: Option<f64>) -> Result<String, Missed> {
-    let w = window.map(num::to_js_string);
-    let query: Vec<(&str, &str)> = w.as_deref().map(|w| ("window", w)).into_iter().collect();
-    let v = r
+fn analyze_remote(remote: &Remote, id: &str, window: Option<f64>) -> Result<String, Missed> {
+    let window = window.map(num::to_js_string);
+    let query: Vec<(&str, &str)> = window
+        .as_deref()
+        .map(|w| ("window", w))
+        .into_iter()
+        .collect();
+    let analysis = remote
         .get(&["sessions", id, "analysis"], &query)
         .map_err(|f| Missed {
             not_found: f.tag.as_deref() == Some(NOT_FOUND_TAG),
         })?;
-    let n = |k: &str| v.get(k).and_then(JsValue::as_num);
+    let num_of = |k: &str| analysis.get(k).and_then(JsValue::as_num);
     match (
-        n("finalContextTokens"),
-        n("contextWindow"),
-        n("dumbZoneFraction"),
+        num_of("finalContextTokens"),
+        num_of("contextWindow"),
+        num_of("dumbZoneFraction"),
     ) {
-        (Some(t), Some(w), Some(d)) => Ok(render(t, w, d)),
+        (Some(tokens), Some(size), Some(dumb)) => Ok(render(tokens, size, dumb)),
         _ => Err(Missed { not_found: false }),
     }
 }

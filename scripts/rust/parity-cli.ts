@@ -1,5 +1,6 @@
 /** The `cli` stage: `statusline`, `mcp` and `upgrade`. */
 import { runStatuslineStage } from "./parity-statusline";
+import { runUpgradeStage } from "./parity-upgrade";
 
 export const runCliStage = async ({
   fixtures,
@@ -9,5 +10,7 @@ export const runCliStage = async ({
   readonly real: boolean;
 }) => {
   runStatuslineStage({ fixtures, real });
-  await Promise.resolve();
+  if (fixtures) {
+    await runUpgradeStage();
+  }
 };

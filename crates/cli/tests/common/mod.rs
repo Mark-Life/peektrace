@@ -129,6 +129,10 @@ impl Home {
         self.dir.to_string_lossy().into_owned()
     }
 
+    pub fn dir(&self) -> &Path {
+        &self.dir
+    }
+
     /// `lines` as JSONL at `path` (relative to the home).
     pub fn write(&self, rel: &str, lines: &[Value]) -> PathBuf {
         let path = self.dir.join(rel);
@@ -138,12 +142,12 @@ impl Home {
         path
     }
 
-    /// Run the binary with a clean env: nothing from the developer's machine
+    /// The binary with a clean env: nothing from the developer's machine
     /// leaks in.
-    pub fn run(&self, args: &[&str]) -> Run {
+    pub fn command(&self, args: &[&str]) -> Command {
         let h = &self.dir;
-        let out = Command::new(env!("CARGO_BIN_EXE_peektrace"))
-            .args(args)
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_peektrace"));
+        cmd.args(args)
             .env_clear()
             .env("HOME", h)
             .env("CLAUDE_CONFIG_DIR", h.join(".claude"))
@@ -151,14 +155,33 @@ impl Home {
             .env("XDG_DATA_HOME", h.join(".local/share"))
             .env("PEEKTRACE_DIR", h.join(".peektrace"))
             .env("PEEKTRACE_NO_TELEMETRY", "1")
-            .current_dir(h)
-            .output()
-            .expect("run peektrace");
-        Run {
-            code: out.status.code().unwrap_or(-1),
-            out: String::from_utf8_lossy(&out.stdout).into_owned(),
-            err: String::from_utf8_lossy(&out.stderr).into_owned(),
-        }
+            .current_dir(h);
+        cmd
+    }
+
+    pub fn run(&self, args: &[&str]) -> Run {
+        let out = self.command(args).output().expect("run peektrace");
+        Run::of(&out)
+    }
+
+    /// Run with `stdin` piped in and closed, plus `env`.
+    pub fn run_stdin(&self, args: &[&str], stdin: &[u8], env: &[(&str, &str)]) -> Run {
+        use std::io::Write as _;
+        use std::process::Stdio;
+        let mut cmd = self.command(args);
+        cmd.envs(env.iter().copied())
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = cmd.spawn().expect("spawn peektrace");
+        let mut pipe = child.stdin.take().expect("stdin");
+        let body = stdin.to_vec();
+        let writer = std::thread::spawn(move || {
+            let _ = pipe.write_all(&body);
+        });
+        let out = child.wait_with_output().expect("wait");
+        let _ = writer.join();
+        Run::of(&out)
     }
 }
 
@@ -168,10 +191,21 @@ impl Drop for Home {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Run {
     pub code: i32,
     pub out: String,
     pub err: String,
+}
+
+impl Run {
+    pub fn of(out: &std::process::Output) -> Self {
+        Self {
+            code: out.status.code().unwrap_or(-1),
+            out: String::from_utf8_lossy(&out.stdout).into_owned(),
+            err: String::from_utf8_lossy(&out.stderr).into_owned(),
+        }
+    }
 }
 
 pub fn claude_path(slug: &str, id: &str) -> String {
