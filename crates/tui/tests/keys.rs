@@ -450,13 +450,24 @@ fn a_click_selects_a_card_and_toggles_a_history_row() {
     };
     h.app.mouse(click(11));
     h.settle();
-    assert!(h.text().contains("thinking · claude-opus-5-5"), "second card: {}", h.text());
+    assert!(
+        h.text().contains("thinking · claude-opus-5-5"),
+        "second card: {}",
+        h.text()
+    );
     let t = h.text();
-    let at = t.lines().position(|l| l.contains("[t0] [user-prompt] why is")).expect("row");
+    let at = t
+        .lines()
+        .position(|l| l.contains("[t0] [user-prompt] why is"))
+        .expect("row");
     h.app.mouse(MouseEvent {
         column: 60,
         ..click(u16::try_from(at).expect("row"))
     });
     h.settle();
-    assert_eq!(h.text().matches("why is the build slow?").count(), 2, "the row opened");
+    assert_eq!(
+        h.text().matches("why is the build slow?").count(),
+        2,
+        "the row opened"
+    );
 }

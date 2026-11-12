@@ -14,6 +14,7 @@
  *   bun scripts/rust/parity.ts --search-only   # only the `sessions search` stage
  *   bun scripts/rust/parity.ts --memory-only   # only the `memory` stage
  *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp, upgrade
+ *   bun scripts/rust/parity.ts --tui-only      # only the `tui` stage
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
@@ -75,6 +76,7 @@ import { storeStamp } from "./parity-opencode-stamp";
 import { runSearchStage } from "./parity-search";
 import { runServeStage } from "./parity-serve";
 import { runStatsStage } from "./parity-stats";
+import { runTuiStage } from "./parity-tui";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
@@ -384,7 +386,7 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
 
 /** Which stages run: all by default, or one with `--<stage>-only`. */
 const pickStages = () => {
-  const only = ["stats", "search", "memory", "serve", "cli"].find((s) =>
+  const only = ["stats", "search", "memory", "serve", "cli", "tui"].find((s) =>
     flag(`--${s}-only`)
   );
   return {
@@ -394,6 +396,7 @@ const pickStages = () => {
     memory: only === undefined || only === "memory",
     stats: only === undefined || only === "stats",
     serve: only === undefined || only === "serve",
+    tui: only === undefined || only === "tui",
   };
 };
 
@@ -443,6 +446,9 @@ const runStages = async (
       realAll: flag("--real-all"),
       realStats,
     });
+  }
+  if (stages.tui) {
+    runTuiStage({ fixtures, real });
   }
 };
 

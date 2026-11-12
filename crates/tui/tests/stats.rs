@@ -134,7 +134,10 @@ fn an_empty_corpus_renders_both_tables_and_divides_by_nothing() {
 #[test]
 fn six_figure_capped_and_backgrounded_counts_keep_the_row_on_one_line() {
     let frame = open(fat(), 100, 44, &[]);
-    let row = frame.lines().find(|l| l.contains("tests")).expect("time row");
+    let row = frame
+        .lines()
+        .find(|l| l.contains("tests"))
+        .expect("time row");
     assert!(row.contains("123,456"), "{row}");
     assert!(widest(&frame) <= 100);
 }
@@ -169,6 +172,12 @@ fn a_finding_title_never_runs_into_a_wide_impact() {
     r.fails[0].label = "shell output too large: persisted".into();
     r.fails[0].sessions = 123_456_789.0;
     let frame = open(r, 160, 48, &[]);
-    let row = frame.lines().find(|l| l.contains("shell output")).expect("finding");
-    assert!(row.contains("… 123,456,789 sessions") || row.contains("persisted 123,456,789"), "{row}");
+    let row = frame
+        .lines()
+        .find(|l| l.contains("shell output"))
+        .expect("finding");
+    assert!(
+        row.contains("… 123,456,789 sessions") || row.contains("persisted 123,456,789"),
+        "{row}"
+    );
 }

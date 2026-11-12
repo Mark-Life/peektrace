@@ -382,7 +382,8 @@ fn top_help_lists_tui() {
     assert_eq!(code, 0);
     assert!(
         out.lines()
-            .any(|l| l.trim_start().starts_with("tui") && l.contains("Browse sessions in a terminal UI")),
+            .any(|l| l.trim_start().starts_with("tui")
+                && l.contains("Browse sessions in a terminal UI")),
         "{out}"
     );
 }
