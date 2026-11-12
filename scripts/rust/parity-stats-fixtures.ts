@@ -2,7 +2,8 @@
  * Fixture HOME for the `stats` parity stage: the golden project, every
  * `sessions-claude` transcript, and an edge tree built here (nested and
  * workflow agents, a journal, an empty and an unreadable file, CRLF output,
- * non-ASCII commands) plus memory files the rule check reads.
+ * non-ASCII commands), Codex, Pi and OpenCode sessions built from the same
+ * steps, plus memory files the rule check reads.
  */
 import {
   chmodSync,
@@ -15,6 +16,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { REPO } from "./parity-lib";
+import { buildAgentsStats } from "./parity-stats-agents";
 
 /** Every file gets this mtime, so ledger dates and cache keys are stable. */
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
@@ -26,7 +28,7 @@ const write = (path: string, body: string) => {
   writeFileSync(path, body);
 };
 
-interface Step {
+export interface Step {
   readonly cmd?: string;
   readonly err?: boolean;
   readonly gap?: number;
@@ -101,7 +103,7 @@ const transcript = (
   return `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`;
 };
 
-const SHELL_STEPS: readonly Step[] = [
+export const SHELL_STEPS: readonly Step[] = [
   {
     cmd: "rg -n todo src -g *.ts",
     out: "Exit code 1\r\n(eval):1: no matches found: *.ts\r\n",
@@ -299,6 +301,7 @@ export const buildStatsHome = (root: string): string => {
     join(home, "shared/rules.md"),
     join(home, ".claude/rules/link.md")
   );
+  buildAgentsStats(home);
   touchAll(home);
   chmodSync(locked, NO_ACCESS);
   return home;

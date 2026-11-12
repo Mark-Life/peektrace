@@ -2,13 +2,11 @@
 
 use peektrace_core::js::num;
 use peektrace_core::js::text;
-use peektrace_core::listing::session_files;
 use peektrace_core::roots::RootsEnv;
 use peektrace_core::stats::accumulate::DrillTable;
 use peektrace_core::stats::cache::StatsCache;
 use peektrace_core::stats::detectors::usage::UsageBy;
 use peektrace_core::stats::icu_zones::icu_zone_name;
-use peektrace_core::stats::pass::{parse_for, scope_of};
 use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
 use peektrace_core::stats::service::{ReportRequest, StatsEnv, StatsError, drill, refresh, report};
 use peektrace_core::stats::usage_service::{MAX_USAGE_DAYS, UsageRequest, usage, zone_of};
@@ -36,8 +34,7 @@ fn parse_opt_int(raw: Option<&str>) -> Result<Option<f64>, UserError> {
     raw.map(parse_int).transpose()
 }
 
-/// `--agent`: absent or `all` is every agent stats can extract; any other
-/// agent fails.
+/// `--agent`: absent or `all` is every agent.
 fn parse_agent(raw: Option<&str>) -> Result<Option<Vec<Agent>>, UserError> {
     let value = raw.unwrap_or("all");
     if value == "all" {
@@ -49,42 +46,7 @@ fn parse_agent(raw: Option<&str>) -> Result<Option<Vec<Agent>>, UserError> {
             "Unknown agent \"{value}\". Known: {known}, all."
         )));
     };
-    if parse_for(agent).is_none() {
-        let supported: Vec<&str> = scope_of(None).into_iter().map(Agent::as_str).collect();
-        return Err(UserError::Invalid(format!(
-            "Agent \"{value}\" is not supported yet. Supported: {}.",
-            supported.join(", ")
-        )));
-    }
     Ok(Some(vec![agent]))
-}
-
-/// Names as prose: `a`, `a and b`, `a, b and c`.
-fn and_list(names: &[&str]) -> String {
-    match names {
-        [] => String::new(),
-        [one] => (*one).to_owned(),
-        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
-    }
-}
-
-/// Stderr note naming the agents stats cannot extract yet whose roots hold
-/// sessions; only when no `--agent` narrows the scan.
-fn not_scanned_note(roots: &AgentRoots, agents: Option<&[Agent]>) -> Option<String> {
-    if agents.is_some() {
-        return None;
-    }
-    let names: Vec<&str> = Agent::ALL
-        .into_iter()
-        .filter(|a| parse_for(*a).is_none() && !session_files(*a, roots, None).is_empty())
-        .map(Agent::as_str)
-        .collect();
-    (!names.is_empty()).then(|| {
-        format!(
-            "{} sessions are not scanned: not supported yet",
-            and_list(&names)
-        )
-    })
 }
 
 fn cache_root(env: &RootsEnv) -> String {
@@ -98,17 +60,11 @@ fn cache_root(env: &RootsEnv) -> String {
 struct Prepared {
     roots: AgentRoots,
     warnings: Vec<String>,
-    notes: Vec<String>,
 }
 
-fn prepare(ctx: &Context, agents: Option<&[Agent]>) -> Prepared {
+fn prepare(ctx: &Context) -> Prepared {
     let (roots, warnings) = agent_roots(ctx);
-    let notes = not_scanned_note(&roots, agents).into_iter().collect();
-    Prepared {
-        roots,
-        warnings,
-        notes,
-    }
+    Prepared { roots, warnings }
 }
 
 fn env_of<'a>(
@@ -159,7 +115,7 @@ fn output(p: Prepared, stdout: &str) -> Output {
         write: None,
         warnings: p.warnings,
         unreadable: None,
-        notes: p.notes,
+        notes: Vec::new(),
     }
 }
 
@@ -178,7 +134,7 @@ fn request(common: &StatsCommon) -> Result<ReportRequest, UserError> {
 /// `stats`: the ranked tables.
 pub fn run_report(common: &StatsCommon, g: Globals, ctx: &Context) -> Result<Output, UserError> {
     let req = request(common)?;
-    let p = prepare(ctx, req.agents.as_deref());
+    let p = prepare(ctx);
     let zone = SystemZone::default();
     let r = with_progress(|pr| report(&env_of(ctx, &p, &zone, pr), &req)).map_err(scan_error)?;
     let out = if g.json {
@@ -207,7 +163,7 @@ pub fn run_drill(a: &StatsDrillArgs, g: Globals, ctx: &Context) -> Result<Output
         ));
     };
     let req = request(&a.common)?;
-    let p = prepare(ctx, req.agents.as_deref());
+    let p = prepare(ctx);
     let zone = SystemZone::default();
     let d = with_progress(|pr| drill(&env_of(ctx, &p, &zone, pr), &req, table_, key))
         .map_err(scan_error)?;
@@ -236,7 +192,7 @@ pub fn run_prompt(a: &StatsPromptArgs, ctx: &Context) -> Result<Output, UserErro
     }
     let target = picked.into_iter().next().unwrap_or(PromptTarget::Report);
     let req = request(&a.common)?;
-    let p = prepare(ctx, req.agents.as_deref());
+    let p = prepare(ctx);
     let zone = SystemZone::default();
     let r = with_progress(|pr| report(&env_of(ctx, &p, &zone, pr), &req)).map_err(scan_error)?;
     let agent = req.agents.as_ref().and_then(|v| v.first().copied());
@@ -261,7 +217,7 @@ pub fn run_prompt(a: &StatsPromptArgs, ctx: &Context) -> Result<Output, UserErro
 )]
 pub fn run_refresh(a: &StatsRefreshArgs, g: Globals, ctx: &Context) -> Result<Output, UserError> {
     let agents = parse_agent(a.agent.as_deref())?;
-    let p = prepare(ctx, agents.as_deref());
+    let p = prepare(ctx);
     let zone = SystemZone::default();
     let s = with_progress(|pr| refresh(&env_of(ctx, &p, &zone, pr), agents.as_deref(), a.force))
         .map_err(scan_error)?;
@@ -334,7 +290,7 @@ pub fn run_usage(a: &StatsUsageArgs, g: Globals, ctx: &Context) -> Result<Output
         }
         other => other.map(|d| d as i64),
     };
-    let p = prepare(ctx, agents.as_deref());
+    let p = prepare(ctx);
     let zone = SystemZone::default();
     let req = UsageRequest {
         agents,
