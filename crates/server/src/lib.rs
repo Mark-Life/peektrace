@@ -199,11 +199,11 @@ pub fn app(state: Arc<AppState>, assets: Arc<Assets>, guards: Arc<Guards>) -> Ro
     let compress = CompressionLayer::new()
         .gzip(true)
         .compress_when(SizeAbove::new(1024).and(NotForContentType::new("text/event-stream")));
-    let api = api_router().with_state(state).layer(compress);
     Router::new()
         .route("/health", get(health).fallback(empty_404))
-        .merge(api)
+        .merge(api_router().with_state(state))
         .fallback_service(axum::routing::any(static_files).with_state(assets))
+        .layer(compress)
         .layer(middleware::from_fn_with_state(guards, guard))
 }
 

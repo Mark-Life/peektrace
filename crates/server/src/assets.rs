@@ -140,8 +140,13 @@ fn content_type(path: &str) -> String {
     }
 }
 
-fn file_response(bytes: Vec<u8>, path: &str, pathname: &str, is_index: bool) -> Response<Body> {
-    let mut res = Response::new(Body::from(bytes));
+fn file_response(
+    bytes: impl Into<Body>,
+    path: &str,
+    pathname: &str,
+    is_index: bool,
+) -> Response<Body> {
+    let mut res = Response::new(bytes.into());
     let headers = res.headers_mut();
     if let Ok(v) = HeaderValue::from_str(&content_type(path)) {
         headers.insert(header::CONTENT_TYPE, v);
@@ -179,10 +184,10 @@ fn from_embedded(pathname: &str) -> Response<Body> {
         pathname
     };
     match Embedded::get(key) {
-        Some(f) if key != "index.html" => file_response(f.data.into_owned(), key, key, false),
+        Some(f) if key != "index.html" => file_response(f.data, key, key, false),
         _ => Embedded::get("index.html").map_or_else(
             || status(StatusCode::SERVICE_UNAVAILABLE, NOT_EMBEDDED),
-            |f| file_response(f.data.into_owned(), "index.html", "", true),
+            |f| file_response(f.data, "index.html", "", true),
         ),
     }
 }

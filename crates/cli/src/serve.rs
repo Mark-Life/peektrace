@@ -1,6 +1,7 @@
 //! `peektrace serve`: bind, watch every agent root, and serve the API and
 //! the web UI until SIGINT or SIGTERM.
 
+use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use peektrace_core::header_cache::HeaderCache;
@@ -66,6 +67,27 @@ pub fn banner(host: &str, port: u16, read_only: bool, token: Option<&str>, ui: &
     }
 }
 
+/// Put the child outside the server's process group, so Ctrl-C on `serve`
+/// does not reach a browser that `xdg-open` keeps in the foreground.
+#[cfg(unix)]
+fn detached(cmd: &mut Command) -> &mut Command {
+    use std::os::unix::process::CommandExt as _;
+    cmd.process_group(0)
+}
+
+#[cfg(windows)]
+fn detached(cmd: &mut Command) -> &mut Command {
+    use std::os::windows::process::CommandExt as _;
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+    cmd.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
+}
+
+#[cfg(not(any(unix, windows)))]
+fn detached(cmd: &mut Command) -> &mut Command {
+    cmd
+}
+
 fn open_browser(url: &str) {
     let (cmd, args): (&str, Vec<&str>) = if cfg!(target_os = "macos") {
         ("open", vec![url])
@@ -74,12 +96,17 @@ fn open_browser(url: &str) {
     } else {
         ("xdg-open", vec![url])
     };
-    let _ = std::process::Command::new(cmd)
-        .args(args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn();
+    let spawned = detached(
+        Command::new(cmd)
+            .args(args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null()),
+    )
+    .spawn();
+    if let Ok(mut child) = spawned {
+        std::thread::spawn(move || child.wait());
+    }
 }
 
 async fn shutdown_signal() {
@@ -226,5 +253,17 @@ mod tests {
         assert_eq!(b.stderr.len(), 1);
         let b = banner("::1", 1, false, None, "x");
         assert_eq!(b.stdout[0], "Peektrace serving on http://::1:1");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn browser_runs_in_its_own_process_group() {
+        let out = detached(Command::new("sh").args(["-c", "echo $$; ps -o pgid= -p $$"]))
+            .output()
+            .expect("sh");
+        let text = String::from_utf8_lossy(&out.stdout);
+        let ids: Vec<&str> = text.split_whitespace().collect();
+        assert_eq!(ids.len(), 2, "{text}");
+        assert_eq!(ids[0], ids[1], "child leads its own group");
     }
 }

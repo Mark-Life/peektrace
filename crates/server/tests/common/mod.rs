@@ -46,6 +46,8 @@ pub fn fixture_roots() -> AgentRoots {
 
 pub struct TestServer {
     pub port: u16,
+    /// The UI directory the server reads on each request.
+    pub ui: PathBuf,
     _runtime: tokio::runtime::Runtime,
     pub settings_path: String,
 }
@@ -114,6 +116,7 @@ pub fn start(o: &Options<'_>) -> TestServer {
     });
     TestServer {
         port,
+        ui,
         _runtime: runtime,
         settings_path,
     }

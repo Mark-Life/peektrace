@@ -129,6 +129,6 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 5. The real stats parity suite snapshots `~/.claude/projects` and deletes it after. It runs by default on macOS (APFS clone) and needs `--real-stats` elsewhere (full copy). Keep it out of CI?
 6. `memory rm` writes an empty MEMORY.md when the project has none. Rust copies TS. Fix it in both?
 7. `memory` writes (`create`, `update`) have no `expectedHash` check and no file lock in Rust: TS has both in `fs.ts` but nothing calls them. Port them with `serve` if the server needs them?
-8. TS `serve`, `tui` and the desktop sidecar serve the inspector but answer only `/rpc`, so on the `rust` branch their web UI loads no data. Accept until cutover, or add a thin `/api` adapter to the TS server?
+8. TS `serve`, `tui` and the desktop sidecar serve the inspector but answer only `/rpc`, so on the `rust` branch their web UI loads no data. `scripts/rust/ts-ui-guard.ts` makes publish-cli and publish-desktop fail until this is fixed. Accept until cutover, or add a thin `/api` adapter to the TS server?
 9. Watch roots that appear after `serve` starts (fresh machine): keep the TS behaviour (never watched) or watch the nearest existing parent?
 10. `--remote https://` adds rustls (~1 MB). It sits behind the `https` cargo feature, off by default. Turn it on for releases?
