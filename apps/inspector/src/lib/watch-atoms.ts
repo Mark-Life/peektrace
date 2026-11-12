@@ -46,7 +46,7 @@ const sessionsVersionAtom = versionAtom("sessions");
 export const livePausedAtom = Atom.make(false).pipe(Atom.keepAlive);
 
 /** Memory version as applied: gated by pause. */
-const settledMemoryVersionAtom = settledAtom({
+export const settledMemoryVersionAtom = settledAtom({
   paused: livePausedAtom,
   source: memoryVersionAtom,
   timing: MEMORY_SETTLE,

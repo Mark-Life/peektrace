@@ -11,7 +11,7 @@
  * link someone else can open.
  */
 import type { Atom } from "@effect-atom/atom-react";
-import { Result, useAtomValue } from "@effect-atom/atom-react";
+import { type Result, useAtomValue } from "@effect-atom/atom-react";
 import type { AgentId } from "@workspace/core/services/agent-id";
 import { RETRY_WINDOW } from "@workspace/core/services/stats/detectors/retry-gates";
 import type {
@@ -20,7 +20,6 @@ import type {
   StatsReport,
 } from "@workspace/core/services/stats/schema";
 import { useState } from "react";
-import { NotPorted } from "../components/not-ported";
 import type { ApiFailure } from "../lib/api";
 import { ResultView } from "../lib/result-view";
 import { setHashParam, useHashParam } from "../lib/routes";
@@ -31,7 +30,6 @@ import {
   useStatsReport,
 } from "../lib/stats-atoms";
 import { findingsOf, promptsOf, suggestedRules } from "../lib/stats-format";
-import { isNotPorted } from "../lib/wire-error";
 import { CauseTable } from "./stats/cause-table";
 import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
@@ -240,13 +238,6 @@ export const StatsRoute = () => {
     drill === null ? null : { ...drill, offset },
     scope
   );
-  if (Result.isFailure(report) && isNotPorted(report.cause)) {
-    return (
-      <div className="flex flex-col gap-8" data-testid="stats-route">
-        <NotPorted message="Stats are not available in the Rust build yet." />
-      </div>
-    );
-  }
   return (
     <div className="flex flex-col gap-8" data-testid="stats-route">
       <ResultView

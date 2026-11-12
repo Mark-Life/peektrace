@@ -23,7 +23,6 @@ const WIRE_TAGS = new Set<WireError["_tag"]>([
   "SettingsWriteError",
   "StatsScanError",
   "StatsRowNotFoundError",
-  "NotPortedYetError",
   "BadRequestError",
   "ImageNotFoundError",
   "NotFoundError",
@@ -76,8 +75,6 @@ export const wireErrorMessage = (error: WireError): string => {
       return `That transcript could not be read (${error.reason}). The file may be locked or malformed.`;
     case "SettingsWriteError":
       return `Settings could not be saved (${error.reason}).`;
-    case "NotPortedYetError":
-      return "Not available in the Rust build yet.";
     case "BadRequestError":
       return `The server refused the request (${error.reason}).`;
     case "ImageNotFoundError":
@@ -90,7 +87,3 @@ export const wireErrorMessage = (error: WireError): string => {
       return "The request failed.";
   }
 };
-
-/** True when a query failed because this server does not serve the feature. */
-export const isNotPorted = (cause: Cause.Cause<unknown>) =>
-  wireErrorOfCause(cause)?._tag === "NotPortedYetError";
