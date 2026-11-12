@@ -1,5 +1,6 @@
 //! End-to-end runs of the `peektrace` binary. Expected output was produced
 //! by the TS CLI on the same files.
+#![cfg_attr(not(unix), allow(unused_imports, dead_code))]
 
 mod common;
 

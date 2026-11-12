@@ -1,6 +1,7 @@
 //! Codex and Pi roots and file discovery, ported from the TS tests
 //! `agents-walkers.test.ts`, the Codex/Pi cases of `agents.test.ts`, and the
 //! unreadable-row case of `swallowed-errors.test.ts`.
+#![cfg_attr(not(unix), allow(unused_imports, dead_code))]
 
 mod common;
 
