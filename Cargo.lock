@@ -1411,6 +1411,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "peektrace-telemetry"
+version = "0.0.0"
+dependencies = [
+ "peektrace-core",
+ "rusqlite",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "peektrace-tui"
 version = "0.0.0"
 dependencies = [

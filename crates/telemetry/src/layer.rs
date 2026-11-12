@@ -1,0 +1,294 @@
+//! A `tracing` layer that builds one wide event per root span: a span with
+//! `peektrace.root = true`. Every other span joins its nearest root
+//! ancestor; one with none is dropped. Events go to a callback when their
+//! root closes, so the layer never touches the store itself.
+
+use std::cell::RefCell;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
+use tracing::span::{Attributes, Id, Record};
+use tracing::{Metadata, Subscriber};
+use tracing_subscriber::layer::{Context, Filter, Layer};
+use tracing_subscriber::registry::LookupSpan;
+
+use crate::attrs::{Attrs, ROOT_FIELD, object};
+use crate::event::{Kind, Outcome, SpanRecord, WideEvent, hex_id, uuid_v4};
+
+/// Child spans kept per root; later ones are dropped.
+pub const MAX_SPANS_PER_ROOT: usize = 1024;
+/// TS has no tag at the Rust record sites.
+const ERROR_TAG: &str = "Error";
+
+/// Where finished events go.
+pub type Emit = Arc<dyn Fn(WideEvent) + Send + Sync>;
+
+/// The finished children of one open root.
+#[derive(Default)]
+struct RootBuf {
+    spans: Mutex<Vec<SpanRecord>>,
+    full: AtomicBool,
+    closed: AtomicBool,
+}
+
+impl RootBuf {
+    fn push(&self, record: SpanRecord) {
+        if self.closed.load(Ordering::Relaxed) {
+            return;
+        }
+        let mut spans = self.spans.lock().unwrap_or_else(PoisonError::into_inner);
+        if spans.len() < MAX_SPANS_PER_ROOT {
+            spans.push(record);
+        }
+        if spans.len() >= MAX_SPANS_PER_ROOT {
+            self.full.store(true, Ordering::Relaxed);
+        }
+    }
+
+    fn take(&self) -> Vec<SpanRecord> {
+        self.closed.store(true, Ordering::Relaxed);
+        std::mem::take(&mut *self.spans.lock().unwrap_or_else(PoisonError::into_inner))
+    }
+}
+
+/// What the layer keeps on each span it tracks.
+struct Node {
+    start: Instant,
+    /// `None` once the root is full: the span would be dropped anyway.
+    attrs: Option<Attrs>,
+    root: Arc<RootBuf>,
+    /// The trace id, on roots only.
+    trace: Option<u64>,
+}
+
+thread_local! {
+    /// Roots entered on this thread, innermost last.
+    static ENTERED: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Roots a panic hit while they were entered, with the panic message.
+static DEFECTS: Mutex<Vec<(u64, String)>> = Mutex::new(Vec::new());
+
+/// Mark the innermost root entered on this thread as a defect. Called from
+/// the panic hook.
+pub fn mark_defect(message: &str) {
+    if let Some(id) = ENTERED.with(|e| e.borrow().last().copied()) {
+        DEFECTS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((id, message.to_owned()));
+    }
+}
+
+fn take_defect(id: u64) -> Option<String> {
+    let mut defects = DEFECTS.lock().unwrap_or_else(PoisonError::into_inner);
+    let at = defects.iter().position(|(d, _)| *d == id)?;
+    Some(defects.swap_remove(at).1)
+}
+
+/// The text of a panic payload.
+pub fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|s| (*s).to_owned())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "panic".to_owned())
+}
+
+/// Builds wide events and hands each to `emit`.
+pub struct StoreLayer {
+    emit: Emit,
+    app_version: String,
+    platform: String,
+    /// Shared by span and trace ids, as the TS tracer counts them.
+    counter: AtomicU64,
+}
+
+impl StoreLayer {
+    pub fn new(emit: Emit, app_version: &str, platform: String) -> Self {
+        Self {
+            emit,
+            app_version: app_version.to_owned(),
+            platform,
+            counter: AtomicU64::new(0),
+        }
+    }
+
+    fn next_id(&self) -> u64 {
+        self.counter.fetch_add(1, Ordering::Relaxed) + 1
+    }
+
+    fn event(&self, name: &str, node: &Node, attrs: &Attrs, defect: Option<String>) -> WideEvent {
+        let duration_ms = node.start.elapsed().as_secs_f64() * 1000.0;
+        let outcome = match (defect, attrs.error()) {
+            (Some(message), _) => Outcome::Defect { message },
+            (None, Some(message)) => Outcome::Error {
+                tag: ERROR_TAG.to_owned(),
+                message: message.to_owned(),
+            },
+            (None, None) => Outcome::Success,
+        };
+        let attributes = object(
+            attrs
+                .fields()
+                .iter()
+                .filter(|(k, _)| !k.starts_with("peektrace."))
+                .map(|(k, v)| (*k, v.as_str())),
+        );
+        let ts = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| i64::try_from(d.as_millis()).unwrap_or(i64::MAX));
+        WideEvent {
+            id: uuid_v4(),
+            trace_id: hex_id(node.trace.unwrap_or_default()),
+            ts,
+            kind: Kind::of(attrs.kind()),
+            name: name.to_owned(),
+            app_version: self.app_version.clone(),
+            platform: self.platform.clone(),
+            duration_ms,
+            attributes,
+            spans: node.root.take(),
+            outcome,
+        }
+    }
+}
+
+impl<S> Layer<S> for StoreLayer
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    fn on_new_span(&self, attrs: &Attributes<'_>, id: &Id, ctx: Context<'_, S>) {
+        let Some(span) = ctx.span(id) else {
+            return;
+        };
+        let root = attrs.metadata().fields().field(ROOT_FIELD).is_some();
+        let parent_root = || {
+            span.parent()
+                .and_then(|p| p.extensions().get::<Node>().map(|n| Arc::clone(&n.root)))
+        };
+        let node = if root {
+            let mut fields = Attrs::default();
+            attrs.record(&mut fields);
+            if !fields.is_root() {
+                return self.child(attrs, &span, parent_root());
+            }
+            let trace = self.next_id();
+            self.next_id();
+            Node {
+                start: Instant::now(),
+                attrs: Some(fields),
+                root: Arc::new(RootBuf::default()),
+                trace: Some(trace),
+            }
+        } else {
+            return self.child(attrs, &span, parent_root());
+        };
+        span.extensions_mut().insert(node);
+    }
+
+    fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
+        if let Some(span) = ctx.span(id)
+            && let Some(node) = span.extensions_mut().get_mut::<Node>()
+            && let Some(attrs) = node.attrs.as_mut()
+        {
+            values.record(attrs);
+        }
+    }
+
+    fn on_enter(&self, id: &Id, ctx: Context<'_, S>) {
+        if is_root(id, &ctx) {
+            ENTERED.with(|e| e.borrow_mut().push(id.into_u64()));
+        }
+    }
+
+    fn on_exit(&self, id: &Id, ctx: Context<'_, S>) {
+        if is_root(id, &ctx) {
+            let raw = id.into_u64();
+            ENTERED.with(|e| {
+                let mut e = e.borrow_mut();
+                if let Some(at) = e.iter().rposition(|x| *x == raw) {
+                    e.remove(at);
+                }
+            });
+        }
+    }
+
+    fn on_close(&self, id: Id, ctx: Context<'_, S>) {
+        let Some(span) = ctx.span(&id) else {
+            return;
+        };
+        let Some(mut node) = span.extensions_mut().remove::<Node>() else {
+            return;
+        };
+        let Some(attrs) = node.attrs.take() else {
+            return;
+        };
+        if node.trace.is_some() {
+            let defect = take_defect(id.into_u64());
+            (self.emit)(self.event(span.name(), &node, &attrs, defect));
+            return;
+        }
+        let duration_ms = node.start.elapsed().as_secs_f64() * 1000.0;
+        node.root.push(SpanRecord {
+            name: span.name().to_owned(),
+            duration_ms,
+            attributes: attrs.to_json(),
+        });
+    }
+}
+
+fn is_root<S>(id: &Id, ctx: &Context<'_, S>) -> bool
+where
+    S: Subscriber + for<'a> LookupSpan<'a>,
+{
+    ctx.span(id)
+        .and_then(|s| s.extensions().get::<Node>().map(|n| n.trace.is_some()))
+        .unwrap_or(false)
+}
+
+impl StoreLayer {
+    /// Track a non-root span under `root`, or not at all when it has none.
+    fn child<S>(
+        &self,
+        attrs: &Attributes<'_>,
+        span: &tracing_subscriber::registry::SpanRef<'_, S>,
+        root: Option<Arc<RootBuf>>,
+    ) where
+        S: Subscriber + for<'a> LookupSpan<'a>,
+    {
+        self.next_id();
+        let Some(root) = root else {
+            return;
+        };
+        let fields = (!root.full.load(Ordering::Relaxed)).then(|| {
+            let mut fields = Attrs::default();
+            attrs.record(&mut fields);
+            fields
+        });
+        span.extensions_mut().insert(Node {
+            start: Instant::now(),
+            attrs: fields,
+            root,
+            trace: None,
+        });
+    }
+}
+
+/// Lets spans through and keeps log events out, decided once per callsite.
+pub struct SpansOnly;
+
+impl<S> Filter<S> for SpansOnly {
+    fn enabled(&self, meta: &Metadata<'_>, _: &Context<'_, S>) -> bool {
+        meta.is_span()
+    }
+
+    fn callsite_enabled(&self, meta: &'static Metadata<'static>) -> tracing::subscriber::Interest {
+        if meta.is_span() {
+            tracing::subscriber::Interest::always()
+        } else {
+            tracing::subscriber::Interest::never()
+        }
+    }
+}
