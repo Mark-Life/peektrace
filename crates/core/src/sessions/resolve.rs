@@ -36,14 +36,19 @@ pub fn slash_join(parts: &[&str]) -> String {
     out
 }
 
-/// Text after the last `/`.
-fn basename(path: &str) -> &str {
-    path.rsplit('/').next().unwrap_or(path)
+/// True for a path separator of the platform (`\\` also counts on Windows).
+const fn is_sep(c: char) -> bool {
+    c == '/' || (cfg!(windows) && c == '\\')
 }
 
-/// Text before the last `/` (empty when there is none).
+/// Text after the last separator.
+fn basename(path: &str) -> &str {
+    path.rsplit(is_sep).next().unwrap_or(path)
+}
+
+/// Text before the last separator (empty when there is none).
 fn dirname(path: &str) -> &str {
-    path.rfind('/').map_or("", |at| &path[..at])
+    path.rfind(is_sep).map_or("", |at| &path[..at])
 }
 
 /// `fs.exists`: the path (after symlinks) can be stat'ed.
