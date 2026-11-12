@@ -133,7 +133,7 @@ fn findings_rank_by_effort_tier_never_by_a_blended_score() {
 #[test]
 fn a_row_core_minted_no_note_for_is_never_a_finding() {
     let r = report(vec![], vec![fail_row("k", |_| {})], vec![time_row(|_| {})]);
-    assert!(findings_of(&r).is_empty());
+    assert_eq!(findings_of(&r), []);
 }
 
 #[test]
