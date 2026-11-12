@@ -24,6 +24,7 @@ import {
   TS_CMD,
   WORK,
 } from "./parity-lib";
+import { buildOpencodeData } from "./parity-opencode-fixtures";
 import { storeStamp } from "./parity-opencode-stamp";
 import { buildEdge, buildSynthetic, locked } from "./parity-search-fixtures";
 
@@ -109,12 +110,20 @@ const settle = (r: Run, json: boolean): Run => {
 const runCase = async (
   name: string,
   env: Record<string, string>,
-  args: string[]
+  args: string[],
+  serial = false
 ) => {
-  const [ts, rust] = await Promise.all([
-    runAsync([...TS_CMD, ...args], env),
-    runAsync([rustBin, ...args], env),
-  ]);
+  const both = () =>
+    Promise.all([
+      runAsync([...TS_CMD, ...args], env),
+      runAsync([rustBin, ...args], env),
+    ]);
+  const [ts, rust] = serial
+    ? [
+        await runAsync([...TS_CMD, ...args], env),
+        await runAsync([rustBin, ...args], env),
+      ]
+    : await both();
   const json = args.includes("--json");
   const early = json
     ? truncated(ts.stdout)
@@ -158,20 +167,25 @@ const fixtureSuites = (suites: readonly Suite[]): Suite[] => {
     ["agents-fixtures", "edge"].includes(s.name)
   );
   const ocMain = join(WORK, "oc", "main");
-  const oc: Suite[] = existsSync(ocMain)
-    ? [
-        {
-          name: "search-oc-main",
-          env: fixtureEnv(join(WORK, "oc-home"), {
-            PEEKTRACE_CLAUDE_PROJECTS: join(WORK, "oc-empty"),
-            PEEKTRACE_CODEX_SESSIONS: join(WORK, "oc-empty"),
-            PEEKTRACE_PI_SESSIONS: join(WORK, "oc-empty"),
-            PEEKTRACE_OPENCODE_DATA: ocMain,
-          }),
-          args: [],
-        },
-      ]
-    : [];
+  if (!existsSync(ocMain)) {
+    buildOpencodeData(
+      join(WORK, "oc"),
+      join(fixtures, "sessions/projects")
+    ).close();
+  }
+  for (const dir of ["oc-home", "oc-empty"]) {
+    mkdirSync(join(WORK, dir), { recursive: true });
+  }
+  const oc: Suite = {
+    name: "search-oc-main",
+    env: fixtureEnv(join(WORK, "oc-home"), {
+      PEEKTRACE_CLAUDE_PROJECTS: join(WORK, "oc-empty"),
+      PEEKTRACE_CODEX_SESSIONS: join(WORK, "oc-empty"),
+      PEEKTRACE_PI_SESSIONS: join(WORK, "oc-empty"),
+      PEEKTRACE_OPENCODE_DATA: ocMain,
+    }),
+    args: [],
+  };
   return [
     {
       name: "search-ts-fixtures",
@@ -184,7 +198,7 @@ const fixtureSuites = (suites: readonly Suite[]): Suite[] => {
       args: [],
     },
     ...reuse.map((s) => ({ ...s, name: `search-${s.name}` })),
-    ...oc,
+    oc,
     { name: "search-synthetic", env: fixtureEnv(buildSynthetic()), args: [] },
     { name: "search-lines", env: fixtureEnv(buildEdge()), args: [] },
   ];
@@ -194,7 +208,14 @@ const runFixtures = async (suites: readonly Suite[]) => {
   for (const suite of fixtureSuites(suites)) {
     const args = suiteArgs(projectsOf(suite.env));
     console.log(`suite ${suite.name}: ${args.length} cases`);
-    await pool(args, (a) => runCase(suite.name, suite.env, a));
+    // TS skips an OpenCode store another process holds locked, so runs
+    // that share a store go one at a time.
+    const shared = suite.env.PEEKTRACE_OPENCODE_DATA !== undefined;
+    await pool(
+      args,
+      (a) => runCase(suite.name, suite.env, a, shared),
+      shared ? 1 : undefined
+    );
   }
 };
 
