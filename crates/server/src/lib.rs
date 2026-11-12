@@ -25,6 +25,7 @@ use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::time::LocalZone;
 use peektrace_protocol::WatchVersions;
 use tokio::sync::watch;
+use tower_http::CompressionLevel;
 use tower_http::compression::CompressionLayer;
 use tower_http::compression::predicate::{NotForContentType, Predicate, SizeAbove};
 
@@ -243,8 +244,10 @@ fn compressible() -> impl Predicate {
 
 /// The whole app: API, `/health`, the UI, and the guards in front.
 pub fn app(state: Arc<AppState>, assets: Arc<Assets>, guards: Arc<Guards>) -> Router {
+    // Level 1: on loopback the CPU cost of a higher level outweighs the bytes saved.
     let compress = CompressionLayer::new()
         .gzip(true)
+        .quality(CompressionLevel::Fastest)
         .compress_when(compressible());
     Router::new()
         .route("/health", get(health).fallback(empty_404))

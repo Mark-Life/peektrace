@@ -105,7 +105,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--remote --json` key order | Schema order (`provider` first) | local CLI order |
 | `--remote https://` | supported | needs the `https` cargo feature (rustls); the default build has no TLS client and says so |
 | `SettingsWriteError.reason` on IO failure | `String(PlatformError)` | OS error text; the temp file is removed |
-| `/api` JSON over 1 KiB | sent as is | gzip when the client accepts it |
+| `/api` JSON over 1 KiB | sent as is | gzip (level 1) when the client accepts it |
 | Bad search, stats or memory payload (missing field, bad enum, search `limit` -1 or 1.5, blank `q`, `since` `7d`, usage `days` 0, drill table `bogus`) | Effect `Die` | 400 `BadRequestError` |
 | Stats `agents: []` | scans nothing | not expressible: no `agent` param means every agent |
 | Stats `redact: false` | raw strings, cache skipped | 400 `BadRequestError` |
