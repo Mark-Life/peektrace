@@ -373,6 +373,228 @@ mod tests {
         origin
     }
 
+    /// TS `update-hint.test.ts`, with its own fixtures.
+    #[test]
+    fn update_hint_ts_fixtures() {
+        assert!(is_dev_version("0.0.0-dev"));
+        assert!(is_dev_version("1.2.0-dev.3"));
+        assert!(!is_dev_version("0.11.0"));
+        assert!(!is_dev_version("1.0.0-devious"));
+
+        assert!(is_npm_install(
+            "/opt/x/node_modules/@peektrace/cli/bin/peektrace"
+        ));
+        assert!(is_npm_install(
+            r"C:\x\node_modules\@peektrace\cli\bin\peektrace.exe"
+        ));
+        assert!(!is_npm_install("/usr/local/bin/peektrace"));
+        assert!(!is_npm_install("/opt/node_modules_backup/peektrace"));
+
+        assert!(is_bun_global_install(
+            "/home/u/.bun/install/global/node_modules/x/peektrace"
+        ));
+        assert!(is_bun_global_install(
+            r"C:\Users\u\.bun\install\global\node_modules\x\peektrace.exe"
+        ));
+        assert!(!is_bun_global_install("/opt/x/node_modules/y/peektrace"));
+
+        assert_eq!(
+            update_hint("cli-v1.0.0", "/usr/local/bin/peektrace"),
+            "A newer version (cli-v1.0.0) is available — run 'peektrace upgrade'"
+        );
+        assert_eq!(
+            update_hint("cli-v1.0.0", "/a/node_modules/b/peektrace"),
+            "A newer version (cli-v1.0.0) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')"
+        );
+        let bun = update_hint(
+            "cli-v1.0.0",
+            "/home/u/.bun/install/global/node_modules/@peektrace/cli-linux-x64/bin/peektrace",
+        );
+        assert!(bun.contains("bun add -g peektrace@latest"));
+        assert!(!bun.contains("npm"));
+    }
+
+    /// A releases API that answers `[desktop-v3.0.0, cli-v9.9.9, cli-v0.0.1]`
+    /// to every request and counts them, as the TS fake server does.
+    fn counting_server() -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        use std::io::{BufRead as _, BufReader, Write as _};
+        use std::sync::atomic::Ordering::Relaxed;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let origin = format!("http://{}", listener.local_addr().expect("addr"));
+        let count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let seen = std::sync::Arc::clone(&count);
+        std::thread::spawn(move || {
+            for conn in listener.incoming() {
+                let Ok(mut conn) = conn else { continue };
+                let _: Vec<String> = BufReader::new(conn.try_clone().expect("clone"))
+                    .lines()
+                    .map_while(Result::ok)
+                    .take_while(|l| !l.is_empty())
+                    .collect();
+                seen.fetch_add(1, Relaxed);
+                let body = r#"[{"tag_name":"desktop-v3.0.0"},{"tag_name":"cli-v9.9.9"},{"tag_name":"cli-v0.0.1"}]"#;
+                let _ = write!(
+                    conn,
+                    "HTTP/1.1 200 OK\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+            }
+        });
+        (origin, count)
+    }
+
+    const BINARY_PATH: &str = "/opt/x/bin/peektrace";
+    const NPM_PATH: &str = "/opt/x/node_modules/@peektrace/cli-linux-x64/bin/peektrace";
+
+    /// A fresh cache dir per case, as TS `freshCacheDir` makes one.
+    struct NoticeCase {
+        dir: PathBuf,
+        origin: String,
+        count: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    }
+
+    impl NoticeCase {
+        fn new(name: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!(
+                "peektrace-updatecheck-{name}-{}",
+                std::process::id()
+            ));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).expect("mkdir");
+            let (origin, count) = counting_server();
+            Self { dir, origin, count }
+        }
+
+        fn cache(&self) -> PathBuf {
+            self.dir.join(CACHE_FILE)
+        }
+
+        fn requests(&self) -> usize {
+            self.count.load(std::sync::atomic::Ordering::Relaxed)
+        }
+
+        fn run(&self, version: &str, exe: &str, disabled: bool) -> Option<String> {
+            notice_line(&NoticeEnv {
+                version: version.to_owned(),
+                exe: exe.to_owned(),
+                cache_path: self.cache(),
+                config: ReleaseConfig {
+                    base_url: self.origin.clone(),
+                    github_api: self.origin.clone(),
+                    pinned_version: None,
+                },
+                now_ms: now(),
+                disabled,
+            })
+        }
+
+        fn seed(&self, tag: &str) {
+            std::fs::write(
+                self.cache(),
+                cache_json(&Cache {
+                    checked_at: now(),
+                    latest_tag: Some(tag.to_owned()),
+                }),
+            )
+            .expect("seed cache");
+        }
+    }
+
+    impl Drop for NoticeCase {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    #[allow(clippy::cast_precision_loss)]
+    fn now() -> f64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0.0, |d| d.as_millis() as f64)
+    }
+
+    /// TS `startupUpdateNotice`: prints the hint and writes the cache when a
+    /// newer tag exists.
+    #[test]
+    fn startup_notice_prints_the_hint_and_writes_the_cache() {
+        let c = NoticeCase::new("hint");
+        let out = c.run("0.0.1", BINARY_PATH, false).unwrap_or_default();
+        assert!(out.contains("A newer version (cli-v9.9.9) is available"));
+        assert!(c.requests() > 0);
+        let cache = std::fs::read_to_string(c.cache())
+            .ok()
+            .and_then(|t| parse_cache(&t));
+        assert_eq!(
+            cache.and_then(|c| c.latest_tag),
+            Some("cli-v9.9.9".to_owned())
+        );
+    }
+
+    /// TS `startupUpdateNotice`: prints nothing when up to date.
+    #[test]
+    fn startup_notice_is_silent_when_up_to_date() {
+        let c = NoticeCase::new("same");
+        assert_eq!(c.run("9.9.9", BINARY_PATH, false), None);
+    }
+
+    /// TS `startupUpdateNotice`: `PEEKTRACE_NO_UPDATE_CHECK` makes zero
+    /// network calls.
+    #[test]
+    fn startup_notice_disabled_makes_zero_requests() {
+        let c = NoticeCase::new("off");
+        assert_eq!(c.run("0.0.1", BINARY_PATH, true), None);
+        assert_eq!(c.requests(), 0);
+    }
+
+    /// TS `startupUpdateNotice`: resolves silently when the API is
+    /// unreachable.
+    #[test]
+    fn startup_notice_is_silent_when_unreachable() {
+        let mut c = NoticeCase::new("down");
+        c.origin = "http://127.0.0.1:1".to_owned();
+        assert_eq!(c.run("0.0.1", BINARY_PATH, false), None);
+    }
+
+    /// TS `startupUpdateNotice`: an older cached tag prints nothing and
+    /// makes no request.
+    #[test]
+    fn startup_notice_older_cached_tag_is_silent() {
+        let c = NoticeCase::new("older");
+        c.seed("cli-v0.10.1");
+        assert_eq!(c.run("0.11.0", BINARY_PATH, false), None);
+        assert_eq!(c.requests(), 0);
+    }
+
+    /// TS `startupUpdateNotice`: dev builds skip cache and network.
+    #[test]
+    fn startup_notice_skips_dev_builds() {
+        let c = NoticeCase::new("dev");
+        for version in ["0.0.0-dev", "0.12.0-dev.1"] {
+            assert_eq!(c.run(version, BINARY_PATH, false), None);
+        }
+        assert_eq!(c.requests(), 0);
+        assert!(!c.cache().exists());
+    }
+
+    /// TS `startupUpdateNotice`: npm installs get the npm command.
+    #[test]
+    fn startup_notice_names_npm_for_npm_installs() {
+        let c = NoticeCase::new("npm");
+        let out = c.run("0.0.1", NPM_PATH, false).unwrap_or_default();
+        assert!(out.contains("npm i -g peektrace@latest"));
+        assert!(!out.contains("peektrace upgrade"));
+    }
+
+    /// TS `startupUpdateNotice`: a fresh cache (<24h) skips the network.
+    #[test]
+    fn startup_notice_uses_a_fresh_cache() {
+        let c = NoticeCase::new("fresh");
+        c.seed("cli-v5.0.0");
+        let out = c.run("0.0.1", BINARY_PATH, false).unwrap_or_default();
+        assert_eq!(c.requests(), 0);
+        assert!(out.contains("A newer version (cli-v5.0.0) is available"));
+    }
+
     /// TS `upgrade.test.ts` `startupUpdateNotice`: hint plus cache write,
     /// npm hint, unreachable stays silent.
     #[test]

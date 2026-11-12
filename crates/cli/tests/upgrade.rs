@@ -266,3 +266,19 @@ fn same_version_is_already_latest() {
     let r = s.run(&["upgrade", "--check", "--version", "cli-v0.0.0"]);
     assert_eq!(r.out, "peektrace is up to date (cli-v0.0.0-dev).\n");
 }
+
+/// TS "skips the delta path outside a compiled binary": Rust has no delta
+/// route, so an upgrade from an older release is always the full download.
+#[test]
+fn skips_the_delta_path() {
+    let s = setup(Mode::Ok);
+    let r = s.run(&["upgrade", "--version", "cli-v9.9.9"]);
+    assert_eq!(r.code, 0, "{}", r.err);
+    assert!(
+        r.out.contains("(downloaded 7 B)") && !r.out.contains("patched"),
+        "{}",
+        r.out
+    );
+    assert!(s.server.requests().iter().all(|p| !p.ends_with(".patch")));
+    assert_eq!(fs::read(&s.target).ok().as_deref(), Some(PAYLOAD));
+}

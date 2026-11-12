@@ -409,6 +409,54 @@ mod tests {
         assert_eq!(normalize_tag("0.0.0-dev"), "cli-v0.0.0-dev");
     }
 
+    /// TS `upgrade.test.ts` "pure helpers", with its own fixtures.
+    #[test]
+    fn pure_helpers_ts_fixtures() {
+        let p = |s: &str| JsValue::parse(s).as_ref().and_then(parse_latest_tag);
+        assert_eq!(
+            p(
+                r#"[{"tag_name":"desktop-v3.0.0"},{"tag_name":"cli-v2.1.0"},{"tag_name":"cli-v1.0.0"}]"#
+            ),
+            Some("cli-v2.1.0".to_owned())
+        );
+        assert_eq!(p(r#"[{"tag_name":"desktop-v1.0.0"}]"#), None);
+        assert_eq!(p(r#""nope""#), None);
+
+        let sums = "abc123  peektrace-linux-x64\ndef456  peektrace-darwin-arm64\n";
+        assert_eq!(
+            parse_checksum(sums, "peektrace-darwin-arm64"),
+            Some("def456".to_owned())
+        );
+        assert_eq!(parse_checksum(sums, "peektrace-windows-x64.exe"), None);
+
+        let asset = |p, a| match detect_asset(p, a) {
+            Detection::Supported { asset, .. } => Some(asset),
+            Detection::Unsupported(_) => None,
+        };
+        assert_eq!(
+            asset("darwin", "arm64").as_deref(),
+            Some("peektrace-darwin-arm64")
+        );
+        assert_eq!(asset("linux", "x64").as_deref(), Some("peektrace-linux-x64"));
+        assert_eq!(
+            asset("Linux", "aarch64").as_deref(),
+            Some("peektrace-linux-arm64")
+        );
+        assert!(matches!(
+            detect_asset("win32", "x64"),
+            Detection::Supported { ref asset, os: Os::Windows } if asset == "peektrace-windows-x64.exe"
+        ));
+        assert!(matches!(
+            detect_asset("freebsd", "x64"),
+            Detection::Unsupported(_)
+        ));
+
+        assert_eq!(compare_versions("cli-v9.9.9", "0.0.1"), Greater);
+        assert_eq!(compare_versions("1.2.3", "1.2.3"), Equal);
+        assert_eq!(compare_versions("v1.0.0", "v1.2.0"), Less);
+        assert_eq!(compare_versions("0.0.0-dev", "cli-v0.0.1"), Less);
+    }
+
     #[test]
     fn leading_ints() {
         assert!((leading_int("0-dev") - 0.0).abs() < f64::EPSILON);
