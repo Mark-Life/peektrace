@@ -10,6 +10,7 @@
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
+# `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # Bash 3.2 compatible (macOS /bin/bash).
 set -euo pipefail
 
@@ -101,12 +102,14 @@ fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 < 1048576) printf
 # add_case <name> <warmup> <runs> <flags> <label> <args...>
 # flags: space-separated words; "rss" adds a peak RSS row, "cpu" adds a CPU time row.
 # Args are joined with spaces, so no single arg may contain a space.
-C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_ARGS=()
+C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_ARGS=() C_PREP=()
 add_case() {
-  C_NAME+=("$1"); C_WARMUP+=("$2"); C_RUNS+=("$3"); C_FLAGS+=("$4"); C_LABEL+=("$5")
+  C_NAME+=("$1"); C_WARMUP+=("$2"); C_RUNS+=("$3"); C_FLAGS+=("$4"); C_LABEL+=("$5"); C_PREP+=("")
   shift 5
   C_ARGS+=("$*")
 }
+# set_prepare <command> -> run before each timed and RSS run of the last case; no shell, so no globs or pipes.
+set_prepare() { C_PREP[$((${#C_NAME[@]} - 1))]="$1"; }
 has_flag() { [[ " ${C_FLAGS[$1]} " == *" $2 "* ]]; }
 
 ENV_EXTRA=()
@@ -172,12 +175,30 @@ suite_analyze_pi() { analyze_top pi; }
 suite_analyze_opencode() { analyze_top opencode; }
 
 suite_stats() {
-  # Each CLI keeps its own fact cache (TS: ~/.peektrace/stats, Rust: ~/.peektrace/stats-rs),
-  # so the warmup runs fill both before the warm rows are timed.
-  add_case stats-report-warm 1 5 "cpu rss" "\`stats --agent claude --json\` (warm cache)" stats --agent claude --json
-  add_case stats-usage-block 1 5 "rss" "\`stats usage --by block --agent claude --json\`" stats usage --by block --agent claude --json
-  add_case stats-refresh-cold 0 3 "cpu rss" "\`stats refresh --force --agent claude\` (cold: re-extract every transcript)" stats refresh --force --agent claude
-  METHOD_EXTRA+=("Stats: the warm rows read cached fact shards; the cold row clears the cache and extracts every transcript again.")
+  # Each CLI keeps its own fact cache under $PEEKTRACE_DIR (TS: stats/, Rust: stats-rs/).
+  # A scratch PEEKTRACE_DIR keeps the user's cache untouched; settings.json is copied so roots match.
+  local dir="$BENCH_DIR/peektrace-dir" report=(stats --json --days 30 --agent claude) top rust_top
+  rm -rf "${dir:?}"
+  mkdir -p "$dir"
+  [[ -f "$HOME/.peektrace/settings.json" ]] && cp "$HOME/.peektrace/settings.json" "$dir/"
+  export PEEKTRACE_DIR="$dir"
+
+  "$BUN_BIN" "${report[@]}" >"$OUT/bun-stats.json"
+  "$RUST_BIN" "${report[@]}" >"$OUT/rust-stats.json" 2>/dev/null
+  top="$(jq -r '.causes[0].key // empty' "$OUT/bun-stats.json")"
+  rust_top="$(jq -r '.causes[0].key // empty' "$OUT/rust-stats.json")"
+  [[ -n "$top" ]] || { echo "no causes in the 30-day stats report" >&2; exit 1; }
+  ENV_EXTRA+=("stats top cause: $top, same in both: $([[ "$top" == "$rust_top" ]] && echo yes || echo no)")
+  ENV_EXTRA+=("stats corpus (30 days): $(jq -c '{transcripts: .corpus.transcripts, toolCalls: .corpus.toolCalls}' "$OUT/bun-stats.json")")
+
+  # Neither CLI has \`stats --force\`; cold means an empty fact cache, so every transcript is extracted.
+  add_case stats-cold 2 10 "cpu rss" "\`${report[*]}\` (cold: empty cache)" "${report[@]}"
+  set_prepare "rm -rf $dir/stats $dir/stats-rs"
+  add_case stats-warm 2 10 "cpu" "\`${report[*]}\` (warm cache)" "${report[@]}"
+  add_case stats-usage-day 2 10 "" "\`stats usage --by day --tz UTC --json --agent claude\`" stats usage --by day --tz UTC --json --agent claude
+  add_case stats-drill 2 10 "" "\`stats drill --cause <top cause> --days 30 --agent claude --json\`" stats drill --cause "$top" --days 30 --agent claude --json
+  METHOD_EXTRA+=("Stats: \`PEEKTRACE_DIR\` points at a scratch dir with a copy of \`~/.peektrace/settings.json\`. Cold rows delete both fact caches before each run; warm rows read the shards the warmup runs wrote.")
+  METHOD_EXTRA+=("Stats: neither CLI accepts \`stats --force\` (only \`stats refresh --force\`), so the cold row empties the cache instead.")
 }
 
 for suite in $BENCH_SUITES; do
@@ -213,7 +234,9 @@ printf 'bun %s %s\nrust %s %s\n' "$BUN_SIZE" "$BUN_GZ" "$RUST_SIZE" "$RUST_GZ" >
 
 # --- latency (hyperfine, no intermediate shell) --------------------------------------
 for ((c = 0; c < N_CASES; c++)); do
-  hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" \
+  prep=()
+  [[ -n "${C_PREP[c]}" ]] && prep=(--prepare "${C_PREP[c]}")
+  hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} \
     --export-json "$OUT/${C_NAME[c]}.json" \
     --command-name bun "$BUN_BIN ${C_ARGS[c]}" \
     --command-name rust "$RUST_BIN ${C_ARGS[c]}"
@@ -225,8 +248,10 @@ for ((i = 1; i <= RSS_ROUNDS; i++)); do
   for ((c = 0; c < N_CASES; c++)); do
     has_flag "$c" rss || continue
     read -ra argv <<<"${C_ARGS[c]}"
+    read -ra prep <<<"${C_PREP[c]}"
     for impl in bun rust; do
       bin="$BUN_BIN"; [[ "$impl" == rust ]] && bin="$RUST_BIN"
+      if ((${#prep[@]})); then "${prep[@]}"; fi
       # %M is KiB on both macOS gtime and Linux GNU time; keep only its last stderr line.
       "$GTIME" -f %M "$bin" "${argv[@]}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
     done
@@ -246,10 +271,15 @@ hf() {
 }
 fmt_ms() { awk '{ if ($1 == "n/a") print "n/a"; else printf "%.1f ms (%.1f–%.1f)", $1, $2, $3 }'; }
 fmt_mib() { awk '{printf "%.1f MiB (%.1f–%.1f)", $1/1024, $2/1024, $3/1024}'; }
-# delta <bun> <rust> [word] -> "-93.3% (14.9× faster)"
+# delta <bun> <rust> [word] -> "-93.3% (14.9× faster)"; when Rust is worse: "+6.8% (1.1× slower)"
 delta() {
   [[ "$1" == n/a || "$2" == n/a ]] && { echo n/a; return; }
-  awk -v b="$1" -v r="$2" -v w="${3:-less}" 'BEGIN {printf "%+.1f%% (%.1f× %s)", (r-b)/b*100, b/r, w}'
+  awk -v b="$1" -v r="$2" -v w="${3:-less}" 'BEGIN {
+    split("faster slower less more smaller larger", p, " ")
+    for (i = 1; i <= 6; i += 2) if (w == p[i]) o = p[i + 1]
+    if (r > b && o != "") printf "%+.1f%% (%.1f× %s)", (r-b)/b*100, r/b, o
+    else printf "%+.1f%% (%.1f× %s)", (r-b)/b*100, b/r, w
+  }'
 }
 
 row_hf() {
@@ -289,7 +319,7 @@ row_rss() {
   echo
   echo "- Binaries: \`cargo build --release\` (fat LTO, stripped) and \`bun run build:binary\` (builds the inspector UI, then \`bun build --compile --minify\` with the UI and OpenTUI native lib embedded)."
   echo "- Times: \`hyperfine -N\` (no shell), median (min–max). \`--version\`: 3 warmup, 20 runs. Other commands: 2 warmup, 10 runs."
-  echo "- Cache: TS keeps its header cache in memory per process (\`header-cache.ts\`), with no on-disk cache, so every CLI run parses transcripts from scratch. Rust has no cache. \"Warm\" means only the OS page cache, primed by warmup runs. OS-cold runs are not measured."
+  echo "- Cache (sessions commands): TS keeps its header cache in memory per process (\`header-cache.ts\`), with no on-disk cache, so every CLI run parses transcripts from scratch. Rust has no cache. \"Warm\" means only the OS page cache, primed by warmup runs. OS-cold runs are not measured."
   echo "- Peak RSS: GNU time \`-f %M\` (KiB), $RSS_ROUNDS rounds, Bun and Rust interleaved, median (min–max)."
   echo "- Bytes: sum of \`sizeBytes\` per agent in the Bun \`ls --json\` output."
   echo "- Output: stdout is discarded by hyperfine and GNU time, so terminal rendering is not measured."
