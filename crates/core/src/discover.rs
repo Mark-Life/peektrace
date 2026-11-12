@@ -125,43 +125,40 @@ pub(crate) fn slug_layout(root: &str, project: Option<&str>, id_of: IdOf) -> Vec
 
 /// Every file under `dir` whose name passes `keep`, depth first in
 /// directory order, following symlinks. A dir already on the walk's path (a
-/// symlink loop) is not entered again.
+/// symlink loop) is not entered again. Sibling entries are stat'ed and
+/// walked in parallel: a Codex tree holds one dir per day.
 pub(crate) fn walk_tree(dir: &str, keep: fn(&str) -> bool, id_of: IdOf) -> Vec<Found> {
-    fn walk(
-        dir: &str,
-        keep: fn(&str) -> bool,
-        id_of: IdOf,
-        up: &mut Vec<RootKey>,
-        out: &mut Vec<Found>,
-    ) {
-        let key = root_key(dir);
-        if up.contains(&key) {
-            return;
-        }
-        up.push(key);
-        for entry in entries(dir) {
+    walk(dir, keep, id_of, &[])
+}
+
+/// `walk_tree` below `dir`, where `up` holds the dirs on the path to it.
+fn walk(dir: &str, keep: fn(&str) -> bool, id_of: IdOf, up: &[RootKey]) -> Vec<Found> {
+    let key = root_key(dir);
+    if up.contains(&key) {
+        return Vec::new();
+    }
+    let up = [up, &[key]].concat();
+    entries(dir)
+        .into_par_iter()
+        .flat_map_iter(|entry| {
             let path = STYLE.join(&[dir, &entry.name]);
             if entry.is_dir(&path) {
-                walk(&path, keep, id_of, up, out);
-                continue;
+                return walk(&path, keep, id_of, &up);
             }
             if !keep(&entry.name) {
-                continue;
+                return Vec::new();
             }
-            if let Some(meta) = stat_as(&path, fs::FileType::is_file) {
-                out.push(Found {
+            stat_as(&path, fs::FileType::is_file)
+                .map(|meta| Found {
                     slug: ProjectSlug::new(""),
                     id: SessionId::new(id_of(&entry.name)),
                     stamp: stamp_of(&meta),
                     path,
-                });
-            }
-        }
-        up.pop();
-    }
-    let mut out = Vec::new();
-    walk(dir, keep, id_of, &mut Vec::new(), &mut out);
-    out
+                })
+                .into_iter()
+                .collect()
+        })
+        .collect()
 }
 
 /// What makes two roots the same folder.
@@ -332,6 +329,45 @@ mod tests {
                 "/top.jsonl",
             ]
         );
+        fs::remove_dir_all(&root)
+    }
+
+    /// Kept paths under `dir`, depth first in directory order, one at a time.
+    fn walk_in_order(dir: &str) -> Vec<String> {
+        entries(dir)
+            .into_iter()
+            .flat_map(|e| {
+                let path = STYLE.join(&[dir, &e.name]);
+                if e.kind.is_dir() {
+                    walk_in_order(&path)
+                } else if e.name.ends_with(JSONL) {
+                    vec![path]
+                } else {
+                    Vec::new()
+                }
+            })
+            .collect()
+    }
+
+    #[test]
+    fn tree_walk_keeps_directory_order() -> std::io::Result<()> {
+        let root = temp("walk-order");
+        for (month, day) in (1..=6).flat_map(|m| (1..=12).map(move |d| (m, d))) {
+            let dir = root.join(format!("2026/{month:02}/{day:02}"));
+            fs::create_dir_all(&dir)?;
+            for n in 0..(day % 4) {
+                fs::write(dir.join(format!("rollout-{n}.jsonl")), "")?;
+            }
+            fs::write(dir.join("note.txt"), "")?;
+        }
+        fs::write(root.join("2026/top.jsonl"), "")?;
+        let root_str = root.to_string_lossy().into_owned();
+        let got: Vec<_> = walk_tree(&root_str, |n| n.ends_with(JSONL), stem)
+            .into_iter()
+            .map(|f| f.path)
+            .collect();
+        assert_eq!(got.len(), 6 * 18 + 1);
+        assert_eq!(got, walk_in_order(&root_str));
         fs::remove_dir_all(&root)
     }
 
