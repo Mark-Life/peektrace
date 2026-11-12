@@ -100,3 +100,160 @@ pub fn turn_tags(s: &AnalyzedSession) -> HashMap<usize, usize> {
     }
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use peektrace_core::sessions::model::{EventShape, ParsedSession, Turn, TurnTokens};
+
+    use super::*;
+
+    fn evt(index: usize, kind: EventKind, body: &str) -> TimelineEvent {
+        let mut e = TimelineEvent::new(EventShape::Prompt, index, kind);
+        e.body = body.to_owned();
+        e
+    }
+
+    fn req(mut e: TimelineEvent, id: &str) -> TimelineEvent {
+        e.request_id = Some(id.to_owned());
+        e
+    }
+
+    fn session(events: Vec<TimelineEvent>, turns: &[&str]) -> AnalyzedSession {
+        AnalyzedSession {
+            parsed: ParsedSession {
+                events,
+                turns: turns
+                    .iter()
+                    .map(|r| Turn::new((*r).to_owned(), String::new(), TurnTokens::default(), None))
+                    .collect(),
+                ..ParsedSession::default()
+            },
+            ..AnalyzedSession::default()
+        }
+    }
+
+    fn plain(content: &str) -> Decoded {
+        decoded(None, content)
+    }
+
+    #[test]
+    fn tool_call_code_is_typescript() {
+        let d = decode_body(&evt(0, EventKind::ToolCall, r#"{"code":"const x = 1"}"#));
+        assert_eq!(d, decoded(Some(Lang::Typescript), "const x = 1"));
+    }
+
+    #[test]
+    fn tool_call_command_is_bash() {
+        let d = decode_body(&evt(0, EventKind::ToolCall, r#"{"command":"ls -la"}"#));
+        assert_eq!(d, decoded(Some(Lang::Bash), "ls -la"));
+    }
+
+    #[test]
+    fn tool_call_without_code_or_command_echoes_json() {
+        let body = "{\n  \"pattern\": \"foo\"\n}";
+        let d = decode_body(&evt(0, EventKind::ToolCall, body));
+        assert_eq!(d, decoded(Some(Lang::Json), body));
+    }
+
+    #[test]
+    fn tool_result_text_blocks_join_as_markdown() {
+        let body = r#"[{"type":"text","text":"line one"},{"type":"image"},{"type":"text","text":"line two"}]"#;
+        let d = decode_body(&evt(0, EventKind::ToolResult, body));
+        assert_eq!(d, decoded(Some(Lang::Markdown), "line one\n\nline two"));
+    }
+
+    #[test]
+    fn tool_result_json_object_is_pretty_json() {
+        let d = decode_body(&evt(0, EventKind::ToolResult, r#"{"ok":true}"#));
+        assert_eq!(d, decoded(Some(Lang::Json), "{\n  \"ok\": true\n}"));
+    }
+
+    #[test]
+    fn tool_result_non_json_is_plain() {
+        let d = decode_body(&evt(0, EventKind::ToolResult, "not json {"));
+        assert_eq!(d, plain("not json {"));
+    }
+
+    #[test]
+    fn empty_thinking_shows_the_note() {
+        let e = evt(0, EventKind::AssistantThinking, "  ");
+        assert_eq!(
+            decode_body(&e),
+            Decoded {
+                lang: None,
+                content: String::new(),
+                note: Some(thinking_note(&e)),
+            }
+        );
+    }
+
+    #[test]
+    fn empty_thinking_with_measured_tokens_names_the_count() {
+        let mut e = evt(0, EventKind::AssistantThinking, "");
+        e.tokens_measured = Some(41.0);
+        let note = decode_body(&e).note.expect("note");
+        assert!(note.contains("41 thinking tokens"), "{note}");
+    }
+
+    #[test]
+    fn non_empty_thinking_is_plain() {
+        let d = decode_body(&evt(0, EventKind::AssistantThinking, "reasoning"));
+        assert_eq!(d, plain("reasoning"));
+    }
+
+    #[test]
+    fn assistant_text_is_plain() {
+        let d = decode_body(&evt(0, EventKind::AssistantText, "# hi"));
+        assert_eq!(d, plain("# hi"));
+    }
+
+    #[test]
+    fn system_prompt_is_markdown() {
+        let d = decode_body(&evt(0, EventKind::SystemPrompt, "## rules"));
+        assert_eq!(d, decoded(Some(Lang::Markdown), "## rules"));
+    }
+
+    #[test]
+    fn visible_events_drop_system_events() {
+        let s = session(
+            vec![
+                evt(0, EventKind::UserPrompt, ""),
+                evt(1, EventKind::System, ""),
+                evt(2, EventKind::AssistantText, ""),
+            ],
+            &[],
+        );
+        let idx: Vec<usize> = visible_events(&s)
+            .into_iter()
+            .map(|p| s.parsed.events[p].index)
+            .collect();
+        assert_eq!(idx, [0, 2]);
+    }
+
+    #[test]
+    fn visible_events_keep_the_system_prompt() {
+        let s = session(vec![evt(0, EventKind::SystemPrompt, "")], &[]);
+        let kinds: Vec<EventKind> = visible_events(&s)
+            .into_iter()
+            .map(|p| s.parsed.events[p].kind)
+            .collect();
+        assert_eq!(kinds, [EventKind::SystemPrompt]);
+    }
+
+    #[test]
+    fn tool_results_inherit_the_preceding_turn() {
+        let s = session(
+            vec![
+                evt(0, EventKind::UserPrompt, ""),
+                req(evt(1, EventKind::AssistantText, ""), "r1"),
+                evt(2, EventKind::ToolResult, ""),
+                req(evt(3, EventKind::AssistantText, ""), "r2"),
+                evt(4, EventKind::ToolResult, ""),
+            ],
+            &["r1", "r2"],
+        );
+        let tags = turn_tags(&s);
+        let got: Vec<usize> = (0..5).map(|i| tags[&i]).collect();
+        assert_eq!(got, [0, 1, 1, 2, 2]);
+    }
+}
