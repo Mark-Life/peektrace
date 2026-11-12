@@ -71,11 +71,13 @@ pub fn cookie_name(port: u16) -> String {
     format!("peektrace_token_{port}")
 }
 
-/// `Set-Cookie` value for a redirect that hands over the token.
+/// `Set-Cookie` value for a redirect that hands over the token. The value is
+/// URI-encoded, as Effect's `serializeCookie` does; [`cookie_value`] decodes it.
 pub fn set_cookie(port: u16, token: &str) -> String {
     format!(
-        "{}={token}; Path=/; HttpOnly; SameSite=Lax",
-        cookie_name(port)
+        "{}={}; Path=/; HttpOnly; SameSite=Lax",
+        cookie_name(port),
+        encode_uri_component(token)
     )
 }
 

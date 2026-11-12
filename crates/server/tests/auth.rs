@@ -65,6 +65,37 @@ fn bearer_cookie_and_redirect() {
 }
 
 #[test]
+fn cookie_login_round_trips_a_token_with_symbols() {
+    let token = "pass%41word; with symbols and \u{e9} 0123456789";
+    let s = start(&Options {
+        name: "auth-symbols",
+        host: "0.0.0.0",
+        token: Some(token),
+        ..Options::default()
+    });
+    let link = format!(
+        "/?token={}",
+        peektrace_server::auth::encode_uri_component(token)
+    );
+    let r = s.get(&link);
+    assert_eq!(r.status, 302);
+    let cookie = r.header("set-cookie").expect("cookie").to_owned();
+    assert_eq!(
+        cookie,
+        format!(
+            "peektrace_token_{}=pass%2541word%3B%20with%20symbols%20and%20%C3%A9%200123456789; Path=/; HttpOnly; SameSite=Lax",
+            s.port
+        )
+    );
+    let jar = cookie.split(';').next().unwrap_or_default().to_owned();
+    assert_eq!(
+        s.call("GET", "/api/server", &[("Cookie", &jar)], None)
+            .status,
+        200
+    );
+}
+
+#[test]
 fn any_host_with_the_token_and_origin_must_match_host() {
     let s = authed();
     let bearer = format!("Bearer {TOKEN}");

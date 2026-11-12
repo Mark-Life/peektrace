@@ -19,6 +19,7 @@ percent-encoding = "2"
 rust-embed = { version = "8", features = ["include-exclude"] }
 serde_json.workspace = true
 sha2 = { version = "0.10", default-features = false }
+socket2 = "0.6"
 thiserror.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "net", "macros", "signal", "sync", "time"] }
 tower-http = { version = "0.6", default-features = false, features = ["compression-gzip"] }
