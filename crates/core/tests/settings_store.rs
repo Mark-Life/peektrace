@@ -69,3 +69,52 @@ fn missing_file_with_an_mtime_is_refused() {
         other => panic!("expected a CAS failure, got {other:?}"),
     }
 }
+
+// settings-service.test.ts, same inputs and assertions.
+
+#[test]
+fn update_writes_pretty_json_and_get_reads_it_back() {
+    let path = dir("pretty").join("settings.json");
+    let p = path.to_string_lossy().into_owned();
+    let d = doc(r#"{"roots":{"claude":[{"path":"/work/.claude","label":"work"}]}}"#);
+    let written = write_stored(&p, d.clone(), None).expect("write");
+    assert!(written.mtime_ms > 0);
+    let raw = std::fs::read_to_string(&path).expect("read");
+    assert_eq!(
+        JsValue::parse(&raw).expect("json").stringify(false),
+        r#"{"roots":{"claude":[{"path":"/work/.claude","label":"work"}]}}"#
+    );
+    let reread = read_stored(&p);
+    assert_eq!(reread.doc, d);
+    assert_eq!(reread.mtime_ms, written.mtime_ms);
+}
+
+#[test]
+fn a_stale_expected_mtime_fails_and_does_not_clobber_the_file() {
+    let path = dir("clobber").join("settings.json");
+    let p = path.to_string_lossy().into_owned();
+    write_stored(&p, doc(r#"{"roots":{"codex":[{"path":"/a"}]}}"#), None).expect("write");
+    let stale = write_stored(
+        &p,
+        doc(r#"{"roots":{"codex":[{"path":"/b"}]}}"#),
+        Some(12_345.0),
+    );
+    assert!(
+        matches!(stale, Err(SettingsUpdateError::Changed { .. })),
+        "{stale:?}"
+    );
+    let raw = std::fs::read_to_string(&path).expect("read");
+    assert_eq!(
+        JsValue::parse(&raw).expect("json").stringify(false),
+        r#"{"roots":{"codex":[{"path":"/a"}]}}"#
+    );
+}
+
+#[test]
+fn expected_mtime_zero_succeeds_when_the_file_is_absent() {
+    let path = dir("zero").join("settings.json");
+    let p = path.to_string_lossy().into_owned();
+    let first = write_stored(&p, SettingsDoc::default(), Some(0.0)).expect("write");
+    assert!(first.path.ends_with("settings.json"));
+    assert!(std::path::Path::new(&first.path).exists());
+}

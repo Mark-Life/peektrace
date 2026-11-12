@@ -107,3 +107,58 @@ fn missing_root_reports_zeros() {
     let w = Watcher::start(&roots, |_| {});
     assert_eq!(w.versions(), WatchVersions::default());
 }
+
+fn wait_for(w: &Watcher, done: impl Fn(WatchVersions) -> bool) -> WatchVersions {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while std::time::Instant::now() < deadline && !done(w.versions()) {
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    // Let a split burst land its last flush.
+    std::thread::sleep(Duration::from_millis(300));
+    w.versions()
+}
+
+// watch.test.ts: one watcher, a memory burst then a new transcript, each
+// advancing only its own scope.
+#[test]
+fn emits_scope_classified_bumps_on_real_fs_writes() {
+    const SLUG: &str = "-Users-demo-proj";
+    let root = dir("sequence");
+    let mem = root.join(SLUG).join("memory");
+    std::fs::create_dir_all(&mem).expect("mkdir");
+    let note = mem.join("note.md");
+    std::fs::write(
+        &note,
+        "---\nname: note\ndescription: seed\ntype: user\n---\nbody\n",
+    )
+    .expect("seed");
+    let roots = AgentRoots {
+        claude: source(&root),
+        ..AgentRoots::default()
+    };
+    let w = Watcher::start(&roots, |_| {});
+    std::thread::sleep(Duration::from_millis(500));
+    let before = w.versions();
+    for i in 0..3 {
+        std::fs::write(
+            &note,
+            format!("---\nname: note\ndescription: seed\ntype: user\n---\nedit {i}\n"),
+        )
+        .expect("edit");
+    }
+    let after_memory = wait_for(&w, |v| v.memory > before.memory);
+    assert!(after_memory.memory > before.memory, "{after_memory:?}");
+    assert_eq!(after_memory.sessions, before.sessions);
+    std::fs::write(
+        root.join(SLUG)
+            .join("33333333-3333-4333-8333-333333333333.jsonl"),
+        "{\"type\":\"user\"}\n",
+    )
+    .expect("session");
+    let after_session = wait_for(&w, |v| v.sessions > after_memory.sessions);
+    assert!(
+        after_session.sessions > after_memory.sessions,
+        "{after_session:?}"
+    );
+    assert_eq!(after_session.memory, after_memory.memory);
+}
