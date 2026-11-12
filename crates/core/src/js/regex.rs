@@ -208,25 +208,37 @@ impl<'h> Caps<'h> {
     }
 }
 
+/// A pattern the engine rejects, e.g. one built from transcript text that
+/// passes the compiled-size limit.
+#[derive(Debug, thiserror::Error)]
+#[error("regex does not compile: {0}")]
+pub struct BadPattern(String);
+
 impl Re {
-    /// Compile a pattern from the TS source. Patterns are constants, so a
-    /// bad one is a bug.
+    /// Compile a pattern written as in the TS source. For constant patterns
+    /// only: a bad one is a bug, so this panics. Patterns built from runtime
+    /// text go through [`Re::try_new`].
     pub fn new(src: &str, flags: &str) -> Self {
+        Self::try_new(src, flags).unwrap_or_else(|e| unreachable!("{e}: {src}"))
+    }
+
+    /// Compile a pattern built from runtime text. JS `new RegExp` throws on a
+    /// bad one and callers catch it, so they skip the probe on `Err`.
+    pub fn try_new(src: &str, flags: &str) -> Result<Self, BadPattern> {
         let fancy = needs_fancy(src);
         let pattern = translate(src, flags, fancy);
-        if fancy {
-            Self(Engine::Fancy(
-                fancy_regex::RegexBuilder::new(&pattern)
-                    .backtrack_limit(10_000_000)
-                    .build()
-                    .unwrap_or_else(|e| unreachable!("bad pattern {src}: {e}")),
-            ))
+        let engine = if fancy {
+            fancy_regex::RegexBuilder::new(&pattern)
+                .backtrack_limit(10_000_000)
+                .build()
+                .map(Engine::Fancy)
+                .map_err(|e| BadPattern(e.to_string()))?
         } else {
-            Self(Engine::Std(
-                regex::Regex::new(&pattern)
-                    .unwrap_or_else(|e| unreachable!("bad pattern {src}: {e}")),
-            ))
-        }
+            regex::Regex::new(&pattern)
+                .map(Engine::Std)
+                .map_err(|e| BadPattern(e.to_string()))?
+        };
+        Ok(Self(engine))
     }
 
     pub fn is_match(&self, s: &str) -> bool {
@@ -368,6 +380,12 @@ mod tests {
         assert!(!Re::new(r"\s", "").is_match("\u{85}"));
         assert!(!Re::new(r"a.b", "").is_match("a\rb"));
         assert!(Re::new(r"(?<!x)\bfoo\b", "").is_match("éfooé"));
+    }
+
+    #[test]
+    fn oversized_pattern_is_an_error_not_a_panic() {
+        assert!(Re::try_new(&"a".repeat(200_000), "i").is_err());
+        assert!(Re::try_new(r"(?<!x)a", "").is_ok());
     }
 
     #[test]

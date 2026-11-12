@@ -1,6 +1,6 @@
-//! `peektrace stats prompt` as a user runs it: a real process over a
-//! throwaway home holding one Claude session, where a zsh glob abort is
-//! retried with the glob quoted.
+//! `peektrace stats` as a user runs it: a real process over a throwaway home
+//! holding one Claude session, where a zsh glob abort is retried with the
+//! glob quoted.
 
 use std::fs;
 use std::path::PathBuf;
@@ -90,10 +90,9 @@ impl Home {
         }
     }
 
-    fn run(&self, sub: &str, args: &[&str]) -> (i32, String, String) {
+    fn run(&self, args: &[&str]) -> (i32, String, String) {
         let out = Command::new(env!("CARGO_BIN_EXE_peektrace"))
             .arg("stats")
-            .arg(sub)
             .args(args)
             .env_clear()
             .env("HOME", &self.root)
@@ -122,17 +121,15 @@ impl Drop for Home {
 #[test]
 fn a_cause_prompt_names_the_failing_call_by_path_and_id() {
     let h = Home::new("cause");
-    let (code, out, err) = h.run(
+    let (code, out, err) = h.run(&[
         "prompt",
-        &[
-            "--cause",
-            "zsh-glob-flag",
-            "--days",
-            "7",
-            "--agent",
-            "claude",
-        ],
-    );
+        "--cause",
+        "zsh-glob-flag",
+        "--days",
+        "7",
+        "--agent",
+        "claude",
+    ]);
     assert_eq!(code, 0, "{err}");
     assert!(out.starts_with("Goal: "));
     for want in [
@@ -150,18 +147,16 @@ fn a_cause_prompt_names_the_failing_call_by_path_and_id() {
 #[test]
 fn the_printed_drill_command_finds_the_row_and_its_transcripts() {
     let h = Home::new("drill");
-    let (code, out, err) = h.run(
+    let (code, out, err) = h.run(&[
         "drill",
-        &[
-            "--days",
-            "7",
-            "--agent",
-            "claude",
-            "--cause",
-            "zsh-glob-flag",
-            "--json",
-        ],
-    );
+        "--days",
+        "7",
+        "--agent",
+        "claude",
+        "--cause",
+        "zsh-glob-flag",
+        "--json",
+    ]);
     assert_eq!(code, 0, "{err}");
     let v: Value = serde_json::from_str(&out).expect("json");
     assert_eq!(v["key"], "cause:zsh-glob-flag");
@@ -176,17 +171,22 @@ fn the_printed_drill_command_finds_the_row_and_its_transcripts() {
 #[test]
 fn limit_reaches_rows_past_the_default() {
     let h = Home::new("limit");
-    let (code, _, err) = h.run(
+    let (code, _, err) = h.run(&[
         "prompt",
-        &["--cause", "zsh-glob-flag", "--days", "7", "--limit", "50"],
-    );
+        "--cause",
+        "zsh-glob-flag",
+        "--days",
+        "7",
+        "--limit",
+        "50",
+    ]);
     assert_eq!(code, 0, "{err}");
 }
 
 #[test]
 fn no_flag_prints_the_whole_report_prompt() {
     let h = Home::new("report");
-    let (code, out, err) = h.run("prompt", &["--days", "7"]);
+    let (code, out, err) = h.run(&["prompt", "--days", "7"]);
     assert_eq!(code, 0, "{err}");
     assert!(out.contains("  - zsh-glob-flag: 1 hits"), "{out}");
     assert!(out.contains("- full report: peektrace stats --days 7 --json"));
@@ -195,7 +195,7 @@ fn no_flag_prints_the_whole_report_prompt() {
 #[test]
 fn a_key_that_names_no_row_fails() {
     let h = Home::new("nope");
-    let (code, _, err) = h.run("prompt", &["--fail", "nope", "--days", "7"]);
+    let (code, _, err) = h.run(&["prompt", "--fail", "nope", "--days", "7"]);
     assert_ne!(code, 0);
     assert!(err.contains("No fail row \"nope\""), "{err}");
 }
@@ -203,10 +203,57 @@ fn a_key_that_names_no_row_fails() {
 #[test]
 fn two_targets_at_once_is_a_usage_error() {
     let h = Home::new("two");
-    let (code, _, err) = h.run("prompt", &["--cause", "a", "--time", "b"]);
+    let (code, _, err) = h.run(&["prompt", "--cause", "a", "--time", "b"]);
     assert_ne!(code, 0);
     assert!(
         err.contains("at most one of --cause, --fail or --time"),
         "{err}"
     );
+}
+
+#[test]
+fn flag_errors_match_ts() {
+    let h = Home::new("flags");
+    let cases: [(&[&str], &str); 5] = [
+        (
+            &["drill", "--agent", "claude"],
+            "Pass exactly one of --cause, --fail, --time, --cluster or --wait with a key from the table.\n",
+        ),
+        (
+            &["prompt", "--cause", "a", "--time", "b"],
+            "Pass at most one of --cause, --fail or --time.\n",
+        ),
+        (
+            &["usage", "--tz", "Mars/Base"],
+            "Unknown time zone \"Mars/Base\". Pass an IANA name such as UTC or Europe/Berlin.\n",
+        ),
+        (
+            &["usage", "--tz", "UTC", "--days", "0"],
+            "--days must be from 1 to 36500, got 0.\n",
+        ),
+        (&["--days", "abc"], "'abc' is not a integer\n\n"),
+    ];
+    for (args, err) in cases {
+        let (code, out, stderr) = h.run(args);
+        assert_eq!(
+            (code, out.as_str(), stderr.as_str()),
+            (1, "", err),
+            "{args:?}"
+        );
+    }
+}
+
+#[test]
+fn refresh_counts_and_caches_apart_from_ts() {
+    let h = Home::new("refresh");
+    let (code, out, _) = h.run(&["refresh", "--agent", "claude", "--json"]);
+    assert_eq!(code, 0);
+    assert!(
+        out.contains("\"transcripts\":") && out.contains("\"cached\": 0"),
+        "{out}"
+    );
+    let (_, again, _) = h.run(&["refresh", "--agent", "claude", "--json"]);
+    assert!(again.contains("\"extracted\": 0"), "{again}");
+    assert!(h.root.join(".peektrace/stats-rs/index.json").exists());
+    assert!(!h.root.join(".peektrace/stats").exists());
 }

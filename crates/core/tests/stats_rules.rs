@@ -221,6 +221,16 @@ fn a_missing_binary_matches_only_a_line_saying_it_is_missing() {
 }
 
 #[test]
+fn a_binary_name_too_long_to_compile_is_skipped() {
+    let t = fixture();
+    let long = "x".repeat(200_000);
+    let r = cnf_row(details(&[(&long, 1.0), ("jq", 3.0)]));
+    let rule = check(&r, &app_docs(&t), &any_counts()).expect("rule");
+    let lines: Vec<f64> = rule.matches.iter().map(|m| m.line).collect();
+    assert_eq!(lines, [2.0]);
+}
+
+#[test]
 fn prose_saying_no_file_was_found_is_not_a_missing_binary_rule() {
     let r = cnf_row(details(&[("file", 1.0)]));
     let has = |line: &str| check(&r, &one_doc(&[line]), &any_counts()).is_some();

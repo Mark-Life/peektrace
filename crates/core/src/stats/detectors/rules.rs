@@ -156,11 +156,12 @@ impl Probes {
 /// TS: `(?<![\w.-])` before and `(?=\s|$|[,;:)]|\.(?:\s|$))` after the
 /// name. As a yes/no test the lookarounds become plain groups: a name after a
 /// literal space needs no start check, one before a literal space no end
-/// check. That keeps the probe on the linear engine.
+/// check. That keeps the probe on the linear engine. A name too long to
+/// compile gets no probe.
 fn binary_probes(details: &[(String, f64)]) -> Vec<Vec<Re>> {
     details
         .iter()
-        .map(|(value, _)| {
+        .filter_map(|(value, _)| {
             let name = escape_re(value);
             let end = r"(?:\s|$|[,;:)]|\.(?:\s|$))";
             let mid = format!("`?{name}`?");
@@ -171,10 +172,12 @@ fn binary_probes(details: &[(String, f64)]) -> Vec<Vec<Re>> {
                 format!(r"\bno {mid} (?:binary|command|executable|installed|on (?:this )?(?:host|machine|box|PATH))\b"),
             ]
             .join("|");
-            vec![Re::new(
+            Re::try_new(
                 &format!(r"{absent}|(?:^|[^\w.-]){mid} (?:is )?(?:not installed|missing|unavailable|not available|not on PATH)|\b(?:install|without|instead of) {tail}"),
                 "i",
-            )]
+            )
+            .ok()
+            .map(|re| vec![re])
         })
         .collect()
 }

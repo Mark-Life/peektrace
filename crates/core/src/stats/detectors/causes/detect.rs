@@ -139,7 +139,7 @@ fn escaped_spelling(cmd: &str, exact: &Re) -> Option<String> {
 /// How the culprit zsh named is spelled in the command, or `None` when the
 /// command does not hold it at a code position.
 fn command_glob(cmd: &str, word: &str) -> Option<String> {
-    let exact = Re::new(&format!("{WORD_EDGE}({}){WORD_END}", escape_re(word)), "g");
+    let exact = Re::try_new(&format!("{WORD_EDGE}({}){WORD_END}", escape_re(word)), "g").ok()?;
     if cmd.contains(word) && unquoted_word(cmd, &exact).is_some() {
         return Some(word.to_owned());
     }
@@ -150,11 +150,11 @@ fn command_glob(cmd: &str, word: &str) -> Option<String> {
     if let Some(at) = at {
         let head = &word[..=at];
         if cmd.contains(head) {
-            let re = Re::new(
+            let re = Re::try_new(
                 &format!(r"{WORD_EDGE}({}[^\s;&|()<>`]*)", escape_re(head)),
                 "g",
             );
-            if unquoted_word(cmd, &re).is_some_and(|b| b.contains('{')) {
+            if re.is_ok_and(|re| unquoted_word(cmd, &re).is_some_and(|b| b.contains('{'))) {
                 return Some(word.to_owned());
             }
         }
@@ -164,12 +164,14 @@ fn command_glob(cmd: &str, word: &str) -> Option<String> {
     while let Some(s) = slash.filter(|&s| s < at) {
         let tail = &word[s..];
         if cmd.contains(tail) {
-            let re = Re::new(
+            let re = Re::try_new(
                 &format!("{WORD_EDGE}({EXPANDED_HEAD}{}){WORD_END}", escape_re(tail)),
                 "",
             );
             if let Some(m) = re
-                .captures(cmd)
+                .ok()
+                .as_ref()
+                .and_then(|re| re.captures(cmd))
                 .and_then(|c| c.get(1))
                 .filter(|g| !g.is_empty())
             {
@@ -201,9 +203,10 @@ fn wrapper() -> String {
 }
 
 /// `bin` at a command position; group 1 is the wrapper run, group 2 the args.
-pub fn bin_use(bin: &str, flags: &str) -> Re {
+/// `None` when `bin` is too long to compile.
+pub fn bin_use(bin: &str, flags: &str) -> Option<Re> {
     let env_prefix = r"(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*";
-    Re::new(
+    Re::try_new(
         &format!(
             r"(?:^|[;&|(`\n{{]|\$\(|\b(?:then|do|else)\s)\s*{env_prefix}({})(?:\S*/)?{}(?=$|[\s;&|)`])((?:>&|&>|[^;&|\n)`])*)",
             wrapper(),
@@ -211,12 +214,15 @@ pub fn bin_use(bin: &str, flags: &str) -> Re {
         ),
         flags,
     )
+    .ok()
 }
 
 fn runs_for_real(cmd: &str, bin: &str) -> bool {
-    bin_use(bin, "g").captures_all(cmd).iter().any(|m| {
-        !(COMMAND_V.is_match(m.get(1).unwrap_or(""))
-            || VERSION_ARGS.is_match(m.get(2).unwrap_or("")))
+    bin_use(bin, "g").is_some_and(|re| {
+        re.captures_all(cmd).iter().any(|m| {
+            !(COMMAND_V.is_match(m.get(1).unwrap_or(""))
+                || VERSION_ARGS.is_match(m.get(2).unwrap_or("")))
+        })
     })
 }
 
@@ -297,8 +303,8 @@ fn detect_equals(i: &ShellInput<'_>) -> Option<CauseHit> {
         .into_iter()
         .find_map(|m| {
             let word = format!("={}", m.get(1).unwrap_or(""));
-            Re::new(&format!("{WORD_EDGE}{}", escape_re(&word)), "")
-                .is_match(i.cmd)
+            Re::try_new(&format!("{WORD_EDGE}{}", escape_re(&word)), "")
+                .is_ok_and(|re| re.is_match(i.cmd))
                 .then(|| CauseHit {
                     arg: Some(word),
                     line: Some(m.all().to_owned()),
@@ -352,7 +358,7 @@ fn detect_scratch(i: &ShellInput<'_>) -> Option<CauseHit> {
     let ok = is_scratch_path(m.get(1).unwrap_or(""))
         && SCRIPT_RUNTIMES
             .iter()
-            .any(|b| bin_use(b, "").is_match(i.cmd));
+            .any(|b| bin_use(b, "").is_some_and(|re| re.is_match(i.cmd)));
     ok.then(|| CauseHit {
         line: Some(m.all().split('\n').next().unwrap_or("").to_owned()),
         ..hit(CauseId::ScratchModuleResolution)

@@ -360,3 +360,23 @@ fn cnf_fix_names_both_startup_files() {
 fn cnf_binary_not_at_command_position() {
     assert_eq!(cause("cat jq.md", "(eval):1: command not found: jq"), None);
 }
+
+#[test]
+fn very_long_names_still_compile_like_js() {
+    let long = "x".repeat(200_000);
+    assert_eq!(
+        cause(
+            &format!("cd /p && {long} .x f"),
+            &format!("(eval):1: command not found: {long}")
+        ),
+        Some(CauseId::CommandNotFound)
+    );
+    let glob = format!("{long}*");
+    assert_eq!(
+        cause(
+            &format!("ls {glob}"),
+            &format!("zsh:1: no matches found: {glob}")
+        ),
+        Some(CauseId::ZshGlobPath)
+    );
+}

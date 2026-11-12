@@ -81,6 +81,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `stats` with `--otel` | also prints `RpcServer.stats.*` and `RpcClient.stats.*` spans | no RPC spans |
 | `stats usage --tz` | ICU `Intl` names and aliases | jiff names (any case) and fixed offsets `±HH`, `±HHMM`, `±HH:MM`. Rare ICU-only aliases may be rejected. |
 | `stats` nested transcript walk | follows symlinked dirs with no loop guard | stops 64 dirs deep |
+| `stats` rule check for a missing binary whose name is about 50,000+ chars | the name gets a probe | the probe pattern passes the regex size limit, so that name gets no probe |
 | `CLAUDE_CONFIG_DIR` on Windows | split on `:`, so `C:\x` becomes `C` | split on `;`, as `path.delimiter` |
 | OpenCode store locked by a writer (rollback-journal DB under `BEGIN EXCLUSIVE`) | that DB is skipped at once (busy timeout 0) | waits up to 1 s for the lock, then skips the DB. WAL stores, which OpenCode uses, read the last commit in both. |
 | JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
