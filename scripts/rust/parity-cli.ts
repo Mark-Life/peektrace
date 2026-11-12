@@ -18,6 +18,6 @@ export const runCliStage = async ({
   if (fixtures) {
     await runUpgradeStage();
     runHelpStage();
-    runTelemetryStage();
   }
+  runTelemetryStage({ fixtures, real });
 };

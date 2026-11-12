@@ -324,17 +324,74 @@ const runShape = (home: string, extra: Record<string, string>) => {
   return cases.length + 1;
 };
 
-export const runTelemetryStage = () => {
+/** `doctor` over a copy of the caller's real store, so redaction meets
+ * real command lines. The real files are only copied, never opened. */
+const runRealDoctor = () => {
+  const src = join(process.env.HOME ?? "", ".peektrace");
+  if (!existsSync(join(src, "telemetry.db"))) {
+    console.log("suite telemetry-real: skipped (no telemetry.db)");
+    return;
+  }
+  const home = join(ROOT, "real-home");
+  mkdirSync(home, { recursive: true });
+  const snap = join(ROOT, "real-snap");
+  mkdirSync(snap, { recursive: true });
+  for (const f of ["telemetry.db", "telemetry.db-wal"]) {
+    if (existsSync(join(src, f))) {
+      cpSync(join(src, f), join(snap, f));
+    }
+  }
+  const [ts, rust] = SIDES.map(([side, cmd]) => {
+    const dir = join(ROOT, "real", side);
+    cpSync(snap, dir, { recursive: true });
+    const r = spawn(
+      [...cmd, "doctor", "--last", "-1"],
+      fixtureEnv(home, { PEEKTRACE_DIR: dir }),
+      dir
+    );
+    const norm = (t: string) => t.replaceAll(dir, "<dir>");
+    return {
+      run: { ...r, stdout: norm(r.stdout), stderr: norm(r.stderr) },
+      bundles: bundles(dir),
+    };
+  }) as [{ run: Run; bundles: string[][] }, { run: Run; bundles: string[][] }];
+  compareRun("telemetry-real doctor", ts.run, rust.run);
+  if (JSON.stringify(ts.bundles) !== JSON.stringify(rust.bundles)) {
+    const [a, b] = [ts.bundles[0]?.[1] ?? "", rust.bundles[0]?.[1] ?? ""];
+    const al = a.split("\n");
+    const bl = b.split("\n");
+    const at = al.findIndex((l, i) => l !== bl[i]);
+    report(
+      `telemetry-real doctor: bundle line ${at + 1}: ts=${JSON.stringify(al[at])} rust=${JSON.stringify(bl[at])}`
+    );
+  }
+  console.log(
+    `suite telemetry-real: ${WROTE.exec(ts.run.stdout)?.[1] ?? 0} events`
+  );
+};
+
+export const runTelemetryStage = ({
+  fixtures,
+  real,
+}: {
+  readonly fixtures: boolean;
+  readonly real: boolean;
+}) => {
   rmSync(ROOT, { recursive: true, force: true });
   const home = join(ROOT, "home");
   mkdirSync(home, { recursive: true });
-  const fixtures = join(REPO, "packages/core/test/fixtures");
-  const extra = {
-    PEEKTRACE_CLAUDE_PROJECTS: fixtures,
-    PEEKTRACE_CODEX_SESSIONS: fixtures,
-    PEEKTRACE_PI_SESSIONS: fixtures,
-    PEEKTRACE_NO_UPDATE_CHECK: "1",
-  };
-  const n = runDoctor(home) + runOptOut(home, extra) + runShape(home, extra);
-  console.log(`suite telemetry: ${n} cases`);
+  if (fixtures) {
+    const corpus = join(REPO, "packages/core/test/fixtures");
+    const extra = {
+      PEEKTRACE_CLAUDE_PROJECTS: corpus,
+      PEEKTRACE_CODEX_SESSIONS: corpus,
+      PEEKTRACE_PI_SESSIONS: corpus,
+      PEEKTRACE_NO_UPDATE_CHECK: "1",
+    };
+    const n = runDoctor(home) + runOptOut(home, extra) + runShape(home, extra);
+    console.log(`suite telemetry: ${n} cases`);
+  }
+  if (real) {
+    runRealDoctor();
+  }
 };
