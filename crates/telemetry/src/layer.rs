@@ -96,6 +96,15 @@ pub fn panic_message(payload: &(dyn std::any::Any + Send)) -> String {
         .unwrap_or_else(|| "panic".to_owned())
 }
 
+/// Milliseconds since `start`, from whole nanoseconds as TS divides them.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "span durations are far below 2^53 ns"
+)]
+fn ms_since(start: Instant) -> f64 {
+    start.elapsed().as_nanos() as f64 / 1_000_000.0
+}
+
 /// Builds wide events and hands each to `emit`.
 pub struct StoreLayer {
     emit: Emit,
@@ -120,7 +129,7 @@ impl StoreLayer {
     }
 
     fn event(&self, name: &str, node: &Node, attrs: &Attrs, defect: Option<String>) -> WideEvent {
-        let duration_ms = node.start.elapsed().as_secs_f64() * 1000.0;
+        let duration_ms = ms_since(node.start);
         let outcome = match (defect, attrs.error()) {
             (Some(message), _) => Outcome::Defect { message },
             (None, Some(message)) => Outcome::Error {
@@ -230,7 +239,7 @@ where
             (self.emit)(self.event(span.name(), &node, &attrs, defect));
             return;
         }
-        let duration_ms = node.start.elapsed().as_secs_f64() * 1000.0;
+        let duration_ms = ms_since(node.start);
         node.root.push(SpanRecord {
             name: span.name().to_owned(),
             duration_ms,

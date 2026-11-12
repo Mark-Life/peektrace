@@ -39,6 +39,7 @@ default = []
 https = ["ureq/rustls"]
 
 [dev-dependencies]
+rusqlite.workspace = true
 serde_json.workspace = true
 
 [lints]

@@ -207,7 +207,7 @@ impl Failure<'_> {
         let message = if self.scrub {
             "invalid command line"
         } else {
-            message
+            message.trim_end()
         };
         self.root.record("error", field::display(message));
     }
