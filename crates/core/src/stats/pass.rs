@@ -19,9 +19,12 @@ use super::redact::Redactor;
 use super::schema::Fact;
 use super::walk::{TranscriptRef, list_corpus};
 use crate::claude::{ParseArgs, parse_claude_session};
+use crate::codex::parse_codex_session;
 use crate::js::time::LocalZone;
-use crate::listing::AgentRoots;
+use crate::listing::{AgentRoots, default_root};
 use crate::model::Agent;
+use crate::opencode::{load_session, parse_opencode_session};
+use crate::pi::parse_pi_session;
 use crate::sessions::model::ParsedSession;
 use crate::sessions::resolve::read_text;
 
@@ -37,43 +40,42 @@ pub struct PassEnv<'a> {
     pub progress: Option<&'a dyn Fn(usize, usize)>,
 }
 
-/// The agents a request covers that this build can extract, in matrix order.
+/// The agents a request covers, in matrix order.
 pub fn scope_of(requested: Option<&[Agent]>) -> Vec<Agent> {
     Agent::ALL
         .into_iter()
-        .filter(|a| requested.is_none_or(|r| r.contains(a)) && parse_for(*a).is_some())
+        .filter(|a| requested.is_none_or(|r| r.contains(a)))
         .collect()
 }
 
-/// True when `scope` holds every agent this build can extract.
+/// True when `scope` holds every agent.
 pub fn is_full_scope(scope: &[Agent]) -> bool {
-    scope.len() == scope_of(None).len()
+    scope.len() == Agent::ALL.len()
 }
 
-/// What one agent's parser reads.
-pub struct ParseInput<'a> {
-    pub text: &'a str,
-    pub r#ref: &'a TranscriptRef,
-}
-
-pub type ParseFn = fn(&ParseInput<'_>) -> ParsedSession;
-
-fn parse_claude(input: &ParseInput<'_>) -> ParsedSession {
+fn parse_claude(text: &str, r: &TranscriptRef) -> ParsedSession {
     parse_claude_session(&ParseArgs {
-        text: input.text,
-        path: &input.r#ref.path,
-        session_id: &input.r#ref.id,
-        include_sidechain_turns: input.r#ref.kind != super::schema::Kind::Main,
+        text,
+        path: &r.path,
+        session_id: &r.id,
+        include_sidechain_turns: r.kind != super::schema::Kind::Main,
         skip_system_prompt: true,
     })
 }
 
-/// The parser of an agent, one function per agent; `None` until it is ported.
-pub fn parse_for(agent: Agent) -> Option<ParseFn> {
-    match agent {
-        Agent::Claude => Some(parse_claude),
-        Agent::Codex | Agent::Pi | Agent::Opencode => None,
-    }
+/// Load and parse one transcript; `None` when a text transcript cannot be
+/// read. An OpenCode session no store holds parses as an empty session.
+fn parse_ref(r: &TranscriptRef, opencode_root: &str) -> Option<ParsedSession> {
+    let parse_text: fn(&str, &TranscriptRef) -> ParsedSession = match r.agent {
+        Agent::Claude => parse_claude,
+        Agent::Codex => |text, r| parse_codex_session(text, &r.path, &r.id),
+        Agent::Pi => |text, r| parse_pi_session(text, &r.path, &r.id),
+        Agent::Opencode => {
+            let session = load_session(&r.path, &r.id, opencode_root);
+            return Some(parse_opencode_session(session.as_ref(), &r.path, &r.id));
+        }
+    };
+    load_transcript(r).map(|text| parse_text(&text, r))
 }
 
 /// What a pass folds and over which window.
@@ -137,6 +139,7 @@ fn facts_for(
     index: &IndexMap<String, CacheEntry>,
     r: &TranscriptRef,
     args: &PassArgs<'_>,
+    opencode_root: &str,
 ) -> FileResult {
     let stat = stat_of(&r.path);
     if let Some(entry) = index
@@ -166,16 +169,9 @@ fn facts_for(
         facts: Vec::new(),
         skipped: true,
     };
-    let Some(parse) = parse_for(r.agent) else {
+    let Some(parsed) = parse_ref(r, opencode_root) else {
         return skipped;
     };
-    let Some(text) = load_transcript(r) else {
-        return skipped;
-    };
-    let parsed = parse(&ParseInput {
-        text: &text,
-        r#ref: r,
-    });
     let project = if r.slug.is_empty() {
         encode_slug(parsed.cwd.as_deref().unwrap_or(""))
     } else {
@@ -239,6 +235,7 @@ pub fn fold_refs(
 ) -> PassResult {
     let index = env.cache.load();
     let (cache, local) = (env.cache, env.local);
+    let opencode_root = &default_root(&env.roots.opencode);
     let mut out = PassResult {
         transcripts: refs.len(),
         ..PassResult::default()
@@ -255,7 +252,7 @@ pub fn fold_refs(
                 for chunk in refs.chunks(CHUNK) {
                     let results: Vec<FileResult> = chunk
                         .par_iter()
-                        .map(|r| facts_for(cache, local, index, r, args))
+                        .map(|r| facts_for(cache, local, index, r, args, opencode_root))
                         .collect();
                     if tx.send(results).is_err() {
                         return;

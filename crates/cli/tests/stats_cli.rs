@@ -235,25 +235,23 @@ fn refresh_counts_and_caches_apart_from_ts() {
 }
 
 #[test]
-fn agents_stats_cannot_scan_are_named_only_without_agent() {
-    let h = StatsHome::new("unscanned");
-    let (code, _, err) = h.run(&["refresh"]);
-    assert_eq!((code, err.as_str()), (0, ""));
+fn every_agent_is_scanned() {
+    let h = StatsHome::new("agents");
     h.home
         .write(&codex_path("c1"), &codex_lines("c1", "/home/demo/work"));
-    let (code, _, err) = h.run(&["refresh"]);
-    assert_eq!(
-        (code, err.as_str()),
-        (0, "codex sessions are not scanned: not supported yet\n")
-    );
-    let (code, _, err) = h.run(&["refresh", "--agent", "claude"]);
-    assert_eq!((code, err.as_str()), (0, ""));
-    let (code, _, err) = h.run(&["--agent", "codex"]);
+    let (code, out, err) = h.run(&["refresh", "--json"]);
+    assert_eq!((code, err.as_str()), (0, ""), "{out}");
+    assert!(out.contains("\"transcripts\": 2"), "{out}");
+    let (code, out, err) = h.run(&["--agent", "codex", "--days", "36500", "--json"]);
+    assert_eq!((code, err.as_str()), (0, ""), "{out}");
+    let v: Value = serde_json::from_str(&out).expect("json");
+    assert_eq!(v["corpus"]["agents"], json!({ "codex": 1 }), "{out}");
+    let (code, _, err) = h.run(&["--agent", "bogus"]);
     assert_eq!(
         (code, err.as_str()),
         (
             1,
-            "Agent \"codex\" is not supported yet. Supported: claude.\n"
+            "Unknown agent \"bogus\". Known: claude, codex, pi, opencode, all.\n"
         )
     );
 }
