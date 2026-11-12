@@ -12,6 +12,7 @@ pub mod measure;
 pub mod model;
 pub mod model_windows;
 pub mod prompt;
+pub mod read;
 pub mod redact;
 pub mod resolve;
 pub mod service;

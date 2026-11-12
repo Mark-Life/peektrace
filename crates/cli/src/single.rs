@@ -3,16 +3,19 @@
 
 use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::{self, LocalZone};
+use peektrace_core::js::value::JsValue;
 use peektrace_core::js::{num, text};
 use peektrace_core::roots;
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
+use peektrace_core::sessions::read::{cost_from_json, listing_from_json, parsed_from_json};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
 use peektrace_core::sessions::write::analyzed_json;
 use peektrace_core::{AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 use crate::args::{AnalyzeArgs, ExportArgs, TargetArgs};
 use crate::ls::{Context, Globals, UserError};
+use crate::remote::Remote;
 use crate::render;
 use crate::zone::SystemZone;
 
@@ -102,12 +105,13 @@ impl Pick {
 }
 
 /// The session to run on, and how many listed sessions were unreadable
-/// when the newest one had to be found.
+/// when the newest one had to be found. `remote` lists on the server.
 fn resolve_target(
     t: &TargetArgs,
     ctx: &Context,
     roots: &AgentRoots,
     zone: &dyn LocalZone,
+    remote: Option<&Remote>,
 ) -> Result<(Pick, Option<usize>), UserError> {
     let cwd = t.cwd.as_deref().map(|c| {
         let env = &ctx.roots_env;
@@ -121,10 +125,15 @@ fn resolve_target(
     )? {
         Plan::Picked(id) => Ok((Pick::Typed(id), None)),
         Plan::Newest(cwd) => {
-            let mut listing = list_sessions(roots, &ListFilter::default());
-            let unreadable = listing.unreadable.len();
+            let (mut headers, unreadable) = if let Some(r) = remote {
+                listing_from_json(&r.get_json(&["sessions"], &[])?).ok_or_else(|| r.unexpected())?
+            } else {
+                let listing = list_sessions(roots, &ListFilter::default());
+                let n = listing.unreadable.len();
+                (listing.headers, n)
+            };
             let picked = select::select_sessions(
-                listing.headers.iter().collect(),
+                headers.iter().collect(),
                 &SelectOptions {
                     since_ms: None,
                     cwd: cwd.clone(),
@@ -136,10 +145,10 @@ fn resolve_target(
             let first = picked
                 .rows
                 .first()
-                .and_then(|n| listing.headers.iter().position(|h| h.id == n.id));
+                .and_then(|n| headers.iter().position(|h| h.id == n.id));
             match first {
                 Some(at) => Ok((
-                    Pick::Newest(Box::new(listing.headers.swap_remove(at))),
+                    Pick::Newest(Box::new(headers.swap_remove(at))),
                     Some(unreadable),
                 )),
                 None => Err(UserError::Invalid(match cwd {
@@ -218,16 +227,83 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
     rows
 }
 
+/// What the `sessions analyze` tables show.
+#[derive(Debug, Clone, PartialEq)]
+struct Summary {
+    session_id: String,
+    provider: String,
+    context_window: f64,
+    peak_context_tokens: f64,
+    final_context_tokens: f64,
+    turn_count: f64,
+    tool_call_count: f64,
+    cost: Option<SessionCost>,
+    dumb_zone_cross_turn: f64,
+    dumb_zone_fraction: f64,
+    /// Label and tokens of each budget slice.
+    budget: Vec<(String, f64)>,
+}
+
+#[expect(clippy::cast_precision_loss, reason = "counts fit f64")]
+fn summary_of(a: &AnalyzedSession) -> Summary {
+    Summary {
+        session_id: a.parsed.session_id.clone(),
+        provider: a.parsed.provider.as_str().to_owned(),
+        context_window: a.context_window,
+        peak_context_tokens: a.peak_context_tokens,
+        final_context_tokens: a.final_context_tokens,
+        turn_count: a.turn_count as f64,
+        tool_call_count: a.tool_call_count as f64,
+        cost: a.cost.clone(),
+        dumb_zone_cross_turn: a.dumb_zone_cross_turn as f64,
+        dumb_zone_fraction: a.dumb_zone_fraction,
+        budget: a
+            .budget
+            .iter()
+            .map(|b| (b.label.to_owned(), b.tokens))
+            .collect(),
+    }
+}
+
+/// The same summary from an analysis the server sent.
+fn summary_from_json(v: &JsValue) -> Option<Summary> {
+    let n = |k: &str| v.get(k).and_then(JsValue::as_num);
+    let s = |k: &str| v.get(k).and_then(JsValue::as_str).map(str::to_owned);
+    Some(Summary {
+        session_id: s("sessionId")?,
+        provider: s("provider")?,
+        context_window: n("contextWindow")?,
+        peak_context_tokens: n("peakContextTokens")?,
+        final_context_tokens: n("finalContextTokens")?,
+        turn_count: n("turnCount")?,
+        tool_call_count: n("toolCallCount")?,
+        cost: v.get("cost").and_then(cost_from_json),
+        dumb_zone_cross_turn: n("dumbZoneCrossTurn")?,
+        dumb_zone_fraction: n("dumbZoneFraction")?,
+        budget: v
+            .get("budget")?
+            .as_arr()?
+            .iter()
+            .map(|b| {
+                Some((
+                    b.get("label")?.as_str()?.to_owned(),
+                    b.get("tokens")?.as_num()?,
+                ))
+            })
+            .collect::<Option<_>>()?,
+    })
+}
+
 /// The `sessions analyze` summary and budget tables.
-fn render_analysis(a: &AnalyzedSession, pretty: bool) -> String {
+fn render_analysis(a: &Summary, pretty: bool) -> String {
     let fraction = fraction_of(a.peak_context_tokens, a.context_window);
-    let cross = if a.dumb_zone_cross_turn < 0 {
+    let cross = if a.dumb_zone_cross_turn < 0.0 {
         "never".to_owned()
     } else {
-        (a.dumb_zone_cross_turn + 1).to_string()
+        num::to_js_string(a.dumb_zone_cross_turn + 1.0)
     };
     let mut rows = vec![
-        row("session", a.parsed.session_id.clone()),
+        row("session", a.session_id.clone()),
         row(
             "verdict",
             verdict(fraction, a.dumb_zone_fraction).to_owned(),
@@ -242,10 +318,10 @@ fn render_analysis(a: &AnalyzedSession, pretty: bool) -> String {
             ),
         ),
         row("final context", tokens(a.final_context_tokens)),
-        row("turns", a.turn_count.to_string()),
-        row("tool calls", a.tool_call_count.to_string()),
+        row("turns", num::to_js_string(a.turn_count)),
+        row("tool calls", num::to_js_string(a.tool_call_count)),
     ];
-    rows.extend(cost_rows(a.cost.as_ref(), a.parsed.provider.as_str()));
+    rows.extend(cost_rows(a.cost.as_ref(), &a.provider));
     rows.push(row("dumb-zone cross turn", cross));
     let rows: Vec<Vec<String>> = rows
         .into_iter()
@@ -255,13 +331,13 @@ fn render_analysis(a: &AnalyzedSession, pretty: bool) -> String {
     let budget_rows: Vec<Vec<String>> = a
         .budget
         .iter()
-        .filter(|s| s.tokens > 0.0)
-        .map(|s| {
+        .filter(|(_, t)| *t > 0.0)
+        .map(|(label, t)| {
             vec![
-                s.label.to_owned(),
-                tokens(s.tokens),
+                label.clone(),
+                tokens(*t),
                 if a.peak_context_tokens > 0.0 {
-                    percent(s.tokens / a.peak_context_tokens)
+                    percent(t / a.peak_context_tokens)
                 } else {
                     "-".to_owned()
                 },
@@ -272,26 +348,41 @@ fn render_analysis(a: &AnalyzedSession, pretty: bool) -> String {
     format!("{summary}\n\n{budget}")
 }
 
-/// `sessions analyze`.
+/// `sessions analyze`, here or on `remote`.
 pub fn run_analyze(
     args: &AnalyzeArgs,
     globals: Globals,
     ctx: &Context,
+    remote: Option<&Remote>,
 ) -> Result<Output, UserError> {
-    let (roots, warnings) = agent_roots(ctx);
-    let zone = SystemZone::default();
-    let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
-    let env = SessionEnv {
-        roots: &roots,
-        local: &zone,
+    let (roots, warnings) = match remote {
+        Some(_) => (AgentRoots::default(), Vec::new()),
+        None => agent_roots(ctx),
     };
-    let target = pick.target();
-    let a = analyze_session(env, target, args.target.parent.as_deref(), true)
-        .map_err(|e| UserError::Invalid(e.to_string()))?;
-    let stdout = if globals.json {
-        analyzed_json(&a)
+    let zone = SystemZone::default();
+    let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone, remote)?;
+    let parent = args.target.parent.as_deref();
+    let stdout = if let Some(r) = remote {
+        let query: Vec<(&str, &str)> = parent.map(|p| ("parent", p)).into_iter().collect();
+        let v = r.get_json(&["sessions", pick.target().id(), "analysis"], &query)?;
+        if globals.json {
+            v.stringify(true)
+        } else {
+            let s = summary_from_json(&v).ok_or_else(|| r.unexpected())?;
+            render_analysis(&s, globals.pretty)
+        }
     } else {
-        render_analysis(&a, globals.pretty)
+        let env = SessionEnv {
+            roots: &roots,
+            local: &zone,
+        };
+        let a = analyze_session(env, pick.target(), parent, true)
+            .map_err(|e| UserError::Invalid(e.to_string()))?;
+        if globals.json {
+            analyzed_json(&a)
+        } else {
+            render_analysis(&summary_of(&a), globals.pretty)
+        }
     };
     Ok(Output {
         stdout: Some(stdout),
@@ -326,8 +417,13 @@ fn pick_format(format: Option<ExportFormat>, json: bool, out: Option<&str>) -> E
     }
 }
 
-/// `sessions export`.
-pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<Output, UserError> {
+/// `sessions export`, here or on `remote`.
+pub fn run_export(
+    args: &ExportArgs,
+    globals: Globals,
+    ctx: &Context,
+    remote: Option<&Remote>,
+) -> Result<Output, UserError> {
     let format = args
         .format
         .as_deref()
@@ -339,17 +435,30 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
             })
         })
         .transpose()?;
-    let (roots, warnings) = agent_roots(ctx);
-    let zone = SystemZone::default();
-    let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
-    let env = SessionEnv {
-        roots: &roots,
-        local: &zone,
+    let (roots, warnings) = match remote {
+        Some(_) => (AgentRoots::default(), Vec::new()),
+        None => agent_roots(ctx),
     };
+    let zone = SystemZone::default();
+    let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone, remote)?;
     let redact = !args.no_redact;
-    let target = pick.target();
-    let session = get_session(env, target, args.target.parent.as_deref(), redact)
-        .map_err(|e| UserError::Invalid(e.to_string()))?;
+    let parent = args.target.parent.as_deref();
+    let session = if let Some(r) = remote {
+        let query: Vec<(&str, &str)> = parent
+            .map(|p| ("parent", p))
+            .into_iter()
+            .chain((!redact).then_some(("redact", "false")))
+            .collect();
+        let v = r.get_json(&["sessions", pick.target().id()], &query)?;
+        parsed_from_json(&v).ok_or_else(|| r.unexpected())?
+    } else {
+        let env = SessionEnv {
+            roots: &roots,
+            local: &zone,
+        };
+        get_session(env, pick.target(), parent, redact)
+            .map_err(|e| UserError::Invalid(e.to_string()))?
+    };
     let out_path = args.out.as_deref().filter(|p| *p != "-");
     #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
     let exported_at = time::to_iso_string(ctx.now_ms as i64);

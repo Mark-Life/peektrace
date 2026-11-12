@@ -5,9 +5,11 @@ mod argv;
 mod ls;
 mod memory;
 mod otel;
+mod remote;
 mod render;
 mod reorder;
 mod search;
+mod serve;
 mod single;
 mod stats;
 mod stats_progress;
@@ -124,6 +126,7 @@ enum Run<'a> {
     StatsPrompt(&'a args::StatsPromptArgs),
     StatsRefresh(&'a args::StatsRefreshArgs),
     StatsUsage(&'a args::StatsUsageArgs),
+    Serve(&'a args::ServeArgs),
 }
 
 impl<'a> Run<'a> {
@@ -213,8 +216,18 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         pretty: cli.pretty,
         read_only: cli.read_only,
     };
+    let remote = cli.remote.as_deref().map(|r| {
+        remote::Remote::new(
+            r,
+            std::env::var(peektrace_server::auth::TOKEN_ENV)
+                .ok()
+                .as_deref(),
+        )
+    });
+    let remote = remote.as_ref();
     let out = match cmd {
-        Run::Ls(args) => match ls::run(args, globals, &ctx) {
+        Run::Serve(args) => return run_serve(cli, args, &ctx, failure),
+        Run::Ls(args) => match ls::run(args, globals, &ctx, remote) {
             Ok(out) => {
                 root.record("sessions.unreadable", out.unreadable);
                 print_warnings(cli, &out.warnings);
@@ -224,8 +237,8 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
             }
             Err(e) => return Ok(failure.fail(&e)),
         },
-        Run::Analyze(args) => single::run_analyze(args, globals, &ctx),
-        Run::Export(args) => single::run_export(args, globals, &ctx),
+        Run::Analyze(args) => single::run_analyze(args, globals, &ctx, remote),
+        Run::Export(args) => single::run_export(args, globals, &ctx, remote),
         Run::Search(args) => search::run(args, globals, &ctx),
         Run::MemoryLs(args) => Ok(memory::run_ls(args, globals, &ctx)),
         Run::MemoryShow(args) => Ok(memory::run_show(args, globals, &ctx)),
@@ -258,6 +271,30 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         print_stderr(&format!("Wrote {path}"));
     }
     out.notes.iter().for_each(|n| print_stderr(n));
+    Ok(ExitCode::SUCCESS)
+}
+
+/// `serve`: print the banner once bound, then serve until stopped.
+fn run_serve(
+    cli: &Cli,
+    args: &args::ServeArgs,
+    ctx: &Context,
+    failure: Failure<'_>,
+) -> anyhow::Result<ExitCode> {
+    let prepared = match serve::prepare(args, cli.read_only, ctx) {
+        Ok(p) => p,
+        Err(e) => return Ok(failure.fail(&e)),
+    };
+    print_warnings(cli, &prepared.warnings);
+    let banner = prepared.banner.clone();
+    let desktop = std::env::var("PEEKTRACE_CLIENT").is_ok_and(|v| v == "desktop");
+    serve::run(prepared, || {
+        let _ = print_stdout(&banner.stdout.join("\n"));
+        banner.stderr.iter().for_each(|l| print_stderr(l));
+        if desktop {
+            let _ = print_stdout(&format!("PEEKTRACE_READY:{}", banner.port));
+        }
+    })?;
     Ok(ExitCode::SUCCESS)
 }
 
@@ -310,6 +347,7 @@ fn main() -> ExitCode {
             Some(StatsCommand::Refresh(a)) => Run::StatsRefresh(a),
             Some(StatsCommand::Usage(a)) => Run::StatsUsage(a),
         },
+        Some(Command::Serve(a)) => Run::Serve(a),
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);
