@@ -138,14 +138,11 @@ impl<'a> Run<'a> {
 }
 
 /// A command under the root `cli` span. Every failure, including an early
-/// `?` exit, records `error` on that span.
-fn run(cli: &Cli, cmd: Run<'_>) -> anyhow::Result<ExitCode> {
-    let args: Vec<String> = std::env::args_os()
-        .skip(1)
-        .map(|a| a.to_string_lossy().into_owned())
-        .collect();
-    let command_line = argv::loggable(&args);
-    let scrub = argv::has_free_text(&args);
+/// `?` exit, records `error` on that span. `argv` is the normalized command
+/// line clap parsed.
+fn run(cli: &Cli, cmd: Run<'_>, argv: &[String]) -> anyhow::Result<ExitCode> {
+    let command_line = argv::loggable(argv);
+    let scrub = argv::has_free_text(argv);
     let root = info_span!(
         "cli",
         peektrace.root = true,
@@ -272,7 +269,8 @@ fn main() -> ExitCode {
         print_stderr(&format!("Missing value for {flag}."));
         return ExitCode::FAILURE;
     }
-    let cli = match Cli::try_parse_from(reorder::normalize(&argv)) {
+    let argv = reorder::normalize(&argv);
+    let cli = match Cli::try_parse_from(&argv) {
         Ok(cli) => cli,
         Err(e) => {
             let _ = e.print();
@@ -315,7 +313,7 @@ fn main() -> ExitCode {
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);
-    run(&cli, cmd).unwrap_or_else(|e| {
+    run(&cli, cmd, &argv).unwrap_or_else(|e| {
         print_stderr(&format!("{e:#}"));
         ExitCode::FAILURE
     })

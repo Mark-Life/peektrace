@@ -80,9 +80,10 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `stats`, `sessions search` and `memory` with `--otel` | also print `RpcServer.*` and `RpcClient.*` spans | no RPC spans |
 | `sessions search` `scannedSessions` and `unreadable` when the result is `truncated` | vary run to run: up to 8 loads are in flight when the scan stops | each thread (at most 16) loads the next session, newest first, with no batch wait; both counts cover the sessions up to the one that made `limit + 1` matches, so they do not vary |
 | `sessions search` query words that look like flags | `-v` prints the version; `true` or `false` after `--json` or `--no-redact` is read as the flag's value | `-v` is a clap error; `true` and `false` are query text. Other dash words follow TS: query text, and when the query starts with one, every later word is text too. |
+| `sessions search` root span `argv` | dash query words (`--force`, `-rf`) stay verbatim | the reordered command line: known flags first, then `--`, then every query word as `<text>` |
 | `memory` on Windows | every entry reads as not in `MEMORY.md`: the match slugs the whole path, which has `\` separators | the path's `\` read as `/`, so entries match by file name |
 | `memory` `typeCounts` for a `type` named `__proto__` or after an `Object.prototype` member (`constructor`, `toString`, ...) | `__proto__` is dropped; the others print as text such as `"function Object() { [native code] }1"` | counted like any other type |
-| `memory rm` when the file cannot be removed (IO error) | Effect `ERROR (#n)` dump on stdout | the OS error on stderr. Exit 1 in both. |
+| `memory rm` when the file cannot be removed (IO error) | Effect `ERROR (#n)` dump on stdout | `<path>: <OS error>` on stderr, naming the memory file or `MEMORY.md`. Exit 1 in both. |
 | `stats usage --tz` | ICU `Intl` names and aliases | jiff names (any case) and fixed offsets `±HH`, `±HHMM`, `±HH:MM`. Rare ICU-only aliases may be rejected. |
 | `stats` nested transcript walk | follows symlinked dirs with no loop guard | stops 64 dirs deep |
 | `stats` rule check for a missing binary whose name is about 50,000+ chars | the name gets a probe | the probe pattern passes the regex size limit, so that name gets no probe |

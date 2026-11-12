@@ -36,8 +36,16 @@ pub enum WriteError {
     Changed { path: String, reason: ChangeReason },
     #[error("Refused: path escapes the allowed roots: {path}")]
     OutsideRoots { path: String },
-    #[error("{0}")]
-    Io(#[from] io::Error),
+    #[error("{path}: {source}")]
+    Io { path: String, source: io::Error },
+}
+
+impl WriteError {
+    /// Wrap an IO failure on `path`.
+    pub fn io(path: &str) -> impl FnOnce(io::Error) -> Self {
+        let path = path.to_owned();
+        move |source| Self::Io { path, source }
+    }
 }
 
 /// A file read as text: a leading BOM dropped, bad UTF-8 replaced.
@@ -123,7 +131,7 @@ pub fn atomic_write(
         if !exists(path) {
             return Err(changed(ChangeReason::Missing));
         }
-        if stat_mtime(path)? != want {
+        if stat_mtime(path).map_err(WriteError::io(path))? != want {
             return Err(changed(ChangeReason::Mtime));
         }
     }
@@ -134,10 +142,12 @@ pub fn atomic_write(
         .unwrap_or_default();
     let name = style.basename(path);
     let temp = style.join(&[&dir, &format!(".{name}.tmp-{}", temp_token())]);
-    fs::write(&temp, content)?;
-    fs::rename(&temp, path).inspect_err(|_| {
-        let _ = fs::remove_file(&temp);
-    })?;
+    fs::write(&temp, content).map_err(WriteError::io(path))?;
+    fs::rename(&temp, path)
+        .inspect_err(|_| {
+            let _ = fs::remove_file(&temp);
+        })
+        .map_err(WriteError::io(path))?;
     Ok(())
 }
 

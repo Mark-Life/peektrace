@@ -237,6 +237,23 @@ fn delete_creates_an_empty_index_when_none_exists() {
     );
 }
 
+#[cfg(unix)]
+#[test]
+fn a_failed_delete_names_the_file() {
+    use std::os::unix::fs::PermissionsExt as _;
+    let d = seed();
+    let dir = d.join(&format!("{SLUG_A}/memory"));
+    let mode = |m| fs::set_permissions(&dir, fs::Permissions::from_mode(m)).expect("chmod");
+    mode(0o555);
+    let r = delete(&ctx(&d), Agent::Claude, SLUG_A, "b");
+    mode(0o755);
+    // root ignores the mode, so only a refused delete is checked
+    if let Err(e) = r {
+        let file = d.join(&format!("{SLUG_A}/memory/b.md"));
+        assert!(e.to_string().starts_with(&format!("{file}: ")), "{e}");
+    }
+}
+
 #[test]
 fn a_codex_write_is_refused() {
     let d = seed();

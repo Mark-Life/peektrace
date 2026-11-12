@@ -116,8 +116,8 @@ fn write_index(
     fallback: &str,
 ) -> Result<(), MemoryError> {
     if exists(path) {
-        let raw = read_text(path).map_err(WriteError::from)?;
-        let mtime = stat_mtime(path).map_err(WriteError::from)?;
+        let raw = read_text(path).map_err(WriteError::io(path))?;
+        let mtime = stat_mtime(path).map_err(WriteError::io(path))?;
         atomic_write(path, &transform(&raw), Some(mtime), &ctx.allowed_roots)?;
     } else {
         atomic_write(path, fallback, None, &ctx.allowed_roots)?;
@@ -126,7 +126,7 @@ fn write_index(
 }
 
 fn stat_entry(path: &str, content: &str) -> Result<MemoryEntry, MemoryError> {
-    let mtime = stat_mtime(path).map_err(WriteError::from)?;
+    let mtime = stat_mtime(path).map_err(WriteError::io(path))?;
     Ok(build_entry(path, content, mtime, true))
 }
 
@@ -156,7 +156,7 @@ pub fn create(ctx: &MemoryCtx, agent: Agent, m: &NewMemory) -> Result<MemoryEntr
     if !(is_plain_slug(&m.project) && exists(&project_dir)) {
         return Err(invalid("unknown project", &m.name));
     }
-    std::fs::create_dir_all(&dir).map_err(WriteError::from)?;
+    std::fs::create_dir_all(&dir).map_err(WriteError::io(&dir))?;
     let file_name = format!("{}.md", m.name);
     let path = join(&[&dir, &file_name]);
     if exists(&path) {
@@ -280,7 +280,7 @@ pub fn delete(
     if !is_within(&path, &ctx.allowed_roots) {
         return Err(invalid("refusing to delete outside the agent roots", name));
     }
-    std::fs::remove_file(&path).map_err(WriteError::from)?;
+    std::fs::remove_file(&path).map_err(WriteError::io(&path))?;
     write_index(
         ctx,
         &join(&[&dir, INDEX_FILE]),

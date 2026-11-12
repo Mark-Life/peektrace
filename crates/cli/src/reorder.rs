@@ -3,6 +3,8 @@
 //!   (`sessions search git push --force`).
 //! - `memory ls|show|rm`: after `--`, dash words past the positional slots
 //!   are still flags (`memory ls -- -Users-x --json`).
+//!
+//! The flag lists mirror `args.rs`; a test checks them against clap.
 
 /// Global flags with no value.
 const GLOBAL_SWITCHES: [&str; 9] = [
@@ -26,7 +28,7 @@ fn takes_value(word: &str) -> bool {
 }
 
 /// The leaf subcommand path (up to two words) and the index of its last word.
-fn command_path(argv: &[String]) -> Option<(&str, &str, usize)> {
+pub fn command_path(argv: &[String]) -> Option<(&str, &str, usize)> {
     let mut found: Vec<(usize, &str)> = Vec::with_capacity(2);
     let mut i = 1;
     while i < argv.len() && found.len() < 2 {
@@ -134,6 +136,8 @@ pub fn normalize(argv: &[String]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
 
     fn run(s: &str) -> String {
@@ -218,6 +222,45 @@ mod tests {
             "pt memory ls --json -- x y"
         );
         assert_eq!(run("pt memory ls --json x"), "pt memory ls --json x");
+    }
+
+    /// Every named flag of `cmd`, with whether it takes a value.
+    fn clap_flags(cmd: &clap::Command) -> BTreeSet<(String, bool)> {
+        cmd.get_arguments()
+            .filter(|a| !a.is_positional())
+            .flat_map(|a| {
+                let valued = a.get_action().takes_values();
+                a.get_long()
+                    .map(|l| format!("--{l}"))
+                    .into_iter()
+                    .chain(a.get_short().map(|c| format!("-{c}")))
+                    .map(move |n| (n, valued))
+            })
+            .collect()
+    }
+
+    fn listed(switches: &[&str], values: &[&str]) -> BTreeSet<(String, bool)> {
+        let tag = |v| move |n: &&str| ((*n).to_owned(), v);
+        switches
+            .iter()
+            .map(tag(false))
+            .chain(values.iter().map(tag(true)))
+            .collect()
+    }
+
+    #[test]
+    fn flag_lists_match_clap() {
+        let mut root = <crate::args::Cli as clap::CommandFactory>::command();
+        root.build();
+        let globals = listed(&GLOBAL_SWITCHES, &GLOBAL_VALUES);
+        assert_eq!(clap_flags(&root), globals);
+        let search = root
+            .find_subcommand("sessions")
+            .and_then(|c| c.find_subcommand("search"))
+            .map(clap_flags)
+            .unwrap_or_default();
+        let own: BTreeSet<_> = search.difference(&globals).cloned().collect();
+        assert_eq!(own, listed(&SEARCH_SWITCHES, &SEARCH_VALUES));
     }
 
     #[test]
