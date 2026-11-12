@@ -7,14 +7,13 @@
  * one when no vault exists yet. A read-only server or the `memory.crud` matrix
  * cell gates every write affordance. Writes refresh `allVaultsAtom` so gauges re-validate.
  */
-import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
+import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import type {
   AllVaults,
   MemoryEntry,
   MemoryVault,
 } from "@workspace/core/services/memory/types";
 import { MEMORY_TYPES } from "@workspace/core/services/memory/types";
-import type { Capability } from "@workspace/rpc/contract";
 import {
   Accordion,
   AccordionContent,
@@ -38,6 +37,8 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NotPorted } from "../../components/not-ported";
+import type { Capability } from "../../lib/api-types.gen";
 import {
   allVaultsAtom,
   capabilitiesAtom,
@@ -48,6 +49,7 @@ import {
   memorySupportSummary,
 } from "../../lib/memory-support";
 import { ResultView } from "../../lib/result-view";
+import { isNotPorted } from "../../lib/wire-error";
 import { CapabilityBanner } from "./capability-banner";
 import { CreateDialog } from "./create-dialog";
 import { CreateAnywhereButton } from "./project-picker";
@@ -368,6 +370,11 @@ export const MemoryExplorer = () => {
   const retryAll = useAtomRefresh(allVaultsAtom);
   const retryCaps = useAtomRefresh(capabilitiesAtom);
   const retryInfo = useAtomRefresh(serverInfoAtom);
+  if (Result.isFailure(allResult) && isNotPorted(allResult.cause)) {
+    return (
+      <NotPorted message="Memory is not available in the Rust build yet." />
+    );
+  }
   return (
     <ResultView onRetry={retryAll} result={allResult}>
       {(all) => (

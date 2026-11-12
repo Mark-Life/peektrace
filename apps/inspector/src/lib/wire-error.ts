@@ -1,14 +1,17 @@
-/** Narrow a failed mutation `Exit` to its typed Peektrace wire error.
+/** Narrow a failed mutation `Exit` to its typed Peektrace API error.
  *
- * RPC mutations resolve to an `Exit<Success, WireError>`; on failure the typed
+ * API mutations resolve to an `Exit<Success, WireError>`; on failure the typed
  * domain error (`FileChangedError`, `CapabilityUnsupportedError`, …) lives in the
  * `Cause`. This pulls the first expected failure out so callers can branch on
  * `_tag` (e.g. show the CAS-conflict choice) instead of stringly-matching.
  */
-import type { WireError } from "@workspace/rpc/contract";
 import { Cause, type Exit, Option } from "effect";
+import type { ApiError } from "./api-types.gen";
 
-/** The set of `_tag`s carried by the typed RPC wire errors. */
+/** Every typed error an `/api` route answers with. */
+export type WireError = ApiError;
+
+/** The set of `_tag`s carried by the typed API errors. */
 const WIRE_TAGS = new Set<WireError["_tag"]>([
   "FileChangedError",
   "MemoryValidationError",
@@ -18,6 +21,13 @@ const WIRE_TAGS = new Set<WireError["_tag"]>([
   "SessionNotFoundError",
   "TranscriptParseError",
   "SettingsWriteError",
+  "StatsScanError",
+  "StatsRowNotFoundError",
+  "NotPortedYetError",
+  "BadRequestError",
+  "ImageNotFoundError",
+  "NotFoundError",
+  "MethodNotAllowedError",
 ]);
 
 /** Narrow an unknown failure value to a typed `WireError`, if it is one. */
@@ -35,10 +45,10 @@ export const asWireError = (value: unknown): WireError | undefined => {
 
 /** Extract the typed `WireError` from a failed mutation exit, if present. */
 export const wireErrorOf = (
-  exit: Exit.Exit<unknown, WireError>
+  exit: Exit.Exit<unknown, unknown>
 ): WireError | undefined =>
   exit._tag === "Failure"
-    ? Option.getOrUndefined(Cause.failureOption(exit.cause))
+    ? asWireError(Option.getOrUndefined(Cause.failureOption(exit.cause)))
     : undefined;
 
 /** Pull a typed `WireError` out of a query failure `Cause`, if present. */
@@ -66,7 +76,21 @@ export const wireErrorMessage = (error: WireError): string => {
       return `That transcript could not be read (${error.reason}). The file may be locked or malformed.`;
     case "SettingsWriteError":
       return `Settings could not be saved (${error.reason}).`;
+    case "NotPortedYetError":
+      return "Not available in the Rust build yet.";
+    case "BadRequestError":
+      return `The server refused the request (${error.reason}).`;
+    case "ImageNotFoundError":
+      return "That image is not in the transcript.";
+    case "NotFoundError":
+      return `No such API route: ${error.path}.`;
+    case "MethodNotAllowedError":
+      return `The server does not accept ${error.method} here.`;
     default:
       return "The request failed.";
   }
 };
+
+/** True when a query failed because this server does not serve the feature. */
+export const isNotPorted = (cause: Cause.Cause<unknown>) =>
+  wireErrorOfCause(cause)?._tag === "NotPortedYetError";

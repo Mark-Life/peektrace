@@ -1,35 +1,40 @@
-/** Per-procedure query atoms derived from the single `PeektraceClient`.
+/** Query atoms over the `/api` routes.
  *
- * Each atom is `Atom<Result<Success, Error>>` — read it with `useAtomValue` and
- * branch on the `Result` discriminated union (see `result-view.tsx`). Mutations
- * (`memory.create/update/delete`) are intentionally left to the Memory phase,
- * which will use `PeektraceClient.mutation(tag)`.
+ * Each atom is `Atom<Result<Success, ApiFailure>>`: read it with
+ * `useAtomValue` and branch on the `Result` union (see `result-view.tsx`).
  */
-import { PeektraceClient } from "./client";
+import { Atom } from "@effect-atom/atom-react";
+import type { AllVaults } from "@workspace/core/services/memory/types";
+import { Effect } from "effect";
+import { apiGet } from "./api";
+import type {
+  Capability,
+  ServerInfo,
+  SessionListing,
+  SettingsResult,
+} from "./api-types.gen";
 import { sharedHeadersAtom } from "./share-headers";
 
-/** Live capability matrix (`capabilities.list`). */
-export const capabilitiesAtom = PeektraceClient.query(
-  "capabilities.list",
-  undefined
+/** Live capability matrix. */
+export const capabilitiesAtom = Atom.make(
+  apiGet<readonly Capability[]>("/api/capabilities")
 );
 
-/** Cross-project memory overview (`memory.allVaults`) — used by the Memory UI. */
-export const allVaultsAtom = PeektraceClient.query(
-  "memory.allVaults",
-  undefined
-);
+/** Cross-project memory overview, used by the Memory UI. */
+export const allVaultsAtom = Atom.make(apiGet<AllVaults>("/api/memory"));
 
-/** Lightweight session headers (`sessions.list`) — used by the Sessions UI. */
-export const sessionsListAtom = PeektraceClient.query("sessions.list", {});
+/** Lightweight session headers, used by the Sessions UI. */
+export const sessionsListAtom = Atom.make(
+  apiGet<SessionListing>("/api/sessions").pipe(Effect.map((l) => l.headers))
+);
 
 /** `sessionsListAtom` with structural sharing: unchanged headers keep their
  *  identity across reloads, and a reload with equal data notifies nobody. Read
  *  this one in the UI; refresh `sessionsListAtom`. */
 export const sessionHeadersAtom = sharedHeadersAtom(sessionsListAtom);
 
-/** Current user settings file (`settings.get`) — used by the Settings UI. */
-export const settingsAtom = PeektraceClient.query("settings.get", undefined);
+/** Current user settings file, used by the Settings UI. */
+export const settingsAtom = Atom.make(apiGet<SettingsResult>("/api/settings"));
 
-/** Server posture and scanned transcript folders (`server.info`). */
-export const serverInfoAtom = PeektraceClient.query("server.info", undefined);
+/** Server posture and scanned transcript folders. */
+export const serverInfoAtom = Atom.make(apiGet<ServerInfo>("/api/server"));

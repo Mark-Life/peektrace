@@ -21,7 +21,7 @@ export type ServerInfo = { readOnly: boolean, userHome: string, agents: Array<Ag
 
 export type RootEntry = { path: string, label?: string, };
 
-export type PeektraceSettings = { roots?: Partial<Record<AgentId, RootEntry[]>>, };
+export type PeektraceSettings = { roots?: Partial<Record<AgentId, readonly RootEntry[]>>, };
 
 export type SettingsResult = { settings: PeektraceSettings, mtimeMs: number, path: string, };
 

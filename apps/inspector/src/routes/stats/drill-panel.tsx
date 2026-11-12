@@ -15,7 +15,6 @@ import type {
   DrillHit,
   DrillResult,
 } from "@workspace/core/services/stats/schema";
-import type { WireError } from "@workspace/rpc/contract";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -26,6 +25,7 @@ import {
   SheetTitle,
 } from "@workspace/ui/components/sheet";
 import { type UIEvent, useState } from "react";
+import type { ApiFailure } from "../../lib/api";
 import { ResultView } from "../../lib/result-view";
 import { markedSessionHash } from "../../lib/routes";
 import { sessionTitlesAtom } from "../../lib/session-titles";
@@ -38,7 +38,7 @@ import {
 } from "../../lib/stats-format";
 
 /** One open drill, as the sheet reads it. */
-type DrillAtom = Atom.Atom<Result.Result<DrillResult, WireError>>;
+type DrillAtom = Atom.Atom<Result.Result<DrillResult, ApiFailure>>;
 
 /** Hits mounted at once, and added each time the list is scrolled to its end. */
 const STEP = 30;
