@@ -22,28 +22,6 @@ fn default_root_from_home() {
 }
 
 #[test]
-fn unread_roots_from_env() {
-    let roots = |e: &RootsEnv| {
-        unread_roots(e)
-            .into_iter()
-            .map(|(_, r)| r)
-            .collect::<Vec<_>>()
-    };
-    assert_eq!(roots(&env()), ["/home/u/.local/share/opencode"]);
-    let e = RootsEnv {
-        opencode_data: Some(String::new()),
-        xdg_data_home: Some("/x".to_owned()),
-        ..env()
-    };
-    assert_eq!(roots(&e), ["/x/opencode"]);
-    let e = RootsEnv {
-        opencode_data: Some("/o".to_owned()),
-        ..e
-    };
-    assert_eq!(roots(&e), ["/o"]);
-}
-
-#[test]
 fn codex_and_pi_roots() {
     let root = |a: Agent, e: &RootsEnv, extras: &[RootEntry]| {
         sources(a, e, extras)
@@ -96,6 +74,43 @@ fn codex_and_pi_roots() {
     let s =
         parse_settings(r#"{"roots":{"codex":[{"path":"/a"}],"pi":[{"path":"/b","label":"x"}]}}"#);
     assert_eq!((s.codex.len(), s.pi.len(), s.claude.len()), (1, 1, 0));
+}
+
+#[test]
+fn opencode_roots() {
+    let data_dir = |e: &RootsEnv| sources(Agent::Opencode, e, &[])[0].projects_root.clone();
+    assert_eq!(data_dir(&env()), "/home/u/.local/share/opencode");
+    let xdg = RootsEnv {
+        xdg_data_home: Some("/xdg".to_owned()),
+        ..env()
+    };
+    assert_eq!(data_dir(&xdg), "/xdg/opencode");
+    let empty = RootsEnv {
+        opencode_data: Some(String::new()),
+        ..xdg.clone()
+    };
+    assert_eq!(data_dir(&empty), "/xdg/opencode");
+    let hook = RootsEnv {
+        opencode_data: Some("/t/oc".to_owned()),
+        ..xdg
+    };
+    assert_eq!(data_dir(&hook), "/t/oc");
+    let settings = parse_settings(
+        r#"{"roots":{"opencode":[{"path":"/work/oc"},{"path":"/t/oc"},{"path":"~/x","label":"x"}]}}"#,
+    );
+    let s = sources(Agent::Opencode, &hook, &settings.opencode);
+    let got: Vec<_> = s
+        .iter()
+        .map(|s| (s.id.as_str(), s.home.as_str(), s.projects_root.as_str()))
+        .collect();
+    assert_eq!(
+        got,
+        [
+            ("opencode", "/t/oc", "/t/oc"),
+            ("opencode:oc", "/work/oc", "/work/oc"),
+            ("opencode:x", "/home/u/x", "/home/u/x"),
+        ]
+    );
 }
 
 #[test]

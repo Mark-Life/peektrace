@@ -24,20 +24,6 @@ impl Agent {
         }
     }
 
-    /// True when this build can read the agent's sessions.
-    #[expect(
-        clippy::match_same_arms,
-        reason = "one arm per agent, so adding a reader changes one line"
-    )]
-    pub const fn has_reader(self) -> bool {
-        match self {
-            Self::Claude => true,
-            Self::Codex => true,
-            Self::Pi => true,
-            Self::Opencode => false,
-        }
-    }
-
     /// Exact, case-sensitive match on the agent id.
     pub fn parse(s: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|a| a.as_str() == s)
@@ -146,6 +132,4 @@ pub struct UnreadableSession {
 pub struct SessionListing {
     pub headers: Vec<SessionHeader>,
     pub unreadable: Vec<UnreadableSession>,
-    /// Agents the filter asked for that have no reader, so nothing was listed.
-    pub skipped: Vec<Agent>,
 }

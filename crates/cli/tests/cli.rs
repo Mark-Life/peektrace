@@ -51,11 +51,7 @@ fn json_rows() {
             path.display()
         )
     );
-    assert_eq!(
-        err,
-        "2 more hidden, use --limit 0 to show all\n\
-         opencode sessions are not listed: not supported yet\n"
-    );
+    assert_eq!(err, "2 more hidden, use --limit 0 to show all\n");
 }
 
 #[test]
@@ -75,6 +71,17 @@ fn pretty_table() {
 fn empty_results() {
     let f = Fixture::new();
     let (code, out, err) = f.run(&["sessions", "ls", "--agent", "claude", "--project=nope"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    assert_eq!(
+        out,
+        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
+    );
+}
+
+#[test]
+fn opencode_with_no_sessions_lists_none() {
+    let f = Fixture::new();
+    let (code, out, err) = f.run(&["sessions", "ls", "--agent", "opencode"]);
     assert_eq!((code, err.as_str()), (0, ""));
     assert_eq!(
         out,
@@ -113,7 +120,7 @@ fn non_utf8_flag_values_run() {
 #[test]
 fn user_errors_exit_1() {
     let f = Fixture::new();
-    let cases: [(&[&str], &str); 5] = [
+    let cases: [(&[&str], &str); 4] = [
         (
             &["sessions", "ls", "--limit", "abc"],
             "'abc' is not a integer\n\n",
@@ -125,10 +132,6 @@ fn user_errors_exit_1() {
         (
             &["sessions", "ls", "--agent", "bogus"],
             "Unknown agent \"bogus\". Known: claude, codex, pi, opencode, all.\n",
-        ),
-        (
-            &["sessions", "ls", "--json", "--agent", "opencode"],
-            "Agent \"opencode\" is not supported yet. Supported: claude, codex, pi.\n",
         ),
         (
             &["sessions", "ls", "--since", "xx"],

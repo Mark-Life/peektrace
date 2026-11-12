@@ -99,33 +99,23 @@ fn export_subagent_json_with_parent() {
 }
 
 #[test]
-fn unread_agents_are_named_when_they_have_sessions() {
+fn lookups_search_every_agent_without_a_note() {
     let f = Fixture::new();
-    let (_, _, err) = f.run(&["sessions", "analyze", "--latest"]);
-    assert_eq!(err, "");
-    let (_, _, err) = f.run(&["sessions", "analyze", "zzz"]);
-    assert_eq!(err, "Session \"zzz\" not found (searched all agents).\n");
-
     let opencode = f.home.join(".local/share/opencode");
     fs::create_dir_all(&opencode).expect("mkdir");
     fs::write(opencode.join("opencode.db"), "").expect("write");
-    let note = "opencode sessions are not searched: not supported yet\n";
     for args in [
         &["sessions", "analyze", "--latest"][..],
         &["sessions", "analyze", "s"],
+        &["sessions", "analyze", "s1"],
         &["sessions", "export", "--cwd", "/tmp", "--format", "json"],
     ] {
         let (code, _, err) = f.run(args);
-        assert_eq!((code, err.as_str()), (0, note), "{args:?}");
+        assert_eq!((code, err.as_str()), (0, ""), "{args:?}");
     }
-    let (code, _, err) = f.run(&["sessions", "analyze", "s1"]);
-    assert_eq!((code, err.as_str()), (0, ""));
     let (code, _, err) = f.run(&["sessions", "analyze", "zzz"]);
     assert_eq!(code, 1);
-    assert_eq!(
-        err,
-        "Session \"zzz\" not found (searched claude, codex, pi; opencode not supported yet).\n"
-    );
+    assert_eq!(err, "Session \"zzz\" not found (searched all agents).\n");
 }
 
 /// TS fails on these rows; Rust skips the `null` line and reads non-array
