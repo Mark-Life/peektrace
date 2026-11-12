@@ -23,7 +23,7 @@ use crate::codex::parse_codex_session;
 use crate::js::time::LocalZone;
 use crate::listing::{AgentRoots, default_root};
 use crate::model::Agent;
-use crate::opencode::{load_session, parse_opencode_session};
+use crate::opencode::{Reader, Store, parse_opencode_session};
 use crate::pi::parse_pi_session;
 use crate::sessions::model::ParsedSession;
 use crate::sessions::resolve::read_text;
@@ -65,13 +65,20 @@ fn parse_claude(text: &str, r: &TranscriptRef) -> ParsedSession {
 
 /// Load and parse one transcript; `None` when a text transcript cannot be
 /// read. An `OpenCode` session no store holds parses as an empty session.
-fn parse_ref(r: &TranscriptRef, opencode_root: &str) -> Option<ParsedSession> {
+fn parse_ref(r: &TranscriptRef, opencode: &mut Reader<'_>) -> Option<ParsedSession> {
     let parse_text: fn(&str, &TranscriptRef) -> ParsedSession = match r.agent {
         Agent::Claude => parse_claude,
         Agent::Codex => |text, r| parse_codex_session(text, &r.path, &r.id),
         Agent::Pi => |text, r| parse_pi_session(text, &r.path, &r.id),
         Agent::Opencode => {
-            let session = load_session(&r.path, &r.id, opencode_root);
+            let session = {
+                let _span = info_span!(
+                    "AgentRegistry.loadTranscript",
+                    agent = Agent::Opencode.as_str()
+                )
+                .entered();
+                opencode.load(&r.path, &r.id)
+            };
             return Some(parse_opencode_session(session.as_ref(), &r.path, &r.id));
         }
     };
@@ -139,7 +146,7 @@ fn facts_for(
     index: &IndexMap<String, CacheEntry>,
     r: &TranscriptRef,
     args: &PassArgs<'_>,
-    opencode_root: &str,
+    opencode: &mut Reader<'_>,
 ) -> FileResult {
     let stat = stat_of(&r.path);
     if let Some(entry) = index
@@ -169,7 +176,7 @@ fn facts_for(
         facts: Vec::new(),
         skipped: true,
     };
-    let Some(parsed) = parse_ref(r, opencode_root) else {
+    let Some(parsed) = parse_ref(r, opencode) else {
         return skipped;
     };
     let project = if r.slug.is_empty() {
@@ -235,7 +242,13 @@ pub fn fold_refs(
 ) -> PassResult {
     let index = env.cache.load();
     let (cache, local) = (env.cache, env.local);
-    let opencode_root = &default_root(&env.roots.opencode);
+    let opencode_root = default_root(&env.roots.opencode);
+    let opencode = &Store::new(
+        refs.iter()
+            .filter(|r| r.agent == Agent::Opencode)
+            .map(|r| r.path.as_str()),
+        &opencode_root,
+    );
     let mut out = PassResult {
         transcripts: refs.len(),
         ..PassResult::default()
@@ -252,7 +265,10 @@ pub fn fold_refs(
                 for chunk in refs.chunks(CHUNK) {
                     let results: Vec<FileResult> = chunk
                         .par_iter()
-                        .map(|r| facts_for(cache, local, index, r, args, opencode_root))
+                        .map_init(
+                            || opencode.reader(),
+                            |reader, r| facts_for(cache, local, index, r, args, reader),
+                        )
                         .collect();
                     if tx.send(results).is_err() {
                         return;
