@@ -249,23 +249,38 @@ pub fn check(name: &str, actual: &str) {
     }
 }
 
+/// Hide the temp HOME: it differs per run and per machine, and a clipped
+/// path shows a different cut of it. Each run of path text from the HOME's
+/// head to the next border or style mark becomes `<HOME>`.
+pub fn mask_home(text: &str, home: &str) -> String {
+    let head: String = home.chars().take(8).collect();
+    text.lines()
+        .map(|line| {
+            let Some(at) = line.find(&head) else {
+                return line.to_owned();
+            };
+            let rest = &line[at..];
+            let end = rest.find(['│', '[']).unwrap_or(rest.len());
+            format!("{}<HOME> {}", &line[..at], &rest[end..])
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// A text snapshot of the current screen (plus the styled one when
 /// `styled`); the `NO_COLOR` variant's text must match.
 pub fn snap_with(h: &mut Harness, name: &str, with_styles: bool) {
     let home = h.home.to_string_lossy().into_owned();
     let buf = h.draw();
-    let plain = text(&buf).replace(&home, "~HOME");
+    let plain = mask_home(&text(&buf), &home);
     check(&format!("{name}.txt"), &plain);
     if with_styles {
-        check(
-            &format!("{name}.styled"),
-            &styled(&buf).replace(&home, "~HOME"),
-        );
+        check(&format!("{name}.styled"), &mask_home(&styled(&buf), &home));
     }
     let mut mono = Buffer::empty(buf.area);
     h.app.draw_with(&mut mono, ColorMode::None);
     assert_eq!(
-        text(&mono).replace(&home, "~HOME"),
+        mask_home(&text(&mono), &home),
         plain,
         "NO_COLOR text differs for {name}"
     );
