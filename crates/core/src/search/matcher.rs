@@ -153,7 +153,9 @@ fn collect_text<'a>(value: &'a JsValue, out: &mut Vec<&'a str>, depth: usize) {
     match value {
         JsValue::Str(s) => out.push(s),
         JsValue::Arr(items) if depth < MAX_DEPTH => {
-            items.iter().for_each(|v| collect_text(v, out, depth + 1))
+            for v in items {
+                collect_text(v, out, depth + 1);
+            }
         }
         JsValue::Obj(o) if depth < MAX_DEPTH => o
             .entries()

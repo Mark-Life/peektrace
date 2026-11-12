@@ -16,7 +16,7 @@ fn canon(c: char) -> char {
     }
     let mut up = c.to_uppercase();
     match (up.next(), up.next()) {
-        (Some(u), None) if !(!c.is_ascii() && u.is_ascii()) && u32::from(u) <= 0xFFFF => u,
+        (Some(u), None) if (c.is_ascii() || !u.is_ascii()) && u32::from(u) <= 0xFFFF => u,
         _ => c,
     }
 }
@@ -61,7 +61,7 @@ pub fn fold_literal(s: &str) -> String {
             out.push_str(&escape_re(only.encode_utf8(&mut [0; 4])));
         } else {
             out.push('[');
-            eq.iter().for_each(|&e| out.push(e));
+            out.extend(eq.iter());
             out.push(']');
         }
     }

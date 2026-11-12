@@ -203,20 +203,20 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
     )
     .rows;
     let mut found: Vec<SearchSession> = Vec::new();
-    let (mut scanned, mut failed, mut bytes) = (0, 0, 0);
+    let (mut loaded, mut failed, mut bytes) = (0, 0, 0);
     for batch in candidates.chunks(BATCH) {
         if req.limit > 0 && found.len() > req.limit {
             break;
         }
-        let scans: Vec<Scan> = batch
+        let results: Vec<Scan> = batch
             .par_iter()
             .map(|h| span.in_scope(|| scanner.scan(h)))
             .collect();
-        for s in scans {
+        for s in results {
             match s {
                 Scan::Failed => failed += 1,
                 Scan::Read { units, found: hit } => {
-                    scanned += 1;
+                    loaded += 1;
                     bytes += units;
                     found.extend(hit);
                 }
@@ -227,7 +227,7 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
     if req.limit > 0 {
         found.truncate(req.limit);
     }
-    span.record("scanned", scanned);
+    span.record("scanned", loaded);
     span.record("matched", found.len());
     span.record("bytes", bytes);
     span.record(
@@ -238,7 +238,7 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
         result: SearchResult {
             truncated: all > found.len(),
             sessions: found,
-            scanned_sessions: scanned,
+            scanned_sessions: loaded,
             unreadable: unreadable_listed + failed,
         },
         listing_unreadable,
