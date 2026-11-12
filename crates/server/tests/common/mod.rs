@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use peektrace_core::AgentRoots;
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::time::Utc;
 use peektrace_core::roots::{RootsEnv, Settings};
 use peektrace_protocol::WatchVersions;
@@ -86,6 +87,7 @@ pub fn start(o: &Options<'_>) -> TestServer {
         .expect("bind");
     let port = listener.local_addr().expect("addr").port();
     let (tx, rx) = tokio::sync::watch::channel(WatchVersions::default());
+    let (stop, stop_rx) = tokio::sync::watch::channel(false);
     let state = AppState {
         roots: o.roots.clone().unwrap_or_else(fixture_roots),
         settings_path: settings_path.clone(),
@@ -93,6 +95,8 @@ pub fn start(o: &Options<'_>) -> TestServer {
         read_only: o.read_only,
         zone: Arc::new(Utc),
         versions: rx,
+        stop: stop_rx,
+        headers: HeaderCache::default(),
     };
     let guards = Guards {
         allow: Allowlist::new(o.host, port),
@@ -101,11 +105,11 @@ pub fn start(o: &Options<'_>) -> TestServer {
     };
     let app = peektrace_server::app(
         Arc::new(state),
-        Arc::new(Assets::Dir(ui.to_string_lossy().into_owned())),
+        Arc::new(Assets::Dir(ui.clone())),
         Arc::new(guards),
     );
     runtime.spawn(async move {
-        let _keep = tx;
+        let _keep = (tx, stop);
         let _ = peektrace_server::serve(listener, app, std::future::pending()).await;
     });
     TestServer {

@@ -6,6 +6,7 @@ pub mod claude;
 pub mod codex;
 mod discover;
 pub mod export;
+pub mod header_cache;
 mod headers;
 pub mod js;
 pub mod listing;
@@ -23,7 +24,7 @@ pub mod stats;
 pub mod settings_doc;
 pub mod watch;
 
-pub use listing::{AgentRoots, ListFilter, list_sessions};
+pub use listing::{AgentRoots, ListFilter, list_sessions, list_sessions_cached};
 pub use model::{
     Agent, FileStamp, ProjectSlug, SessionFileRef, SessionHeader, SessionId, SessionListing,
     SourceTag, UnreadableSession,

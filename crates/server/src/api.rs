@@ -19,7 +19,7 @@ use peektrace_core::sessions::write::{analyzed_json_with, listing_json, parsed_j
 use peektrace_core::settings_doc::{
     self, SettingsUpdateError, StoredSettings, validate_settings, write_settings_doc,
 };
-use peektrace_core::{Agent, ListFilter, list_sessions};
+use peektrace_core::{Agent, ListFilter, list_sessions_cached};
 use peektrace_protocol::{
     AgentId, AgentScan, ApiError, ApiErrorBody, Capability, CapabilitySupport, FileChangeReason,
     NotPortedFeature, PerAgentSupport, READ_ONLY_REASON, ScannedRoot, ServerInfo, SupportLevel,
@@ -65,13 +65,30 @@ fn session_error(e: SessionError) -> ApiError {
     }
 }
 
-/// Run blocking core work off the runtime.
+/// Why a handler did not answer 2xx: a typed client-facing error, or a
+/// server bug (a panic in core work).
+#[derive(Debug)]
+pub enum Failure {
+    Api(ApiError),
+    Defect(String),
+}
+
+impl From<ApiError> for Failure {
+    fn from(e: ApiError) -> Self {
+        Self::Api(e)
+    }
+}
+
+const DEFECT: &str = "Internal server error";
+
+/// Run blocking core work off the runtime. A panic there is a defect.
 async fn blocking<T: Send + 'static>(
     f: impl FnOnce() -> Result<T, ApiError> + Send + 'static,
-) -> Result<T, ApiError> {
-    tokio::task::spawn_blocking(f)
-        .await
-        .unwrap_or_else(|e| Err(bad_request(format!("handler failed: {e}"))))
+) -> Result<T, Failure> {
+    match tokio::task::spawn_blocking(f).await {
+        Ok(r) => r.map_err(Failure::Api),
+        Err(e) => Err(Failure::Defect(e.to_string())),
+    }
 }
 
 /// The root span of one API call: `rpc.<tag>`, with no parent.
@@ -92,12 +109,25 @@ macro_rules! rpc_span {
 }
 
 /// Answer `result`, recording status and error on the current span.
-fn finish(result: Result<Res, ApiError>) -> Res {
+fn finish(result: Result<Res, Failure>) -> Res {
     let span = Span::current();
-    let res = result.unwrap_or_else(|e| {
-        let body = serde_json::to_value(&e).unwrap_or_default();
-        span.record("error", field::display(body.get("_tag").unwrap_or(&body)));
-        api_error(e)
+    let res = result.unwrap_or_else(|f| match f {
+        Failure::Api(e) => {
+            let body = serde_json::to_value(&e).unwrap_or_default();
+            span.record("error", field::display(body.get("_tag").unwrap_or(&body)));
+            api_error(e)
+        }
+        Failure::Defect(reason) => {
+            tracing::error!(reason = %reason, "handler panicked");
+            span.record("error", "Defect");
+            let mut res = Response::new(Body::from(DEFECT));
+            *res.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+            res.headers_mut().insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("text/plain;charset=utf-8"),
+            );
+            res
+        }
     });
     span.record("http.status", res.status().as_u16());
     res
@@ -242,7 +272,11 @@ pub async fn sessions(State(state): Shared, method: Method, RawQuery(raw): RawQu
             let current = Span::current();
             let listing = blocking(move || {
                 let _entered = current.enter();
-                Ok(list_sessions(&state.roots, &ListFilter { agent, project }))
+                Ok(list_sessions_cached(
+                    &state.roots,
+                    &ListFilter { agent, project },
+                    &state.headers,
+                ))
             })
             .await?;
             Span::current().record("sessions.unreadable", listing.unreadable.len());
@@ -429,7 +463,8 @@ pub async fn settings_put(State(state): Shared, method: Method, body: Bytes) -> 
                 return Err(ApiError::SettingsWriteError {
                     path: "settings.json".to_owned(),
                     reason: READ_ONLY_REASON.to_owned(),
-                });
+                }
+                .into());
             }
             let text = std::str::from_utf8(&body).map_err(|_| bad_request("body is not UTF-8"))?;
             let value = JsValue::parse(text).ok_or_else(|| bad_request("body is not JSON"))?;
@@ -481,4 +516,19 @@ pub async fn method_not_allowed(method: Method) -> Res {
     api_error(ApiError::MethodNotAllowedError {
         method: method.to_string(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_panic_is_a_500_defect() {
+        let r = blocking::<()>(|| panic!("boom")).await;
+        let res = finish(r.map(|()| json(String::new())));
+        assert_eq!(res.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let r = blocking::<()>(|| Err(bad_request("x"))).await;
+        let res = finish(r.map(|()| json(String::new())));
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    }
 }

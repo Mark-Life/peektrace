@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::watch::Watcher;
 use peektrace_protocol::WatchVersions;
 use peektrace_server::auth::{self, TOKEN_ENV};
@@ -113,6 +114,7 @@ pub struct Prepared {
     guards: Guards,
     roots: peektrace_core::AgentRoots,
     tx: watch::Sender<WatchVersions>,
+    stop: watch::Sender<bool>,
 }
 
 /// Validate flags, pick the token, bind, and build the server state.
@@ -139,6 +141,7 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
     let client_dir = std::env::var("PEEKTRACE_CLIENT_DIR").ok();
     let (assets, ui) = Assets::resolve(client_dir.as_deref(), &cwd);
     let (tx, rx) = watch::channel(WatchVersions::default());
+    let (stop, stop_rx) = watch::channel(false);
     let state = AppState {
         roots: roots.clone(),
         settings_path: ctx.roots_env.settings_path(),
@@ -146,6 +149,8 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
         read_only: posture.read_only,
         zone: Arc::new(SystemZone::default()),
         versions: rx,
+        stop: stop_rx,
+        headers: HeaderCache::default(),
     };
     let guards = Guards {
         allow: Allowlist::new(&args.host, port),
@@ -162,6 +167,7 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
         guards,
         roots,
         tx,
+        stop,
     })
 }
 
@@ -185,7 +191,12 @@ pub fn run(p: Prepared, ready: impl FnOnce()) -> anyhow::Result<()> {
         if p.open {
             open_browser(&p.banner.open_url);
         }
-        peektrace_server::serve(listener, app, shutdown_signal()).await
+        let stop = p.stop;
+        let shutdown = async move {
+            shutdown_signal().await;
+            stop.send_replace(true);
+        };
+        peektrace_server::serve(listener, app, shutdown).await
     })?;
     Ok(())
 }

@@ -1,7 +1,7 @@
 //! The web UI's static files: a directory on disk or the copy built into
 //! the binary. Unknown paths fall back to `index.html` for client routing.
 
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 
 use axum::body::Body;
 use axum::http::{HeaderValue, Response, StatusCode, header};
@@ -19,48 +19,80 @@ const NOT_EMBEDDED: &str = "Inspector assets not embedded.";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Assets {
     /// An absolute, normalized directory.
-    Dir(String),
+    Dir(PathBuf),
     Embedded,
 }
 
 /// `path.resolve`: join onto `base` unless absolute, then drop `.` and
 /// resolve `..` without touching the disk.
-pub fn normalize(base: &str, path: &str) -> String {
-    let joined = if path.starts_with('/') {
-        path.to_owned()
-    } else {
-        format!("{base}/{path}")
-    };
-    let parts = joined.split('/').fold(Vec::new(), |mut acc, seg| {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                acc.pop();
+pub fn normalize(base: &Path, path: &Path) -> PathBuf {
+    base.join(path)
+        .components()
+        .fold(PathBuf::new(), |mut acc, c| {
+            match c {
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    acc.pop();
+                }
+                c => acc.push(c),
             }
-            s => acc.push(s),
-        }
-        acc
-    });
-    format!("/{}", parts.join("/"))
+            acc
+        })
+}
+
+/// A URL path as a path under the UI root, or `None` when it leaves the
+/// root or a segment holds a separator or drive mark another OS would read.
+fn under_root(pathname: &str) -> Option<PathBuf> {
+    pathname
+        .split('/')
+        .try_fold(Vec::new(), |mut acc, seg| {
+            match seg {
+                "" | "." => {}
+                ".." => {
+                    acc.pop()?;
+                }
+                s if s.contains(['\\', ':', '\0']) => return None,
+                s => acc.push(s),
+            }
+            Some(acc)
+        })
+        .map(|segs| segs.into_iter().collect())
+}
+
+/// The repo's built UI, for debug builds run from a checkout. Release builds
+/// keep no build-machine path.
+#[cfg(debug_assertions)]
+#[expect(clippy::unnecessary_wraps, reason = "release builds have none")]
+fn dev_dist() -> Option<PathBuf> {
+    Some(normalize(
+        Path::new(env!("CARGO_MANIFEST_DIR")),
+        Path::new("../../apps/inspector/dist"),
+    ))
+}
+
+#[cfg(not(debug_assertions))]
+const fn dev_dist() -> Option<PathBuf> {
+    None
 }
 
 impl Assets {
     /// `PEEKTRACE_CLIENT_DIR` (against `cwd`), else the built-in copy when it
-    /// holds `index.html`, else the repo's `apps/inspector/dist`. Returns the
-    /// source and its label.
+    /// holds `index.html`, else, in debug builds, the repo's
+    /// `apps/inspector/dist`. Returns the source and its label.
     pub fn resolve(client_dir: Option<&str>, cwd: &str) -> (Self, String) {
         if let Some(dir) = client_dir.filter(|d| !d.is_empty()) {
-            let dir = normalize(cwd, dir);
-            return (Self::Dir(dir.clone()), dir);
+            let dir = normalize(Path::new(cwd), Path::new(dir));
+            let label = dir.display().to_string();
+            return (Self::Dir(dir), label);
         }
+        let embedded = || (Self::Embedded, "embedded".to_owned());
         if Embedded::get("index.html").is_some() {
-            return (Self::Embedded, "embedded".to_owned());
+            return embedded();
         }
-        let dist = normalize(
-            "/",
-            concat!(env!("CARGO_MANIFEST_DIR"), "/../../apps/inspector/dist"),
-        );
-        (Self::Dir(dist.clone()), dist)
+        dev_dist().map_or_else(embedded, |dist| {
+            let label = dist.display().to_string();
+            (Self::Dir(dist), label)
+        })
     }
 
     /// Answer a GET or HEAD for `raw_path` (no query).
@@ -125,23 +157,17 @@ fn file_response(bytes: Vec<u8>, path: &str, pathname: &str, is_index: bool) -> 
     res
 }
 
-fn from_dir(root: &str, pathname: &str) -> Response<Body> {
-    let candidate = normalize(root, pathname);
-    let in_root = candidate == root || candidate.starts_with(&format!("{root}/"));
-    let file = (in_root && !pathname.is_empty())
-        .then(|| {
-            std::fs::metadata(&candidate)
-                .ok()
-                .filter(std::fs::Metadata::is_file)
-        })
-        .flatten()
-        .and_then(|_| std::fs::read(&candidate).ok());
+fn from_dir(root: &Path, pathname: &str) -> Response<Body> {
+    let file = under_root(pathname)
+        .filter(|rel| rel.components().next().is_some())
+        .map(|rel| root.join(rel))
+        .filter(|p| std::fs::metadata(p).is_ok_and(|m| m.is_file()))
+        .and_then(|p| std::fs::read(p).ok());
     if let Some(bytes) = file {
-        return file_response(bytes, &candidate, pathname, false);
+        return file_response(bytes, pathname, pathname, false);
     }
-    let index = format!("{root}/index.html");
-    match std::fs::read(&index) {
-        Ok(bytes) => file_response(bytes, &index, "", true),
+    match std::fs::read(root.join("index.html")) {
+        Ok(bytes) => file_response(bytes, "index.html", "", true),
         Err(_) => status(StatusCode::SERVICE_UNAVAILABLE, NOT_BUILT),
     }
 }
@@ -165,12 +191,44 @@ fn from_embedded(pathname: &str) -> Response<Body> {
 mod tests {
     use super::*;
 
+    fn norm(base: &str, path: &str) -> String {
+        normalize(Path::new(base), Path::new(path))
+            .display()
+            .to_string()
+    }
+
+    #[cfg(unix)]
     #[test]
     fn normalizes() {
-        assert_eq!(normalize("/a/b", "../c"), "/a/c");
-        assert_eq!(normalize("/a", "../../../x"), "/x");
-        assert_eq!(normalize("/a", "./b//c/"), "/a/b/c");
-        assert_eq!(normalize("/cwd", "/abs/./d"), "/abs/d");
+        assert_eq!(norm("/a/b", "../c"), "/a/c");
+        assert_eq!(norm("/a", "../../../x"), "/x");
+        assert_eq!(norm("/a", "./b//c/"), "/a/b/c");
+        assert_eq!(norm("/cwd", "/abs/./d"), "/abs/d");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn normalizes_windows_paths() {
+        assert_eq!(norm(r"C:\work", r"C:\ui"), r"C:\ui");
+        assert_eq!(norm(r"C:\work", "dist"), r"C:\work\dist");
+        assert_eq!(
+            norm(r"C:\repo\crates\server", "../../apps/inspector/dist"),
+            r"C:\repo\apps\inspector\dist"
+        );
+    }
+
+    #[test]
+    fn request_paths_stay_under_the_root() {
+        let rel = |p: &str| under_root(p).map(|r| r.display().to_string());
+        assert_eq!(
+            rel("assets/a.js"),
+            Some(Path::new("assets").join("a.js").display().to_string())
+        );
+        assert_eq!(rel("a/../b.css"), Some("b.css".to_owned()));
+        assert_eq!(rel("../secret"), None);
+        assert_eq!(rel("..\\..\\secret"), None);
+        assert_eq!(rel("C:secret"), None);
+        assert_eq!(rel(""), Some(String::new()));
     }
 
     #[test]

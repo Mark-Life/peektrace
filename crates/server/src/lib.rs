@@ -17,6 +17,7 @@ use axum::http::{HeaderMap, HeaderValue, Method, Response, StatusCode, header};
 use axum::middleware::{self, Next};
 use axum::routing::{MethodRouter, any, get};
 use peektrace_core::AgentRoots;
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::time::LocalZone;
 use peektrace_protocol::{NotPortedFeature, WatchVersions};
 use tokio::sync::watch;
@@ -37,6 +38,10 @@ pub struct AppState {
     pub read_only: bool,
     pub zone: Arc<dyn LocalZone + Send + Sync>,
     pub versions: watch::Receiver<WatchVersions>,
+    /// Turns true when the server starts to stop; ends `/api/events` streams.
+    pub stop: watch::Receiver<bool>,
+    /// List headers kept between `/api/sessions` calls.
+    pub headers: HeaderCache,
 }
 
 /// Request guards, fixed once the port is bound.

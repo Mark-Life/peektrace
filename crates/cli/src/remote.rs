@@ -143,6 +143,12 @@ impl Remote {
         if !is_http_url(&self.url) {
             return Err(self.fail(&Transport::Detail("ERR_INVALID_URL".to_owned())));
         }
+        if !cfg!(feature = "https") && self.url.starts_with("https:") {
+            return Err(UserError::Invalid(format!(
+                "Cannot reach {}: this peektrace build has no TLS support. Use an http:// URL (for example through ssh -L), or build with `--features https`.",
+                self.url
+            )));
+        }
         let base = self.url.strip_suffix('/').unwrap_or(&self.url);
         let path = segments.iter().fold(String::new(), |mut acc, s| {
             acc.push('/');
@@ -167,8 +173,14 @@ impl Remote {
             .get("content-type")
             .and_then(|v| v.to_str().ok())
             .is_some_and(|v| v.starts_with("application/json"));
-        let body = res.body_mut().read_to_string().ok();
-        let value = body.as_deref().filter(|_| is_json).and_then(JsValue::parse);
+        // ureq caps `read_to_string` at 10 MB; an export can be far larger.
+        let body = res
+            .body_mut()
+            .with_config()
+            .limit(u64::MAX)
+            .read_to_string()
+            .map_err(|e| self.fail(&Transport::Detail(format!("reading the response: {e}"))))?;
+        let value = is_json.then_some(body.as_str()).and_then(JsValue::parse);
         match (status, value) {
             (200..=299, Some(v)) => Ok(v),
             (200..=299, None) => {
@@ -277,6 +289,53 @@ mod tests {
             split_remote("ftp://x?token=s"),
             ("ftp://x?token=***".to_owned(), None)
         );
+    }
+
+    /// Serve one canned answer on a local port; returns the URL and the
+    /// request head it received.
+    fn one_shot(body: String) -> (String, std::thread::JoinHandle<String>) {
+        use std::io::{BufRead as _, BufReader, Write as _};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let url = format!("http://{}", listener.local_addr().expect("addr"));
+        let handle = std::thread::spawn(move || {
+            let (mut conn, _) = listener.accept().expect("accept");
+            let head: Vec<String> = BufReader::new(conn.try_clone().expect("clone"))
+                .lines()
+                .map_while(Result::ok)
+                .take_while(|l| !l.is_empty())
+                .collect();
+            let res = format!(
+                "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            conn.write_all(res.as_bytes()).expect("write");
+            head.join("\n").to_ascii_lowercase()
+        });
+        (url, handle)
+    }
+
+    #[test]
+    fn reads_bodies_over_10_mb_and_asks_for_gzip() {
+        let body = format!("{{\"x\":\"{}\"}}", "a".repeat(11 * 1024 * 1024));
+        let (url, server) = one_shot(body);
+        let v = Remote::new(&url, None).get_json(&["sessions"], &[]);
+        let head = server.join().expect("server");
+        let len = v
+            .ok()
+            .and_then(|v| v.get("x").and_then(JsValue::as_str).map(str::len));
+        assert_eq!(len, Some(11 * 1024 * 1024));
+        assert!(head.contains("accept-encoding: gzip"), "{head}");
+    }
+
+    #[cfg(not(feature = "https"))]
+    #[test]
+    fn https_without_tls_says_so() {
+        let Err(UserError::Invalid(m)) =
+            Remote::new("https://example.com", None).get_json(&["sessions"], &[])
+        else {
+            panic!("expected an error");
+        };
+        assert!(m.contains("no TLS support"), "{m}");
     }
 
     #[test]

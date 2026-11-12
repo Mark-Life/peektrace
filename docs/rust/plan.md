@@ -88,10 +88,10 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `stats` rule check for a missing binary whose name is about 50,000+ chars | the name gets a probe | the probe pattern passes the regex size limit, so that name gets no probe |
 | `CLAUDE_CONFIG_DIR` on Windows | split on `:`, so `C:\x` becomes `C` | split on `;`, as `path.delimiter` |
 | OpenCode store locked by a writer (rollback-journal DB under `BEGIN EXCLUSIVE`) | that DB is skipped at once (busy timeout 0) | waits up to 1 s for the lock, then skips the DB. WAL stores, which OpenCode uses, read the last commit in both. |
-| JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
+| JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values, `settings.json`) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
 | OpenCode time above 8.64e15 ms | `ls` and `analyze` fail with an Effect `RangeError` on stdout | the time reads as no date: `startedAt`, `ts` and `endedAt` are left out, and `updatedAt` prints `1970-01-01T00:00:00.000Z` |
 | Server transport | Effect RPC NDJSON `POST /rpc` | JSON REST under `/api`, SSE `/api/events` |
-| Live updates | client polls `watch.poll` every 1 s | SSE push; `/api/watch` poll as fallback |
+| Live updates | client polls `watch.poll` every 1 s | SSE push, one stream shared by all tabs of the origin (Web Lock leader, `BroadcastChannel` relay); `/api/watch` poll as fallback |
 | Watched roots | Claude roots only | every agent's roots (OpenCode: `opencode*.db[-wal]`, `storage/{session,message,part}/**.json`) |
 | Unknown GET under `/api` | `index.html` 200 | JSON 404 `NotFoundError` |
 | `index.html` cache | `no-store` only when embedded | `no-store` for every source |
@@ -103,7 +103,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--remote` lenient URLs (`localhost:4630`, `http:/host`) | Bun `fetch` accepts some | parsed with WHATWG rules; no scheme gives the "Include the scheme" error |
 | `--remote` with a base path (`http://h/base`) | `failed (HTTP 404)` | `failed (unexpected response)`: the server answers `index.html` for `/base/api/...` |
 | `--remote --json` key order | Schema order (`provider` first) | local CLI order |
-| `--remote https://` | supported | needs the `https` cargo feature (rustls); the default build has no TLS client |
+| `--remote https://` | supported | needs the `https` cargo feature (rustls); the default build has no TLS client and says so |
 | `SettingsWriteError.reason` on IO failure | `String(PlatformError)` | OS error text; the temp file is removed |
 | `/api` JSON over 1 KiB | sent as is | gzip when the client accepts it |
 

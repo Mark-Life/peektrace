@@ -24,7 +24,7 @@ thiserror.workspace = true
 tracing-subscriber.workspace = true
 unicode-width.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "net", "signal", "macros"] }
-ureq = { version = "3", default-features = false }
+ureq = { version = "3", default-features = false, features = ["gzip"] }
 url = "2"
 
 [features]

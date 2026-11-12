@@ -1,5 +1,6 @@
 //! `GET /api/events`: the versions now, then on every change, plus a
-//! heartbeat comment every 15 s.
+//! heartbeat comment every 15 s. The stream ends when the server stops, so
+//! an open tab never holds up shutdown.
 
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -24,18 +25,30 @@ fn versions_event(rx: &watch::Receiver<peektrace_protocol::WatchVersions>) -> Ev
         .data(serde_json::to_string(&v).unwrap_or_default())
 }
 
-/// The current versions first, then the latest after each change. A slow
-/// reader sees only the newest value.
+/// Resolves once `stop` turns true or its sender is gone.
+async fn stopped(stop: &mut watch::Receiver<bool>) {
+    let _ = stop.wait_for(|s| *s).await;
+}
+
+/// The current versions first, then the latest after each change, until
+/// `stop`. A slow reader sees only the newest value.
 fn version_stream(
     rx: watch::Receiver<peektrace_protocol::WatchVersions>,
+    stop: watch::Receiver<bool>,
 ) -> impl Stream<Item = Result<Event, Infallible>> {
-    stream::unfold((rx, true), |(mut rx, first)| async move {
-        if !first && rx.changed().await.is_err() {
+    stream::unfold((rx, stop, true), |(mut rx, mut stop, first)| async move {
+        if *stop.borrow() {
             return None;
+        }
+        if !first {
+            tokio::select! {
+                changed = rx.changed() => changed.ok()?,
+                () = stopped(&mut stop) => return None,
+            }
         }
         let event = versions_event(&rx);
         rx.mark_unchanged();
-        Some((Ok(event), (rx, false)))
+        Some((Ok(event), (rx, stop, false)))
     })
 }
 
@@ -50,7 +63,7 @@ pub async fn events(State(state): State<Arc<AppState>>, method: Method) -> Res {
         http.status = 200
     );
     let _entered = span.enter();
-    let sse = Sse::new(version_stream(state.versions.clone()))
+    let sse = Sse::new(version_stream(state.versions.clone(), state.stop.clone()))
         .keep_alive(KeepAlive::new().interval(HEARTBEAT).text("ping"));
     let mut res = sse.into_response();
     res.headers_mut()

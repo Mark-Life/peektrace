@@ -3,6 +3,7 @@
 
 use tracing::{Span, field, info_span};
 
+use crate::header_cache::HeaderCache;
 use crate::headers::Outcome;
 use crate::model::{Agent, SessionFileRef, SessionListing};
 use crate::roots::{self, RootsEnv, Settings, Source};
@@ -84,25 +85,35 @@ fn in_project(o: &Outcome, project: Option<&str>) -> bool {
     }
 }
 
-/// Outcomes for one agent's transcripts, in discovery order.
+/// Outcomes for one agent's transcripts, in discovery order. File-backed
+/// agents reuse `cache` hits; `OpenCode` lives in `SQLite` and is always read.
 fn agent_outcomes(
     agent: Agent,
     roots: &AgentRoots,
     project: Option<&str>,
+    cache: Option<&HeaderCache>,
     parent: &Span,
 ) -> Vec<Outcome> {
     let refs = session_files(agent, roots, project);
+    let load = |refs: &[SessionFileRef]| match agent {
+        Agent::Claude => claude::load_headers(refs, parent),
+        Agent::Codex => codex::load_headers(refs, parent),
+        Agent::Pi => pi::load_headers(refs, parent),
+        Agent::Opencode => opencode::load_headers(refs, &default_root(&roots.opencode), parent),
+    };
+    let outcomes = match cache {
+        Some(c) if agent != Agent::Opencode => {
+            let complete = agent == Agent::Codex || project.is_none_or(str::is_empty);
+            c.outcomes(agent, &refs, complete, load)
+        }
+        _ => load(&refs),
+    };
     match agent {
-        Agent::Claude => claude::load_headers(&refs, parent),
-        Agent::Codex => codex::load_headers(&refs, parent)
+        Agent::Codex | Agent::Opencode => outcomes
             .into_iter()
             .filter(|o| in_project(o, project))
             .collect(),
-        Agent::Pi => pi::load_headers(&refs, parent),
-        Agent::Opencode => opencode::load_headers(&refs, &default_root(&roots.opencode), parent)
-            .into_iter()
-            .filter(|o| in_project(o, project))
-            .collect(),
+        Agent::Claude | Agent::Pi => outcomes,
     }
 }
 
@@ -123,6 +134,24 @@ fn to_listing(outcomes: Vec<Outcome>) -> SessionListing {
 /// Headers for every agent (or the filtered one), only from the `project`
 /// when one is set.
 pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing {
+    list_with(roots, filter, None)
+}
+
+/// [`list_sessions`], reusing the headers of files unchanged since an
+/// earlier call with the same `cache`.
+pub fn list_sessions_cached(
+    roots: &AgentRoots,
+    filter: &ListFilter,
+    cache: &HeaderCache,
+) -> SessionListing {
+    list_with(roots, filter, Some(cache))
+}
+
+fn list_with(
+    roots: &AgentRoots,
+    filter: &ListFilter,
+    cache: Option<&HeaderCache>,
+) -> SessionListing {
     let span = info_span!(
         "Sessions.list",
         agent = field::Empty,
@@ -135,7 +164,7 @@ pub fn list_sessions(roots: &AgentRoots, filter: &ListFilter) -> SessionListing 
     let outcomes = Agent::ALL
         .into_iter()
         .filter(|a| filter.agent.is_none_or(|f| f == *a))
-        .flat_map(|agent| agent_outcomes(agent, roots, filter.project.as_deref(), &span))
+        .flat_map(|agent| agent_outcomes(agent, roots, filter.project.as_deref(), cache, &span))
         .collect();
     let listing = to_listing(outcomes);
     let malformed: u64 = listing
