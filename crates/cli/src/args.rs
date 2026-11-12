@@ -18,8 +18,6 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub pretty: bool,
 
-    // Accepted for TS flag parity. No command mutates anything yet, so
-    // nothing reads it.
     /// Refuse any mutating command (safe mode)
     #[arg(long = "read-only", global = true)]
     pub read_only: bool,
@@ -52,6 +50,42 @@ pub enum Command {
     Sessions(SessionsArgs),
     /// Cross-session friction: what fails, what costs time, what to fix first
     Stats(StatsArgs),
+    /// Browse and manage Claude memory files
+    Memory(MemoryArgs),
+}
+
+/// `memory` with no subcommand prints its help and exits 0.
+#[derive(Debug, Args)]
+pub struct MemoryArgs {
+    #[command(subcommand)]
+    pub command: Option<MemoryCommand>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MemoryCommand {
+    /// List projects with memory, or one project's memory files
+    Ls(MemoryLsArgs),
+    /// Print one memory file: frontmatter fields and body
+    Show(MemoryNameArgs),
+    /// Delete one memory file and its MEMORY.md line
+    Rm(MemoryNameArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct MemoryLsArgs {
+    /// Project slug (default: every project with memory)
+    #[arg(allow_hyphen_values = true, value_parser = lossy())]
+    pub project: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct MemoryNameArgs {
+    /// Project slug
+    #[arg(allow_hyphen_values = true, value_parser = lossy())]
+    pub project: String,
+    /// Memory name (file name without .md)
+    #[arg(allow_hyphen_values = true, value_parser = lossy())]
+    pub name: String,
 }
 
 /// Window, scope and row-cap flags shared by the `stats` commands.
@@ -171,6 +205,35 @@ pub enum SessionsCommand {
     Analyze(AnalyzeArgs),
     /// Export one session to HTML, Markdown or JSON
     Export(ExportArgs),
+    /// Find sessions whose text holds a phrase
+    Search(SearchArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SearchArgs {
+    /// Text to find (case-insensitive phrase)
+    #[arg(required = true, num_args = 1.., value_parser = lossy())]
+    pub q: Vec<String>,
+
+    /// Agent: claude|codex|pi|opencode|all (default all)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub agent: Option<String>,
+
+    /// Filter sessions by project name (Claude slug)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub project: Option<String>,
+
+    /// Only sessions updated since: ISO date or date-time or 7d, 12h, 2w
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub since: Option<String>,
+
+    /// Max sessions, newest first (0 = all)
+    #[arg(long, default_value = "20", allow_hyphen_values = true, value_parser = lossy())]
+    pub limit: String,
+
+    /// Keep secrets and home paths in the output (redacted by default)
+    #[arg(long = "no-redact")]
+    pub no_redact: bool,
 }
 
 /// Flag text with bytes that are not UTF-8 turned into U+FFFD, as Node

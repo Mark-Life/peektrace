@@ -22,6 +22,7 @@ regex = { version = "1.13", default-features = false, features = ["std", "perf",
 rusqlite = { version = "0.42", default-features = false, features = ["bundled"] }
 serde = "1.0"
 serde_json = { version = "1.0.151", features = ["float_roundtrip", "unbounded_depth"] }
+terminal_size = "0.4.4"
 thiserror = "2.0.19"
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "registry"] }
