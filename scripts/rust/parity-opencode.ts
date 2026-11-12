@@ -13,7 +13,8 @@
  * - Real data: newest and largest sessions only, unless `--real-all`.
  * - Real data: OpenCode may write while the stage runs. The `opencode*.db`
  *   and `-wal` files and the `storage/` tree are stamped around `ls`; if any
- *   changed, `ls` compares only rows with the same `updatedAt` in both runs.
+ *   changed, `ls` is compared row by row, leaving out sessions whose own
+ *   stamp changed (see `parity-opencode-ls.ts`).
  *   Each analyze/export case is skipped as live when its own session's DB
  *   rows or tree files changed.
  */
@@ -24,7 +25,6 @@ import { targetCases } from "./parity-analyze-cases";
 import {
   compareRun,
   DEFECT,
-  firstLineDiff,
   fixtureEnv,
   newestAndLargest,
   newTally,
@@ -44,6 +44,7 @@ import {
   buildOpencodeData,
   type OpencodeData,
 } from "./parity-opencode-fixtures";
+import { changedPaths, lsRowDiffs } from "./parity-opencode-ls";
 import { openSessionStamper, storeStamp } from "./parity-opencode-stamp";
 
 interface Row {
@@ -54,6 +55,7 @@ interface Row {
 }
 
 type Env = Record<string, string>;
+type Stamper = ReturnType<typeof openSessionStamper>;
 
 const LS = ["--no-telemetry", "sessions", "ls"];
 const oc = (...rest: string[]) => [...LS, "--agent", "opencode", ...rest];
@@ -276,6 +278,68 @@ const realDataDir = () => {
     : join(env.HOME ?? "", ".local", "share", "opencode");
 };
 
+/** Real `ls --json` on both CLIs; row by row when OpenCode wrote meanwhile. */
+const realLs = (dir: string, env: Env, stamper: Stamper) => {
+  const args = ["--no-telemetry", "--json", ...oc(...ALL).slice(1)];
+  const sessionsBefore = new Map(
+    stamper.ids().map((id) => [id, stamper.stamp(id)])
+  );
+  const before = storeStamp(dir);
+  const ts = run([...TS_CMD, ...args], env);
+  const rust = run([rustBin, ...args], env);
+  const live = storeStamp(dir) !== before;
+  const tsRows = JSON.parse(ts.stdout) as Row[];
+  const rustRows = JSON.parse(rust.stdout) as Row[];
+  if (live) {
+    const changed = changedPaths(
+      [...tsRows, ...rustRows],
+      sessionsBefore,
+      stamper.stamp
+    );
+    console.log(
+      `suite oc-real: ts=${tsRows.length} rust=${rustRows.length} live, skipped ${changed.size} changed`
+    );
+    if (ts.code !== rust.code) {
+      report(`oc-real [ls]: exit ts=${ts.code} rust=${rust.code}`);
+    }
+    for (const line of lsRowDiffs(tsRows, rustRows, changed)) {
+      report(`oc-real [ls]: ${line}`);
+    }
+  } else {
+    console.log(`suite oc-real: ts=${tsRows.length} rust=${rustRows.length}`);
+    compareRun("oc-real [ls]", ts, rust);
+  }
+  return rustRows;
+};
+
+const realCases = async (
+  tally: Tally,
+  env: Env,
+  all: boolean,
+  stamper: Stamper,
+  rustRows: readonly Row[]
+) => {
+  const ids = allIds(env, []);
+  const picked = all
+    ? rustRows
+    : newestAndLargest(rustRows, SAMPLE.newest, SAMPLE.largest);
+  const owned = picked.map((row) => ({
+    row,
+    before: stamper.stamp(row.id),
+    cases: rowCases(row, ids),
+  }));
+  const cases = owned.flatMap((o) => o.cases.map((c) => ({ ...o, c })));
+  console.log(
+    `suite oc-real analyze: ${picked.length} of ${rustRows.length} sessions, ${cases.length} cases`
+  );
+  // TS opens SQLite with no busy timeout, so a concurrent reader can make it
+  // miss a store and answer "not found"; run it again then.
+  const missed = (ts: { stderr: string }) => ts.stderr.includes(" not found ");
+  await pool(cases, ({ row, before: was, c }) =>
+    runCase(tally, "real", env, c, () => stamper.stamp(row.id) !== was, missed)
+  );
+};
+
 const realStage = async (tally: Tally, all: boolean) => {
   const dir = realDataDir();
   if (!existsSync(dir)) {
@@ -289,61 +353,9 @@ const realStage = async (tally: Tally, all: boolean) => {
     PEEKTRACE_PI_SESSIONS: empty,
     PEEKTRACE_NO_TELEMETRY: "1",
   } as Env;
-  const args = ["--no-telemetry", "--json", ...oc(...ALL).slice(1)];
-  const before = storeStamp(dir);
-  const ts = run([...TS_CMD, ...args], env);
-  const rust = run([rustBin, ...args], env);
-  const live = storeStamp(dir) !== before;
-  const tsRows = JSON.parse(ts.stdout) as Row[];
-  const rustRows = JSON.parse(rust.stdout) as Row[];
-  console.log(
-    `suite oc-real: ts=${tsRows.length} rust=${rustRows.length} live=${live}`
-  );
-  if (live) {
-    const byPath = new Map(rustRows.map((r) => [r.path, r]));
-    for (const t of tsRows) {
-      const r = byPath.get(t.path);
-      if (
-        r &&
-        r.updatedAt === t.updatedAt &&
-        JSON.stringify(r) !== JSON.stringify(t)
-      ) {
-        report(
-          `oc-real: ${t.path} ${firstLineDiff(JSON.stringify(t), JSON.stringify(r))}`
-        );
-      }
-    }
-  } else {
-    compareRun("oc-real [ls]", ts, rust);
-  }
-  const ids = allIds(env, []);
-  const picked = all
-    ? rustRows
-    : newestAndLargest(rustRows, SAMPLE.newest, SAMPLE.largest);
   const stamper = openSessionStamper(dir);
-  const owned = picked.map((row) => ({
-    row,
-    before: stamper.stamp(row.id),
-    cases: rowCases(row, ids),
-  }));
-  const cases = owned.flatMap((o) => o.cases.map((c) => ({ ...o, c })));
-  console.log(
-    `suite oc-real analyze: ${picked.length} of ${rustRows.length} sessions, ${cases.length} cases`
-  );
-  // TS opens SQLite with no busy timeout, so a concurrent reader can make it
-  // miss a store and answer "not found"; run it again then.
-  const missed = (ts: { stderr: string }) => ts.stderr.includes(" not found ");
   try {
-    await pool(cases, ({ row, before: was, c }) =>
-      runCase(
-        tally,
-        "real",
-        env,
-        c,
-        () => stamper.stamp(row.id) !== was,
-        missed
-      )
-    );
+    await realCases(tally, env, all, stamper, realLs(dir, env, stamper));
   } finally {
     stamper.close();
   }

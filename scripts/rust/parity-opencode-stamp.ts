@@ -96,7 +96,27 @@ export const openSessionStamper = (dir: string) => {
       ),
     ]);
   };
+  const ids = () => {
+    const fromDb = dbs.flatMap((db) => {
+      try {
+        return db
+          .query("SELECT id FROM session")
+          .values()
+          .map(([id]) => String(id));
+      } catch {
+        return [];
+      }
+    });
+    const fromTree = listDir(join(tree, "session")).flatMap((p) =>
+      listDir(join(tree, "session", p))
+        .filter((n) => JSON_EXT.test(n))
+        .map((n) => n.replace(JSON_EXT, ""))
+    );
+    return [...new Set([...fromDb, ...fromTree])];
+  };
   return {
+    /** Every session id the store holds, loadable or not. */
+    ids,
     stamp: (id: string) => `${dbStamp(id)}#${treeStamp(id)}`,
     close: () => {
       for (const db of dbs) {
