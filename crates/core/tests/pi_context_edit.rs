@@ -4,7 +4,7 @@
 
 mod common;
 
-use common::{analyzed, fixture, pretty, read};
+use common::{analyze_default, fixture, pretty, read_fixture};
 use peektrace_core::js::units::est_tokens;
 use peektrace_core::pi::parse_pi_session;
 use peektrace_core::sessions::labels::context_edit_note;
@@ -21,11 +21,11 @@ fn parse_text(text: &str) -> ParsedSession {
 }
 
 fn parse() -> ParsedSession {
-    parse_text(&read(EDIT))
+    parse_text(&read_fixture(EDIT))
 }
 
 fn steps() -> ParsedSession {
-    parse_pi_session(&read(STEPS), &fixture(STEPS), "fallback")
+    parse_pi_session(&read_fixture(STEPS), &fixture(STEPS), "fallback")
 }
 
 /// Events built from the transcript line at `index`.
@@ -34,7 +34,7 @@ fn at(p: &ParsedSession, index: usize) -> Vec<&TimelineEvent> {
 }
 
 fn slices(p: ParsedSession, turn: usize) -> BudgetSlices {
-    analyzed(p).snapshots[turn].slices
+    analyze_default(p).snapshots[turn].slices
 }
 
 /// `estTokens(JSON.stringify({ path: "big.txt" }, null, 2))`.
@@ -166,7 +166,7 @@ fn steps_the_note_names_every_edit_line() {
 #[test]
 fn the_replaced_original_is_redacted() {
     let secret = format!("sk-ant-api03-{}", "a1B2c3D4e5F6g7H8".repeat(6));
-    let text = read(EDIT).replacen(&"X".repeat(40), &format!("api_key={secret} "), 1);
+    let text = read_fixture(EDIT).replacen(&"X".repeat(40), &format!("api_key={secret} "), 1);
     let mut p = parse_text(&text);
     let raw = |p: &ParsedSession| match &at(p, 4)[0].context_edit {
         Some(ContextEdit::Replaced { original, .. }) => original.clone().unwrap_or_default(),

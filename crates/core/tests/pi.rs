@@ -6,7 +6,7 @@ mod common;
 
 use std::fs;
 
-use common::{analyzed, file_ref, fixture, read, temp_dir};
+use common::{analyze_default, file_ref, fixture, read_fixture, temp_dir};
 use peektrace_core::claude::{self, Outcome, ParseArgs, parse_claude_session};
 use peektrace_core::pi::{build_header, parse_pi_session};
 use peektrace_core::sessions::model::{EventKind, ParsedSession, TimelineEvent};
@@ -16,7 +16,7 @@ const PI_ID: &str = "019f3788-3bb1-7302-a2bf-55b30354d752";
 
 fn pi_fixture() -> ParsedSession {
     let rel = "sessions-pi/pi-fixture.jsonl";
-    parse_pi_session(&read(rel), &fixture(rel), "fallback-id")
+    parse_pi_session(&read_fixture(rel), &fixture(rel), "fallback-id")
 }
 
 fn find(p: &ParsedSession, pred: impl Fn(&TimelineEvent) -> bool) -> &TimelineEvent {
@@ -160,7 +160,7 @@ fn empty_transcript_yields_a_valid_empty_parsed_session() {
 #[test]
 fn header_stamps_the_pi_agent_cwd_first_model_and_counts() {
     let rel = "sessions-pi/pi-fixture.jsonl";
-    let text = read(rel);
+    let text = read_fixture(rel);
     let size = u64::try_from(text.len()).expect("size");
     let h = build_header(
         &text,
@@ -356,7 +356,7 @@ fn a_session_info_title_off_the_branch_still_applies() {
 
 fn context() -> ParsedSession {
     let rel = "sessions-pi/pi-context.jsonl";
-    parse_pi_session(&read(rel), &fixture(rel), "fallback")
+    parse_pi_session(&read_fixture(rel), &fixture(rel), "fallback")
 }
 
 #[test]
@@ -463,13 +463,13 @@ fn a_system_prompt_stays_inside_the_measured_system_floor() {
     let p = context();
     let mut without = p.clone();
     without.events.retain(|e| e.kind != EventKind::SystemPrompt);
-    let a = analyzed(p);
+    let a = analyze_default(p);
     let first = &a.snapshots[0];
     assert_eq!(first.slices.system_tools, a.system_overhead_tokens);
     assert_eq!(first.slices.other, 0.0);
     assert_eq!(
         a.system_overhead_tokens,
-        analyzed(without).system_overhead_tokens
+        analyze_default(without).system_overhead_tokens
     );
 }
 
@@ -529,7 +529,7 @@ fn claude_and_pi_headers_match_analyze_on_the_same_transcript() {
     ]
     .map(|v| v.to_string())
     .join("\n");
-    let a = analyzed(parse_claude_session(&ParseArgs {
+    let a = analyze_default(parse_claude_session(&ParseArgs {
         text: &claude,
         path: "/synthetic/s.jsonl",
         session_id: "s",
@@ -552,7 +552,7 @@ fn claude_and_pi_headers_match_analyze_on_the_same_transcript() {
         pi_message("m2", 0),
     ]
     .join("\n");
-    let a = analyzed(parse_pi_session(&pi, "/synthetic/p.jsonl", "p"));
+    let a = analyze_default(parse_pi_session(&pi, "/synthetic/p.jsonl", "p"));
     let total = a.cost.and_then(|c| c.total_usd).expect("pi cost");
     let h = build_header(&pi, &file_ref("s", "demo", "/synthetic/s.jsonl", 1));
     assert!(close(h.cost_usd, total, 10), "{:?} vs {total}", h.cost_usd);

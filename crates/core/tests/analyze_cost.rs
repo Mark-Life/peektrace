@@ -315,6 +315,7 @@ fn header_cost(text: &str) -> (Option<f64>, Option<Vec<String>>) {
     };
     let roots = AgentRoots {
         claude: claude_sources(&env, &[]),
+        ..AgentRoots::default()
     };
     let filter = ListFilter {
         agent: Some(Agent::Claude),

@@ -189,7 +189,7 @@ pub fn claude_lines(at: &str, context_tokens: u32, cwd: &str) -> Vec<Value> {
     ]
 }
 
-/// A Codex rollout newer than every Claude session; this build cannot read it.
+/// A Codex rollout newer than every Claude session.
 pub fn codex_lines(id: &str, cwd: &str) -> Vec<Value> {
     vec![
         json!({"timestamp":"2026-06-01T10:00:00.000Z","type":"session_meta",

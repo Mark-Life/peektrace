@@ -4,11 +4,11 @@
 
 mod common;
 
-use common::{TempDir, session_env, sources};
+use common::{TempDir, claude_roots, session_env};
 use peektrace_core::js::json_out::Writer;
 use peektrace_core::js::time::{Utc, parse_date};
 use peektrace_core::sessions::model::{ParsedSession, SubagentRef};
-use peektrace_core::sessions::service::get_session;
+use peektrace_core::sessions::service::{Target, get_session};
 use peektrace_core::sessions::workflows::{
     AgentPhase, WorkflowCall, parse_workflow_run, pick_workflow_call, to_agent_ref,
     workflow_calls_by_run,
@@ -336,11 +336,11 @@ fn layout() -> TempDir {
 
 fn parse(redact: bool) -> ParsedSession {
     let root = layout();
-    let claude = sources(
+    let roots = claude_roots(
         &format!("{}/home", root.str()),
         &format!("{}/projects", root.str()),
     );
-    get_session(session_env(&claude), SID, None, redact).expect("session")
+    get_session(session_env(&roots), Target::Lookup(SID), None, redact).expect("session")
 }
 
 fn by_id<'a>(p: &'a ParsedSession, id: &str) -> &'a SubagentRef {

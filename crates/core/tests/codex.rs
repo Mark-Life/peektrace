@@ -5,7 +5,7 @@
 
 mod common;
 
-use common::{analyzed, file_ref, fixture, read};
+use common::{analyze_default, file_ref, fixture, read_fixture};
 use peektrace_core::codex::{build_header, parse_codex_session};
 use peektrace_core::sessions::labels::event_badge_label;
 use peektrace_core::sessions::model::{
@@ -16,7 +16,7 @@ const SESSION_ID: &str = "019f42f4-342d-7b30-9551-a78e5a2cbe5e";
 
 fn codex(name: &str) -> ParsedSession {
     let rel = format!("sessions-codex/{name}.jsonl");
-    parse_codex_session(&read(&rel), &fixture(&rel), "fallback-id")
+    parse_codex_session(&read_fixture(&rel), &fixture(&rel), "fallback-id")
 }
 
 fn fixture_session() -> ParsedSession {
@@ -101,7 +101,7 @@ fn custom_tool_call_apply_patch_pairs_with_its_output_no_false_error() {
 #[test]
 fn header_derives_project_from_cwd_basename_and_stamps_agent_codex() {
     let rel = "sessions-codex/rollout-fixture.jsonl";
-    let text = read(rel);
+    let text = read_fixture(rel);
     let size = u64::try_from(text.len()).expect("size");
     let h = build_header(&text, &file_ref(SESSION_ID, "", &fixture(rel), size));
     assert_eq!(h.agent.as_str(), "codex");
@@ -200,7 +200,7 @@ fn output_of_an_aborted_call_is_not_paired_with_a_later_call() {
 
 #[test]
 fn every_call_gets_a_snapshot_whose_slices_sum_to_its_context() {
-    let a = analyzed(budget());
+    let a = analyze_default(budget());
     let ctx: Vec<f64> = a.snapshots.iter().map(|s| s.ctx).collect();
     assert_eq!(ctx, [12_000.0, 13_100.0, 13_500.0, 13_900.0, 14_000.0]);
     for s in &a.snapshots {
@@ -211,7 +211,7 @@ fn every_call_gets_a_snapshot_whose_slices_sum_to_its_context() {
 
 #[test]
 fn peak_budget_uses_the_model_context_window_and_is_not_empty() {
-    let a = analyzed(budget());
+    let a = analyze_default(budget());
     assert_eq!(a.context_window, 258_400.0);
     assert!(!a.context_window_inferred);
     assert_eq!(a.peak_context_tokens, 14_000.0);
@@ -239,7 +239,7 @@ fn system_floor_is_the_first_calls_context_minus_earlier_inputs() {
         .filter(|e| e.kind != EventKind::SystemPrompt)
         .map(|e| e.tokens_est)
         .sum();
-    assert_eq!(analyzed(p).system_overhead_tokens, 12_000.0 - before);
+    assert_eq!(analyze_default(p).system_overhead_tokens, 12_000.0 - before);
 }
 
 #[test]
@@ -250,7 +250,7 @@ fn a_turn_with_no_events_of_its_own_still_yields_a_peak_budget() {
             e.request_id = None;
         }
     }
-    let a = analyzed(p);
+    let a = analyze_default(p);
     assert_eq!(a.snapshots.len(), 4);
     assert_ne!(a.budget.len(), 0);
 }
@@ -274,7 +274,7 @@ fn fork_the_first_turn_is_the_childs_first_call_and_has_a_snapshot() {
         .map(|&i| p.events[usize::try_from(i).expect("index")].kind.as_str())
         .collect();
     assert_eq!(kinds, ["assistant-thinking", "tool-call"]);
-    let a = analyzed(p);
+    let a = analyze_default(p);
     let turns: Vec<_> = a.snapshots.iter().map(|s| s.turn_index).collect();
     assert_eq!(turns, [0, 1]);
     assert!(a.system_overhead_tokens > 0.0);
@@ -300,7 +300,7 @@ fn a_step_holding_an_aborted_calls_output_keeps_estimates() {
 
 fn context() -> ParsedSession {
     let rel = "sessions-codex/rollout-context.jsonl";
-    parse_codex_session(&read(rel), &fixture(rel), "fallback")
+    parse_codex_session(&read_fixture(rel), &fixture(rel), "fallback")
 }
 
 #[test]
