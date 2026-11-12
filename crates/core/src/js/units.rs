@@ -109,6 +109,34 @@ pub fn first_line(s: &str, cap: usize) -> String {
     clip(line, cap)
 }
 
+/// The UTF-16 code units of transcript text.
+pub fn to_units(s: &str) -> Vec<u16> {
+    let mut out = Vec::with_capacity(s.len());
+    for u in text::units(s) {
+        match u {
+            Unit::Char(c) => {
+                let mut buf = [0u16; 2];
+                out.extend_from_slice(c.encode_utf16(&mut buf));
+            }
+            Unit::Lone(unit) => out.push(unit),
+        }
+    }
+    out
+}
+
+/// Transcript text from UTF-16 code units: unpaired surrogates become
+/// stand-ins.
+pub fn from_units(units: &[u16]) -> String {
+    let mut out = String::with_capacity(units.len());
+    for r in char::decode_utf16(units.iter().copied()) {
+        match r {
+            Ok(c) => text::push_literal(&mut out, c),
+            Err(e) => push_half(&mut out, e.unpaired_surrogate()),
+        }
+    }
+    out
+}
+
 /// `s.replace(/\s+/g, " ")` with the JS `\s` set.
 pub fn collapse_ws(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -146,6 +174,15 @@ mod tests {
         assert_eq!(text::to_display(&cut), "a\u{FFFD}");
         assert_eq!(slice("a😀b", 1, 3), "😀");
         assert_eq!(slice("abc", 1, 9), "bc");
+    }
+
+    #[test]
+    fn unit_round_trip() {
+        let s = "a😀\u{10F800}é";
+        let u = to_units(s);
+        assert_eq!(u, [0x61, 0xD83D, 0xDE00, 0xD800, 0xE9]);
+        assert_eq!(from_units(&u), s);
+        assert_eq!(from_units(&u[..2]), "a\u{10F83D}");
     }
 
     #[test]

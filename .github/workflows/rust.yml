@@ -1,8 +1,8 @@
 name: Rust
 
 # Format, lint and tests for the Rust crates on macOS and Linux, lint, unit,
-# fixture and discovery tests on Windows, plus the parity harness that diffs
-# the Rust CLI against the TS CLI on fixtures.
+# fixture, discovery and memory read/write tests on Windows, plus the parity
+# harness that diffs the Rust CLI against the TS CLI on fixtures.
 
 # Push runs only on `rust`: a push to a `rust-*` branch with an open PR
 # already starts a pull_request run, so a push run there would double it.
@@ -58,8 +58,9 @@ jobs:
         run: cargo test --locked
 
   windows:
-    # Lint, unit tests, the fixture listing and Codex/Pi discovery. The CLI
-    # end-to-end tests drive a POSIX HOME, so they stay off.
+    # Lint, unit tests, the fixture listing, Codex/Pi discovery and memory
+    # reads, writes and path containment. The CLI end-to-end tests drive a
+    # POSIX HOME, so they stay off.
     name: check (windows-latest)
     runs-on: windows-latest
     timeout-minutes: 20
@@ -82,16 +83,16 @@ jobs:
       - name: Unit tests
         run: cargo test --locked --lib --bins
 
-      - name: Fixture listing and agent discovery
+      - name: Fixture listing, agent discovery and memory files
         run: >-
           cargo test --locked -p peektrace-core
           --test fixtures --test discovery --test codex --test pi
-          --test pi_context_edit
+          --test pi_context_edit --test memory --test memory_fs
 
   parity:
     name: parity (fixtures)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 90
 
     steps:
       - name: Checkout

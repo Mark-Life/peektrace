@@ -129,7 +129,7 @@ pub fn usd_cell(n: Option<f64>) -> String {
 
 /// Human-readable size, 1 KB = 1024 B.
 #[expect(clippy::cast_precision_loss, reason = "JS numbers are f64")]
-fn bytes(n: u64) -> String {
+pub fn bytes(n: u64) -> String {
     let x = n as f64;
     if x < KB {
         format!("{n} B")
@@ -141,13 +141,13 @@ fn bytes(n: u64) -> String {
 }
 
 /// First segment of a UUID-like id.
-fn short_id(id: &str) -> &str {
+pub fn short_id(id: &str) -> &str {
     id.split('-').next().unwrap_or(id)
 }
 
 /// A transcript text cell as the terminal gets it: an unpaired surrogate
 /// prints as U+FFFD.
-fn printable(cell: &str) -> String {
+pub fn printable(cell: &str) -> String {
     text::to_display(cell).into_owned()
 }
 
@@ -186,9 +186,34 @@ fn compact_table(headers: &[&str], rows: &[Vec<String>]) -> String {
         .join("\n")
 }
 
+/// Narrowest the last column shrinks to when fitting a terminal.
+const MIN_LAST_COLUMN: usize = 20;
+
+/// Cut `value` to at most `max` columns, ending in `…` when clipped.
+pub fn clip_to_width(value: &str, max: usize) -> String {
+    if display_width(value) <= max {
+        return value.to_owned();
+    }
+    let mut out = String::new();
+    let mut used = 0;
+    let mut buf = [0u8; 4];
+    for c in value.chars() {
+        let w = display_width(c.encode_utf8(&mut buf));
+        if used + w > max.saturating_sub(1) {
+            break;
+        }
+        out.push(c);
+        used += w;
+    }
+    out.push('…');
+    out
+}
+
 /// Columns sized to their widest cell, two spaces apart, with a rule line.
-fn pretty_table(headers: &[&str], rows: &[Vec<String>]) -> String {
-    let widths: Vec<usize> = headers
+/// With `max_width` (the terminal width) the last column shrinks to fit,
+/// down to `MIN_LAST_COLUMN`, and its cells are clipped.
+fn pretty_table(headers: &[&str], rows: &[Vec<String>], max_width: Option<usize>) -> String {
+    let mut widths: Vec<usize> = headers
         .iter()
         .enumerate()
         .map(|(col, h)| {
@@ -197,11 +222,29 @@ fn pretty_table(headers: &[&str], rows: &[Vec<String>]) -> String {
                 .fold(display_width(h), usize::max)
         })
         .collect();
+    let last = widths.len().saturating_sub(1);
+    let room = max_width.map(|m| {
+        let fixed: usize = widths[..last].iter().map(|w| w + 2).sum();
+        MIN_LAST_COLUMN.max(m.saturating_sub(fixed))
+    });
+    if let Some(room) = room
+        && widths[last] > room
+    {
+        widths[last] = room;
+    }
     let line = |cells: &[&str]| {
         let padded = cells
             .iter()
             .zip(&widths)
-            .map(|(c, &w)| format!("{c}{}", " ".repeat(w.saturating_sub(display_width(c)))))
+            .enumerate()
+            .map(|(col, (c, &w))| {
+                let c = match room {
+                    Some(room) if col == last => clip_to_width(c, room),
+                    _ => (*c).to_owned(),
+                };
+                let pad = w.saturating_sub(display_width(&c));
+                format!("{c}{}", " ".repeat(pad))
+            })
             .collect::<Vec<_>>()
             .join("  ");
         text::trim_end(&padded).to_owned()
@@ -227,8 +270,18 @@ fn pretty_table(headers: &[&str], rows: &[Vec<String>]) -> String {
 
 /// A table: padded for people with `pretty`, else tab-separated.
 pub fn table(headers: &[&str], rows: &[Vec<String>], pretty: bool) -> String {
+    fit_table(headers, rows, pretty, None)
+}
+
+/// [`table`] fitted to a terminal `max_width` columns wide (pretty only).
+pub fn fit_table(
+    headers: &[&str],
+    rows: &[Vec<String>],
+    pretty: bool,
+    max_width: Option<usize>,
+) -> String {
     if pretty {
-        pretty_table(headers, rows)
+        pretty_table(headers, rows, max_width)
     } else {
         compact_table(headers, rows)
     }
@@ -284,6 +337,27 @@ mod tests {
         assert_eq!(usd_cell(Some(0.0)), "~$0.00");
         assert_eq!(usd_cell(None), "-");
         assert_eq!(usd_cell(Some(f64::INFINITY)), "~$Infinity");
+    }
+
+    #[test]
+    fn fits_the_last_column_to_the_terminal() {
+        let rows = vec![vec!["a".to_owned(), "x".repeat(40)]];
+        let t = fit_table(&["K", "V"], &rows, true, Some(30));
+        assert_eq!(
+            t,
+            format!("K  V\n-  {}\na  {}…", "-".repeat(27), "x".repeat(26))
+        );
+        let narrow = fit_table(&["K", "V"], &rows, true, Some(5));
+        assert!(
+            narrow.ends_with(&format!("{}…", "x".repeat(19))),
+            "{narrow}"
+        );
+        assert_eq!(
+            fit_table(&["K", "V"], &rows, false, Some(5)),
+            table(&["K", "V"], &rows, false)
+        );
+        assert_eq!(clip_to_width("ab", 2), "ab");
+        assert_eq!(clip_to_width("日本語", 4), "日…");
     }
 
     #[test]

@@ -3,6 +3,9 @@
 use std::borrow::Cow;
 use std::cmp::Ordering;
 
+use icu_collator::CollatorBorrowed;
+use icu_collator::options::CollatorOptions;
+
 /// `WhiteSpace` or `LineTerminator` as `String.prototype.trim` sees them.
 pub const fn is_js_whitespace(c: char) -> bool {
     matches!(
@@ -154,40 +157,14 @@ pub(crate) fn cmp_utf16(a: &str, b: &str) -> Ordering {
     utf16(a).cmp(utf16(b))
 }
 
-/// Primary weight of an ASCII char in the CLDR root collation, or `None` for
-/// chars the collation ignores (controls). Letters share a weight across case.
-fn ascii_primary(b: u8) -> Option<u16> {
-    const ORDER: &[u8] = b"\t\n\x0B\x0C\r _-,;:!?.'\"()[]{}@*/\\&#%`^+<=>|~$0123456789";
-    if b.is_ascii_alphabetic() {
-        let base = u16::try_from(ORDER.len()).ok()?;
-        return Some(base + u16::from(b.to_ascii_lowercase() - b'a'));
-    }
-    ORDER
-        .iter()
-        .position(|&o| o == b)
-        .and_then(|p| u16::try_from(p).ok())
-}
+/// Root-locale ICU collator, as `localeCompare` uses with no arguments.
+static ROOT_COLLATOR: CollatorBorrowed<'static> =
+    CollatorBorrowed::new_root(CollatorOptions::default());
 
-/// Collation key of one char: primary weight, then case (lower first).
-fn collation_key(c: char) -> Option<(u32, u8)> {
-    if c.is_ascii() {
-        let b = c as u8;
-        return ascii_primary(b).map(|p| (u32::from(p), u8::from(b.is_ascii_uppercase())));
-    }
-    Some((0x1_0000 + u32::from(c), 0))
-}
-
-/// `String.prototype.localeCompare` under the root locale, for the ids that
-/// reach it (ties on `updatedAt`). ASCII follows the CLDR root order
-/// (punctuation, digits, then letters with lowercase first); other chars
-/// sort after ASCII by code point. ICU's full collation is not reproduced.
+/// `String.prototype.localeCompare` under the root locale: CLDR root
+/// collation at tertiary strength.
 pub(crate) fn locale_compare(a: &str, b: &str) -> Ordering {
-    let keys = |s: &str| s.chars().filter_map(collation_key).collect::<Vec<_>>();
-    let (ka, kb) = (keys(a), keys(b));
-    let primary = |k: &[(u32, u8)]| k.iter().map(|&(p, _)| p).collect::<Vec<_>>();
-    primary(&ka)
-        .cmp(&primary(&kb))
-        .then_with(|| ka.iter().map(|k| k.1).cmp(kb.iter().map(|k| k.1)))
+    ROOT_COLLATOR.compare(a, b)
 }
 
 #[cfg(test)]
@@ -246,5 +223,27 @@ mod tests {
         assert_eq!(locale_compare("1", "a"), Ordering::Less);
         assert_eq!(locale_compare("ab-1", "ab1"), Ordering::Less);
         assert_eq!(locale_compare("same", "same"), Ordering::Equal);
+    }
+
+    #[test]
+    fn locale_compare_sorts_accents_with_their_base_letter() {
+        let mut names = [
+            "Zeta.md",
+            "e-plain.md",
+            "\u{e9}-accent.md",
+            "\u{451}lka.md",
+            "ewe.md",
+        ];
+        names.sort_by(|a, b| locale_compare(a, b));
+        assert_eq!(
+            names,
+            [
+                "\u{e9}-accent.md",
+                "e-plain.md",
+                "ewe.md",
+                "Zeta.md",
+                "\u{451}lka.md"
+            ]
+        );
     }
 }

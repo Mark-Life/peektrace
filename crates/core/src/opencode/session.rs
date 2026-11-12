@@ -3,6 +3,7 @@
 //! event bodies, so they keep every key the reader adds (`id`, `sessionID`,
 //! `messageID`, `kind`).
 
+use crate::js::json_out::Writer;
 use crate::js::text;
 use crate::js::value::{JsObject, JsValue};
 
@@ -145,6 +146,15 @@ pub fn hydrate_part(
     round_trip(data)
 }
 
+/// `JSON.stringify(o)`.
+fn obj_json(o: &JsObject) -> String {
+    let mut w = Writer::new(false);
+    w.begin_obj();
+    o.entries().for_each(|(k, v)| v.write(w.key_text(k)));
+    w.end_obj();
+    w.finish()
+}
+
 /// The dialect's leading `session` line.
 fn session_line(s: &SessionInfo) -> JsValue {
     let str_val = |v: &str| JsValue::Str(v.to_owned());
@@ -188,6 +198,22 @@ impl Session {
             },
         );
         u64::try_from(bytes + lines - 1).unwrap_or(u64::MAX)
+    }
+
+    /// The JSONL text the TS reader builds for this session (see
+    /// [`Self::dialect_len`]), joined by `\n` with no trailing newline.
+    pub fn dialect_text(&self) -> String {
+        let mut out = String::with_capacity(usize::try_from(self.dialect_len()).unwrap_or(0));
+        out.push_str(&session_line(&self.info).stringify(false));
+        for m in &self.messages {
+            out.push('\n');
+            out.push_str(&obj_json(&m.data));
+            for p in &m.parts {
+                out.push('\n');
+                out.push_str(&obj_json(p));
+            }
+        }
+        out
     }
 }
 
