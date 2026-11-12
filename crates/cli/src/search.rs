@@ -2,6 +2,7 @@
 //! redacted by default.
 
 use peektrace_core::Agent;
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::{text, units};
 use peektrace_core::search::{
     SearchEnv, SearchRequest, SearchResult, SearchRun, SearchSession, result_json, search_sessions,
@@ -90,6 +91,8 @@ pub struct SearchInput<'a> {
     pub since: Option<&'a str>,
     pub limit: f64,
     pub redact: bool,
+    /// Headers kept between calls by a long-lived process.
+    pub headers: Option<&'a HeaderCache>,
 }
 
 /// Run `sessions search` against `ctx`. `unreadable` is the listing's
@@ -104,6 +107,7 @@ pub fn run(args: &SearchArgs, globals: Globals, ctx: &Context) -> Result<Output,
         since: args.since.as_deref(),
         limit,
         redact: !args.no_redact,
+        headers: None,
     };
     let (run, warnings) = find(input, CLI_NAMES, ctx)?;
     let r = &run.result;
@@ -163,7 +167,7 @@ pub fn find(
             roots: &roots,
             home,
             local: &zone,
-            headers: None,
+            headers: input.headers,
         },
         &SearchRequest {
             q,

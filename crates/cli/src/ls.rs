@@ -1,10 +1,13 @@
 //! `peektrace sessions ls`: validate flags, list, select and render.
 
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::num;
 use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::read::listing_from_json;
-use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
+use peektrace_core::{
+    Agent, AgentRoots, ListFilter, SessionHeader, list_sessions, list_sessions_cached,
+};
 
 use crate::args::LsArgs;
 use crate::remote::Remote;
@@ -121,13 +124,13 @@ pub(crate) fn parse_bounds(
 }
 
 /// The listing: from the remote server, or read here with the settings
-/// warning.
+/// warning, reusing `headers` when set.
 fn fetch(
-    agent: Option<Agent>,
-    project: Option<&str>,
+    input: &LsInput<'_>,
     ctx: &Context,
     remote: Option<&Remote>,
 ) -> Result<(Vec<SessionHeader>, usize, Vec<String>), UserError> {
+    let (agent, project) = (input.agent, input.project);
     if let Some(r) = remote {
         let query: Vec<(&str, &str)> = [("agent", agent.map(Agent::as_str)), ("project", project)]
             .into_iter()
@@ -157,7 +160,10 @@ fn fetch(
         agent,
         project: project.map(str::to_owned),
     };
-    let listing = list_sessions(&roots, &filter);
+    let listing = match input.headers {
+        Some(cache) => list_sessions_cached(&roots, &filter, cache),
+        None => list_sessions(&roots, &filter),
+    };
     Ok((listing.headers, listing.unreadable.len(), warnings))
 }
 
@@ -169,6 +175,8 @@ pub struct LsInput<'a> {
     pub since: Option<&'a str>,
     pub cwd: Option<&'a str>,
     pub limit: f64,
+    /// Headers kept between calls by a long-lived process.
+    pub headers: Option<&'a HeaderCache>,
 }
 
 /// Run `sessions ls` against `ctx`, or against `remote` when set.
@@ -186,6 +194,7 @@ pub fn run(
         since: args.since.as_deref(),
         cwd: args.cwd.as_deref(),
         limit,
+        headers: None,
     };
     list(&input, CLI_NAMES, globals, ctx, remote)
 }
@@ -203,7 +212,7 @@ pub fn list(
         let env = &ctx.roots_env;
         select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
     });
-    let (headers, unreadable, warnings) = fetch(input.agent, input.project, ctx, remote)?;
+    let (headers, unreadable, warnings) = fetch(input, ctx, remote)?;
     let picked = select::select_sessions(
         headers,
         &SelectOptions {

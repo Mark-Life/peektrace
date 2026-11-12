@@ -136,7 +136,8 @@ fn analyze_local(ctx: &Context, id: &str, window: Option<f64>) -> Result<String,
         window,
         dumb_zone: None,
     };
-    analyze_session_with(env, Target::Lookup(id), None, true, overrides)
+    // Only token counts are printed, which redaction never changes.
+    analyze_session_with(env, Target::Lookup(id), None, false, overrides)
         .map(|a| {
             render(
                 a.final_context_tokens,

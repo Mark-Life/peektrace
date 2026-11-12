@@ -5,6 +5,7 @@
 use std::sync::Mutex;
 
 use peektrace_core::Agent;
+use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::value::{JsObject, JsValue};
 use peektrace_core::search::result_json;
 use peektrace_core::stats::accumulate::DrillTable;
@@ -82,16 +83,29 @@ pub struct Answer {
     pub notes: Vec<String>,
 }
 
-/// What every call shares: the environment and the stats lock (one pass
-/// at a time, so passes do not race on the cache).
+/// What every call shares: the environment, the list headers kept between
+/// calls and the stats lock (one pass at a time, so passes do not race on
+/// the cache).
 pub struct Shared {
     pub ctx: Context,
+    pub headers: HeaderCache,
     pub stats: Mutex<()>,
+}
+
+impl Shared {
+    pub fn new(ctx: Context) -> Self {
+        Self {
+            ctx,
+            headers: HeaderCache::default(),
+            stats: Mutex::new(()),
+        }
+    }
 }
 
 /// One call's view: the context with the clock read now.
 struct Call<'a> {
     ctx: Context,
+    headers: &'a HeaderCache,
     stats: &'a Mutex<()>,
 }
 
@@ -170,6 +184,7 @@ fn sessions_list(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
         since: a.str("since"),
         cwd: a.str("cwd"),
         limit: a.num("limit").unwrap_or(LS_DEFAULT_LIMIT),
+        headers: Some(s.headers),
     };
     let span = rpc_span!("sessions.listing");
     let out = traced(&span, || {
@@ -187,6 +202,7 @@ fn sessions_search(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
         since: a.str("since"),
         limit: a.num("limit").unwrap_or(SEARCH_DEFAULT_LIMIT),
         redact: true,
+        headers: Some(s.headers),
     };
     let span = rpc_span!("sessions.search");
     let (run, _) = traced(&span, || search::find(input, MCP_NAMES, &s.ctx))?;
@@ -375,6 +391,7 @@ impl Tool {
         ctx.now_ms = now_ms();
         let call = Call {
             ctx,
+            headers: &shared.headers,
             stats: &shared.stats,
         };
         (self.run)(&Args(obj), &call)
@@ -390,18 +407,15 @@ mod tests {
     /// No corpus: an empty home that no test reads, since every case fails
     /// or dies before a tool touches the disk.
     fn shared() -> Shared {
-        Shared {
-            ctx: Context {
-                roots_env: peektrace_core::roots::RootsEnv {
-                    home: "/nonexistent-peektrace-home".to_owned(),
-                    ..Default::default()
-                },
-                settings: None,
-                cwd: None,
-                now_ms: 0.0,
+        Shared::new(Context {
+            roots_env: peektrace_core::roots::RootsEnv {
+                home: "/nonexistent-peektrace-home".to_owned(),
+                ..Default::default()
             },
-            stats: Mutex::new(()),
-        }
+            settings: None,
+            cwd: None,
+            now_ms: 0.0,
+        })
     }
 
     fn args(text: &str) -> JsValue {

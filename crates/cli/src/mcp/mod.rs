@@ -66,10 +66,7 @@ struct Job {
 
 /// Serve `input` until it ends, then wait for the calls in flight.
 pub fn serve(ctx: Context, input: impl BufRead) {
-    let shared = Arc::new(Shared {
-        ctx,
-        stats: Mutex::new(()),
-    });
+    let shared = Arc::new(Shared::new(ctx));
     let (tx, rx) = mpsc::channel::<Job>();
     let rx = Arc::new(Mutex::new(rx));
     let count = std::thread::available_parallelism()
@@ -121,6 +118,9 @@ fn read_lines(mut input: impl BufRead, mut on_line: impl FnMut(String)) {
         }
     }
 }
+
+#[cfg(test)]
+mod cache_tests;
 
 #[cfg(test)]
 mod tests {
