@@ -7,7 +7,8 @@ use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
-use notify::{EventKind, RecursiveMode, Watcher as _};
+use notify::event::CreateKind;
+use notify::{Event, EventKind, RecursiveMode, Watcher as _};
 use tracing::{error, info_span};
 
 use crate::listing::AgentRoots;
@@ -50,6 +51,12 @@ fn is_opencode_store(name: &str) -> bool {
     name.starts_with("opencode") && (name.ends_with(".db") || name.ends_with(".db-wal"))
 }
 
+/// Under an `opencode` `storage/{session,message,part}` dir.
+fn in_store(segs: &[&str]) -> bool {
+    segs.windows(2)
+        .any(|w| w[0] == "storage" && matches!(w[1], "session" | "message" | "part"))
+}
+
 /// The scope a path relative to an `agent` root invalidates, if any.
 #[expect(
     clippy::case_sensitive_file_extension_comparisons,
@@ -64,12 +71,22 @@ pub fn classify(agent: Agent, rel: &Path) -> Option<Scope> {
             name.ends_with(".jsonl").then_some(Scope::Sessions)
         }
         Agent::Opencode => {
-            let stored = name.ends_with(".json")
-                && segs
-                    .windows(2)
-                    .any(|w| w[0] == "storage" && matches!(w[1], "session" | "message" | "part"));
+            let stored = name.ends_with(".json") && in_store(&segs);
             (stored || is_opencode_store(name)).then_some(Scope::Sessions)
         }
+    }
+}
+
+/// The scope files in a new directory relative to an `agent` root can
+/// invalidate. inotify watches a new directory only after its create event,
+/// so files written into it right away raise no event of their own.
+pub fn classify_dir(agent: Agent, rel: &Path) -> Option<Scope> {
+    let segs = segments(rel);
+    segs.last()?;
+    match agent {
+        Agent::Claude if segs.contains(&"memory") => Some(Scope::Memory),
+        Agent::Claude | Agent::Codex | Agent::Pi => Some(Scope::Sessions),
+        Agent::Opencode => in_store(&segs).then_some(Scope::Sessions),
     }
 }
 
@@ -102,8 +119,11 @@ pub fn watch_roots(roots: &AgentRoots) -> Vec<WatchRoot> {
     out
 }
 
-/// Scopes one event path raises under every root that holds it.
-pub fn classify_path(roots: &[WatchRoot], path: &Path) -> Vec<Scope> {
+fn classify_under(
+    roots: &[WatchRoot],
+    path: &Path,
+    rule: fn(Agent, &Path) -> Option<Scope>,
+) -> Vec<Scope> {
     roots
         .iter()
         .filter_map(|r| {
@@ -111,9 +131,39 @@ pub fn classify_path(roots: &[WatchRoot], path: &Path) -> Vec<Scope> {
                 .strip_prefix(&r.real)
                 .or_else(|_| path.strip_prefix(&r.path))
                 .ok()?;
-            classify(r.agent, rel)
+            rule(r.agent, rel)
         })
         .collect()
+}
+
+/// Scopes one event path raises under every root that holds it.
+pub fn classify_path(roots: &[WatchRoot], path: &Path) -> Vec<Scope> {
+    classify_under(roots, path, classify)
+}
+
+/// Scopes one OS event raises. A rescan means events were lost, so it
+/// raises every scope; a new directory raises what its files could.
+pub fn event_scopes(
+    roots: &[WatchRoot],
+    event: &Event,
+    is_dir: impl Fn(&Path) -> bool,
+) -> Vec<Scope> {
+    if event.need_rescan() {
+        return vec![Scope::Sessions, Scope::Memory];
+    }
+    let rule = |p: &Path| match event.kind {
+        EventKind::Create(CreateKind::Folder) => classify_dir,
+        EventKind::Create(CreateKind::Any | CreateKind::Other) if is_dir(p) => classify_dir,
+        _ => classify,
+    };
+    match event.kind {
+        EventKind::Access(_) => Vec::new(),
+        _ => event
+            .paths
+            .iter()
+            .flat_map(|p| classify_under(roots, p, rule(p)))
+            .collect(),
+    }
 }
 
 /// Versions after one flushed batch.
@@ -189,15 +239,12 @@ impl Watcher {
         }
         let (tx, rx) = mpsc::channel::<Scope>();
         let classify_roots = watched.clone();
-        let handler = move |res: notify::Result<notify::Event>| match res {
-            Ok(event) if !matches!(event.kind, EventKind::Access(_)) => {
-                for p in &event.paths {
-                    for s in classify_path(&classify_roots, p) {
-                        let _ = tx.send(s);
-                    }
+        let handler = move |res: notify::Result<Event>| match res {
+            Ok(event) => {
+                for s in event_scopes(&classify_roots, &event, Path::is_dir) {
+                    let _ = tx.send(s);
                 }
             }
-            Ok(_) => {}
             Err(e) => error!(error = %e, "WatchService.pump failed"),
         };
         let mut problems = Vec::new();
@@ -292,6 +339,73 @@ mod tests {
         );
         assert_eq!(c(Agent::Opencode, "storage/project/x.json"), None);
         assert_eq!(c(Agent::Opencode, "log/x.log"), None);
+    }
+
+    #[test]
+    fn new_dirs_raise_what_their_files_could() {
+        let d = |agent, rel| classify_dir(agent, Path::new(rel));
+        assert_eq!(d(Agent::Claude, "-p/memory"), Some(Scope::Memory));
+        assert_eq!(d(Agent::Claude, "-p"), Some(Scope::Sessions));
+        assert_eq!(d(Agent::Claude, ""), None);
+        assert_eq!(d(Agent::Codex, "2026/01/02"), Some(Scope::Sessions));
+        assert_eq!(d(Agent::Pi, "--p--"), Some(Scope::Sessions));
+        assert_eq!(
+            d(Agent::Opencode, "storage/message/ses_1"),
+            Some(Scope::Sessions)
+        );
+        assert_eq!(d(Agent::Opencode, "log"), None);
+    }
+
+    fn root() -> Vec<WatchRoot> {
+        vec![WatchRoot {
+            agent: Agent::Claude,
+            path: PathBuf::from("/h/.claude/projects"),
+            real: PathBuf::from("/h/.claude/projects"),
+        }]
+    }
+
+    fn event(kind: EventKind, path: &str) -> Event {
+        Event::new(kind).add_path(PathBuf::from(path))
+    }
+
+    #[test]
+    fn a_memory_dir_made_with_its_files_bumps_memory() {
+        let made = event(
+            EventKind::Create(CreateKind::Folder),
+            "/h/.claude/projects/-p/memory",
+        );
+        assert_eq!(event_scopes(&root(), &made, |_| false), vec![Scope::Memory]);
+        let unknown = event(
+            EventKind::Create(CreateKind::Any),
+            "/h/.claude/projects/-p/memory",
+        );
+        assert_eq!(
+            event_scopes(&root(), &unknown, |_| true),
+            vec![Scope::Memory]
+        );
+        assert_eq!(event_scopes(&root(), &unknown, |_| false), vec![]);
+    }
+
+    #[test]
+    fn a_rescan_bumps_every_scope_and_access_none() {
+        let rescan = Event::new(EventKind::Other).set_flag(notify::event::Flag::Rescan);
+        assert_eq!(
+            event_scopes(&root(), &rescan, |_| false),
+            vec![Scope::Sessions, Scope::Memory]
+        );
+        let read = event(
+            EventKind::Access(notify::event::AccessKind::Any),
+            "/h/.claude/projects/-p/s.jsonl",
+        );
+        assert_eq!(event_scopes(&root(), &read, |_| false), vec![]);
+        let wrote = event(
+            EventKind::Modify(notify::event::ModifyKind::Any),
+            "/h/.claude/projects/-p/s.jsonl",
+        );
+        assert_eq!(
+            event_scopes(&root(), &wrote, |_| false),
+            vec![Scope::Sessions]
+        );
     }
 
     #[test]

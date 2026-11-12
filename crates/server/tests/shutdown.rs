@@ -1,4 +1,5 @@
-//! An open `/api/events` stream must not hold up shutdown.
+//! An open `/api/events` stream must not hold up shutdown, and stays open
+//! until then even with no watcher behind it.
 
 mod common;
 
@@ -13,8 +14,18 @@ use peektrace_server::guard::Allowlist;
 use peektrace_server::{AppState, Assets, Guards};
 use tokio::sync::watch;
 
-#[test]
-fn shutdown_ends_open_event_streams() {
+struct Running {
+    runtime: tokio::runtime::Runtime,
+    server: tokio::task::JoinHandle<std::io::Result<()>>,
+    fire: tokio::sync::oneshot::Sender<()>,
+    conn: std::net::TcpStream,
+    /// Bytes read up to the first event.
+    seen: Vec<u8>,
+}
+
+/// A server with one `/api/events` stream open past its first event. The
+/// versions sender lives as long as the server unless `watcher` is false.
+fn open_events(watcher: bool) -> Running {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
@@ -24,7 +35,8 @@ fn shutdown_ends_open_event_streams() {
         .block_on(tokio::net::TcpListener::bind("127.0.0.1:0"))
         .expect("bind");
     let port = listener.local_addr().expect("addr").port();
-    let (_versions, rx) = watch::channel(WatchVersions::default());
+    let (versions, rx) = watch::channel(WatchVersions::default());
+    let versions = watcher.then_some(versions);
     let (stop, stop_rx) = watch::channel(false);
     let state = AppState {
         roots: common::fixture_roots(),
@@ -59,7 +71,9 @@ fn shutdown_ends_open_event_streams() {
             let _ = fired.await;
             stop.send_replace(true);
         };
-        peektrace_server::serve(listener, app, shutdown).await
+        let served = peektrace_server::serve(listener, app, shutdown).await;
+        drop(versions);
+        served
     });
 
     let mut conn = std::net::TcpStream::connect(("127.0.0.1", port)).expect("connect");
@@ -70,11 +84,33 @@ fn shutdown_ends_open_event_streams() {
         "GET /api/events HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\n\r\n"
     )
     .expect("request");
-    let mut first = [0_u8; 512];
-    let n = conn.read(&mut first).expect("first event");
-    let head = String::from_utf8_lossy(&first[..n]);
+    let mut seen = Vec::new();
+    let mut buf = [0_u8; 512];
+    while !String::from_utf8_lossy(&seen).contains("event: versions") {
+        let n = conn.read(&mut buf).expect("first event");
+        assert!(n > 0, "closed before the first event");
+        seen.extend_from_slice(&buf[..n]);
+    }
+    let head = String::from_utf8_lossy(&seen);
     assert!(head.contains("text/event-stream"), "{head}");
 
+    Running {
+        runtime,
+        server,
+        fire,
+        conn,
+        seen,
+    }
+}
+
+fn shut_down(r: Running) {
+    let Running {
+        runtime,
+        server,
+        fire,
+        mut conn,
+        ..
+    } = r;
     fire.send(()).expect("fire");
     let done =
         runtime.block_on(async { tokio::time::timeout(Duration::from_secs(3), server).await });
@@ -84,4 +120,34 @@ fn shutdown_ends_open_event_streams() {
     );
     let mut rest = Vec::new();
     let _ = conn.read_to_end(&mut rest);
+}
+
+#[test]
+fn shutdown_ends_open_event_streams() {
+    shut_down(open_events(true));
+}
+
+#[test]
+fn the_stream_outlives_a_missing_watcher() {
+    let mut r = open_events(false);
+    r.conn
+        .set_read_timeout(Some(Duration::from_millis(500)))
+        .expect("timeout");
+    assert!(
+        !r.seen.ends_with(b"0\r\n\r\n"),
+        "stream ended with the first event"
+    );
+    let mut buf = [0_u8; 512];
+    match r.conn.read(&mut buf) {
+        Ok(0) => panic!("stream closed after the first event"),
+        Ok(n) => panic!("unexpected data: {}", String::from_utf8_lossy(&buf[..n])),
+        Err(e) => assert!(
+            matches!(
+                e.kind(),
+                std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+            ),
+            "{e}"
+        ),
+    }
+    shut_down(r);
 }

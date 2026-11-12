@@ -31,7 +31,8 @@ async fn stopped(stop: &mut watch::Receiver<bool>) {
 }
 
 /// The current versions first, then the latest after each change, until
-/// `stop`. A slow reader sees only the newest value.
+/// `stop`. A slow reader sees only the newest value. A closed versions
+/// channel is "no more changes", not the end of the stream.
 fn version_stream(
     rx: watch::Receiver<peektrace_protocol::WatchVersions>,
     stop: watch::Receiver<bool>,
@@ -42,7 +43,14 @@ fn version_stream(
         }
         if !first {
             tokio::select! {
-                changed = rx.changed() => changed.ok()?,
+                changed = rx.changed() => {
+                    // No watcher (no roots, or no OS backend): versions never
+                    // change again, but the stream stays open until `stop`.
+                    if changed.is_err() {
+                        stopped(&mut stop).await;
+                        return None;
+                    }
+                }
                 () = stopped(&mut stop) => return None,
             }
         }

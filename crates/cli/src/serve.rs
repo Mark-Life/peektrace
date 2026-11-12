@@ -1,8 +1,10 @@
 //! `peektrace serve`: bind, watch every agent root, and serve the API and
 //! the web UI until SIGINT or SIGTERM.
 
+use std::future::Future;
 use std::process::{Command, Stdio};
 use std::sync::Arc;
+use std::time::Duration;
 
 use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::os::tmpdir;
@@ -22,6 +24,9 @@ use crate::zone::SystemZone;
 
 const MIN_PORT: i64 = 1;
 const MAX_PORT: i64 = 65_535;
+/// How long in-flight requests get to finish after a stop signal. A stats
+/// pass cannot be cancelled, so the process does not wait for it.
+const GRACE: Duration = Duration::from_secs(2);
 
 /// What `serve` prints before it starts answering.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -228,8 +233,30 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
     })
 }
 
+/// `served`'s output, or `None` once `grace` passes after `stopping`, or
+/// once `force` (made after `stopping`) resolves first.
+async fn until_forced<T, F: Future<Output = ()>>(
+    served: impl Future<Output = T>,
+    stopping: impl Future<Output = ()>,
+    force: impl FnOnce() -> F,
+    grace: Duration,
+) -> Option<T> {
+    let forced = async {
+        stopping.await;
+        tokio::select! {
+            () = force() => {},
+            () = tokio::time::sleep(grace) => {},
+        }
+    };
+    tokio::select! {
+        out = served => Some(out),
+        () = forced => None,
+    }
+}
+
 /// Serve until a stop signal. `ready` runs once the server can accept,
-/// with a warning per root the watcher could not cover.
+/// with a warning per root the watcher could not cover. Requests still
+/// running after a second signal or a short grace period are abandoned.
 pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -242,7 +269,7 @@ pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
         });
     });
     let app = peektrace_server::app(Arc::new(p.state), Arc::new(p.assets), Arc::new(p.guards));
-    runtime.block_on(async move {
+    let served = runtime.block_on(async move {
         p.listener.set_nonblocking(true)?;
         let listener = tokio::net::TcpListener::from_std(p.listener)?;
         ready(&watch_warnings(watcher.problems()));
@@ -250,12 +277,25 @@ pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
             open_browser(&p.banner.open_url);
         }
         let stop = p.stop;
+        let (signalled, stopping) = tokio::sync::oneshot::channel::<()>();
         let shutdown = async move {
             shutdown_signal().await;
             stop.send_replace(true);
+            let _ = signalled.send(());
         };
-        peektrace_server::serve(listener, app, shutdown).await
-    })?;
+        let stopping = async {
+            if stopping.await.is_err() {
+                std::future::pending::<()>().await;
+            }
+        };
+        let served = peektrace_server::serve(listener, app, shutdown);
+        until_forced(served, stopping, shutdown_signal, GRACE)
+            .await
+            .unwrap_or(Ok(()))
+    });
+    // Blocking work (a stats pass) never ends early; do not wait for it.
+    runtime.shutdown_background();
+    served?;
     Ok(())
 }
 
@@ -304,6 +344,50 @@ mod tests {
         assert!(lines[0].contains("fs.inotify.max_user_watches"));
         assert_eq!(lines[1], "  WARNING: live refresh is off (no backend).");
         assert_eq!(watch_warnings(&[]), Vec::<String>::new());
+    }
+
+    fn block_on<T>(f: impl Future<Output = T>) -> T {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .expect("runtime")
+            .block_on(f)
+    }
+
+    #[test]
+    fn a_stuck_request_does_not_hold_up_exit() {
+        let pending = std::future::pending::<()>;
+        let ready = || std::future::ready(());
+        let start = std::time::Instant::now();
+        let out = block_on(until_forced(
+            pending(),
+            ready(),
+            pending,
+            Duration::from_millis(20),
+        ));
+        assert_eq!(out, None, "grace expires");
+        assert!(start.elapsed() < Duration::from_secs(5));
+        let out = block_on(until_forced(
+            pending(),
+            ready(),
+            ready,
+            Duration::from_secs(3600),
+        ));
+        assert_eq!(out, None, "second signal forces exit");
+        let out = block_on(until_forced(
+            std::future::ready(7),
+            pending(),
+            ready,
+            Duration::ZERO,
+        ));
+        assert_eq!(out, Some(7), "a finished server returns its result");
+        let out = block_on(until_forced(
+            std::future::ready(7),
+            ready(),
+            pending,
+            Duration::from_secs(3600),
+        ));
+        assert_eq!(out, Some(7), "requests that finish in time are kept");
     }
 
     #[cfg(unix)]
