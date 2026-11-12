@@ -215,6 +215,16 @@ const events = (dir: string) => {
   return rows.map((r) => r.data);
 };
 
+/** The schema text SQLite keeps, which both CLIs must write alike. */
+const schema = (dir: string) => {
+  const db = new Database(join(dir, "telemetry.db"), { readonly: true });
+  const rows = db
+    .query("SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name")
+    .all() as { sql: string }[];
+  db.close();
+  return rows.map((r) => r.sql).join("\n");
+};
+
 const mcpInput = `${[
   {
     jsonrpc: "2.0",
@@ -286,6 +296,9 @@ const runShape = (home: string, extra: Record<string, string>) => {
         report(`${label}: event ${i} ts=${t} rust=${rust[i]}`);
       }
     });
+  }
+  if (schema(dirs.ts) !== schema(dirs.rust)) {
+    report(`telemetry schema: ts=${schema(dirs.ts)} rust=${schema(dirs.rust)}`);
   }
   const count = (r: Run) =>
     WROTE.exec(r.stdout)?.[1] ?? `exit ${r.code}: ${r.stdout}${r.stderr}`;
