@@ -116,10 +116,13 @@ fn typed_search_words_never_reach_telemetry() {
     }
 }
 
+/// Extra env, args, and whether the run records.
+type Case<'a> = (&'a [(&'a str, &'a str)], &'a [&'a str], bool);
+
 #[test]
 fn opt_outs() {
     let f = Fixture::new();
-    let cases: [(&[(&str, &str)], &[&str], bool); 10] = [
+    let cases: [Case<'_>; 10] = [
         (&[], &["sessions", "ls"], true),
         (&[], &["--no-telemetry", "sessions", "ls"], false),
         (&[], &["sessions", "ls", "--no-telemetry"], false),
@@ -295,19 +298,19 @@ fn doctor_selection_and_unreadable_line() {
             r#"{{"id":"{id}","traceId":"t","ts":{ts},"kind":"rpc","name":"rpc.sessions.listing","appVersion":"v","platform":"p","durationMs":1,"attributes":{attrs},"spans":[],"outcome":"success"}}"#
         )
     };
-    let t = now();
-    let (a, b, c) = (
-        ev("a", t - 3, r#"{"sessions.unreadable":5}"#),
-        ev("b", t - 2, r#"{"sessions.unreadable":2}"#),
-        ev("c", t - 1, "{}"),
+    let at = now();
+    let (older, newer, newest) = (
+        ev("a", at - 3, r#"{"sessions.unreadable":5}"#),
+        ev("b", at - 2, r#"{"sessions.unreadable":2}"#),
+        ev("c", at - 1, "{}"),
     );
     seed(
         &dir,
         &[
-            ("a", t - 3, &a),
-            ("b", t - 2, &b),
-            ("c", t - 1, &c),
-            ("bad", t, "{\"kind\":\"tui\"}"),
+            ("a", at - 3, &older),
+            ("b", at - 2, &newer),
+            ("c", at - 1, &newest),
+            ("bad", at, "{\"kind\":\"tui\"}"),
         ],
     );
     let quiet = [("PEEKTRACE_NO_TELEMETRY", "1")];
