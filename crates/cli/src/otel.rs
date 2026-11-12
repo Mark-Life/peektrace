@@ -19,6 +19,64 @@ use tracing_subscriber::util::SubscriberInitExt as _;
 
 use peektrace_core::js::json_out::push_str;
 
+/// Lines kept back while the TUI owns the terminal; `None` when stderr is
+/// written directly.
+static HELD: std::sync::Mutex<Option<std::collections::VecDeque<Vec<u8>>>> =
+    std::sync::Mutex::new(None);
+/// Lines kept while held; older ones drop.
+const HOLD_MAX: usize = 10_000;
+
+fn emit(bytes: &[u8]) {
+    let mut held = HELD
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    match held.as_mut() {
+        Some(q) => {
+            if q.len() >= HOLD_MAX {
+                q.pop_front();
+            }
+            q.push_back(bytes.to_vec());
+        }
+        None => {
+            let _ = std::io::stderr().lock().write_all(bytes);
+        }
+    }
+}
+
+/// Keep span and log lines back until [`release`].
+pub fn hold() {
+    *HELD
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+        Some(std::collections::VecDeque::new());
+}
+
+/// Print the lines kept back, then write directly again.
+pub fn release() {
+    let held = HELD
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take();
+    let mut err = std::io::stderr().lock();
+    for line in held.into_iter().flatten() {
+        let _ = err.write_all(&line);
+    }
+}
+
+/// stderr, or the hold buffer while the TUI runs.
+struct HoldWriter;
+
+impl std::io::Write for HoldWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        emit(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 /// Field that marks a span failed. It is not printed: TS takes `fail` from
 /// the span's exit and prints only its attributes.
 const FAIL_FIELD: &str = "error";
@@ -131,7 +189,7 @@ where
             span.name(),
             num::to_fixed(ms, 1)
         );
-        let _ = std::io::stderr().lock().write_all(line.as_bytes());
+        emit(line.as_bytes());
     }
 }
 
@@ -174,7 +232,7 @@ pub fn init(echo: bool, log_level: Option<LogLevel>) {
     }
     let logs = log_level.map(|l| {
         tracing_subscriber::fmt::layer()
-            .with_writer(std::io::stderr)
+            .with_writer(|| HoldWriter)
             .with_target(false)
             .with_filter(l.filter())
     });

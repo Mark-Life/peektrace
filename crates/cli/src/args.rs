@@ -78,6 +78,8 @@ pub enum Command {
     Statusline(StatuslineArgs),
     /// Start the local web UI
     Serve(ServeArgs),
+    /// Browse sessions in a terminal UI
+    Tui(ServeArgs),
     /// Serve read-only session and stats tools over stdio MCP
     Mcp,
     /// Upgrade the installed binary to the latest release

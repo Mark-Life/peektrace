@@ -132,7 +132,7 @@ pub struct OnDiskContextFile {
 }
 
 /// Session cost: the agent's own figure or an estimate.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct SessionCost {
     /// True when the agent recorded it; else a list-price estimate.
     pub from_agent: bool,
@@ -144,7 +144,7 @@ pub struct SessionCost {
 
 /// A parsed session plus its context forensics. `parsed.turns` holds the
 /// priced turns.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct AnalyzedSession {
     pub parsed: ParsedSession,
     pub context_window: f64,

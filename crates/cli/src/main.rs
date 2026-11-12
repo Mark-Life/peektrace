@@ -19,6 +19,7 @@ mod stats_render;
 #[cfg(test)]
 mod stats_render_tests;
 mod statusline;
+mod tui;
 mod upgrade;
 mod verdict;
 mod width;
@@ -141,6 +142,7 @@ enum Run<'a> {
     Statusline(&'a args::StatuslineArgs),
     Mcp,
     Upgrade(&'a args::UpgradeArgs),
+    Tui(&'a args::ServeArgs),
 }
 
 impl<'a> Run<'a> {
@@ -162,7 +164,8 @@ impl<'a> Run<'a> {
             | Self::Serve(_)
             | Self::Statusline(_)
             | Self::Mcp
-            | Self::Upgrade(_) => None,
+            | Self::Upgrade(_)
+            | Self::Tui(_) => None,
         }
     }
 
@@ -295,6 +298,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
     let remote = remote.as_ref();
     let out = match cmd {
         Run::Serve(args) => return run_serve(cli, args, &ctx, failure),
+        Run::Tui(args) => return run_tui(cli, args, &ctx, failure),
         Run::Ls(args) => match ls::run(args, globals, &ctx, remote) {
             Ok(out) => {
                 root.record("sessions.unreadable", out.unreadable);
@@ -405,6 +409,25 @@ fn run_serve(
     Ok(ExitCode::SUCCESS)
 }
 
+/// `tui`: the terminal UI, with the web server beside it.
+fn run_tui(
+    cli: &Cli,
+    args: &args::ServeArgs,
+    ctx: &Context,
+    failure: Failure<'_>,
+) -> anyhow::Result<ExitCode> {
+    let prepared = match serve::prepare(args, cli.read_only, ctx) {
+        Ok(p) => p,
+        Err(e) => return Ok(failure.fail(&e)),
+    };
+    if let Err(e) = tui::check_terminal() {
+        return Ok(failure.fail(&e));
+    }
+    print_warnings(cli, &prepared.warnings);
+    tui::run(prepared, ctx)?;
+    Ok(ExitCode::SUCCESS)
+}
+
 fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args_os()
         .map(|a| a.to_string_lossy().into_owned())
@@ -468,6 +491,7 @@ fn main() -> ExitCode {
         Some(Command::Statusline(a)) => Run::Statusline(a),
         Some(Command::Mcp) => Run::Mcp,
         Some(Command::Upgrade(a)) => Run::Upgrade(a),
+        Some(Command::Tui(a)) => Run::Tui(a),
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);
