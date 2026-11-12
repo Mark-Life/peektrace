@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs. The `cli` stage (`--cli-only`) covers `statusline` (stdin payloads, flags, `--otel` span names, the real corpus, and `--remote` against the serve pair), `mcp` (one process per side, replies matched by id and compared byte for byte, the real corpus), `upgrade` (a local fake release server: `--check` runs, and installs on temp targets through `PEEKTRACE_UPGRADE_TARGET`) and the owned help pages. It never calls GitHub and never runs TS `upgrade` without `--check`.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs. The `cli` stage (`--cli-only`) covers `statusline` (stdin payloads, flags, `--otel` span names, the real corpus, and `--remote` against the serve pair), `mcp` (one process per side, replies matched by id and compared byte for byte, the real corpus), `upgrade` (a local fake release server: `--check` runs, and installs on temp targets through `PEEKTRACE_UPGRADE_TARGET`) the owned help pages, and telemetry: `doctor` byte for byte over a seeded store, the opt-out rules, and the event shape each CLI records, read back by the other's `doctor`. It never calls GitHub and never runs TS `upgrade` without `--check`. CI runs each stage as its own job (`--base-only` covers the `ls` suites, OpenCode and analyze/export) on one shared release build.
 
 The `tui` stage (`--tui-only`) compares the `tui --port` errors byte for byte, the syntax tokenizer token by token on edge snippets and on every tool body of the 25 newest real Claude sessions (about 2,700 bodies), and the TUI's number, text and layout helpers. TUI screens have no TS diff, since the Rust TUI fixes the TS layout bugs; `crates/tui/tests/snapshots` holds each screen on a synthetic HOME.
 
@@ -53,7 +53,7 @@ The TUI and the native app call `core` directly, with no HTTP in between. Only t
 4. **TUI.** Use `ratatui`. The current OpenTUI screens are the spec. `crates/tui` calls core in process; `tui` still runs the web server beside it.
 5. **Distribution.** Use `cargo-dist` for GitHub Releases and the shell/PowerShell installers. Add musl static Linux builds (x64, arm64), which fixes the Alpine gap. `peektrace upgrade` stays. Choose the channels (npm, Homebrew, both) once everything is built, because `cargo-dist` makes that a config change. Cut over: merge `rust` into `main` and delete the TS cli, core, rpc and desktop packages.
 6. **Rune app.** One Rust UI with a native window (macOS, Windows, Linux) and a web build that `serve` hosts. It replaces `apps/inspector`, `packages/ui`, `packages/viz` and `apps/desktop`. Pin a Rune `dev` rev.
-7. **Telemetry sinks.** Port the SQLite wide-event store (`rusqlite`) and `peektrace doctor`, both as `tracing-subscriber` layers. Optionally add OTLP export. No module code changes, because the spans already exist.
+7. **Telemetry sinks.** Port the SQLite wide-event store (`rusqlite`, crate `crates/telemetry`) as a `tracing-subscriber` layer with a background writer, and port `peektrace doctor`. No OTLP export (see the decisions below). No module code changes, because the spans already exist.
 
 ## Telemetry rule (all phases)
 
@@ -133,8 +133,17 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--wizard` | `@effect/cli` interactive builder | not ported |
 | Leaf `--help` pages (`sessions ls --help`, `stats --help`, ...) | `@effect/cli` pages with ANSI | clap pages |
 | Bare `sessions` / `memory` | the `@effect/cli` group page | the owned group page `sessions --help` prints |
-| Root `--help` rows and the bare-command banner | list `doctor` | omit only `doctor`, until it exists |
 | `-v`, `--version` | `0.0.0-dev` and a blank line | `0.0.0-dev` |
+| Telemetry store broken, locked or unwritable (garbage file, a dir, a `BEGIN EXCLUSIVE` holder, `PEEKTRACE_DIR` a file) | the command fails: Effect `ERROR` dump on stdout or `Failed to execute statement`, exit 1 | the event is dropped; output and exit code do not change |
+| `PEEKTRACE_DIR=""` with telemetry on | the command fails (`ENOENT ... mkdir`) | nothing is recorded |
+| Wide event `error` | Effect tag, message and fields; failing spans add `code.stacktrace` | tag `Error`, the printed message, `fields` `{}`; no stack attribute |
+| `serve`, `tui`, `mcp` stopped by a signal | `defect`, `All fibers interrupted without errors.` | `success` |
+| Wide event `platform` | `<os>; bun/<v>; node/<v>` | `<os>; rust/<arch>` |
+| Wide event child spans | `RpcServer.*`, `RpcClient.*`, `http.server *` | none of those (as with `--otel`) |
+| `sessions.unreadable` on CLI events | on the `RpcServer.*` child, so `doctor` prints its unreadable line only after a `serve`, `tui` or `mcp` listing | on the `cli` root, so `doctor` also prints it after a CLI listing |
+| TUI wide events | `rpc.<tag>`, kind `rpc` | `tui.<method>`, stored with kind `rpc` (the TS reader accepts only `cli` and `rpc`) |
+| `doctor` over a row the TS schema rejects | defect dump on stdout, exit 1 | the row is skipped |
+| `doctor` when the store cannot open | Effect `ERROR` dump on stdout | `Could not open the telemetry store: <reason>` on stderr. Exit 1 in both. |
 | `tui` off a terminal (stdin or stdout piped) | draws escape codes into the pipe until killed | `peektrace tui needs a terminal` on stderr, exit 1 |
 | `tui` footer URL for an IPv6 host | `http://::1:4321` | `http://[::1]:4321`, as `serve` prints it |
 | `tui` colours | always 24-bit; `NO_COLOR` ignored | `NO_COLOR` drops colour and marks selection with reverse video and focus with bold; 24-bit only when `COLORTERM` is `truecolor` or `24bit`, else the nearest xterm-256 colour |
@@ -145,6 +154,14 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `tui` text width | clips by UTF-16 units, so CJK and emoji overflow | clips by display columns |
 | `tui` layout | hint row overlaps the footer; long badges wrap history rows; Memory and Capabilities rows wrap at 100 cols; the summary card starves the history at 100x30; `turn1` axis label; finding titles run into wide impacts; the Settings conflict banner never shows (raw JSON error); a reopened filter shows empty; history rows stay open across sessions; toolbar buttons wrap at 120 cols; no loading mark when the analysis changes | each fixed: fixed rows, clipped spans, a one-line summary when the card does not fit, `turn 1`, a gap before the impact, the typed conflict, the query shown again, history state reset per session, short or hidden toolbar text, `Analysis ↻` while a new analysis loads |
 | `tui` and SIGHUP | Bun's default | restores the terminal and stops the server |
+
+## Telemetry decisions
+
+1. **No OTLP export.** Telemetry stays local, and `--otel` keeps printing to stderr. OTLP would add an HTTP or gRPC client and a network path that TS never had, and no user asks for it. Revisit only for a real collector.
+2. **Store as a layer plus a writer thread.** TS writes at root end and fails the command when the store fails. Rust queues each event to one background thread, waits at most 300 ms at exit, and never fails a command.
+3. **Kind mapping.** The TS schema accepts only `cli` and `rpc`, and the TS `doctor` dies on any other kind. Both CLIs share `~/.peektrace/telemetry.db` until cutover, so Rust stores `tui` roots as `rpc` and keeps the `tui.` name.
+4. **Error tag `Error`.** Rust failures carry no tag where they are recorded; adding one means touching every module.
+5. **No new dependency for ids.** UUID v4 from `RandomState` hashes.
 
 ## Risks
 
@@ -183,3 +200,7 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 20. `tui` notes still say `peektrace serve` (Memory editing note, Settings restart note), as TS does, though `tui` serves the web app itself. Say "the web app at <url>" instead?
 21. `tui` does not draw a scrollbar on the session rail or history. Add one?
 22. Terminal restore on panic is covered by the panic hook only; no pty test yet (needs `expectrl` or `portable-pty`). Add one?
+23. Make `telemetry.db` and the `doctor` bundles 0600 (and the dir 0700)? The db holds raw argv, secrets included. TS uses the umask defaults, and so does Rust.
+24. Keep the 300 ms exit wait and the 100 ms busy timeout (the writer retries a held lock for 250 ms), or pick other values?
+25. Map Rust failures to the TS tags (`SessionNotFoundError`, `InvalidValue`, ...) later, so `error_tag` queries work across both CLIs?
+26. After cutover, let the schema accept kind `tui`?
