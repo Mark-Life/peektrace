@@ -3,13 +3,14 @@
 //! per-project dir.
 
 use super::context::{is_injected_user_message, plain};
+use crate::headers::{RowFold, fold_text};
 use crate::js::time;
 use crate::js::value::{JsValue, defined, js_string};
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionHeader};
-use crate::sessions::jsonl::scan_rows;
 
 #[derive(Default)]
-struct Acc {
+pub(crate) struct Acc {
+    messages: u64,
     cwd: Option<String>,
     git_branch: Option<String>,
     model: Option<String>,
@@ -79,42 +80,52 @@ fn last_segment(path: &str) -> &str {
     path.split('/').rfind(|s| !s.is_empty()).unwrap_or("")
 }
 
-/// Build the list header from a rollout's text. `cwd`, `gitBranch` and
-/// `model` print even when empty.
-pub fn build_header(text: &str, r: &SessionFileRef) -> SessionHeader {
-    let (rows, malformed) = scan_rows(text);
-    let mut acc = Acc::default();
-    let mut messages = 0;
-    for row in rows.iter().filter(|r| r.as_obj().is_some()) {
-        acc.apply(row);
-        if is_message(row) {
-            messages += 1;
+impl RowFold for Acc {
+    fn row(&mut self, row: JsValue) {
+        if row.as_obj().is_none() {
+            return;
+        }
+        self.apply(&row);
+        if is_message(&row) {
+            self.messages += 1;
         }
     }
-    let project = [acc.cwd.as_deref().map_or("", last_segment), r.slug.as_str()]
+
+    /// `cwd`, `gitBranch` and `model` print even when empty.
+    fn header(self, r: &SessionFileRef, malformed: u64) -> SessionHeader {
+        let project = [
+            self.cwd.as_deref().map_or("", last_segment),
+            r.slug.as_str(),
+        ]
         .into_iter()
         .find(|p| !p.is_empty())
         .unwrap_or(r.id.as_str());
-    SessionHeader {
-        id: r.id.clone(),
-        agent: Agent::Codex,
-        path: r.path.clone(),
-        project: ProjectSlug::new(project),
-        message_count: messages,
-        size_bytes: r.stamp.size_bytes,
-        updated_at: acc
-            .updated_at
-            .unwrap_or_else(|| time::to_iso_string(r.stamp.mtime_ms)),
-        cwd: acc.cwd,
-        git_branch: acc.git_branch,
-        model: acc.model,
-        title: None,
-        started_at: acc.started_at,
-        malformed_lines: (malformed > 0).then_some(malformed),
-        cost_usd: None,
-        unpriced_models: None,
-        source: None,
+        SessionHeader {
+            id: r.id.clone(),
+            agent: Agent::Codex,
+            path: r.path.clone(),
+            project: ProjectSlug::new(project),
+            message_count: self.messages,
+            size_bytes: r.stamp.size_bytes,
+            updated_at: self
+                .updated_at
+                .unwrap_or_else(|| time::to_iso_string(r.stamp.mtime_ms)),
+            cwd: self.cwd,
+            git_branch: self.git_branch,
+            model: self.model,
+            title: None,
+            started_at: self.started_at,
+            malformed_lines: (malformed > 0).then_some(malformed),
+            cost_usd: None,
+            unpriced_models: None,
+            source: None,
+        }
     }
+}
+
+/// Build the list header from a rollout's text.
+pub fn build_header(text: &str, r: &SessionFileRef) -> SessionHeader {
+    fold_text::<Acc>(text, r)
 }
 
 #[cfg(test)]

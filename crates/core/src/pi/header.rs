@@ -4,12 +4,12 @@
 use std::collections::HashSet;
 
 use super::context::string_or;
+use crate::headers::{RowFold, fold_text};
 use crate::js::text;
 use crate::js::time;
 use crate::js::value::{EMPTY_OBJECT, JsValue, defined};
 use crate::model::{Agent, SessionFileRef, SessionHeader};
 use crate::sessions::cost::turns_cost;
-use crate::sessions::jsonl::scan_rows;
 use crate::sessions::model::{Turn, TurnTokens};
 
 /// Token counts one Pi call's `usage` reports; a missing count reads 0.
@@ -26,7 +26,9 @@ pub fn pi_tokens(usage: &JsValue) -> TurnTokens {
 }
 
 #[derive(Default)]
-struct Acc {
+pub(crate) struct Acc {
+    /// Rows seen, objects or not; keys an assistant row without an id.
+    rows: usize,
     cwd: Option<String>,
     model: Option<String>,
     started_at: Option<String>,
@@ -91,35 +93,42 @@ impl Acc {
     }
 }
 
-/// Build the list header from a Pi session's text. `title` sits after
-/// `startedAt`.
-pub fn build_header(text_in: &str, r: &SessionFileRef) -> SessionHeader {
-    let (rows, malformed) = scan_rows(text_in);
-    let mut acc = Acc::default();
-    for (index, row) in rows.iter().enumerate() {
+impl RowFold for Acc {
+    fn row(&mut self, row: JsValue) {
+        let index = self.rows;
+        self.rows += 1;
         if row.as_obj().is_some() {
-            acc.apply(row, index);
+            self.apply(&row, index);
         }
     }
-    let cost = turns_cost(&acc.turns);
-    SessionHeader {
-        id: r.id.clone(),
-        agent: Agent::Pi,
-        path: r.path.clone(),
-        project: r.slug.clone(),
-        message_count: acc.messages,
-        size_bytes: r.stamp.size_bytes,
-        updated_at: acc
-            .updated_at
-            .unwrap_or_else(|| time::to_iso_string(r.stamp.mtime_ms)),
-        cwd: acc.cwd,
-        git_branch: None,
-        model: acc.model,
-        title: acc.title,
-        started_at: acc.started_at,
-        malformed_lines: (malformed > 0).then_some(malformed),
-        cost_usd: cost.cost_usd,
-        unpriced_models: cost.unpriced_models,
-        source: None,
+
+    /// `title` sits after `startedAt`.
+    fn header(self, r: &SessionFileRef, malformed: u64) -> SessionHeader {
+        let cost = turns_cost(&self.turns);
+        SessionHeader {
+            id: r.id.clone(),
+            agent: Agent::Pi,
+            path: r.path.clone(),
+            project: r.slug.clone(),
+            message_count: self.messages,
+            size_bytes: r.stamp.size_bytes,
+            updated_at: self
+                .updated_at
+                .unwrap_or_else(|| time::to_iso_string(r.stamp.mtime_ms)),
+            cwd: self.cwd,
+            git_branch: None,
+            model: self.model,
+            title: self.title,
+            started_at: self.started_at,
+            malformed_lines: (malformed > 0).then_some(malformed),
+            cost_usd: cost.cost_usd,
+            unpriced_models: cost.unpriced_models,
+            source: None,
+        }
     }
+}
+
+/// Build the list header from a Pi session's text.
+pub fn build_header(text: &str, r: &SessionFileRef) -> SessionHeader {
+    fold_text::<Acc>(text, r)
 }

@@ -14,7 +14,7 @@ pub use parse::parse_pi_session;
 
 use crate::codex::UUID;
 use crate::discover::{self, JSONL};
-use crate::headers::{Outcome, load_text_headers};
+use crate::headers::{Outcome, stream_headers};
 use crate::model::{Agent, SessionFileRef};
 use crate::roots::Source;
 
@@ -37,7 +37,7 @@ pub fn list_session_files(sources: &[Source], project: Option<&str>) -> Vec<Sess
 
 /// One header per session file, in `refs` order.
 pub fn load_headers(refs: &[SessionFileRef], parent: &Span) -> Vec<Outcome> {
-    load_text_headers(Agent::Pi, refs, build_header, parent)
+    stream_headers::<header::Acc>(Agent::Pi, refs, parent)
 }
 
 #[cfg(test)]
