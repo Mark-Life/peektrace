@@ -6,7 +6,7 @@
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
-#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats
+#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
@@ -174,37 +174,63 @@ suite_analyze_codex() { analyze_top codex; }
 suite_analyze_pi() { analyze_top pi; }
 suite_analyze_opencode() { analyze_top opencode; }
 
-suite_stats() {
-  # Each CLI keeps its own fact cache under $PEEKTRACE_DIR (TS: stats/, Rust: stats-rs/).
-  # A scratch PEEKTRACE_DIR keeps the user's cache untouched; settings.json is copied so roots match.
-  local dir="$BENCH_DIR/peektrace-dir" report=(stats --json --days 30 --agent claude) top rust_top
-  rm -rf "${dir:?}"
-  mkdir -p "$dir"
-  [[ -f "$HOME/.peektrace/settings.json" ]] && cp "$HOME/.peektrace/settings.json" "$dir/"
-  export PEEKTRACE_DIR="$dir"
-
-  "$BUN_BIN" "${report[@]}" >"$OUT/bun-stats.json"
-  "$RUST_BIN" "${report[@]}" >"$OUT/rust-stats.json" 2>/dev/null
-  top="$(jq -r '.causes[0].key // empty' "$OUT/bun-stats.json")"
-  rust_top="$(jq -r '.causes[0].key // empty' "$OUT/rust-stats.json")"
-  [[ -n "$top" ]] || { echo "no causes in the 30-day stats report" >&2; exit 1; }
-  ENV_EXTRA+=("stats top cause: $top, same in both: $([[ "$top" == "$rust_top" ]] && echo yes || echo no)")
-  ENV_EXTRA+=("stats corpus (30 days): $(jq -c '{transcripts: .corpus.transcripts, toolCalls: .corpus.toolCalls}' "$OUT/bun-stats.json")")
-
-  # Neither CLI has \`stats --force\`; cold means an empty fact cache, so every transcript is extracted.
-  add_case stats-cold 2 10 "cpu rss" "\`${report[*]}\` (cold: empty cache)" "${report[@]}"
-  set_prepare "rm -rf $dir/stats $dir/stats-rs"
-  add_case stats-warm 2 10 "cpu" "\`${report[*]}\` (warm cache)" "${report[@]}"
-  add_case stats-warm-all 2 10 "cpu" "\`stats --json --days 30\` (all agents, warm cache)" stats --json --days 30
-  add_case stats-usage-day 2 10 "" "\`stats usage --by day --tz UTC --json --agent claude\`" stats usage --by day --tz UTC --json --agent claude
-  add_case stats-drill 2 10 "" "\`stats drill --cause <top cause> --days 30 --agent claude --json\`" stats drill --cause "$top" --days 30 --agent claude --json
+# stats_env -> once per script run: scratch PEEKTRACE_DIR, one report per binary for the env block.
+# Each CLI keeps its own fact cache under $PEEKTRACE_DIR (TS: stats/, Rust: stats-rs/).
+# A scratch PEEKTRACE_DIR keeps the user's cache untouched; settings.json is copied so roots match.
+STATS_DIR=""
+STATS_PREP=""
+stats_env() {
+  [[ -n "$STATS_DIR" ]] && return
+  STATS_DIR="$BENCH_DIR/peektrace-dir"
+  # Neither CLI has `stats --force`; cold means an empty fact cache, so every transcript is extracted.
+  STATS_PREP="rm -rf $STATS_DIR/stats $STATS_DIR/stats-rs"
+  rm -rf "${STATS_DIR:?}"
+  mkdir -p "$STATS_DIR"
+  [[ -f "$HOME/.peektrace/settings.json" ]] && cp "$HOME/.peektrace/settings.json" "$STATS_DIR/"
+  export PEEKTRACE_DIR="$STATS_DIR"
   METHOD_EXTRA+=("Stats: \`PEEKTRACE_DIR\` points at a scratch dir with a copy of \`~/.peektrace/settings.json\`. Cold rows delete both fact caches before each run; warm rows read the shards the warmup runs wrote.")
   METHOD_EXTRA+=("Stats: neither CLI accepts \`stats --force\` (only \`stats refresh --force\`), so the cold row empties the cache instead.")
 }
 
+# stats_report <tag> <args...> -> one report per binary into $OUT/{bun,rust}-stats-<tag>.json,
+# corpus and top cause into the env block; sets TOP_CAUSE from the Bun report.
+stats_report() {
+  local tag="$1" b r rust_top
+  shift
+  b="$OUT/bun-stats-$tag.json"; r="$OUT/rust-stats-$tag.json"
+  "$BUN_BIN" "$@" >"$b"
+  "$RUST_BIN" "$@" >"$r" 2>/dev/null
+  TOP_CAUSE="$(jq -r '.causes[0].key // empty' "$b")"
+  rust_top="$(jq -r '.causes[0].key // empty' "$r")"
+  [[ -n "$TOP_CAUSE" ]] || { echo "no causes in the $tag stats report" >&2; exit 1; }
+  ENV_EXTRA+=("stats $tag top cause: $TOP_CAUSE, same in both: $([[ "$TOP_CAUSE" == "$rust_top" ]] && echo yes || echo no)")
+  ENV_EXTRA+=("stats $tag corpus (30 days), bun: $(jq -c '.corpus | {transcripts, toolCalls, agents}' "$b"), rust: $(jq -c '.corpus | {transcripts, toolCalls, agents}' "$r")")
+}
+
+suite_stats() {
+  local report=(stats --json --days 30 --agent claude)
+  stats_env
+  stats_report claude "${report[@]}"
+  add_case stats-cold 2 10 "cpu rss" "\`${report[*]}\` (cold: empty cache)" "${report[@]}"
+  set_prepare "$STATS_PREP"
+  add_case stats-warm 2 10 "cpu" "\`${report[*]}\` (warm cache)" "${report[@]}"
+  add_case stats-usage-day 2 10 "" "\`stats usage --by day --tz UTC --json --agent claude\`" stats usage --by day --tz UTC --json --agent claude
+  add_case stats-drill 2 10 "" "\`stats drill --cause <top cause> --days 30 --agent claude --json\`" stats drill --cause "$TOP_CAUSE" --days 30 --agent claude --json
+}
+
+suite_stats_all() {
+  local report=(stats --json --days 30)
+  stats_env
+  stats_report all "${report[@]}"
+  add_case stats-all-cold 2 10 "cpu rss" "\`${report[*]}\` (all agents, cold: empty cache)" "${report[@]}"
+  set_prepare "$STATS_PREP"
+  add_case stats-all-warm 2 10 "cpu" "\`${report[*]}\` (all agents, warm cache)" "${report[@]}"
+  add_case stats-all-usage-day 2 10 "" "\`stats usage --by day --tz UTC --json\` (all agents)" stats usage --by day --tz UTC --json
+}
+
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -258,6 +284,8 @@ for ((i = 1; i <= RSS_ROUNDS; i++)); do
     done
   done
 done
+
+echo "load at end (1/5/15 min): $(uptime | sed 's/.*load averages*: //')" >>"$OUT/env.txt"
 
 # --- summary -------------------------------------------------------------------------
 # stats <file of numbers> -> "median min max"
