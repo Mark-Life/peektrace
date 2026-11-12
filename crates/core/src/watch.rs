@@ -141,10 +141,36 @@ fn next_batch(rx: &Receiver<Scope>) -> Option<Vec<Scope>> {
     Some(batch)
 }
 
+/// Why some changes will not reach clients.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WatchProblem {
+    /// The OS watcher did not start, so nothing is watched.
+    Unavailable { reason: String },
+    /// The OS limit on watches was reached under this root, so part of it
+    /// is not watched.
+    Limit { path: PathBuf },
+    /// This root is not watched.
+    Root { path: PathBuf, reason: String },
+}
+
+/// The problem a failed watch of `path` leaves.
+pub fn root_problem(path: &Path, e: &notify::Error) -> WatchProblem {
+    match e.kind {
+        notify::ErrorKind::MaxFilesWatch => WatchProblem::Limit {
+            path: path.to_path_buf(),
+        },
+        _ => WatchProblem::Root {
+            path: path.to_path_buf(),
+            reason: e.to_string(),
+        },
+    }
+}
+
 /// A running watcher. Dropping it stops the OS watch and the batch thread.
 pub struct Watcher {
     _os: Option<notify::RecommendedWatcher>,
     versions: Arc<Mutex<WatchVersions>>,
+    problems: Vec<WatchProblem>,
 }
 
 impl Watcher {
@@ -158,6 +184,7 @@ impl Watcher {
             return Self {
                 _os: None,
                 versions,
+                problems: Vec::new(),
             };
         }
         let (tx, rx) = mpsc::channel::<Scope>();
@@ -173,17 +200,22 @@ impl Watcher {
             Ok(_) => {}
             Err(e) => error!(error = %e, "WatchService.pump failed"),
         };
+        let mut problems = Vec::new();
         let os = match notify::recommended_watcher(handler) {
             Ok(mut w) => {
                 for r in &watched {
                     if let Err(e) = w.watch(&r.path, RecursiveMode::Recursive) {
                         error!(path = %r.path.display(), error = %e, "WatchService.pump failed");
+                        problems.push(root_problem(&r.path, &e));
                     }
                 }
                 Some(w)
             }
             Err(e) => {
                 error!(error = %e, "WatchService.pump failed");
+                problems.push(WatchProblem::Unavailable {
+                    reason: e.to_string(),
+                });
                 None
             }
         };
@@ -199,7 +231,16 @@ impl Watcher {
                 on_flush(next);
             }
         });
-        Self { _os: os, versions }
+        Self {
+            _os: os,
+            versions,
+            problems,
+        }
+    }
+
+    /// What failed when the watch started; empty when every root is watched.
+    pub fn problems(&self) -> &[WatchProblem] {
+        &self.problems
     }
 
     /// The current versions.
@@ -251,6 +292,21 @@ mod tests {
         );
         assert_eq!(c(Agent::Opencode, "storage/project/x.json"), None);
         assert_eq!(c(Agent::Opencode, "log/x.log"), None);
+    }
+
+    #[test]
+    fn the_watch_limit_is_its_own_problem() {
+        let path = Path::new("/r");
+        assert_eq!(
+            root_problem(path, &notify::Error::new(notify::ErrorKind::MaxFilesWatch)),
+            WatchProblem::Limit {
+                path: path.to_path_buf()
+            }
+        );
+        assert!(matches!(
+            root_problem(path, &notify::Error::path_not_found()),
+            WatchProblem::Root { .. }
+        ));
     }
 
     #[test]

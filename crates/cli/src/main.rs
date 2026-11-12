@@ -310,9 +310,13 @@ fn run_serve(
     print_warnings(cli, &prepared.warnings);
     let banner = prepared.banner.clone();
     let desktop = std::env::var("PEEKTRACE_CLIENT").is_ok_and(|v| v == "desktop");
-    serve::run(prepared, || {
+    serve::run(prepared, |watch| {
         let _ = print_stdout(&banner.stdout.join("\n"));
-        banner.stderr.iter().for_each(|l| print_stderr(l));
+        banner
+            .stderr
+            .iter()
+            .chain(watch)
+            .for_each(|l| print_stderr(l));
         if desktop {
             let _ = print_stdout(&format!("PEEKTRACE_READY:{}", banner.port));
         }

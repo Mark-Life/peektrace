@@ -146,5 +146,5 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 10. `--remote https://` adds rustls (~1 MB). It sits behind the `https` cargo feature, off by default. Turn it on for releases?
 11. Port stats `redact=false` (raw strings, no cache), or keep the 400? Only the TS RPC payload has it; no CLI flag.
 12. Port `--remote` for `stats*`, `sessions search` and `memory *`? The text output needs JSON readers for each result; `--json` could pass the body through.
-13. Should a stats pass waiting on the server lock time out, or should markers skip the lock and read shards only?
+13. Markers now skip the server stats lock and merge into the index under a short lock. Should a corpus-wide pass waiting on the lock also time out?
 14. An unknown usage `tz` is 500 `StatsScanError` (the TS tag). Move it to 400?

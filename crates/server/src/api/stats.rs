@@ -1,5 +1,6 @@
-//! Stats routes: report, drill, markers, usage and refresh. Passes on one
-//! server run one at a time, since two at once race on the cache index.
+//! Stats routes: report, drill, markers, usage and refresh. Corpus-wide
+//! passes on one server run one at a time, so a second one reuses the
+//! first one's cache. Markers read one session and never wait for them.
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -83,6 +84,19 @@ async fn locked<T: Send + 'static>(
     .await
 }
 
+/// Run `f` on a stats env now, beside any running pass.
+async fn unlocked<T: Send + 'static>(
+    state: Arc<AppState>,
+    f: impl FnOnce(&StatsEnv<'_>) -> Result<T, StatsError> + Send + 'static,
+) -> Result<T, Failure> {
+    let current = Span::current();
+    blocking(move || {
+        let _entered = current.enter();
+        f(&env_of(&state)).map_err(stats_error)
+    })
+    .await
+}
+
 pub async fn stats_report(State(state): Shared, method: Method, RawQuery(raw): RawQuery) -> Res {
     let span = rpc_span!(
         "stats.report",
@@ -146,19 +160,14 @@ pub async fn markers(
     path: Result<Path<String>, PathRejection>,
     RawQuery(raw): RawQuery,
 ) -> Res {
-    let span = rpc_span!(
-        "stats.markers",
-        method,
-        "/api/sessions/{id}/markers",
-        stats.waitMs = tracing::field::Empty
-    );
+    let span = rpc_span!("stats.markers", method, "/api/sessions/{id}/markers");
     async move {
         let q = query_pairs(raw.as_deref());
         let result = async {
             let sid = segment(path)?;
             let agents = agents_param(&q)?;
             let force = bool_param(&q, "force", false)?;
-            let body = locked(state, move |env| {
+            let body = unlocked(state, move |env| {
                 let found =
                     peektrace_core::stats::service::markers(env, &sid, agents.as_deref(), force)?;
                 Ok(markers_json(&sid, &found, false))

@@ -415,6 +415,34 @@ fn marks_the_same_calls_the_tables_rank_keyed_on_the_tool_use_id() {
 }
 
 #[test]
+fn markers_answer_while_a_pass_holds_the_stats_lock() {
+    let root = common::temp_dir("stats-markers-busy");
+    stats_fixture::build(&root);
+    let lock = Arc::new(tokio::sync::Mutex::new(()));
+    let server = start(&Options {
+        name: "markers-busy",
+        roots: Some(stats_fixture::roots(&root)),
+        now: Some(Arc::new(|| FIXED_MS)),
+        stats_lock: Some(Arc::clone(&lock)),
+        ..Options::default()
+    });
+    let busy = lock.blocking_lock();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let path = format!("/api/sessions/{SID}/markers");
+    let answer = std::thread::scope(|s| {
+        s.spawn(|| {
+            let _ = tx.send(server.get(&path));
+        });
+        let answer = rx.recv_timeout(std::time::Duration::from_secs(10));
+        drop(busy);
+        answer
+    });
+    let m = answer.expect("markers waited for the stats lock");
+    assert_eq!(m.status, 200, "{}", m.body);
+    assert!(!m.json()["markers"].as_array().is_none_or(Vec::is_empty));
+}
+
+#[test]
 fn an_unknown_session_marks_nothing() {
     let f = fixture("markers-none");
     let m = get(&f, "/api/sessions/no-such-session/markers");

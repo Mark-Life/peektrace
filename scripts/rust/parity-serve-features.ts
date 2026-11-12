@@ -225,6 +225,7 @@ export const realFeatures = async (
           TMPDIR: tmp,
           PEEKTRACE_NO_TELEMETRY: "1",
           PEEKTRACE_CLIENT_DIR: dist,
+          BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
         }),
         [],
         (pair) => realMemoryWrites(c, pair, homes, slug)

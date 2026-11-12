@@ -67,6 +67,8 @@ pub struct Options<'a> {
     pub now: Option<peektrace_server::Clock>,
     /// User home for redaction.
     pub home: Option<String>,
+    /// The stats pass lock; a fresh one when `None`.
+    pub stats_lock: Option<Arc<tokio::sync::Mutex<()>>>,
 }
 
 impl Default for Options<'_> {
@@ -80,6 +82,7 @@ impl Default for Options<'_> {
             stats_dir: None,
             now: None,
             home: None,
+            stats_lock: None,
         }
     }
 }
@@ -116,7 +119,7 @@ pub fn start(o: &Options<'_>) -> TestServer {
             .unwrap_or_else(|| dir.join("stats-rs").to_string_lossy().into_owned()),
         tmp_dir: dir.to_string_lossy().into_owned(),
         now: o.now.clone().unwrap_or_else(peektrace_server::system_clock),
-        stats_lock: Arc::default(),
+        stats_lock: o.stats_lock.clone().unwrap_or_default(),
     };
     let guards = Guards {
         allow: Allowlist::new(o.host, port),

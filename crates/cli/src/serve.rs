@@ -7,7 +7,7 @@ use std::sync::Arc;
 use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::os::tmpdir;
 use peektrace_core::stats::cache::cache_root;
-use peektrace_core::watch::Watcher;
+use peektrace_core::watch::{WatchProblem, Watcher};
 use peektrace_protocol::WatchVersions;
 use peektrace_server::auth::{self, TOKEN_ENV};
 use peektrace_server::bind::bind_free_port;
@@ -71,6 +71,26 @@ pub fn banner(host: &str, port: u16, read_only: bool, token: Option<&str>, ui: &
         stderr,
         open_url,
     }
+}
+
+/// One stderr line per root whose changes will not reach clients.
+pub fn watch_warnings(problems: &[WatchProblem]) -> Vec<String> {
+    problems
+        .iter()
+        .map(|p| match p {
+            WatchProblem::Limit { path } => format!(
+                "  WARNING: live refresh misses changes under {}: the OS file-watch limit is reached. On Linux raise fs.inotify.max_user_watches (e.g. sudo sysctl fs.inotify.max_user_watches=524288) and restart.",
+                path.display()
+            ),
+            WatchProblem::Root { path, reason } => format!(
+                "  WARNING: live refresh is off for {} ({reason}).",
+                path.display()
+            ),
+            WatchProblem::Unavailable { reason } => {
+                format!("  WARNING: live refresh is off ({reason}).")
+            }
+        })
+        .collect()
 }
 
 /// Put the child outside the server's process group, so Ctrl-C on `serve`
@@ -208,13 +228,14 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
     })
 }
 
-/// Serve until a stop signal. `ready` runs once the server can accept.
-pub fn run(p: Prepared, ready: impl FnOnce()) -> anyhow::Result<()> {
+/// Serve until a stop signal. `ready` runs once the server can accept,
+/// with a warning per root the watcher could not cover.
+pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let tx = p.tx;
-    let _watcher = Watcher::start(&p.roots, move |v| {
+    let watcher = Watcher::start(&p.roots, move |v| {
         tx.send_replace(WatchVersions {
             memory: v.memory,
             sessions: v.sessions,
@@ -224,7 +245,7 @@ pub fn run(p: Prepared, ready: impl FnOnce()) -> anyhow::Result<()> {
     runtime.block_on(async move {
         p.listener.set_nonblocking(true)?;
         let listener = tokio::net::TcpListener::from_std(p.listener)?;
-        ready();
+        ready(&watch_warnings(watcher.problems()));
         if p.open {
             open_browser(&p.banner.open_url);
         }
@@ -266,6 +287,23 @@ mod tests {
         assert_eq!(b.open_url, "http://[::1]:1");
         let b = banner("fd7a::1", 2, true, Some("t"), "x");
         assert_eq!(b.open_url, "http://[fd7a::1]:2/?token=t");
+    }
+
+    #[test]
+    fn the_watch_limit_names_the_sysctl() {
+        let lines = watch_warnings(&[
+            WatchProblem::Limit {
+                path: "/h/.claude/projects".into(),
+            },
+            WatchProblem::Unavailable {
+                reason: "no backend".to_owned(),
+            },
+        ]);
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("/h/.claude/projects"), "{}", lines[0]);
+        assert!(lines[0].contains("fs.inotify.max_user_watches"));
+        assert_eq!(lines[1], "  WARNING: live refresh is off (no backend).");
+        assert_eq!(watch_warnings(&[]), Vec::<String>::new());
     }
 
     #[cfg(unix)]

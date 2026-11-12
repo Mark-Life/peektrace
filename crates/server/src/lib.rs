@@ -1,6 +1,10 @@
 //! The peektrace HTTP server: JSON API under `/api`, live change events,
 //! and the web UI, behind Host, Origin and token guards.
 
+// A panic in core work must answer 500, not end the process.
+#[cfg(panic = "abort")]
+compile_error!("peektrace-server needs panic = \"unwind\"");
+
 mod api;
 pub mod assets;
 pub mod auth;
@@ -22,7 +26,7 @@ use peektrace_core::js::time::LocalZone;
 use peektrace_protocol::WatchVersions;
 use tokio::sync::watch;
 use tower_http::compression::CompressionLayer;
-use tower_http::compression::predicate::{NotForContentType, Predicate as _, SizeAbove};
+use tower_http::compression::predicate::{NotForContentType, Predicate, SizeAbove};
 
 pub use assets::Assets;
 use auth::{AuthOutcome, AuthRequest};
@@ -48,7 +52,7 @@ pub struct AppState {
     pub tmp_dir: String,
     /// Current time in ms; stats windows end here.
     pub now: Clock,
-    /// Held across each stats pass, so passes run one at a time.
+    /// Held across each corpus-wide stats pass, so they run one at a time.
     pub stats_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
@@ -227,11 +231,21 @@ async fn empty_404() -> Response<Body> {
     res
 }
 
+/// Bodies worth gzipping: not tiny, not a stream, and not already
+/// compressed (images other than SVG, fonts).
+fn compressible() -> impl Predicate {
+    SizeAbove::new(1024)
+        .and(NotForContentType::GRPC)
+        .and(NotForContentType::IMAGES)
+        .and(NotForContentType::SSE)
+        .and(NotForContentType::const_new("font/"))
+}
+
 /// The whole app: API, `/health`, the UI, and the guards in front.
 pub fn app(state: Arc<AppState>, assets: Arc<Assets>, guards: Arc<Guards>) -> Router {
     let compress = CompressionLayer::new()
         .gzip(true)
-        .compress_when(SizeAbove::new(1024).and(NotForContentType::new("text/event-stream")));
+        .compress_when(compressible());
     Router::new()
         .route("/health", get(health).fallback(empty_404))
         .merge(api_router().with_state(state))

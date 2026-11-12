@@ -71,3 +71,23 @@ fn ui_assets_are_gzipped_like_the_api() {
     let small = gzip_headers(&s, "/");
     assert_eq!(header(&small, "content-encoding"), None);
 }
+
+#[test]
+fn compressed_formats_go_out_as_is() {
+    let s = start(&Options {
+        name: "gzip-binary",
+        ..Options::default()
+    });
+    let assets = s.ui.join("assets");
+    std::fs::create_dir_all(&assets).expect("mkdir assets");
+    let big = vec![b'a'; 8192];
+    for name in ["a.png", "a.jpg", "a.woff2", "a.svg"] {
+        std::fs::write(assets.join(name), &big).expect("asset");
+    }
+    for name in ["a.png", "a.jpg", "a.woff2"] {
+        let h = gzip_headers(&s, &format!("/assets/{name}"));
+        assert_eq!(header(&h, "content-encoding"), None, "{name}");
+    }
+    let svg = gzip_headers(&s, "/assets/a.svg");
+    assert_eq!(header(&svg, "content-encoding"), Some("gzip"));
+}
