@@ -1,5 +1,6 @@
 //! peektrace views on Rune.
 
+pub mod chart;
 pub mod model;
 
 use rune::{AppSpec, Cx, El, text};
