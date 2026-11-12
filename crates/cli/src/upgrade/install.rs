@@ -115,6 +115,7 @@ fn set_exec(path: &Path) -> std::io::Result<()> {
 }
 
 #[cfg(not(unix))]
+#[expect(clippy::unnecessary_wraps, reason = "same signature as the unix twin")]
 fn set_exec(_: &Path) -> std::io::Result<()> {
     Ok(())
 }
