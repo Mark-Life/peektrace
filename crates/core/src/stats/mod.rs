@@ -13,6 +13,7 @@ pub mod findings;
 pub mod format;
 pub mod host_bins;
 pub mod icu_zones;
+mod icu_zones_bundled;
 pub mod markers;
 pub mod memory_files;
 mod memory_paths;

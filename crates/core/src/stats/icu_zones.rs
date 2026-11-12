@@ -1,10 +1,12 @@
 //! The zone name ICU reports as the machine default
 //! (`Intl.DateTimeFormat().resolvedOptions().timeZone`) for an IANA name.
+//! Bun on macOS uses the system ICU, which keeps legacy names
+//! (`Asia/Calcutta`); elsewhere it bundles a newer ICU (`Asia/Kolkata`).
 //! Measured with Bun over every name in the tz database; names absent here
 //! report as given.
 
-/// Sorted by IANA name for binary search.
-const ALIASES: &[(&str, &str)] = &[
+/// macOS system ICU names, sorted by IANA name for binary search.
+const MACOS_ALIASES: &[(&str, &str)] = &[
     ("Africa/Asmara", "Africa/Asmera"),
     ("Africa/Timbuktu", "Africa/Bamako"),
     ("America/Argentina/Buenos_Aires", "America/Buenos_Aires"),
@@ -159,6 +161,12 @@ const ALIASES: &[(&str, &str)] = &[
     ("Zulu", "UTC"),
 ];
 
+const ALIASES: &[(&str, &str)] = if cfg!(target_os = "macos") {
+    MACOS_ALIASES
+} else {
+    super::icu_zones_bundled::ALIASES
+};
+
 /// The ICU name for `name`, or `name` itself.
 pub fn icu_zone_name(name: &str) -> &str {
     ALIASES
@@ -172,9 +180,28 @@ mod tests {
 
     #[test]
     fn aliases_are_sorted_and_unique() {
-        assert!(ALIASES.windows(2).all(|w| w[0].0 < w[1].0));
+        for table in [MACOS_ALIASES, super::super::icu_zones_bundled::ALIASES] {
+            assert!(table.windows(2).all(|w| w[0].0 < w[1].0));
+        }
     }
 
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn maps_legacy_names_to_bundled_icu_names() {
+        for (iana, icu) in [
+            ("Asia/Calcutta", "Asia/Kolkata"),
+            ("US/Pacific", "America/Los_Angeles"),
+            ("Etc/UTC", "UTC"),
+            ("Europe/Kiev", "Europe/Kyiv"),
+            ("EST", "America/Panama"),
+            ("Asia/Kolkata", "Asia/Kolkata"),
+            ("Europe/Berlin", "Europe/Berlin"),
+        ] {
+            assert_eq!(icu_zone_name(iana), icu, "{iana}");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
     #[test]
     fn maps_backward_links_to_icu_names() {
         for (iana, icu) in [
