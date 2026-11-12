@@ -8,12 +8,16 @@ use peektrace_protocol::AgentId;
 use peektrace_protocol::view::{AnalyzedSession, EventKind, SessionHeader};
 use peektrace_ui::chart::geom::{Growth, growth, pos};
 use peektrace_ui::chart::hit::{ClickAction, click_action, snap_index_at_x};
-use peektrace_ui::model::chat::{ChatNode, Lane, build_chat_plan, chat_ids_of, chat_node_keys, chip_label, lane_of, needs_clamp};
+use peektrace_ui::model::chat::{
+    ChatNode, Lane, build_chat_plan, chat_ids_of, chat_node_keys, chip_label, lane_of, needs_clamp,
+};
 use peektrace_ui::model::format::{first_line, fmt, fmt_bytes, fmt_k, fmt_pct, zone_of};
 use peektrace_ui::model::jsnum::to_fixed;
 use peektrace_ui::model::labels::{analyzed_title, cost_summary, provider_label};
 use peektrace_ui::model::list::{self, Filters};
-use peektrace_ui::model::tools::{Body, ToolPane, body_view, call_view, index_tools, result_pane, tool_name_of, tool_state};
+use peektrace_ui::model::tools::{
+    Body, ToolPane, body_view, call_view, index_tools, result_pane, tool_name_of, tool_state,
+};
 use peektrace_ui::model::turns::{cross_event_index, turn_numbers};
 use peektrace_ui::model::utf16;
 use serde_json::{Value, json};
@@ -35,7 +39,8 @@ fn filters(v: &Value) -> Filters {
 }
 
 fn list_answer(req: &Value) -> Value {
-    let headers: Vec<SessionHeader> = serde_json::from_value(req["headers"].clone()).unwrap_or_default();
+    let headers: Vec<SessionHeader> =
+        serde_json::from_value(req["headers"].clone()).unwrap_or_default();
     let now = req["now"].as_f64().unwrap_or(0.0);
     let per: Vec<Value> = headers
         .iter()
@@ -52,8 +57,14 @@ fn list_answer(req: &Value) -> Value {
             })
         })
         .collect();
-    let order: Vec<&str> = list::sort_by_recent(&headers, now).into_iter().map(|i| headers[i].id.as_str()).collect();
-    let options: Vec<Value> = list::project_options(&headers).into_iter().map(|o| json!([o.value, o.label])).collect();
+    let order: Vec<&str> = list::sort_by_recent(&headers, now)
+        .into_iter()
+        .map(|i| headers[i].id.as_str())
+        .collect();
+    let options: Vec<Value> = list::project_options(&headers)
+        .into_iter()
+        .map(|o| json!([o.value, o.label]))
+        .collect();
     let cases: Vec<Value> = req["filters"]
         .as_array()
         .map(|fs| {
@@ -61,8 +72,15 @@ fn list_answer(req: &Value) -> Value {
                 .map(|f| {
                     let f = filters(f);
                     let hits: Vec<bool> = headers.iter().map(|h| list::matches(h, &f)).collect();
-                    let hiding: Vec<Vec<&str>> =
-                        headers.iter().map(|h| list::hiding_filters(h, &f).into_iter().map(|n| n.as_str()).collect()).collect();
+                    let hiding: Vec<Vec<&str>> = headers
+                        .iter()
+                        .map(|h| {
+                            list::hiding_filters(h, &f)
+                                .into_iter()
+                                .map(list::FilterName::as_str)
+                                .collect()
+                        })
+                        .collect();
                     json!({ "matches": hits, "hiding": hiding, "active": list::active_count(&f) })
                 })
                 .collect()
@@ -72,14 +90,27 @@ fn list_answer(req: &Value) -> Value {
 }
 
 fn num_answer(req: &Value) -> Value {
-    let xs: Vec<f64> = req["xs"].as_array().map(|a| a.iter().map(|v| v.as_f64().unwrap_or(f64::NAN)).collect()).unwrap_or_default();
+    let xs: Vec<f64> = req["xs"]
+        .as_array()
+        .map(|a| a.iter().map(|v| v.as_f64().unwrap_or(f64::NAN)).collect())
+        .unwrap_or_default();
     let zones: Vec<&str> = req["zones"]
         .as_array()
-        .map(|a| a.iter().map(|p| zone_of(p[0].as_f64().unwrap_or(0.0), p[1].as_f64().unwrap_or(0.0)).as_str()).collect())
+        .map(|a| {
+            a.iter()
+                .map(|p| {
+                    zone_of(p[0].as_f64().unwrap_or(0.0), p[1].as_f64().unwrap_or(0.0)).as_str()
+                })
+                .collect()
+        })
         .unwrap_or_default();
     let lines: Vec<String> = req["lines"]
         .as_array()
-        .map(|a| a.iter().map(|s| first_line(s.as_str().unwrap_or_default(), 160)).collect())
+        .map(|a| {
+            a.iter()
+                .map(|s| first_line(s.as_str().unwrap_or_default(), 160))
+                .collect()
+        })
         .unwrap_or_default();
     json!({
         "fmt": xs.iter().map(|x| fmt(*x)).collect::<Vec<_>>(),
@@ -98,9 +129,14 @@ fn hit_answer(req: &Value) -> Value {
         .map(|a| {
             a.iter()
                 .map(|c| {
-                    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss, reason = "small counts")]
+                    #[expect(
+                        clippy::cast_possible_truncation,
+                        clippy::cast_sign_loss,
+                        reason = "small counts"
+                    )]
                     let n = f(&c[1]) as usize;
-                    snap_index_at_x(f(&c[0]), n, f(&c[2]), f(&c[3])).map_or(-1, |i| i64::try_from(i).unwrap_or(-1))
+                    snap_index_at_x(f(&c[0]), n, f(&c[2]), f(&c[3]))
+                        .map_or(-1, |i| i64::try_from(i).unwrap_or(-1))
                 })
                 .collect()
         })
@@ -129,7 +165,11 @@ fn node(n: &ChatNode) -> Value {
         ChatNode::Band(p) => json!(["band", p]),
         ChatNode::Notice(p) => json!(["notice", p]),
         ChatNode::Tool { call, result } => json!(["tool", call, result]),
-        ChatNode::Run(items) => json!(["run", items.iter().map(|i| i.pos).collect::<Vec<_>>(), items.iter().map(|i| i.repeat).collect::<Vec<_>>()]),
+        ChatNode::Run(items) => json!([
+            "run",
+            items.iter().map(|i| i.pos).collect::<Vec<_>>(),
+            items.iter().map(|i| i.repeat).collect::<Vec<_>>()
+        ]),
         ChatNode::Turn(t) => json!(["turn", t]),
         ChatNode::DumbZone => json!(["dumbzone"]),
     }
@@ -137,9 +177,18 @@ fn node(n: &ChatNode) -> Value {
 
 fn pane(p: &ToolPane) -> Value {
     match p {
-        ToolPane::Code { label, code, language } => json!([label, "code", language, code, null, null]),
+        ToolPane::Code {
+            label,
+            code,
+            language,
+        } => json!([label, "code", language, code, null, null]),
         ToolPane::Prose { label, text } => json!([label, "prose", null, text, null, null]),
-        ToolPane::Diff { label, diff, language, .. } => json!([label, "diff", language, null, diff.added, diff.removed]),
+        ToolPane::Diff {
+            label,
+            diff,
+            language,
+            ..
+        } => json!([label, "diff", language, null, diff.added, diff.removed]),
     }
 }
 
@@ -196,14 +245,23 @@ fn n1(v: f64) -> String {
 }
 
 fn d_of(points: impl Iterator<Item = [f64; 2]>) -> String {
-    points.map(|p| format!("{} {}", n1(p[0]), n1(p[1]))).collect::<Vec<_>>().join(" L ")
+    points
+        .map(|p| format!("{} {}", n1(p[0]), n1(p[1])))
+        .collect::<Vec<_>>()
+        .join(" L ")
 }
 
 fn growth_answer(a: &AnalyzedSession, g: &Growth) -> Value {
     let areas: Vec<String> = g
         .bands
         .iter()
-        .map(|b| format!("M {} L {} Z", d_of(b.top.iter().copied()), d_of(b.bottom.iter().rev().copied())))
+        .map(|b| {
+            format!(
+                "M {} L {} Z",
+                d_of(b.top.iter().copied()),
+                d_of(b.bottom.iter().rev().copied())
+            )
+        })
         .collect();
     let mut texts = vec![g.dz_label.clone()];
     if g.ceiling_y.is_some() {
@@ -216,10 +274,22 @@ fn growth_answer(a: &AnalyzedSession, g: &Growth) -> Value {
     }
     texts.push(g.peak.label.clone());
     let p = &g.peak;
-    let peak = format!("M {} {} L {} {} L {} {} L {} {} Z", n1(p.x), n1(p.y - 6.0), n1(p.x + 6.0), n1(p.y), n1(p.x), n1(p.y + 6.0), n1(p.x - 6.0), n1(p.y));
-    let shifted = usize::try_from(a.dumb_zone_cross_turn).ok().is_some_and(|c| pos(&a.snapshots, c) != c)
+    let peak = format!(
+        "M {} {} L {} {} L {} {} L {} {} Z",
+        n1(p.x),
+        n1(p.y - 6.0),
+        n1(p.x + 6.0),
+        n1(p.y),
+        n1(p.x),
+        n1(p.y + 6.0),
+        n1(p.x - 6.0),
+        n1(p.y)
+    );
+    let shifted = usize::try_from(a.dumb_zone_cross_turn).is_ok_and(|c| pos(&a.snapshots, c) != c)
         || pos(&a.snapshots, a.peak_turn_index) != a.peak_turn_index
-        || a.compaction_turns.iter().any(|t| pos(&a.snapshots, *t) != *t);
+        || a.compaction_turns
+            .iter()
+            .any(|t| pos(&a.snapshots, *t) != *t);
     json!({
         "areas": areas,
         "silhouette": format!("M {}", d_of(g.silhouette.iter().copied())),
@@ -245,7 +315,9 @@ fn answer(req: &Value) -> Value {
         "num" => num_answer(req),
         "hit" => hit_answer(req),
         "analysis" => load().map_or(Value::Null, |a| analysis_answer(&a)),
-        "growth" => load().map_or(Value::Null, |a| growth(&a).map_or(Value::Null, |g| growth_answer(&a, &g))),
+        "growth" => load().map_or(Value::Null, |a| {
+            growth(&a).map_or(Value::Null, |g| growth_answer(&a, &g))
+        }),
         other => json!({ "error": format!("unknown fn {other}") }),
     }
 }
