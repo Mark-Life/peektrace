@@ -22,8 +22,8 @@ use super::rule_dates::date_lines;
 use super::schema::Fact;
 use crate::js::num::to_js_string;
 use crate::js::time::{LocalZone, parse_date, to_iso_string};
+use crate::listing::AgentRoots;
 use crate::model::Agent;
-use crate::roots::Source;
 
 pub use super::report::{DrillResult, StatsReport};
 use super::report::{paths_of, samples_in};
@@ -44,9 +44,7 @@ pub enum StatsError {
 
 /// Everything a stats call reads from the environment.
 pub struct StatsEnv<'a> {
-    pub claude: &'a [Source],
-    pub codex_home: String,
-    pub pi_home: String,
+    pub roots: &'a AgentRoots,
     pub cache: StatsCache,
     pub local: &'a (dyn LocalZone + Sync),
     pub now_ms: f64,
@@ -57,7 +55,7 @@ pub struct StatsEnv<'a> {
 impl StatsEnv<'_> {
     fn pass_env(&self) -> PassEnv<'_> {
         PassEnv {
-            claude: self.claude,
+            roots: self.roots,
             cache: &self.cache,
             local: self.local,
             progress: self.progress,
@@ -203,11 +201,7 @@ fn prepare<'a>(
 pub fn report(env: &StatsEnv<'_>, req: &ReportRequest) -> Result<StatsReport, StatsError> {
     let _span = info_span!("Stats.report").entered();
     let mut p = prepare(env, req, None)?;
-    let homes = AgentHomes {
-        claude: env.claude,
-        codex_home: env.codex_home.clone(),
-        pi_home: env.pi_home.clone(),
-    };
+    let homes = AgentHomes::of(env.roots);
     let docs = read_memory_docs(&homes, &p.scope, &p.detectors.causes.project_dirs());
     let (dates, next) = date_lines(&docs, &env.cache.load_lines(), env.now_ms);
     env.cache.commit_lines(&next);

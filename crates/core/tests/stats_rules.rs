@@ -122,7 +122,7 @@ fn one_doc(lines: &[&str]) -> Vec<MemoryDoc> {
 }
 
 fn app_docs(t: &TempDir) -> Vec<MemoryDoc> {
-    read_docs(t, &[t.path("u/proj/app")], ".claude", &CLAUDE_CODEX)
+    read_docs(t, &[t.join("u/proj/app")], ".claude", &CLAUDE_CODEX)
 }
 
 #[test]

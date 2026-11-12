@@ -2,11 +2,11 @@
 //! holding one Claude session, where a zsh glob abort is retried with the
 //! glob quoted.
 
-use std::fs;
-use std::path::PathBuf;
-use std::process::Command;
+mod common;
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use common::{Home, claude_path, codex_lines, codex_path};
 use serde_json::{Value, json};
 
 const SLUG: &str = "-home-demo-work";
@@ -47,18 +47,16 @@ fn call(at: u128, command: &str, id: &str, output: &str) -> [Value; 2] {
     ]
 }
 
-struct Home {
-    root: PathBuf,
+/// A home holding one Claude session: a zsh glob abort, then the same call
+/// with the glob quoted.
+struct StatsHome {
+    home: Home,
     transcript: String,
 }
 
-impl Home {
+impl StatsHome {
     fn new(tag: &str) -> Self {
-        let root =
-            std::env::temp_dir().join(format!("peektrace-prompt-{tag}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&root);
-        let dir = root.join(".claude/projects").join(SLUG);
-        fs::create_dir_all(&dir).expect("mkdir");
+        let home = Home::new(&format!("stats-{tag}"));
         let start = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |d| d.as_millis())
@@ -81,46 +79,24 @@ impl Home {
             "toolu_quoted",
             "src/a.ts:3:needle",
         ));
-        let transcript = dir.join(format!("{SID}.jsonl"));
-        let body: Vec<String> = lines.iter().map(Value::to_string).collect();
-        fs::write(&transcript, body.join("\n") + "\n").expect("write");
+        let transcript = home.write(&claude_path(SLUG, SID), &lines);
         Self {
-            root,
+            home,
             transcript: transcript.to_string_lossy().into_owned(),
         }
     }
 
+    /// `peektrace stats <args>`: exit code, stdout, stderr.
     fn run(&self, args: &[&str]) -> (i32, String, String) {
-        let out = Command::new(env!("CARGO_BIN_EXE_peektrace"))
-            .arg("stats")
-            .args(args)
-            .env_clear()
-            .env("HOME", &self.root)
-            .env("CLAUDE_CONFIG_DIR", self.root.join(".claude"))
-            .env("CODEX_HOME", self.root.join(".codex"))
-            .env("XDG_DATA_HOME", self.root.join(".local/share"))
-            .env("PEEKTRACE_DIR", self.root.join(".peektrace"))
-            .env("PEEKTRACE_NO_TELEMETRY", "1")
-            .current_dir(&self.root)
-            .output()
-            .expect("run peektrace");
-        (
-            out.status.code().unwrap_or(-1),
-            String::from_utf8_lossy(&out.stdout).into_owned(),
-            String::from_utf8_lossy(&out.stderr).into_owned(),
-        )
-    }
-}
-
-impl Drop for Home {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.root);
+        let full: Vec<&str> = ["stats"].into_iter().chain(args.iter().copied()).collect();
+        let r = self.home.run(&full);
+        (r.code, r.out, r.err)
     }
 }
 
 #[test]
 fn a_cause_prompt_names_the_failing_call_by_path_and_id() {
-    let h = Home::new("cause");
+    let h = StatsHome::new("cause");
     let (code, out, err) = h.run(&[
         "prompt",
         "--cause",
@@ -146,7 +122,7 @@ fn a_cause_prompt_names_the_failing_call_by_path_and_id() {
 
 #[test]
 fn the_printed_drill_command_finds_the_row_and_its_transcripts() {
-    let h = Home::new("drill");
+    let h = StatsHome::new("drill");
     let (code, out, err) = h.run(&[
         "drill",
         "--days",
@@ -170,7 +146,7 @@ fn the_printed_drill_command_finds_the_row_and_its_transcripts() {
 
 #[test]
 fn limit_reaches_rows_past_the_default() {
-    let h = Home::new("limit");
+    let h = StatsHome::new("limit");
     let (code, _, err) = h.run(&[
         "prompt",
         "--cause",
@@ -185,7 +161,7 @@ fn limit_reaches_rows_past_the_default() {
 
 #[test]
 fn no_flag_prints_the_whole_report_prompt() {
-    let h = Home::new("report");
+    let h = StatsHome::new("report");
     let (code, out, err) = h.run(&["prompt", "--days", "7"]);
     assert_eq!(code, 0, "{err}");
     assert!(out.contains("  - zsh-glob-flag: 1 hits"), "{out}");
@@ -194,7 +170,7 @@ fn no_flag_prints_the_whole_report_prompt() {
 
 #[test]
 fn a_key_that_names_no_row_fails() {
-    let h = Home::new("nope");
+    let h = StatsHome::new("nope");
     let (code, _, err) = h.run(&["prompt", "--fail", "nope", "--days", "7"]);
     assert_ne!(code, 0);
     assert!(err.contains("No fail row \"nope\""), "{err}");
@@ -202,7 +178,7 @@ fn a_key_that_names_no_row_fails() {
 
 #[test]
 fn two_targets_at_once_is_a_usage_error() {
-    let h = Home::new("two");
+    let h = StatsHome::new("two");
     let (code, _, err) = h.run(&["prompt", "--cause", "a", "--time", "b"]);
     assert_ne!(code, 0);
     assert!(
@@ -213,7 +189,7 @@ fn two_targets_at_once_is_a_usage_error() {
 
 #[test]
 fn flag_errors_match_ts() {
-    let h = Home::new("flags");
+    let h = StatsHome::new("flags");
     let cases: [(&[&str], &str); 5] = [
         (
             &["drill", "--agent", "claude"],
@@ -245,7 +221,7 @@ fn flag_errors_match_ts() {
 
 #[test]
 fn refresh_counts_and_caches_apart_from_ts() {
-    let h = Home::new("refresh");
+    let h = StatsHome::new("refresh");
     let (code, out, _) = h.run(&["refresh", "--agent", "claude", "--json"]);
     assert_eq!(code, 0);
     assert!(
@@ -254,6 +230,30 @@ fn refresh_counts_and_caches_apart_from_ts() {
     );
     let (_, again, _) = h.run(&["refresh", "--agent", "claude", "--json"]);
     assert!(again.contains("\"extracted\": 0"), "{again}");
-    assert!(h.root.join(".peektrace/stats-rs/index.json").exists());
-    assert!(!h.root.join(".peektrace/stats").exists());
+    assert!(h.home.dir.join(".peektrace/stats-rs/index.json").exists());
+    assert!(!h.home.dir.join(".peektrace/stats").exists());
+}
+
+#[test]
+fn agents_stats_cannot_scan_are_named_only_without_agent() {
+    let h = StatsHome::new("unscanned");
+    let (code, _, err) = h.run(&["refresh"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    h.home
+        .write(&codex_path("c1"), &codex_lines("c1", "/home/demo/work"));
+    let (code, _, err) = h.run(&["refresh"]);
+    assert_eq!(
+        (code, err.as_str()),
+        (0, "codex sessions are not scanned: not supported yet\n")
+    );
+    let (code, _, err) = h.run(&["refresh", "--agent", "claude"]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    let (code, _, err) = h.run(&["--agent", "codex"]);
+    assert_eq!(
+        (code, err.as_str()),
+        (
+            1,
+            "Agent \"codex\" is not supported yet. Supported: claude.\n"
+        )
+    );
 }

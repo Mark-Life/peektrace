@@ -1,21 +1,23 @@
 //! `peektrace stats` and its subcommands: validate flags, run core, print.
 
-use peektrace_core::Agent;
 use peektrace_core::js::num;
 use peektrace_core::js::text;
-use peektrace_core::roots::{self, RootsEnv};
+use peektrace_core::listing::session_files;
+use peektrace_core::roots::RootsEnv;
 use peektrace_core::stats::accumulate::DrillTable;
 use peektrace_core::stats::cache::StatsCache;
 use peektrace_core::stats::detectors::usage::UsageBy;
 use peektrace_core::stats::icu_zones::icu_zone_name;
+use peektrace_core::stats::pass::{parse_for, scope_of};
 use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
 use peektrace_core::stats::service::{ReportRequest, StatsEnv, StatsError, drill, refresh, report};
 use peektrace_core::stats::usage_service::{MAX_USAGE_DAYS, UsageRequest, usage, zone_of};
+use peektrace_core::{Agent, AgentRoots};
 
 use crate::args::{StatsCommon, StatsDrillArgs, StatsPromptArgs, StatsRefreshArgs, StatsUsageArgs};
 use crate::ls::{Context, Globals, UserError};
-use crate::render::{skipped_note, table};
-use crate::single::Output;
+use crate::render::table;
+use crate::single::{Output, agent_roots};
 use crate::stats_progress::{self, Progress};
 use crate::stats_render::{render_drill, render_report, render_usage};
 use crate::zone::SystemZone;
@@ -34,8 +36,8 @@ fn parse_opt_int(raw: Option<&str>) -> Result<Option<f64>, UserError> {
     raw.map(parse_int).transpose()
 }
 
-/// `--agent`: absent or `all` is every agent this build reads; an agent
-/// with no reader fails.
+/// `--agent`: absent or `all` is every agent stats can extract; any other
+/// agent fails.
 fn parse_agent(raw: Option<&str>) -> Result<Option<Vec<Agent>>, UserError> {
     let value = raw.unwrap_or("all");
     if value == "all" {
@@ -47,18 +49,42 @@ fn parse_agent(raw: Option<&str>) -> Result<Option<Vec<Agent>>, UserError> {
             "Unknown agent \"{value}\". Known: {known}, all."
         )));
     };
-    if !agent.has_reader() {
-        let supported: Vec<&str> = Agent::ALL
-            .into_iter()
-            .filter(|a| a.has_reader())
-            .map(Agent::as_str)
-            .collect();
+    if parse_for(agent).is_none() {
+        let supported: Vec<&str> = scope_of(None).into_iter().map(Agent::as_str).collect();
         return Err(UserError::Invalid(format!(
             "Agent \"{value}\" is not supported yet. Supported: {}.",
             supported.join(", ")
         )));
     }
     Ok(Some(vec![agent]))
+}
+
+/// Names as prose: `a`, `a and b`, `a, b and c`.
+fn and_list(names: &[&str]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => (*one).to_owned(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// Stderr note naming the agents stats cannot extract yet whose roots hold
+/// sessions; only when no `--agent` narrows the scan.
+fn not_scanned_note(roots: &AgentRoots, agents: Option<&[Agent]>) -> Option<String> {
+    if agents.is_some() {
+        return None;
+    }
+    let names: Vec<&str> = Agent::ALL
+        .into_iter()
+        .filter(|a| parse_for(*a).is_none() && !session_files(*a, roots, None).is_empty())
+        .map(Agent::as_str)
+        .collect();
+    (!names.is_empty()).then(|| {
+        format!(
+            "{} sessions are not scanned: not supported yet",
+            and_list(&names)
+        )
+    })
 }
 
 fn cache_root(env: &RootsEnv) -> String {
@@ -70,36 +96,18 @@ fn cache_root(env: &RootsEnv) -> String {
 }
 
 struct Prepared {
-    claude: Vec<roots::Source>,
+    roots: AgentRoots,
     warnings: Vec<String>,
     notes: Vec<String>,
 }
 
 fn prepare(ctx: &Context, agents: Option<&[Agent]>) -> Prepared {
-    let settings = ctx
-        .settings
-        .as_deref()
-        .map(roots::parse_settings)
-        .unwrap_or_default();
-    let warnings = settings
-        .unparseable
-        .then(|| {
-            format!(
-                "peektrace: ignoring unparseable settings at {}",
-                ctx.roots_env.settings_path()
-            )
-        })
-        .into_iter()
-        .collect();
-    let skipped: Vec<Agent> = if agents.is_none() {
-        crate::single::unsearched_agents(&ctx.roots_env)
-    } else {
-        Vec::new()
-    };
+    let (roots, warnings) = agent_roots(ctx);
+    let notes = not_scanned_note(&roots, agents).into_iter().collect();
     Prepared {
-        claude: roots::claude_sources(&ctx.roots_env, &settings.claude),
+        roots,
         warnings,
-        notes: skipped_note(&skipped, "scanned").into_iter().collect(),
+        notes,
     }
 }
 
@@ -111,12 +119,7 @@ fn env_of<'a>(
 ) -> StatsEnv<'a> {
     let e = &ctx.roots_env;
     StatsEnv {
-        claude: &p.claude,
-        codex_home: e
-            .codex_home
-            .clone()
-            .unwrap_or_else(|| e.style.join(&[&e.home, ".codex"])),
-        pi_home: e.style.join(&[&e.home, ".pi"]),
+        roots: &p.roots,
         cache: StatsCache::new(cache_root(e)),
         local: zone,
         now_ms: ctx.now_ms,

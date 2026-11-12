@@ -20,8 +20,8 @@ use super::schema::Fact;
 use super::walk::{TranscriptRef, list_corpus};
 use crate::claude::{ParseArgs, parse_claude_session};
 use crate::js::time::LocalZone;
+use crate::listing::AgentRoots;
 use crate::model::Agent;
-use crate::roots::Source;
 use crate::sessions::model::ParsedSession;
 use crate::sessions::resolve::read_text;
 
@@ -30,7 +30,7 @@ const CHUNK: usize = 512;
 
 /// What a pass reads from the environment.
 pub struct PassEnv<'a> {
-    pub claude: &'a [Source],
+    pub roots: &'a AgentRoots,
     pub cache: &'a StatsCache,
     pub local: &'a (dyn LocalZone + Sync),
     /// Told `(done, total)` after each file is folded.
@@ -209,7 +209,7 @@ fn encode_slug(cwd: &str) -> String {
 
 /// The transcripts a pass folds: the corpus, narrowed by `args.only`.
 pub fn pass_refs(env: &PassEnv<'_>, args: &PassArgs<'_>) -> Vec<TranscriptRef> {
-    let all = list_corpus(args.scope, env.claude);
+    let all = list_corpus(args.scope, env.roots);
     match args.only {
         Some(keep) => all.into_iter().filter(|r| keep(r)).collect(),
         None => all,

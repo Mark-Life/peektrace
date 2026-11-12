@@ -126,8 +126,8 @@ fn prune_deletes_unreferenced_shards_and_leaves_other_files() {
     for name in ["keep.jsonl", "dead.jsonl", "notes.txt"] {
         t.write(&format!("stats-rs/shards/{name}"), "");
     }
-    StatsCache::new(t.path("stats-rs")).prune(&HashSet::from(["keep.jsonl".to_owned()]));
-    let mut left: Vec<String> = std::fs::read_dir(t.path("stats-rs/shards"))
+    StatsCache::new(t.join("stats-rs")).prune(&HashSet::from(["keep.jsonl".to_owned()]));
+    let mut left: Vec<String> = std::fs::read_dir(t.join("stats-rs/shards"))
         .expect("shards")
         .filter_map(|e| e.ok()?.file_name().into_string().ok())
         .collect();
@@ -138,15 +138,15 @@ fn prune_deletes_unreferenced_shards_and_leaves_other_files() {
 #[test]
 fn prune_succeeds_when_no_shard_dir_exists() {
     let t = TempDir::new("cache");
-    StatsCache::new(t.path("stats-rs")).prune(&HashSet::new());
-    assert!(!std::path::Path::new(&t.path("stats-rs/shards")).exists());
+    StatsCache::new(t.join("stats-rs")).prune(&HashSet::new());
+    assert!(!std::path::Path::new(&t.join("stats-rs/shards")).exists());
 }
 
 fn read_body(body: &str) -> Option<Vec<Fact>> {
     let t = TempDir::new("cache");
     let target = entry("s.jsonl", 1.0);
     t.write(&format!("stats-rs/shards/{}", target.shard), body);
-    StatsCache::new(t.path("stats-rs")).read(&target)
+    StatsCache::new(t.join("stats-rs")).read(&target)
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn usage_facts_survive_a_cache_round_trip() {
     let text = std::fs::read_to_string(RETRIES).expect("fixture");
     let facts = common::facts_of_text(&text, "retries", true, false);
     let t = TempDir::new("cache");
-    let cache = StatsCache::new(t.path("stats-rs"));
+    let cache = StatsCache::new(t.join("stats-rs"));
     let stat = FileStat {
         size: 1.0,
         mtime_ms: 1.0,

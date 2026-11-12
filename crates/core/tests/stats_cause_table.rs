@@ -5,6 +5,7 @@
 mod common;
 
 use common::causes::*;
+use common::rules::cover;
 use peektrace_core::Agent;
 use peektrace_core::stats::accumulate::DrillHit;
 use peektrace_core::stats::detectors::cause_row::CauseRow;
@@ -41,15 +42,6 @@ fn rows_rank_by_retry_sessions_then_sessions_then_pairs() {
     ]);
     let keys: Vec<&str> = rows.iter().map(|r| r.key.as_str()).collect();
     assert_eq!(keys, [GLOB, "cause:pkill-self-kill"]);
-}
-
-fn cover(agent: Agent, dir: Option<&str>) -> RuleCover {
-    RuleCover {
-        agent,
-        codex: None,
-        dir: dir.map(str::to_owned),
-        source: None,
-    }
 }
 
 fn hits_since(t: &CauseTable<'_>, cover: &RuleCover, after_day: &str) -> (Split, Split) {

@@ -220,6 +220,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, root: &Span) -> anyhow::Result<ExitCode>
         }
         print_stderr(&format!("Wrote {path}"));
     }
+    out.notes.iter().for_each(|n| print_stderr(n));
     Ok(ExitCode::SUCCESS)
 }
 

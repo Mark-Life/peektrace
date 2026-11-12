@@ -153,7 +153,7 @@ pub fn usage(env: &StatsEnv<'_>, req: &UsageRequest) -> Result<UsageReport, Stat
     };
     let scope = scope_of(req.agents.as_deref());
     let pass_env = PassEnv {
-        claude: env.claude,
+        roots: env.roots,
         cache: &env.cache,
         local: env.local,
         progress: env.progress,

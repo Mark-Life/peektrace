@@ -75,7 +75,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Two Claude, Codex or Pi roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once. OpenCode roots follow TS. |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |
 | `stats` fact cache | `$PEEKTRACE_DIR/stats/` | `$PEEKTRACE_DIR/stats-rs/`, same layout and extractor version 13. Both read and write the one `rule-lines.json` beside it. |
-| `stats` without `--agent`, or `--agent codex`, `pi`, `opencode` | every agent | Claude only. `--agent codex`, `pi` or `opencode` exits 1 with `not supported yet`. Without `--agent`, stderr says `<agents> sessions are not scanned: not supported yet` when those roots hold files. |
+| `stats` without `--agent`, or `--agent codex`, `pi`, `opencode` | every agent | Claude only. `--agent codex`, `pi` or `opencode` exits 1 with `not supported yet`. Without `--agent`, stderr says `<agents> sessions are not scanned: not supported yet` when those agents have sessions. |
 | `stats` on a transcript with a `null` line | the whole command fails: `Could not scan the corpus: TypeError: ...` | the line is skipped |
 | `stats --days` so large the window start is not a valid date | Effect `ERROR (#n)` dump on stdout | `--days N reaches past the earliest date` on stderr, exit 1 |
 | `stats` with `--otel` | also prints `RpcServer.stats.*` and `RpcClient.stats.*` spans | no RPC spans |

@@ -6,9 +6,8 @@ mod common;
 
 use std::cell::Cell;
 
-use common::TempDir;
+use common::{TempDir, claude_roots};
 use peektrace_core::js::time::{Utc, to_iso_string};
-use peektrace_core::roots::Source;
 use peektrace_core::stats::cache::StatsCache;
 use peektrace_core::stats::detectors::usage::UsageBy;
 use peektrace_core::stats::service::{StatsEnv, StatsError};
@@ -49,12 +48,7 @@ struct Run {
 }
 
 fn run(t: &TempDir, req: &UsageRequest, now: i64) -> Run {
-    let claude = [Source {
-        id: "claude".into(),
-        label: "default".into(),
-        home: t.path(".claude"),
-        projects_root: t.path("projects"),
-    }];
+    let roots = claude_roots(&t.str(), &t.join("projects"));
     let passes = Cell::new(0);
     let progress = |done: usize, total: usize| {
         if done == total {
@@ -63,10 +57,8 @@ fn run(t: &TempDir, req: &UsageRequest, now: i64) -> Run {
     };
     #[allow(clippy::cast_precision_loss, reason = "epoch ms fit in f64")]
     let env = StatsEnv {
-        claude: &claude,
-        codex_home: t.path(".codex"),
-        pi_home: t.path(".pi"),
-        cache: StatsCache::new(t.path("pdir/stats-rs")),
+        roots: &roots,
+        cache: StatsCache::new(t.join("pdir/stats-rs")),
         local: &Utc,
         now_ms: now as f64,
         progress: Some(&progress),
@@ -192,7 +184,7 @@ fn steady_work_through_the_widened_range_reads_full_history() {
 fn a_warm_run_leaves_the_index_alone_until_a_transcript_changes() {
     let t = corpus(&[(NOW - HOUR, "a")]);
     let r = req(UsageBy::Day, Some(7), "UTC");
-    let index = t.path("pdir/stats-rs/index.json");
+    let index = t.join("pdir/stats-rs/index.json");
     let mtime = || {
         std::fs::metadata(&index)
             .and_then(|m| m.modified())

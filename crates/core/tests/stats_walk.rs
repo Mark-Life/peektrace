@@ -3,9 +3,8 @@
 
 mod common;
 
-use common::TempDir;
+use common::{TempDir, claude_roots};
 use peektrace_core::Agent;
-use peektrace_core::roots::Source;
 use peektrace_core::stats::schema::Kind;
 use peektrace_core::stats::walk::list_transcripts;
 
@@ -22,24 +21,19 @@ fn nested_walk_follows_symlinks_and_skips_journals() {
     );
     t.write("elsewhere/linked/agent-3.jsonl", "{}\n");
     t.write("elsewhere/agent-4.jsonl", "{}\n");
-    std::os::unix::fs::symlink(t.path("elsewhere/linked"), t.path("projects/-w/s2"))
+    std::os::unix::fs::symlink(t.join("elsewhere/linked"), t.join("projects/-w/s2"))
         .expect("dir link");
     std::os::unix::fs::symlink(
-        t.path("elsewhere/agent-4.jsonl"),
-        t.path("projects/-w/s1/agent-4.jsonl"),
+        t.join("elsewhere/agent-4.jsonl"),
+        t.join("projects/-w/s1/agent-4.jsonl"),
     )
     .expect("file link");
-    std::os::unix::fs::symlink(t.path("gone"), t.path("projects/-w/s1/dead.jsonl"))
+    std::os::unix::fs::symlink(t.join("gone"), t.join("projects/-w/s1/dead.jsonl"))
         .expect("dead link");
-    let sources = [Source {
-        id: "claude".into(),
-        label: "default".into(),
-        home: t.path(".claude"),
-        projects_root: t.path("projects"),
-    }];
-    let got: Vec<(String, Kind)> = list_transcripts(Agent::Claude, &sources)
+    let roots = claude_roots(&t.str(), &t.join("projects"));
+    let got: Vec<(String, Kind)> = list_transcripts(Agent::Claude, &roots)
         .into_iter()
-        .map(|r| (r.path.replace(&t.path("projects/-w/"), ""), r.kind))
+        .map(|r| (r.path.replace(&t.join("projects/-w/"), ""), r.kind))
         .collect();
     assert_eq!(
         got,

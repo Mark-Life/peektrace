@@ -9,7 +9,7 @@ use tracing::info_span;
 
 use super::rank::cmp_str;
 use super::schema::Kind;
-use crate::claude;
+use crate::listing::{AgentRoots, session_files};
 use crate::model::{Agent, SourceTag};
 use crate::roots::Source;
 use crate::sessions::resolve::project_slugs;
@@ -129,17 +129,16 @@ fn sort_by_path(refs: &mut [TranscriptRef]) {
     refs.sort_by(|a, b| cmp_str(&a.path, &b.path));
 }
 
-/// Every transcript of one agent, path-sorted.
-pub fn list_transcripts(agent: Agent, claude_sources: &[Source]) -> Vec<TranscriptRef> {
+/// Every transcript of one agent, path-sorted: the listing's mains plus,
+/// for Claude, the nested subagent and workflow-agent transcripts.
+pub fn list_transcripts(agent: Agent, roots: &AgentRoots) -> Vec<TranscriptRef> {
     let _span = info_span!("Stats.listTranscripts", agent = agent.as_str()).entered();
-    if agent != Agent::Claude {
-        return Vec::new();
-    }
-    let mains = {
-        let _s = info_span!("AgentRegistry.listSessionFiles", agent = agent.as_str()).entered();
-        claude::list_session_files(claude_sources, None)
+    let mains = session_files(agent, roots, None);
+    let nested = if agent == Agent::Claude {
+        nested_refs(&roots.claude)
+    } else {
+        Vec::new()
     };
-    let nested = nested_refs(claude_sources);
     let mut seen = HashSet::new();
     let mut out: Vec<TranscriptRef> = mains
         .into_iter()
@@ -162,11 +161,11 @@ pub fn list_transcripts(agent: Agent, claude_sources: &[Source]) -> Vec<Transcri
 }
 
 /// Every transcript across `scope`, path-sorted as one corpus.
-pub fn list_corpus(scope: &[Agent], claude_sources: &[Source]) -> Vec<TranscriptRef> {
+pub fn list_corpus(scope: &[Agent], roots: &AgentRoots) -> Vec<TranscriptRef> {
     let _span = info_span!("Stats.listCorpus").entered();
     let mut out: Vec<TranscriptRef> = scope
         .iter()
-        .flat_map(|a| list_transcripts(*a, claude_sources))
+        .flat_map(|a| list_transcripts(*a, roots))
         .collect();
     sort_by_path(&mut out);
     out

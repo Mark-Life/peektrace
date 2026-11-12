@@ -12,6 +12,7 @@ use super::memory_paths::{codex_dirs_of, imports_of};
 use super::rank::cmp_str;
 use crate::js::regex::LazyRe;
 use crate::js_re;
+use crate::listing::AgentRoots;
 use crate::model::Agent;
 use crate::roots::Source;
 use crate::sessions::resolve::{exists, read_text};
@@ -190,6 +191,23 @@ pub struct AgentHomes<'a> {
     pub claude: &'a [Source],
     pub codex_home: String,
     pub pi_home: String,
+}
+
+impl<'a> AgentHomes<'a> {
+    /// Each agent's default root home, as TS `agents.roots(agent).home`.
+    pub fn of(roots: &'a AgentRoots) -> Self {
+        let home = |agent| {
+            roots
+                .of(agent)
+                .first()
+                .map_or_else(String::new, |s: &Source| s.home.clone())
+        };
+        Self {
+            claude: &roots.claude,
+            codex_home: home(Agent::Codex),
+            pi_home: home(Agent::Pi),
+        }
+    }
 }
 
 fn global_candidates(

@@ -47,8 +47,8 @@ pub fn fixture() -> TempDir {
         "- rm absolute paths only, never a bare $VAR target\n",
     );
     set_mtime(&shared, 1_785_585_600_000); // 2026-08-01T12:00:00Z
-    std::os::unix::fs::symlink(&shared, t.path("u/.claude/CLAUDE.md")).expect("symlink");
-    std::os::unix::fs::symlink(&shared, t.path("u/.codex/AGENTS.md")).expect("symlink");
+    std::os::unix::fs::symlink(&shared, t.join("u/.claude/CLAUDE.md")).expect("symlink");
+    std::os::unix::fs::symlink(&shared, t.join("u/.codex/AGENTS.md")).expect("symlink");
     t.write(
         "u/proj/AGENTS.md",
         "- pkill: never chain it.\n- This host has no jq: use bun -e instead of jq.",
@@ -84,8 +84,8 @@ pub fn read_with(
 ) -> Vec<MemoryDoc> {
     let homes = AgentHomes {
         claude,
-        codex_home: t.path("u/.codex"),
-        pi_home: t.path("u/.pi"),
+        codex_home: t.join("u/.codex"),
+        pi_home: t.join("u/.pi"),
     };
     read_memory_docs(&homes, scope, dirs)
 }
@@ -98,8 +98,8 @@ pub fn read_docs(
 ) -> Vec<MemoryDoc> {
     let claude = [source(
         "claude",
-        t.path(&format!("u/{claude_dir}")),
-        t.path("u/projects"),
+        t.join(&format!("u/{claude_dir}")),
+        t.join("u/projects"),
     )];
     read_with(t, &claude, dirs, scope)
 }

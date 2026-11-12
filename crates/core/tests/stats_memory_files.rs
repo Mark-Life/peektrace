@@ -10,7 +10,7 @@ use peektrace_core::stats::detectors::rules::RuleCover;
 #[test]
 fn follows_symlinks_dedupes_and_collapses_home() {
     let t = fixture();
-    let docs = read_docs(&t, &[t.path("u/proj")], ".claude", &CLAUDE_CODEX);
+    let docs = read_docs(&t, &[t.join("u/proj")], ".claude", &CLAUDE_CODEX);
     let shape: Vec<(Agent, bool)> = docs
         .iter()
         .map(|d| (d.cover.agent, d.cover.dir.is_some()))
@@ -37,7 +37,7 @@ fn follows_symlinks_dedupes_and_collapses_home() {
     assert_eq!(docs[0].cover, cover(Agent::Claude, None));
     assert_eq!(docs[0].mtime_ms, Some(ms("2026-08-01T12:00:00.000Z")));
     assert_eq!(docs[4].display_path, "~/proj/AGENTS.md");
-    assert_eq!(docs[4].cover, codex_cover(&t.path("u/proj"), false, &[]));
+    assert_eq!(docs[4].cover, codex_cover(&t.join("u/proj"), false, &[]));
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn claude_global_and_project_rules_dirs_are_read() {
     t.write("u/.claude/rules/zsh.md", "- Quote every glob.");
     t.write("u/.claude/rules/notes.txt", "- Not a rule file.");
     t.write("u/proj/.claude/rules/shell/pkill.md", "- pkill -x only.");
-    let docs = read_docs(&t, &[t.path("u/proj/app")], ".claude", &[Agent::Claude]);
+    let docs = read_docs(&t, &[t.join("u/proj/app")], ".claude", &[Agent::Claude]);
     let rules: Vec<(&str, &RuleCover)> = docs
         .iter()
         .filter(|d| d.display_path.contains("/rules/"))
@@ -58,7 +58,7 @@ fn claude_global_and_project_rules_dirs_are_read() {
             ("~/.claude/rules/zsh.md", &cover(Agent::Claude, None)),
             (
                 "~/proj/.claude/rules/shell/pkill.md",
-                &cover(Agent::Claude, Some(&t.path("u/proj")))
+                &cover(Agent::Claude, Some(&t.join("u/proj")))
             ),
         ]
     );
@@ -71,8 +71,8 @@ fn codex_walks_up_only_to_the_repo_root() {
     t.mkdir("u/work/loose/sub");
     t.write("u/work/AGENTS.md", "- Above every repo.");
     t.write("u/work/loose/AGENTS.md", "- Above the cwd.");
-    let in_repo = t.path("u/work/repo/src");
-    let loose = t.path("u/work/loose/sub");
+    let in_repo = t.join("u/work/repo/src");
+    let loose = t.join("u/work/loose/sub");
     let docs = read_docs(&t, &[in_repo.clone(), loose], ".claude", &[Agent::Codex]);
     assert!(docs.iter().all(|d| d.cover.dir.is_none()));
     let pi = read_docs(&t, &[in_repo], ".claude", &[Agent::Pi]);
@@ -90,9 +90,9 @@ fn a_codex_file_reaches_its_repo_but_not_a_nested_one() {
     let docs = read_docs(
         &t,
         &[
-            t.path("u/nest/outer"),
+            t.join("u/nest/outer"),
             inner.clone(),
-            t.path("u/nest/loose"),
+            t.join("u/nest/loose"),
         ],
         ".claude",
         &[Agent::Codex],
@@ -105,8 +105,8 @@ fn a_codex_file_reaches_its_repo_but_not_a_nested_one() {
     assert_eq!(
         covers,
         [
-            &codex_cover(&t.path("u/nest/loose"), true, &[]),
-            &codex_cover(&t.path("u/nest/outer"), false, &[inner]),
+            &codex_cover(&t.join("u/nest/loose"), true, &[]),
+            &codex_cover(&t.join("u/nest/outer"), false, &[inner]),
         ]
     );
 }
@@ -116,11 +116,11 @@ fn each_claude_sources_global_file_reaches_its_own_sessions() {
     let t = fixture();
     t.write("u/.claude-work/CLAUDE.md", "- Work rules.");
     let claude = [
-        source("claude", t.path("u/.claude"), t.path("u/projects")),
+        source("claude", t.join("u/.claude"), t.join("u/projects")),
         source(
             "work",
-            t.path("u/.claude-work"),
-            t.path("u/.claude-work/projects"),
+            t.join("u/.claude-work"),
+            t.join("u/.claude-work/projects"),
         ),
     ];
     let docs = read_with(&t, &claude, &[], &[Agent::Claude]);
@@ -190,7 +190,7 @@ fn each_agent_reads_only_its_own_project_files() {
     let t = fixture();
     let docs = read_docs(
         &t,
-        &[t.path("u/proj/app")],
+        &[t.join("u/proj/app")],
         ".claude",
         &[Agent::Claude, Agent::Codex, Agent::Pi],
     );
@@ -234,13 +234,13 @@ fn an_import_keeps_its_importers_reach_a_code_span_is_not_one() {
 #[test]
 fn ancestors_and_claude_local_of_a_project_dir_are_read() {
     let t = fixture();
-    let docs = read_docs(&t, &[t.path("u/proj/app")], ".claude", &CLAUDE_CODEX);
+    let docs = read_docs(&t, &[t.join("u/proj/app")], ".claude", &CLAUDE_CODEX);
     let shown: Vec<(&str, Option<&str>)> = docs
         .iter()
         .map(|d| (d.display_path.as_str(), d.cover.dir.as_deref()))
         .collect();
-    let app = t.path("u/proj/app");
-    let proj = t.path("u/proj");
+    let app = t.join("u/proj/app");
+    let proj = t.join("u/proj");
     assert!(shown.contains(&("~/proj/app/CLAUDE.local.md", Some(app.as_str()))));
     assert!(shown.contains(&("~/proj/AGENTS.md", Some(proj.as_str()))));
 }
@@ -248,7 +248,7 @@ fn ancestors_and_claude_local_of_a_project_dir_are_read() {
 #[test]
 fn a_moved_claude_home_still_finds_the_users_home() {
     let t = fixture();
-    let docs = read_docs(&t, &[t.path("u/proj/app")], ".claude-work", &CLAUDE_CODEX);
+    let docs = read_docs(&t, &[t.join("u/proj/app")], ".claude-work", &CLAUDE_CODEX);
     let shown: Vec<&str> = docs.iter().map(|d| d.display_path.as_str()).collect();
     assert!(shown.contains(&"~/proj/AGENTS.md"));
     assert!(shown.contains(&"~/.agents/skills/rm.md"));
