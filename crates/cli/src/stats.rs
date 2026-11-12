@@ -16,7 +16,7 @@ use crate::args::{StatsCommon, StatsDrillArgs, StatsPromptArgs, StatsRefreshArgs
 use crate::ls::{Context, Globals, UserError};
 use crate::render::{skipped_note, table};
 use crate::single::Output;
-use crate::stats_progress::Progress;
+use crate::stats_progress::{self, Progress};
 use crate::stats_render::{render_drill, render_report, render_usage};
 use crate::zone::SystemZone;
 use std::io::{IsTerminal as _, Write as _};
@@ -124,9 +124,10 @@ fn env_of<'a>(
     }
 }
 
-/// Run `f` with a progress line on a TTY stderr, cleared when it returns.
+/// Run `f` with a progress line on a capable TTY stderr, cleared when it returns.
 fn with_progress<T>(f: impl FnOnce(Option<&dyn Fn(usize, usize)>) -> T) -> T {
-    if !std::io::stderr().is_terminal() {
+    let term = std::env::var("TERM").ok();
+    if !stats_progress::wanted(std::io::stderr().is_terminal(), term.as_deref()) {
         return f(None);
     }
     let start = std::time::Instant::now();

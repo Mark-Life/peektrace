@@ -1,6 +1,7 @@
 //! `scanning 1,234/7,169 transcripts…` on a TTY stderr while a stats pass
 //! runs: drawn after a quiet start, redrawn at most every 100 ms, cleared at
-//! the end.
+//! the end. Clearing overwrites with spaces, not an ANSI erase, so legacy
+//! Windows consoles and `TERM=dumb` terminals show no escape garbage.
 
 use std::cell::{Cell, RefCell};
 
@@ -8,7 +9,11 @@ use peektrace_core::stats::format::count;
 
 const DELAY_MS: f64 = 250.0;
 const EVERY_MS: f64 = 100.0;
-const CLEAR: &str = "\r\x1b[2K";
+
+/// Draw only on a terminal that can redraw a line in place.
+pub fn wanted(is_tty: bool, term: Option<&str>) -> bool {
+    is_tty && term != Some("dumb")
+}
 
 /// A progress line over an injected clock and writer.
 pub struct Progress<N: Fn() -> f64, W: FnMut(&str)> {
@@ -16,7 +21,8 @@ pub struct Progress<N: Fn() -> f64, W: FnMut(&str)> {
     write: RefCell<W>,
     start: f64,
     last: Cell<f64>,
-    drawn: Cell<bool>,
+    /// Width of the line on screen, 0 when nothing is drawn.
+    drawn: Cell<usize>,
 }
 
 impl<N: Fn() -> f64, W: FnMut(&str)> Progress<N, W> {
@@ -27,7 +33,7 @@ impl<N: Fn() -> f64, W: FnMut(&str)> Progress<N, W> {
             write: RefCell::new(write),
             start,
             last: Cell::new(f64::NEG_INFINITY),
-            drawn: Cell::new(false),
+            drawn: Cell::new(0),
         }
     }
 
@@ -38,17 +44,21 @@ impl<N: Fn() -> f64, W: FnMut(&str)> Progress<N, W> {
             return;
         }
         self.last.set(t);
-        self.drawn.set(true);
-        (self.write.borrow_mut())(&format!(
-            "\rscanning {}/{} transcripts…",
+        let line = format!(
+            "scanning {}/{} transcripts…",
             count(done as f64),
             count(total as f64)
-        ));
+        );
+        let width = line.chars().count();
+        // Pad over a longer previous line so no stale digits remain.
+        let pad = self.drawn.replace(width).saturating_sub(width);
+        (self.write.borrow_mut())(&format!("\r{line}{}", " ".repeat(pad)));
     }
 
     pub fn clear(&self) {
-        if self.drawn.replace(false) {
-            (self.write.borrow_mut())(CLEAR);
+        let width = self.drawn.replace(0);
+        if width > 0 {
+            (self.write.borrow_mut())(&format!("\r{}\r", " ".repeat(width)));
         }
     }
 }
@@ -60,11 +70,23 @@ mod tests {
 
     use super::*;
 
+    fn wipe(line: &str) -> String {
+        format!("\r{}\r", " ".repeat(line.chars().count()))
+    }
+
     fn rig() -> (Rc<Cell<f64>>, Rc<RefCell<String>>) {
         (
             Rc::new(Cell::new(0.0)),
             Rc::new(RefCell::new(String::new())),
         )
+    }
+
+    #[test]
+    fn skipped_off_a_tty_and_on_a_dumb_terminal() {
+        assert!(wanted(true, None));
+        assert!(wanted(true, Some("xterm-256color")));
+        assert!(!wanted(true, Some("dumb")));
+        assert!(!wanted(false, Some("xterm")));
     }
 
     #[test]
@@ -91,7 +113,10 @@ mod tests {
         p.clear();
         assert_eq!(
             out.borrow().as_str(),
-            "\rscanning 1/1,500 transcripts…\rscanning 1,500/1,500 transcripts…\r\x1b[2K"
+            format!(
+                "\rscanning 1/1,500 transcripts…\rscanning 1,500/1,500 transcripts…{}",
+                wipe("scanning 1,500/1,500 transcripts…")
+            )
         );
     }
 
@@ -107,7 +132,10 @@ mod tests {
         p.clear();
         assert_eq!(
             out.borrow().as_str(),
-            "\rscanning 3/3 transcripts…\r\x1b[2K"
+            format!(
+                "\rscanning 3/3 transcripts…{}",
+                wipe("scanning 3/3 transcripts…")
+            )
         );
     }
 
@@ -139,6 +167,30 @@ mod tests {
         );
         p.clear();
         p.clear();
-        assert!(out.borrow().ends_with("transcripts…\r\x1b[2K"));
+        assert!(out.borrow().ends_with(&format!(
+            "transcripts…{}",
+            wipe("scanning 2,240/2,240 transcripts…")
+        )));
+    }
+
+    #[test]
+    fn clear_writes_no_escape_codes_and_pads_a_shorter_redraw() {
+        let (clock, out) = rig();
+        let (c, o) = (clock.clone(), out.clone());
+        let p = Progress::new(move || c.get(), move |s: &str| o.borrow_mut().push_str(s));
+        clock.set(300.0);
+        p.on_file(1000, 1000);
+        clock.set(500.0);
+        p.on_file(9, 9);
+        p.clear();
+        assert_eq!(
+            out.borrow().as_str(),
+            format!(
+                "\rscanning 1,000/1,000 transcripts…\rscanning 9/9 transcripts…{}{}",
+                " ".repeat(8),
+                wipe("scanning 9/9 transcripts…")
+            )
+        );
+        assert!(!out.borrow().contains('\x1b'));
     }
 }

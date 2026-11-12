@@ -218,6 +218,17 @@ fn a_shell_write_between_failure_and_rerun_stops_the_pair() {
 }
 
 #[test]
+fn a_shell_write_before_the_failure_does_not_stop_the_pair() {
+    let cmd = "cd /r && bun run check";
+    let rows = rows_of(facts![
+        bash_at(0, 0.0, "sed -i 's/a/b/' /r/a.ts"),
+        err(with(bash_at(1, 1.0, cmd), |f| f.req = None)),
+        with(bash_at(2, 2.0, cmd), |f| f.req = None),
+    ]);
+    assert_eq!(pairs(&rows, "cause:unclassified:Bash"), Some(1.0));
+}
+
+#[test]
 fn a_failed_call_with_no_text_pairs_with_nothing() {
     let argless = |seq: u32, tool: &str| {
         with(tool_at(seq, f64::from(seq), tool), |f| {

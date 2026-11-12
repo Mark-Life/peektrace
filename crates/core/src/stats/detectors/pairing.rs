@@ -343,7 +343,8 @@ impl<'a> Pairer<'a> {
         let clock = self.clock;
         let seeds = self.lanes.entry(f.side).or_default();
         let closed = offer_to(seeds, f, clock);
-        let edit = edits_file(f);
+        // Only open seeds read the flag; most calls have none, so skip the regexes.
+        let edit = !seeds.is_empty() && edits_file(f);
         let mut kept = Vec::new();
         for (i, mut seed) in std::mem::take(seeds).into_iter().enumerate() {
             if !are_siblings(&seed.fact, f) {
