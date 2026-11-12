@@ -14,6 +14,7 @@ use sha2::{Digest as _, Sha256};
 use super::release::{FetchError, ReleaseConfig, get_bytes, parse_checksum};
 use crate::ls::UserError;
 
+#[cfg(unix)]
 const EXEC_MODE: u32 = 0o755;
 
 /// Lowercase hex SHA-256 of `bytes`.
