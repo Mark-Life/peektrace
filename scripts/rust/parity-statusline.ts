@@ -29,6 +29,7 @@ const SLOW_OK = ["--timeout", "60000"];
 const BOM = String.fromCharCode(0xfe_ff);
 const DURATION = / \d+(\.\d+)?ms /;
 const RPC_SPAN = /^\[otel\] Rpc(Server|Client)\./;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const claudeLines = (at: string, contextTokens: number, cwd: string) =>
   [
@@ -344,4 +345,53 @@ export const runStatuslineStage = ({
       `suite statusline-real: ${count.cases} cases, ${count.live} skipped as live`
     );
   }
+};
+
+/** `statusline --remote` on the serve pair: TS against the TS server, Rust
+ * against the Rust one, on the same payloads. Includes the not-found retry
+ * by session id. */
+export const remoteStatusline = (
+  ports: { readonly rust: number; readonly ts: number },
+  env: Record<string, string>,
+  rows: readonly { readonly id: string; readonly path: string }[]
+) => {
+  const uuids = rows.filter((r) => UUID.test(r.id)).slice(0, 4);
+  const payloads = [
+    ...uuids.flatMap((r) => [
+      { session_id: r.id },
+      { transcript_path: r.path },
+      { transcript_path: "/nope/x.jsonl", session_id: r.id },
+      { session_id: r.id, context_window: { context_window_size: 200_000 } },
+    ]),
+    { session_id: "99999999-9999-4999-8999-999999999999" },
+    { transcript_path: "/nope/x.jsonl" },
+  ];
+  let healthy = 0;
+  for (const p of payloads) {
+    const stdin = JSON.stringify(p);
+    const side = (port: number, cmd: readonly string[]) =>
+      runWith(
+        [
+          ...cmd,
+          "--no-telemetry",
+          "--remote",
+          `http://127.0.0.1:${port}`,
+          "statusline",
+          ...SLOW_OK,
+        ],
+        env,
+        stdin
+      );
+    const rust = side(ports.rust, [rustBin]);
+    healthy += rust.stdout.startsWith("ctx --") ? 0 : 1;
+    compareRun(
+      `statusline --remote ${stdin.slice(0, 80)}`,
+      side(ports.ts, TS_CMD),
+      rust
+    );
+  }
+  if (healthy < uuids.length) {
+    report(`statusline --remote: only ${healthy} payloads resolved`);
+  }
+  return payloads.length;
 };
