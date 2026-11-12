@@ -15,11 +15,11 @@ use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::{HeaderMap, HeaderValue, Method, Response, StatusCode, header};
 use axum::middleware::{self, Next};
-use axum::routing::{MethodRouter, any, get};
+use axum::routing::{MethodRouter, any, get, post};
 use peektrace_core::AgentRoots;
 use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::time::LocalZone;
-use peektrace_protocol::{NotPortedFeature, WatchVersions};
+use peektrace_protocol::WatchVersions;
 use tokio::sync::watch;
 use tower_http::compression::CompressionLayer;
 use tower_http::compression::predicate::{NotForContentType, Predicate as _, SizeAbove};
@@ -42,6 +42,26 @@ pub struct AppState {
     pub stop: watch::Receiver<bool>,
     /// List headers kept between `/api/sessions` calls.
     pub headers: HeaderCache,
+    /// The stats fact cache dir (`$PEEKTRACE_DIR/stats-rs`).
+    pub stats_cache_root: String,
+    /// Node's `os.tmpdir()`; memory writes may touch it.
+    pub tmp_dir: String,
+    /// Current time in ms; stats windows end here.
+    pub now: Clock,
+    /// Held across each stats pass, so passes run one at a time.
+    pub stats_lock: Arc<tokio::sync::Mutex<()>>,
+}
+
+pub type Clock = Arc<dyn Fn() -> f64 + Send + Sync>;
+
+/// The wall clock in ms since the epoch.
+pub fn system_clock() -> Clock {
+    Arc::new(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0.0, |d| d.as_secs_f64() * 1000.0)
+            .floor()
+    })
 }
 
 /// Request guards, fixed once the port is bound.
@@ -139,20 +159,15 @@ fn route(r: MethodRouter<Arc<AppState>>) -> MethodRouter<Arc<AppState>> {
     r.fallback(api::method_not_allowed)
 }
 
-fn not_ported(feature: NotPortedFeature) -> MethodRouter<Arc<AppState>> {
-    any(move || async move { api::not_ported(feature) })
-}
-
 fn api_router() -> Router<Arc<AppState>> {
-    use NotPortedFeature::{Memory, Search, Stats};
     Router::new()
         .route("/api/server", route(get(api::server_info)))
         .route("/api/capabilities", route(get(api::capabilities)))
         .route("/api/sessions", route(get(api::sessions)))
-        .route("/api/sessions/search", not_ported(Search))
+        .route("/api/sessions/search", route(get(api::search)))
         .route("/api/sessions/{id}", route(get(api::session)))
         .route("/api/sessions/{id}/analysis", route(get(api::analysis)))
-        .route("/api/sessions/{id}/markers", not_ported(Stats))
+        .route("/api/sessions/{id}/markers", route(get(api::markers)))
         .route(
             "/api/sessions/{id}/images/{line}/{block}",
             route(get(api::image)),
@@ -167,9 +182,27 @@ fn api_router() -> Router<Arc<AppState>> {
         )
         .route("/api/watch", route(get(api::watch_poll)))
         .route("/api/events", route(get(events::events)))
-        .route("/api/stats/{*rest}", not_ported(Stats))
-        .route("/api/memory", not_ported(Memory))
-        .route("/api/memory/{*rest}", not_ported(Memory))
+        .route("/api/stats/report", route(get(api::stats_report)))
+        .route(
+            "/api/stats/drill/{table}/{key}",
+            route(get(api::stats_drill)),
+        )
+        .route("/api/stats/usage", route(get(api::stats_usage)))
+        .route("/api/stats/refresh", route(post(api::stats_refresh)))
+        .route("/api/memory", route(get(api::memory_all)))
+        .route("/api/memory/projects", route(get(api::memory_projects)))
+        .route(
+            "/api/memory/projects/{project}",
+            route(get(api::memory_vault)),
+        )
+        .route(
+            "/api/memory/projects/{project}/entries",
+            route(post(api::memory_create)),
+        )
+        .route(
+            "/api/memory/projects/{project}/entries/{name}",
+            route(axum::routing::patch(api::memory_update).delete(api::memory_delete)),
+        )
         .route("/api", any(api::not_found))
         .route("/api/{*rest}", any(api::not_found))
 }

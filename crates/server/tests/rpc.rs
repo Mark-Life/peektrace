@@ -219,42 +219,45 @@ fn analyze_reproduces_the_golden_peak_and_budget() {
     assert_eq!(budget(&a), budget(&golden));
 }
 
-// Search is not in this build: the three search cases assert 501.
-
-fn assert_not_ported(a: &common::Answer, feature: &str) {
-    assert_eq!(a.status, 501);
-    assert_eq!(tag(&a.json()), "NotPortedYetError");
-    assert_eq!(a.json()["error"]["feature"], feature);
-}
-
 #[test]
-fn search_finds_a_known_phrase_is_not_ported_yet() {
+fn search_finds_a_known_phrase_with_its_line_and_a_snippet() {
     let (s, _) = server("search-hit", false);
-    assert_not_ported(
-        &s.get("/api/sessions/search?q=refactor%20the%20AUTH%20module"),
-        "search",
-    );
+    let a = s.get("/api/sessions/search?q=refactor%20the%20AUTH%20module");
+    assert_eq!(a.status, 200);
+    let r = a.json();
+    let hit = r["sessions"]
+        .as_array()
+        .and_then(|v| v.iter().find(|x| x["id"] == SESSION))
+        .cloned()
+        .unwrap_or_default();
+    assert_eq!(hit["hits"][0]["line"], 1);
+    let snippet = hit["hits"][0]["snippet"].as_str().unwrap_or_default();
+    assert!(snippet.contains("refactor the auth module"), "{snippet}");
 }
 
 #[test]
-fn search_with_no_match_is_not_ported_yet() {
+fn search_with_no_match_returns_an_empty_result() {
     let (s, _) = server("search-miss", false);
-    assert_not_ported(
-        &s.get("/api/sessions/search?q=no-such-phrase-xyz"),
-        "search",
-    );
+    let r = s.get("/api/sessions/search?q=no-such-phrase-xyz").json();
+    assert_eq!(r["sessions"], json!([]));
+    assert_eq!(r["truncated"], false);
 }
 
 #[test]
-fn search_bad_queries_are_not_ported_yet() {
+fn search_rejects_a_blank_query_a_negative_limit_and_a_bad_since() {
     let (s, _) = server("search-bad", false);
     for q in [
         "q=%20%20",
         "q=x&limit=-1",
+        "q=x&limit=1.5",
         "q=x&since=7d",
         "q=x&since=yesterday",
+        "q=x&agent=all",
+        "since=2020-01-01",
     ] {
-        assert_not_ported(&s.get(&format!("/api/sessions/search?{q}")), "search");
+        let a = s.get(&format!("/api/sessions/search?{q}"));
+        assert_eq!(a.status, 400, "{q}");
+        assert_eq!(tag(&a.json()), "BadRequestError", "{q}");
     }
 }
 
@@ -266,52 +269,139 @@ fn analyze_of_a_missing_session_fails_with_the_typed_wire_error() {
     assert_eq!(tag(&a.json()), "SessionNotFoundError");
 }
 
-// describe("memory"): not in this build, every case asserts 501.
+// describe("memory")
+
+const ENTRIES: &str = "/api/memory/projects/-tmp-mem/entries";
 
 #[test]
-fn memory_projects_all_vaults_and_vault_are_not_ported_yet() {
+fn projects_all_vaults_and_vault_return_the_seeded_vault() {
     let (s, _) = server("mem-read", false);
-    for path in [
-        "/api/memory/projects".to_owned(),
-        "/api/memory".to_owned(),
-        format!("/api/memory/projects/{MEM_SLUG}"),
-    ] {
-        assert_not_ported(&s.get(&path), "memory");
-    }
+    let projects = s.get("/api/memory/projects").json();
+    assert!(
+        projects
+            .as_array()
+            .is_some_and(|p| p.iter().any(|x| x["slug"] == MEM_SLUG))
+    );
+    let all = s.get("/api/memory").json();
+    assert!(
+        all["vaults"]
+            .as_array()
+            .is_some_and(|v| v.iter().any(|x| x["slug"] == MEM_SLUG))
+    );
+    let vault = s.get(&format!("/api/memory/projects/{MEM_SLUG}")).json();
+    let slugs: Vec<_> = vault["entries"]
+        .as_array()
+        .map(|e| e.iter().map(|x| x["slug"].clone()).collect())
+        .unwrap_or_default();
+    assert!(slugs.contains(&json!("alpha")));
 }
 
 #[test]
-fn memory_create_is_not_ported_yet() {
+fn create_writes_an_entry_and_indexes_it() {
     let (s, root) = server("mem-create", false);
     let body =
         r#"{"name":"gamma","description":"Third","type":"reference","body":"Gamma body.\n"}"#;
-    let path = format!("/api/memory/projects/{MEM_SLUG}/entries");
-    assert_not_ported(&s.call("POST", &path, &[], Some(body)), "memory");
-    assert!(!root.join(MEM_SLUG).join("memory/gamma.md").exists());
+    let a = s.call("POST", ENTRIES, &[], Some(body));
+    assert_eq!(a.status, 200, "{}", a.body);
+    assert_eq!(a.json()["slug"], "gamma");
+    assert_eq!(a.json()["inIndex"], true);
+    assert!(root.join(MEM_SLUG).join("memory/gamma.md").exists());
 }
 
 #[test]
-fn memory_stale_cas_update_is_not_ported_yet() {
+fn a_stale_cas_update_surfaces_file_changed_error() {
     let (s, _) = server("mem-cas", false);
-    let path = format!("/api/memory/projects/{MEM_SLUG}/entries/cas");
-    let body = r#"{"body":"v2\n","expectedMtime":1}"#;
-    assert_not_ported(&s.call("PATCH", &path, &[], Some(body)), "memory");
+    let body = r#"{"name":"cas","description":"CAS target","type":"user","body":"v1\n"}"#;
+    assert_eq!(s.call("POST", ENTRIES, &[], Some(body)).status, 200);
+    let stale = r#"{"body":"v2\n","expectedMtime":1}"#;
+    let a = s.call("PATCH", &format!("{ENTRIES}/cas"), &[], Some(stale));
+    assert_eq!(a.status, 409);
+    assert_eq!(tag(&a.json()), "FileChangedError");
+    assert_eq!(a.json()["error"]["reason"], "mtime");
 }
 
 #[test]
-fn memory_bad_name_create_is_not_ported_yet() {
+fn a_bad_name_is_a_memory_validation_error() {
     let (s, _) = server("mem-bad", false);
     let body = r#"{"name":"Not Kebab","description":"bad","type":"user","body":"x"}"#;
-    let path = format!("/api/memory/projects/{MEM_SLUG}/entries");
-    assert_not_ported(&s.call("POST", &path, &[], Some(body)), "memory");
+    let a = s.call("POST", ENTRIES, &[], Some(body));
+    assert_eq!(a.status, 422);
+    assert_eq!(tag(&a.json()), "MemoryValidationError");
+    assert_eq!(a.json()["error"]["name"], "Not Kebab");
 }
 
 #[test]
-fn memory_delete_is_not_ported_yet() {
+fn delete_removes_the_file() {
     let (s, root) = server("mem-delete", false);
-    let path = format!("/api/memory/projects/{MEM_SLUG}/entries/alpha");
-    assert_not_ported(&s.call("DELETE", &path, &[], None), "memory");
-    assert!(root.join(MEM_SLUG).join("memory/alpha.md").exists());
+    let a = s.call("DELETE", &format!("{ENTRIES}/alpha"), &[], None);
+    assert_eq!(a.status, 200, "{}", a.body);
+    assert_eq!(a.json()["slug"], "alpha");
+    assert!(!root.join(MEM_SLUG).join("memory/alpha.md").exists());
+}
+
+#[test]
+fn read_only_refuses_every_memory_write_and_leaves_the_disk_alone() {
+    let (s, root) = server("mem-ro", true);
+    let dir = root.join(MEM_SLUG).join("memory");
+    let before = std::fs::read_to_string(dir.join("MEMORY.md")).unwrap_or_default();
+    let create = r#"{"name":"gamma","description":"Third","type":"reference","body":"x"}"#;
+    for (method, path, body) in [
+        ("POST", ENTRIES.to_owned(), Some(create)),
+        ("PATCH", format!("{ENTRIES}/alpha"), Some(r#"{"body":"y"}"#)),
+        ("DELETE", format!("{ENTRIES}/alpha"), None),
+    ] {
+        let a = s.call(method, &path, &[], body);
+        assert_eq!(a.status, 403, "{method}");
+        assert_eq!(
+            a.json(),
+            json!({"error": {"_tag": "MemoryValidationError", "reason": "read-only mode is enabled; refusing to write"}})
+        );
+    }
+    assert!(!dir.join("gamma.md").exists());
+    assert!(dir.join("alpha.md").exists());
+    assert_eq!(
+        std::fs::read_to_string(dir.join("MEMORY.md")).unwrap_or_default(),
+        before
+    );
+    assert_eq!(s.call("POST", "/api/stats/refresh", &[], None).status, 200);
+}
+
+#[test]
+fn bad_memory_bodies_are_bad_requests() {
+    let (s, _) = server("mem-body", false);
+    for body in [
+        "",
+        "[]",
+        r#"{"name":"x","description":"d","type":"user"}"#,
+        r#"{"name":1,"description":"d","type":"user","body":"b"}"#,
+    ] {
+        let a = s.call("POST", ENTRIES, &[], Some(body));
+        assert_eq!(a.status, 400, "{body}");
+        assert_eq!(tag(&a.json()), "BadRequestError");
+    }
+    let a = s.call(
+        "PATCH",
+        &format!("{ENTRIES}/alpha"),
+        &[],
+        Some(r#"{"frontmatter":"x"}"#),
+    );
+    assert_eq!(a.status, 400);
+}
+
+#[test]
+fn memory_routes_answer_405_for_other_methods() {
+    let (s, _) = server("mem-405", false);
+    for (method, path) in [
+        ("POST", "/api/memory".to_owned()),
+        ("GET", ENTRIES.to_owned()),
+        ("GET", format!("{ENTRIES}/alpha")),
+        ("GET", "/api/stats/refresh".to_owned()),
+        ("POST", "/api/stats/report".to_owned()),
+    ] {
+        let a = s.call(method, &path, &[], None);
+        assert_eq!(a.status, 405, "{method} {path}");
+        assert_eq!(tag(&a.json()), "MethodNotAllowedError");
+    }
 }
 
 // describe("settings")

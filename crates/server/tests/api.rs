@@ -167,25 +167,23 @@ fn read_only_refuses_writes() {
 }
 
 #[test]
-fn unported_unknown_and_wrong_method() {
+fn unknown_and_wrong_method() {
     let s = start(&Options {
         name: "routes",
         ..Options::default()
     });
-    for (path, feature) in [
-        ("/api/stats/report", "stats"),
-        ("/api/sessions/x/markers", "stats"),
-        ("/api/memory", "memory"),
-        ("/api/memory/projects/p/entries", "memory"),
-        ("/api/sessions/search?q=x", "search"),
+    for path in [
+        "/api/nope",
+        "/api/stats",
+        "/api/stats/nope",
+        "/api/stats/drill/cause",
+        "/api/memory/nope",
+        "/api/memory/projects/p/entries/n/x",
     ] {
-        let a = s.get(path);
-        assert_eq!(a.status, 501, "{path}");
-        assert_eq!(a.json()["error"]["feature"], feature, "{path}");
+        let unknown = s.get(path);
+        assert_eq!(unknown.status, 404, "{path}");
+        assert_eq!(tag(&unknown), "NotFoundError", "{path}");
     }
-    let unknown = s.get("/api/nope");
-    assert_eq!(unknown.status, 404);
-    assert_eq!(tag(&unknown), "NotFoundError");
     let wrong = s.call("POST", "/api/sessions", &[], None);
     assert_eq!(wrong.status, 405);
     assert_eq!(tag(&wrong), "MethodNotAllowedError");

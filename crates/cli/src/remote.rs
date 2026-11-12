@@ -372,8 +372,8 @@ mod tests {
             format_api_error(&e),
             "Session \"nope\" not found (searched all agents)."
         );
-        let e = JsValue::parse(r#"{"_tag":"NotPortedYetError","feature":"stats"}"#).unwrap();
-        assert_eq!(format_api_error(&e), "Error: NotPortedYetError");
+        let e = JsValue::parse(r#"{"_tag":"SomeNewError","feature":"stats"}"#).unwrap();
+        assert_eq!(format_api_error(&e), "Error: SomeNewError");
     }
     // serve-auth.test.ts splitRemote cases and the 403 port hint.
 

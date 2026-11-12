@@ -38,6 +38,10 @@ fn shutdown_ends_open_event_streams() {
         versions: rx,
         stop: stop_rx,
         headers: HeaderCache::default(),
+        stats_cache_root: "/nonexistent-stats".to_owned(),
+        tmp_dir: "/tmp".to_owned(),
+        now: peektrace_server::system_clock(),
+        stats_lock: Arc::default(),
     };
     let guards = Guards {
         allow: Allowlist::new("127.0.0.1", port),

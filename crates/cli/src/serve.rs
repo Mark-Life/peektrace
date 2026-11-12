@@ -5,12 +5,14 @@ use std::process::{Command, Stdio};
 use std::sync::Arc;
 
 use peektrace_core::header_cache::HeaderCache;
+use peektrace_core::js::os::tmpdir;
+use peektrace_core::stats::cache::cache_root;
 use peektrace_core::watch::Watcher;
 use peektrace_protocol::WatchVersions;
 use peektrace_server::auth::{self, TOKEN_ENV};
 use peektrace_server::bind::bind_free_port;
 use peektrace_server::guard::Allowlist;
-use peektrace_server::{AppState, Assets, Guards};
+use peektrace_server::{AppState, Assets, Guards, system_clock};
 use tokio::sync::watch;
 
 use crate::args::ServeArgs;
@@ -182,6 +184,10 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
         versions: rx,
         stop: stop_rx,
         headers: HeaderCache::default(),
+        stats_cache_root: cache_root(&ctx.roots_env),
+        tmp_dir: tmpdir(),
+        now: system_clock(),
+        stats_lock: Arc::default(),
     };
     let guards = Guards {
         allow: Allowlist::new(&args.host, port),

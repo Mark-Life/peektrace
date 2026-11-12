@@ -41,8 +41,36 @@ export type AnalysisQuery = { parent?: string, window?: string, dumbZone?: strin
 
 export type FileChangeReason = "mtime" | "hash" | "missing";
 
-export type NotPortedFeature = "stats" | "memory" | "search";
+export type DrillTable = "cause" | "fail" | "time" | "cluster" | "wait";
 
-export type ApiError = { "_tag": "SessionNotFoundError", id: string, searchedRoot: string, } | { "_tag": "TranscriptParseError", path: string, reason: string, } | { "_tag": "FileChangedError", path: string, reason: FileChangeReason, } | { "_tag": "SettingsWriteError", path: string, reason: string, } | { "_tag": "ImageNotFoundError", id: string, line: number, block: number, item?: number, } | { "_tag": "BadRequestError", reason: string, } | { "_tag": "NotFoundError", path: string, } | { "_tag": "MethodNotAllowedError", method: string, } | { "_tag": "NotPortedYetError", feature: NotPortedFeature, } | { "_tag": "PathOutsideRootError", path: string, roots: Array<string>, } | { "_tag": "CapabilityUnsupportedError", capabilityId: string, agentId: AgentId, } | { "_tag": "MemoryValidationError", reason: string, name?: string, } | { "_tag": "MemoryNotFoundError", project: string, name: string, } | { "_tag": "StatsScanError", reason: string, path?: string, } | { "_tag": "StatsRowNotFoundError", key: string, table: string, };
+export type UsageBy = "day" | "month" | "block";
+
+export type StatsQuery = { agent?: AgentId | readonly AgentId[], days?: string, limit?: string, force?: "true" | "false", 
+/**
+ * Only `"true"`: stats are always redacted.
+ */
+redact?: "true", };
+
+export type DrillQuery = { offset?: string, pageSize?: string, agent?: AgentId | readonly AgentId[], days?: string, limit?: string, force?: "true" | "false", 
+/**
+ * Only `"true"`: stats are always redacted.
+ */
+redact?: "true", };
+
+export type MarkersQuery = { agent?: AgentId | readonly AgentId[], force?: "true" | "false", };
+
+export type UsageQuery = { by: UsageBy, days?: string, tz?: string, agent?: AgentId | readonly AgentId[], force?: "true" | "false", };
+
+export type RefreshBody = { agents?: Array<AgentId>, force?: boolean, };
+
+export type SearchQuery = { q: string, agent?: AgentId | "", project?: string, since?: string, limit?: string, redact?: "true" | "false", };
+
+export type MemoryCreateBody = { name: string, description: string, type: string, body: string, };
+
+export type MemoryFrontmatterPatch = { name?: string, description?: string, type?: string, };
+
+export type MemoryUpdateBody = { frontmatter?: MemoryFrontmatterPatch, body?: string, expectedMtime?: number, };
+
+export type ApiError = { "_tag": "SessionNotFoundError", id: string, searchedRoot: string, } | { "_tag": "TranscriptParseError", path: string, reason: string, } | { "_tag": "FileChangedError", path: string, reason: FileChangeReason, } | { "_tag": "SettingsWriteError", path: string, reason: string, } | { "_tag": "ImageNotFoundError", id: string, line: number, block: number, item?: number, } | { "_tag": "BadRequestError", reason: string, } | { "_tag": "NotFoundError", path: string, } | { "_tag": "MethodNotAllowedError", method: string, } | { "_tag": "PathOutsideRootError", path: string, roots: Array<string>, } | { "_tag": "CapabilityUnsupportedError", capabilityId: string, agentId: AgentId, } | { "_tag": "MemoryValidationError", reason: string, name?: string, } | { "_tag": "MemoryNotFoundError", project: string, name: string, } | { "_tag": "StatsScanError", reason: string, path?: string, } | { "_tag": "StatsRowNotFoundError", key: string, table: string, };
 
 export type ApiErrorBody = { error: ApiError, };

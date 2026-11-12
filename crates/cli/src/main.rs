@@ -130,6 +130,22 @@ enum Run<'a> {
 }
 
 impl<'a> Run<'a> {
+    /// The command name when it has no `--remote` form in this build.
+    const fn local_only(&self) -> Option<&'static str> {
+        match self {
+            Self::Search(_) => Some("sessions search"),
+            Self::MemoryLs(_) => Some("memory ls"),
+            Self::MemoryShow(_) => Some("memory show"),
+            Self::MemoryRm(_) => Some("memory rm"),
+            Self::Stats(_) => Some("stats"),
+            Self::StatsDrill(_) => Some("stats drill"),
+            Self::StatsPrompt(_) => Some("stats prompt"),
+            Self::StatsRefresh(_) => Some("stats refresh"),
+            Self::StatsUsage(_) => Some("stats usage"),
+            Self::Ls(_) | Self::Analyze(_) | Self::Export(_) | Self::Serve(_) => None,
+        }
+    }
+
     fn cwd_flag(self) -> Option<&'a str> {
         match self {
             Self::Ls(a) => a.cwd.as_deref(),
@@ -210,6 +226,12 @@ fn write_failure(e: &io::Error) -> &'static str {
 
 fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<ExitCode> {
     let root = failure.root;
+    if let (Some(_), Some(name)) = (&cli.remote, cmd.local_only()) {
+        let e = ls::UserError::Invalid(format!(
+            "--remote is not supported for `{name}` in the Rust build yet."
+        ));
+        return Ok(failure.fail(&e));
+    }
     let ctx = gather_context(cmd.cwd_flag())?;
     let globals = Globals {
         json: cli.json,

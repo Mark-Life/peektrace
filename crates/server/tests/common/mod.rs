@@ -59,6 +59,12 @@ pub struct Options<'a> {
     pub token: Option<&'a str>,
     /// Agent roots; the core fixtures when `None`.
     pub roots: Option<AgentRoots>,
+    /// Stats cache dir; a fresh one under the test dir when `None`.
+    pub stats_dir: Option<String>,
+    /// Pinned clock; the wall clock when `None`.
+    pub now: Option<peektrace_server::Clock>,
+    /// User home for redaction.
+    pub home: Option<String>,
 }
 
 impl Default for Options<'_> {
@@ -69,6 +75,9 @@ impl Default for Options<'_> {
             host: "127.0.0.1",
             token: None,
             roots: None,
+            stats_dir: None,
+            now: None,
+            home: None,
         }
     }
 }
@@ -93,12 +102,19 @@ pub fn start(o: &Options<'_>) -> TestServer {
     let state = AppState {
         roots: o.roots.clone().unwrap_or_else(fixture_roots),
         settings_path: settings_path.clone(),
-        user_home: "/home/test".to_owned(),
+        user_home: o.home.clone().unwrap_or_else(|| "/home/test".to_owned()),
         read_only: o.read_only,
         zone: Arc::new(Utc),
         versions: rx,
         stop: stop_rx,
         headers: HeaderCache::default(),
+        stats_cache_root: o
+            .stats_dir
+            .clone()
+            .unwrap_or_else(|| dir.join("stats-rs").to_string_lossy().into_owned()),
+        tmp_dir: dir.to_string_lossy().into_owned(),
+        now: o.now.clone().unwrap_or_else(peektrace_server::system_clock),
+        stats_lock: Arc::default(),
     };
     let guards = Guards {
         allow: Allowlist::new(o.host, port),

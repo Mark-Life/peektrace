@@ -219,6 +219,175 @@ pub struct AnalysisQuery {
     pub redact: Option<String>,
 }
 
+/// A stats table a drill expands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum DrillTable {
+    Cause,
+    Fail,
+    Time,
+    Cluster,
+    Wait,
+}
+
+/// How `GET /api/stats/usage` buckets turns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "lowercase")]
+pub enum UsageBy {
+    Day,
+    Month,
+    Block,
+}
+
+/// Query of `GET /api/stats/report`. `agent` repeats; none means every
+/// agent. Numbers as decimal text.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct StatsQuery {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "AgentId | readonly AgentId[]"))]
+    pub agent: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub days: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub limit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "\"true\" | \"false\""))]
+    pub force: Option<String>,
+    /// Only `"true"`: stats are always redacted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "\"true\""))]
+    pub redact: Option<String>,
+}
+
+/// Query of `GET /api/stats/drill/{table}/{key}`: [`StatsQuery`] plus the page.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct DrillQuery {
+    #[serde(flatten)]
+    pub stats: StatsQuery,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub offset: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub page_size: Option<String>,
+}
+
+/// Query of `GET /api/sessions/{id}/markers`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct MarkersQuery {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "AgentId | readonly AgentId[]"))]
+    pub agent: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "\"true\" | \"false\""))]
+    pub force: Option<String>,
+}
+
+/// Query of `GET /api/stats/usage`. `tz` defaults to `UTC`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct UsageQuery {
+    pub by: UsageBy,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub days: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub tz: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "AgentId | readonly AgentId[]"))]
+    pub agent: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "\"true\" | \"false\""))]
+    pub force: Option<String>,
+}
+
+/// `POST /api/stats/refresh` body; an empty body is `{}`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct RefreshBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub agents: Option<Vec<AgentId>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub force: Option<bool>,
+}
+
+/// Query of `GET /api/sessions/search`. `project` filters when present,
+/// even when empty.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct SearchQuery {
+    pub q: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "AgentId | \"\""))]
+    pub agent: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub since: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub limit: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional, type = "\"true\" | \"false\""))]
+    pub redact: Option<String>,
+}
+
+/// `POST /api/memory/projects/{project}/entries` body.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct MemoryCreateBody {
+    pub name: String,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub body: String,
+}
+
+/// Frontmatter fields a memory update may change.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct MemoryFrontmatterPatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub description: Option<String>,
+    #[serde(default, rename = "type", skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub kind: Option<String>,
+}
+
+/// `PATCH /api/memory/projects/{project}/entries/{name}` body.
+/// `expectedMtime` turns on compare-and-swap.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryUpdateBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub frontmatter: Option<MemoryFrontmatterPatch>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub body: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub expected_mtime: Option<f64>,
+}
+
 /// Why a settings compare-and-swap failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -227,16 +396,6 @@ pub enum FileChangeReason {
     Mtime,
     Hash,
     Missing,
-}
-
-/// A feature whose routes answer 501 in this build.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(test, derive(ts_rs::TS))]
-#[serde(rename_all = "lowercase")]
-pub enum NotPortedFeature {
-    Stats,
-    Memory,
-    Search,
 }
 
 /// Every failure an `/api` route answers with, as `{"error": ...}`.
@@ -279,9 +438,6 @@ pub enum ApiError {
     },
     MethodNotAllowedError {
         method: String,
-    },
-    NotPortedYetError {
-        feature: NotPortedFeature,
     },
     PathOutsideRootError {
         path: String,
@@ -328,8 +484,10 @@ impl ApiError {
             | Self::StatsRowNotFoundError { .. } => 404,
             Self::MethodNotAllowedError { .. } => 405,
             Self::FileChangedError { .. } => 409,
+            Self::MemoryValidationError { reason, .. } if is_read_only_reason(reason.as_str()) => {
+                403
+            }
             Self::MemoryValidationError { .. } => 422,
-            Self::NotPortedYetError { .. } => 501,
             Self::TranscriptParseError { .. }
             | Self::SettingsWriteError { .. }
             | Self::StatsScanError { .. } => 500,
