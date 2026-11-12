@@ -5,6 +5,9 @@
  *
  *   bun scripts/rust/parity.ts                 # fixtures + real ~/.claude
  *   bun scripts/rust/parity.ts --fixtures-only # CI
+ *   bun scripts/rust/parity.ts --base-only      # only the `ls` suites, the
+ *                                              # OpenCode stage and
+ *                                              # analyze/export
  *   bun scripts/rust/parity.ts --serve-only     # only the serve stage
  *   bun scripts/rust/parity.ts --bin target/debug/peektrace
  *   bun scripts/rust/parity.ts --work .scratch/parity-b  # own scratch dir
@@ -13,7 +16,8 @@
  *   bun scripts/rust/parity.ts --stats-only    # only the `stats` stage
  *   bun scripts/rust/parity.ts --search-only   # only the `sessions search` stage
  *   bun scripts/rust/parity.ts --memory-only   # only the `memory` stage
- *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp, upgrade
+ *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp,
+ *                                              # upgrade, help, telemetry
  *   bun scripts/rust/parity.ts --tui-only      # only the `tui` stage
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
@@ -386,12 +390,12 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
 
 /** Which stages run: all by default, or one with `--<stage>-only`. */
 const pickStages = () => {
-  const only = ["stats", "search", "memory", "serve", "cli", "tui"].find((s) =>
-    flag(`--${s}-only`)
+  const only = ["base", "stats", "search", "memory", "serve", "cli", "tui"].find(
+    (s) => flag(`--${s}-only`)
   );
   return {
     cli: only === undefined || only === "cli",
-    base: only === undefined,
+    base: only === undefined || only === "base",
     search: only === undefined || only === "search",
     memory: only === undefined || only === "memory",
     stats: only === undefined || only === "stats",
