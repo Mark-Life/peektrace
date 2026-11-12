@@ -106,12 +106,17 @@ const runFixtureSuites = (root: string) => {
   mkdirSync(emptyHome, { recursive: true });
   mkdirSync(empty, { recursive: true });
   const piRoot = join(root, "ts-pi");
+  const codexRoot = join(root, "ts-codex");
   rmSync(piRoot, { recursive: true, force: true });
+  rmSync(codexRoot, { recursive: true, force: true });
+  // A copy: the Claude root also lists `sessions-codex/`, and two refs with
+  // one path share one cache entry, which each side fills in its own order.
+  cpSync(join(tsFixtures, "sessions-codex"), codexRoot, { recursive: true });
   const ts: Stage = {
     name: "ts-fixtures",
     env: fixtureEnv(emptyHome, {
       PEEKTRACE_CLAUDE_PROJECTS: tsFixtures,
-      PEEKTRACE_CODEX_SESSIONS: join(tsFixtures, "sessions-codex"),
+      PEEKTRACE_CODEX_SESSIONS: codexRoot,
       PEEKTRACE_PI_SESSIONS: buildPiRoot(tsFixtures, piRoot),
       PEEKTRACE_OPENCODE_DATA: empty,
     }),

@@ -235,7 +235,7 @@ const MORE = [
   "- pkill -f kills the shell: use pkill -x NAME.",
 ].join("\n");
 
-export const touchAll = (dir: string) => {
+const touchAll = (dir: string) => {
   for (const name of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, name.name);
     if (name.isDirectory()) {
