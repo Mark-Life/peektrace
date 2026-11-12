@@ -13,11 +13,17 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 const ROOT = join(import.meta.dir, "..", "..");
+const PIN = /anomalyco\/rune", rev = "([0-9a-f]{40})"/;
+const NAME = /^name = "([^"]+)"/m;
+const VERSION = /^version = "([^"]+)"/m;
+const SOURCE = /^source = "([^"]+)"/m;
+/** Length of the short rev cargo names a checkout dir after. */
+const SHORT_REV = 7;
 const dryRun = process.argv.includes("--dry-run");
 
 const pinnedRev = () => {
   const toml = readFileSync(join(ROOT, "Cargo.toml"), "utf8");
-  const rev = toml.match(/anomalyco\/rune", rev = "([0-9a-f]{40})"/)?.[1];
+  const rev = toml.match(PIN)?.[1];
   if (!rev) {
     throw new Error("no anomalyco/rune rev in Cargo.toml");
   }
@@ -28,9 +34,9 @@ const pinnedRev = () => {
 const registryVersions = (lock: string) => {
   const out = new Map<string, string[]>();
   for (const block of lock.split("[[package]]").slice(1)) {
-    const name = block.match(/^name = "([^"]+)"/m)?.[1];
-    const version = block.match(/^version = "([^"]+)"/m)?.[1];
-    const source = block.match(/^source = "([^"]+)"/m)?.[1] ?? "";
+    const name = block.match(NAME)?.[1];
+    const version = block.match(VERSION)?.[1];
+    const source = block.match(SOURCE)?.[1] ?? "";
     if (name && version && source.startsWith("registry+")) {
       out.set(name, [...(out.get(name) ?? []), version]);
     }
@@ -39,8 +45,12 @@ const registryVersions = (lock: string) => {
 };
 
 const runeLock = (rev: string) => {
-  const base = join(process.env.CARGO_HOME ?? join(homedir(), ".cargo"), "git", "checkouts");
-  const short = rev.slice(0, 7);
+  const base = join(
+    process.env.CARGO_HOME ?? join(homedir(), ".cargo"),
+    "git",
+    "checkouts"
+  );
+  const short = rev.slice(0, SHORT_REV);
   for (const dir of readdirSync(base).filter((d) => d.startsWith("rune-"))) {
     const path = join(base, dir, short, "Cargo.lock");
     try {
@@ -49,20 +59,42 @@ const runeLock = (rev: string) => {
       // not this checkout
     }
   }
-  throw new Error(`Rune checkout ${short} not found under ${base}; run cargo fetch`);
+  throw new Error(
+    `Rune checkout ${short} not found under ${base}; run cargo fetch`
+  );
 };
 
 /** Crate names the non-Rune members build, on every target. */
 const nonRuneCrates = () => {
   const r = Bun.spawnSync(
-    ["cargo", "tree", "--workspace", "--exclude", "peektrace-ui", "--exclude", "peektrace-app",
-      "--target", "all", "-e", "normal,build,dev", "--prefix", "none", "-f", "{p}"],
+    [
+      "cargo",
+      "tree",
+      "--workspace",
+      "--exclude",
+      "peektrace-ui",
+      "--exclude",
+      "peektrace-app",
+      "--target",
+      "all",
+      "-e",
+      "normal,build,dev",
+      "--prefix",
+      "none",
+      "-f",
+      "{p}",
+    ],
     { cwd: ROOT, stderr: "inherit" }
   );
   if (r.exitCode !== 0) {
     throw new Error("cargo tree failed");
   }
-  return new Set(r.stdout.toString().split("\n").map((l) => l.split(" ")[0] ?? ""));
+  return new Set(
+    r.stdout
+      .toString()
+      .split("\n")
+      .map((l) => l.split(" ")[0] ?? "")
+  );
 };
 
 const rev = pinnedRev();
@@ -72,7 +104,10 @@ const theirs = registryVersions(runeLock(rev));
 const moves = [...ours]
   .flatMap(([name, vs]) => {
     const t = theirs.get(name);
-    return !shared.has(name) && vs.length === 1 && t?.length === 1 && vs[0] !== t[0]
+    return !shared.has(name) &&
+      vs.length === 1 &&
+      t?.length === 1 &&
+      vs[0] !== t[0]
       ? [{ name, from: vs[0] as string, to: t[0] as string }]
       : [];
   })
@@ -91,4 +126,6 @@ for (const m of moves) {
     console.log(`  skipped: ${r.stderr.toString().trim().split("\n").at(-1)}`);
   }
 }
-console.log(`${moves.length} differ, ${moves.length - failed} pinned, ${failed} skipped`);
+console.log(
+  `${moves.length} differ, ${moves.length - failed} pinned, ${failed} skipped`
+);

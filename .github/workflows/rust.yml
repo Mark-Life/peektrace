@@ -103,6 +103,57 @@ jobs:
       - name: Telemetry store and layer
         run: cargo test --locked -p peektrace-telemetry --test writer --test layer
 
+  ui:
+    # The Rune app (crates/ui, crates/app) sits outside default-members, so
+    # the jobs above never build its ~600 crates. Headless renders always
+    # open a GPU adapter: lavapipe gives one in software.
+    name: rune ui (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install toolchain
+        run: |
+          rustup toolchain install || rustup show
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Linux packages
+        # xkbcommon and wayland headers for the build; lavapipe (software
+        # Vulkan) for headless --snap and --tree.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
+
+      - name: Clippy
+        run: cargo clippy --locked -p peektrace-ui -p peektrace-app --all-targets -- -D warnings
+
+      - name: wasm check
+        run: cargo check --locked -p peektrace-app --target wasm32-unknown-unknown
+
+      - name: Tests (unit, Runtime, drift, headless goldens)
+        run: |
+          export VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -1)
+          cargo test --locked -p peektrace-ui -p peektrace-app
+
+      - name: Snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rune-snaps
+          path: target/rune-snaps
+          if-no-files-found: ignore
+
   goldens:
     # Keeps the old check name for branch rules. Only the Rust side runs:
     # the TS side comes from tests/goldens. A `record-goldens` PR label

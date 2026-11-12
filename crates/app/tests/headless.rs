@@ -1,6 +1,7 @@
 //! Headless renders of each scene on the synthetic HOME. The element tree,
 //! normalised, is compared with `crates/ui/tests/goldens/<scene>.tree.json`
-//! (`UPDATE_GOLDENS=1` rewrites them). PNGs land in `target/rune-snaps` for
+//! as JSON values, so formatting does not matter (`UPDATE_GOLDENS=1`
+//! rewrites them). PNGs land in `target/rune-snaps` for
 //! review; they are not compared, since Metal and lavapipe raster differ.
 
 #[path = "../../ui/tests/common/home.rs"]
@@ -84,9 +85,12 @@ fn check(name: &str, got: &Value) {
         std::fs::write(&path, text).expect("write golden");
         return;
     }
-    let want = std::fs::read_to_string(&path).unwrap_or_default();
+    let want: Value = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or(Value::Null);
     assert!(
-        want == text,
+        want == *got,
         "{name}: tree differs from {}; rerun with UPDATE_GOLDENS=1 and review",
         path.display()
     );
