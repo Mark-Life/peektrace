@@ -4,6 +4,7 @@
 use std::collections::HashSet;
 use std::fs;
 
+use rayon::prelude::*;
 use tracing::info_span;
 
 use super::rank::cmp_str;
@@ -46,26 +47,36 @@ pub fn classify_parts(parts: &[String]) -> (Kind, Option<String>, Option<String>
     }
 }
 
-/// `.jsonl` files at depth >= 1 under `dir`, with their path parts.
+/// `.jsonl` files at depth >= 1 under `dir`, with their path parts. The entry
+/// type comes from the dir listing; only symlinks are followed with a stat.
 fn nested_in(dir: &str, parts: &mut Vec<String>, out: &mut Vec<(String, Vec<String>)>) {
     if parts.len() > MAX_DEPTH {
         return;
     }
     let Ok(read) = fs::read_dir(dir) else { return };
-    let names: Vec<String> = read
+    let entries: Vec<(String, fs::FileType)> = read
         .filter_map(Result::ok)
-        .filter_map(|e| e.file_name().into_string().ok())
+        .filter_map(|e| Some((e.file_name().into_string().ok()?, e.file_type().ok()?)))
         .collect();
-    for name in names {
-        let path = format!("{dir}/{name}");
-        let Ok(meta) = fs::metadata(&path) else {
+    for (name, kind) in entries {
+        let wanted_file = !parts.is_empty() && name != JOURNAL && name.ends_with(JSONL);
+        if kind.is_file() && !wanted_file {
             continue;
+        }
+        let path = format!("{dir}/{name}");
+        let (is_dir, is_file) = if kind.is_symlink() {
+            match fs::metadata(&path) {
+                Ok(m) => (m.is_dir(), m.is_file()),
+                Err(_) => continue,
+            }
+        } else {
+            (kind.is_dir(), kind.is_file())
         };
-        if meta.is_dir() {
+        if is_dir {
             parts.push(name);
             nested_in(&path, parts, out);
             parts.pop();
-        } else if meta.is_file() && name != JOURNAL && name.ends_with(JSONL) && !parts.is_empty() {
+        } else if is_file && wanted_file {
             let mut p = parts.clone();
             p.push(name);
             out.push((path, p));
@@ -74,37 +85,44 @@ fn nested_in(dir: &str, parts: &mut Vec<String>, out: &mut Vec<(String, Vec<Stri
 }
 
 fn nested_refs(sources: &[Source]) -> Vec<TranscriptRef> {
-    let mut out = Vec::new();
-    for (i, source) in sources.iter().enumerate() {
-        let tag = (i > 0).then(|| SourceTag {
-            id: source.id.clone(),
-            label: source.label.clone(),
-        });
-        for slug in project_slugs(sources) {
-            let mut found = Vec::new();
-            nested_in(
-                &format!("{}/{slug}", source.projects_root),
-                &mut Vec::new(),
-                &mut found,
-            );
-            out.extend(found.into_iter().map(|(path, parts)| {
-                let name = parts.last().map_or("", String::as_str);
-                let id = name.strip_suffix(JSONL).unwrap_or(name).to_owned();
-                let (kind, parent, run) = classify_parts(&parts);
-                TranscriptRef {
-                    id,
-                    slug: slug.clone(),
-                    path,
-                    source: tag.clone(),
-                    agent: Agent::Claude,
-                    kind,
-                    parent,
-                    run,
-                }
-            }));
-        }
-    }
-    out
+    let slugs = project_slugs(sources);
+    sources
+        .iter()
+        .enumerate()
+        .flat_map(|(i, source)| {
+            let tag = (i > 0).then(|| SourceTag {
+                id: source.id.clone(),
+                label: source.label.clone(),
+            });
+            slugs
+                .par_iter()
+                .flat_map_iter(|slug| {
+                    let mut found = Vec::new();
+                    nested_in(
+                        &format!("{}/{slug}", source.projects_root),
+                        &mut Vec::new(),
+                        &mut found,
+                    );
+                    let tag = tag.clone();
+                    found.into_iter().map(move |(path, parts)| {
+                        let name = parts.last().map_or("", String::as_str);
+                        let id = name.strip_suffix(JSONL).unwrap_or(name).to_owned();
+                        let (kind, parent, run) = classify_parts(&parts);
+                        TranscriptRef {
+                            id,
+                            slug: slug.clone(),
+                            path,
+                            source: tag.clone(),
+                            agent: Agent::Claude,
+                            kind,
+                            parent,
+                            run,
+                        }
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
 }
 
 fn sort_by_path(refs: &mut [TranscriptRef]) {

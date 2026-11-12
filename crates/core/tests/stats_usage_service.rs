@@ -187,3 +187,35 @@ fn steady_work_through_the_widened_range_reads_full_history() {
     assert_eq!(passes, 2);
     assert_eq!(rows, [(to_iso_string(cutoff), 2.0)]);
 }
+
+#[test]
+fn a_warm_run_leaves_the_index_alone_until_a_transcript_changes() {
+    let t = corpus(&[(NOW - HOUR, "a")]);
+    let r = req(UsageBy::Day, Some(7), "UTC");
+    let index = t.path("pdir/stats-rs/index.json");
+    let mtime = || {
+        std::fs::metadata(&index)
+            .and_then(|m| m.modified())
+            .expect("index")
+    };
+    let age = |at: std::time::SystemTime| {
+        std::fs::File::options()
+            .write(true)
+            .open(&index)
+            .and_then(|f| f.set_modified(at))
+            .expect("touch");
+    };
+    let old = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000);
+    run(&t, &r, NOW).report.expect("cold");
+    age(old);
+    run(&t, &r, NOW).report.expect("warm");
+    assert_eq!(mtime(), old);
+    t.write(
+        "projects/-w/sess-2.jsonl",
+        &(json!({ "type": "user", "timestamp": to_iso_string(NOW - HOUR), "cwd": "/w" })
+            .to_string()
+            + "\n"),
+    );
+    run(&t, &r, NOW).report.expect("changed");
+    assert_ne!(mtime(), old);
+}

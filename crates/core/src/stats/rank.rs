@@ -174,29 +174,54 @@ pub trait SampleKey {
 pub fn compare_samples<T: SampleKey>(a: &T, b: &T) -> Ordering {
     units::len(a.line())
         .cmp(&units::len(b.line()))
-        .then_with(|| cmp_str(a.line(), b.line()))
+        .then_with(|| compare_rest(a, b))
+}
+
+fn compare_rest<T: SampleKey>(a: &T, b: &T) -> Ordering {
+    cmp_str(a.line(), b.line())
         .then_with(|| cmp_str(a.sid(), b.sid()))
         .then_with(|| asc(a.seq(), b.seq()))
 }
 
+/// Indices of up to `cap` candidates in `compare_samples` order, the first
+/// of each call only. Line lengths are counted once per candidate.
+fn pick_order<T: SampleKey>(candidates: &[T], cap: usize) -> Vec<usize> {
+    let mut seen = HashSet::with_capacity(candidates.len());
+    let mut unique: Vec<(usize, usize)> = candidates
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| seen.insert((c.sid(), c.seq().to_bits())))
+        .map(|(i, c)| (units::len(c.line()), i))
+        .collect();
+    let cmp = |a: &(usize, usize), b: &(usize, usize)| {
+        a.0.cmp(&b.0)
+            .then_with(|| compare_rest(&candidates[a.1], &candidates[b.1]))
+            .then_with(|| a.1.cmp(&b.1))
+    };
+    if unique.len() > cap && cap > 0 {
+        unique.select_nth_unstable_by(cap - 1, cmp);
+    }
+    unique.truncate(cap);
+    unique.sort_unstable_by(cmp);
+    unique.into_iter().map(|(_, i)| i).collect()
+}
+
 /// Up to `cap` samples in `compare_samples` order, one per call.
 pub fn pick_samples<T: SampleKey + Clone>(candidates: &[T], cap: usize) -> Vec<T> {
-    let mut seen = HashSet::new();
-    let mut unique: Vec<T> = candidates
-        .iter()
-        .filter(|c| seen.insert((c.sid().to_owned(), c.seq().to_bits())))
-        .cloned()
-        .collect();
-    unique.sort_by(compare_samples);
-    unique.truncate(cap);
-    unique
+    pick_order(candidates, cap)
+        .into_iter()
+        .map(|i| candidates[i].clone())
+        .collect()
 }
 
 /// Cut a pool that grew past twice `SAMPLE_POOL` back to the best `SAMPLE_POOL`.
-pub fn bound_pool<T: SampleKey + Clone>(pool: &mut Vec<T>) {
-    if pool.len() > SAMPLE_POOL * 2 {
-        *pool = pick_samples(pool, SAMPLE_POOL);
+pub fn bound_pool<T: SampleKey>(pool: &mut Vec<T>) {
+    if pool.len() <= SAMPLE_POOL * 2 {
+        return;
     }
+    let order = pick_order(pool, SAMPLE_POOL);
+    let mut slots: Vec<Option<T>> = pool.drain(..).map(Some).collect();
+    pool.extend(order.into_iter().filter_map(|i| slots[i].take()));
 }
 
 #[cfg(test)]
@@ -209,6 +234,48 @@ mod tests {
         assert_eq!(round(-0.001).to_bits(), 0f64.to_bits());
         assert!((share(1.0, 3.0) - 0.3333).abs() < 1e-12);
         assert_eq!(round(f64::NAN).to_bits(), 0f64.to_bits());
+    }
+
+    #[derive(Clone, Debug, PartialEq)]
+    struct S(&'static str, &'static str, f64);
+
+    impl SampleKey for S {
+        fn line(&self) -> &str {
+            self.0
+        }
+        fn sid(&self) -> &str {
+            self.1
+        }
+        fn seq(&self) -> f64 {
+            self.2
+        }
+    }
+
+    #[test]
+    fn picks_match_a_full_sort_of_first_occurrences() {
+        let lines = ["bb", "a", "é", "ccc", "a", "\u{1F600}", "zz", "b"];
+        let pool: Vec<S> = (0..300)
+            .map(|i| {
+                S(
+                    lines[(i * 7) % lines.len()],
+                    ["s1", "s2", "s3"][i % 3],
+                    f64::from(u32::try_from(i % 97).unwrap_or(0)),
+                )
+            })
+            .collect();
+        let mut seen = HashSet::new();
+        let mut want: Vec<S> = pool
+            .iter()
+            .filter(|c| seen.insert((c.1, c.2.to_bits())))
+            .cloned()
+            .collect();
+        want.sort_by(compare_samples);
+        want.truncate(SAMPLE_POOL);
+        assert_eq!(pick_samples(&pool, SAMPLE_POOL), want);
+        let mut bounded = pool;
+        bound_pool(&mut bounded);
+        assert_eq!(bounded, want);
+        assert_eq!(pick_samples(&bounded, 0), Vec::<S>::new());
     }
 
     #[test]

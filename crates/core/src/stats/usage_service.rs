@@ -1,11 +1,11 @@
 //! `stats usage`: a widened pass over the usage rows, plus a full-history
-//! pass when the first one may have cut a block chain.
+//! pass when the first one may have cut a block chain. Both fold one walk.
 
 use jiff::tz::{Offset, TimeZone};
 use tracing::info_span;
 
 use super::detectors::usage::{DAY_MS, UsageBy, UsageResult, UsageRow, UsageSink};
-use super::pass::{PassArgs, PassEnv, run_pass, scope_of};
+use super::pass::{PassArgs, PassEnv, fold_refs, pass_refs, scope_of};
 use super::service::{StatsEnv, StatsError};
 use crate::js::json_out::Writer;
 use crate::js::time::to_iso_string;
@@ -158,19 +158,17 @@ pub fn usage(env: &StatsEnv<'_>, req: &UsageRequest) -> Result<UsageReport, Stat
         local: env.local,
         progress: env.progress,
     };
+    let args = |from: Option<i64>, force: bool| PassArgs {
+        scope: &scope,
+        force,
+        from_ms: from.unwrap_or(0) as f64,
+        to_ms: now as f64,
+        only: None,
+    };
+    let refs = pass_refs(&pass_env, &args(None, false));
     let run = |from: Option<i64>, force: bool| {
         let mut sink = UsageSink::new(req.by, days, from, now, tz.clone(), env.local);
-        run_pass(
-            &pass_env,
-            &PassArgs {
-                scope: &scope,
-                force,
-                from_ms: from.unwrap_or(0) as f64,
-                to_ms: now as f64,
-                only: None,
-            },
-            &mut |f| sink.add(f),
-        );
+        fold_refs(&pass_env, &args(from, force), &refs, &mut |f| sink.add(f));
         sink.finish()
     };
     let first = run(Some(from_ms - widen), req.force);

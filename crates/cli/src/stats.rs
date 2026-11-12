@@ -7,6 +7,7 @@ use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::stats::accumulate::DrillTable;
 use peektrace_core::stats::cache::StatsCache;
 use peektrace_core::stats::detectors::usage::UsageBy;
+use peektrace_core::stats::icu_zones::icu_zone_name;
 use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
 use peektrace_core::stats::service::{ReportRequest, StatsEnv, StatsError, drill, refresh, report};
 use peektrace_core::stats::usage_service::{MAX_USAGE_DAYS, UsageRequest, usage, zone_of};
@@ -295,7 +296,7 @@ fn machine_zone() -> String {
         .ok()
         .filter(|tz| !tz.is_empty() && zone_of(tz).is_some())
         .or_else(|| jiff::tz::TimeZone::system().iana_name().map(str::to_owned))
-        .unwrap_or_else(|| "UTC".to_owned())
+        .map_or_else(|| "UTC".to_owned(), |name| icu_zone_name(&name).to_owned())
 }
 
 /// `stats usage`: tokens and cost per day, month or block.

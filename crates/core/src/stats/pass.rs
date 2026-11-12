@@ -207,13 +207,36 @@ fn encode_slug(cwd: &str) -> String {
     cwd.replace(['/', '.'], "-")
 }
 
-/// Walk the corpus once, folding every in-window fact into `sink`.
-pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fact)) -> PassResult {
+/// The transcripts a pass folds: the corpus, narrowed by `args.only`.
+pub fn pass_refs(env: &PassEnv<'_>, args: &PassArgs<'_>) -> Vec<TranscriptRef> {
     let all = list_corpus(args.scope, env.claude);
-    let refs: Vec<TranscriptRef> = match args.only {
+    match args.only {
         Some(keep) => all.into_iter().filter(|r| keep(r)).collect(),
         None => all,
-    };
+    }
+}
+
+/// Walk the corpus once, folding every in-window fact into `sink`.
+pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fact)) -> PassResult {
+    fold_refs(env, args, &pass_refs(env, args), sink)
+}
+
+/// True when the index already holds exactly `entries`, in order. An empty
+/// one is always written, so a fresh or outdated index gets replaced.
+fn index_unchanged(index: &IndexMap<String, CacheEntry>, entries: &[CacheEntry]) -> bool {
+    !index.is_empty()
+        && index.len() == entries.len()
+        && index.values().zip(entries).all(|(a, b)| a == b)
+}
+
+/// Fold `refs` (from `pass_refs`) in path order. Files are read one chunk
+/// ahead on the rayon pool while the caller's thread folds the last chunk.
+pub fn fold_refs(
+    env: &PassEnv<'_>,
+    args: &PassArgs<'_>,
+    refs: &[TranscriptRef],
+    sink: &mut dyn FnMut(&Fact),
+) -> PassResult {
     let index = env.cache.load();
     let (cache, local) = (env.cache, env.local);
     let mut out = PassResult {
@@ -225,51 +248,66 @@ pub fn run_pass(env: &PassEnv<'_>, args: &PassArgs<'_>, sink: &mut dyn FnMut(&Fa
     let mut done = 0;
     {
         let _span = info_span!("Stats.foldCorpus", transcripts = refs.len()).entered();
-        for chunk in refs.chunks(CHUNK) {
-            let results: Vec<FileResult> = chunk
-                .par_iter()
-                .map(|r| facts_for(cache, local, &index, r, args))
-                .collect();
-            for (r, res) in chunk.iter().zip(results) {
-                done += 1;
-                if let Some(p) = env.progress {
-                    p(done, refs.len());
-                }
-                if res.skipped {
-                    skipped.push(&r.path);
-                    continue;
-                }
-                entries.extend(res.entry);
-                if res.cached {
-                    out.cached += 1;
-                } else {
-                    out.extracted += 1;
-                }
-                for f in res
-                    .facts
-                    .iter()
-                    .filter(|f| in_window(f, args.from_ms, args.to_ms, env.local))
-                {
-                    if !matches!(f, Fact::Usage(_)) {
-                        out.facts += 1;
+        std::thread::scope(|scope| {
+            let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<FileResult>>(0);
+            let index = &index;
+            scope.spawn(move || {
+                for chunk in refs.chunks(CHUNK) {
+                    let results: Vec<FileResult> = chunk
+                        .par_iter()
+                        .map(|r| facts_for(cache, local, index, r, args))
+                        .collect();
+                    if tx.send(results).is_err() {
+                        return;
                     }
-                    sink(f);
+                }
+            });
+            for (chunk, results) in refs.chunks(CHUNK).zip(rx) {
+                for (r, res) in chunk.iter().zip(results) {
+                    done += 1;
+                    if let Some(p) = env.progress {
+                        p(done, refs.len());
+                    }
+                    if res.skipped {
+                        skipped.push(&r.path);
+                        continue;
+                    }
+                    entries.extend(res.entry);
+                    if res.cached {
+                        out.cached += 1;
+                    } else {
+                        out.extracted += 1;
+                    }
+                    for f in res
+                        .facts
+                        .iter()
+                        .filter(|f| in_window(f, args.from_ms, args.to_ms, env.local))
+                    {
+                        if !matches!(f, Fact::Usage(_)) {
+                            out.facts += 1;
+                        }
+                        sink(f);
+                    }
                 }
             }
-        }
+        });
     }
     if is_full_scope(args.scope) && args.only.is_none() {
-        env.cache.commit(&entries);
-        env.cache.prune(
-            &entries
-                .iter()
-                .map(|e| e.shard.clone())
-                .collect::<HashSet<_>>(),
-        );
+        if !index_unchanged(&index, &entries) {
+            env.cache.commit(&entries);
+            env.cache.prune(
+                &entries
+                    .iter()
+                    .map(|e| e.shard.clone())
+                    .collect::<HashSet<_>>(),
+            );
+        }
     } else {
         let scanned: Vec<String> = refs.iter().map(|r| r.path.clone()).collect();
-        env.cache
-            .commit(&merge_index(&env.cache.load(), &entries, &scanned));
+        let next = merge_index(&index, &entries, &scanned);
+        if !index_unchanged(&index, &next) {
+            env.cache.commit(&next);
+        }
     }
     out.paths = refs
         .iter()

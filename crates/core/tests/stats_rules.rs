@@ -258,6 +258,35 @@ fn a_binarys_name_must_be_a_whole_word() {
     assert!(has("rsync", "- Install `rsync` before syncing."));
 }
 
+/// Expected values are the TS probe's (lookbehind and lookahead) answers.
+#[test]
+fn a_binarys_word_bounds_match_the_ts_probe() {
+    let r = cnf_row(details(&[("jq", 1.0)]));
+    let has = |line: &str| check(&r, &one_doc(&[line]), &any_counts()).is_some();
+    for (line, want) in [
+        ("jq is not installed", true),
+        ("x.jq is missing", false),
+        ("-jq missing", false),
+        ("(jq) missing", false),
+        ("(jq missing", true),
+        ("JQ IS MISSING", true),
+        ("`jq` unavailable", true),
+        ("install jq.", true),
+        ("install jq.x", false),
+        ("install jq, then", true),
+        ("install jq", true),
+        ("install jq)", true),
+        ("no jq binary", true),
+        ("no jqx binary", false),
+        ("there is no jq.", true),
+        ("has no `jq`:", true),
+        ("no `jq`.x", false),
+        ("ajq missing", false),
+    ] {
+        assert_eq!(has(line), want, "{line}");
+    }
+}
+
 #[test]
 fn a_loose_line_is_not_a_rule() {
     let has = |r: &RowRef<'_>, line: &str| check(r, &one_doc(&[line]), &any_counts()).is_some();

@@ -153,22 +153,26 @@ impl Probes {
     }
 }
 
+/// TS: `(?<![\w.-])` before and `(?=\s|$|[,;:)]|\.(?:\s|$))` after the
+/// name. As a yes/no test the lookarounds become plain groups: a name after a
+/// literal space needs no start check, one before a literal space no end
+/// check. That keeps the probe on the linear engine.
 fn binary_probes(details: &[(String, f64)]) -> Vec<Vec<Re>> {
     details
         .iter()
         .map(|(value, _)| {
             let name = escape_re(value);
-            let start = r"(?<![\w.-])";
-            let end = r"(?=\s|$|[,;:)]|\.(?:\s|$))";
-            let b = format!("{start}`?{name}`?{end}");
+            let end = r"(?:\s|$|[,;:)]|\.(?:\s|$))";
+            let mid = format!("`?{name}`?");
+            let tail = format!("{mid}{end}");
             let absent = [
-                format!(r"\b(?:has|have|there is|there's|there are) no {b}"),
+                format!(r"\b(?:has|have|there is|there's|there are) no {tail}"),
                 format!(r"\bno `{name}`{end}"),
-                format!(r"\bno {b} (?:binary|command|executable|installed|on (?:this )?(?:host|machine|box|PATH))\b"),
+                format!(r"\bno {mid} (?:binary|command|executable|installed|on (?:this )?(?:host|machine|box|PATH))\b"),
             ]
             .join("|");
             vec![Re::new(
-                &format!(r"{absent}|{b} (?:is )?(?:not installed|missing|unavailable|not available|not on PATH)|\b(?:install|without|instead of) {b}"),
+                &format!(r"{absent}|(?:^|[^\w.-]){mid} (?:is )?(?:not installed|missing|unavailable|not available|not on PATH)|\b(?:install|without|instead of) {tail}"),
                 "i",
             )]
         })
@@ -206,10 +210,17 @@ fn match_doc(doc: &MemoryDoc, probes: &Probes) -> Vec<usize> {
     }
     let mut hits: Vec<usize> = Vec::new();
     for (i, line) in doc.lines.iter().enumerate() {
+        let leads: Vec<&Vec<Re>> = probes
+            .iter()
+            .filter(|p| p.first().is_some_and(|re| re.is_match(line)))
+            .collect();
+        if leads.is_empty() {
+            continue;
+        }
         let window = doc.lines[i.saturating_sub(1)..(i + 2).min(doc.lines.len())].join("\n");
-        let anchored = probes.iter().any(|p| {
-            p.first().is_some_and(|re| re.is_match(line)) && p.iter().all(|re| re.is_match(&window))
-        });
+        let anchored = leads
+            .iter()
+            .any(|p| p.iter().all(|re| re.is_match(&window)));
         if anchored && !(i > 0 && hits.last() == Some(&(i - 1))) {
             hits.push(i);
         }

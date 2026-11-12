@@ -10,7 +10,9 @@
  * - Real suite: a JSON or text mismatch is run again once on both sides (a
  *   fact at the window edge, or a block's `active` flag, can move between
  *   the two runs).
- * - Cases where TS fails with an Effect defect are skipped, not diffed.
+ * - Cases where TS fails with an Effect defect are skipped, not diffed, but
+ *   counted; Rust must still exit 0 or 1 there. A skipped key-discovery
+ *   case fails the stage, since every keyed drill and prompt case drops.
  */
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -71,27 +73,33 @@ interface Stage {
 const runBoth = (stage: Stage, args: Args) => {
   const ts = run([...TS_CMD, ...BASE, ...args], stage.env);
   const rust = run([rustBin, ...BASE, ...args], stage.env);
-  return { ts: normalise(ts), rust: normalise(rust) };
+  return { raw: ts.stdout, ts: normalise(ts), rust: normalise(rust) };
 };
 
 const same = (a: Run, b: Run) =>
   a.code === b.code && a.stdout === b.stdout && a.stderr === b.stderr;
 
 let checked = 0;
+let skipped = 0;
 
-/** Run one case; returns the TS stdout for key discovery. */
-const check = (stage: Stage, args: Args): string => {
+/** Run one case; returns the raw TS stdout for key discovery, or null on a TS defect. */
+const check = (stage: Stage, args: Args): string | null => {
   checked += 1;
-  let { ts, rust } = runBoth(stage, args);
+  const label = `${stage.name} [${args.join(" ")}]`;
+  let { raw, ts, rust } = runBoth(stage, args);
   if (TS_DEFECT.test(ts.stdout) || TS_DEFECT.test(ts.stderr)) {
+    skipped += 1;
     console.log(`  skip (TS defect) [${args.join(" ")}]`);
-    return "";
+    if (rust.code !== 0 && rust.code !== 1) {
+      report(`${label}: TS defect, rust exit ${rust.code}`);
+    }
+    return null;
   }
   if (stage.retry && !same(ts, rust)) {
-    ({ ts, rust } = runBoth(stage, args));
+    ({ raw, ts, rust } = runBoth(stage, args));
   }
-  compareRun(`${stage.name} [${args.join(" ")}]`, ts, rust);
-  return ts.stdout;
+  compareRun(label, ts, rust);
+  return raw;
 };
 
 interface Keys {
@@ -101,7 +109,16 @@ interface Keys {
   readonly time: string[];
 }
 
-const keysOf = (stdout: string, cap: number): Keys => {
+const NO_KEYS: Keys = { causes: [], fails: [], time: [], clusters: [] };
+
+/** Drill and prompt keys from the raw TS report; a stage without them fails. */
+const keysOf = (stage: Stage, stdout: string | null, cap: number): Keys => {
+  if (stdout === null) {
+    report(
+      `${stage.name}: key discovery skipped (TS defect), keyed cases dropped`
+    );
+    return NO_KEYS;
+  }
   try {
     const r = JSON.parse(stdout) as Record<string, { key: string }[]>;
     const take = (rows: { key: string }[] | undefined) =>
@@ -112,18 +129,20 @@ const keysOf = (stdout: string, cap: number): Keys => {
       time: take(r.time),
       clusters: take(r.clusters),
     };
-  } catch {
-    return { causes: [], fails: [], time: [], clusters: [] };
+  } catch (e) {
+    report(`${stage.name}: key discovery output is not JSON: ${String(e)}`);
+    return NO_KEYS;
   }
 };
 
 const runCases = (stage: Stage, days: string, cap: number) => {
   console.log(`suite stats-${stage.name}`);
   const before = checked;
+  const skippedBefore = skipped;
   const scope = ["--agent", "claude", "--days", days];
   check(stage, ["stats", "refresh", "--agent", "claude", "--force", "--json"]);
   check(stage, ["stats", "refresh", "--agent", "claude", "--json"]);
-  const keys = keysOf(check(stage, ["stats", ...scope, "--json"]), cap);
+  const keys = keysOf(stage, check(stage, ["stats", ...scope, "--json"]), cap);
   check(stage, ["stats", ...scope]);
   check(stage, ["--pretty", "stats", ...scope]);
   check(stage, ["stats", ...scope, "--limit", "1", "--json"]);
@@ -211,6 +230,12 @@ const runCases = (stage: Stage, days: string, cap: number) => {
     "claude",
     ...usageDays,
   ]);
+  for (const tz of ["Asia/Kolkata", "US/Pacific", "Etc/UTC", "Europe/Kyiv"]) {
+    const env = { ...stage.env, TZ: tz };
+    const usage = ["stats", "usage", "--agent", "claude", ...usageDays];
+    check({ ...stage, env }, [...usage, "--json"]);
+    check({ ...stage, env }, usage);
+  }
   check(stage, ["stats", "usage", "--tz", "Mars/Base", "--agent", "claude"]);
   check(stage, ["stats", "usage", "--days", "0", "--agent", "claude"]);
   check(stage, ["stats", "usage", "--days", "36501", "--agent", "claude"]);
@@ -219,7 +244,10 @@ const runCases = (stage: Stage, days: string, cap: number) => {
   check(stage, ["stats", "--days", "abc", "--agent", "claude"]);
   check(stage, ["stats", "refresh", "--agent", "claude"]);
   check(stage, ["--pretty", "stats", "refresh", "--agent", "claude"]);
-  console.log(`  ${checked - before} cases`);
+  const skips = skipped - skippedBefore;
+  console.log(
+    `  ${checked - before} cases${skips > 0 ? `, ${skips} skipped (TS defect)` : ""}`
+  );
 };
 
 /** Point Codex, Pi and OpenCode at an empty dir: Rust reads Claude only. */

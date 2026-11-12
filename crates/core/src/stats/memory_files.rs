@@ -365,8 +365,7 @@ fn read_context_text(path: &str) -> Option<ContextText> {
     if !exists(path) {
         return None;
     }
-    let real_path = fs::canonicalize(path)
-        .map_or_else(|_| path.to_owned(), |p| p.to_string_lossy().into_owned());
+    let real_path = crate::paths::real_path(path);
     let meta = fs::metadata(&real_path).ok()?;
     let text = read_text(&real_path).ok()?;
     let mtime_ms = meta
