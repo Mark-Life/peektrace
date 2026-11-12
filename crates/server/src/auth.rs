@@ -327,7 +327,10 @@ mod tests {
     #[test]
     fn served_target_keeps_the_double_slash() {
         let t = served_target(&format!("/.//evil.example/x?token={TOKEN}"));
-        assert_eq!(auth_outcome(get(&t), TOKEN, 1), AuthOutcome::Redirect("/x".to_owned()));
+        assert_eq!(
+            auth_outcome(get(&t), TOKEN, 1),
+            AuthOutcome::Redirect("/x".to_owned())
+        );
         assert_eq!(served_target("/a%20b/?x=a+b"), "/a%20b/?x=a+b");
     }
 
