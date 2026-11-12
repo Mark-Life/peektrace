@@ -133,7 +133,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--wizard` | `@effect/cli` interactive builder | not ported |
 | Leaf `--help` pages (`sessions ls --help`, `stats --help`, ...) | `@effect/cli` pages with ANSI | clap pages |
 | Bare `sessions` / `memory` | the `@effect/cli` group page | the owned group page `sessions --help` prints |
-| Root `--help` rows and the bare-command banner | list `tui` and `doctor` | list `tui`; leave `doctor` out until it exists |
+| Root `--help` rows and the bare-command banner | list `doctor` | omit only `doctor`, until it exists |
 | `-v`, `--version` | `0.0.0-dev` and a blank line | `0.0.0-dev` |
 | `tui` off a terminal (stdin or stdout piped) | draws escape codes into the pipe until killed | `peektrace tui needs a terminal` on stderr, exit 1 |
 | `tui` footer URL for an IPv6 host | `http://::1:4321` | `http://[::1]:4321`, as `serve` prints it |

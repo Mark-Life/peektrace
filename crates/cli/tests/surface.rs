@@ -95,10 +95,11 @@ fn telemetry_flags_override_each_other() {
     );
 }
 
-/// The rows of the owned root page (TS `COMMAND_ROWS`, without `doctor` and
-/// `tui`, which Rust does not have yet).
-const COMMAND_ROWS: [(&str, &str); 16] = [
+/// The rows of the owned root page (TS `COMMAND_ROWS`, without `doctor`,
+/// which Rust does not have yet).
+const COMMAND_ROWS: [(&str, &str); 17] = [
     ("serve", "Start the local web UI"),
+    ("tui", "Browse sessions in a terminal UI"),
     ("sessions ls", "List session headers"),
     ("sessions analyze", "Show context forensics for one session"),
     (
@@ -276,12 +277,13 @@ fn version_flags_print_the_version() {
 }
 
 /// TS `cli-surface.test.ts` "banner names all four agents": the `Try:`
-/// line. TS also lists `tui` there; Rust adds it with the `tui` command.
+/// line.
 #[test]
 fn banner_try_line_names_stats() {
     let r = Home::new("surface").run(&[]);
     let try_line = r.out.lines().find(|l| l.starts_with("Try:")).unwrap_or("");
     assert!(try_line.contains("stats"), "{}", r.out);
+    assert!(try_line.contains("| tui |"), "{}", r.out);
 }
 
 /// TS `cli-surface.test.ts` "--json works before and after the subcommand".
