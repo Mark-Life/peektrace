@@ -27,5 +27,8 @@ tracing-subscriber.workspace = true
 rune = { workspace = true, features = ["svg"] }
 wasm-bindgen = "=0.2.129"
 
+[dev-dependencies]
+serde_json.workspace = true
+
 [lints]
 workspace = true

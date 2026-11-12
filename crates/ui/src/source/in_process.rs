@@ -101,9 +101,14 @@ impl InProcess {
         let home = std::env::home_dir()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let env = RootsEnv::from_vars(home, PathStyle::NATIVE, |k| {
+        Self::for_home(home, |k| {
             std::env::var_os(k).map(|v| v.to_string_lossy().into_owned())
-        });
+        })
+    }
+
+    /// Roots under `home`, with env vars read through `var`.
+    pub fn for_home(home: String, var: impl Fn(&str) -> Option<String>) -> Self {
+        let env = RootsEnv::from_vars(home, PathStyle::NATIVE, var);
         let settings = std::fs::read(env.settings_path())
             .ok()
             .map(|b| roots::parse_settings(&String::from_utf8_lossy(&b)))

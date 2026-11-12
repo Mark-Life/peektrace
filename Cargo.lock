@@ -3050,6 +3050,7 @@ version = "0.0.0"
 dependencies = [
  "peektrace-ui",
  "rune",
+ "serde_json",
  "tracing-subscriber",
  "wasm-bindgen",
 ]

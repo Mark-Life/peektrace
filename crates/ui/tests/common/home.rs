@@ -3,6 +3,7 @@
 //! home. `NOW` is the fixed clock every run uses (`PEEKTRACE_APP_NOW`).
 
 #![allow(dead_code, reason = "each test binary uses part of it")]
+#![allow(clippy::format_push_string, reason = "test data")]
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -71,19 +72,28 @@ pub fn env(home: &Path) -> Vec<(String, String)> {
 /// `2026-05-31T08:00:00Z` plus `sec`.
 fn ts(day: u32, sec: u64) -> String {
     let t = 8 * 3600 + sec;
-    format!("2026-05-{day:02}T{:02}:{:02}:{:02}.000Z", t / 3600, (t % 3600) / 60, t % 60)
+    format!(
+        "2026-05-{day:02}T{:02}:{:02}:{:02}.000Z",
+        t / 3600,
+        (t % 3600) / 60,
+        t % 60
+    )
 }
 
 fn line(v: &Value) -> String {
     format!("{v}\n")
 }
 
-fn assistant(req: &str, at: &str, ctx: u64, content: Vec<Value>) -> String {
-    line(&json!({"type":"assistant","requestId":req,"timestamp":at,"message":{"id":format!("msg-{req}"),"model":"claude-sonnet-4-5","usage":{"input_tokens":20,"cache_read_input_tokens":ctx,"cache_creation_input_tokens":300,"output_tokens":400},"content":content}}))
+fn assistant(req: &str, at: &str, ctx: u64, content: &[Value]) -> String {
+    line(
+        &json!({"type":"assistant","requestId":req,"timestamp":at,"message":{"id":format!("msg-{req}"),"model":"claude-sonnet-4-5","usage":{"input_tokens":20,"cache_read_input_tokens":ctx,"cache_creation_input_tokens":300,"output_tokens":400},"content":content}}),
+    )
 }
 
 fn tool_result(id: &str, at: &str, content: &Value) -> String {
-    line(&json!({"type":"user","timestamp":at,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":id,"content":content}]}}))
+    line(
+        &json!({"type":"user","timestamp":at,"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":id,"content":content}]}}),
+    )
 }
 
 /// 120 turns: two compactions, the dumb zone crossed late, one big result.
@@ -91,30 +101,64 @@ pub fn long_session() -> String {
     let mut out = line(
         &json!({"type":"user","cwd":"/Users/demo/parser","gitBranch":"feature/speed","version":"2.0.0","sessionId":LONG_ID,"timestamp":ts(31, 0),"message":{"role":"user","content":"Tune the parser and keep the tests green.\n\n- profile first\n- then cut allocations"}}),
     );
-    out += &line(&json!({"type":"attachment","timestamp":ts(31, 1),"attachment":{"type":"file","filename":"CLAUDE.md","content":"# Rules\nKeep functions pure.\n"}}));
+    out += &line(
+        &json!({"type":"attachment","timestamp":ts(31, 1),"attachment":{"type":"file","filename":"CLAUDE.md","content":"# Rules\nKeep functions pure.\n"}}),
+    );
     let mut t = 2;
     for i in 1..=120u64 {
         let ctx = match i {
-            ..=40 => 3_000 + i * 1_800,
-            41..=90 => 20_000 + (i - 40) * 1_300,
-            _ => 30_000 + (i - 90) * 2_000,
+            ..=40 => 10_000 + i * 6_000,
+            41..=90 => 60_000 + (i - 40) * 7_000,
+            _ => 100_000 + (i - 90) * 9_000,
         };
         let id = format!("toolu_{i:03}");
         let (name, input, result) = match i % 4 {
-            0 => ("Bash", json!({"command": format!("cargo test case{i}\necho done"), "description": "Run tests"}), json!(format!("test case{i} ... ok"))),
-            1 => ("Read", json!({"file_path": format!("/Users/demo/parser/src/m{i}.ts")}), json!([{"type":"text","text":"```ts\nexport const x = 1;\n```"}])),
-            2 => ("Edit", json!({"file_path": "src/lex.ts", "old_string": "let a = 1;\nlet b = 2;", "new_string": "let a = 1;\nlet b = 3;"}), json!("ok")),
-            _ => ("Grep", json!({"pattern": "TODO", "path": "src"}), json!({"matches": i, "files": ["a.ts"]})),
+            0 => (
+                "Bash",
+                json!({"command": format!("cargo test case{i}\necho done"), "description": "Run tests"}),
+                json!(format!("test case{i} ... ok")),
+            ),
+            1 => (
+                "Read",
+                json!({"file_path": format!("/Users/demo/parser/src/m{i}.ts")}),
+                json!([{"type":"text","text":"```ts\nexport const x = 1;\n```"}]),
+            ),
+            2 => (
+                "Edit",
+                json!({"file_path": "src/lex.ts", "old_string": "let a = 1;\nlet b = 2;", "new_string": "let a = 1;\nlet b = 3;"}),
+                json!("ok"),
+            ),
+            _ => (
+                "Grep",
+                json!({"pattern": "TODO", "path": "src"}),
+                json!({"matches": i, "files": ["a.ts"]}),
+            ),
         };
-        let result = if i == BIG_TURN { json!("x".repeat(BIG_BYTES - 1) + "\n") } else { result };
+        let result = if i == BIG_TURN {
+            json!("x".repeat(BIG_BYTES - 1) + "\n")
+        } else {
+            result
+        };
         let text = format!("Step {i}: **checking** with `{name}`.");
-        out += &assistant(&format!("req_{i:03}"), &ts(31, t), ctx, vec![json!({"type":"text","text":text}), json!({"type":"tool_use","id":id,"name":name,"input":input})]);
+        out += &assistant(
+            &format!("req_{i:03}"),
+            &ts(31, t),
+            ctx,
+            &[
+                json!({"type":"text","text":text}),
+                json!({"type":"tool_use","id":id,"name":name,"input":input}),
+            ],
+        );
         t += 15;
         out += &tool_result(&id, &ts(31, t), &result);
         t += 15;
         if i == 40 || i == 90 {
-            out += &line(&json!({"type":"system","subtype":"compact_boundary","timestamp":ts(31, t),"compactMetadata":{"trigger":"auto","preTokens":ctx}}));
-            out += &line(&json!({"type":"user","isCompactSummary":true,"timestamp":ts(31, t + 1),"message":{"role":"user","content":format!("Summary: parser work up to step {i}.")}}));
+            out += &line(
+                &json!({"type":"system","subtype":"compact_boundary","timestamp":ts(31, t),"compactMetadata":{"trigger":"auto","preTokens":ctx}}),
+            );
+            out += &line(
+                &json!({"type":"user","isCompactSummary":true,"timestamp":ts(31, t + 1),"message":{"role":"user","content":format!("Summary: parser work up to step {i}.")}}),
+            );
             t += 2;
         }
     }
@@ -123,10 +167,17 @@ pub fn long_session() -> String {
 }
 
 fn short(id: &str, day: u32, title: Option<&str>, reqs: &[&str]) -> String {
-    let mut out = line(&json!({"type":"user","cwd":"/Users/demo/app","gitBranch":"HEAD","sessionId":id,"timestamp":ts(day, 0),"message":{"role":"user","content":"Look at the logs."}}));
+    let mut out = line(
+        &json!({"type":"user","cwd":"/Users/demo/app","gitBranch":"HEAD","sessionId":id,"timestamp":ts(day, 0),"message":{"role":"user","content":"Look at the logs."}}),
+    );
     for (k, req) in reqs.iter().enumerate() {
         let k = u64::try_from(k).unwrap_or(0);
-        out += &assistant(req, &ts(day, 10 + k * 10), 5_000 + k * 1_000, vec![json!({"type":"text","text":format!("Reply {k} in {req}.")})]);
+        out += &assistant(
+            req,
+            &ts(day, 10 + k * 10),
+            5_000 + k * 1_000,
+            &[json!({"type":"text","text":format!("Reply {k} in {req}.")})],
+        );
     }
     if let Some(t) = title {
         out += &line(&json!({"type":"ai-title","timestamp":ts(day, 99),"aiTitle":t}));
@@ -150,13 +201,27 @@ pub fn build_home() -> PathBuf {
     let home = temp_home("full");
     let projects = home.join(".claude/projects");
     copy_dir(&fixtures().join("sessions/projects"), &projects);
-    write(&projects.join(format!("-Users-demo-parser/{LONG_ID}.jsonl")), &long_session());
-    write(&projects.join(format!("-Users-demo-app/{UNTITLED_ID}.jsonl")), &short(UNTITLED_ID, 30, None, &["u1", "u2"]));
+    write(
+        &projects.join(format!("-Users-demo-parser/{LONG_ID}.jsonl")),
+        &long_session(),
+    );
+    write(
+        &projects.join(format!("-Users-demo-app/{UNTITLED_ID}.jsonl")),
+        &short(UNTITLED_ID, 30, None, &["u1", "u2"]),
+    );
     write(
         &projects.join(format!("-Users-demo-app/{INTERLEAVED_ID}.jsonl")),
-        &short(INTERLEAVED_ID, 29, Some("Interleaved replies"), &["r1", "r2", "r1", "r3"]),
+        &short(
+            INTERLEAVED_ID,
+            29,
+            Some("Interleaved replies"),
+            &["r1", "r2", "r1", "r3"],
+        ),
     );
-    write(&projects.join(format!("-Users-demo-app/{SURROGATE_ID}.jsonl")), &surrogate_session());
+    write(
+        &projects.join(format!("-Users-demo-app/{SURROGATE_ID}.jsonl")),
+        &surrogate_session(),
+    );
     let codex = home.join(".codex/sessions/2026/05/20");
     fs::create_dir_all(&codex).expect("mkdir");
     fs::copy(
@@ -182,7 +247,9 @@ pub fn many_home(n: usize) -> PathBuf {
     for i in 0..n {
         let id = format!("{i:08}-0000-4000-8000-000000000000");
         let sec = u64::try_from(i).unwrap_or(0);
-        let text = line(&json!({"type":"user","cwd":"/Users/demo/many","sessionId":id,"timestamp":ts(10, sec),"message":{"role":"user","content":format!("Task {i}")}}));
+        let text = line(
+            &json!({"type":"user","cwd":"/Users/demo/many","sessionId":id,"timestamp":ts(10, sec),"message":{"role":"user","content":format!("Task {i}")}}),
+        );
         fs::write(dir.join(format!("{id}.jsonl")), text).expect("write");
     }
     home

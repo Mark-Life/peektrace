@@ -1,0 +1,465 @@
+{
+  "elements": [
+    {
+      "key": "kit-root",
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "nav",
+      "rect": [
+        0,
+        0,
+        256,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        10,
+        10,
+        236,
+        47
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        16,
+        10,
+        224,
+        18
+      ],
+      "role": "text",
+      "text": "Peektrace"
+    },
+    {
+      "rect": [
+        16,
+        30,
+        224,
+        15
+      ],
+      "role": "text",
+      "text": "Agent session inspector"
+    },
+    {
+      "key": "nav-sessions",
+      "label": "Sessions",
+      "rect": [
+        10,
+        61,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        68,
+        60,
+        18
+      ],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "key": "nav-stats",
+      "label": "Stats",
+      "rect": [
+        10,
+        97,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        104,
+        35,
+        18
+      ],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "key": "nav-memory",
+      "label": "Memory",
+      "rect": [
+        10,
+        133,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        140,
+        54,
+        18
+      ],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "key": "nav-settings",
+      "label": "Settings",
+      "rect": [
+        10,
+        169,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        176,
+        55,
+        18
+      ],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [
+        10,
+        205,
+        236,
+        654
+      ],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Toggle theme",
+      "rect": [
+        10,
+        862,
+        236,
+        28
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        18,
+        869,
+        28,
+        15
+      ],
+      "role": "text",
+      "text": "Light"
+    },
+    {
+      "rect": [
+        256,
+        0,
+        1184,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "header",
+      "rect": [
+        256,
+        0,
+        1184,
+        44
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        272,
+        13,
+        60,
+        18
+      ],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "rect": [
+        342,
+        15,
+        81,
+        15
+      ],
+      "role": "text",
+      "text": "Context debug"
+    },
+    {
+      "rect": [
+        433,
+        22,
+        992,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "sessions",
+      "rect": [
+        256,
+        44,
+        1184,
+        856
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rail",
+      "rect": [
+        272,
+        60,
+        320,
+        824
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        272,
+        60,
+        320,
+        28
+      ],
+      "role": "group"
+    },
+    {
+      "key": "search",
+      "rect": [
+        272,
+        60,
+        219,
+        28
+      ],
+      "role": "textbox"
+    },
+    {
+      "key": "value",
+      "rect": [
+        272,
+        60,
+        183,
+        28
+      ],
+      "role": "group"
+    },
+    {
+      "key": "leading",
+      "rect": [
+        272,
+        66,
+        24,
+        16
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        66,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "input",
+      "label": "Search by title…",
+      "rect": [
+        302,
+        66,
+        153,
+        16
+      ],
+      "role": "textbox",
+      "text": ""
+    },
+    {
+      "key": "action",
+      "label": "Clear",
+      "rect": [
+        463,
+        60,
+        28,
+        28
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        469,
+        66,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "agent-facet-trigger",
+      "label": "Agent",
+      "rect": [
+        499,
+        62,
+        93,
+        24
+      ],
+      "role": "combobox"
+    },
+    {
+      "key": "value",
+      "rect": [
+        507,
+        66,
+        61,
+        16
+      ],
+      "role": "text",
+      "text": "All agents"
+    },
+    {
+      "key": "chevron",
+      "rect": [
+        572,
+        66,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        272,
+        96,
+        320,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "key": "count",
+      "rect": [
+        272,
+        96,
+        59,
+        15
+      ],
+      "role": "text",
+      "text": "0 sessions"
+    },
+    {
+      "key": "rail-scroll",
+      "rect": [
+        272,
+        119,
+        320,
+        765
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        272,
+        119,
+        320,
+        103
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        372,
+        151,
+        121,
+        18
+      ],
+      "role": "text",
+      "text": "No sessions found"
+    },
+    {
+      "rect": [
+        327,
+        175,
+        211,
+        15
+      ],
+      "role": "text",
+      "text": "No transcripts in the agent folders yet."
+    },
+    {
+      "key": "detail-scroll",
+      "rect": [
+        616,
+        60,
+        808,
+        824
+      ],
+      "role": "group"
+    },
+    {
+      "key": "detail-col",
+      "rect": [
+        616,
+        60,
+        808,
+        44
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        616,
+        60,
+        808,
+        44
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        943,
+        60,
+        155,
+        20
+      ],
+      "role": "text",
+      "text": "No session selected"
+    },
+    {
+      "rect": [
+        807,
+        86,
+        426,
+        18
+      ],
+      "role": "text",
+      "text": "Pick a session from the list to inspect its context-budget forensics."
+    }
+  ],
+  "title": "Peektrace"
+}

@@ -1,0 +1,254 @@
+{
+  "elements": [
+    {
+      "key": "kit-root",
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "nav",
+      "rect": [
+        0,
+        0,
+        256,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        10,
+        10,
+        236,
+        47
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        16,
+        10,
+        224,
+        18
+      ],
+      "role": "text",
+      "text": "Peektrace"
+    },
+    {
+      "rect": [
+        16,
+        30,
+        224,
+        15
+      ],
+      "role": "text",
+      "text": "Agent session inspector"
+    },
+    {
+      "key": "nav-sessions",
+      "label": "Sessions",
+      "rect": [
+        10,
+        61,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        68,
+        60,
+        18
+      ],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "key": "nav-stats",
+      "label": "Stats",
+      "rect": [
+        10,
+        97,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        104,
+        35,
+        18
+      ],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "key": "nav-memory",
+      "label": "Memory",
+      "rect": [
+        10,
+        133,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        140,
+        54,
+        18
+      ],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "key": "nav-settings",
+      "label": "Settings",
+      "rect": [
+        10,
+        169,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        176,
+        55,
+        18
+      ],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [
+        10,
+        205,
+        236,
+        654
+      ],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Toggle theme",
+      "rect": [
+        10,
+        862,
+        236,
+        28
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        18,
+        869,
+        28,
+        15
+      ],
+      "role": "text",
+      "text": "Light"
+    },
+    {
+      "rect": [
+        256,
+        0,
+        1184,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "header",
+      "rect": [
+        256,
+        0,
+        1184,
+        44
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        272,
+        13,
+        35,
+        18
+      ],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "rect": [
+        317,
+        22,
+        1107,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stub",
+      "rect": [
+        256,
+        44,
+        1184,
+        856
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        256,
+        44,
+        1184,
+        856
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        827,
+        442,
+        42,
+        20
+      ],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "rect": [
+        611,
+        468,
+        475,
+        35
+      ],
+      "role": "text",
+      "text": "Stats is not in the desktop app yet. Use peektrace serve (web inspector) or peektrace tui."
+    }
+  ],
+  "title": "Peektrace"
+}
