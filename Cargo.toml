@@ -12,7 +12,10 @@ publish = false
 [workspace.dependencies]
 peektrace-core = { path = "crates/core" }
 anyhow = "1.0.104"
-jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
+jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-always"] }
+fancy-regex = { version = "0.20", default-features = false, features = ["std", "perf"] }
+indexmap = "2.14"
+sha1_smol = "1.0"
 clap = { version = "4.6", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 rayon = "1.12"
 regex = { version = "1.13", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat"] }

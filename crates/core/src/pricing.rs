@@ -3,6 +3,7 @@
 //! `packages/core/src/services/pricing.ts`. The parity harness prices one
 //! session per key of that table, so a drift shows up as a `costUsd` diff.
 
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 use crate::js::text;
@@ -346,9 +347,62 @@ fn estimate_cost(t: &CostTokens, r: &ModelPrice) -> f64 {
         / 1e6
 }
 
+/// USD for a token block at a card's base rates (no long tier); an unpriced
+/// model costs 0.
+pub fn base_cost(card: Option<&PriceCard>, t: &CostTokens) -> f64 {
+    card.map_or(0.0, |c| estimate_cost(t, &c.rates))
+}
+
+/// The cards `model_ids` resolve to, as `key in/out/write/read` rows plus the
+/// date the prices were checked.
+pub fn pricing_echo<'a>(model_ids: impl IntoIterator<Item = &'a str>) -> String {
+    let mut rows: Vec<(&'static str, String)> = Vec::new();
+    for id in model_ids {
+        if let Some((key, card)) = price_for(id) {
+            let r = card.rates;
+            let row = [r.input, r.output, r.cache_write, r.cache_read]
+                .map(crate::js::num::to_js_string)
+                .join("/");
+            match rows.iter_mut().find(|(k, _)| *k == key) {
+                Some(found) => found.1 = row,
+                None => rows.push((key, row)),
+            }
+        }
+    }
+    rows.sort_by(|a, b| a.0.cmp(b.0));
+    let body = rows
+        .iter()
+        .map(|(k, r)| format!("{k} {r}"))
+        .collect::<Vec<_>>()
+        .join("; ");
+    let body = if body.is_empty() {
+        "no priced models".to_owned()
+    } else {
+        body
+    };
+    format!("{body} (checked {PRICES_CHECKED})")
+}
+
+pub const PRICES_CHECKED: &str = "2026-11-08";
+
 /// The rate card for `model_id`, `None` when it is unpriced.
 pub fn card_for(model_id: &str) -> Option<PriceCard> {
     price_for(model_id).map(|(_, card)| card)
+}
+
+/// [`card_for`] memoised per model id: a corpus has many calls but few models.
+#[derive(Debug, Default)]
+pub struct CardCache(HashMap<String, Option<PriceCard>>);
+
+impl CardCache {
+    pub fn get(&mut self, model_id: &str) -> Option<PriceCard> {
+        if let Some(card) = self.0.get(model_id) {
+            return *card;
+        }
+        let card = card_for(model_id);
+        self.0.insert(model_id.to_owned(), card);
+        card
+    }
 }
 
 /// USD for one model call at `card` (from [`card_for`]), `None` when the

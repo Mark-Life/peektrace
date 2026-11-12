@@ -1,0 +1,396 @@
+//! The stats entry points: report, drill and refresh.
+
+use thiserror::Error;
+use tracing::info_span;
+
+use super::accumulate::{CorpusTotals, DrillHit, DrillTable, DrillTarget, FinishCtx, StatsWindow};
+use super::cache::StatsCache;
+use super::detectors::clustering::ClusterTable;
+use super::detectors::corpus::CorpusPanelSink;
+use super::detectors::failures::FailTable;
+use super::detectors::pairing::{MAX_RETRY_GAP_SEC, PAIR_THRESHOLD, RETRY_WINDOW};
+use super::detectors::retries::CauseTable;
+use super::detectors::rules::{RowRef, check_row};
+use super::detectors::timing::TimeTable;
+use super::detectors::waiting::WaitPanelSink;
+use super::host_bins::host_bins_of;
+use super::memory_files::{AgentHomes, read_memory_docs};
+use super::pass::{PassArgs, PassEnv, PassResult, is_full_scope, run_pass, scope_of};
+use super::rank::{DEFAULT_DRILL_PAGE, DEFAULT_SAMPLE_CAP};
+use super::redact::Redactor;
+use super::rule_dates::date_lines;
+use super::schema::Fact;
+use crate::js::num::to_js_string;
+use crate::js::time::{LocalZone, parse_date, to_iso_string};
+use crate::listing::AgentRoots;
+use crate::model::Agent;
+
+pub use super::report::{DrillResult, StatsReport};
+use super::report::{paths_of, samples_in};
+
+pub const DEFAULT_DAYS: f64 = 60.0;
+const MS_PER_DAY: f64 = 86_400_000.0;
+const ALL_DAYS: f64 = 36_500.0;
+/// Largest `|ms|` a JS `Date` holds.
+const MAX_TIME: f64 = 8.64e15;
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum StatsError {
+    #[error("{0}")]
+    Scan(String),
+    #[error("No {table} row with key \"{key}\". Run `peektrace stats` and copy a DRILL cell.")]
+    RowNotFound { table: &'static str, key: String },
+}
+
+/// Everything a stats call reads from the environment.
+pub struct StatsEnv<'a> {
+    pub roots: &'a AgentRoots,
+    pub cache: StatsCache,
+    pub local: &'a (dyn LocalZone + Sync),
+    pub now_ms: f64,
+    /// Told `(done, total)` after each transcript of a pass.
+    pub progress: Option<&'a dyn Fn(usize, usize)>,
+}
+
+impl StatsEnv<'_> {
+    fn pass_env(&self) -> PassEnv<'_> {
+        PassEnv {
+            roots: self.roots,
+            cache: &self.cache,
+            local: self.local,
+            progress: self.progress,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ReportRequest {
+    pub agents: Option<Vec<Agent>>,
+    pub days: Option<f64>,
+    pub force: bool,
+    pub limit: Option<f64>,
+}
+
+/// `{days, fromIso, toIso}` for a window ending now; an error when the start
+/// is not a valid date.
+pub fn window_of(now: f64, days: f64) -> Result<StatsWindow, StatsError> {
+    let from = now - days * MS_PER_DAY;
+    if !from.is_finite() || from.abs() > MAX_TIME {
+        return Err(StatsError::Scan(format!(
+            "--days {} reaches past the earliest date",
+            to_js_string(days)
+        )));
+    }
+    #[expect(clippy::cast_possible_truncation)]
+    Ok(StatsWindow {
+        days,
+        from_iso: to_iso_string(from as i64),
+        to_iso: to_iso_string(now as i64),
+    })
+}
+
+#[expect(clippy::cast_precision_loss)]
+fn window_ms(w: &StatsWindow, local: &dyn LocalZone) -> (f64, f64) {
+    let p = |s: &str| parse_date(s, local).map_or(f64::NAN, |m| m as f64);
+    (p(&w.from_iso), p(&w.to_iso))
+}
+
+const BASE_CAVEATS: [&str; 7] = [
+    "durSec is the gap between a call and its result: it includes harness overhead and approval waits",
+    "silent-failure counts are a floor: a detector only sees the output the transcript stored",
+    "backgrounded runs are charged the seconds they took, which understates the wait they started",
+    "shell causes cover Claude, OpenCode and Pi shell rows; Codex exec_command output is not parsed for causes",
+    "",
+    "subagent and workflow-agent transcripts count their own model calls, so their tokens and cost are measured, not zero",
+    "a rule match is a keyword probe over CLAUDE.md/AGENTS.md: it means a line mentions the habit, not that it states the fix",
+];
+
+fn base_caveats() -> Vec<String> {
+    BASE_CAVEATS
+        .iter()
+        .map(|c| {
+            if c.is_empty() {
+                format!(
+                    "a retry pair is a failed call followed within {} calls by a similar (hybrid similarity >= {}) succeeding call of the same tool, about 87% precise on a hand-labelled sample; retry seconds are call-to-call gaps of at most {}s",
+                    to_js_string(RETRY_WINDOW),
+                    to_js_string(PAIR_THRESHOLD),
+                    to_js_string(MAX_RETRY_GAP_SEC)
+                )
+            } else {
+                (*c).to_owned()
+            }
+        })
+        .collect()
+}
+
+/// Every report sink, fed in this order.
+struct Detectors<'a> {
+    corpus: CorpusTotals,
+    causes: CauseTable<'a>,
+    fails: FailTable,
+    time: TimeTable,
+    waiting: WaitPanelSink,
+    clusters: ClusterTable,
+    panels: CorpusPanelSink,
+    redact: Redactor,
+}
+
+impl<'a> Detectors<'a> {
+    fn new(drill: Option<&DrillTarget>, local: &'a dyn LocalZone) -> Self {
+        Self {
+            corpus: CorpusTotals::default(),
+            causes: CauseTable::new(drill, local),
+            fails: FailTable::new(drill.cloned()),
+            time: TimeTable::new(drill),
+            waiting: WaitPanelSink::new(drill),
+            clusters: ClusterTable::new(drill),
+            panels: CorpusPanelSink::default(),
+            redact: Redactor::new(true),
+        }
+    }
+
+    fn add(&mut self, f: &Fact) {
+        self.corpus.add(f);
+        self.causes.add(f);
+        self.fails.add(f);
+        self.time.add(f);
+        self.waiting.add(f);
+        self.clusters.add(f, &self.redact);
+        self.panels.add(f);
+    }
+}
+
+struct Prepared<'a> {
+    detectors: Detectors<'a>,
+    result: PassResult,
+    scope: Vec<Agent>,
+    window: StatsWindow,
+    limit: f64,
+}
+
+fn prepare<'a>(
+    env: &'a StatsEnv<'a>,
+    req: &ReportRequest,
+    drill: Option<&DrillTarget>,
+) -> Result<Prepared<'a>, StatsError> {
+    let window = window_of(env.now_ms, req.days.unwrap_or(DEFAULT_DAYS))?;
+    let (from_ms, to_ms) = window_ms(&window, env.local);
+    let scope = scope_of(req.agents.as_deref());
+    let mut detectors = Detectors::new(drill, env.local);
+    let result = run_pass(
+        &env.pass_env(),
+        &PassArgs {
+            scope: &scope,
+            force: req.force,
+            from_ms,
+            to_ms,
+            only: None,
+        },
+        &mut |f| detectors.add(f),
+    );
+    Ok(Prepared {
+        detectors,
+        result,
+        scope,
+        window,
+        limit: req.limit.unwrap_or(super::rank::DEFAULT_ROW_LIMIT),
+    })
+}
+
+/// The report: one pass, then memory files, then every table.
+pub fn report(env: &StatsEnv<'_>, req: &ReportRequest) -> Result<StatsReport, StatsError> {
+    let _span = info_span!("Stats.report").entered();
+    let mut p = prepare(env, req, None)?;
+    let homes = AgentHomes::of(env.roots);
+    let docs = read_memory_docs(&homes, &p.scope, &p.detectors.causes.project_dirs());
+    let (dates, next) = date_lines(&docs, &env.cache.load_lines(), env.now_ms);
+    env.cache.commit_lines(&next);
+    let bins = host_bins_of(&p.detectors.causes.missing_bins());
+    p.detectors.causes.mark_installed(&bins);
+    let corpus = std::mem::take(&mut p.detectors.corpus).finish();
+    let redact = Redactor::new(true);
+    let mut ctx = FinishCtx {
+        corpus: &corpus,
+        window: &p.window,
+        redact: &redact,
+        limit: p.limit,
+        sample_cap: DEFAULT_SAMPLE_CAP,
+        caveats: base_caveats(),
+    };
+    let d = &mut p.detectors;
+    let panels = d.panels.finish(&mut ctx);
+    let mut causes = d.causes.finish(&mut ctx);
+    for row in &mut causes {
+        let rr = RowRef {
+            key: &row.key,
+            cause: row.cause,
+            fix: row.fix.as_deref(),
+            details: &row.details,
+        };
+        row.rule = check_row(&rr, &docs, &d.causes, &dates, &redact);
+    }
+    let pairs: f64 = causes.iter().map(|r| r.pairs).sum();
+    let costed: f64 = causes.iter().map(|r| r.tokens_measured).sum();
+    if pairs > costed {
+        ctx.caveat(format!(
+            "{} of {} retry pairs are uncosted in tokens: sidechain calls and calls with no recorded model usage carry no context count",
+            to_js_string(pairs - costed),
+            to_js_string(pairs)
+        ));
+    }
+    let fails = d.fails.finish(&mut ctx);
+    let time = d.time.finish(&mut ctx);
+    let waiting = d.waiting.finish(&ctx);
+    let clusters = d.clusters.finish(&mut ctx);
+    let mut out = StatsReport {
+        generated_at: env.now_ms,
+        window: p.window.clone(),
+        corpus: corpus.clone(),
+        causes,
+        fails,
+        time,
+        waiting,
+        clusters,
+        panels,
+        skipped: p.result.skipped.clone(),
+        caveats: std::mem::take(&mut ctx.caveats),
+        paths: Vec::new(),
+    };
+    let sids: Vec<String> = samples_in(&out).iter().map(|s| s.sid.clone()).collect();
+    out.paths = paths_of(&p.result.paths, &redact, sids.iter().map(String::as_str));
+    Ok(out)
+}
+
+/// A cause drill takes the bare id the tables print, or the full key.
+pub fn drill_key_of(table: DrillTable, key: &str) -> String {
+    if table == DrillTable::Cause && !key.starts_with("cause:") {
+        format!("cause:{key}")
+    } else {
+        key.to_owned()
+    }
+}
+
+/// The calls behind one row, first page.
+pub fn drill(
+    env: &StatsEnv<'_>,
+    req: &ReportRequest,
+    table: DrillTable,
+    raw_key: &str,
+) -> Result<DrillResult, StatsError> {
+    let key = drill_key_of(table, raw_key);
+    let _span = info_span!("Stats.drill", table = table.as_str()).entered();
+    let target = DrillTarget {
+        table,
+        key: key.clone(),
+    };
+    let mut p = prepare(env, req, Some(&target))?;
+    let corpus = std::mem::take(&mut p.detectors.corpus).finish();
+    let redact = Redactor::new(true);
+    let ctx = FinishCtx {
+        corpus: &corpus,
+        window: &p.window,
+        redact: &redact,
+        limit: p.limit,
+        sample_cap: DEFAULT_SAMPLE_CAP,
+        caveats: Vec::new(),
+    };
+    let d = &mut p.detectors;
+    let hits = match table {
+        DrillTable::Cause => d.causes.drill(&redact),
+        DrillTable::Fail => d.fails.drill(&ctx),
+        DrillTable::Time => d.time.drill(&ctx),
+        DrillTable::Cluster => d.clusters.drill(&ctx),
+        DrillTable::Wait => d.waiting.drill(&ctx),
+    };
+    if hits.is_empty() {
+        return Err(StatsError::RowNotFound {
+            table: table.as_str(),
+            key,
+        });
+    }
+    let total = hits.len();
+    let shown: Vec<DrillHit> = hits.into_iter().take(DEFAULT_DRILL_PAGE).collect();
+    let paths = paths_of(
+        &p.result.paths,
+        &redact,
+        shown.iter().map(|h| h.sample.sid.as_str()),
+    );
+    Ok(DrillResult {
+        table,
+        key,
+        total,
+        offset: 0,
+        hits: shown,
+        paths,
+    })
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RefreshSummary {
+    pub transcripts: usize,
+    pub extracted: usize,
+    pub cached: usize,
+    pub skipped: Vec<String>,
+    pub facts: usize,
+}
+
+/// Refresh the fact cache; `force` re-extracts (and clears it on a full scope).
+pub fn refresh(
+    env: &StatsEnv<'_>,
+    agents: Option<&[Agent]>,
+    force: bool,
+) -> Result<RefreshSummary, StatsError> {
+    let _span = info_span!("Stats.refresh").entered();
+    let scope = scope_of(agents);
+    if force && is_full_scope(&scope) {
+        env.cache.clear();
+    }
+    let window = window_of(env.now_ms, ALL_DAYS)?;
+    let (from_ms, to_ms) = window_ms(&window, env.local);
+    let r = run_pass(
+        &env.pass_env(),
+        &PassArgs {
+            scope: &scope,
+            force,
+            from_ms,
+            to_ms,
+            only: None,
+        },
+        &mut |_| {},
+    );
+    Ok(RefreshSummary {
+        transcripts: r.transcripts,
+        extracted: r.extracted,
+        cached: r.cached,
+        skipped: r.skipped,
+        facts: r.facts,
+    })
+}
+
+/// Markers for one session, from a pass over that session's transcripts.
+pub fn markers(
+    env: &StatsEnv<'_>,
+    sid: &str,
+    agents: Option<&[Agent]>,
+    force: bool,
+) -> Result<Vec<super::markers::SessionMarker>, StatsError> {
+    let _span = info_span!("Stats.markers").entered();
+    let window = window_of(env.now_ms, ALL_DAYS)?;
+    let (from_ms, to_ms) = window_ms(&window, env.local);
+    let scope = scope_of(agents);
+    let redact = Redactor::new(true);
+    let mut collector = super::markers::MarkerCollector::new(sid, &redact, env.local);
+    let only = |r: &super::walk::TranscriptRef| r.id == sid;
+    run_pass(
+        &env.pass_env(),
+        &PassArgs {
+            scope: &scope,
+            force,
+            from_ms,
+            to_ms,
+            only: Some(&only),
+        },
+        &mut |f| collector.add(f),
+    );
+    Ok(collector.finish())
+}

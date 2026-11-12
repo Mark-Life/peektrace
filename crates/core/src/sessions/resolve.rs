@@ -157,7 +157,7 @@ fn read_names(dir: &str) -> Vec<String> {
 }
 
 /// Slug dirs across every source, distinct, in source then directory order.
-fn project_slugs(claude: &[Source]) -> Vec<String> {
+pub(crate) fn project_slugs(claude: &[Source]) -> Vec<String> {
     let _span = info_span!("AgentRegistry.listProjectSlugs", agent = "claude").entered();
     let mut out: Vec<String> = Vec::new();
     for source in claude.iter().filter(|s| exists(&s.projects_root)) {

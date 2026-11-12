@@ -210,6 +210,14 @@ pub fn parse_date(s: &str, local: &dyn LocalZone) -> Option<i64> {
     (ms.abs() <= MAX_TIME).then_some(ms)
 }
 
+/// `Date.UTC(year, month0, day)`: `month0` is 0-based and may overflow the
+/// year, `day` may overflow or underflow the month.
+pub fn utc_ms(year: i64, month0: i64, day: i64) -> i64 {
+    let y = year + month0.div_euclid(12);
+    let m = month0.rem_euclid(12) + 1;
+    (days_from_civil(y, m, 1) + day - 1) * MS_PER_DAY
+}
+
 /// `new Date(ms).toISOString()`.
 pub fn to_iso_string(ms: i64) -> String {
     let days = ms.div_euclid(MS_PER_DAY);
@@ -367,5 +375,27 @@ mod tests {
         ] {
             assert_eq!(parse_date(&to_iso_string(ms), &Utc), Some(ms));
         }
+    }
+}
+
+/// An IANA zone by name or alias, as ICU knows it. The OS database comes
+/// first; names it lacks (Debian and Ubuntu ship legacy aliases such as
+/// `Asia/Calcutta` in a separate package) fall back to the bundled copy.
+pub fn zone_named(name: &str) -> Option<jiff::tz::TimeZone> {
+    jiff::tz::TimeZone::get(name)
+        .or_else(|_| jiff::tz::TimeZoneDatabase::bundled().get(name))
+        .ok()
+}
+
+#[cfg(test)]
+mod zone_tests {
+    use super::zone_named;
+
+    #[test]
+    fn legacy_aliases_resolve_without_the_os_package() {
+        for name in ["Asia/Calcutta", "Europe/Kiev", "US/Pacific", "Japan", "EST"] {
+            assert!(zone_named(name).is_some(), "{name}");
+        }
+        assert!(zone_named("Mars/Base").is_none());
     }
 }
