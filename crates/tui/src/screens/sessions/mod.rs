@@ -62,6 +62,9 @@ pub struct State {
     rail_top: usize,
     follow: bool,
     analysis: Query<Box<AnalyzedSession>>,
+    /// Redaction of the analysis in flight, and of the one on screen.
+    asked_redact: bool,
+    data_redact: bool,
     shown: Option<(String, bool)>,
     stamp: Option<(u64, String)>,
     /// The subagent files' fingerprint, and the request that asks for it.
@@ -89,6 +92,8 @@ impl Default for State {
             rail_top: 0,
             follow: false,
             analysis: Query::default(),
+            asked_redact: true,
+            data_redact: true,
             shown: None,
             stamp: None,
             sub_stamp: None,
@@ -186,6 +191,7 @@ impl State {
             redact: self.redact,
         });
         self.analysis.start(req);
+        self.asked_redact = self.redact;
         self.rerun = false;
         self.sub_stamp = None;
         self.stamp_req = None;
@@ -208,8 +214,6 @@ impl State {
         if self.shown.as_ref().is_none_or(|(old, _)| *old != id) {
             self.history.reset();
             self.growth.reset();
-        } else {
-            self.history.forget_bodies();
         }
         self.shown = Some(target);
         self.stamp = Some(stamp);
@@ -286,7 +290,11 @@ impl State {
                 self.refresh_analysis(cx);
             }
             Response::Analyze(res) => {
+                let ok = res.is_ok();
                 if self.analysis.land(r.id, res) {
+                    if ok {
+                        self.data_redact = self.asked_redact;
+                    }
                     self.generation += 1;
                     if self.rerun
                         && let Some((id, _)) = self.shown.clone()

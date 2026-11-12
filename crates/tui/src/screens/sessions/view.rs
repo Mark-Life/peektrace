@@ -116,7 +116,7 @@ impl State {
                 region,
                 s,
                 self.generation,
-                self.redact,
+                self.data_redact,
                 term.width,
                 hits,
             ),

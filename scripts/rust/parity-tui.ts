@@ -5,8 +5,8 @@
  * Screens are not compared here: the Rust TUI fixes the TS layout bugs, so
  * its frames differ on purpose (`crates/tui/tests/snapshots` holds them).
  * Non-TTY runs and `--port abc` are known differences. */
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { decodeBody } from "../../apps/cli/src/tui/screens/history-decode";
 import {
   agoOf,
@@ -35,7 +35,7 @@ import { HIGHLIGHT_CASES } from "./parity-highlight-cases";
 import {
   compareRun,
   fixtureEnv,
-  REPO,
+  option,
   report,
   run,
   rustBin,
@@ -59,16 +59,58 @@ const STDERR_HEAD = 400;
 const ESC = String.fromCharCode(27);
 const BEL = String.fromCharCode(7);
 
+/** Cargo keeps the caller's env, so RUSTFLAGS, CARGO_TARGET_DIR and the
+ * toolchain settings match the build under test. */
+const cargoEnv = process.env as Record<string, string>;
+
+/** Where cargo puts release examples, honouring CARGO_TARGET_DIR and
+ * `build.target-dir`. */
+const releaseExamples = () => {
+  const meta = run(
+    ["cargo", "metadata", "--format-version", "1", "--no-deps"],
+    cargoEnv
+  );
+  if (meta.code !== 0) {
+    report(`tui: cargo metadata failed: ${meta.stderr.slice(0, STDERR_HEAD)}`);
+    return null;
+  }
+  const { target_directory } = JSON.parse(meta.stdout) as {
+    readonly target_directory: string;
+  };
+  return join(target_directory, "release", "examples");
+};
+
+/** The example binary next to `--bin`, as built with it; else a locked
+ * release build of it. */
 const exampleBin = (pkg: string, name: string) => {
+  if (option("--bin") !== undefined) {
+    const bin = join(dirname(rustBin), "examples", name);
+    if (!existsSync(bin)) {
+      report(`tui: missing ${bin}: build the examples beside --bin`);
+      return null;
+    }
+    return bin;
+  }
   const built = run(
-    ["cargo", "build", "--release", "-q", "-p", pkg, "--example", name],
-    { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" }
+    [
+      "cargo",
+      "build",
+      "--locked",
+      "--release",
+      "-q",
+      "-p",
+      pkg,
+      "--example",
+      name,
+    ],
+    cargoEnv
   );
   if (built.code !== 0) {
     report(`tui: cannot build example ${name}: ${built.stderr.slice(0, 200)}`);
     return null;
   }
-  return join(REPO, "target/release/examples", name);
+  const dir = releaseExamples();
+  return dir === null ? null : join(dir, name);
 };
 
 /** One output line per input line, or `null` (reported) when the example
@@ -348,6 +390,7 @@ export const runTuiStage = ({
   }
   const hl = exampleBin("peektrace-core", "highlight");
   const vw = exampleBin("peektrace-tui", "views");
+  console.log(`tui stage: examples ${hl ?? "-"}, ${vw ?? "-"}`);
   if (fixtures && hl !== null) {
     tokens = compareTokens(hl, "highlight", HIGHLIGHT_CASES, true);
   }

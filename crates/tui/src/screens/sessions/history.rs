@@ -88,12 +88,6 @@ impl History {
         *self = Self::default();
     }
 
-    /// Forget prepared bodies but keep open rows and scroll: the same
-    /// session, re-read another way (redaction flipped).
-    pub fn forget_bodies(&mut self) {
-        self.bodies.clear();
-    }
-
     fn order(&mut self, s: &AnalyzedSession, generation: u64) -> &[usize] {
         if self.order_key != Some((generation, self.sort)) {
             let mut rows = visible_events(s);
@@ -178,8 +172,8 @@ impl History {
         };
     }
 
-    /// Draw into `area`. `term_w` sizes the preview as TS does; `hits`
-    /// collects mouse targets.
+    /// Draw into `area`. `redact` is how `s` was read; `term_w` sizes the
+    /// preview as TS does; `hits` collects mouse targets.
     #[expect(clippy::too_many_arguments, reason = "one draw call per frame")]
     pub fn draw(
         &mut self,
@@ -232,7 +226,7 @@ impl History {
             area.height.saturating_sub(3),
         );
         hits.push((list, Hit::History));
-        self.rows(buf, list, s, generation, term_w, hits);
+        self.rows(buf, list, s, (generation, redact), term_w, hits);
     }
 
     fn toolbar(&self, buf: &mut Buffer, r: Rect, hits: &mut Vec<(Rect, Hit)>) {
@@ -272,7 +266,7 @@ impl History {
         buf: &mut Buffer,
         list: Rect,
         s: &AnalyzedSession,
-        generation: u64,
+        source: (u64, bool),
         term_w: u16,
         hits: &mut Vec<(Rect, Hit)>,
     ) {
@@ -280,7 +274,7 @@ impl History {
         let sel = self.sel.at(count);
         let body_w = list.width.saturating_sub(2);
         let order = std::mem::take(&mut self.order);
-        self.bodies.sync(s, generation);
+        self.bodies.sync(s, source);
         let (all, open) = (self.expand_all, &self.open);
         self.bodies.prepare(
             s,

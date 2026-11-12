@@ -415,3 +415,60 @@ fn a_session_with_subagents_re_analyzes_only_when_they_change() {
     tick(&mut app, 7);
     assert_eq!(backend.analyses.load(Ordering::SeqCst), 2);
 }
+
+/// Reads the result body with its secret masked or shown, as asked. The
+/// token is as long as the secret and sits mid-body, past the hashed ends.
+struct Redacting;
+
+impl Backend for Redacting {
+    fn call(&self, req: &Request) -> Response {
+        match req {
+            Request::Analyze { redact, .. } => {
+                let secret = if *redact {
+                    "[REDACTED:credential]"
+                } else {
+                    "hunter2hunter2hunter2"
+                };
+                let pad = "x".repeat(400);
+                let mut s = fake_analyzed("Alpha");
+                s.parsed.events[1].body = format!("{pad}\npassword = {secret}\n{pad}");
+                Response::Analyze(Ok(Box::new(s)))
+            }
+            _ => Response::Sessions(Ok(vec![header(
+                "a",
+                Agent::Claude,
+                "Alpha",
+                "2026-07-02T10:00",
+            )])),
+        }
+    }
+}
+
+#[test]
+fn r_swaps_an_open_body_between_redacted_and_revealed() {
+    let area = Rect::new(0, 0, 160, 48);
+    let mut app = App::new(config(false, ColorMode::TrueColor), area);
+    let draw = |app: &mut App| {
+        let mut buf = Buffer::empty(area);
+        app.draw(&mut buf);
+        text(&buf)
+    };
+    settle(&mut app, &Redacting);
+    for k in ["<enter>", "j", "<enter>", "<left>"] {
+        app.key(key(k));
+        settle(&mut app, &Redacting);
+        draw(&mut app);
+    }
+    let flip = |app: &mut App| {
+        app.key(key("r"));
+        // Drawn while the new analysis is in flight, from the old one.
+        draw(app);
+        settle(app, &Redacting);
+        draw(app)
+    };
+    let revealed = flip(&mut app);
+    assert!(revealed.contains("password = hunter2"), "{revealed}");
+    let hidden = flip(&mut app);
+    assert!(hidden.contains("password = [REDACTED"), "{hidden}");
+    assert!(!hidden.contains("hunter2"), "{hidden}");
+}

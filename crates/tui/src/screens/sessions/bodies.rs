@@ -1,7 +1,7 @@
 //! Expanded history bodies: decoded, sanitized and capped once per event,
 //! measured per width by a plain wrap count, and highlighted only when a
 //! row is on screen. Entries outlive a re-analysis while their event stays
-//! the same, since a live transcript only grows.
+//! the same, since a live transcript only grows, but not a redaction flip.
 
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash as _, Hasher as _};
@@ -147,27 +147,29 @@ impl Body {
     }
 }
 
-/// Bodies by position in `events`.
+/// Bodies by position in `events`, for one analysis generation and
+/// redaction mode.
 #[derive(Debug, Default)]
 pub struct Bodies {
     entries: HashMap<usize, Body>,
-    generation: Option<u64>,
+    source: Option<(u64, bool)>,
 }
 
 impl Bodies {
-    pub fn clear(&mut self) {
-        self.entries.clear();
-    }
-
-    /// On a new analysis, drop the entries whose event changed.
-    pub fn sync(&mut self, s: &AnalyzedSession, generation: u64) {
-        if self.generation == Some(generation) {
-            return;
+    /// On a new analysis, drop the entries whose event changed. A flipped
+    /// redaction drops them all: a secret and its token can share a length,
+    /// which `Key` would not see.
+    pub fn sync(&mut self, s: &AnalyzedSession, (generation, redact): (u64, bool)) {
+        let old = self.source.replace((generation, redact));
+        match old {
+            Some(o) if o == (generation, redact) => {}
+            Some((_, r)) if r == redact => {
+                let events = &s.parsed.events;
+                self.entries
+                    .retain(|id, b| events.get(*id).is_some_and(|e| Key::of(e) == b.key));
+            }
+            _ => self.entries.clear(),
         }
-        self.generation = Some(generation);
-        let events = &s.parsed.events;
-        self.entries
-            .retain(|id, b| events.get(*id).is_some_and(|e| Key::of(e) == b.key));
     }
 
     /// Prepare the bodies of `ids` not prepared yet, in parallel.
@@ -220,12 +222,12 @@ mod tests {
         let mut s = AnalyzedSession::default();
         s.parsed.events = vec![event(0, "one"), event(1, "two")];
         let mut b = Bodies::default();
-        b.sync(&s, 1);
+        b.sync(&s, (1, true));
         b.prepare(&s, 0..2);
         assert_eq!(b.height(&s, 0, 20), 1);
         s.parsed.events[1].body.push_str(" and more");
         s.parsed.events.push(event(2, "three"));
-        b.sync(&s, 2);
+        b.sync(&s, (2, true));
         assert!(b.entries.contains_key(&0), "unchanged event kept");
         assert!(!b.entries.contains_key(&1), "grown event dropped");
         let text: String = b.rows(&s, 1, 20)[0]
@@ -233,6 +235,26 @@ mod tests {
             .map(|(t, _)| t.as_str())
             .collect();
         assert_eq!(text, "two and more");
+    }
+
+    #[test]
+    fn a_redaction_flip_drops_bodies_even_when_the_length_holds() {
+        let pad = "x".repeat(400);
+        let body = |secret: &str| format!("{pad}\npassword = {secret}\n{pad}");
+        let mut s = AnalyzedSession::default();
+        s.parsed.events = vec![event(0, &body("[REDACTED:credential]"))];
+        let mut b = Bodies::default();
+        b.sync(&s, (1, true));
+        b.prepare(&s, 0..1);
+        s.parsed.events = vec![event(0, &body("hunter2hunter2hunter2"))];
+        b.sync(&s, (2, false));
+        let shown: String = b
+            .rows(&s, 0, 200)
+            .iter()
+            .flatten()
+            .map(|(t, _)| t.as_str())
+            .collect();
+        assert!(shown.contains("hunter2"), "{shown}");
     }
 
     #[test]
