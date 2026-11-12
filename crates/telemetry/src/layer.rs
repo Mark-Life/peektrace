@@ -172,27 +172,34 @@ where
         let Some(span) = ctx.span(id) else {
             return;
         };
-        let root = attrs.metadata().fields().field(ROOT_FIELD).is_some();
-        let parent_root = || {
-            span.parent()
-                .and_then(|p| p.extensions().get::<Node>().map(|n| Arc::clone(&n.root)))
-        };
-        let node = if root {
-            let mut fields = Attrs::default();
-            attrs.record(&mut fields);
-            if !fields.is_root() {
-                return self.child(attrs, &span, parent_root());
+        let declares_root = attrs.metadata().fields().field(ROOT_FIELD).is_some();
+        let node = match declares_root.then(|| recorded(attrs)) {
+            Some(fields) if fields.is_root() => {
+                let trace = self.next_id();
+                self.next_id();
+                Node {
+                    start: Instant::now(),
+                    attrs: Some(fields),
+                    root: Arc::new(RootBuf::default()),
+                    trace: Some(trace),
+                }
             }
-            let trace = self.next_id();
-            self.next_id();
-            Node {
-                start: Instant::now(),
-                attrs: Some(fields),
-                root: Arc::new(RootBuf::default()),
-                trace: Some(trace),
+            fields => {
+                self.next_id();
+                let Some(root) = span
+                    .parent()
+                    .and_then(|p| p.extensions().get::<Node>().map(|n| Arc::clone(&n.root)))
+                else {
+                    return;
+                };
+                let full = root.full.load(Ordering::Relaxed);
+                Node {
+                    start: Instant::now(),
+                    attrs: (!full).then(|| fields.unwrap_or_else(|| recorded(attrs))),
+                    root,
+                    trace: None,
+                }
             }
-        } else {
-            return self.child(attrs, &span, parent_root());
         };
         span.extensions_mut().insert(node);
     }
@@ -257,32 +264,10 @@ where
         .unwrap_or(false)
 }
 
-impl StoreLayer {
-    /// Track a non-root span under `root`, or not at all when it has none.
-    fn child<S>(
-        &self,
-        attrs: &Attributes<'_>,
-        span: &tracing_subscriber::registry::SpanRef<'_, S>,
-        root: Option<Arc<RootBuf>>,
-    ) where
-        S: Subscriber + for<'a> LookupSpan<'a>,
-    {
-        self.next_id();
-        let Some(root) = root else {
-            return;
-        };
-        let fields = (!root.full.load(Ordering::Relaxed)).then(|| {
-            let mut fields = Attrs::default();
-            attrs.record(&mut fields);
-            fields
-        });
-        span.extensions_mut().insert(Node {
-            start: Instant::now(),
-            attrs: fields,
-            root,
-            trace: None,
-        });
-    }
+fn recorded(attrs: &Attributes<'_>) -> Attrs {
+    let mut fields = Attrs::default();
+    attrs.record(&mut fields);
+    fields
 }
 
 /// Lets spans through and keeps log events out, decided once per callsite.
