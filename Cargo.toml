@@ -1,6 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry"]
+members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry", "crates/ui", "crates/app"]
+# Rune is heavy (~600 crates): plain `cargo build/test/clippy` skip the app crates.
+default-members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry"]
 
 [workspace.package]
 version = "0.0.0"
@@ -15,6 +17,9 @@ peektrace-protocol = { path = "crates/protocol" }
 peektrace-server = { path = "crates/server" }
 peektrace-tui = { path = "crates/tui" }
 peektrace-telemetry = { path = "crates/telemetry" }
+peektrace-ui = { path = "crates/ui" }
+rune = { git = "https://github.com/anomalyco/rune", rev = "2b7dbf223b84b58bcfb1e5a9e92577b9244540dd", default-features = false }
+rune-kit = { git = "https://github.com/anomalyco/rune", rev = "2b7dbf223b84b58bcfb1e5a9e92577b9244540dd", features = ["markdown"] }
 anyhow = "1.0.104"
 jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-always"] }
 fancy-regex = { version = "0.20", default-features = false, features = ["std", "perf"] }
@@ -33,6 +38,12 @@ thiserror = "2.0.19"
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt", "registry"] }
 unicode-width = "0.2.2"
+
+# A dependency's [patch] does not reach the workspace that uses it. Rune's
+# wgpu-hal adds the DX12 one-adapter pick on Windows; without it Rune falls back
+# to wgpu's own pick.
+[patch.crates-io]
+wgpu-hal = { git = "https://github.com/anomalyco/rune", rev = "2b7dbf223b84b58bcfb1e5a9e92577b9244540dd" }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
