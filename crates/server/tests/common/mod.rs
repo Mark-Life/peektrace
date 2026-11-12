@@ -13,6 +13,8 @@ use peektrace_protocol::WatchVersions;
 use peektrace_server::guard::Allowlist;
 use peektrace_server::{AppState, Assets, Guards};
 
+pub mod stats_fixture;
+
 pub const SESSION: &str = "11111111-1111-4111-8111-111111111111";
 
 pub fn fixtures(sub: &str) -> String {

@@ -34,8 +34,12 @@ fn base_command(dir: &str) -> Command {
     c
 }
 
+fn temp_path(name: &str) -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("peektrace-serve-{name}-{}", std::process::id()))
+}
+
 fn temp(name: &str) -> String {
-    let d = std::env::temp_dir().join(format!("peektrace-serve-{name}-{}", std::process::id()));
+    let d = temp_path(name);
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).expect("mkdir");
     d.to_string_lossy().into_owned()
@@ -48,8 +52,6 @@ struct Served {
     port: u16,
     /// Stdout up to the ready line.
     lines: Vec<String>,
-    /// The server's HOME; settings live in `<dir>/.peektrace`.
-    dir: String,
 }
 
 impl Served {
@@ -115,7 +117,6 @@ fn serve(name: &str, args: &[&str], env: &[(&str, &str)]) -> Served {
         _serial: serial,
         port,
         lines,
-        dir,
     }
 }
 
@@ -262,41 +263,61 @@ fn remote_with_token_url_env_token_or_none() {
     assert_eq!(out, local.1);
 }
 
-// serve-auth-e2e.test.ts cases with the TS assertions. `memory.create` is not
-// in this build, so the write probe is `PUT /api/settings`.
+// serve-auth-e2e.test.ts cases with the TS assertions: the write probe is
+// `memory.create`, under a Claude projects root in the server's HOME.
+
+const PROJECT: &str = "-Users-demo-auth";
+
+/// A server whose Claude projects root holds one project with a memory dir.
+fn serve_memory(name: &str, args: &[&str]) -> (Served, std::path::PathBuf) {
+    let projects = temp_path(name).join(".claude/projects");
+    let s = serve(
+        name,
+        args,
+        &[("PEEKTRACE_CLAUDE_PROJECTS", &projects.to_string_lossy())],
+    );
+    let memory = projects.join(PROJECT).join("memory");
+    std::fs::create_dir_all(&memory).expect("mkdir memory");
+    (s, memory)
+}
+
+fn create_memory(port: u16, bearer: &str) -> (u16, String) {
+    let url = format!("http://127.0.0.1:{port}/api/memory/projects/{PROJECT}/entries");
+    let mut res = agent()
+        .post(&url)
+        .header("authorization", &format!("Bearer {bearer}"))
+        .send(r#"{"name":"gamma","description":"Synthetic","type":"reference","body":"Body.\n"}"#)
+        .expect("post");
+    let body = res.body_mut().read_to_string().unwrap_or_default();
+    (res.status().as_u16(), body)
+}
 
 const LONG_TOKEN: &str = "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk";
 
 #[test]
 fn non_loopback_requires_the_token_and_refuses_writes_by_default() {
     let port = free_port().to_string();
-    let s = serve("e2e-default", &["--host", "0.0.0.0", "--port", &port], &[]);
+    let (s, memory) = serve_memory("e2e-default", &["--host", "0.0.0.0", "--port", &port]);
     let token = s.printed_token().expect("Open: line");
     assert_eq!(token.len(), 43);
     assert_eq!(health(s.port, None), 401);
     assert_eq!(health(s.port, Some(&token)), 200);
-    let (status, body) = put_settings_body(s.port, Some(&token));
+    let (status, body) = create_memory(s.port, &token);
     assert_eq!(status, 403);
     assert!(body.contains("read-only"), "{body}");
-    assert!(
-        !std::path::Path::new(&s.dir)
-            .join(".peektrace/settings.json")
-            .exists()
-    );
+    assert!(!memory.join("gamma.md").exists());
 }
 
 #[test]
-fn allow_write_permits_a_write() {
+fn allow_write_permits_memory_create() {
     let port = free_port().to_string();
     let args = ["--host", "0.0.0.0", "--allow-write", "--port", &port];
-    let s = serve("e2e-allow", &args, &[]);
+    let (s, memory) = serve_memory("e2e-allow", &args);
     let token = s.printed_token().expect("Open: line");
-    assert_eq!(put_settings(s.port, Some(&token)), 200);
-    assert!(
-        std::path::Path::new(&s.dir)
-            .join(".peektrace/settings.json")
-            .exists()
-    );
+    let (status, body) = create_memory(s.port, &token);
+    assert_eq!(status, 200, "{body}");
+    assert!(body.contains(r#""slug":"gamma""#), "{body}");
+    assert!(memory.join("gamma.md").exists());
 }
 
 #[test]
@@ -310,11 +331,12 @@ fn read_only_wins_over_allow_write() {
         "--port",
         &port,
     ];
-    let s = serve("e2e-both", &args, &[]);
+    let (s, memory) = serve_memory("e2e-both", &args);
     let token = s.printed_token().expect("Open: line");
-    let (status, body) = put_settings_body(s.port, Some(&token));
+    let (status, body) = create_memory(s.port, &token);
     assert_eq!(status, 403);
     assert!(body.contains("read-only"), "{body}");
+    assert!(!memory.join("gamma.md").exists());
 }
 
 #[test]
@@ -381,4 +403,32 @@ fn remote_json_ls_with_token_url_env_token_and_the_missing_token_message() {
     assert!(err.contains("HTTP 401"), "{err}");
     assert!(err.contains("PEEKTRACE_TOKEN"), "{err}");
     assert!(!err.contains(&token), "{err}");
+}
+
+#[test]
+fn remote_is_refused_for_commands_with_no_remote_form() {
+    let dir = temp("remote-refused");
+    for cmd in [
+        &["stats"][..],
+        &["stats", "usage"],
+        &["stats", "refresh"],
+        &["sessions", "search", "x"],
+        &["memory", "ls"],
+    ] {
+        let args = [&["--remote", "http://127.0.0.1:1"][..], cmd].concat();
+        let (code, out, err) = run(&dir, &args, &[]);
+        assert_eq!(code, 1, "{cmd:?}");
+        assert_eq!(out, "");
+        assert_eq!(
+            err.trim_end(),
+            format!(
+                "--remote is not supported for `{}` in the Rust build yet.",
+                cmd.iter()
+                    .take_while(|w| *w != &"x")
+                    .copied()
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            )
+        );
+    }
 }
