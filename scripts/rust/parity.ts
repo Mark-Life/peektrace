@@ -19,6 +19,7 @@
  *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp,
  *                                              # upgrade, help, telemetry
  *   bun scripts/rust/parity.ts --tui-only      # only the `tui` stage
+ *   bun scripts/rust/parity.ts --ui-only       # only the Rune app `ui` stage
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
@@ -88,6 +89,7 @@ import { runSearchStage } from "./parity-search";
 import { runServeStage } from "./parity-serve";
 import { runStatsStage } from "./parity-stats";
 import { runTuiStage } from "./parity-tui";
+import { runUiStage } from "./parity-ui";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 const NO_ACCESS = 0o000;
@@ -405,6 +407,7 @@ const pickStages = () => {
     "serve",
     "cli",
     "tui",
+    "ui",
   ].find((s) => flag(`--${s}-only`));
   return {
     cli: only === undefined || only === "cli",
@@ -414,6 +417,7 @@ const pickStages = () => {
     stats: only === undefined || only === "stats",
     serve: only === undefined || only === "serve",
     tui: only === undefined || only === "tui",
+    ui: only === undefined || only === "ui",
   };
 };
 
@@ -466,6 +470,9 @@ const runStages = async (
   }
   if (stages.tui) {
     runTuiStage({ fixtures, real });
+  }
+  if (stages.ui) {
+    await runUiStage({ fixtures, real });
   }
 };
 

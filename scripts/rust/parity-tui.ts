@@ -83,7 +83,7 @@ const releaseExamples = () => {
 
 /** The example binary next to `--bin`, as built with it; else a locked
  * release build of it. */
-const exampleBin = (pkg: string, name: string) => {
+export const exampleBin = (pkg: string, name: string) => {
   if (option("--bin") !== undefined) {
     const bin = join(dirname(rustBin), "examples", name);
     if (!existsSync(bin)) {
@@ -116,7 +116,7 @@ const exampleBin = (pkg: string, name: string) => {
 
 /** One output line per input line, or `null` (reported) when the example
  * fails. */
-const pipe = (bin: string, lines: readonly string[]) => {
+export const pipe = (bin: string, lines: readonly string[]) => {
   const out = Bun.spawnSync([bin], {
     stdin: new TextEncoder().encode(`${lines.join("\n")}\n`),
   });
