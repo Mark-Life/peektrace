@@ -355,13 +355,24 @@ pub fn run_analyze(
     ctx: &Context,
     remote: Option<&Remote>,
 ) -> Result<Output, UserError> {
+    analyze(&args.target, &CLI_TARGET, globals, ctx, remote)
+}
+
+/// The analysis of the session `t` picks; `m` words the target messages.
+pub fn analyze(
+    t: &TargetArgs,
+    m: &TargetMessages,
+    globals: Globals,
+    ctx: &Context,
+    remote: Option<&Remote>,
+) -> Result<Output, UserError> {
     let (roots, warnings) = match remote {
         Some(_) => (AgentRoots::default(), Vec::new()),
         None => agent_roots(ctx),
     };
     let zone = SystemZone::default();
-    let (pick, unreadable) = resolve_target(&args.target, &CLI_TARGET, ctx, &roots, &zone, remote)?;
-    let parent = args.target.parent.as_deref();
+    let (pick, unreadable) = resolve_target(t, m, ctx, &roots, &zone, remote)?;
+    let parent = t.parent.as_deref();
     let stdout = if let Some(r) = remote {
         let query: Vec<(&str, &str)> = parent.map(|p| ("parent", p)).into_iter().collect();
         let v = r.get_json(&["sessions", pick.target().id(), "analysis"], &query)?;

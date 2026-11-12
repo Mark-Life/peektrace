@@ -86,11 +86,14 @@ export const run = (
 /** One run without blocking, so many can go at once. */
 export const runAsync = async (
   cmd: readonly string[],
-  env: Record<string, string>
+  env: Record<string, string>,
+  stdin?: string,
+  cwd = REPO
 ): Promise<Run> => {
   const proc = Bun.spawn([...cmd], {
     env,
-    cwd: REPO,
+    cwd,
+    stdin: stdin === undefined ? "ignore" : new Blob([stdin]),
     stdout: "pipe",
     stderr: "pipe",
   });

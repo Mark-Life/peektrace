@@ -3,6 +3,7 @@
 mod args;
 mod argv;
 mod ls;
+mod mcp;
 mod memory;
 mod otel;
 mod remote;
@@ -243,6 +244,18 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
             "--remote is not supported for `{name}` in the Rust build yet."
         ));
         return Ok(failure.fail(&e));
+    }
+    if let Run::Mcp = cmd {
+        if cli.remote.is_some() {
+            let e = ls::UserError::Invalid(
+                "mcp runs locally only; remote is not supported yet".to_owned(),
+            );
+            return Ok(failure.fail(&e));
+        }
+        let ctx = gather_context(None, true)?;
+        print_warnings(cli, &warnings_of(&ctx));
+        mcp::serve(ctx, io::stdin().lock());
+        return Ok(ExitCode::SUCCESS);
     }
     if let Run::Upgrade(args) = cmd {
         let env = upgrade::UpgradeEnv::from_process(VERSION);
