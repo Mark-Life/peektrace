@@ -13,6 +13,9 @@ import { dirname, join } from "node:path";
 import { REPO } from "./parity-lib";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
+/** Float seconds as `fs.utimes` takes them: stored as ns `…122999906`,
+ * which `stat().mtime` rounds up to `.123`. */
+const ROUNDED_MTIME = 1_786_698_711.123;
 const NO_ACCESS = 0o000;
 const INDEX_LINES = 205;
 const LATE_LINE = 203;
@@ -118,6 +121,7 @@ export const buildMemHome = (out: string) => {
   put(join(projects, "C#proj", "memory", "MEMORY.md"), "- [Hash](hash.md)\n");
   put(join(projects, "plainfile"), "not a dir");
   seedVault(join(projects, "-Users-demo-seed", "memory"));
+  intlVault(join(projects, "-Users-demo-intl", "memory"));
   put(join(out, "outside", "memory", "x.md"), "---\nname: x\n---\nx\n");
   const work = join(out, "work", "projects", "-work-proj", "memory");
   put(join(work, "w.md"), "---\nname: w\ntype: user\n---\nwork\n");
@@ -152,6 +156,18 @@ const seedVault = (dir: string) => {
   for (const name of ["nested.md", "flat.md"]) {
     put(join(dir, `fx-${name}`), readFileSync(join(fixtures, name)));
   }
+};
+
+/** Non-ASCII names that `localeCompare` sorts by base letter, and an mtime
+ * whose sub-ms part rounds up. */
+const intlVault = (dir: string) => {
+  for (const name of ["Zeta", "e-plain", "é-accent", "ёlka", "ewe"]) {
+    put(join(dir, `${name}.md`), `---\nname: ${name}\n---\n[[e-plain]]\n`);
+  }
+  put(join(dir, "MEMORY.md"), "- [Zeta](Zeta.md) — z\n- [[é-accent]]\n");
+  const rounded = join(dir, "rounded.md");
+  put(rounded, "---\nname: rounded\n---\nx\n");
+  utimesSync(rounded, ROUNDED_MTIME, ROUNDED_MTIME);
 };
 
 /** Slugs that are not projects with memory, for `memory ls <slug>`. */

@@ -71,7 +71,6 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--otel` `Sessions.list` `malformedLines` and root `cli` `sessions.unreadable` with `--project` | count every Claude transcript | count only the kept project. The stderr note on unreadable sessions matches. |
 | A `null` line in a Claude, Codex or Pi transcript, or Claude assistant `content` that is a number, boolean or object | `analyze` / `export` fail with an Effect error on stdout | the `null` line is skipped and keeps its row index; the content yields no events |
 | A symlink loop under the Codex sessions root | each pass round the loop lists the same rollouts again under a longer path, until the OS fails the path | a dir already on the walk's path is not entered again, so each rollout is listed once per real path |
-| Tie order by id (same `updatedAt`) for non-ASCII ids | ICU `localeCompare` | ASCII in CLDR root order, other chars after ASCII by code point. Session ids are ASCII in practice. |
 | Two Claude, Codex or Pi roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once. OpenCode roots follow TS. |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |
 | `stats` fact cache | `$PEEKTRACE_DIR/stats/` | `$PEEKTRACE_DIR/stats-rs/`, same layout and extractor version 13. Both read and write the one `rule-lines.json` beside it. |

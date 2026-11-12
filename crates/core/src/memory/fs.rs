@@ -10,6 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use tracing::info_span;
 
+use crate::js::time::file_time_ms;
 use crate::paths::PathStyle;
 use crate::sessions::jsonl::decode;
 
@@ -54,19 +55,11 @@ pub fn read_text(path: &str) -> io::Result<String> {
     fs::read(path).map(decode)
 }
 
-/// Epoch ms of `t`, whole, rounded toward zero.
-fn epoch_ms(t: SystemTime) -> i64 {
-    match t.duration_since(UNIX_EPOCH) {
-        Ok(d) => i64::try_from(d.as_millis()).unwrap_or(i64::MAX),
-        Err(e) => -i64::try_from(e.duration().as_millis()).unwrap_or(i64::MAX),
-    }
-}
-
-/// The file's mtime in whole ms (0 when the platform has none).
+/// The file's mtime in ms as `stat().mtime.getTime()` (0 when the platform has none).
 pub fn stat_mtime(path: &str) -> io::Result<i64> {
     let _span = info_span!("Fs.stat", path).entered();
     let meta = fs::metadata(path)?;
-    Ok(meta.modified().map_or(0, epoch_ms))
+    Ok(meta.modified().map_or(0, file_time_ms))
 }
 
 /// `fs.exists`: the path (after symlinks) can be stat'ed.
