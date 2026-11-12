@@ -25,6 +25,7 @@ pub struct SessionHeader {
     pub project: String,
     pub message_count: u64,
     pub size_bytes: u64,
+    #[serde(default)]
     pub updated_at: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cwd: Option<String>,
