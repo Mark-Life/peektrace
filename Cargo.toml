@@ -19,6 +19,7 @@ fancy-regex = { version = "0.20", default-features = false, features = ["std", "
 icu_collator = { version = "2.4", features = ["unstable"] }
 indexmap = "2.14"
 sha1_smol = "1.0"
+notify = "8"
 clap = { version = "4.6", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 rayon = "1.12"
 regex = { version = "1.13", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat"] }

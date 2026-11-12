@@ -27,6 +27,10 @@ fn base_command(dir: &str) -> Command {
         .env("PEEKTRACE_CODEX_SESSIONS", fixtures("sessions-codex"))
         .env("PEEKTRACE_CLIENT", "desktop")
         .env("TZ", "UTC");
+    // Windows sockets need SystemRoot.
+    if let Ok(root) = std::env::var("SystemRoot") {
+        c.env("SystemRoot", root);
+    }
     c
 }
 
