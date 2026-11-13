@@ -15,12 +15,7 @@ import type { TimelineEvent } from "./schema";
  * than looked up, so a type Claude starts writing tomorrow reads as words on the
  * day it appears instead of collapsing to `attachment`.
  */
-export const eventBadgeLabel = (
-  e: Pick<
-    TimelineEvent,
-    "attachmentType" | "kind" | "promptOrigin" | "toolName"
-  >
-): string => {
+export const eventBadgeLabel = (e: TimelineEvent): string => {
   if (e.toolName !== undefined) {
     return e.toolName;
   }

@@ -23,6 +23,10 @@ export type EventRow = TimelineEvent | HistoryRow;
 /** What decides "same body": the body itself, or an index row's body id. */
 export const bodyKey = (e: EventRow) => ("bodyId" in e ? e.bodyId : e.body);
 
+/** `eventBadgeLabel` of a whole event or an index row: it reads only the
+ *  kind, tool name, prompt origin and attachment type, which rows carry. */
+export const badgeOf = (e: EventRow) => eventBadgeLabel(e as TimelineEvent);
+
 /** Body length in UTF-16 units, as `body.length` counts it. */
 export const bodyLength = (e: EventRow) =>
   "bodyLen" in e ? e.bodyLen : e.body.length;
@@ -97,7 +101,7 @@ export const chipLabel = (e: EventRow): string => {
   if (prefix) {
     return e.title.slice(prefix.length);
   }
-  return e.title.trim().length > 0 ? e.title : eventBadgeLabel(e);
+  return e.title.trim().length > 0 ? e.title : badgeOf(e);
 };
 
 /** Whether a bubble body is long enough to need the clamp + "Show all" affordance. */

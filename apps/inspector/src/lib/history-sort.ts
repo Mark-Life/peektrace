@@ -4,9 +4,8 @@
  * the turn gutter and deep links survive a re-sort. Ties fall back to
  * transcript order, so equal keys read in the order they happened.
  */
-import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
 import { eventTokens } from "@workspace/core/services/sessions/tokens";
-import type { EventRow, TranscriptRowRef } from "./chat-lane";
+import { badgeOf, type EventRow, type TranscriptRowRef } from "./chat-lane";
 
 type Row = TranscriptRowRef<EventRow>;
 
@@ -67,8 +66,7 @@ const compareKey = (key: HistorySortKey) => {
       return (x: Row, y: Row) =>
         eventTokens(x.e).tokens - eventTokens(y.e).tokens;
     case "type":
-      return (x: Row, y: Row) =>
-        eventBadgeLabel(x.e).localeCompare(eventBadgeLabel(y.e));
+      return (x: Row, y: Row) => badgeOf(x.e).localeCompare(badgeOf(y.e));
     default:
       return (x: Row, y: Row) => x.pos - y.pos;
   }
