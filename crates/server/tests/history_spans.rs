@@ -97,7 +97,7 @@ fn a_second_call_is_a_cache_hit_and_the_query_is_not_recorded() {
         "{seen:?}"
     );
     assert!(
-        has("rpc.sessions.historySearch", "history.query_len", "10"),
+        has("rpc.sessions.historySearch", "history.queryLen", "10"),
         "{seen:?}"
     );
     assert!(

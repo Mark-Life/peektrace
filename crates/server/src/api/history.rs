@@ -201,14 +201,14 @@ pub async fn history_search(
         "/api/sessions/{id}/history/search",
         sessions.cache = tracing::field::Empty,
         history.matches = tracing::field::Empty,
-        history.query_len = tracing::field::Empty
+        history.queryLen = tracing::field::Empty
     );
     let q = query_pairs(raw.as_deref());
     let Some(needle) = param(&q, "q").filter(|s| !s.is_empty()).map(str::to_owned) else {
         let e = bad_request("q must be a non-empty string");
         return async { finish(Err(e.into())) }.instrument(span).await;
     };
-    span.record("history.query_len", needle.encode_utf16().count());
+    span.record("history.queryLen", needle.encode_utf16().count());
     with_pages(state, id, raw, move |p| {
         let positions = p.search(&needle);
         Span::current().record("history.matches", positions.len());

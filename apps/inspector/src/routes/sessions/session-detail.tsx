@@ -11,7 +11,10 @@
 import { Result } from "@effect-atom/atom-react";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
-import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
+import {
+  GrowthTimeline,
+  GrowthTimelinePending,
+} from "@workspace/viz/components/growth-timeline";
 import {
   analyzedTitle,
   VerdictHeader,
@@ -70,18 +73,6 @@ const ParentNote = ({ parent }: { readonly parent: string }) => {
   );
 };
 
-/** Holds the growth chart's place while its series loads. */
-const GrowthPending = () => (
-  <section
-    aria-busy="true"
-    className="flex flex-col gap-2 rounded-lg border border-border p-3 md:p-4"
-    data-testid="growth-timeline-pending"
-  >
-    <h2 className="font-semibold text-base">Context growth timeline</h2>
-    <div className="aspect-[1000/440] w-full" />
-  </section>
-);
-
 /** Everything below the summary cards' first paint: the growth chart and the
  *  history, each drawn as its part arrives. */
 const SessionBody = ({
@@ -131,10 +122,10 @@ const SessionBody = ({
       {chart === null ? (
         <ResultView
           onRetry={onRetryGrowth}
-          pending={<GrowthPending />}
+          pending={<GrowthTimelinePending a={s} />}
           result={growthResult}
         >
-          {() => <GrowthPending />}
+          {() => <GrowthTimelinePending a={s} />}
         </ResultView>
       ) : (
         <GrowthTimeline a={chart} onTurn={onTurn} />
