@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::{AgentId, UnreadableSession};
+use crate::{AgentId, HistoryIndexMeta, HistoryPageMeta, SummaryHistory, UnreadableSession};
 
 /// A JSON number, or `null` (how `JSON.stringify` prints `NaN`) as `NaN`.
 fn num<'de, D: Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
@@ -117,7 +117,11 @@ pub struct TimelineEvent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ts: Option<String>,
     pub title: String,
+    /// Absent on history index rows.
+    #[serde(default)]
     pub preview: String,
+    /// Absent on history index rows.
+    #[serde(default)]
     pub body: String,
     #[serde(deserialize_with = "num")]
     pub tokens_est: f64,
@@ -353,7 +357,11 @@ pub struct AnalyzedSession {
     pub session_id: String,
     pub path: String,
     pub models: Vec<String>,
+    /// Absent in the session summary.
+    #[serde(default)]
     pub events: Vec<TimelineEvent>,
+    /// Absent in the session summary.
+    #[serde(default)]
     pub turns: Vec<Turn>,
     pub compaction_indexes: Vec<usize>,
     pub subagents: Vec<SubagentRef>,
@@ -374,6 +382,8 @@ pub struct AnalyzedSession {
     #[serde(deserialize_with = "num")]
     pub system_overhead_tokens: f64,
     pub budget: Vec<BudgetSlice>,
+    /// Absent in the session summary.
+    #[serde(default)]
     pub snapshots: Vec<TurnSnapshot>,
     pub dumb_zone_cross_turn: i64,
     #[serde(deserialize_with = "num")]
@@ -391,6 +401,43 @@ pub struct AnalyzedSession {
     pub web_fetch_requests: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost: Option<SessionCost>,
+}
+
+/// `GET /api/sessions/{id}/summary`: the analysis with no events, turns
+/// or snapshots, plus the parts' hashes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SessionSummary {
+    #[serde(flatten)]
+    pub analysis: AnalyzedSession,
+    pub history: SummaryHistory,
+}
+
+/// `GET /api/sessions/{id}/history`: one page of whole events.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HistoryPage {
+    #[serde(flatten)]
+    pub meta: HistoryPageMeta,
+    pub events: Vec<TimelineEvent>,
+}
+
+/// One history index row: an event without its text, plus its turn, its
+/// body length in UTF-16 units and the first position with the same body.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryRow {
+    #[serde(flatten)]
+    pub event: TimelineEvent,
+    pub turn: u64,
+    pub body_len: u64,
+    pub body_id: u64,
+}
+
+/// `GET /api/sessions/{id}/history/index`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HistoryIndex {
+    #[serde(flatten)]
+    pub meta: HistoryIndexMeta,
+    pub rows: Vec<HistoryRow>,
 }
 
 /// Replace every `\uD800`-`\uDFFF` escape that is not half of a valid pair

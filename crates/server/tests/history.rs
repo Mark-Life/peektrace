@@ -307,3 +307,38 @@ fn an_append_moves_the_rev_and_only_the_last_page() {
     assert_ne!(after["pages"][1], before["pages"][1]);
     assert_ne!(after["index"], before["index"]);
 }
+
+#[test]
+fn every_part_reads_into_the_protocol_types() {
+    use peektrace_protocol::view::{HistoryIndex, HistoryPage, SessionSummary};
+    use peektrace_protocol::{GrowthSeries, HistorySearchResult};
+    fn round<T>(body: &str) -> T
+    where
+        T: serde::de::DeserializeOwned + serde::Serialize + PartialEq + std::fmt::Debug,
+    {
+        let t: T = serde_json::from_str(body).expect("typed");
+        let back = serde_json::to_value(&t).expect("value");
+        assert_eq!(serde_json::from_value::<T>(back).ok().as_ref(), Some(&t));
+        t
+    }
+    let s = server();
+    for id in ids(&s) {
+        let body = |route: &str| {
+            let a = s.get(&format!("/api/sessions/{id}/{route}"));
+            assert_eq!(a.status, 200);
+            a.body
+        };
+        let growth: GrowthSeries = round(&body("growth"));
+        let found: HistorySearchResult = round(&body("history/search?q=a"));
+        let sum: SessionSummary = round(&body("summary"));
+        let page: HistoryPage = round(&body("history"));
+        let index: HistoryIndex = round(&body("history/index"));
+        assert_eq!(growth.rev, sum.history.rev);
+        assert_eq!(found.rev, sum.history.rev);
+        assert_eq!(growth.hash, sum.history.growth);
+        assert_eq!(Some(&page.meta.hash), sum.history.pages.first());
+        assert_eq!(index.meta.hash, sum.history.index);
+        assert_eq!(index.rows.len() as u64, page.meta.total);
+        assert!(index.rows.iter().all(|r| r.event.body.is_empty()));
+    }
+}

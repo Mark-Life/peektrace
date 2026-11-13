@@ -29,6 +29,7 @@ url = "2"
 
 [dev-dependencies]
 serde_json.workspace = true
+serde.workspace = true
 tracing-subscriber.workspace = true
 ureq = { version = "3", default-features = false }
 

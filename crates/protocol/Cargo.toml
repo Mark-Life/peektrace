@@ -12,7 +12,8 @@ serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 
 [dev-dependencies]
-ts-rs = "12"
+# `deserialize_with` is read-side only; ts-rs need not warn about it.
+ts-rs = { version = "12", features = ["no-serde-warnings"] }
 
 [lints]
 workspace = true
