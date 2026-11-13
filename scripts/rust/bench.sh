@@ -7,11 +7,14 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               statusline mcp upgrade tui telemetry ci app web
+#                                               serve-open statusline mcp upgrade tui telemetry ci app web web-paging
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
 #   BENCH_SUITES="app web" ...                  the Rune app suites; web also needs agent-browser and brotli.
 #                                               BENCH_DESKTOP_APP=<Peektrace.app> adds the TS desktop bundle to the size rows
+#   BENCH_SUITES="serve-open web-paging" ...    open a big session: TS RPC vs Rust paged routes over HTTP, and the
+#                                               base branch's inspector vs this one in headless Chromium. web-paging needs
+#                                               agent-browser and BENCH_BASE_REF=<git ref> (or BENCH_BASE_INSPECTOR=<dist>)
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
@@ -334,7 +337,8 @@ trap 'stop_live; stop_fake_release; stop_web' EXIT
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui | telemetry | ci | app | web) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | serve-open | \
+      statusline | mcp | upgrade | tui | telemetry | ci | app | web | web-paging) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
