@@ -4,7 +4,7 @@
 use peektrace_protocol::view::{AnalyzedSession, BudgetSlices, TurnSnapshot};
 
 use crate::model::format::fmt_k;
-use crate::model::jsnum::{js_round, to_js_string};
+use peektrace_js::num::{js_round, to_js_string};
 
 pub const W: f64 = 1000.0;
 pub const H: f64 = 440.0;

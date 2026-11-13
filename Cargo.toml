@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry", "crates/ui", "crates/app"]
+members = ["crates/js", "crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry", "crates/ui", "crates/app"]
 # Rune is heavy (~600 crates): plain `cargo build/test/clippy` skip the app crates.
-default-members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry"]
+default-members = ["crates/js", "crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry"]
 
 [workspace.package]
 version = "0.0.0"
@@ -13,6 +13,7 @@ publish = false
 
 [workspace.dependencies]
 peektrace-core = { path = "crates/core" }
+peektrace-js = { path = "crates/js" }
 peektrace-protocol = { path = "crates/protocol" }
 peektrace-server = { path = "crates/server" }
 peektrace-tui = { path = "crates/tui" }

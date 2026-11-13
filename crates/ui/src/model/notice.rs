@@ -49,7 +49,7 @@ pub fn notification_fields(body: &str) -> Vec<NoticeField<'_>> {
         let start = at + off;
         match leaf_at(body, start) {
             Some((tag, value, end)) => {
-                let value = value.trim();
+                let value = peektrace_js::text::trim(value);
                 if !value.is_empty() {
                     out.push(NoticeField { tag, value });
                 }

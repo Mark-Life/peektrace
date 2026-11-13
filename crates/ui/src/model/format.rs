@@ -1,7 +1,7 @@
 //! Number, size and health formatting shared by the session views, with the
 //! JavaScript rounding the web inspector uses.
 
-use super::jsnum::{js_round, to_fixed, to_js_string};
+use peektrace_js::num::{js_round, to_fixed, to_js_string};
 
 const MILLION: f64 = 1_000_000.0;
 const THOUSAND: f64 = 1000.0;

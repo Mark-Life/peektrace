@@ -5,9 +5,6 @@ pub mod diff;
 #[cfg(test)]
 pub mod fixtures;
 pub mod format;
-pub mod jsnum;
-pub mod json;
-pub mod jstime;
 pub mod labels;
 pub mod list;
 pub mod md;

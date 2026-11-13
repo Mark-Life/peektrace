@@ -4,6 +4,7 @@
 
 use std::io::{BufRead as _, Write as _};
 
+use peektrace_js::num::to_fixed;
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::{AnalyzedSession, EventKind, SessionHeader};
 use peektrace_ui::chart::geom::{Growth, growth, pos};
@@ -13,7 +14,6 @@ use peektrace_ui::model::chat::{
     visible_rows,
 };
 use peektrace_ui::model::format::{first_line, fmt, fmt_bytes, fmt_k, fmt_pct, zone_of};
-use peektrace_ui::model::jsnum::to_fixed;
 use peektrace_ui::model::labels::{analyzed_title, cost_summary, provider_label};
 use peektrace_ui::model::list::{self, Filters};
 use peektrace_ui::model::tools::{

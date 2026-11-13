@@ -7,7 +7,9 @@ use std::collections::{HashMap, HashSet};
 
 use peektrace_protocol::view::{EventKind, SubagentRef, TimelineEvent};
 
-use super::labels::{event_badge_label, js_trim};
+use peektrace_js::text::trim as js_trim;
+
+use super::labels::event_badge_label;
 use super::utf16;
 
 /// Body length (UTF-16 units) past which a bubble clamps behind a fade.

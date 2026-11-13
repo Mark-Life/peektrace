@@ -7,9 +7,10 @@ use peektrace_protocol::view::{EventKind, TimelineEvent};
 
 use super::chat::file_title;
 use super::diff::{LineDiff, diff_lines};
-use super::json::{self, Json};
-use super::labels::js_trim;
 use super::utf16;
+use peektrace_js::text::trim as js_trim;
+use peektrace_js::value::{JsObject, JsValue as Json};
+use peektrace_protocol::view::mend_surrogates;
 
 /// Text shown for an event with no body.
 pub const EMPTY_BODY: &str = "(no content)";
@@ -222,16 +223,16 @@ fn parameters(e: &TimelineEvent) -> CallView {
 /// A tool call's panes: a diff per recorded replacement, then each
 /// multi-line or payload arg, then the rest as JSON.
 pub fn call_view(e: &TimelineEvent) -> CallView {
-    let Some(input) = json::parse(&e.body) else {
+    let Some(input) = parse_json(&e.body) else {
         return parameters(e);
     };
-    let Json::Obj(entries) = &input else {
+    let Json::Obj(obj) = &input else {
         return parameters(e);
     };
     let diffs = edit_panes(&input);
-    let args: Vec<&(String, Json)> = entries
-        .iter()
-        .filter(|(k, _)| diffs.is_empty() || !EDIT_KEYS.contains(&k.as_str()))
+    let args: Vec<(&str, &Json)> = obj
+        .entries()
+        .filter(|(k, _)| diffs.is_empty() || !EDIT_KEYS.contains(k))
         .collect();
     let (payloads, rest): (Vec<_>, Vec<_>) = args.into_iter().partition(|(k, v)| is_payload(k, v));
     if diffs.is_empty() && payloads.is_empty() {
@@ -243,22 +244,22 @@ pub fn call_view(e: &TimelineEvent) -> CallView {
         let text = value.as_str().unwrap_or_default().to_owned();
         if is_prose(key, &input) {
             ToolPane::Prose {
-                label: key.clone(),
+                label: key.to_owned(),
                 text,
             }
         } else {
             ToolPane::Code {
-                label: key.clone(),
+                label: key.to_owned(),
                 code: text,
                 language: language_of(key, &input),
             }
         }
     }));
     if !rest.is_empty() {
-        let obj = Json::Obj(rest.into_iter().cloned().collect());
+        let rest = JsObject::from_entries(rest.into_iter().map(|(k, v)| (k.to_owned(), v.clone())));
         panes.push(ToolPane::Code {
             label: "Other parameters".to_owned(),
-            code: json::pretty(&obj),
+            code: Json::Obj(rest).stringify(true),
             language: "json",
         });
     }
@@ -268,6 +269,12 @@ pub fn call_view(e: &TimelineEvent) -> CallView {
         one_line(panes.first().and_then(ToolPane::text).unwrap_or(&e.preview))
     };
     CallView { panes, summary }
+}
+
+/// `JSON.parse(s)`, or `None` where it would throw. Lone surrogate escapes
+/// read as U+FFFD.
+fn parse_json(s: &str) -> Option<Json> {
+    Json::parse(&mend_surrogates(s))
 }
 
 fn text_from_blocks(v: &Json) -> Option<String> {
@@ -284,7 +291,7 @@ fn text_from_blocks(v: &Json) -> Option<String> {
 
 fn json_body(v: &Json) -> Body {
     Body::Code {
-        code: json::pretty(v),
+        code: v.stringify(true),
         language: "json",
     }
 }
@@ -297,10 +304,10 @@ pub fn result_pane(e: &TimelineEvent) -> Body {
             text: e.body.clone(),
         };
     }
-    let parsed = json::parse(&e.body);
+    let parsed = parse_json(&e.body);
     if let Some(text) = parsed.as_ref().and_then(text_from_blocks) {
-        return match json::parse(&text) {
-            Some(inner) if inner.is_object() => json_body(&inner),
+        return match parse_json(&text) {
+            Some(inner @ (Json::Arr(_) | Json::Obj(_))) => json_body(&inner),
             _ => Body::Prose { text },
         };
     }

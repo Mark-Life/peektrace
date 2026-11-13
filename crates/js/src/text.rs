@@ -72,12 +72,12 @@ pub enum Unit {
 }
 
 /// True for chars that need `ESCAPE` in front to stay literal.
-pub(crate) fn reserved(c: char) -> bool {
+pub fn reserved(c: char) -> bool {
     c >= ESCAPE
 }
 
 /// The stand-in char for an unpaired surrogate `unit`.
-pub(crate) fn surrogate_stand_in(unit: u16) -> Option<char> {
+pub fn surrogate_stand_in(unit: u16) -> Option<char> {
     (0xD800..0xE000)
         .contains(&unit)
         .then(|| char::from_u32(STAND_IN_BASE + u32::from(unit - 0xD800)))
@@ -85,7 +85,7 @@ pub(crate) fn surrogate_stand_in(unit: u16) -> Option<char> {
 }
 
 /// Push `c` the way transcript text stores it.
-pub(crate) fn push_literal(out: &mut String, c: char) {
+pub fn push_literal(out: &mut String, c: char) {
     if reserved(c) {
         out.push(ESCAPE);
     }
@@ -94,7 +94,7 @@ pub(crate) fn push_literal(out: &mut String, c: char) {
 
 /// `s` as transcript text: reserved chars get `ESCAPE` in front. Borrowed
 /// when there are none, which is almost always.
-pub(crate) fn escape_reserved(s: &str) -> Cow<'_, str> {
+pub fn escape_reserved(s: &str) -> Cow<'_, str> {
     // Every reserved char starts with byte 0xF4.
     if !s.as_bytes().contains(&0xF4) {
         return Cow::Borrowed(s);
@@ -153,7 +153,7 @@ fn utf16(s: &str) -> impl Iterator<Item = u16> + '_ {
 
 /// Default `Array.prototype.sort` order of transcript text: UTF-16 code
 /// units.
-pub(crate) fn cmp_utf16(a: &str, b: &str) -> Ordering {
+pub fn cmp_utf16(a: &str, b: &str) -> Ordering {
     utf16(a).cmp(utf16(b))
 }
 
@@ -163,7 +163,7 @@ static ROOT_COLLATOR: CollatorBorrowed<'static> =
 
 /// `String.prototype.localeCompare` under the root locale: CLDR root
 /// collation at tertiary strength.
-pub(crate) fn locale_compare(a: &str, b: &str) -> Ordering {
+pub fn locale_compare(a: &str, b: &str) -> Ordering {
     ROOT_COLLATOR.compare(a, b)
 }
 

@@ -62,7 +62,7 @@ fn gauge(a: &AnalyzedSession, zone: Zone, t: &Theme) -> El {
 }
 
 fn fmt_round(n: f64) -> String {
-    crate::model::jsnum::to_js_string(crate::model::jsnum::js_round(n))
+    peektrace_js::num::to_js_string(peektrace_js::num::js_round(n))
 }
 
 fn tile(key: &str, label: &str, value: El, t: &Theme) -> El {
@@ -242,7 +242,7 @@ fn chips(d: &Detail, t: &Theme) -> El {
             t,
         ));
     }
-    let js = crate::model::jsnum::to_js_string;
+    let js = peektrace_js::num::to_js_string;
     if a.web_search_requests > 0.0 {
         r = r.child(
             chip(

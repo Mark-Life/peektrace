@@ -1,6 +1,6 @@
 //! Which snapshot a pointer over the growth chart points at.
 
-use crate::model::jsnum::js_round;
+use peektrace_js::num::js_round;
 
 /// Nearest snapshot to viewBox x `px`: snapshots sit evenly from the plot's
 /// left edge to its right one (one snapshot sits in the middle). `None`

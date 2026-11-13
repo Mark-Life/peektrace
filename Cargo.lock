@@ -3092,6 +3092,7 @@ dependencies = [
  "indexmap",
  "jiff",
  "notify",
+ "peektrace-js",
  "rayon",
  "regex",
  "rusqlite",
@@ -3100,6 +3101,15 @@ dependencies = [
  "sha1_smol",
  "thiserror 2.0.21",
  "tracing",
+]
+
+[[package]]
+name = "peektrace-js"
+version = "0.0.0"
+dependencies = [
+ "icu_collator",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3167,6 +3177,7 @@ dependencies = [
  "icu_collator",
  "js-sys",
  "peektrace-core",
+ "peektrace-js",
  "peektrace-protocol",
  "pulldown-cmark",
  "rune",

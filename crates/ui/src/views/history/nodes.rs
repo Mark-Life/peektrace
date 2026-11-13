@@ -9,13 +9,13 @@ use rune_kit::{Button, ButtonVariant, ControlSize};
 use super::body::{code_block, markdown, plain};
 use crate::model::chat::{Lane, collapse_id, lane_of, needs_clamp};
 use crate::model::format::{fmt, fmt_k, fmt_pct, zone_of};
-use crate::model::jsnum::{js_round, to_fixed, to_js_string};
 use crate::model::labels::{event_tokens, thinking_note, token_label};
 use crate::model::notice::{NoticeField, notification_fields};
 use crate::model::tools::body_view;
 use crate::state::Ui;
 use crate::theme::{Theme, hex_or_grey, ty, zone_text};
 use crate::views::widgets::badge;
+use peektrace_js::num::{js_round, to_fixed, to_js_string};
 
 /// Bubble width in its lane.
 const LANE_W: f32 = 720.0;

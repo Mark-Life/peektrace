@@ -8,7 +8,11 @@ use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::SessionHeader;
 
-use super::jstime::{DAY_MS, day_key, parse_date};
+use peektrace_js::time::{MS_PER_DAY as DAY_MS, Utc, day_key};
+
+fn parse_date(s: &str) -> Option<i64> {
+    peektrace_js::time::parse_date(s, &Utc)
+}
 
 /// A session whose last line is newer than this counts as live.
 pub const LIVE_MS: f64 = 300_000.0;

@@ -19,7 +19,7 @@ const SIZE: (f32, f32) = (1440.0, 900.0);
 
 fn now_ms() -> f64 {
     #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
-    peektrace_ui::model::jstime::parse_date(home::NOW).map_or(0.0, |ms| ms as f64)
+    peektrace_js::time::parse_date(home::NOW, &peektrace_js::time::Utc).map_or(0.0, |ms| ms as f64)
 }
 
 fn state(home: &Path) -> Ui {

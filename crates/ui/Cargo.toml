@@ -8,6 +8,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+peektrace-js.workspace = true
 peektrace-protocol.workspace = true
 rune = { workspace = true, optional = true }
 rune-kit = { workspace = true, optional = true }

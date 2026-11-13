@@ -1,9 +1,13 @@
 //! Ports of `apps/inspector/test/session-list.test.tsx`: the rail over 500
 //! in-memory headers, driven through Rune's `Runtime` (no GPU, no HOME).
 
+use peektrace_js::time::{MS_PER_DAY as DAY_MS, Utc, day_key};
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::{SessionHeader, SessionListingView};
-use peektrace_ui::model::jstime::{DAY_MS, day_key, parse_date};
+
+fn parse_date(s: &str) -> Option<i64> {
+    peektrace_js::time::parse_date(s, &Utc)
+}
 use peektrace_ui::state::Ui;
 use peektrace_ui::views;
 use rune::{Env, Runtime};

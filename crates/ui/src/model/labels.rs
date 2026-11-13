@@ -1,12 +1,13 @@
 //! Labels for events and sessions. Copies of `peektrace_core::sessions`
-//! label and cost helpers over the wire types; `tests/drift.rs` keeps them
-//! equal to core.
+//! label and cost helpers: core runs them on its own session model, the app
+//! on the wire types, so `tests/drift.rs` keeps the two equal.
 
 use peektrace_protocol::view::{
     AnalyzedSession, CostSource, EventKind, PromptOrigin, SessionCost, TimelineEvent,
 };
 
-use super::jsnum::{to_fixed, to_js_string};
+use peektrace_js::num::{to_fixed, to_js_string};
+use peektrace_js::text::trim;
 
 /// The badge label of one row: tool name, `system prompt`, who wrote a
 /// prompt the user did not type, the attachment type as words, else the kind.
@@ -23,7 +24,7 @@ pub fn event_badge_label(e: &TimelineEvent) -> String {
     {
         return origin_str(origin).replace('-', " ");
     }
-    let ty = e.attachment_type.as_deref().map_or("", js_trim);
+    let ty = e.attachment_type.as_deref().map_or("", trim);
     if ty.is_empty() {
         e.kind.as_str().to_owned()
     } else {
@@ -40,11 +41,6 @@ const fn origin_str(o: PromptOrigin) -> &'static str {
         PromptOrigin::Scheduled => "scheduled",
         PromptOrigin::Harness => "harness",
     }
-}
-
-/// `String.prototype.trim`: JS white space and line terminators.
-pub fn js_trim(s: &str) -> &str {
-    s.trim_matches(|c: char| c == '\u{FEFF}' || (c.is_whitespace() && c != '\u{0085}'))
 }
 
 /// An event's best known size and whether usage measured it.

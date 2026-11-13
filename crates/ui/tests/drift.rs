@@ -1,78 +1,18 @@
-//! The ui crate copies a few core helpers because core does not build for
-//! wasm32. These tests keep the copies equal to core.
+//! The ui crate copies core's label and cost helpers, since core runs them
+//! on its own session model and the app on the wire types. These tests keep
+//! the copies equal to core.
 
 mod common;
 
 use common::home;
-use peektrace_core::js::num as core_num;
-use peektrace_core::js::time::{Utc, parse_date};
+use peektrace_core::js::time::Utc;
 use peektrace_core::sessions::cost as core_cost;
 use peektrace_core::sessions::labels as core_labels;
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::analyzed_json_with;
 use peektrace_core::{AgentRoots, ListFilter, PathStyle, list_sessions};
 use peektrace_protocol::view::AnalyzedSession;
-use peektrace_ui::model::{jsnum, jstime, labels};
-
-/// A deterministic sweep: ties, halves, near-powers, negatives, tiny and huge.
-fn sweep() -> Vec<f64> {
-    let mut out = vec![
-        0.0,
-        -0.0,
-        0.5,
-        1.25,
-        1.35,
-        2.5,
-        999_999.5,
-        1e6 - 1.0,
-        1e6 + 1.0,
-        1e21,
-        1e-7,
-        f64::NAN,
-        f64::INFINITY,
-    ];
-    let mut x: u64 = 0x2545_F491_4F6C_DD1D;
-    for i in 0..100_000_u32 {
-        x ^= x << 13;
-        x ^= x >> 7;
-        x ^= x << 17;
-        #[expect(clippy::cast_precision_loss, reason = "a test sweep")]
-        let base = (x % 10_000_000) as f64 / 1000.0;
-        out.push(if i % 3 == 0 { -base } else { base });
-        out.push(f64::from(i) + 0.05);
-    }
-    out
-}
-
-#[test]
-fn numbers_match_core() {
-    for x in sweep() {
-        assert_eq!(jsnum::to_js_string(x), core_num::to_js_string(x), "{x:?}");
-        for f in [0, 1, 2] {
-            assert_eq!(jsnum::to_fixed(x, f), core_num::to_fixed(x, f), "{x:?} {f}");
-        }
-        assert_eq!(
-            jsnum::js_round(x).to_bits(),
-            core_num::js_round(x).to_bits(),
-            "{x:?}"
-        );
-    }
-}
-
-#[test]
-fn dates_match_core() {
-    for s in [
-        "2026-06-01T10:03:00Z",
-        "2026-06-01T10:03:00.123+02:00",
-        "2026-02-30",
-        "2026-13-01",
-        "nope",
-        "2026-06-01T24:00",
-        "+002026-06-01T00:00:00Z",
-    ] {
-        assert_eq!(jstime::parse_date(s), parse_date(s, &Utc), "{s}");
-    }
-}
+use peektrace_ui::model::labels;
 
 fn analyses() -> Vec<(
     peektrace_core::sessions::model::AnalyzedSession,

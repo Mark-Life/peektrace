@@ -33,7 +33,7 @@ pub fn fixed_now() -> Option<f64> {
     {
         let raw = std::env::var("PEEKTRACE_APP_NOW").ok()?;
         #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
-        crate::model::jstime::parse_date(&raw).map(|ms| ms as f64)
+        peektrace_js::time::parse_date(&raw, &peektrace_js::time::Utc).map(|ms| ms as f64)
     }
     #[cfg(target_arch = "wasm32")]
     None
