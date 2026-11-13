@@ -1,10 +1,13 @@
-//! `peektrace tui` on a pseudo-terminal: closing the terminal ends it.
+//! `peektrace tui` on a pseudo-terminal: closing the terminal ends it and
+//! still records its `cli` event.
 //! Python's `pty.fork` makes the terminal the child's controlling one, as
 //! a real terminal window is; skipped when `python3` is missing.
 #![cfg(unix)]
 
 use std::net::TcpListener;
 use std::process::Command;
+
+use rusqlite::Connection;
 
 const BIN: &str = env!("CARGO_BIN_EXE_peektrace");
 
@@ -68,6 +71,13 @@ fn closing_the_terminal_ends_the_tui() {
         .current_dir(&dir)
         .output()
         .expect("python3");
+    let cli_rows = Connection::open(dir.join(".peektrace/telemetry.db")).and_then(|c| {
+        c.query_row(
+            "SELECT count(*) FROM events WHERE kind = 'cli' AND name = 'cli'",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
+    });
     let _ = std::fs::remove_dir_all(&dir);
     let said = String::from_utf8_lossy(&out.stdout);
     assert_eq!(
@@ -76,4 +86,5 @@ fn closing_the_terminal_ends_the_tui() {
         "stderr: {}",
         String::from_utf8_lossy(&out.stderr)
     );
+    assert_eq!(cli_rows.ok(), Some(1));
 }

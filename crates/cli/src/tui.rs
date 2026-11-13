@@ -43,6 +43,7 @@ fn watchdog(signalled: Receiver<()>, finished: Arc<AtomicBool>) {
         if !finished.load(Ordering::Relaxed) {
             restore_terminal();
             otel::release();
+            peektrace_telemetry::finish_open_roots();
             peektrace_telemetry::flush(peektrace_telemetry::EXIT_WAIT);
             std::process::exit(0);
         }

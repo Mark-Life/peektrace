@@ -54,6 +54,26 @@ pub fn wait_ready(limit: Duration) {
     }
 }
 
+/// Emit every root span still open, as if it closed now. Call before an
+/// exit that skips unwinding, then `flush`. No-op without the store layer.
+pub fn finish_open_roots() {
+    tracing::dispatcher::get_default(|d| {
+        if let (Some(layer), Some(spans)) = (
+            d.downcast_ref::<StoreLayer>(),
+            d.downcast_ref::<tracing_subscriber::Registry>(),
+        ) {
+            layer.finish_open(spans);
+        }
+    });
+}
+
+/// Mark the innermost root entered on this thread as a defect, from a
+/// caught panic payload. Covers panics raised on another thread and
+/// re-raised here (rayon), which skip the hook on this thread.
+pub fn record_panic(payload: &(dyn std::any::Any + Send)) {
+    layer::mark_defect(&layer::panic_message(payload));
+}
+
 /// A panic marks the innermost entered root as a defect, then runs the
 /// hook that was there before.
 fn install_panic_hook() {

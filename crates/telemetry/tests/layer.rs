@@ -152,3 +152,18 @@ fn attribute_order_keeps_first_position() {
     });
     assert_eq!(events[0].attributes, r#"{"b":3,"c":"x","a":2.5}"#);
 }
+
+#[test]
+fn finish_open_roots_emits_once_before_close() {
+    let events = traced(|| {
+        let r = root("cli");
+        let _in = r.enter();
+        drop(info_span!("child").entered());
+        peektrace_telemetry::finish_open_roots();
+        drop(info_span!("late").entered());
+    });
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].outcome, Outcome::Success);
+    assert_eq!(events[0].spans.len(), 1);
+    assert_eq!(events[0].spans[0].name, "child");
+}

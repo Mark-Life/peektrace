@@ -70,14 +70,14 @@ thread_local! {
 /// Roots a panic hit while they were entered, with the panic message.
 static DEFECTS: Mutex<Vec<(u64, String)>> = Mutex::new(Vec::new());
 
-/// Mark the innermost root entered on this thread as a defect. Called from
-/// the panic hook.
+/// Mark the innermost root entered on this thread as a defect. A root
+/// already marked keeps its first message.
 pub fn mark_defect(message: &str) {
     if let Some(id) = ENTERED.with(|e| e.borrow().last().copied()) {
-        DEFECTS
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .push((id, message.to_owned()));
+        let mut defects = DEFECTS.lock().unwrap_or_else(PoisonError::into_inner);
+        if defects.iter().all(|(d, _)| *d != id) {
+            defects.push((id, message.to_owned()));
+        }
     }
 }
 
@@ -112,6 +112,8 @@ pub struct StoreLayer {
     platform: String,
     /// Shared by span and trace ids, as the TS tracer counts them.
     counter: AtomicU64,
+    /// Ids of roots not yet emitted.
+    open: Mutex<Vec<u64>>,
 }
 
 impl StoreLayer {
@@ -121,6 +123,34 @@ impl StoreLayer {
             app_version: app_version.to_owned(),
             platform,
             counter: AtomicU64::new(0),
+            open: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn open_roots(&self) -> std::sync::MutexGuard<'_, Vec<u64>> {
+        self.open.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// Emit every root still open, as if it closed now. For an exit that
+    /// never unwinds back to the code holding the root.
+    pub fn finish_open<S: for<'a> LookupSpan<'a>>(&self, spans: &S) {
+        let open = std::mem::take(&mut *self.open_roots());
+        for raw in open {
+            let id = Id::from_u64(raw);
+            let Some(span) = spans.span(&id) else {
+                continue;
+            };
+            let node = span.extensions_mut().remove::<Node>();
+            if let Some(mut node) = node {
+                self.emit_root(&id, span.name(), &mut node);
+            }
+        }
+    }
+
+    fn emit_root(&self, id: &Id, name: &str, node: &mut Node) {
+        if let Some(attrs) = node.attrs.take() {
+            let defect = take_defect(id.into_u64());
+            (self.emit)(self.event(name, node, &attrs, defect));
         }
     }
 
@@ -177,6 +207,7 @@ where
             Some(fields) if fields.is_root() => {
                 let trace = self.next_id();
                 self.next_id();
+                self.open_roots().push(id.into_u64());
                 Node {
                     start: Instant::now(),
                     attrs: Some(fields),
@@ -238,14 +269,15 @@ where
         let Some(mut node) = span.extensions_mut().remove::<Node>() else {
             return;
         };
+        if node.trace.is_some() {
+            let raw = id.into_u64();
+            self.open_roots().retain(|x| *x != raw);
+            self.emit_root(&id, span.name(), &mut node);
+            return;
+        }
         let Some(attrs) = node.attrs.take() else {
             return;
         };
-        if node.trace.is_some() {
-            let defect = take_defect(id.into_u64());
-            (self.emit)(self.event(span.name(), &node, &attrs, defect));
-            return;
-        }
         let duration_ms = ms_since(node.start);
         node.root.push(SpanRecord {
             name: span.name().to_owned(),

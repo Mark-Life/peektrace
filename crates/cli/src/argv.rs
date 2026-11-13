@@ -67,10 +67,17 @@ pub fn version_alias(argv: &[String]) -> Vec<String> {
 }
 
 /// Index of the `sessions search` word in `argv` (with the program name).
+/// Also takes the TS rule, the first `search` right after `sessions`, so a
+/// value flag missing its value (`--remote sessions search q`) still scrubs.
 fn free_text_index(argv: &[String]) -> Option<usize> {
-    match command_path(argv)? {
-        ("sessions", "search", at) => Some(at),
-        _ => None,
+    match command_path(argv) {
+        Some(("sessions", "search", at)) => Some(at),
+        _ => argv
+            .iter()
+            .skip(1)
+            .position(|a| a == "search")
+            .map(|i| i + 1)
+            .filter(|&at| argv[at - 1] == "sessions"),
     }
 }
 
@@ -190,5 +197,18 @@ mod tests {
         )));
         assert!(!has_free_text(&argv("pt memory ls")));
         assert!(!has_free_text(&argv("pt search x")));
+        assert!(!has_free_text(&argv("pt sessions ls search")));
+    }
+
+    #[test]
+    fn scrubs_when_a_value_flag_eats_the_group() {
+        assert_eq!(
+            logged("pt --log-level sessions search walrus"),
+            "--log-level sessions search <text>"
+        );
+        assert_eq!(
+            logged("pt --remote sessions search walrus --json"),
+            "--remote sessions search <text> --json"
+        );
     }
 }
