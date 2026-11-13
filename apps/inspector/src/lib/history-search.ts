@@ -6,35 +6,40 @@
  * reader cannot see.
  */
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import type { TranscriptRowRef } from "./chat-lane";
+import type { EventRow, TranscriptRowRef } from "./chat-lane";
 import { type HistorySort, sortRows } from "./history-sort";
 
 /** Lowercased searchable text per event, aligned with `events` by position. */
 export const searchIndexOf = (events: readonly TimelineEvent[]) =>
   events.map((e) => `${e.title}\n${e.preview}\n${e.body}`.toLowerCase());
 
-/** Rows the history renders: no system events, then kind, query and sort. */
-export const visibleRows = ({
+/** Rows the history renders: no system events, then kind, query and sort.
+ *  `hits`, the positions a server search matched, stands in for `index`. */
+export const visibleRows = <E extends EventRow>({
   events,
-  index,
+  hits,
+  index = [],
   kind,
   query,
   sort,
 }: {
-  readonly events: readonly TimelineEvent[];
-  readonly index: readonly string[];
+  readonly events: readonly E[];
+  readonly hits?: ReadonlySet<number> | undefined;
+  readonly index?: readonly string[];
   /** `"all"` or one event kind. */
   readonly kind: string;
   readonly query: string;
   readonly sort: HistorySort;
 }) => {
   const needle = query.toLowerCase();
-  const rows: TranscriptRowRef[] = [];
+  const matches = (pos: number) =>
+    hits ? hits.has(pos) : (index[pos] ?? "").includes(needle);
+  const rows: TranscriptRowRef<E>[] = [];
   for (const [pos, e] of events.entries()) {
     if (e.kind === "system" || (kind !== "all" && e.kind !== kind)) {
       continue;
     }
-    if (needle.length > 0 && !(index[pos] ?? "").includes(needle)) {
+    if (needle.length > 0 && !matches(pos)) {
       continue;
     }
     rows.push({ e, pos });

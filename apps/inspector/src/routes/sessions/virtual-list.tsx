@@ -36,7 +36,7 @@ const OVERSCAN = 10;
 
 /** Lists up to this long mount every item, so browser find-in-page and
  *  screen-reader browse mode still reach the whole transcript. */
-const FULL_RENDER_MAX = 150;
+export const FULL_RENDER_MAX = 150;
 
 /** A viewport to plan the first render against, before the pane is measured. */
 const FALLBACK_HEIGHT = 900;
@@ -184,6 +184,7 @@ export const VirtualList = <T,>({
   items,
   keys,
   measureKey,
+  onRange,
   ref,
   render,
   scrollPaddingStart = 0,
@@ -198,6 +199,9 @@ export const VirtualList = <T,>({
   /** Changes when many heights change at once (expand or collapse all): every
    *  height is guessed again and the reader stays on the same block. */
   readonly measureKey?: unknown;
+  /** Called with the first and last drawn item index whenever they change;
+   *  a short list draws, and reports, every item. */
+  readonly onRange?: (first: number, last: number) => void;
   readonly ref?: Ref<VirtualListHandle>;
   readonly render: (item: T) => ReactNode;
   /** Height covered at the top of the pane (a sticky toolbar): an item
@@ -311,6 +315,13 @@ export const VirtualList = <T,>({
     : items.map((_, index) => ({ index, start: 0 }));
   const { flow, pinned } = splitPinned(drawn);
   const top = virtual ? (flow[0]?.start ?? scrollMargin) - scrollMargin : 0;
+  const first = flow[0]?.index ?? -1;
+  const last = flow.at(-1)?.index ?? -1;
+  useEffect(() => {
+    if (first >= 0) {
+      onRange?.(first, last);
+    }
+  }, [first, last, onRange]);
 
   // One keyed array for every drawn item: a block that moves between the run
   // and the pinned slot, or between the two modes, keeps its DOM node, and

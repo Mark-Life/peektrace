@@ -10,10 +10,17 @@
  * second tap on the same snapshot reports it.
  */
 import type { TurnSnapshot } from "@workspace/core/services/sessions/schema";
+
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { fmtK } from "../lib/session-format";
 import { clickAction, snapIndexAtX } from "../lib/timeline-hit";
+
+/** The snapshot fields the chart draws. */
+export type GrowthSnapshot = Pick<
+  TurnSnapshot,
+  "ctx" | "outputTokens" | "slices" | "turnIndex"
+>;
 
 /** Gap between the guide line and its label, in viewBox px. */
 const LABEL_GAP = 6;
@@ -64,7 +71,7 @@ export const TimelineHitLayer = ({
   readonly onTurn: (turn: number) => void;
   readonly plotH: number;
   readonly plotW: number;
-  readonly snaps: readonly TurnSnapshot[];
+  readonly snaps: readonly GrowthSnapshot[];
   readonly top: number;
   readonly x: (i: number) => number;
 }) => {

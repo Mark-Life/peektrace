@@ -7,10 +7,13 @@
  * the place survives a reload; a new request clears whichever param no longer
  * holds.
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import type {
+  AnalyzedSession,
+  TimelineEvent,
+} from "@workspace/core/services/sessions/schema";
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
-import type { ChatNode, TranscriptRowRef } from "./chat-lane";
+import type { ChatNode, EventRow, TranscriptRowRef } from "./chat-lane";
 import { planIndexOfCall } from "./chat-lane";
 import { rowIndexOfCall } from "./history-filter";
 import { readHashParam, setHashParams, useHashParam } from "./routes";
@@ -39,10 +42,9 @@ export interface HistoryJump {
  *  spawned in transcript order, or else the subagents section. Null when the
  *  session has no such place. */
 export const resolveJump = (
-  a: Pick<
-    AnalyzedSession,
-    "compactionTurns" | "events" | "subagents" | "turnCount"
-  >,
+  a: Pick<AnalyzedSession, "compactionTurns" | "subagents" | "turnCount"> & {
+    readonly events: readonly Pick<TimelineEvent, "kind" | "toolUseId">[];
+  },
   req: JumpRequest
 ): JumpTarget | null => {
   if (req.kind === "turn") {
@@ -89,7 +91,7 @@ export const toHistoryJump = (
  *  every event of `n`. A dumb-zone divider right above the rule is part of
  *  the landing, so it shows below the sticky bar. -1 when nothing at or
  *  after `n` is shown. */
-const planIndexOfTurn = (plan: readonly ChatNode[], n: number) => {
+const planIndexOfTurn = (plan: readonly ChatNode<EventRow>[], n: number) => {
   const exact = plan.findIndex((x) => x.type === "turn" && x.turn === n);
   const at =
     exact >= 0
@@ -99,7 +101,7 @@ const planIndexOfTurn = (plan: readonly ChatNode[], n: number) => {
 };
 
 /** The band of the first visible compaction. */
-const planIndexOfCompaction = (plan: readonly ChatNode[]) =>
+const planIndexOfCompaction = (plan: readonly ChatNode<EventRow>[]) =>
   plan.findIndex((x) => x.type === "band" && x.row.e.kind === "compaction");
 
 /** The first row of turn `n`. The later-turn fallback only holds in forward
@@ -112,7 +114,7 @@ const rowIndexOfTurn = ({
 }: {
   readonly n: number;
   readonly ordered: boolean;
-  readonly rows: readonly TranscriptRowRef[];
+  readonly rows: readonly TranscriptRowRef<EventRow>[];
   readonly turns: readonly number[];
 }) => {
   const exact = rows.findIndex(({ pos }) => turns[pos] === n);
@@ -123,12 +125,12 @@ const rowIndexOfTurn = ({
 };
 
 /** The first visible compaction row. */
-const rowIndexOfCompaction = (rows: readonly TranscriptRowRef[]) =>
+const rowIndexOfCompaction = (rows: readonly TranscriptRowRef<EventRow>[]) =>
   rows.findIndex(({ e }) => e.kind === "compaction");
 
 /** Where `target` sits in the chat plan; -1 when hidden or not in the list. */
 export const planIndexOfTarget = (
-  plan: readonly ChatNode[],
+  plan: readonly ChatNode<EventRow>[],
   target: JumpTarget
 ) => {
   if (target.kind === "turn") {
@@ -148,7 +150,7 @@ export const rowIndexOfTarget = ({
   turns,
 }: {
   readonly ordered: boolean;
-  readonly rows: readonly TranscriptRowRef[];
+  readonly rows: readonly TranscriptRowRef<EventRow>[];
   readonly target: JumpTarget;
   readonly turns: readonly number[];
 }) => {

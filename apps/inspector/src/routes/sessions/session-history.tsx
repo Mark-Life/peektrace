@@ -7,11 +7,12 @@
  * belongs to this view and clears when another session opens. The chat layout
  * is the default, the readable pass; the dense table is the forensic answer
  * ("what did this cost, in what order") over the same events. Keeping the
- * filtering here is what stops the two from drifting apart. The transcript is
+ * filtering here is what stops the two from drifting apart. Rows come from the
+ * body-free history index; each drawn row's event page is fetched as it comes
+ * on screen, and search runs on the server. The transcript is
  * REDACTED BY DEFAULT behind a persistent "review before sharing" banner; the
  * reveal toggle re-fetches with `redact:false` (handled by the parent atom).
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Button } from "@workspace/ui/components/button";
 import {
   Select,
@@ -38,6 +39,11 @@ import {
   useRef,
   useState,
 } from "react";
+import type {
+  GrowthSeries,
+  HistoryIndex,
+  SessionSummary,
+} from "../../lib/api-types.gen";
 import { chatIdsOf } from "../../lib/chat-lane";
 import {
   isHiddenJump,
@@ -51,15 +57,17 @@ import {
   useStickyHeight,
   useSubagentsJump,
 } from "../../lib/history-landing";
+import { mergeRow, neededPages } from "../../lib/history-pages";
 import { useHistoryPrefs } from "../../lib/history-prefs";
-import { searchIndexOf, visibleRows } from "../../lib/history-search";
+import { visibleRows } from "../../lib/history-search";
 import { DEFAULT_HISTORY_SORT, isForwardOrder } from "../../lib/history-sort";
-import {
-  crossEvtIdx as crossEventIndex,
-  turnNumbers,
-} from "../../lib/history-turns";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
+import {
+  type SessionKey,
+  useBodyPages,
+  useHistorySearch,
+} from "../../lib/session-data";
 import { useToolMarks } from "../../lib/session-markers";
 import {
   eventCollapseId,
@@ -91,7 +99,7 @@ const KIND_OPTIONS = [
 ] as const;
 
 const NO_HITS: readonly string[] = [];
-const NO_INDEX: readonly string[] = [];
+const NO_PAGES: readonly number[] = [];
 
 /** Keeps the warning in sight once the banner has scrolled away. */
 const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
@@ -107,17 +115,26 @@ const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
 
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
-  a,
+  growth,
+  index,
+  k,
   landing,
+  onStale,
   onSummary,
   req,
+  s: a,
   sectionRef,
   seq,
   sid,
   view,
 }: {
-  readonly a: AnalyzedSession;
+  /** Per-turn usage for the chat turn rules; null until it arrives. */
+  readonly growth: GrowthSeries | null;
+  readonly index: HistoryIndex;
+  readonly k: SessionKey;
   readonly landing: JumpLanding;
+  /** Asks for a new summary: a page came back newer than it. */
+  readonly onStale: () => void;
   /** Scrolls back up to the summary. */
   readonly onSummary: () => void;
   /** Where a stats link or the summary asked to go, if anywhere. */
@@ -126,7 +143,8 @@ export const SessionHistory = ({
   readonly sectionRef: RefObject<HTMLElement | null>;
   /** Bumped on every request, so a second click on one chip lands again. */
   readonly seq: number;
-  /** The session id, for the marker query — `AnalyzedSession` carries none. */
+  readonly s: SessionSummary;
+  /** The session id, for the marker query — the summary carries none. */
   readonly sid: string;
   readonly view: SessionView;
 }) => {
@@ -134,18 +152,63 @@ export const SessionHistory = ({
   const prefs = useHistoryPrefs();
   const { kind, sort, mode } = prefs;
   const { query, deferredQuery, setQuery } = useSearchQuery(sid);
-  // Built only while searching: a live append rebuilds every event, and an
-  // idle viewer should not pay for an index nobody reads.
-  const searching = deferredQuery.length > 0;
-  const searchIndex = useMemo(
-    () => (searching ? searchIndexOf(a.events) : NO_INDEX),
-    [a.events, searching]
-  );
-  const turns = useMemo(() => turnNumbers(a), [a]);
-  // Resolved once per analysis and request: the resolve walks every event,
+  const events = index.rows;
+  const found = useHistorySearch({
+    k,
+    query: deferredQuery,
+    rev: a.history.rev,
+  });
+  // The query the shown rows answer: it trails the typed one while the
+  // server searches.
+  const shownQuery = found.query;
+  const searching = shownQuery.length > 0;
+  const turns = useMemo(() => events.map((e) => e.turn), [events]);
+  // Resolved once per index and request: the resolve walks every event,
   // and a fresh object would re-run the landing effects on each render.
-  const jump = useMemo(() => toHistoryJump(a, req, seq), [a, req, seq]);
-  const tools = useMemo(() => indexTools(a), [a]);
+  const jump = useMemo(
+    () =>
+      toHistoryJump(
+        {
+          compactionTurns: a.compactionTurns,
+          events,
+          subagents: a.subagents,
+          turnCount: a.turnCount,
+        },
+        req,
+        seq
+      ),
+    [a.compactionTurns, a.subagents, a.turnCount, events, req, seq]
+  );
+  const tools = useMemo(() => indexTools({ events }), [events]);
+  const [needed, setNeeded] = useState(NO_PAGES);
+  const total = a.history.total;
+  const onDrawn = useCallback(
+    (drawn: readonly number[]) => {
+      const next = neededPages({ drawn, total });
+      setNeeded((prev) =>
+        prev.length === next.length && prev.every((p, i) => p === next[i])
+          ? prev
+          : next
+      );
+    },
+    [total]
+  );
+  const pages = useBodyPages({
+    hashes: a.history.pages,
+    k,
+    needed,
+    onStale,
+  });
+  const eventAt = useCallback((pos: number) => mergeRow(pos, pages), [pages]);
+  const chatSession = useMemo(
+    () => ({
+      contextWindow: a.contextWindow,
+      dumbZoneCrossTurn: a.dumbZoneCrossTurn,
+      dumbZoneFraction: a.dumbZoneFraction,
+      turns: growth?.turns ?? [],
+    }),
+    [a.contextWindow, a.dumbZoneCrossTurn, a.dumbZoneFraction, growth]
+  );
   // Stats marks are an annotation on the same calls the tables counted; a
   // failed or pending marker query leaves the transcript exactly as it was.
   const marks = useToolMarks(sid);
@@ -163,22 +226,22 @@ export const SessionHistory = ({
   // switching back to the table restores the column sort it had.
   const effectiveSort = mode === "chat" ? DEFAULT_HISTORY_SORT : sort;
 
-  const crossEvtIdx = crossEventIndex(a);
+  const crossEvtIdx = index.crossEvent;
 
   const visible = useMemo(
     () =>
       visibleRows({
-        events: a.events,
-        index: searchIndex,
+        events,
+        hits: found.hits,
         kind,
-        query: deferredQuery,
+        query: shownQuery,
         sort: effectiveSort,
       }),
-    [a.events, searchIndex, kind, deferredQuery, effectiveSort]
+    [events, found.hits, kind, shownQuery, effectiveSort]
   );
-  // The input follows every keystroke; the transcript follows when React has
-  // time, so typing never waits on a re-filter of thousands of events.
-  const stale = query !== deferredQuery;
+  // The input follows every keystroke; the transcript follows once the
+  // server has answered, so typing never waits on a search.
+  const stale = query !== deferredQuery || found.pending;
 
   // A jump the search or type filter hides gets a note, rather than leave the
   // reader at the top of the transcript.
@@ -257,7 +320,7 @@ export const SessionHistory = ({
     hits: searching ? transcriptIds : NO_HITS,
     isOpen,
     onToggle,
-    query: deferredQuery,
+    query: shownQuery,
     resetKey: query,
     reveal: revealHit,
   });
@@ -426,15 +489,17 @@ export const SessionHistory = ({
       >
         {mode === "chat" ? (
           <TranscriptChat
-            a={a}
+            a={chatSession}
             activeMark={activeMark}
             allOpen={allOpen}
             bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
+            eventAt={eventAt}
             isOpen={search.isOpen}
             jump={jump}
             landing={landing}
             marks={marks}
+            onDrawn={onDrawn}
             onToggle={search.onToggle}
             queryActive={searching}
             revealHit={revealHit}
@@ -448,10 +513,12 @@ export const SessionHistory = ({
             a={a}
             bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
+            eventAt={eventAt}
             isOpen={search.isOpen}
             jump={jump}
             jumpIndex={jumpIndex}
             landing={landing}
+            onDrawn={onDrawn}
             onSort={prefs.setSort}
             onToggle={search.onToggle}
             revealHit={revealHit}

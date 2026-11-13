@@ -279,15 +279,37 @@ test("a history view renders unfiltered with an empty search box", () => {
     state: DEFAULT_SESSION_VIEW,
     toggleExpanded: () => undefined,
   };
+  const a = session([
+    evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
+    evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
+  ]);
+  const { events, snapshots: _s, turns: _t, ...rest } = a;
+  // Whole events stand in for index rows: a row that carries its body draws
+  // without waiting for a page.
+  const rows = events.map((e, pos) => ({
+    ...e,
+    bodyId: pos,
+    bodyLen: e.body.length,
+    turn: 0,
+  }));
+  const history = {
+    growth: "g",
+    index: "i",
+    pageSize: 100,
+    pages: ["p"],
+    rev: "r",
+    total: rows.length,
+  };
   const html = renderToStaticMarkup(
     <SessionHistory
-      a={session([
-        evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
-        evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
-      ])}
+      growth={null}
+      index={{ crossEvent: -1, hash: "i", rev: "r", rows, total: rows.length }}
+      k={{ id: "s-fresh", parent: null, redact: true }}
       landing={{ done: { current: null } }}
+      onStale={() => undefined}
       onSummary={() => undefined}
       req={null}
+      s={{ ...rest, history }}
       sectionRef={{ current: null }}
       seq={0}
       sid="s-fresh"

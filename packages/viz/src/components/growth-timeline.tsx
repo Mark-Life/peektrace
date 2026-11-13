@@ -4,13 +4,16 @@
  * dumb-zone danger band + boundary line, the 200K-model ghost ceiling,
  * compaction cliffs, the peak marker, and the first dumb-zone crossing marker.
  */
-import type {
-  AnalyzedSession,
-  TurnSnapshot,
-} from "@workspace/core/services/sessions/schema";
+import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { cn } from "@workspace/ui/lib/utils";
 import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
-import { markerProps, TimelineHitLayer } from "./growth-timeline-hit";
+import {
+  type GrowthSnapshot,
+  markerProps,
+  TimelineHitLayer,
+} from "./growth-timeline-hit";
+
+export type { GrowthSnapshot } from "./growth-timeline-hit";
 
 const GEOM = { W: 1000, H: 440, L: 76, R: 18, T: 22, B: 46 } as const;
 const HATCHED = new Set(["system_tools", "unattributed"]);
@@ -63,7 +66,7 @@ const buildAreas = ({
   x,
   y,
 }: {
-  readonly snaps: readonly TurnSnapshot[];
+  readonly snaps: readonly GrowthSnapshot[];
   readonly x: (i: number) => number;
   readonly y: (tok: number) => number;
 }) => {
@@ -90,7 +93,10 @@ const buildAreas = ({
 };
 
 interface GrowthTimelineProps {
-  readonly a: AnalyzedSession;
+  /** The analysis; only its snapshots of all the per-turn arrays are read. */
+  readonly a: Omit<AnalyzedSession, "events" | "snapshots" | "turns"> & {
+    readonly snapshots: readonly GrowthSnapshot[];
+  };
   /**
    * Optional cap on the rendered SVG width, in CSS px. Left unset the SVG fills
    * its container, which scales the 10–11px labels and hairline strokes up past

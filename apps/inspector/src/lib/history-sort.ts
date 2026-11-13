@@ -6,7 +6,9 @@
  */
 import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
 import { eventTokens } from "@workspace/core/services/sessions/tokens";
-import type { TranscriptRowRef } from "./chat-lane";
+import type { EventRow, TranscriptRowRef } from "./chat-lane";
+
+type Row = TranscriptRowRef<EventRow>;
 
 /** Sortable table columns: transcript position, event type, token cost. */
 export type HistorySortKey = "order" | "type" | "tokens";
@@ -62,18 +64,18 @@ export const nextSort = (current: HistorySort, key: HistorySortKey) => {
 const compareKey = (key: HistorySortKey) => {
   switch (key) {
     case "tokens":
-      return (x: TranscriptRowRef, y: TranscriptRowRef) =>
+      return (x: Row, y: Row) =>
         eventTokens(x.e).tokens - eventTokens(y.e).tokens;
     case "type":
-      return (x: TranscriptRowRef, y: TranscriptRowRef) =>
+      return (x: Row, y: Row) =>
         eventBadgeLabel(x.e).localeCompare(eventBadgeLabel(y.e));
     default:
-      return (x: TranscriptRowRef, y: TranscriptRowRef) => x.pos - y.pos;
+      return (x: Row, y: Row) => x.pos - y.pos;
   }
 };
 
 /** Rows in the requested order; ties keep transcript order. Never mutates. */
-export const sortRows = <R extends TranscriptRowRef>(
+export const sortRows = <R extends Row>(
   rows: readonly R[],
   sort: HistorySort
 ) => {

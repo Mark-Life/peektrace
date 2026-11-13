@@ -1,12 +1,14 @@
-/** Session debug view (Phase 8.2 + 8.3 orchestrator).
+/** Session debug view.
  *
- * Fetches `sessions.analyze` for the selected id (redaction on by default) and
- * lays out the forensic surface: verdict header + peak gauge, budget-at-peak,
- * growth timeline, loaded artifacts, then the full redacted history (sortable by
- * size) with subagent drill-down. The redaction toggle flips the atom's
- * `redact` flag, which re-fetches the analysis with raw bodies.
+ * Fetches the session summary for the selected id (redaction on by default)
+ * and lays out the forensic surface: verdict header + peak gauge,
+ * budget-at-peak, growth timeline, loaded artifacts, then the full redacted
+ * history (sortable by size) with subagent drill-down. The summary draws at
+ * once; the growth series and the history index follow, and event pages load
+ * as the history scrolls. The redaction toggle flips the `redact` flag, which
+ * re-fetches every part with raw bodies.
  */
-import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
+import { Result } from "@effect-atom/atom-react";
 import { Button } from "@workspace/ui/components/button";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
@@ -14,15 +16,27 @@ import {
   analyzedTitle,
   VerdictHeader,
 } from "@workspace/viz/components/verdict-header";
+import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
-import { memo, useCallback, useMemo, useRef } from "react";
+import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import type { SessionSummary } from "../../lib/api-types.gen";
 import { useTitleOverride } from "../../lib/document-title";
-import { useHistoryJump } from "../../lib/history-jump";
+import {
+  type JumpLanding,
+  type JumpRequest,
+  useHistoryJump,
+} from "../../lib/history-jump";
+import { snapshotsOf } from "../../lib/history-pages";
 import { ResultView } from "../../lib/result-view";
 import { sessionHash, useListParams } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
-import { useAnalyzedSession } from "../../lib/session-atoms";
-import { useSessionView } from "../../lib/session-view";
+import {
+  type SessionKey,
+  useGrowth,
+  useHistoryIndex,
+  useSessionSummary,
+} from "../../lib/session-data";
+import { type SessionView, useSessionView } from "../../lib/session-view";
 import { TranscriptSourceContext } from "../../lib/transcript-source";
 import { ExportButtons } from "./export-button";
 import { LoadedArtifacts } from "./loaded-artifacts";
@@ -52,6 +66,88 @@ const ParentNote = ({ parent }: { readonly parent: string }) => {
   );
 };
 
+/** Holds the growth chart's place while its series loads. */
+const GrowthPending = () => (
+  <section
+    aria-busy="true"
+    className="flex flex-col gap-2 rounded-lg border border-border p-3 md:p-4"
+    data-testid="growth-timeline-pending"
+  >
+    <h2 className="font-semibold text-base">Context growth timeline</h2>
+    <div className="aspect-[1000/440] w-full" />
+  </section>
+);
+
+/** Everything below the summary cards' first paint: the growth chart and the
+ *  history, each drawn as its part arrives. */
+const SessionBody = ({
+  k,
+  landing,
+  onStale,
+  onSummary,
+  onTurn,
+  req,
+  request,
+  s,
+  sectionRef,
+  seq,
+  view,
+}: {
+  readonly k: SessionKey;
+  readonly landing: JumpLanding;
+  readonly onStale: () => void;
+  readonly onSummary: () => void;
+  readonly onTurn: (turn: number) => void;
+  readonly req: JumpRequest | null;
+  readonly request: (j: SessionJump) => void;
+  readonly s: SessionSummary;
+  readonly sectionRef: RefObject<HTMLElement | null>;
+  readonly seq: number;
+  readonly view: SessionView;
+}) => {
+  const growthResult = useGrowth(k, s);
+  const indexResult = useHistoryIndex(k, s);
+  const growth = Result.isSuccess(growthResult) ? growthResult.value : null;
+  const snapshots = useMemo(
+    () => (growth === null ? null : snapshotsOf(growth)),
+    [growth]
+  );
+  const source = useMemo(() => ({ id: k.id, parent: k.parent }), [k]);
+  return (
+    <div className="flex flex-col gap-4">
+      <VerdictHeader a={s} onJump={request} />
+      <ExportButtons k={k} />
+      <BudgetBar a={s} />
+      {snapshots === null ? (
+        <GrowthPending />
+      ) : (
+        <GrowthTimeline a={{ ...s, snapshots }} onTurn={onTurn} />
+      )}
+      <LoadedArtifacts a={s} />
+      <TranscriptSourceContext.Provider value={source}>
+        <ResultView result={indexResult}>
+          {(index) => (
+            <SessionHistory
+              growth={growth}
+              index={index}
+              k={k}
+              landing={landing}
+              onStale={onStale}
+              onSummary={onSummary}
+              req={req}
+              s={s}
+              sectionRef={sectionRef}
+              seq={seq}
+              sid={k.id}
+              view={view}
+            />
+          )}
+        </ResultView>
+      </TranscriptSourceContext.Provider>
+    </div>
+  );
+};
+
 /** The full debug view for one session id; `onBack` returns to the list. A
  * `parent` means `id` is a subagent transcript, resolved through that session. */
 const SessionDetailView = ({
@@ -64,10 +160,9 @@ const SessionDetailView = ({
   readonly parent: string | null;
 }) => {
   const view = useSessionView(id);
-  const atom = useAnalyzedSession({ id, parent, redact: view.state.redacted });
-  const result = useAtomValue(atom);
-  const retry = useAtomRefresh(atom);
-  const source = useMemo(() => ({ id, parent }), [id, parent]);
+  const redact = view.state.redacted;
+  const k = useMemo(() => ({ id, parent, redact }), [id, parent, redact]);
+  const { refresh: retry, result } = useSessionSummary(k);
   const root = useScrollRoot();
   const history = useRef<HTMLElement>(null);
   const jumpButton = useRef<HTMLButtonElement>(null);
@@ -130,26 +225,20 @@ const SessionDetailView = ({
       </div>
       {parent === null ? null : <ParentNote parent={parent} />}
       <ResultView onRetry={retry} result={result}>
-        {(a) => (
-          <div className="flex flex-col gap-4">
-            <VerdictHeader a={a} onJump={request} />
-            <ExportButtons a={a} redacted={view.state.redacted} />
-            <BudgetBar a={a} />
-            <GrowthTimeline a={a} onTurn={onTurn} />
-            <LoadedArtifacts a={a} />
-            <TranscriptSourceContext.Provider value={source}>
-              <SessionHistory
-                a={a}
-                landing={landing}
-                onSummary={toSummary}
-                req={req}
-                sectionRef={history}
-                seq={seq}
-                sid={id}
-                view={view}
-              />
-            </TranscriptSourceContext.Provider>
-          </div>
+        {(s) => (
+          <SessionBody
+            k={k}
+            landing={landing}
+            onStale={retry}
+            onSummary={toSummary}
+            onTurn={onTurn}
+            req={req}
+            request={request}
+            s={s}
+            sectionRef={history}
+            seq={seq}
+            view={view}
+          />
         )}
       </ResultView>
     </div>

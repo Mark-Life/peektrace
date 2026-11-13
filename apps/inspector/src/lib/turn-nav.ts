@@ -1,9 +1,9 @@
 /** Where `[` and `]` land in a transcript: the first item of each turn. */
-import type { ChatNode, TranscriptRowRef } from "./chat-lane";
+import type { ChatNode, EventRow, TranscriptRowRef } from "./chat-lane";
 import type { HistorySort } from "./history-sort";
 
 /** Indexes of the turn rules in a chat plan. */
-export const chatTurnStops = (plan: readonly ChatNode[]) =>
+export const chatTurnStops = (plan: readonly ChatNode<EventRow>[]) =>
   plan.flatMap((n, i) => (n.type === "turn" ? [i] : []));
 
 /** Indexes of the table rows where a new turn starts. Turns only form runs in
@@ -13,7 +13,7 @@ export const tableTurnStops = ({
   sort,
   turns,
 }: {
-  readonly rows: readonly TranscriptRowRef[];
+  readonly rows: readonly TranscriptRowRef<EventRow>[];
   readonly sort: HistorySort;
   readonly turns: readonly number[];
 }) => {
