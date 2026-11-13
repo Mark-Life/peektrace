@@ -285,7 +285,10 @@ export const runUiStage = async ({
   real: boolean;
 }) => {
   console.log("suite ui");
-  const bin = exampleBin("peektrace-ui", "ui_helpers");
+  const bin = exampleBin("peektrace-ui", "ui_helpers", [
+    // The probe needs only the pure model: Rune stays off.
+    "--no-default-features",
+  ]);
   if (!bin) {
     return;
   }

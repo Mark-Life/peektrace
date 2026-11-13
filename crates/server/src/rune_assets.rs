@@ -42,9 +42,11 @@ const fn dev_dist() -> Option<PathBuf> {
     None
 }
 
-/// A file found for a request: its `ETag` stem and where its bytes are.
+/// A file found for a request: its `ETag` stem, mtime on disk and where its
+/// bytes are.
 struct Hit {
     tag: String,
+    modified: Option<std::time::SystemTime>,
     body: Bytes,
 }
 
@@ -68,6 +70,7 @@ impl Bytes {
 fn embedded_hit(path: &str) -> Option<Hit> {
     Embedded::get(path).map(|f| Hit {
         tag: hex16(&f.metadata.sha256_hash()),
+        modified: None,
         body: Bytes::Static(f.data),
     })
 }
@@ -132,6 +135,7 @@ impl RuneSource {
                     .filter(std::fs::Metadata::is_file)?;
                 Some(Hit {
                     tag: disk_tag(&meta),
+                    modified: meta.modified().ok(),
                     body: Bytes::Disk(full),
                 })
             }
@@ -168,9 +172,11 @@ impl RuneSource {
                     },
                 );
         };
+        // A twin older than its file is left from an earlier build.
         let twin = accepts_br(req)
             .then(|| self.find(&format!("{rel}.br")))
-            .flatten();
+            .flatten()
+            .filter(|t| t.modified >= file.modified);
         let encoded = twin.is_some();
         let hit = twin.unwrap_or(file);
         let etag = format!("\"{}{}\"", hit.tag, if encoded { "-br" } else { "" });
@@ -325,6 +331,58 @@ mod tests {
             RuneSource::Missing.respond("/", &HeaderMap::new()).status(),
             StatusCode::SERVICE_UNAVAILABLE
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Needs `crates/app/dist` at build time; CI writes a small one.
+    #[cfg(feature = "rune-ui")]
+    #[test]
+    fn serves_the_built_in_bundle() {
+        let Some(twin) = embedded_hit("app_bg.wasm.br") else {
+            assert!(std::env::var_os("CI").is_none(), "no bundle built in");
+            return;
+        };
+        assert!(twin.tag.len() == 16 && twin.tag.bytes().all(|b| b.is_ascii_hexdigit()));
+        let (src, label) = RuneSource::resolve(None, "/");
+        assert_eq!((&src, label.as_str()), (&RuneSource::Embedded, "embedded"));
+        let br = headers(&[("accept-encoding", "br")]);
+        let res = src.respond("/app_bg.wasm", &br);
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.headers()[header::CONTENT_ENCODING], "br");
+        let etag = res.headers()[header::ETAG].clone();
+        assert_eq!(etag, format!("\"{}-br\"", twin.tag).as_str());
+        let mut again = br.clone();
+        again.insert(header::IF_NONE_MATCH, etag.clone());
+        assert_eq!(
+            src.respond("/app_bg.wasm", &again).status(),
+            StatusCode::NOT_MODIFIED
+        );
+        let plain = src.respond("/app_bg.wasm", &HeaderMap::new());
+        assert_eq!(plain.headers()[header::CONTENT_TYPE], "application/wasm");
+        assert_ne!(plain.headers()[header::ETAG], etag);
+        let page = src.respond("/sessions/abc", &HeaderMap::new());
+        assert_eq!(page.headers()[header::CACHE_CONTROL], "no-store");
+    }
+
+    #[test]
+    fn a_twin_older_than_its_file_is_skipped() {
+        let dir = std::env::temp_dir().join(format!("rune-stale-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<p>app</p>").unwrap();
+        std::fs::write(dir.join("app.js"), "new").unwrap();
+        let twin = dir.join("app.js.br");
+        std::fs::write(&twin, "old").unwrap();
+        let earlier = std::time::SystemTime::now() - std::time::Duration::from_secs(60);
+        std::fs::File::options()
+            .write(true)
+            .open(&twin)
+            .and_then(|f| f.set_modified(earlier))
+            .unwrap();
+        let src = RuneSource::Dir(dir.clone());
+        let res = src.respond("/app.js", &headers(&[("accept-encoding", "br")]));
+        assert_eq!(res.status(), StatusCode::OK);
+        assert!(res.headers().get(header::CONTENT_ENCODING).is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

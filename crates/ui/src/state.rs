@@ -1,7 +1,8 @@
 //! App state and its transitions. Loads go out as [`Request`]s that the app
 //! layer hands to a [`DataSource`]; replies come back through
 //! [`Ui::apply_listing`] and [`Ui::apply_analysis`] and change nothing when
-//! a newer request superseded them.
+//! a newer request superseded them. A watch refresh reloads the listing,
+//! then the open session only when its file changed.
 
 use std::cell::Cell;
 use std::collections::HashSet;
@@ -184,6 +185,9 @@ pub struct Ui {
     pub watch_problems: Vec<String>,
     pub syncing: u32,
     pub pending: Vec<Request>,
+    /// A watch refresh asked for the listing; the open session reloads when
+    /// that listing shows its file changed.
+    pub recheck_detail: bool,
     pub sessions_rid: u64,
     pub analysis_rid: u64,
     pub io: Option<Io>,
@@ -219,6 +223,7 @@ impl Ui {
             watch_problems: Vec::new(),
             syncing: 0,
             pending: Vec::new(),
+            recheck_detail: false,
             sessions_rid: 0,
             analysis_rid: 0,
             io,
@@ -258,16 +263,36 @@ impl Ui {
         if rid != self.sessions_rid {
             return false;
         }
+        let recheck = std::mem::take(&mut self.recheck_detail);
         match result {
             Ok(listing) => {
+                let reload = recheck && self.detail_stale(&listing);
                 self.rail.order = list::sort_by_recent(&listing.headers, self.now_ms);
                 self.rail.listing = Some(listing);
                 self.list_error = None;
                 self.rail.refilter();
+                if reload {
+                    self.request_analysis();
+                }
             }
-            Err(e) => self.list_error = Some(e),
+            Err(e) => {
+                self.list_error = Some(e);
+                if recheck {
+                    self.request_analysis();
+                }
+            }
         }
         true
+    }
+
+    /// The open session needs a reload against `listing`. A subagent's file
+    /// is not in the listing, so it always reloads.
+    fn detail_stale(&self, listing: &SessionListingView) -> bool {
+        self.selected.as_ref().is_some_and(|sel| {
+            let old = self.rail.find(&sel.id).and_then(|i| self.rail.header(i));
+            let new = listing.headers.iter().find(|h| h.id == sel.id);
+            sel.parent.is_some() || self.detail_error.is_some() || list::changed(old, new)
+        })
     }
 
     /// Land an analysis for the selected session. Open rows stay when the
@@ -396,6 +421,7 @@ impl Ui {
             WatchEvent::Versions(v) => self.on_versions(v, clock, tx),
             WatchEvent::Problems(p) => self.watch_problems = p,
             WatchEvent::Reconnected => {
+                self.recheck_detail = false;
                 self.request_sessions();
                 self.request_analysis();
                 tx.wake_after(std::time::Duration::ZERO);
@@ -438,7 +464,7 @@ impl Ui {
         ) {
             SettleEffect::Fire => {
                 self.request_sessions();
-                self.request_analysis();
+                self.recheck_detail = true;
                 changed = true;
             }
             SettleEffect::WakeAt(t) => tx.wake_at(t / 1000.0),

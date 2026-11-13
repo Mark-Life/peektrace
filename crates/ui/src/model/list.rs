@@ -339,6 +339,15 @@ pub fn sort_by_recent(headers: &[SessionHeader], now: f64) -> Vec<usize> {
     order
 }
 
+/// Whether a session's file changed between two listings; a session missing
+/// from either counts as changed.
+pub fn changed(old: Option<&SessionHeader>, new: Option<&SessionHeader>) -> bool {
+    match (old, new) {
+        (Some(a), Some(b)) => a.size_bytes != b.size_bytes || a.updated_at != b.updated_at,
+        _ => true,
+    }
+}
+
 /// The session wrote a line within `LIVE_MS` of `now`.
 pub fn is_live(h: &SessionHeader, now: f64) -> bool {
     let key = recent_key(h, now);

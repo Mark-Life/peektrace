@@ -9,10 +9,25 @@ use crate::source::DataSource;
 use crate::state::{Io, Request, Route, Ui};
 use crate::{state, views};
 
+#[cfg(not(target_arch = "wasm32"))]
 pub const FONTS: &[&[u8]] = &[
     include_bytes!("../assets/fonts/geist.ttf"),
     include_bytes!("../assets/fonts/geist-mono.ttf"),
 ];
+
+/// Browsers give Rune no system fonts: Rune's embedded Inter covers Greek and
+/// Cyrillic, and a DejaVu Sans cut covers the UI's own `∞ ⋯ ▴ ▾`.
+#[cfg(target_arch = "wasm32")]
+pub const FONTS: &[&[u8]] = &[
+    include_bytes!("../assets/fonts/geist.ttf"),
+    include_bytes!("../assets/fonts/geist-mono.ttf"),
+    include_bytes!("../assets/fonts/symbols.ttf"),
+];
+
+#[cfg(not(target_arch = "wasm32"))]
+const FAMILIES: (&str, &str) = ("Geist", "Geist Mono");
+#[cfg(target_arch = "wasm32")]
+const FAMILIES: (&str, &str) = ("Geist, DejaVu Sans", "Geist Mono, DejaVu Sans");
 
 /// Wall-clock ms since 1970.
 #[cfg(not(target_arch = "wasm32"))]
@@ -51,6 +66,9 @@ pub fn dispatch(s: &mut Ui) {
                     s.syncing = s.syncing.saturating_sub(1);
                     if s.apply_listing(rid, res) {
                         tx.set_title(s.title());
+                    }
+                    if !s.pending.is_empty() {
+                        tx.wake_after(Duration::ZERO);
                     }
                 });
             })),
@@ -244,7 +262,7 @@ fn spec_init() -> Ui {
 pub fn spec() -> AppSpec<Ui> {
     AppSpec {
         fonts: FONTS,
-        families: ("Geist", "Geist Mono"),
+        families: FAMILIES,
         poll: Some(poll),
         on_key: Some(on_key),
         scenes: SCENES,

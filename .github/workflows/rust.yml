@@ -2,10 +2,10 @@ name: Rust
 
 # Format, lint and tests for the Rust crates on macOS and Linux, lint, unit,
 # fixture, discovery and memory read/write tests on Windows, the Rune app
-# (build, wasm check, Runtime tests, headless goldens) on Linux, plus the
-# parity check: the Rust CLI against the TS CLI results recorded in
-# tests/goldens. Recording goldens and the live TS-vs-Rust run are in
-# rust-live.yml.
+# (build, wasm check, Runtime tests, headless goldens) on Linux with a compile
+# check on macOS and Windows, plus the parity check: the Rust CLI against the
+# TS CLI results recorded in tests/goldens. Recording goldens and the live
+# TS-vs-Rust run are in rust-live.yml.
 
 # Push runs only on `rust`: a push to a `rust-*` branch with an open PR
 # already starts a pull_request run, so a push run there would double it.
@@ -36,7 +36,7 @@ jobs:
   check:
     name: check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -68,13 +68,18 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+      - name: Rune app compiles (Metal backend)
+        # The ui job builds the app on Linux only; this covers the macOS draw path.
+        if: runner.os == 'macOS'
+        run: cargo check --locked -p peektrace-app -p peektrace-ui --all-targets
+
   windows:
     # Lint, unit tests, the fixture listing, Codex/Pi discovery, memory
     # reads, writes and path containment, and the telemetry store. The CLI
     # end-to-end tests drive a POSIX HOME, so they stay off.
     name: check (windows-latest)
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -104,6 +109,9 @@ jobs:
 
       - name: Telemetry store and layer
         run: cargo test --locked -p peektrace-telemetry --test writer --test layer
+
+      - name: Rune app compiles (DX12 wgpu-hal patch)
+        run: cargo check --locked -p peektrace-app -p peektrace-ui --all-targets
 
   ui:
     # The Rune app (crates/ui, crates/app) sits outside default-members, so
@@ -142,6 +150,18 @@ jobs:
 
       - name: wasm check
         run: cargo check --locked -p peektrace-app --target wasm32-unknown-unknown
+
+      - name: Built-in Rune bundle (rune-ui)
+        # A small stand-in dist, so the embedded path compiles and its
+        # content-hash ETags get tested without a wasm build.
+        run: |
+          mkdir -p crates/app/dist
+          printf '<p>app</p>' > crates/app/dist/index.html
+          printf '\0asm' > crates/app/dist/app_bg.wasm
+          printf 'tiny' > crates/app/dist/app_bg.wasm.br
+          cargo clippy --locked -p peektrace-server -p peektrace-cli --features peektrace-cli/rune-ui --all-targets -- -D warnings
+          cargo test --locked -p peektrace-server --features rune-ui --lib rune_assets
+          rm -rf crates/app/dist
 
       - name: Tests (unit, Runtime, drift, headless goldens)
         run: |

@@ -164,7 +164,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app tool bodies over 32 KiB | shown whole | the first 32 KiB to a line end, plus `Show full output (<size>)`; over 128 KiB the full body draws uncoloured |
 | Rune app JSON tool args nested deeper than 128 | parsed | read as not JSON, shown verbatim |
 | Rune web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
-| Rune web fonts | system fonts | Geist and Geist Mono subsets; CJK and emoji without a glyph show as boxes |
+| Rune web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
 
 ## Telemetry decisions
 

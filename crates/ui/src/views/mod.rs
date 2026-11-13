@@ -176,15 +176,19 @@ fn detail(s: &Ui, cx: &mut Cx<Ui>, t: &Theme) -> El {
                 .key("detail-error"),
         );
     }
-    let width = cx.layout_size("detail-col").map_or(1000.0, |[w, _]| w);
+    // The column is capped, `detail-col` is not; size the cards from the capped width.
+    let inner = cx
+        .layout_size("detail-col")
+        .map_or(1000.0, |[w, _]| w.min(DETAIL_MAX_W))
+        - 34.0;
     c = c
-        .child(summary::verdict(d, width - 34.0, t).key(summary::SUMMARY_KEY))
+        .child(summary::verdict(d, inner, t).key(summary::SUMMARY_KEY))
         .child(crate::chart::view::growth_card(
             s,
             &d.a,
             d.growth.as_ref(),
             d.rev,
-            width - 34.0,
+            inner,
             t,
         ))
         .child(history::heading(d, t))

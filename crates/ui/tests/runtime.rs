@@ -6,6 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use common::home::{self, BIG_TURN, FIXTURE_ID, LONG_ID, UNTITLED_ID};
+use peektrace_protocol::view::SessionListingView;
 use peektrace_protocol::{AgentId, WatchVersions};
 use peektrace_ui::model::chat::{ChatNode, collapse_id};
 use peektrace_ui::source::in_process::InProcess;
@@ -189,6 +190,29 @@ fn summary_card() {
     assert!(has_text(&rt, "Claude Code session"));
 }
 
+fn rect_of(rt: &Runtime<Ui>, key: &str) -> [f32; 4] {
+    rt.elements()
+        .into_iter()
+        .find(|e| e.key.as_deref() == Some(key))
+        .map_or_else(|| panic!("no element {key}"), |e| e.rect)
+}
+
+#[test]
+fn chart_fits_its_card_on_a_wide_window() {
+    let mut s = state(&home::build_home());
+    open(&mut s, LONG_ID);
+    let mut rt = Runtime::new(s, views::view, (2700.0, 900.0), Env::new(true, 1.0));
+    settle(&mut rt);
+    let [bx, _, bw, _] = rect_of(&rt, "growth-box");
+    let [px, _, pw, _] = rect_of(&rt, "growth-plot");
+    assert!(
+        px >= bx && px + pw <= bx + bw,
+        "plot {px}+{pw} box {bx}+{bw}"
+    );
+    let [kx, ..] = rect_of(&rt, "growth-peak");
+    assert!(kx <= bx + bw, "peak {kx} box {bx}+{bw}");
+}
+
 #[test]
 fn chart_hover_shows_the_turn() {
     let mut s = state(&home::build_home());
@@ -327,7 +351,61 @@ fn watch_bumps_settle_into_one_refetch() {
     }
     assert_eq!(s.pending, vec![]);
     s.tick(4.0, now_ms(), &mut tx);
-    assert_eq!(s.pending.len(), 2);
+    assert!(matches!(s.pending.as_slice(), [Request::Sessions { .. }]));
+}
+
+/// One sessions bump, settled into a refresh that lands `listing`; the loads
+/// it queued after the listing.
+fn watch_refresh(s: &mut Ui, bump: u32, listing: &SessionListingView) -> Vec<Request> {
+    let mut tx = Tx::default();
+    let at = f64::from(bump) * 10.0;
+    let sessions = u64::from(bump);
+    s.on_versions(
+        WatchVersions {
+            memory: 0,
+            sessions,
+        },
+        at,
+        &mut tx,
+    );
+    s.tick(at + 5.0, now_ms(), &mut tx);
+    assert!(matches!(s.pending.as_slice(), [Request::Sessions { .. }]));
+    s.pending.clear();
+    s.apply_listing(s.sessions_rid, Ok(listing.clone()));
+    std::mem::take(&mut s.pending)
+}
+
+#[test]
+fn a_watch_refresh_reloads_the_open_session_only_when_it_changed() {
+    let mut s = state(&home::build_home());
+    s.io = None;
+    open(&mut s, LONG_ID);
+    s.pending.clear();
+    let Some(mut listing) = s.rail.listing.clone() else {
+        panic!("no listing");
+    };
+    let mut tx = Tx::default();
+    s.on_versions(
+        WatchVersions {
+            memory: 0,
+            sessions: 0,
+        },
+        0.0,
+        &mut tx,
+    );
+    let grow = |l: &mut SessionListingView, open: bool| {
+        if let Some(h) = l.headers.iter_mut().find(|h| (h.id == LONG_ID) == open) {
+            h.size_bytes += 1;
+        }
+    };
+    // Another session changed: the open one stays as it is.
+    grow(&mut listing, false);
+    assert_eq!(watch_refresh(&mut s, 1, &listing), vec![]);
+    grow(&mut listing, true);
+    assert!(matches!(
+        watch_refresh(&mut s, 2, &listing).as_slice(),
+        [Request::Analysis { id, .. }] if id == LONG_ID
+    ));
 }
 
 fn press(rt: &mut Runtime<Ui>, key: Key) {
