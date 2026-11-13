@@ -290,10 +290,25 @@ pub fn mask_home(text: &str, home: &str) -> String {
             };
             let rest = &line[at..];
             let end = rest.find(['│', '[']).unwrap_or(rest.len());
-            format!("{}<HOME> {}", &line[..at], &rest[end..])
+            format!("{}<HOME> {}", &line[..at], drop_padding(&rest[end..]))
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+/// Drop a space-only styled run right after the path: its width is what
+/// the HOME length leaves over.
+fn drop_padding(tail: &str) -> String {
+    let Some(mark) = tail.strip_prefix('[').and_then(|t| t.find(']')) else {
+        return tail.to_owned();
+    };
+    let (style, after) = tail.split_at(mark + 2);
+    let pad = after.find(['│', '[']).unwrap_or(after.len());
+    if after[..pad].chars().all(|c| c == ' ') {
+        format!("{style}{}", &after[pad..])
+    } else {
+        tail.to_owned()
+    }
 }
 
 /// A text snapshot of the current screen (plus the styled one when
