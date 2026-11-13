@@ -3,9 +3,11 @@
 use peektrace_core::js::num;
 use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::select::{self, SelectOptions};
-use peektrace_core::{Agent, AgentRoots, ListFilter, list_sessions};
+use peektrace_core::sessions::read::listing_from_json;
+use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 use crate::args::LsArgs;
+use crate::remote::Remote;
 use crate::render;
 use crate::zone::SystemZone;
 
@@ -102,15 +104,23 @@ pub(crate) fn parse_bounds(
     Ok((limit as usize, since_ms))
 }
 
-/// Run `sessions ls` against `ctx`.
-pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, UserError> {
-    let limit = parse_limit(&args.limit)?;
-    let agent = parse_agent(args.agent.as_deref())?;
-    let (limit, since_ms) = parse_bounds(limit, args.since.as_deref(), ctx.now_ms)?;
-    let cwd = args.cwd.as_deref().map(|c| {
-        let env = &ctx.roots_env;
-        select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
-    });
+/// The listing: from the remote server, or read here with the settings
+/// warning.
+fn fetch(
+    agent: Option<Agent>,
+    project: Option<&str>,
+    ctx: &Context,
+    remote: Option<&Remote>,
+) -> Result<(Vec<SessionHeader>, usize, Vec<String>), UserError> {
+    if let Some(r) = remote {
+        let query: Vec<(&str, &str)> = [("agent", agent.map(Agent::as_str)), ("project", project)]
+            .into_iter()
+            .filter_map(|(k, v)| v.map(|v| (k, v)))
+            .collect();
+        let (headers, unreadable) =
+            listing_from_json(&r.get_json(&["sessions"], &query)?).ok_or_else(|| r.unexpected())?;
+        return Ok((headers, unreadable, Vec::new()));
+    }
     let settings = ctx
         .settings
         .as_deref()
@@ -129,12 +139,29 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     let roots = AgentRoots::resolve(&ctx.roots_env, &settings);
     let filter = ListFilter {
         agent,
-        project: args.project.clone(),
+        project: project.map(str::to_owned),
     };
     let listing = list_sessions(&roots, &filter);
-    let unreadable = listing.unreadable.len();
+    Ok((listing.headers, listing.unreadable.len(), warnings))
+}
+
+/// Run `sessions ls` against `ctx`, or against `remote` when set.
+pub fn run(
+    args: &LsArgs,
+    globals: Globals,
+    ctx: &Context,
+    remote: Option<&Remote>,
+) -> Result<Output, UserError> {
+    let limit = parse_limit(&args.limit)?;
+    let agent = parse_agent(args.agent.as_deref())?;
+    let (limit, since_ms) = parse_bounds(limit, args.since.as_deref(), ctx.now_ms)?;
+    let cwd = args.cwd.as_deref().map(|c| {
+        let env = &ctx.roots_env;
+        select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
+    });
+    let (headers, unreadable, warnings) = fetch(agent, args.project.as_deref(), ctx, remote)?;
     let picked = select::select_sessions(
-        listing.headers,
+        headers,
         &SelectOptions {
             since_ms,
             cwd,

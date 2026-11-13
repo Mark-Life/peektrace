@@ -16,6 +16,9 @@ pub enum Provider {
 }
 
 impl Provider {
+    /// Every variant, for readers that map names back.
+    pub const ALL: [Self; 4] = [Self::ClaudeCode, Self::Codex, Self::Pi, Self::Opencode];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ClaudeCode => "claude-code",
@@ -42,6 +45,21 @@ pub enum EventKind {
 }
 
 impl EventKind {
+    /// Every variant, for readers that map names back.
+    pub const ALL: [Self; 11] = [
+        Self::UserPrompt,
+        Self::AssistantText,
+        Self::AssistantThinking,
+        Self::ToolCall,
+        Self::ToolResult,
+        Self::Attachment,
+        Self::SystemPrompt,
+        Self::System,
+        Self::Compaction,
+        Self::Summary,
+        Self::Meta,
+    ];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::UserPrompt => "user-prompt",
@@ -79,6 +97,16 @@ pub enum PromptOrigin {
 }
 
 impl PromptOrigin {
+    /// Every variant, for readers that map names back.
+    pub const ALL: [Self; 6] = [
+        Self::Human,
+        Self::Sdk,
+        Self::Command,
+        Self::TaskNotification,
+        Self::Scheduled,
+        Self::Harness,
+    ];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Human => "human",
@@ -112,6 +140,20 @@ pub enum LoadedCategory {
 }
 
 impl LoadedCategory {
+    /// Every variant, for readers that map names back.
+    pub const ALL: [Self; 10] = [
+        Self::ClaudeMd,
+        Self::Skills,
+        Self::Agents,
+        Self::Tools,
+        Self::Mcp,
+        Self::File,
+        Self::Memory,
+        Self::Ide,
+        Self::Reminder,
+        Self::Other,
+    ];
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::ClaudeMd => "claude-md",
@@ -229,6 +271,35 @@ pub enum EventShape {
     OcAttachment,
     /// `OpenCode` subtask, agent or retry part.
     OcSystem,
+}
+
+impl EventShape {
+    /// Every variant, for readers that map names back.
+    pub const ALL: [Self; 23] = [
+        Self::ToolResult,
+        Self::Prompt,
+        Self::QueuedPrompt,
+        Self::Image,
+        Self::Compaction,
+        Self::AssistantBlock,
+        Self::Summary,
+        Self::System,
+        Self::Attachment,
+        Self::SystemPrompt,
+        Self::CodexText,
+        Self::CodexAttachment,
+        Self::CodexToolCall,
+        Self::CodexToolResult,
+        Self::PiPrompt,
+        Self::PiAttachment,
+        Self::PiAssistantBlock,
+        Self::PiToolResult,
+        Self::OcText,
+        Self::OcToolCall,
+        Self::OcToolResult,
+        Self::OcAttachment,
+        Self::OcSystem,
+    ];
 }
 
 /// One row of the session timeline. Fields a producer does not set are

@@ -14,7 +14,6 @@ import type {
   MemoryVault,
 } from "@workspace/core/services/memory/types";
 import { MEMORY_TYPES } from "@workspace/core/services/memory/types";
-import type { Capability } from "@workspace/rpc/contract";
 import {
   Accordion,
   AccordionContent,
@@ -38,6 +37,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Capability } from "../../lib/api-types.gen";
 import {
   allVaultsAtom,
   capabilitiesAtom,

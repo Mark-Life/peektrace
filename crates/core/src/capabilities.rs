@@ -1,5 +1,5 @@
-//! The static feature × agent support matrix. Writes check it before they
-//! touch disk.
+//! The static feature x agent support matrix. The inspector shows it, and
+//! writes check it before they touch disk.
 
 use crate::model::Agent;
 
@@ -13,6 +13,17 @@ pub enum SupportLevel {
     Partial,
     Planned,
     Unsupported,
+}
+
+impl SupportLevel {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Supported => "supported",
+            Self::Partial => "partial",
+            Self::Planned => "planned",
+            Self::Unsupported => "unsupported",
+        }
+    }
 }
 
 /// One agent's support for a capability.
@@ -128,6 +139,12 @@ pub const CAPABILITIES: [Capability; 7] = [
         per_agent: uniform(SupportLevel::Unsupported),
     },
 ];
+
+/// Every capability row, in matrix order.
+pub fn list_capabilities() -> &'static [Capability] {
+    let _span = tracing::info_span!("CapabilityRegistry.list").entered();
+    &CAPABILITIES
+}
 
 /// True when `agent` fully supports `capability_id`.
 pub fn supports(capability_id: &str, agent: Agent) -> bool {

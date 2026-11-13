@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs.
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
@@ -88,8 +88,36 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `stats` rule check for a missing binary whose name is about 50,000+ chars | the name gets a probe | the probe pattern passes the regex size limit, so that name gets no probe |
 | `CLAUDE_CONFIG_DIR` on Windows | split on `:`, so `C:\x` becomes `C` | split on `;`, as `path.delimiter` |
 | OpenCode store locked by a writer (rollback-journal DB under `BEGIN EXCLUSIVE`) | that DB is skipped at once (busy timeout 0) | waits up to 1 s for the lock, then skips the DB. WAL stores, which OpenCode uses, read the last commit in both. |
-| JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
+| JSON nested deeper than 512 arrays/objects (`JsValue::parse`: OpenCode `data`, tree files, transcript records read as values, `settings.json`) | parsed; `JSON.stringify` overflows its stack only far deeper | the text reads as unparseable, as if malformed |
 | OpenCode time above 8.64e15 ms | `ls` and `analyze` fail with an Effect `RangeError` on stdout | the time reads as no date: `startedAt`, `ts` and `endedAt` are left out, and `updatedAt` prints `1970-01-01T00:00:00.000Z` |
+| Server transport | Effect RPC NDJSON `POST /rpc` | JSON REST under `/api`, SSE `/api/events` |
+| Live updates | client polls `watch.poll` every 1 s | SSE push, one stream shared by all tabs of the origin (Web Lock leader, `BroadcastChannel` relay); `/api/watch` poll as fallback |
+| Watched roots | Claude roots only | every agent's roots (OpenCode: `opencode*.db[-wal]`, `storage/{session,message,part}/**.json`) |
+| Unknown GET under `/api` | `index.html` 200 | JSON 404 `NotFoundError` |
+| `index.html` cache | `no-store` only when embedded | `no-store` for every source |
+| Bad request payload (`agent=bogus`, settings body without `settings`) | Effect `Die` | 400 `BadRequestError` |
+| Session image | `{data, mediaType}` base64, or `null` | raw bytes, or 404 `ImageNotFoundError` |
+| `serve` startup lines | `RPC: <url>/rpc`, `via watch.poll`, update notice | `API: <url>/api`, `via /api/events`, no update notice (no `upgrade` yet) |
+| `serve --port` near 65535, bind error text | Node messages | `No free port in range ...`, OS message |
+| `serve --port abc` | `@effect/cli` integer error | clap's message. Exit code 1 in both. |
+| `--remote` lenient URLs (`localhost:4630`, `http:/host`) | Bun `fetch` accepts some | parsed with WHATWG rules; no scheme gives the "Include the scheme" error |
+| `--remote` with a base path (`http://h/base`) | `failed (HTTP 404)` | `failed (unexpected response)`: the server answers `index.html` for `/base/api/...` |
+| `--remote --json` key order | Schema order (`provider` first) | local CLI order |
+| `--remote https://` | supported | needs the `https` cargo feature (rustls); the default build has no TLS client and says so |
+| `SettingsWriteError.reason` on IO failure | `String(PlatformError)` | OS error text; the temp file is removed |
+| `/api` JSON over 1 KiB | sent as is | gzip (level 1) when the client accepts it |
+| Bad search, stats or memory payload (missing field, bad enum, search `limit` -1 or 1.5, blank `q`, `since` `7d`, usage `days` 0, drill table `bogus`) | Effect `Die` | 400 `BadRequestError` |
+| Stats `agents: []` | scans nothing | not expressible: no `agent` param means every agent |
+| Stats `redact: false` | raw strings, cache skipped | 400 `BadRequestError` |
+| Stats `days` past the earliest date (`1e12`) | `Die` (`RangeError: Invalid Date`) | 500 `StatsScanError` (`--days ... reaches past the earliest date`) |
+| Read-only memory write | `MemoryValidationError` in the RPC exit | same body, status 403 |
+| Memory vault of project `""` | an absent vault | 404 `NotFoundError` (no empty path segment) |
+| Search `since` that is not ISO (`June 1, 2026`) | accepted by the legacy `Date.parse` | 400 |
+| Search counts when `truncated` | `scannedSessions` and `unreadable` vary run to run | stable |
+| Session id `search` | reachable through `sessions.get` | `/api/sessions/search` is the search route |
+| Memory write IO failure | `Die` | 500 `text/plain` defect, logged with path and OS text |
+| Stats calls at once | passes run in parallel and race on the cache index | one pass at a time per server |
+| `--remote` for `stats*`, `sessions search`, `memory *` | works | refused with "--remote is not supported for ... in the Rust build yet." (exit 1) |
 
 ## Risks
 
@@ -113,3 +141,10 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 5. The real stats parity suite snapshots `~/.claude/projects` and deletes it after. It runs by default on macOS (APFS clone) and needs `--real-stats` elsewhere (full copy). Keep it out of CI?
 6. `memory rm` writes an empty MEMORY.md when the project has none. Rust copies TS. Fix it in both?
 7. `memory` writes (`create`, `update`) have no `expectedHash` check and no file lock in Rust: TS has both in `fs.ts` but nothing calls them. Port them with `serve` if the server needs them?
+8. TS `serve`, `tui` and the desktop sidecar serve the inspector but answer only `/rpc`, so on the `rust` branch their web UI loads no data. `scripts/rust/ts-ui-guard.ts` makes publish-cli and publish-desktop fail until this is fixed. Accept until cutover, or add a thin `/api` adapter to the TS server?
+9. Watch roots that appear after `serve` starts (fresh machine): keep the TS behaviour (never watched) or watch the nearest existing parent?
+10. `--remote https://` adds rustls (~1 MB). It sits behind the `https` cargo feature, off by default. Turn it on for releases?
+11. Port stats `redact=false` (raw strings, no cache), or keep the 400? Only the TS RPC payload has it; no CLI flag.
+12. Port `--remote` for `stats*`, `sessions search` and `memory *`? The text output needs JSON readers for each result; `--json` could pass the body through.
+13. Markers now skip the server stats lock and merge into the index under a short lock. Should a corpus-wide pass waiting on the lock also time out?
+14. An unknown usage `tz` is 500 `StatsScanError` (the TS tag). Move it to 400?

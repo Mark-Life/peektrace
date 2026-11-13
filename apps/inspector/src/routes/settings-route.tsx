@@ -14,7 +14,6 @@ import {
 } from "@effect-atom/atom-react";
 import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
 import type { PeektraceSettings } from "@workspace/core/services/settings";
-import type { ScannedRoot, ServerInfo } from "@workspace/rpc/contract";
 import {
   Alert,
   AlertDescription,
@@ -44,6 +43,7 @@ import { toast } from "sonner";
 import { ReadOnlyReason } from "../components/read-only";
 import { RootRow } from "../components/root-row";
 import { AGENT_LABEL } from "../lib/agent-label";
+import type { ScannedRoot, ServerInfo } from "../lib/api-types.gen";
 import { settingsAtom } from "../lib/atoms";
 import { tildePath } from "../lib/paths";
 import { ResultView } from "../lib/result-view";

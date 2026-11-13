@@ -36,6 +36,10 @@ pub struct Cli {
     #[arg(long = "no-telemetry", global = true)]
     pub no_telemetry: bool,
 
+    /// Run sessions commands against a `peektrace serve` at this URL
+    #[arg(long, global = true, value_parser = lossy())]
+    pub remote: Option<String>,
+
     /// Print the version
     #[arg(short = 'v', long = "version")]
     pub version: bool,
@@ -52,6 +56,8 @@ pub enum Command {
     Stats(StatsArgs),
     /// Browse and manage Claude memory files
     Memory(MemoryArgs),
+    /// Start the inspector server (API + web UI); loopback by default
+    Serve(ServeArgs),
 }
 
 /// `memory` with no subcommand prints its help and exits 0.
@@ -188,6 +194,30 @@ pub struct StatsUsageArgs {
     /// Ignore cached shards and re-extract every transcript
     #[arg(long)]
     pub force: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct ServeArgs {
+    /// Port to bind (default 4321, auto-picks if busy)
+    #[arg(long, default_value_t = 4321, allow_hyphen_values = true)]
+    pub port: i64,
+
+    /// Interface to bind (default 127.0.0.1 loopback; any other host needs a
+    /// token and is read-only unless --allow-write; prefer ssh -L)
+    #[arg(long, default_value = "127.0.0.1", value_parser = lossy())]
+    pub host: String,
+
+    /// Open the browser on start (use --no-open to skip)
+    #[arg(long, overrides_with = "no_open")]
+    pub open: bool,
+
+    /// Do not open the browser on start
+    #[arg(long = "no-open", overrides_with = "open")]
+    pub no_open: bool,
+
+    /// Allow writes on a non-loopback --host (read-only by default there)
+    #[arg(long = "allow-write")]
+    pub allow_write: bool,
 }
 
 /// `sessions` with no subcommand prints its help and exits 0.

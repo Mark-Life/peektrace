@@ -1,7 +1,7 @@
 /** Settings: default scanned folder per agent and the read-only form. */
 import { describe, expect, test } from "bun:test";
-import type { ServerInfo } from "@workspace/rpc/contract";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ServerInfo } from "../src/lib/api-types.gen";
 import { SettingsEditor } from "../src/routes/settings-route";
 
 const HOME = "/home/dev";

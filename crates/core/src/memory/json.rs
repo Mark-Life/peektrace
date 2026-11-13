@@ -1,5 +1,6 @@
 //! The memory model as `JSON.stringify` prints it, keys in TS order.
 
+use super::read::AllVaults;
 use super::types::{
     DeleteResult, Frontmatter, GraphData, IndexBudget, IndexEntry, IndexLink, LinkEdge,
     MAX_INDEX_BYTES, MAX_INDEX_LINES, MemoryEntry, MemoryIndex, MemoryVault, ProjectSummary,
@@ -219,9 +220,7 @@ pub fn write_vault(w: &mut Writer, v: &MemoryVault) {
     w.end_obj();
 }
 
-/// `JSON.stringify(projects, null, 2)`.
-pub fn projects_json(projects: &[ProjectSummary]) -> String {
-    let mut w = Writer::new(true);
+fn write_projects(w: &mut Writer, projects: &[ProjectSummary]) {
     w.begin_arr();
     for p in projects {
         w.elem().begin_obj();
@@ -233,26 +232,52 @@ pub fn projects_json(projects: &[ProjectSummary]) -> String {
         w.end_obj();
     }
     w.end_arr();
+}
+
+/// `JSON.stringify(projects)`, indented by 2 when `pretty`; the same for
+/// every writer below.
+pub fn projects_json(projects: &[ProjectSummary], pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
+    write_projects(&mut w, projects);
     w.finish()
 }
 
-/// `JSON.stringify(vault, null, 2)`.
-pub fn vault_json(v: &MemoryVault) -> String {
-    let mut w = Writer::new(true);
+pub fn vault_json(v: &MemoryVault, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
     write_vault(&mut w, v);
     w.finish()
 }
 
-/// `JSON.stringify(entry, null, 2)`.
-pub fn entry_json(e: &MemoryEntry) -> String {
-    let mut w = Writer::new(true);
+/// `AllVaults`: `{projects, vaults, labels}`.
+pub fn all_vaults_json(a: &AllVaults, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
+    w.begin_obj();
+    write_projects(w.key("projects"), &a.projects);
+    w.key("vaults").begin_arr();
+    for v in &a.vaults {
+        write_vault(w.elem(), v);
+    }
+    w.end_arr();
+    w.key("labels").begin_arr();
+    for l in &a.labels {
+        w.elem().begin_obj();
+        w.key("slug").str(&l.slug);
+        w.key("project").str(&l.project);
+        w.end_obj();
+    }
+    w.end_arr();
+    w.end_obj();
+    w.finish()
+}
+
+pub fn entry_json(e: &MemoryEntry, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
     write_entry(&mut w, e);
     w.finish()
 }
 
-/// `JSON.stringify(result, null, 2)`.
-pub fn delete_json(r: &DeleteResult) -> String {
-    let mut w = Writer::new(true);
+pub fn delete_json(r: &DeleteResult, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
     w.begin_obj();
     w.key("slug").str(&r.slug);
     w.key("dangling").begin_arr();

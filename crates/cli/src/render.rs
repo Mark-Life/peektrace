@@ -1,115 +1,16 @@
 //! Pure stdout rendering: `JSON.stringify(rows, null, 2)`, the tab-separated
 //! table, the padded `--pretty` table and the `sessions ls` notes.
 
-use std::fmt::Write as _;
-
-use peektrace_core::js::json_out::{push_str, push_text};
 use peektrace_core::js::num;
 use peektrace_core::js::text;
+use peektrace_core::sessions::write::headers_json;
 use peektrace_core::{Agent, SessionHeader};
 
 use crate::width::display_width;
 
-/// One JSON value in a header object.
-enum Value<'a> {
-    Str(&'a str),
-    /// Transcript text.
-    Text(&'a str),
-    Int(u64),
-    Float(f64),
-    List(&'a [String]),
-}
-
-/// The header's keys and values in `--json` key order, absent ones dropped.
-/// Pi puts `title` after `startedAt`; a Codex project comes from the cwd,
-/// so it is transcript text.
-fn header_fields(h: &SessionHeader) -> Vec<(&'static str, Value<'_>)> {
-    let title = ("title", h.title.as_deref().map(Value::Text));
-    let started = ("startedAt", h.started_at.as_deref().map(Value::Text));
-    let (first, second) = if h.agent == Agent::Pi {
-        (started, title)
-    } else {
-        (title, started)
-    };
-    let project = if h.agent == Agent::Codex {
-        Value::Text(h.project.as_str())
-    } else {
-        Value::Str(h.project.as_str())
-    };
-    let optional = [
-        ("cwd", h.cwd.as_deref().map(Value::Text)),
-        ("gitBranch", h.git_branch.as_deref().map(Value::Text)),
-        ("model", h.model.as_deref().map(Value::Text)),
-        first,
-        second,
-        ("malformedLines", h.malformed_lines.map(Value::Int)),
-        ("costUsd", h.cost_usd.map(Value::Float)),
-        (
-            "unpricedModels",
-            h.unpriced_models.as_deref().map(Value::List),
-        ),
-        ("source", h.source.as_ref().map(|s| Value::Text(&s.id))),
-        (
-            "sourceLabel",
-            h.source.as_ref().map(|s| Value::Text(&s.label)),
-        ),
-    ];
-    [
-        ("id", Value::Str(h.id.as_str())),
-        ("agent", Value::Str(h.agent.as_str())),
-        ("path", Value::Str(&h.path)),
-        ("project", project),
-        ("messageCount", Value::Int(h.message_count)),
-        ("sizeBytes", Value::Int(h.size_bytes)),
-        ("updatedAt", Value::Text(&h.updated_at)),
-    ]
-    .into_iter()
-    .chain(optional.into_iter().filter_map(|(k, v)| v.map(|v| (k, v))))
-    .collect()
-}
-
-fn push_value(out: &mut String, v: &Value<'_>, indent: &str) {
-    match v {
-        Value::Str(s) => push_str(out, s),
-        Value::Text(s) => push_text(out, s),
-        Value::Int(n) => {
-            let _ = write!(out, "{n}");
-        }
-        Value::Float(x) => out.push_str(&num::to_json(*x)),
-        Value::List([]) => out.push_str("[]"),
-        Value::List(items) => {
-            out.push('[');
-            for (i, item) in items.iter().enumerate() {
-                out.push_str(if i == 0 { "\n" } else { ",\n" });
-                out.push_str(indent);
-                out.push_str("  ");
-                push_text(out, item);
-            }
-            out.push('\n');
-            out.push_str(indent);
-            out.push(']');
-        }
-    }
-}
-
 /// `JSON.stringify(rows, null, 2)`.
 pub fn json_rows(rows: &[SessionHeader]) -> String {
-    if rows.is_empty() {
-        return "[]".to_owned();
-    }
-    let mut out = String::from("[");
-    for (i, h) in rows.iter().enumerate() {
-        out.push_str(if i == 0 { "\n  {" } else { ",\n  {" });
-        for (j, (key, value)) in header_fields(h).iter().enumerate() {
-            out.push_str(if j == 0 { "\n    " } else { ",\n    " });
-            push_str(&mut out, key);
-            out.push_str(": ");
-            push_value(&mut out, value, "    ");
-        }
-        out.push_str("\n  }");
-    }
-    out.push_str("\n]");
-    out
+    headers_json(rows, true)
 }
 
 const HEADERS: [&str; 9] = [
