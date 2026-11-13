@@ -4,6 +4,7 @@
 import { chmodSync, mkdirSync, utimesSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { writeGoodDb } from "../../packages/core/test/fixtures/opencode-db";
+import { FAKE_SECRETS } from "./parity-fake-secrets";
 import { WORK } from "./parity-lib";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
@@ -11,9 +12,8 @@ const NO_ACCESS = 0o000;
 const FILLER = 30;
 const DEPTH_IN = 64;
 const DEPTH_OUT = 65;
-const FAKE_KEY = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
-const JWT =
-  "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4ifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+const FAKE_KEY = FAKE_SECRETS.anthropicFixture;
+const JWT = FAKE_SECRETS.jwtSigned;
 /** Files made unreadable; the stage restores them. */
 export const locked: string[] = [];
 

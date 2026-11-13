@@ -11,6 +11,8 @@
  * last kept repeat, replay returns the last one. Stored text has the stage
  * root, its real path and the repo replaced by `<WORK>`, `<RWORK>` and
  * `<REPO>`, plus whatever `bind` adds, so goldens hold no machine paths.
+ * The golden file also stores each fixture fake secret as a placeholder
+ * (`parity-fake-secrets.ts`), so secret scanners never flag a golden.
  */
 import { createHash } from "node:crypto";
 import {
@@ -23,6 +25,7 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { hideFakeSecrets, revealFakeSecrets } from "./parity-fake-secrets";
 
 export type OracleMode = "live" | "record" | "replay";
 
@@ -151,7 +154,7 @@ const load = () => {
     );
     return;
   }
-  const text = readFileSync(FILE, "utf8");
+  const text = revealFakeSecrets(readFileSync(FILE, "utf8"));
   for (const line of text.split("\n")) {
     if (line === "") {
       continue;
@@ -288,9 +291,10 @@ export const goldenLines = (m: ReadonlyMap<string, readonly unknown[]>) =>
       (m.get(key) ?? []).map((v, n) => JSON.stringify([key, n, v]))
     );
 
-/** The golden file text: one line per value, each ending in a newline. */
+/** The golden file text: one line per value, each ending in a newline,
+ * fake secrets hidden. */
 export const goldenText = (lines: readonly string[]) =>
-  lines.map((l) => `${l}\n`).join("");
+  hideFakeSecrets(lines.map((l) => `${l}\n`).join(""));
 
 /** Text that must never reach a golden: the caller's home, temp dir, repo.
  * Paths written in the checked-in fixtures are fixture text, not leaks. */

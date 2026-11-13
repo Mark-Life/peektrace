@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { FAKE_SECRETS } from "./parity-fake-secrets";
 import { fixtureEnv, REPO, type Run, report, TS_CMD } from "./parity-lib";
 import { ORACLE_MODE, tsValueSync } from "./parity-oracle";
 
@@ -45,7 +46,7 @@ interface Seed {
   readonly ts: number;
 }
 
-const secret = `sk-ant-${"A".repeat(50)}`;
+const secret = FAKE_SECRETS.anthropicTelemetry;
 const bare = "Zx9Qp2Lm7Rt4Vb8Nc3Kd6Wf1";
 
 /** Events in the TS schema, newest last; `extra` adds raw JSON text. */
@@ -108,7 +109,7 @@ const seedEvents = (now: number): Seed[] => {
     base(7, { attributes: { argv: "sessions ls", token: secret } }),
     base(8, {
       attributes: {
-        argv: `sessions analyze /Users/someone/proj2/a1b2c3d4e5f6g7h8i9j0k1l2.jsonl ghp_abcdefghijklmnopqrstuvwxyz0123456789 ${bare}`,
+        argv: `sessions analyze /Users/someone/proj2/a1b2c3d4e5f6g7h8i9j0k1l2.jsonl ${FAKE_SECRETS.githubTelemetry} ${bare}`,
       },
     }),
     base(9, {

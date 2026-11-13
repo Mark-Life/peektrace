@@ -3,6 +3,11 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  FAKE_SECRETS,
+  hideFakeSecrets,
+  revealFakeSecrets,
+} from "./parity-fake-secrets";
+import {
   decodeText,
   encodeText,
   goldenLines,
@@ -115,6 +120,74 @@ describe("record and replay", () => {
       expect(unused.lines).toEqual(["golden not used: err"]);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("fake secrets are placeholders in the file, real text on replay", () => {
+    const dir = mkdtempSync(join(tmpdir(), "oracle-"));
+    const file = join(dir, "s.jsonl");
+    const all = Object.values(FAKE_SECRETS).join(" | ");
+    const value = JSON.stringify({ text: all, nested: JSON.stringify(all) });
+    try {
+      const rec = script(
+        "record",
+        file,
+        `const out = o.tsValueSync(${JSON.stringify(`k ${FAKE_SECRETS.digitalocean}`)}, () => JSON.parse(${JSON.stringify(value)}));`
+      );
+      expect(parsed(rec).lines).toEqual([]);
+      const text = readFileSync(file, "utf8");
+      expect(text).toContain("<fake-secret:digitalocean>");
+      for (const secret of Object.values(FAKE_SECRETS)) {
+        expect(text).not.toContain(secret);
+      }
+      const rep = parsed(
+        script(
+          "replay",
+          file,
+          `const out = o.tsValueSync(${JSON.stringify(`k ${FAKE_SECRETS.digitalocean}`)}, () => "live");`
+        )
+      );
+      expect(rep.out).toEqual(JSON.parse(value));
+      expect(rep.lines).toEqual([]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("fake secrets", () => {
+  test("hide then reveal gives the text back", () => {
+    const text = `a ${Object.values(FAKE_SECRETS).join(" b ")} c`;
+    const hidden = hideFakeSecrets(text);
+    for (const secret of Object.values(FAKE_SECRETS)) {
+      expect(hidden).not.toContain(secret);
+    }
+    expect(revealFakeSecrets(hidden)).toBe(text);
+  });
+
+  test("a written golden line holds no listed secret", () => {
+    const store = new Map<string, unknown[]>([
+      [`key ${FAKE_SECRETS.github}`, [{ out: Object.values(FAKE_SECRETS) }]],
+    ]);
+    const text = goldenText(goldenLines(store));
+    for (const secret of Object.values(FAKE_SECRETS)) {
+      expect(text).not.toContain(secret);
+    }
+  });
+
+  test("the checked-in goldens hold no listed secret", () => {
+    const repo = join(import.meta.dir, "../..");
+    const files = Bun.spawnSync(["git", "ls-files", "-z", "tests/goldens"], {
+      cwd: repo,
+    })
+      .stdout.toString()
+      .split("\0")
+      .filter((f) => f.endsWith(".jsonl"));
+    for (const f of files) {
+      const text = readFileSync(join(repo, f), "utf8");
+      for (const secret of Object.values(FAKE_SECRETS)) {
+        expect(text.includes(secret) ? `${f}: ${secret}` : "").toBe("");
+      }
     }
   });
 });
