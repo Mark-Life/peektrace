@@ -227,7 +227,7 @@ ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] bc6e3f
 ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] d3ffd3f713#0	b3408d18d751
 ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] de123ef561#0	c2ee0151ba96
 ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 0239c90e8b#0	4cf8130a0c95
-ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 2277b81241#0	6a52e9eae10c
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 2277b81241#0	13a2a99316f7
 ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 3923e16ef2#0	d94c256833c3
 ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
 ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] d3ffd3f713#0	5fccae3cb502
@@ -311,6 +311,7 @@ ts ["--no-telemetry","sessions","search","the","--limit","2"] bc6e3f4540#0	c9764
 ts ["--no-telemetry","sessions","search","the","--limit","2"] d3ffd3f713#0	34f4d380efee
 ts ["--no-telemetry","sessions","search","the","--limit","2"] de123ef561#0	7d435c5c52d1
 ts ["--no-telemetry","sessions","search","the","--project=--tmp-pi--","--json","--limit","0"] de123ef561#0	912c5b107ab5
+ts ["--no-telemetry","sessions","search","the","--project=-dev-shm-peektrace-goldens-search-search-home-work","--json","--limit","0"] 2277b81241#0	6be0384b4a92
 ts ["--no-telemetry","sessions","search","the","--project=-edge-s","--json","--limit","0"] d3ffd3f713#0	a0a419d7c5b9
 ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] 0239c90e8b#0	256916924dae
 ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] 2277b81241#0	256916924dae
@@ -318,7 +319,6 @@ ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--js
 ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] bc6e3f4540#0	71bba7424db0
 ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] d3ffd3f713#0	256916924dae
 ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] de123ef561#0	256916924dae
-ts ["--no-telemetry","sessions","search","the","--project=-tmp-peektrace-goldens-search-search-home-work","--json","--limit","0"] 2277b81241#0	6be0384b4a92
 ts ["--no-telemetry","sessions","search","the","--project=-~-work","--json","--limit","0"] 2277b81241#0	6be0384b4a92
 ts ["--no-telemetry","sessions","search","the","--project=cx","--json","--limit","0"] 2277b81241#0	462045ab836c
 ts ["--no-telemetry","sessions","search","the","--project=proj","--json","--limit","0"] 3923e16ef2#0	db82cff918a6
@@ -373,12 +373,13 @@ ts ["--no-telemetry","sessions","search","walrus","--limit"] bc6e3f4540#0	c9764a
 ts ["--no-telemetry","sessions","search","walrus","--limit"] d3ffd3f713#0	b3408d18d751
 ts ["--no-telemetry","sessions","search","walrus","--limit"] de123ef561#0	c2ee0151ba96
 ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 0239c90e8b#0	603cb33fd5b8
-ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 2277b81241#0	f34e7f34757b
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 2277b81241#0	a3c0edc6b96e
 ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 3923e16ef2#0	290143d24485
 ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] bc6e3f4540#0	c9764a513768
-ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] d3ffd3f713#0	a46dc2be7999
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] d3ffd3f713#0	4e3797e34279
 ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] de123ef561#0	c2ee0151ba96
 ts ["--no-telemetry","sessions","search","walrus","--project=--tmp-pi--","--limit","0"] de123ef561#0	319a0eba37de
+ts ["--no-telemetry","sessions","search","walrus","--project=-dev-shm-peektrace-goldens-search-search-home-work","--limit","0"] 2277b81241#0	a1b92acb95d3
 ts ["--no-telemetry","sessions","search","walrus","--project=-edge-s","--limit","0"] d3ffd3f713#0	d2c890ec44ec
 ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] 0239c90e8b#0	a190b5654468
 ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] 2277b81241#0	a190b5654468
@@ -386,7 +387,6 @@ ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","-
 ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] bc6e3f4540#0	1dcc9ba66263
 ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] d3ffd3f713#0	a190b5654468
 ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] de123ef561#0	a190b5654468
-ts ["--no-telemetry","sessions","search","walrus","--project=-tmp-peektrace-goldens-search-search-home-work","--limit","0"] 2277b81241#0	a1b92acb95d3
 ts ["--no-telemetry","sessions","search","walrus","--project=-~-work","--limit","0"] 2277b81241#0	a1b92acb95d3
 ts ["--no-telemetry","sessions","search","walrus","--project=cx","--limit","0"] 2277b81241#0	7b383d9f5b42
 ts ["--no-telemetry","sessions","search","walrus","--project=proj","--limit","0"] 3923e16ef2#0	e5f75e2bcd4d

@@ -11,8 +11,8 @@ ts ["--no-telemetry","--pretty","stats","--days","36500"] 8da70010cc#0	50b2d74fd
 ts ["--no-telemetry","--pretty","stats","--days","36500"] 9f67f7920b#0	74c8dfbd6f11
 ts ["--no-telemetry","--pretty","stats","drill","--cause","cause:zsh-glob-flag","--days","36500"] 38789b1a5e#0	6692e69528dd
 ts ["--no-telemetry","--pretty","stats","drill","--cause","cause:zsh-glob-path","--agent","claude","--days","36500"] 9f67f7920b#0	5dea21d8b0dc
-ts ["--no-telemetry","--pretty","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 585ab8751b#0	4a05fcd78f7b
-ts ["--no-telemetry","--pretty","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 9f67f7920b#0	4a05fcd78f7b
+ts ["--no-telemetry","--pretty","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 585ab8751b#0	aafd8fa3fb93
+ts ["--no-telemetry","--pretty","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 9f67f7920b#0	aafd8fa3fb93
 ts ["--no-telemetry","--pretty","stats","refresh","--agent","claude"] 9f67f7920b#0	269f4f57d217
 ts ["--no-telemetry","--pretty","stats","refresh"] 38789b1a5e#0	6e6fcf310ff8
 ts ["--no-telemetry","--pretty","stats","refresh"] 585ab8751b#0	1b85afe2e057
@@ -33,9 +33,9 @@ ts ["--no-telemetry","stats","--agent","claude","--days","36500","--limit","0","
 ts ["--no-telemetry","stats","--agent","claude","--days","36500","--limit","1","--json"] 9f67f7920b#0	6623bd7d60b4
 ts ["--no-telemetry","stats","--agent","claude","--days","36500"] 9f67f7920b#0	e2c7ca608c4d
 ts ["--no-telemetry","stats","--agent","codex","--days","36500","--json"] 8da70010cc#0	2825deeb6b4b
-ts ["--no-telemetry","stats","--agent","codex","--days","36500","--json"] 9f67f7920b#0	8f771230ed59
+ts ["--no-telemetry","stats","--agent","codex","--days","36500","--json"] 9f67f7920b#0	ceee7fde56c9
 ts ["--no-telemetry","stats","--agent","codex","--days","36500","--limit","1","--json"] 8da70010cc#0	3c84971c5f2a
-ts ["--no-telemetry","stats","--agent","codex","--days","36500","--limit","1","--json"] 9f67f7920b#0	88dfcb493d6a
+ts ["--no-telemetry","stats","--agent","codex","--days","36500","--limit","1","--json"] 9f67f7920b#0	f186448b4a42
 ts ["--no-telemetry","stats","--agent","codex","--days","36500"] 8da70010cc#0	e535f2140d1f
 ts ["--no-telemetry","stats","--agent","codex","--days","36500"] 9f67f7920b#0	5596df11eadc
 ts ["--no-telemetry","stats","--agent","opencode","--days","36500","--json"] 8da70010cc#0	39321cb51fe7
@@ -55,17 +55,17 @@ ts ["--no-telemetry","stats","--days","0","--json"] 585ab8751b#0	b721d639c4e9
 ts ["--no-telemetry","stats","--days","0","--json"] 8da70010cc#0	7471c2d0da25
 ts ["--no-telemetry","stats","--days","0","--json"] 9f67f7920b#0	b721d639c4e9
 ts ["--no-telemetry","stats","--days","36500","--json"] 38789b1a5e#0	92a79a09e2d8
-ts ["--no-telemetry","stats","--days","36500","--json"] 585ab8751b#0	d093dbc8d4df
+ts ["--no-telemetry","stats","--days","36500","--json"] 585ab8751b#0	28056cf550a9
 ts ["--no-telemetry","stats","--days","36500","--json"] 8da70010cc#0	40b0f7dd3e66
-ts ["--no-telemetry","stats","--days","36500","--json"] 9f67f7920b#0	d093dbc8d4df
+ts ["--no-telemetry","stats","--days","36500","--json"] 9f67f7920b#0	28056cf550a9
 ts ["--no-telemetry","stats","--days","36500","--limit","0","--json"] 38789b1a5e#0	a0a5af5ec658
-ts ["--no-telemetry","stats","--days","36500","--limit","0","--json"] 585ab8751b#0	95e1b0dc6dc8
+ts ["--no-telemetry","stats","--days","36500","--limit","0","--json"] 585ab8751b#0	cb61914a2a42
 ts ["--no-telemetry","stats","--days","36500","--limit","0","--json"] 8da70010cc#0	318275d6fba3
-ts ["--no-telemetry","stats","--days","36500","--limit","0","--json"] 9f67f7920b#0	95e1b0dc6dc8
+ts ["--no-telemetry","stats","--days","36500","--limit","0","--json"] 9f67f7920b#0	cb61914a2a42
 ts ["--no-telemetry","stats","--days","36500","--limit","1","--json"] 38789b1a5e#0	73767a758535
-ts ["--no-telemetry","stats","--days","36500","--limit","1","--json"] 585ab8751b#0	77f9a5cf167b
+ts ["--no-telemetry","stats","--days","36500","--limit","1","--json"] 585ab8751b#0	102d85f5be42
 ts ["--no-telemetry","stats","--days","36500","--limit","1","--json"] 8da70010cc#0	0101fecd8fc4
-ts ["--no-telemetry","stats","--days","36500","--limit","1","--json"] 9f67f7920b#0	77f9a5cf167b
+ts ["--no-telemetry","stats","--days","36500","--limit","1","--json"] 9f67f7920b#0	102d85f5be42
 ts ["--no-telemetry","stats","--days","36500"] 38789b1a5e#0	155c58d3819b
 ts ["--no-telemetry","stats","--days","36500"] 585ab8751b#0	4e6ad37d28f2
 ts ["--no-telemetry","stats","--days","36500"] 8da70010cc#0	5ceede347a14
@@ -79,78 +79,78 @@ ts ["--no-telemetry","stats","drill","--cause","a","--fail","b"] 585ab8751b#0	59
 ts ["--no-telemetry","stats","drill","--cause","a","--fail","b"] 8da70010cc#0	592136beb739
 ts ["--no-telemetry","stats","drill","--cause","a","--fail","b"] 9f67f7920b#0	592136beb739
 ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--agent","claude","--days","36500","--json"] 9f67f7920b#0	884eb3ccaed3
-ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--agent","codex","--days","36500","--json"] 9f67f7920b#0	06d86af3cb5d
+ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--agent","codex","--days","36500","--json"] 9f67f7920b#0	342c052f24a2
 ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	fb40457bb65e
 ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--agent","pi","--days","36500","--json"] 9f67f7920b#0	45ba6f1edbe0
 ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--days","36500","--json"] 38789b1a5e#0	4e777fef5aa4
-ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--days","36500","--json"] 585ab8751b#0	97f553957bc0
-ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--days","36500","--json"] 9f67f7920b#0	97f553957bc0
+ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--days","36500","--json"] 585ab8751b#0	39b9d1a4b6b2
+ts ["--no-telemetry","stats","drill","--cause","cause:command-not-found","--days","36500","--json"] 9f67f7920b#0	39b9d1a4b6b2
 ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--agent","claude","--days","36500","--json"] 9f67f7920b#0	93eb1853bb6f
-ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--agent","codex","--days","36500","--json"] 9f67f7920b#0	708173affc08
+ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--agent","codex","--days","36500","--json"] 9f67f7920b#0	fb4a35341249
 ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	6ae71e21bbfb
 ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--agent","pi","--days","36500","--json"] 9f67f7920b#0	741cd449153e
 ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--days","36500","--json"] 38789b1a5e#0	2cc6fb9792ca
-ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--days","36500","--json"] 9f67f7920b#0	299fb727dc00
+ts ["--no-telemetry","stats","drill","--cause","cause:output-too-large","--days","36500","--json"] 9f67f7920b#0	079c8deb1c8d
 ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--agent","claude","--days","36500","--json"] 9f67f7920b#0	a3223589c75c
-ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--agent","codex","--days","36500","--json"] 9f67f7920b#0	24c131ddb641
+ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--agent","codex","--days","36500","--json"] 9f67f7920b#0	53b1410ee998
 ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	43b8cdf5c09b
 ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--agent","pi","--days","36500","--json"] 9f67f7920b#0	1e5f628f6dd9
 ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--days","36500","--json"] 38789b1a5e#0	60417eec3620
-ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--days","36500","--json"] 9f67f7920b#0	c6ce63e478ba
+ts ["--no-telemetry","stats","drill","--cause","cause:pkill-self-kill","--days","36500","--json"] 9f67f7920b#0	8bca62e11c6b
 ts ["--no-telemetry","stats","drill","--cause","cause:read-before-write","--agent","claude","--days","36500","--json"] 9f67f7920b#0	b4f996970a20
 ts ["--no-telemetry","stats","drill","--cause","cause:read-before-write","--days","36500","--json"] 38789b1a5e#0	8b77d18a180e
 ts ["--no-telemetry","stats","drill","--cause","cause:read-before-write","--days","36500","--json"] 9f67f7920b#0	b4f996970a20
 ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--agent","claude","--days","36500","--json"] 9f67f7920b#0	dcc8f87b3f90
-ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--agent","codex","--days","36500","--json"] 9f67f7920b#0	6bf8c168cbe5
+ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--agent","codex","--days","36500","--json"] 9f67f7920b#0	f523b5caed2d
 ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	a7f53637651c
 ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--agent","pi","--days","36500","--json"] 9f67f7920b#0	c5ec2267c1e7
-ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--days","36500","--json"] 9f67f7920b#0	7677f09db9f7
+ts ["--no-telemetry","stats","drill","--cause","cause:rm-guard","--days","36500","--json"] 9f67f7920b#0	a321b8534330
 ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--agent","claude","--days","36500","--json"] 9f67f7920b#0	17becd7c556e
-ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--agent","codex","--days","36500","--json"] 9f67f7920b#0	0ca0cc33e9ac
+ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--agent","codex","--days","36500","--json"] 9f67f7920b#0	835e28b3f659
 ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	009c014cf919
 ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--agent","pi","--days","36500","--json"] 9f67f7920b#0	4d4e676d78c9
-ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--days","36500","--json"] 9f67f7920b#0	fdeb7e3b4f59
+ts ["--no-telemetry","stats","drill","--cause","cause:scratch-module-resolution","--days","36500","--json"] 9f67f7920b#0	1f5671f5e684
 ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--agent","claude","--days","36500","--json"] 9f67f7920b#0	83bc1b6c37ab
-ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--agent","codex","--days","36500","--json"] 9f67f7920b#0	6b39931a0914
+ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--agent","codex","--days","36500","--json"] 9f67f7920b#0	09b5ac17508d
 ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	b2e89501b557
 ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--agent","pi","--days","36500","--json"] 9f67f7920b#0	0700e301200e
 ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--days","36500","--json"] 38789b1a5e#0	8d1abe6111db
-ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--days","36500","--json"] 9f67f7920b#0	3a6bf450eb78
+ts ["--no-telemetry","stats","drill","--cause","cause:sleep-blocked","--days","36500","--json"] 9f67f7920b#0	dc90a89b179d
 ts ["--no-telemetry","stats","drill","--cause","cause:structured-output-schema","--agent","claude","--days","36500","--json"] 9f67f7920b#0	aebe68327cd5
 ts ["--no-telemetry","stats","drill","--cause","cause:structured-output-schema","--days","36500","--json"] 38789b1a5e#0	5cba0aa6d51c
 ts ["--no-telemetry","stats","drill","--cause","cause:structured-output-schema","--days","36500","--json"] 9f67f7920b#0	aebe68327cd5
 ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:edit","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	0eddfb802583
 ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:edit","--agent","pi","--days","36500","--json"] 9f67f7920b#0	fc4a91268a0c
 ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:edit","--days","36500","--json"] 9f67f7920b#0	b6634e771df6
-ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:exec_command","--agent","codex","--days","36500","--json"] 9f67f7920b#0	000efa979716
-ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:exec_command","--days","36500","--json"] 9f67f7920b#0	000efa979716
+ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:exec_command","--agent","codex","--days","36500","--json"] 9f67f7920b#0	17c63d07fb70
+ts ["--no-telemetry","stats","drill","--cause","cause:unclassified:exec_command","--days","36500","--json"] 9f67f7920b#0	17c63d07fb70
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--agent","claude","--days","36500","--json"] 9f67f7920b#0	935803c077cc
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--agent","codex","--days","36500","--json"] 9f67f7920b#0	e597f00ff299
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--agent","codex","--days","36500","--json"] 9f67f7920b#0	f471e4fd922c
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	eb69637face7
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--agent","pi","--days","36500","--json"] 9f67f7920b#0	58ed056ba5ac
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--days","36500","--json"] 9f67f7920b#0	8886edeaf6c3
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-equals-abort","--days","36500","--json"] 9f67f7920b#0	b78d0666e175
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--agent","claude","--days","36500","--json"] 9f67f7920b#0	e777970143a1
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--agent","codex","--days","36500","--json"] 9f67f7920b#0	61dea1cbe5b9
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--agent","codex","--days","36500","--json"] 9f67f7920b#0	d9b11d822e65
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	f34bbc434238
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--agent","pi","--days","36500","--json"] 9f67f7920b#0	fa78f2444008
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--days","36500","--json"] 38789b1a5e#0	293bb4f85d20
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--days","36500","--json"] 585ab8751b#0	8d9673761d43
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--days","36500","--json"] 9f67f7920b#0	8d9673761d43
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--days","36500","--json"] 585ab8751b#0	71f8b99c7240
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--days","36500","--json"] 9f67f7920b#0	71f8b99c7240
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-flag","--days","36500"] 38789b1a5e#0	1e79f7941cda
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--agent","claude","--days","36500","--json"] 9f67f7920b#0	4d7ce9e44074
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--agent","claude","--days","36500"] 9f67f7920b#0	ca2f4c5fc831
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--agent","codex","--days","36500","--json"] 9f67f7920b#0	d4734df3fafc
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--agent","codex","--days","36500","--json"] 9f67f7920b#0	eac7adb49b66
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	cc60522e5f62
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--agent","pi","--days","36500","--json"] 9f67f7920b#0	8bdd57817405
 ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500","--json"] 38789b1a5e#0	66619b0d6d99
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500","--json"] 585ab8751b#0	58dbd4ade695
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500","--json"] 9f67f7920b#0	58dbd4ade695
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 585ab8751b#0	34299877ef65
-ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 9f67f7920b#0	34299877ef65
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500","--json"] 585ab8751b#0	7e1df24a0424
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500","--json"] 9f67f7920b#0	7e1df24a0424
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 585ab8751b#0	01111d186b5d
+ts ["--no-telemetry","stats","drill","--cause","cause:zsh-glob-path","--days","36500"] 9f67f7920b#0	01111d186b5d
 ts ["--no-telemetry","stats","drill","--cause","command-not-found","--agent","claude","--days","36500","--json"] 9f67f7920b#0	884eb3ccaed3
 ts ["--no-telemetry","stats","drill","--cause","command-not-found","--days","36500","--json"] 38789b1a5e#0	4e777fef5aa4
-ts ["--no-telemetry","stats","drill","--cause","command-not-found","--days","36500","--json"] 585ab8751b#0	97f553957bc0
-ts ["--no-telemetry","stats","drill","--cause","command-not-found","--days","36500","--json"] 9f67f7920b#0	97f553957bc0
+ts ["--no-telemetry","stats","drill","--cause","command-not-found","--days","36500","--json"] 585ab8751b#0	39b9d1a4b6b2
+ts ["--no-telemetry","stats","drill","--cause","command-not-found","--days","36500","--json"] 9f67f7920b#0	39b9d1a4b6b2
 ts ["--no-telemetry","stats","drill","--cause","nope","--agent","claude","--days","36500"] 9f67f7920b#0	979f640ae783
 ts ["--no-telemetry","stats","drill","--cause","nope","--days","36500"] 38789b1a5e#0	979f640ae783
 ts ["--no-telemetry","stats","drill","--cause","nope","--days","36500"] 585ab8751b#0	979f640ae783
@@ -158,40 +158,40 @@ ts ["--no-telemetry","stats","drill","--cause","nope","--days","36500"] 8da70010
 ts ["--no-telemetry","stats","drill","--cause","nope","--days","36500"] 9f67f7920b#0	979f640ae783
 ts ["--no-telemetry","stats","drill","--cause","output-too-large","--agent","claude","--days","36500","--json"] 9f67f7920b#0	93eb1853bb6f
 ts ["--no-telemetry","stats","drill","--cause","output-too-large","--days","36500","--json"] 38789b1a5e#0	2cc6fb9792ca
-ts ["--no-telemetry","stats","drill","--cause","output-too-large","--days","36500","--json"] 9f67f7920b#0	299fb727dc00
+ts ["--no-telemetry","stats","drill","--cause","output-too-large","--days","36500","--json"] 9f67f7920b#0	079c8deb1c8d
 ts ["--no-telemetry","stats","drill","--cause","pkill-self-kill","--agent","claude","--days","36500","--json"] 9f67f7920b#0	a3223589c75c
 ts ["--no-telemetry","stats","drill","--cause","pkill-self-kill","--days","36500","--json"] 38789b1a5e#0	60417eec3620
-ts ["--no-telemetry","stats","drill","--cause","pkill-self-kill","--days","36500","--json"] 9f67f7920b#0	c6ce63e478ba
+ts ["--no-telemetry","stats","drill","--cause","pkill-self-kill","--days","36500","--json"] 9f67f7920b#0	8bca62e11c6b
 ts ["--no-telemetry","stats","drill","--cause","read-before-write","--agent","claude","--days","36500","--json"] 9f67f7920b#0	b4f996970a20
 ts ["--no-telemetry","stats","drill","--cause","read-before-write","--days","36500","--json"] 38789b1a5e#0	8b77d18a180e
 ts ["--no-telemetry","stats","drill","--cause","read-before-write","--days","36500","--json"] 9f67f7920b#0	b4f996970a20
 ts ["--no-telemetry","stats","drill","--cause","rm-guard","--agent","claude","--days","36500","--json"] 9f67f7920b#0	dcc8f87b3f90
-ts ["--no-telemetry","stats","drill","--cause","rm-guard","--days","36500","--json"] 9f67f7920b#0	7677f09db9f7
+ts ["--no-telemetry","stats","drill","--cause","rm-guard","--days","36500","--json"] 9f67f7920b#0	a321b8534330
 ts ["--no-telemetry","stats","drill","--cause","scratch-module-resolution","--agent","claude","--days","36500","--json"] 9f67f7920b#0	17becd7c556e
-ts ["--no-telemetry","stats","drill","--cause","scratch-module-resolution","--days","36500","--json"] 9f67f7920b#0	fdeb7e3b4f59
+ts ["--no-telemetry","stats","drill","--cause","scratch-module-resolution","--days","36500","--json"] 9f67f7920b#0	1f5671f5e684
 ts ["--no-telemetry","stats","drill","--cause","sleep-blocked","--agent","claude","--days","36500","--json"] 9f67f7920b#0	83bc1b6c37ab
 ts ["--no-telemetry","stats","drill","--cause","sleep-blocked","--days","36500","--json"] 38789b1a5e#0	8d1abe6111db
-ts ["--no-telemetry","stats","drill","--cause","sleep-blocked","--days","36500","--json"] 9f67f7920b#0	3a6bf450eb78
+ts ["--no-telemetry","stats","drill","--cause","sleep-blocked","--days","36500","--json"] 9f67f7920b#0	dc90a89b179d
 ts ["--no-telemetry","stats","drill","--cause","structured-output-schema","--agent","claude","--days","36500","--json"] 9f67f7920b#0	aebe68327cd5
 ts ["--no-telemetry","stats","drill","--cause","structured-output-schema","--days","36500","--json"] 38789b1a5e#0	5cba0aa6d51c
 ts ["--no-telemetry","stats","drill","--cause","structured-output-schema","--days","36500","--json"] 9f67f7920b#0	aebe68327cd5
 ts ["--no-telemetry","stats","drill","--cause","unclassified:edit","--days","36500","--json"] 9f67f7920b#0	b6634e771df6
-ts ["--no-telemetry","stats","drill","--cause","unclassified:exec_command","--days","36500","--json"] 9f67f7920b#0	000efa979716
+ts ["--no-telemetry","stats","drill","--cause","unclassified:exec_command","--days","36500","--json"] 9f67f7920b#0	17c63d07fb70
 ts ["--no-telemetry","stats","drill","--cause","zsh-equals-abort","--agent","claude","--days","36500","--json"] 9f67f7920b#0	935803c077cc
-ts ["--no-telemetry","stats","drill","--cause","zsh-equals-abort","--days","36500","--json"] 9f67f7920b#0	8886edeaf6c3
+ts ["--no-telemetry","stats","drill","--cause","zsh-equals-abort","--days","36500","--json"] 9f67f7920b#0	b78d0666e175
 ts ["--no-telemetry","stats","drill","--cause","zsh-glob-flag","--agent","claude","--days","36500","--json"] 9f67f7920b#0	e777970143a1
 ts ["--no-telemetry","stats","drill","--cause","zsh-glob-flag","--days","36500","--json"] 38789b1a5e#0	293bb4f85d20
-ts ["--no-telemetry","stats","drill","--cause","zsh-glob-flag","--days","36500","--json"] 585ab8751b#0	8d9673761d43
-ts ["--no-telemetry","stats","drill","--cause","zsh-glob-flag","--days","36500","--json"] 9f67f7920b#0	8d9673761d43
+ts ["--no-telemetry","stats","drill","--cause","zsh-glob-flag","--days","36500","--json"] 585ab8751b#0	71f8b99c7240
+ts ["--no-telemetry","stats","drill","--cause","zsh-glob-flag","--days","36500","--json"] 9f67f7920b#0	71f8b99c7240
 ts ["--no-telemetry","stats","drill","--cause","zsh-glob-path","--agent","claude","--days","36500","--json"] 9f67f7920b#0	4d7ce9e44074
 ts ["--no-telemetry","stats","drill","--cause","zsh-glob-path","--days","36500","--json"] 38789b1a5e#0	66619b0d6d99
-ts ["--no-telemetry","stats","drill","--cause","zsh-glob-path","--days","36500","--json"] 585ab8751b#0	58dbd4ade695
-ts ["--no-telemetry","stats","drill","--cause","zsh-glob-path","--days","36500","--json"] 9f67f7920b#0	58dbd4ade695
+ts ["--no-telemetry","stats","drill","--cause","zsh-glob-path","--days","36500","--json"] 585ab8751b#0	7e1df24a0424
+ts ["--no-telemetry","stats","drill","--cause","zsh-glob-path","--days","36500","--json"] 9f67f7920b#0	7e1df24a0424
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--agent","claude","--days","36500","--json"] 9f67f7920b#0	f17027128698
-ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--agent","codex","--days","36500","--json"] 9f67f7920b#0	80651edb01a3
+ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--agent","codex","--days","36500","--json"] 9f67f7920b#0	4ba01d7e65f9
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	92f481f12a12
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--agent","pi","--days","36500","--json"] 9f67f7920b#0	0228b01031c4
-ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--days","36500","--json"] 9f67f7920b#0	a06c2973d435
+ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: == not found","--days","36500","--json"] 9f67f7920b#0	fdb8c1d8091f
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: command not found: jq","--agent","claude","--days","36500","--json"] 9f67f7920b#0	29f60ad903c9
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: command not found: jq","--days","36500","--json"] 38789b1a5e#0	ca02a9c94c72
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: command not found: jq","--days","36500","--json"] 9f67f7920b#0	29f60ad903c9
@@ -199,11 +199,11 @@ ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: 
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.md","--days","36500","--json"] 38789b1a5e#0	543c84143344
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.md","--days","36500","--json"] 9f67f7920b#0	46adfcba4e1b
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--agent","claude","--days","36500","--json"] 9f67f7920b#0	6a1f79ace072
-ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--agent","codex","--days","36500","--json"] 9f67f7920b#0	924046c9cb80
+ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--agent","codex","--days","36500","--json"] 9f67f7920b#0	611eadbe3b63
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	9e2abd27d4d6
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--agent","pi","--days","36500","--json"] 9f67f7920b#0	2e109b0660a8
-ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--days","36500","--json"] 585ab8751b#0	c0534dd81f85
-ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--days","36500","--json"] 9f67f7920b#0	c0534dd81f85
+ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--days","36500","--json"] 585ab8751b#0	fa33df3dcb1f
+ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: *.ts","--days","36500","--json"] 9f67f7920b#0	fa33df3dcb1f
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: --include=*.env","--agent","claude","--days","36500","--json"] 9f67f7920b#0	25f8e765fc64
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: --include=*.env","--days","36500","--json"] 38789b1a5e#0	d01fd8cecf98
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: --include=*.env","--days","36500","--json"] 9f67f7920b#0	25f8e765fc64
@@ -214,41 +214,41 @@ ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: 
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: <path>*.out","--days","36500","--json"] 38789b1a5e#0	4109d93ed625
 ts ["--no-telemetry","stats","drill","--cluster","(eval):<n>: no matches found: <path>*.out","--days","36500","--json"] 9f67f7920b#0	c1eb62f4cfd9
 ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--agent","claude","--days","36500","--json"] 9f67f7920b#0	7ef58669c00d
-ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--agent","codex","--days","36500","--json"] 9f67f7920b#0	2ffb58af98d2
+ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--agent","codex","--days","36500","--json"] 9f67f7920b#0	07c7b2f3fbf0
 ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	b6acfeb29f94
 ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--agent","pi","--days","36500","--json"] 9f67f7920b#0	64dd6c7b2036
-ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--days","36500","--json"] 585ab8751b#0	cb9656d69ae2
-ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--days","36500","--json"] 9f67f7920b#0	cb9656d69ae2
+ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--days","36500","--json"] 585ab8751b#0	f85c3f772e9e
+ts ["--no-telemetry","stats","drill","--cluster","<n> fail","--days","36500","--json"] 9f67f7920b#0	f85c3f772e9e
 ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--agent","claude","--days","36500","--json"] 9f67f7920b#0	7cca6fc6124c
-ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--agent","codex","--days","36500","--json"] 9f67f7920b#0	5009bed6ce27
+ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--agent","codex","--days","36500","--json"] 9f67f7920b#0	a9b8e4832f27
 ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	4a406310538b
 ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--agent","pi","--days","36500","--json"] 9f67f7920b#0	f705469335ab
-ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--days","36500","--json"] 9f67f7920b#0	7ab8aa75dde1
+ts ["--no-telemetry","stats","drill","--cluster","<path>(<n>): error TS2304: Cannot find name <str>.","--days","36500","--json"] 9f67f7920b#0	5d3cb1af0aca
 ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--agent","claude","--days","36500","--json"] 9f67f7920b#0	06e35f3a3f4c
-ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--agent","codex","--days","36500","--json"] 9f67f7920b#0	f69dcf333ebf
+ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--agent","codex","--days","36500","--json"] 9f67f7920b#0	ce964d760c7d
 ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	852c6d58ced8
 ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--agent","pi","--days","36500","--json"] 9f67f7920b#0	8197b19ae2d4
 ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--days","36500","--json"] 38789b1a5e#0	834e89bb27bd
-ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--days","36500","--json"] 9f67f7920b#0	03940bcb3baa
+ts ["--no-telemetry","stats","drill","--cluster","Blocked: sleep <n>","--days","36500","--json"] 9f67f7920b#0	8f4d3c1a833d
 ts ["--no-telemetry","stats","drill","--cluster","Could not find the exact text","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	9fccac43ee38
 ts ["--no-telemetry","stats","drill","--cluster","Could not find the exact text","--agent","pi","--days","36500","--json"] 9f67f7920b#0	a75efa20d4c0
 ts ["--no-telemetry","stats","drill","--cluster","Could not find the exact text","--days","36500","--json"] 9f67f7920b#0	d2ff664770a2
 ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--agent","claude","--days","36500","--json"] 9f67f7920b#0	005e3441654e
-ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--agent","codex","--days","36500","--json"] 9f67f7920b#0	e8b5319d784d
+ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--agent","codex","--days","36500","--json"] 9f67f7920b#0	f50ad9018055
 ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	a065ef2d8b0d
 ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--agent","pi","--days","36500","--json"] 9f67f7920b#0	9113c572ec34
-ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--days","36500","--json"] 9f67f7920b#0	7c2f29f74925
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 1 (eval):<n>: == not found","--agent","codex","--days","36500","--json"] 9f67f7920b#0	6eb3a4e08017
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 1 (eval):<n>: == not found","--days","36500","--json"] 9f67f7920b#0	6eb3a4e08017
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 1 (eval):<n>: no matches found: *.ts","--agent","codex","--days","36500","--json"] 9f67f7920b#0	04f1a0befaba
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 127 zsh:<n>: command not found: jqq","--agent","codex","--days","36500","--json"] 9f67f7920b#0	5ca34aac2f90
+ts ["--no-telemetry","stats","drill","--cluster","Dangerous rm operation detected: refusing","--days","36500","--json"] 9f67f7920b#0	9f0a546fc07d
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 1 (eval):<n>: == not found","--agent","codex","--days","36500","--json"] 9f67f7920b#0	0d3a60fcdd50
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 1 (eval):<n>: == not found","--days","36500","--json"] 9f67f7920b#0	0d3a60fcdd50
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 1 (eval):<n>: no matches found: *.ts","--agent","codex","--days","36500","--json"] 9f67f7920b#0	03bdd48eed88
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 127 zsh:<n>: command not found: jqq","--agent","codex","--days","36500","--json"] 9f67f7920b#0	876aa38708de
 ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--agent","claude","--days","36500","--json"] 9f67f7920b#0	f226c70e4dbb
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--agent","codex","--days","36500","--json"] 9f67f7920b#0	b5aee9d02acf
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--agent","codex","--days","36500","--json"] 9f67f7920b#0	8836fbe489b5
 ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	8e680ba1f35f
 ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--agent","pi","--days","36500","--json"] 9f67f7920b#0	2fef902b7211
 ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--days","36500","--json"] 38789b1a5e#0	0061e6a120e4
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--days","36500","--json"] 585ab8751b#0	0a3a8fdf59cc
-ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--days","36500","--json"] 9f67f7920b#0	0a3a8fdf59cc
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--days","36500","--json"] 585ab8751b#0	c38f3602d77c
+ts ["--no-telemetry","stats","drill","--cluster","Exit code 144","--days","36500","--json"] 9f67f7920b#0	c38f3602d77c
 ts ["--no-telemetry","stats","drill","--cluster","File has not been read yet.","--agent","claude","--days","36500","--json"] 9f67f7920b#0	166d725cc9c2
 ts ["--no-telemetry","stats","drill","--cluster","File has not been read yet.","--days","36500","--json"] 38789b1a5e#0	f7b9965e5421
 ts ["--no-telemetry","stats","drill","--cluster","File has not been read yet.","--days","36500","--json"] 9f67f7920b#0	166d725cc9c2
@@ -256,26 +256,26 @@ ts ["--no-telemetry","stats","drill","--cluster","Output does not match required
 ts ["--no-telemetry","stats","drill","--cluster","Output does not match required schema:","--days","36500","--json"] 38789b1a5e#0	8055f612ca99
 ts ["--no-telemetry","stats","drill","--cluster","Test failed. Process exited with code <n>","--days","36500","--json"] 38789b1a5e#0	a4d08bfa6ac8
 ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--agent","claude","--days","36500","--json"] 9f67f7920b#0	7e32f74857ba
-ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--agent","codex","--days","36500","--json"] 9f67f7920b#0	04b1bb56f198
+ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--agent","codex","--days","36500","--json"] 9f67f7920b#0	79346e530eeb
 ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	20a434aaf431
 ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--agent","pi","--days","36500","--json"] 9f67f7920b#0	9c8bb2e6de59
-ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--days","36500","--json"] 9f67f7920b#0	f76c15452e5d
+ts ["--no-telemetry","stats","drill","--cluster","error: Cannot find module <str> from <str>","--days","36500","--json"] 9f67f7920b#0	ba623dcd4cd7
 ts ["--no-telemetry","stats","drill","--cluster","error: url_not_accessible","--agent","claude","--days","36500","--json"] 9f67f7920b#0	f6844e30ee06
 ts ["--no-telemetry","stats","drill","--cluster","error: url_not_accessible","--days","36500","--json"] 38789b1a5e#0	d5a5f6ed7674
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: fdd","--agent","claude","--days","36500","--json"] 9f67f7920b#0	292104e1952c
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: fdd","--days","36500","--json"] 9f67f7920b#0	292104e1952c
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--agent","claude","--days","36500","--json"] 9f67f7920b#0	eac7af156f20
-ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--agent","codex","--days","36500","--json"] 9f67f7920b#0	543112d3c902
+ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--agent","codex","--days","36500","--json"] 9f67f7920b#0	bd17ffffb1bc
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	24103b2994db
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--agent","pi","--days","36500","--json"] 9f67f7920b#0	edcb357e1668
-ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--days","36500","--json"] 9f67f7920b#0	7e54063bf8f5
+ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: command not found: jqq","--days","36500","--json"] 9f67f7920b#0	810868156979
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.js","--agent","claude","--days","36500","--json"] 9f67f7920b#0	f3f1cbeae026
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.js","--days","36500","--json"] 9f67f7920b#0	f3f1cbeae026
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--agent","claude","--days","36500","--json"] 9f67f7920b#0	8053f9f9b0c7
-ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--agent","codex","--days","36500","--json"] 9f67f7920b#0	5832abbfa449
+ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--agent","codex","--days","36500","--json"] 9f67f7920b#0	db87fb44a44b
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	dc720ee901dd
 ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--agent","pi","--days","36500","--json"] 9f67f7920b#0	27e7ee91ebd6
-ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--days","36500","--json"] 9f67f7920b#0	40255796739a
+ts ["--no-telemetry","stats","drill","--cluster","zsh:<n>: no matches found: <path>*.zip","--days","36500","--json"] 9f67f7920b#0	e05f9cee50e7
 ts ["--no-telemetry","stats","drill","--cluster","}","--agent","opencode","--days","36500","--json"] 8da70010cc#0	4eb494e1fb95
 ts ["--no-telemetry","stats","drill","--cluster","}","--days","36500","--json"] 8da70010cc#0	4eb494e1fb95
 ts ["--no-telemetry","stats","drill","--fail","flag:Bash","--agent","claude","--days","36500","--json"] 9f67f7920b#0	6c031273b0b1
@@ -286,109 +286,109 @@ ts ["--no-telemetry","stats","drill","--fail","flag:bash","--days","36500","--js
 ts ["--no-telemetry","stats","drill","--fail","flag:edit","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	b261302d0802
 ts ["--no-telemetry","stats","drill","--fail","flag:edit","--agent","pi","--days","36500","--json"] 9f67f7920b#0	a16ee5e9c328
 ts ["--no-telemetry","stats","drill","--fail","flag:edit","--days","36500","--json"] 9f67f7920b#0	c4cae537bd60
-ts ["--no-telemetry","stats","drill","--fail","flag:exec_command","--agent","codex","--days","36500","--json"] 9f67f7920b#0	5385789292dd
+ts ["--no-telemetry","stats","drill","--fail","flag:exec_command","--agent","codex","--days","36500","--json"] 9f67f7920b#0	dc7309170ebe
 ts ["--no-telemetry","stats","drill","--fail","flag:exec_command","--days","36500","--json"] 38789b1a5e#0	c1ec90bcfc20
-ts ["--no-telemetry","stats","drill","--fail","flag:exec_command","--days","36500","--json"] 9f67f7920b#0	5385789292dd
+ts ["--no-telemetry","stats","drill","--fail","flag:exec_command","--days","36500","--json"] 9f67f7920b#0	dc7309170ebe
 ts ["--no-telemetry","stats","drill","--fail","flag:web_fetch","--agent","claude","--days","36500","--json"] 9f67f7920b#0	628c3d11eaea
 ts ["--no-telemetry","stats","drill","--fail","flag:web_fetch","--days","36500","--json"] 38789b1a5e#0	3f1c5089aa59
 ts ["--no-telemetry","stats","drill","--fail","flag:web_fetch","--days","36500","--json"] 9f67f7920b#0	628c3d11eaea
 ts ["--no-telemetry","stats","drill","--fail","scan:test","--agent","claude","--days","36500","--json"] 9f67f7920b#0	4fb3d5aadda2
-ts ["--no-telemetry","stats","drill","--fail","scan:test","--agent","codex","--days","36500","--json"] 9f67f7920b#0	9e861338de2f
+ts ["--no-telemetry","stats","drill","--fail","scan:test","--agent","codex","--days","36500","--json"] 9f67f7920b#0	dde18509c154
 ts ["--no-telemetry","stats","drill","--fail","scan:test","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	6273a60bc527
 ts ["--no-telemetry","stats","drill","--fail","scan:test","--agent","pi","--days","36500","--json"] 9f67f7920b#0	bac4759fcf6f
-ts ["--no-telemetry","stats","drill","--fail","scan:test","--days","36500","--json"] 585ab8751b#0	a6c1f281c6c5
-ts ["--no-telemetry","stats","drill","--fail","scan:test","--days","36500","--json"] 9f67f7920b#0	a6c1f281c6c5
+ts ["--no-telemetry","stats","drill","--fail","scan:test","--days","36500","--json"] 585ab8751b#0	3ecc764edd13
+ts ["--no-telemetry","stats","drill","--fail","scan:test","--days","36500","--json"] 9f67f7920b#0	3ecc764edd13
 ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--agent","claude","--days","36500","--json"] 9f67f7920b#0	66a01dc49d75
-ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--agent","codex","--days","36500","--json"] 9f67f7920b#0	bee76cd4f345
+ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--agent","codex","--days","36500","--json"] 9f67f7920b#0	4add5fae6a3c
 ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	769ebc12bef4
 ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--agent","pi","--days","36500","--json"] 9f67f7920b#0	8266b4499b14
-ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--days","36500","--json"] 585ab8751b#0	0c17775e50f0
-ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--days","36500","--json"] 9f67f7920b#0	0c17775e50f0
+ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--days","36500","--json"] 585ab8751b#0	f5a71398e84b
+ts ["--no-telemetry","stats","drill","--fail","scan:tsc","--days","36500","--json"] 9f67f7920b#0	f5a71398e84b
 ts ["--no-telemetry","stats","drill","--time","build","--agent","claude","--days","36500","--json"] 9f67f7920b#0	91b5224925b1
-ts ["--no-telemetry","stats","drill","--time","build","--agent","codex","--days","36500","--json"] 9f67f7920b#0	81b7f80aa17f
+ts ["--no-telemetry","stats","drill","--time","build","--agent","codex","--days","36500","--json"] 9f67f7920b#0	79c9e8cc2554
 ts ["--no-telemetry","stats","drill","--time","build","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	a38f839c5c7f
 ts ["--no-telemetry","stats","drill","--time","build","--agent","pi","--days","36500","--json"] 9f67f7920b#0	5e6bd2b65f08
-ts ["--no-telemetry","stats","drill","--time","build","--days","36500","--json"] 585ab8751b#0	f123b4c585dc
-ts ["--no-telemetry","stats","drill","--time","build","--days","36500","--json"] 9f67f7920b#0	f123b4c585dc
+ts ["--no-telemetry","stats","drill","--time","build","--days","36500","--json"] 585ab8751b#0	bdf6ba674361
+ts ["--no-telemetry","stats","drill","--time","build","--days","36500","--json"] 9f67f7920b#0	bdf6ba674361
 ts ["--no-telemetry","stats","drill","--time","file-io","--agent","claude","--days","36500","--json"] 9f67f7920b#0	b4c58f27feed
-ts ["--no-telemetry","stats","drill","--time","file-io","--agent","codex","--days","36500","--json"] 9f67f7920b#0	f07c92c6e493
+ts ["--no-telemetry","stats","drill","--time","file-io","--agent","codex","--days","36500","--json"] 9f67f7920b#0	8e79bfd75d64
 ts ["--no-telemetry","stats","drill","--time","file-io","--agent","opencode","--days","36500","--json"] 8da70010cc#0	094de753b8cc
 ts ["--no-telemetry","stats","drill","--time","file-io","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	f7f5c569864d
 ts ["--no-telemetry","stats","drill","--time","file-io","--agent","pi","--days","36500","--json"] 9f67f7920b#0	e075363aa83c
 ts ["--no-telemetry","stats","drill","--time","file-io","--days","36500","--json"] 38789b1a5e#0	f35b00db5e38
-ts ["--no-telemetry","stats","drill","--time","file-io","--days","36500","--json"] 585ab8751b#0	354835093262
+ts ["--no-telemetry","stats","drill","--time","file-io","--days","36500","--json"] 585ab8751b#0	68c3a42f4357
 ts ["--no-telemetry","stats","drill","--time","file-io","--days","36500","--json"] 8da70010cc#0	094de753b8cc
-ts ["--no-telemetry","stats","drill","--time","file-io","--days","36500","--json"] 9f67f7920b#0	354835093262
+ts ["--no-telemetry","stats","drill","--time","file-io","--days","36500","--json"] 9f67f7920b#0	68c3a42f4357
 ts ["--no-telemetry","stats","drill","--time","git","--agent","claude","--days","36500","--json"] 9f67f7920b#0	88ff19587a69
-ts ["--no-telemetry","stats","drill","--time","git","--agent","codex","--days","36500","--json"] 9f67f7920b#0	a5a4f6ccb354
+ts ["--no-telemetry","stats","drill","--time","git","--agent","codex","--days","36500","--json"] 9f67f7920b#0	99703c8040db
 ts ["--no-telemetry","stats","drill","--time","git","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	c3a056f70c96
 ts ["--no-telemetry","stats","drill","--time","git","--agent","pi","--days","36500","--json"] 9f67f7920b#0	9d2ed98beb1c
 ts ["--no-telemetry","stats","drill","--time","git","--days","36500","--json"] 38789b1a5e#0	c050ac0351fa
-ts ["--no-telemetry","stats","drill","--time","git","--days","36500","--json"] 9f67f7920b#0	fd2d32e94218
+ts ["--no-telemetry","stats","drill","--time","git","--days","36500","--json"] 9f67f7920b#0	021f1c6c6aa2
 ts ["--no-telemetry","stats","drill","--time","other","--agent","claude","--days","36500","--json"] 9f67f7920b#0	31f560875823
 ts ["--no-telemetry","stats","drill","--time","other","--agent","codex","--days","36500","--json"] 8da70010cc#0	17ce77d5ebdd
-ts ["--no-telemetry","stats","drill","--time","other","--agent","codex","--days","36500","--json"] 9f67f7920b#0	f7d238d8564a
+ts ["--no-telemetry","stats","drill","--time","other","--agent","codex","--days","36500","--json"] 9f67f7920b#0	5b43ed99a318
 ts ["--no-telemetry","stats","drill","--time","other","--agent","opencode","--days","36500","--json"] 8da70010cc#0	55f3f63351dd
 ts ["--no-telemetry","stats","drill","--time","other","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	3495a1c79b26
 ts ["--no-telemetry","stats","drill","--time","other","--agent","pi","--days","36500","--json"] 9f67f7920b#0	45804d073fa8
 ts ["--no-telemetry","stats","drill","--time","other","--days","36500","--json"] 38789b1a5e#0	87972780317c
 ts ["--no-telemetry","stats","drill","--time","other","--days","36500","--json"] 8da70010cc#0	cfd19cc9ec99
-ts ["--no-telemetry","stats","drill","--time","other","--days","36500","--json"] 9f67f7920b#0	16d1397d12f2
+ts ["--no-telemetry","stats","drill","--time","other","--days","36500","--json"] 9f67f7920b#0	8755887c4400
 ts ["--no-telemetry","stats","drill","--time","script-run","--agent","claude","--days","36500","--json"] 9f67f7920b#0	9d618fd5a5d6
-ts ["--no-telemetry","stats","drill","--time","script-run","--agent","codex","--days","36500","--json"] 9f67f7920b#0	932c50e8a6b1
+ts ["--no-telemetry","stats","drill","--time","script-run","--agent","codex","--days","36500","--json"] 9f67f7920b#0	e9647b652607
 ts ["--no-telemetry","stats","drill","--time","script-run","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	be090d3b00e4
 ts ["--no-telemetry","stats","drill","--time","script-run","--agent","pi","--days","36500","--json"] 9f67f7920b#0	de5588d0827a
 ts ["--no-telemetry","stats","drill","--time","script-run","--days","36500","--json"] 38789b1a5e#0	a4f1e8c07518
-ts ["--no-telemetry","stats","drill","--time","script-run","--days","36500","--json"] 9f67f7920b#0	24c52f7e2611
+ts ["--no-telemetry","stats","drill","--time","script-run","--days","36500","--json"] 9f67f7920b#0	1c0dcc9a9bea
 ts ["--no-telemetry","stats","drill","--time","search","--agent","claude","--days","36500","--json"] 9f67f7920b#0	1a5ffa81aaef
-ts ["--no-telemetry","stats","drill","--time","search","--agent","codex","--days","36500","--json"] 9f67f7920b#0	27bcb4c52544
+ts ["--no-telemetry","stats","drill","--time","search","--agent","codex","--days","36500","--json"] 9f67f7920b#0	35c363a6803c
 ts ["--no-telemetry","stats","drill","--time","search","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	a3424e2692d9
 ts ["--no-telemetry","stats","drill","--time","search","--agent","pi","--days","36500","--json"] 9f67f7920b#0	b1be14914512
 ts ["--no-telemetry","stats","drill","--time","search","--days","36500","--json"] 38789b1a5e#0	6e392104fbba
-ts ["--no-telemetry","stats","drill","--time","search","--days","36500","--json"] 9f67f7920b#0	515d70095a98
+ts ["--no-telemetry","stats","drill","--time","search","--days","36500","--json"] 9f67f7920b#0	35f59e42c007
 ts ["--no-telemetry","stats","drill","--time","test","--agent","claude","--days","36500","--json"] 9f67f7920b#0	b9c878e60c9d
-ts ["--no-telemetry","stats","drill","--time","test","--agent","codex","--days","36500","--json"] 9f67f7920b#0	8680e1aff21d
+ts ["--no-telemetry","stats","drill","--time","test","--agent","codex","--days","36500","--json"] 9f67f7920b#0	e16c40c28a27
 ts ["--no-telemetry","stats","drill","--time","test","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	e9bb1329d0a2
 ts ["--no-telemetry","stats","drill","--time","test","--agent","pi","--days","36500","--json"] 9f67f7920b#0	e8b3cad7b344
-ts ["--no-telemetry","stats","drill","--time","test","--days","36500","--json"] 9f67f7920b#0	cfc00c62aaf0
+ts ["--no-telemetry","stats","drill","--time","test","--days","36500","--json"] 9f67f7920b#0	808da91a7945
 ts ["--no-telemetry","stats","drill","--time","typecheck","--agent","claude","--days","36500","--json"] 9f67f7920b#0	fb8f3318b6d2
-ts ["--no-telemetry","stats","drill","--time","typecheck","--agent","codex","--days","36500","--json"] 9f67f7920b#0	117838b4be67
+ts ["--no-telemetry","stats","drill","--time","typecheck","--agent","codex","--days","36500","--json"] 9f67f7920b#0	c121394f43ee
 ts ["--no-telemetry","stats","drill","--time","typecheck","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	da9170b70b5c
 ts ["--no-telemetry","stats","drill","--time","typecheck","--agent","pi","--days","36500","--json"] 9f67f7920b#0	e401e8cb1511
-ts ["--no-telemetry","stats","drill","--time","typecheck","--days","36500","--json"] 9f67f7920b#0	59e0e31ab388
+ts ["--no-telemetry","stats","drill","--time","typecheck","--days","36500","--json"] 9f67f7920b#0	9063e69aff1d
 ts ["--no-telemetry","stats","drill","--time","wait/poll","--agent","claude","--days","36500","--json"] 9f67f7920b#0	6bf9dcca84ce
-ts ["--no-telemetry","stats","drill","--time","wait/poll","--agent","codex","--days","36500","--json"] 9f67f7920b#0	5457fb18c1ec
+ts ["--no-telemetry","stats","drill","--time","wait/poll","--agent","codex","--days","36500","--json"] 9f67f7920b#0	1aa8e4b84d18
 ts ["--no-telemetry","stats","drill","--time","wait/poll","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	029e77e0834d
 ts ["--no-telemetry","stats","drill","--time","wait/poll","--agent","pi","--days","36500","--json"] 9f67f7920b#0	91bcc684c136
 ts ["--no-telemetry","stats","drill","--time","wait/poll","--days","36500","--json"] 38789b1a5e#0	f42d91a8ff0a
-ts ["--no-telemetry","stats","drill","--time","wait/poll","--days","36500","--json"] 585ab8751b#0	f038c4597a8b
-ts ["--no-telemetry","stats","drill","--time","wait/poll","--days","36500","--json"] 9f67f7920b#0	f038c4597a8b
+ts ["--no-telemetry","stats","drill","--time","wait/poll","--days","36500","--json"] 585ab8751b#0	23a1e1563776
+ts ["--no-telemetry","stats","drill","--time","wait/poll","--days","36500","--json"] 9f67f7920b#0	23a1e1563776
 ts ["--no-telemetry","stats","drill","--wait","all","--agent","claude","--days","36500","--json"] 9f67f7920b#0	4eef5c8697e1
 ts ["--no-telemetry","stats","drill","--wait","all","--agent","codex","--days","36500","--json"] 8da70010cc#0	ab8d53a8cf8d
-ts ["--no-telemetry","stats","drill","--wait","all","--agent","codex","--days","36500","--json"] 9f67f7920b#0	9cbc7a4afc98
+ts ["--no-telemetry","stats","drill","--wait","all","--agent","codex","--days","36500","--json"] 9f67f7920b#0	3d15d01af343
 ts ["--no-telemetry","stats","drill","--wait","all","--agent","opencode","--days","36500","--json"] 8da70010cc#0	ab8d53a8cf8d
 ts ["--no-telemetry","stats","drill","--wait","all","--agent","opencode","--days","36500","--json"] 9f67f7920b#0	e75058596058
 ts ["--no-telemetry","stats","drill","--wait","all","--agent","pi","--days","36500","--json"] 8da70010cc#0	ab8d53a8cf8d
 ts ["--no-telemetry","stats","drill","--wait","all","--agent","pi","--days","36500","--json"] 9f67f7920b#0	05400e623921
 ts ["--no-telemetry","stats","drill","--wait","all","--days","36500","--json"] 38789b1a5e#0	459662419ac8
-ts ["--no-telemetry","stats","drill","--wait","all","--days","36500","--json"] 585ab8751b#0	9958d6a44321
+ts ["--no-telemetry","stats","drill","--wait","all","--days","36500","--json"] 585ab8751b#0	513137616c24
 ts ["--no-telemetry","stats","drill","--wait","all","--days","36500","--json"] 8da70010cc#0	ab8d53a8cf8d
-ts ["--no-telemetry","stats","drill","--wait","all","--days","36500","--json"] 9f67f7920b#0	9958d6a44321
+ts ["--no-telemetry","stats","drill","--wait","all","--days","36500","--json"] 9f67f7920b#0	513137616c24
 ts ["--no-telemetry","stats","drill","--wait","bare-delay","--agent","claude","--days","36500","--json"] 9f67f7920b#0	2a1bf715b8b0
 ts ["--no-telemetry","stats","drill","--wait","bare-delay","--days","36500","--json"] 38789b1a5e#0	f2908c6efc1b
-ts ["--no-telemetry","stats","drill","--wait","bare-delay","--days","36500","--json"] 585ab8751b#0	4870e11a6bd2
+ts ["--no-telemetry","stats","drill","--wait","bare-delay","--days","36500","--json"] 585ab8751b#0	6edf1c58919e
 ts ["--no-telemetry","stats","drill","--wait","bare-delay","--days","36500","--json"] 8da70010cc#0	1c2892bb3cfb
-ts ["--no-telemetry","stats","drill","--wait","bare-delay","--days","36500","--json"] 9f67f7920b#0	4870e11a6bd2
+ts ["--no-telemetry","stats","drill","--wait","bare-delay","--days","36500","--json"] 9f67f7920b#0	6edf1c58919e
 ts ["--no-telemetry","stats","drill","--wait","loop-poll","--agent","claude","--days","36500","--json"] 9f67f7920b#0	77c5467e8dd9
 ts ["--no-telemetry","stats","drill","--wait","loop-poll","--days","36500","--json"] 38789b1a5e#0	e0dfb21f0f02
-ts ["--no-telemetry","stats","drill","--wait","loop-poll","--days","36500","--json"] 585ab8751b#0	5743beba525b
+ts ["--no-telemetry","stats","drill","--wait","loop-poll","--days","36500","--json"] 585ab8751b#0	dd2456736333
 ts ["--no-telemetry","stats","drill","--wait","loop-poll","--days","36500","--json"] 8da70010cc#0	50fe02deee22
-ts ["--no-telemetry","stats","drill","--wait","loop-poll","--days","36500","--json"] 9f67f7920b#0	5743beba525b
+ts ["--no-telemetry","stats","drill","--wait","loop-poll","--days","36500","--json"] 9f67f7920b#0	dd2456736333
 ts ["--no-telemetry","stats","drill","--wait","wait/poll","--agent","claude","--days","36500","--json"] 9f67f7920b#0	fb7541e5d888
 ts ["--no-telemetry","stats","drill","--wait","wait/poll","--days","36500","--json"] 38789b1a5e#0	55162776e2c5
-ts ["--no-telemetry","stats","drill","--wait","wait/poll","--days","36500","--json"] 585ab8751b#0	74a08c174c37
+ts ["--no-telemetry","stats","drill","--wait","wait/poll","--days","36500","--json"] 585ab8751b#0	217c368da6fb
 ts ["--no-telemetry","stats","drill","--wait","wait/poll","--days","36500","--json"] 8da70010cc#0	e083e5e5507a
-ts ["--no-telemetry","stats","drill","--wait","wait/poll","--days","36500","--json"] 9f67f7920b#0	74a08c174c37
+ts ["--no-telemetry","stats","drill","--wait","wait/poll","--days","36500","--json"] 9f67f7920b#0	217c368da6fb
 ts ["--no-telemetry","stats","drill"] 38789b1a5e#0	592136beb739
 ts ["--no-telemetry","stats","drill"] 585ab8751b#0	592136beb739
 ts ["--no-telemetry","stats","drill"] 8da70010cc#0	592136beb739

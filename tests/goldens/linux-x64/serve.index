@@ -64,11 +64,11 @@ Host: 127.0.0.1:47312
 Connection: close
 
 #0	b484fcb3b420
-raw GET /assets%2Fvendor-react-DSarjDWm.js HTTP/1.1
+raw GET /assets%2Ftable-Bo7Fba8m.js HTTP/1.1
 Host: 127.0.0.1:47310
 Connection: close
 
-#0	4b15170b603f
+#0	58159cdeddda
 raw GET /assets/..%2F..%2Fsecret.txt HTTP/1.1
 Host: 127.0.0.1:47310
 Connection: close
@@ -79,11 +79,11 @@ Host: 127.0.0.1:47310
 Connection: close
 
 #0	4f378cc7d2d6
-raw GET /assets/vendor-react-DSarjDWm.js HTTP/1.1
+raw GET /assets/table-Bo7Fba8m.js HTTP/1.1
 Host: 127.0.0.1:47310
 Connection: close
 
-#0	4b15170b603f
+#0	58159cdeddda
 raw GET /health HTTP/1.0
 Authorization: Bearer parity-token-0123456789abcdefghijklmn
 Connection: close
@@ -477,31 +477,31 @@ rpc 47310 sessions.image {"id":"img-0000-4000-8000-000000000001","line":1,"block
 rpc 47310 sessions.image {"id":"img-0000-4000-8000-000000000001","line":2,"block":0,"item":0}#0	a101da606c5b
 rpc 47310 sessions.image {"id":"img-0000-4000-8000-000000000001","line":2,"block":0,"item":5}#0	ecc0091431ec
 rpc 47310 sessions.list {"agent":"bogus"}#0	855fd68c3f5b
-rpc 47310 sessions.list {}#0	8b33db4f53bb
-rpc 47310 sessions.listing {"agent":"claude"}#0	3badfc3eb220
-rpc 47310 sessions.listing {"agent":"codex"}#0	e9f2622c437d
-rpc 47310 sessions.listing {"agent":"opencode"}#0	21009887ffcf
+rpc 47310 sessions.list {}#0	f2d75f90516a
+rpc 47310 sessions.listing {"agent":"claude"}#0	ae54c5f23e7c
+rpc 47310 sessions.listing {"agent":"codex"}#0	b10ce4b2870e
+rpc 47310 sessions.listing {"agent":"opencode"}#0	76d96987c25e
 rpc 47310 sessions.listing {"agent":"pi"}#0	390e8e3d4a25
-rpc 47310 sessions.listing {"project":"-Users-demo-proj"}#0	d4b8fdcb1fc0
-rpc 47310 sessions.listing {"project":"demo"}#0	19c31e278492
+rpc 47310 sessions.listing {"project":"-tmp-img"}#0	9d25103fefc2
+rpc 47310 sessions.listing {"project":"demo"}#0	0ca4511c5188
 rpc 47310 sessions.listing {"project":"no-such-project"}#0	8066e79b2489
-rpc 47310 sessions.listing {}#0	b8532a47ce33
+rpc 47310 sessions.listing {}#0	a6c148068fb7
 rpc 47310 settings.get {}#0	1ee7cdd8755f
 rpc 47310 settings.get {}#1	05757989c72b
 rpc 47310 settings.get {}#2	d94d1ebbafc8
 rpc 47310 settings.get {}#3	82dc6d6768e2
-rpc 47310 settings.update {"settings":{"roots":{"claude":[{"label":"w","path":"~/x","extra":1}],"bogus":[]},"zzz":1}}#0	307ef74920d2
-rpc 47310 settings.update {"settings":{"roots":{"claude":[{"path":"~/x","label":"w"}]}},"expectedMtime":0}#0	39cbb5df12b1
+rpc 47310 settings.update {"settings":{"roots":{"claude":[{"label":"w","path":"~/x","extra":1}],"bogus":[]},"zzz":1}}#0	0c1f5ac5c3e2
+rpc 47310 settings.update {"settings":{"roots":{"claude":[{"path":"~/x","label":"w"}]}},"expectedMtime":0}#0	f0ab7631ab00
 rpc 47310 settings.update {"settings":{"roots":{"claude":[{"path":"~/x","label":"w"}]}},"expectedMtime":1}#0	bf1be8952572
 rpc 47310 settings.update {"settings":{"roots":{"claude":[{"path":"~/x","label":"w"}]}},"expectedMtime":5}#0	d467e5e2e9fc
-rpc 47310 settings.update {"settings":{"roots":{"claude":[{"path":"~/x","label":"w"}]}}}#0	c4366fbece56
+rpc 47310 settings.update {"settings":{"roots":{"claude":[{"path":"~/x","label":"w"}]}}}#0	80ed8c7e695b
 rpc 47310 settings.update {}#0	07e2537464da
 rpc 47310 watch.poll {}#0	0fa4016f51dc
-rpc 47310 watch.poll {}#1	0fa4016f51dc
+rpc 47310 watch.poll {}#1	d68b9020c706
 rpc 47310 watch.poll {}#2	d68b9020c706
 rpc 47310 watch.poll {}#3	d68b9020c706
 rpc 47311 settings.update {"settings":{}}#0	3ff9396b3d59
-rpc 47313 memory.allVaults {}#0	044dec381523
+rpc 47313 memory.allVaults {}#0	a267c838abeb
 rpc 47313 memory.projects {}#0	94484c0c8396
 rpc 47313 memory.vault {"project":"-Users-demo-empty"}#0	9a4509236cc0
 rpc 47313 memory.vault {"project":"-Users-demo-intl"}#0	a39de63924ea
@@ -533,28 +533,28 @@ rpc 47313 sessions.search {"q":"x","limit":-1}#0	4cc157f1ad1f
 rpc 47313 sessions.search {"q":"x","limit":1.5}#0	5a7a4ff5ae71
 rpc 47313 sessions.search {"q":"x","since":"7d"}#0	88969e6bfea2
 rpc 47313 stats.drill {"days":36500,"table":"bogus","key":"x"}#0	b5f86179471e
-rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:command-not-found"}#0	03e381361903
-rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-flag"}#0	a85ec929ce45
+rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:command-not-found"}#0	9fa6d9bab17a
+rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-flag"}#0	33b7d79e6900
 rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-path","offset":-3.7,"pageSize":0.2}#0	73fdd7cb1810
 rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-path","offset":1,"pageSize":1}#0	d675489fb83e
 rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-path","offset":99}#0	b0e394ebfeed
 rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-path","pageSize":1}#0	73fdd7cb1810
-rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-path"}#0	2e4d9a988218
-rpc 47313 stats.drill {"days":36500,"table":"cause","key":"zsh-glob-path"}#0	2e4d9a988218
-rpc 47313 stats.drill {"days":36500,"table":"cluster","key":"(eval):<n>: no matches found: *.ts"}#0	dde6f68b60c4
-rpc 47313 stats.drill {"days":36500,"table":"cluster","key":"<n> fail"}#0	8b27be56302e
-rpc 47313 stats.drill {"days":36500,"table":"cluster","key":"Exit code 144"}#0	89a1d3219e41
+rpc 47313 stats.drill {"days":36500,"table":"cause","key":"cause:zsh-glob-path"}#0	5f7546d93535
+rpc 47313 stats.drill {"days":36500,"table":"cause","key":"zsh-glob-path"}#0	5f7546d93535
+rpc 47313 stats.drill {"days":36500,"table":"cluster","key":"(eval):<n>: no matches found: *.ts"}#0	005073b8c804
+rpc 47313 stats.drill {"days":36500,"table":"cluster","key":"<n> fail"}#0	1f2ce8a8eae0
+rpc 47313 stats.drill {"days":36500,"table":"cluster","key":"Exit code 144"}#0	e87bfaee1419
 rpc 47313 stats.drill {"days":36500,"table":"fail","key":"flag:Bash"}#0	f13be2cea2d6
 rpc 47313 stats.drill {"days":36500,"table":"fail","key":"nope"}#0	438d0b4c2855
-rpc 47313 stats.drill {"days":36500,"table":"fail","key":"scan:test"}#0	e40159a7f889
-rpc 47313 stats.drill {"days":36500,"table":"fail","key":"scan:tsc"}#0	306d425bbb2f
-rpc 47313 stats.drill {"days":36500,"table":"time","key":"build"}#0	ed2eca9c51b8
-rpc 47313 stats.drill {"days":36500,"table":"time","key":"file-io"}#0	3408f0714b9d
-rpc 47313 stats.drill {"days":36500,"table":"time","key":"wait/poll"}#0	9037d03cc92c
+rpc 47313 stats.drill {"days":36500,"table":"fail","key":"scan:test"}#0	13d5629038b4
+rpc 47313 stats.drill {"days":36500,"table":"fail","key":"scan:tsc"}#0	7a2faba1bf7a
+rpc 47313 stats.drill {"days":36500,"table":"time","key":"build"}#0	5a246452b018
+rpc 47313 stats.drill {"days":36500,"table":"time","key":"file-io"}#0	feca01f336c3
+rpc 47313 stats.drill {"days":36500,"table":"time","key":"wait/poll"}#0	54baa8cc518c
 rpc 47313 stats.drill {"days":36500,"table":"wait","key":"*"}#0	da3bdb22c4a9
-rpc 47313 stats.drill {"days":36500,"table":"wait","key":"bare-delay"}#0	efab9ec1d6a5
+rpc 47313 stats.drill {"days":36500,"table":"wait","key":"bare-delay"}#0	840df8d81d2f
 rpc 47313 stats.drill {"days":36500,"table":"wait","key":"curl-retry"}#0	99bc0c2e7a7e
-rpc 47313 stats.drill {"days":36500,"table":"wait","key":"loop-poll"}#0	1fc4f2fd23a5
+rpc 47313 stats.drill {"days":36500,"table":"wait","key":"loop-poll"}#0	296ef2b37bfa
 rpc 47313 stats.markers {"sid":"019f0000-0000-7000-8000-000000000001"}#0	ed948944df00
 rpc 47313 stats.markers {"sid":"019f0000-0000-7000-8000-000000000002"}#0	0e61f0eba4d9
 rpc 47313 stats.markers {"sid":"019f0000-0000-7000-8000-000000000003"}#0	db138ecc7f52
@@ -574,45 +574,45 @@ rpc 47313 stats.markers {"sid":"x"}#0	b41d26fdac68
 rpc 47313 stats.refresh {"agents":["claude"]}#0	c5ff1d6a3c12
 rpc 47313 stats.refresh {"force":true}#0	aa3043bc6be9
 rpc 47313 stats.refresh {}#0	aa3043bc6be9
-rpc 47313 stats.report {"days":0.5}#0	e8537bb3683d
+rpc 47313 stats.report {"days":0.5}#0	d67ac45ac174
 rpc 47313 stats.report {"days":1000000000000}#0	dd13df09f8d4
-rpc 47313 stats.report {"days":36500,"agents":["claude"]}#0	4f61e9e8114f
-rpc 47313 stats.report {"days":36500,"agents":["codex"]}#0	38019699340b
-rpc 47313 stats.report {"days":36500,"agents":["opencode"]}#0	74c7d92816df
-rpc 47313 stats.report {"days":36500,"agents":["pi"]}#0	e964640f42f1
-rpc 47313 stats.report {"days":36500,"force":true}#0	07e4767daabe
-rpc 47313 stats.report {"days":36500,"limit":-1}#0	05403b25afee
-rpc 47313 stats.report {"days":36500,"limit":1}#0	0de798c4ee41
-rpc 47313 stats.report {"days":36500}#0	ec870a4b4e70
-rpc 47313 stats.report {}#0	91cdcdee97c0
-rpc 47313 stats.usage {"by":"block","tz":"Asia/Tokyo","days":36500}#0	510a6a8f3fc2
-rpc 47313 stats.usage {"by":"block","tz":"Asia/Tokyo"}#0	66cd6064d60e
-rpc 47313 stats.usage {"by":"block","tz":"UTC","days":36500}#0	0f7e3f99e877
-rpc 47313 stats.usage {"by":"block","tz":"UTC"}#0	7a6d3b31330b
+rpc 47313 stats.report {"days":36500,"agents":["claude"]}#0	9dd75b7304e7
+rpc 47313 stats.report {"days":36500,"agents":["codex"]}#0	206236267f68
+rpc 47313 stats.report {"days":36500,"agents":["opencode"]}#0	e7c73a872c84
+rpc 47313 stats.report {"days":36500,"agents":["pi"]}#0	5990a9eb9392
+rpc 47313 stats.report {"days":36500,"force":true}#0	65a055270976
+rpc 47313 stats.report {"days":36500,"limit":-1}#0	c3b54bb43d43
+rpc 47313 stats.report {"days":36500,"limit":1}#0	b743f0d186d6
+rpc 47313 stats.report {"days":36500}#0	7a1e1d2ceb18
+rpc 47313 stats.report {}#0	7f98de691baa
+rpc 47313 stats.usage {"by":"block","tz":"Asia/Tokyo","days":36500}#0	aa0431c22784
+rpc 47313 stats.usage {"by":"block","tz":"Asia/Tokyo"}#0	8f3019aade5c
+rpc 47313 stats.usage {"by":"block","tz":"UTC","days":36500}#0	ba810dd23122
+rpc 47313 stats.usage {"by":"block","tz":"UTC"}#0	ff8b5e71bfdc
 rpc 47313 stats.usage {"by":"day","days":0}#0	149bd19d05ea
 rpc 47313 stats.usage {"by":"day","days":1.5}#0	9a301f8f4324
-rpc 47313 stats.usage {"by":"day","tz":"Asia/Tokyo","days":36500}#0	e98951f8a020
-rpc 47313 stats.usage {"by":"day","tz":"Asia/Tokyo"}#0	c611f67f2e4a
+rpc 47313 stats.usage {"by":"day","tz":"Asia/Tokyo","days":36500}#0	235a5ec3816f
+rpc 47313 stats.usage {"by":"day","tz":"Asia/Tokyo"}#0	316a4b89c5e3
 rpc 47313 stats.usage {"by":"day","tz":"Mars/Olympus"}#0	000e8d3b3fe9
-rpc 47313 stats.usage {"by":"day","tz":"UTC","days":36500}#0	420f7c740fbb
-rpc 47313 stats.usage {"by":"day","tz":"UTC"}#0	e6273d9593d0
-rpc 47313 stats.usage {"by":"month","tz":"Asia/Tokyo","days":36500}#0	b89bb0cdf7ad
-rpc 47313 stats.usage {"by":"month","tz":"Asia/Tokyo"}#0	63cc24769440
-rpc 47313 stats.usage {"by":"month","tz":"UTC","days":36500}#0	9d6f005351ec
-rpc 47313 stats.usage {"by":"month","tz":"UTC"}#0	9a167ffdd5c1
+rpc 47313 stats.usage {"by":"day","tz":"UTC","days":36500}#0	08bd9054097e
+rpc 47313 stats.usage {"by":"day","tz":"UTC"}#0	c373d679f4cb
+rpc 47313 stats.usage {"by":"month","tz":"Asia/Tokyo","days":36500}#0	b43cd3908799
+rpc 47313 stats.usage {"by":"month","tz":"Asia/Tokyo"}#0	cf9dbff64d98
+rpc 47313 stats.usage {"by":"month","tz":"UTC","days":36500}#0	9316ddd095d7
+rpc 47313 stats.usage {"by":"month","tz":"UTC"}#0	b3389d1bc87e
 rpc 47313 stats.usage {}#0	fe7d8772c16c
 rpc 47314 memory.create {"project":"-Users-demo-seed","name":"Bad Name","description":"Third","type":"user","body":"Gamma body.\n"}#0	71876e83abfd
 rpc 47314 memory.create {"project":"-Users-demo-seed","name":"rr","description":"Third","type":"user","body":"Gamma body.\n"}#0	71876e83abfd
 rpc 47314 memory.delete {"project":"-Users-demo-seed","name":"nope"}#0	71876e83abfd
 rpc 47314 memory.update {"project":"-Users-demo-seed","name":"a","body":"x"}#0	71876e83abfd
 rpc 47314 stats.refresh {}#0	aa3043bc6be9
-rpc 47314 stats.report {"days":7}#0	39ad1f86d826
-rpc 47315 memory.create {"project":"-Users-demo-nomem","name":"fresh","description":"Third","type":"reference","body":"Gamma body.\n"}#0	949915cfe99c
+rpc 47314 stats.report {"days":7}#0	6d4afbdc5a23
+rpc 47315 memory.create {"project":"-Users-demo-nomem","name":"fresh","description":"Third","type":"reference","body":"Gamma body.\n"}#0	4628d08958e2
 rpc 47315 memory.create {"project":"-Users-demo-seed","name":"Not Kebab","description":"Third","type":"user","body":"Gamma body.\n"}#0	85d735ea6e38
-rpc 47315 memory.create {"project":"-Users-demo-seed","name":"gamma","description":"Third","type":"reference","body":"Gamma body.\n"}#0	9c1be74868c5
+rpc 47315 memory.create {"project":"-Users-demo-seed","name":"gamma","description":"Third","type":"reference","body":"Gamma body.\n"}#0	3e7a23182840
 rpc 47315 memory.create {"project":"-Users-demo-seed","name":"gamma","description":"Third","type":"reference","body":"x"}#0	564a02a14016
 rpc 47315 memory.create {"project":"-Users-demo-seed","name":"okname","description":"Third","type":"weird","body":"Gamma body.\n"}#0	4d642a0afa00
-rpc 47315 memory.create {"project":"-Users-demo-seed","name":"watched","description":"Third","type":"reference","body":"Gamma body.\n"}#0	0ce07c5564a1
+rpc 47315 memory.create {"project":"-Users-demo-seed","name":"watched","description":"Third","type":"reference","body":"Gamma body.\n"}#0	8e3b262242d3
 rpc 47315 memory.create {"project":"-Users-demo-seed","name":"x"}#0	652f84e5ce71
 rpc 47315 memory.create {"project":"..","name":"okname","description":"Third","type":"user","body":"Gamma body.\n"}#0	ebbb4bc55a55
 rpc 47315 memory.create {"project":"../../outside","name":"zz","description":"Third","type":"user","body":"Gamma body.\n"}#0	f9b3fb51247e
@@ -621,17 +621,17 @@ rpc 47315 memory.delete {"project":"-Users-demo-intl","name":"ewe"}#0	bf9ee088b2
 rpc 47315 memory.delete {"project":"-Users-demo-seed","name":"b"}#0	4d09aa7c09af
 rpc 47315 memory.delete {"project":"-Users-demo-seed","name":"nope"}#0	4210f74b710a
 rpc 47315 memory.delete {"project":"../../outside","name":"x"}#0	b8eb5d1b2d76
-rpc 47315 memory.update {"project":"-Users-demo-seed","name":"a","body":"New body.\n","expectedMtime":1794415341851}#0	e891438ff555
+rpc 47315 memory.update {"project":"-Users-demo-seed","name":"a","body":"New body.\n","expectedMtime":1794415341851}#0	025ab78c6316
 rpc 47315 memory.update {"project":"-Users-demo-seed","name":"a","body":"v3\n","expectedMtime":1.5}#0	55e9c1d5add0
 rpc 47315 memory.update {"project":"-Users-demo-seed","name":"a","body":"v3\n","expectedMtime":1}#0	55e9c1d5add0
-rpc 47315 memory.update {"project":"-Users-demo-seed","name":"b","frontmatter":{"description":"Changed","type":"user"}}#0	ee104e07ca39
+rpc 47315 memory.update {"project":"-Users-demo-seed","name":"b","frontmatter":{"description":"Changed","type":"user"}}#0	42681e3b4924
 rpc 47315 memory.update {"project":"-Users-demo-seed","name":"b","frontmatter":{"type":"weird"}}#0	8ab4d6f39de1
-rpc 47315 memory.update {"project":"-Users-demo-seed","name":"fx-nested","frontmatter":{}}#0	6a64f7d3747b
+rpc 47315 memory.update {"project":"-Users-demo-seed","name":"fx-nested","frontmatter":{}}#0	fe6f53365766
 rpc 47315 memory.update {"project":"-Users-demo-seed","name":"nope","body":"x"}#0	4210f74b710a
-rpc 47315 memory.update {"project":"-Users-demo-seed","name":"orphan"}#0	aee5e7931c34
+rpc 47315 memory.update {"project":"-Users-demo-seed","name":"orphan"}#0	f9a6f1d75c0c
 rpc 47315 memory.update {"project":"../../../../../../../tmp","name":"x","body":"x"}#0	af2a8a8389d0
 rpc 47315 memory.update {"project":"../../outside","name":"x","body":"y"}#0	184d6fbc5173
-rpc 47315 memory.vault {"project":"-Users-demo-seed"}#0	5e8c30abdca0
+rpc 47315 memory.vault {"project":"-Users-demo-seed"}#0	2d1033d66658
 rpc 47315 watch.poll {}#0	de4f064afc9a
 rpc 47315 watch.poll {}#1	de4f064afc9a
 rpc 47315 watch.poll {}#2	b281d6523ba7
@@ -677,7 +677,7 @@ ts ["--no-telemetry","--remote","http://127.0.0.1:47310","statusline","--timeout
 ts ["--no-telemetry","--remote","http://127.0.0.1:47310","statusline","--timeout","60000"] 96a8a20644#0	3f997d6fae33
 ts ["--no-telemetry","--remote","http://127.0.0.1:47310","statusline","--timeout","60000"] c5d0f87686#0	3f997d6fae33
 ts ["--no-telemetry","--remote","http://127.0.0.1:47310","statusline","--timeout","60000"] e4e312700a#0	3f997d6fae33
-ts ["--no-telemetry","--remote","http://127.0.0.1:47310","statusline","--timeout","60000"] f991adbaa3#0	3f997d6fae33
+ts ["--no-telemetry","--remote","http://127.0.0.1:47310","statusline","--timeout","60000"] f468487b6e#0	3f997d6fae33
 ts ["--no-telemetry","--remote","http://127.0.0.1:47312","sessions","ls","--limit","3"] a640a0e66c#0	8114609b25d0
 ts ["--no-telemetry","--remote","http://127.0.0.1:47312","sessions","ls","--limit","3"] c251ae3a78#0	9084faf120b8
 ts ["--no-telemetry","--remote","http://127.0.0.1:47312/?token=parity-token-0123456789abcdefghijklmn","sessions","ls","--limit","3"] c251ae3a78#0	8114609b25d0

@@ -1,4 +1,4 @@
-memory-rm ts tree#0	3405a9433c53
+memory-rm ts tree#0	41f5d6ef5b84
 ts ["--no-telemetry","--pretty","memory","ls","--",""] 1aac544d82#0	e5a67930ac8a
 ts ["--no-telemetry","--pretty","memory","ls","--","-Users-demo-empty"] 1aac544d82#0	41839bb4a219
 ts ["--no-telemetry","--pretty","memory","ls","--","-Users-demo-intl"] 1aac544d82#0	34982518344a
@@ -124,7 +124,7 @@ ts ["--no-telemetry","memory","rm","--","-Users-demo-proj-a","nested"] 2b925a2f6
 ts ["--no-telemetry","memory","rm","--","-Users-demo-proj-a","upper"] 2b925a2f62#0	003009a37b2d
 ts ["--no-telemetry","memory","rm","--","-Users-demo-seed","b"] 2b925a2f62#0	80696e19de16
 ts ["--no-telemetry","memory","rm","--","-work-proj","w"] 2b925a2f62#0	ffd2e39555bf
-ts ["--no-telemetry","memory","rm","--","../../outside","x"] 2b925a2f62#0	eaef7aa36c34
+ts ["--no-telemetry","memory","rm","--","../../outside","x"] 2b925a2f62#0	1b3e064b49cc
 ts ["--no-telemetry","memory","rm","--","C#proj","hash"] 2b925a2f62#0	e302ce4ea521
 ts ["--no-telemetry","memory","rm","--json","--","-Users-demo-proj-a","ghost"] 2b925a2f62#0	e0906664f167
 ts ["--no-telemetry","memory","rm","--json","--","-Users-demo-proj-a","self"] 2b925a2f62#0	fbebc5e7a0c3
