@@ -216,7 +216,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: goldens-log-${{ matrix.stage }}
-          path: /tmp/peektrace-goldens/*.log
+          path: /dev/shm/peektrace-goldens/*.log
 
   parity-live:
     # The full harness, TS and Rust side by side, then a fresh recording

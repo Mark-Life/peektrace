@@ -10,8 +10,8 @@
  *
  * Each stage runs `parity.ts --fixtures-only --<stage>-only` in its own Bun
  * process, under `$PARITY_GOLDENS_ROOT/<stage>` (default
- * `/tmp/peektrace-goldens`). The path must not move between record and
- * check, since fixture text holds it. `--write` is a live parity run that
+ * `/dev/shm/peektrace-goldens` on Linux, else `/tmp/peektrace-goldens`). The
+ * path must not move between record and check, since fixture text holds it. `--write` is a live parity run that
  * also stores each TS result; it refuses to write a stage with differences.
  * `--verify` records into a temp dir and lists the values that changed.
  * Replay fails for a stage recorded before the TS sources, fixtures or parity
@@ -36,14 +36,14 @@ import {
 import { cpus } from "node:os";
 import { join, relative } from "node:path";
 import { gunzipSync } from "node:zlib";
-import { indexLines } from "./parity-oracle";
+import { GOLDENS_ROOT, indexLines } from "./parity-oracle";
 
 const REPO = join(import.meta.dir, "../..");
 const PLATFORM =
   process.env.PARITY_GOLDENS_PLATFORM ?? `${process.platform}-${process.arch}`;
 const GOLDENS_ALL = join(REPO, "tests/goldens");
 const GOLDENS = join(GOLDENS_ALL, PLATFORM);
-const ROOT = process.env.PARITY_GOLDENS_ROOT ?? "/tmp/peektrace-goldens";
+const ROOT = GOLDENS_ROOT;
 const STAGES = ["base", "search", "memory", "stats", "serve", "cli", "tui"];
 const MAX_BYTES = 10 * 1024 * 1024;
 const SHOWN = 20;

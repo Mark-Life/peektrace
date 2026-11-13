@@ -5,6 +5,7 @@ import { cpus, tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   digest,
+  GOLDENS_ROOT,
   NO_GOLDEN,
   PINNED,
   setOracleRoots,
@@ -18,11 +19,6 @@ const inside = (parent: string, child: string) => {
   const rel = relative(parent, child);
   return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
 };
-
-/** Root of the fixed scratch dirs the goldens are recorded and replayed in:
- * HOME paths sit inside fixture text, so the path must not move. */
-export const GOLDENS_ROOT =
-  process.env.PARITY_GOLDENS_ROOT ?? "/tmp/peektrace-goldens";
 
 /** The scratch dir `--work <dir>` names, or why it is refused. The dir is
  * wiped, so it must sit under `<repo>/.scratch`, the OS temp dir or the

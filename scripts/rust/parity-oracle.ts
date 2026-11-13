@@ -34,6 +34,15 @@ export const ORACLE_MODE = modeOf(process.env.PARITY_ORACLE);
 /** True when results are recorded or replayed, not only run. */
 export const PINNED = ORACLE_MODE !== "live";
 const FILE = process.env.PARITY_GOLDENS ?? "";
+/** Root of the fixed scratch dirs goldens are recorded and replayed in.
+ * Linux uses tmpfs: its directory order follows creation order, while ext4
+ * order differs from machine to machine, and listings of symlinked
+ * duplicates follow that order. */
+export const GOLDENS_ROOT =
+  process.env.PARITY_GOLDENS_ROOT ??
+  (process.platform === "linux"
+    ? "/dev/shm/peektrace-goldens"
+    : "/tmp/peektrace-goldens");
 /** Placeholder exit code of a replayed run that has no golden. */
 export const NO_GOLDEN = -999;
 const GZIP_OS_BYTE = 9;

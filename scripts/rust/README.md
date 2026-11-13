@@ -59,7 +59,7 @@ Record with the Bun version that `package.json` pins (`packageManager`); `--writ
 
 `parity-oracle.ts` sits under each TS call of the stage code: CLI runs, server starts, `/rpc` and raw HTTP calls, files TS wrote. The case lists, envs, fixture builders and comparisons stay in the stage modules, so live runs and replays share them.
 
-- Each stage runs in its own process under `/tmp/peektrace-goldens/<stage>` (`PARITY_GOLDENS_ROOT` moves it). Record and check must use the same path: fixture text holds HOME paths, and their length changes `--pretty` column widths.
+- Each stage runs in its own process under `/dev/shm/peektrace-goldens/<stage>` on Linux, `/tmp/peektrace-goldens/<stage>` elsewhere (`PARITY_GOLDENS_ROOT` moves it). Record and check must use the same path: fixture text holds HOME paths, and their length changes `--pretty` column widths. Linux uses tmpfs because ext4 lists a directory in an order that differs between machines, and the edge trees list symlinked duplicates in that order.
 - Stored text has the stage dir, its real path and the repo replaced by `<WORK>`, `<RWORK>` and `<REPO>`. The fake upgrade server, the host asset name and a closed port are bound the same way. `--write` fails if your home dir, temp dir or repo path would land in a golden.
 - Fixture copies get fixed mtimes, since some rows print a file's mtime.
 - Clock values TS prints (stats `generatedAt` and window, export stamps, span durations, Effect log times) are masked when recorded, keeping the shape the compare-time masks expect.
