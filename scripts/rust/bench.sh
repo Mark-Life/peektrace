@@ -7,7 +7,7 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               statusline mcp upgrade tui telemetry
+#                                               statusline mcp upgrade tui telemetry ci
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
 #
@@ -17,6 +17,8 @@
 # the TUI suite in bench-tui.sh and the telemetry suite in bench-telemetry.sh, sourced below.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # `set_input` gives the last case a file fed to stdin (hyperfine --input, `<` for GNU time).
+# `set_cols` names the two columns of the last case when they are not Bun and Rust; such cases get their own table.
+# `set_rss_rounds` caps the RSS rounds of the last case (slow commands).
 # Bash 3.2 compatible (macOS /bin/bash).
 set -euo pipefail
 
@@ -72,6 +74,10 @@ if [[ "${BENCH_SKIP_BUILD:-0}" != 1 && "$REPORT_ONLY" != 1 ]]; then
   (cd "$ROOT" && cargo build --release)
   # build.ts builds the inspector UI first, then compiles the binary.
   (cd "$ROOT/apps/cli" && bun run build:binary)
+  # The ci suite checks the parity-profile binary, as CI does.
+  if [[ " $BENCH_SUITES " == *" ci "* ]]; then
+    (cd "$ROOT" && cargo build --locked --profile parity --bins --examples)
+  fi
 fi
 
 for bin in "$BUN_BIN" "$RUST_BIN"; do
@@ -112,9 +118,11 @@ fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 < 1048576) printf
 # flags: space-separated words; "rss" adds a peak RSS row (CLI cases only), "cpu" adds a CPU time row,
 # "live" needs the long-running servers of the serve suite.
 C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_BUN=() C_RUST=() C_BUN_END=() C_RUST_END=() C_PREP=() C_INPUT=()
+C_COLS=() C_RSS_N=()
 add_pair() {
   C_NAME+=("$1"); C_WARMUP+=("$2"); C_RUNS+=("$3"); C_FLAGS+=("$4"); C_LABEL+=("$5")
   C_BUN+=("$6"); C_RUST+=("$7"); C_BUN_END+=("${8:-}"); C_RUST_END+=("${9:-}"); C_PREP+=(""); C_INPUT+=("")
+  C_COLS+=(""); C_RSS_N+=("$RSS_ROUNDS")
 }
 # add_case <name> <warmup> <runs> <flags> <label> <args...>
 # Args are joined with spaces, so no single arg may contain a space.
@@ -127,6 +135,10 @@ add_case() {
 set_prepare() { C_PREP[$((${#C_NAME[@]} - 1))]="$1"; }
 # set_input <file> -> stdin of the last case; default /dev/null.
 set_input() { C_INPUT[$((${#C_NAME[@]} - 1))]="$1"; }
+# set_cols <first> <second> -> column names of the last case, "|"-joined in C_COLS.
+set_cols() { C_COLS[$((${#C_NAME[@]} - 1))]="$1|$2"; }
+# set_rss_rounds <n> -> the last case takes part in the first <n> RSS rounds only.
+set_rss_rounds() { C_RSS_N[$((${#C_NAME[@]} - 1))]="$1"; }
 # Long-running processes: RSS_HOOKS run once per RSS round after the CLI cases;
 # add_mem_row <label> <file prefix> adds a row read from <prefix>-{bun,rust}.txt (KiB per line).
 RSS_HOOKS=() MEM_LABEL=() MEM_FILE=()
@@ -305,11 +317,13 @@ suite_memory() {
 . "$ROOT/scripts/rust/bench-tui.sh"
 # shellcheck source=scripts/rust/bench-telemetry.sh
 . "$ROOT/scripts/rust/bench-telemetry.sh"
+# shellcheck source=scripts/rust/bench-ci.sh
+. "$ROOT/scripts/rust/bench-ci.sh"
 trap 'stop_live; stop_fake_release' EXIT
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui | telemetry) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui | telemetry | ci) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -379,6 +393,7 @@ if [[ "$REPORT_ONLY" != 1 ]]; then
   # Each round runs every rss case on Bun, then Rust, so drift hits both alike.
   for ((i = 1; i <= RSS_ROUNDS; i++)); do
     for c in $RSS_CASES; do
+      ((i > C_RSS_N[c])) && continue
       read -ra prep <<<"${C_PREP[c]}"
       for impl in bun rust; do
         if [[ "$impl" == bun ]]; then read -ra argv <<<"${C_BUN[c]}"; else read -ra argv <<<"${C_RUST[c]}"; fi
@@ -404,7 +419,8 @@ hf() {
     | (if .summary then .summary[$m] elif $m == "time_wall_clock" then . else null end)
     | if . == null then "n/a" else "\(.median*1000) \(.min*1000) \(.max*1000)" end' "$OUT/$1.json"
 }
-fmt_ms() { awk '{ if ($1 == "n/a") print "n/a"; else printf "%.1f ms (%.1f–%.1f)", $1, $2, $3 }'; }
+# Seconds from 10 s up, so long-running commands stay readable.
+fmt_ms() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 >= 10000) printf "%.1f s (%.1f–%.1f)", $1/1000, $2/1000, $3/1000; else printf "%.1f ms (%.1f–%.1f)", $1, $2, $3 }'; }
 fmt_mib() { awk '{printf "%.1f MiB (%.1f–%.1f)", $1/1024, $2/1024, $3/1024}'; }
 # delta <bun> <rust> [word] -> "-93.3% (14.9× faster)"; when Rust is worse: "+6.8% (1.1× slower)"
 delta() {
@@ -431,6 +447,25 @@ row_rss() {
     "$(delta "${b%% *}" "${r%% *}" less)"
 }
 
+# cases_table <cols> -> latency rows of the cases with these column names ("" = Bun and Rust).
+cases_table() {
+  local c
+  for ((c = 0; c < N_CASES; c++)); do
+    [[ "${C_COLS[c]}" == "$1" ]] || continue
+    row_hf "${C_LABEL[c]}" "${C_NAME[c]}"
+    if has_flag "$c" cpu; then row_hf "CPU time (user+sys), same command" "${C_NAME[c]}" time_cpu; fi
+  done
+}
+# Bun/Rust RSS rows go in the main RSS table; every other column pair gets its own section.
+MAIN_RSS="" OTHER_COLS=()
+for c in $RSS_CASES; do [[ -z "${C_COLS[c]}" ]] && MAIN_RSS+=" $c"; done
+for ((c = 0; c < N_CASES; c++)); do
+  [[ -n "${C_COLS[c]}" ]] || continue
+  seen=no
+  for cols in ${OTHER_COLS[@]+"${OTHER_COLS[@]}"}; do [[ "$cols" == "${C_COLS[c]}" ]] && seen=yes; done
+  [[ "$seen" == yes ]] || OTHER_COLS+=("${C_COLS[c]}")
+done
+
 {
   echo "# Bun vs Rust benchmark"
   echo
@@ -438,19 +473,28 @@ row_rss() {
   echo "|---|---|---|---|"
   printf '| binary size | %s | %s | %s |\n' "$(fmt_bytes <<<"$BUN_SIZE")" "$(fmt_bytes <<<"$RUST_SIZE")" "$(delta "$BUN_SIZE" "$RUST_SIZE" smaller)"
   printf '| binary size, gzip -9 | %s | %s | %s |\n' "$(fmt_bytes <<<"$BUN_GZ")" "$(fmt_bytes <<<"$RUST_GZ")" "$(delta "$BUN_GZ" "$RUST_GZ" smaller)"
-  for ((c = 0; c < N_CASES; c++)); do
-    row_hf "${C_LABEL[c]}" "${C_NAME[c]}"
-    if has_flag "$c" cpu; then row_hf "CPU time (user+sys), same command" "${C_NAME[c]}" time_cpu; fi
-  done
+  cases_table ""
   echo
-  if [[ -n "$RSS_CASES" ]]; then
+  if [[ -n "$MAIN_RSS" ]]; then
     echo "## Peak RSS"
     echo
     echo "| command | Bun | Rust | Δ (Rust vs Bun) |"
     echo "|---|---|---|---|"
-    for c in $RSS_CASES; do row_rss "${C_LABEL[c]}" "$OUT/rss-${C_NAME[c]}"; done
+    for c in $MAIN_RSS; do row_rss "${C_LABEL[c]}" "$OUT/rss-${C_NAME[c]}"; done
     echo
   fi
+  for cols in ${OTHER_COLS[@]+"${OTHER_COLS[@]}"}; do
+    a="${cols%%|*}" b="${cols#*|}"
+    echo "## $a vs $b"
+    echo
+    echo "| metric | $a | $b | Δ (second vs first) |"
+    echo "|---|---|---|---|"
+    cases_table "$cols"
+    for c in $RSS_CASES; do
+      [[ "${C_COLS[c]}" == "$cols" ]] && row_rss "peak RSS: ${C_LABEL[c]}, $((C_RSS_N[c] < RSS_ROUNDS ? C_RSS_N[c] : RSS_ROUNDS)) rounds" "$OUT/rss-${C_NAME[c]}"
+    done
+    echo
+  done
   if ((${#MEM_LABEL[@]})); then
     echo "## $MEM_TITLE"
     echo
