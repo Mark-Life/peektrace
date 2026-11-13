@@ -1,0 +1,48 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
+ Stats ▸ what fails, what costs time                                                                                        60d · all agents · scanned just now
+ 5 transcripts · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
+ peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 10 caveats (c)
+
+ ╭─CAVEATS  everything that travels with these numbers · esc close────────────────────────────────────────────────────────────────────────────────────────────╮
+ │                                                                                                                                                            │
+ │ - durSec is the gap between a call and its result: it includes harness overhead and approval waits                                                         │
+ │ - silent-failure counts are a floor: a detector only sees the output the transcript stored                                                                 │
+ │ - backgrounded runs are charged the seconds they took, which understates the wait they started                                                             │
+ │ - shell causes cover Claude, OpenCode and Pi shell rows; Codex exec_command output is not parsed for causes                                                │
+ │ - a retry pair is a failed call followed within 3 calls by a similar (hybrid similarity >= 0.6) succeeding call of the same tool, about 87% precise on a   │
+ │   hand-labelled sample; retry seconds are call-to-call gaps of at most 600s                                                                                │
+ │ - subagent and workflow-agent transcripts count their own model calls, so their tokens and cost are measured, not zero                                     │
+ │ - a rule match is a keyword probe over CLAUDE.md/AGENTS.md: it means a line mentions the habit, not that it states the fix                                 │
+ │ - Context: the top 1% of main sessions (1 of 5) hold 100.0% of 9.55M cache-read tokens — compact or split those sessions before tuning anything else       │
+ │ - Cost is an ESTIMATE, not a measurement: no transcript records per-call tokens. Rates per million tokens (input/output/cacheWrite/cacheRead USD):         │
+ │   opus-5-5 4/20/5/0.2; sonnet-4-5 3/15/3.75/0.3 (checked 2026-11-08)                                                                                       │
+ │ - Cost: 1 model ids have no rate card and are left out of the cost — (unknown)                                                                             │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ │                                                                                                                                                            │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ ↑↓ scroll  esc/c close
+ web ▸ http://127.0.0.1:4321                                                                                                                1-5 section  q quit

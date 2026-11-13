@@ -22,6 +22,10 @@ use crate::ls::{Context, UserError};
 use crate::single::agent_roots;
 use crate::zone::SystemZone;
 
+mod sibling;
+
+pub use sibling::spawn;
+
 const MIN_PORT: i64 = 1;
 const MAX_PORT: i64 = 65_535;
 /// How long in-flight requests get to finish after a stop signal. A stats
@@ -140,19 +144,22 @@ fn open_browser(url: &str) {
     }
 }
 
+#[cfg(unix)]
+async fn unix_signal(kind: tokio::signal::unix::SignalKind) {
+    match tokio::signal::unix::signal(kind) {
+        Ok(mut s) => {
+            s.recv().await;
+        }
+        Err(_) => std::future::pending::<()>().await,
+    }
+}
+
 async fn shutdown_signal() {
     let ctrl_c = async {
         let _ = tokio::signal::ctrl_c().await;
     };
     #[cfg(unix)]
-    let term = async {
-        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(mut s) => {
-                s.recv().await;
-            }
-            Err(_) => std::future::pending::<()>().await,
-        }
-    };
+    let term = unix_signal(tokio::signal::unix::SignalKind::terminate());
     #[cfg(not(unix))]
     let term = std::future::pending::<()>();
     tokio::select! {
@@ -297,6 +304,11 @@ pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
     runtime.shutdown_background();
     served?;
     Ok(())
+}
+
+/// Open the web UI at `url` in a browser.
+pub fn open(url: &str) {
+    open_browser(url);
 }
 
 #[cfg(test)]

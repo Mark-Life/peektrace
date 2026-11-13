@@ -1,0 +1,21 @@
+[package]
+name = "peektrace-tui"
+description = "peektrace terminal UI"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+peektrace-core.workspace = true
+rayon.workspace = true
+ratatui = { version = "0.30", default-features = false, features = ["crossterm", "std"] }
+tracing.workspace = true
+unicode-width.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

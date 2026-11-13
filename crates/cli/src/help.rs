@@ -9,8 +9,9 @@ use crate::reorder::GLOBAL_VALUES;
 pub const DESCRIPTION: &str = "Local, loopback-only inspector for Claude Code, Codex, Pi and OpenCode sessions: context-budget forensics, stats and Claude memory.";
 
 /// Every runnable command, in display order.
-const COMMAND_ROWS: [(&str, &str); 16] = [
+const COMMAND_ROWS: [(&str, &str); 17] = [
     ("serve", "Start the local web UI"),
+    ("tui", "Browse sessions in a terminal UI"),
     ("sessions ls", "List session headers"),
     ("sessions analyze", "Show context forensics for one session"),
     (
@@ -95,7 +96,7 @@ const MAX_WIDTH: usize = 80;
 /// Printed for a bare `peektrace`.
 pub fn banner() -> String {
     format!(
-        "Peektrace — {DESCRIPTION}\nTry: peektrace serve | sessions ls | memory ls | stats | --help"
+        "Peektrace — {DESCRIPTION}\nTry: peektrace serve | tui | sessions ls | memory ls | stats | --help"
     )
 }
 

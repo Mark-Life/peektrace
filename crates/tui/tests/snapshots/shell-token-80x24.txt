@@ -1,0 +1,24 @@
+ Peektrace   1    2    3    4    5                                        token
+ ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis────────────────────╮
+ │                                            │ │                             │
+ │ / filter (press /)                         │ │ Fix the f…  ● Healthy  peak │
+ │ agent: all · a to cycle                    │ │                             │
+ │                                            │ │  History   Growth   g toggl │
+ │ ╭───────────────────────────────────────╮  │ │                             │
+ │ │ [Claude] Fix the flaky build          │  │ │ Full redacted · r to reveal │
+ │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │  E   C   B                  │
+ │ ╰───────────────────────────────────────╯  │ │                             │
+ │ ╭───────────────────────────────────────╮  │ │ [t0] [user-prompt] Fix  ~10 │
+ │ │ [Claude] Claude session               │  │ │                             │
+ │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ [t0] [deferred tools de  ~0 │
+ │ ╰───────────────────────────────────────╯  │ │                             │
+ │ ╭───────────────────────────────────────╮  │ │ [t1] [assistant-text] S  ~7 │
+ │ │ [Claude] Claude session               │  │ │                             │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ [t1] [Bash] { "command  ~15 │
+ │ ╰───────────────────────────────────────╯  │ │                             │
+ │ ╭───────────────────────────────────────╮  │ │ [t1] [tool-result] F  1,280 │
+ │                                            │ │                             │
+ ╰────────────────────────────────────────────╯ ╰─────────────────────────────╯
+ ↑↓/jk move  enter/→ open  tab switch  / filter  a agent  r reveal  g chart  cl
+ web ▸ http://127.0.0.1:4321/?token=0123456789abcdef0123456789abcdef01234567
+ 1-5 section  q quit

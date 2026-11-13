@@ -1,0 +1,30 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats        loopback only
+ ╭─Capabilities (7)────────────────────────────────────╮ ╭─Detail─────────────────────────────────╮
+ │                                                     │ │                                        │
+ │ Capability     Claude   Codex    Pi       OpenCode  │ │ Session browser                        │
+ │ SESSIONS                                            │ │ Browse sessions and open a transcript  │
+ │ › Session bro… ●        ●        ●        ●         │ │ with full history.                     │
+ │   Context deb… ●        ●        ●        ●         │ │                                        │
+ │ MEMORY                                              │ │ Claude    ● supported                  │
+ │   Memory expl… ●        ●        ●        ●         │ │   Built and working today.             │
+ │   Memory edit  ●        ●        ●        ●         │ │ Codex     ● supported                  │
+ │ MCP                                                 │ │   Built and working today.             │
+ │   MCP dashboa… ●        ●        ●        ●         │ │ Pi        ● supported                  │
+ │ SKILLS                                              │ │   Built and working today.             │
+ │   Skills brow… ●        ●        ●        ●         │ │ OpenCode  ● supported                  │
+ │ HISTORY                                             │ │   Built and working today.             │
+ │   File-histor… ●        ●        ●        ●         │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ │                                                     │ │                                        │
+ ╰─────────────────────────────────────────────────────╯ ╰────────────────────────────────────────╯
+ ■ supported  ■ partial  ■ planned  ■ unsupported
+ ↑↓/jk move  1-5 section  q quit
+ web ▸ http://127.0.0.1:4321                                                    1-5 section  q quit

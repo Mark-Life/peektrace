@@ -240,7 +240,7 @@ pub fn redact_hits(hits: &[DrillHit], redact: &Redactor) -> Vec<DrillHit> {
 }
 
 /// The report window.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct StatsWindow {
     pub days: f64,
     pub from_iso: String,
