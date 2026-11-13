@@ -5,12 +5,16 @@
  *
  * Analyses come from the Rust CLI (`sessions analyze --json`), which the
  * analyze stage already matches with TS. Real analyses stay in WORK and are
- * deleted with it; reports name sessions and fields, never their text. */
+ * deleted with it; reports name sessions and fields, never their text.
+ *
+ * Each TS answer goes through the oracle, keyed by a digest of its input, so
+ * goldens replay it. `serve --ui rune` has no TS side and always runs. */
 import {
   copyFileSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -18,7 +22,8 @@ import type {
   AnalyzedSession,
   SessionHeader,
 } from "../../packages/core/src/services/sessions/schema";
-import { fixtureEnv, report, run, rustBin, WORK } from "./parity-lib";
+import { fixtureEnv, pinMtime, report, run, rustBin, WORK } from "./parity-lib";
+import { digest, PINNED, tsValueSync } from "./parity-oracle";
 import { exampleBin, pipe } from "./parity-tui";
 import { growthAnswer } from "./parity-ui-growth";
 import { runRuneServeChecks } from "./parity-ui-serve";
@@ -130,6 +135,16 @@ const canonical = (v: unknown): unknown => {
   return v;
 };
 
+/** A TS answer as plain JSON, through the oracle: live and replay then
+ * compare the same value (`undefined` fields dropped alike). `null` when a
+ * replay has no golden; the oracle reports that. */
+const tsAnswer = (key: string, answer: () => unknown) =>
+  tsValueSync(
+    key,
+    () => JSON.parse(JSON.stringify(answer()) ?? "null") as unknown,
+    { missing: undefined }
+  );
+
 /** Compare two answers field by field; `show` lets a diff quote values. */
 const compare = (
   label: string,
@@ -218,10 +233,17 @@ const checkAnalyses = (
     return;
   }
   files.forEach(([label, path], i) => {
-    const a = JSON.parse(readFileSync(path, "utf8")) as AnalyzedSession;
+    const text = readFileSync(path, "utf8");
+    const ts = tsAnswer(`ui analysis ${label} ${digest(text)}`, () => {
+      const a = JSON.parse(text) as AnalyzedSession;
+      return [analysisAnswer(a), growthAnswer(a)];
+    }) as [unknown, unknown] | undefined;
+    if (ts === undefined) {
+      return;
+    }
     compare(
       `ui analysis ${label}`,
-      analysisAnswer(a),
+      ts[0],
       JSON.parse(rust[2 * i] ?? "null"),
       show
     );
@@ -230,14 +252,24 @@ const checkAnalyses = (
       string,
       unknown
     > | null;
-    const tsG = growthAnswer(a);
     if (g?.shifted === true) {
       counts.shifted++;
       return;
     }
-    compare(`ui growth ${label}`, tsG, g, show);
+    compare(`ui growth ${label}`, ts[1], g, show);
     counts.growth++;
   });
+};
+
+/** Pins every mtime under `path` when goldens are recorded or replayed:
+ * headers and analyses of the copies would carry the copy time. */
+const pinTree = (path: string) => {
+  if (statSync(path).isDirectory()) {
+    for (const name of readdirSync(path)) {
+      pinTree(join(path, name));
+    }
+  }
+  pinMtime(path);
 };
 
 const fixtureHome = () => {
@@ -274,6 +306,9 @@ const fixtureHome = () => {
       )
     );
   });
+  if (PINNED) {
+    pinTree(home);
+  }
   return home;
 };
 
@@ -326,13 +361,15 @@ export const runUiStage = async ({
   if (fixed) {
     compare(
       "ui num",
-      numAnswer(SWEEP, ZONES, LINES),
+      tsAnswer(`ui num ${digest(numReq)}`, () =>
+        numAnswer(SWEEP, ZONES, LINES)
+      ),
       JSON.parse(fixed[0] ?? "null"),
       true
     );
     compare(
       "ui hit",
-      hitAnswer(HITS, CLICKS),
+      tsAnswer(`ui hit ${digest(hitReq)}`, () => hitAnswer(HITS, CLICKS)),
       JSON.parse(fixed[1] ?? "null"),
       true
     );
@@ -352,10 +389,13 @@ export const runUiStage = async ({
       filters: cases,
     };
     const out = pipe(bin, [JSON.stringify(listReq)]);
-    if (out) {
+    const ts = tsAnswer(`ui list ${set.label} ${digest(listReq)}`, () =>
+      listAnswer(set.headers, NOW, cases)
+    );
+    if (out && ts !== undefined) {
       compare(
         `ui list ${set.label}`,
-        listAnswer(set.headers, NOW, cases),
+        ts,
         JSON.parse(out[0] ?? "null"),
         set.show
       );

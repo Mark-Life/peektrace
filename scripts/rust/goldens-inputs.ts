@@ -1,7 +1,8 @@
 /**
  * The tracked inputs each golden stage depends on, and their hash. A stage
  * is stale when any of its own inputs changed, so an inspector edit stales
- * `serve` alone and a stage script edit stales the stages that import it.
+ * `serve` (and `ui` when it touches the helpers the app ports) and a stage
+ * script edit stales the stages that import it.
  */
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
@@ -15,6 +16,7 @@ export const STAGES = [
   "serve",
   "cli",
   "tui",
+  "ui",
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -27,6 +29,7 @@ const STAGE_ENTRIES: Record<Stage, readonly string[]> = {
   serve: ["parity-serve.ts"],
   cli: ["parity-cli.ts"],
   tui: ["parity-tui.ts"],
+  ui: ["parity-ui.ts"],
 };
 const SCRIPTS = "scripts/rust";
 const SHARED_ENTRY = `${SCRIPTS}/parity.ts`;
@@ -38,7 +41,11 @@ const SHARED_SOURCE =
 /** The inspector and its UI packages: only `serve` returns them. */
 const SERVE_SOURCE =
   /^(apps\/inspector\/(?!dist\/|test\/)|packages\/(ui|viz)\/(src\/|package\.json$))/;
-/** Paths `git ls-files` lists for the two patterns above. */
+/** The inspector helpers and chart the Rune app ports: `ui` answers with
+ * them in process. */
+const UI_SOURCE =
+  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|package\.json$)|packages\/(ui|viz)\/(src\/|package\.json$))/;
+/** Paths `git ls-files` lists for the patterns above. */
 const TREE = [
   "apps/cli/src",
   "apps/inspector",
@@ -115,7 +122,9 @@ export const stageFiles = (
   const tree = tracked.filter(
     (f) =>
       !TEST_FILE.test(f) &&
-      (SHARED_SOURCE.test(f) || (stage === "serve" && SERVE_SOURCE.test(f)))
+      (SHARED_SOURCE.test(f) ||
+        (stage === "serve" && SERVE_SOURCE.test(f)) ||
+        (stage === "ui" && UI_SOURCE.test(f)))
   );
   return [...new Set([...tree, ...scripts])]
     .filter((f) => existsSync(join(repo, f)))
