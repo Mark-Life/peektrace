@@ -1,0 +1,157 @@
+name: Rust live
+
+# Runs that need the TS CLI: recording tests/goldens/linux-x64, and the full
+# live harness, TS and Rust side by side, so goldens that drift from TS show
+# up. Kept apart from rust.yml so a label event never reruns or skips its
+# required checks.
+#
+# - `record-goldens` PR label (once per labelling), a push to `rust` whose
+#   head commit says `[record goldens]`, or a manual run: record goldens.
+# - `parity-live` PR label (on labelling and each push), nightly, or a
+#   manual run: the live harness. Schedule and manual runs fire only once
+#   this file is on the default branch.
+on:
+  push:
+    branches:
+      - rust
+  pull_request:
+    branches:
+      - rust
+      - "rust-*"
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+# A label event gets its own group, so a later push does not cancel it.
+concurrency:
+  group: rust-live-${{ github.event_name }}-${{ github.event.label.name || 'run' }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  goldens-record:
+    # Records tests/goldens/linux-x64 on the CI platform, one stage per job.
+    # Download the `goldens-*` artifacts into tests/goldens/linux-x64 and
+    # commit them (scripts/rust/README.md).
+    name: record goldens (${{ matrix.stage }})
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      contains(github.event.head_commit.message, '[record goldens]')) ||
+      (github.event_name == 'pull_request' &&
+      github.event.action == 'labeled' &&
+      github.event.label.name == 'record-goldens')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [base, search, memory, stats, serve, cli, tui]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install toolchain
+        run: rustup toolchain install || rustup show
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: parity
+          save-if: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build the inspector (embedded in the binary)
+        run: bun run --filter=inspector build
+
+      - name: Build (parity profile)
+        run: cargo build --locked --profile parity --bins --examples
+
+      - name: Record (a live parity run)
+        run: >-
+          bun scripts/rust/goldens.ts --write --stage ${{ matrix.stage }}
+          --bin target/parity/peektrace
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: goldens-${{ matrix.stage }}
+          path: tests/goldens/linux-x64/${{ matrix.stage }}.*
+          if-no-files-found: error
+
+      - name: Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: goldens-log-${{ matrix.stage }}
+          path: /dev/shm/peektrace-goldens/*.log
+
+  parity-live:
+    # The full harness, TS and Rust side by side, then a fresh recording
+    # compared with tests/goldens.
+    name: parity live (TS vs Rust)
+    if: >-
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' &&
+      (github.event.action == 'labeled' &&
+      github.event.label.name == 'parity-live' ||
+      github.event.action != 'labeled' &&
+      contains(github.event.pull_request.labels.*.name, 'parity-live')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install toolchain
+        run: rustup toolchain install || rustup show
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: parity
+          save-if: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build the inspector (embedded in the binary)
+        run: bun run --filter=inspector build
+
+      - name: Build (parity profile)
+        run: cargo build --locked --profile parity --bins --examples
+
+      - name: Parity against the TS CLI
+        run: bun scripts/rust/parity.ts --fixtures-only --bin target/parity/peektrace
+
+      - name: Goldens match a fresh recording
+        if: success() || failure()
+        run: bun scripts/rust/goldens.ts --verify --bin target/parity/peektrace

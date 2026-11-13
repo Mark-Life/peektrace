@@ -35,9 +35,10 @@ export const ORACLE_MODE = modeOf(process.env.PARITY_ORACLE);
 export const PINNED = ORACLE_MODE !== "live";
 const FILE = process.env.PARITY_GOLDENS ?? "";
 /** Root of the fixed scratch dirs goldens are recorded and replayed in.
- * Linux uses tmpfs: its directory order follows creation order, while ext4
- * order differs from machine to machine, and listings of symlinked
- * duplicates follow that order. */
+ * Listings of symlinked duplicates follow directory order. Linux uses tmpfs,
+ * whose order does not depend on a per-disk hash seed as on ext4; it still
+ * varies with the kernel (creation order or newest first), so `goldens.ts`
+ * stores it per stage and replay checks it. */
 export const GOLDENS_ROOT =
   process.env.PARITY_GOLDENS_ROOT ??
   (process.platform === "linux"

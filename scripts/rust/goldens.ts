@@ -14,15 +14,14 @@
  * path must not move between record and check, since fixture text holds it. `--write` is a live parity run that
  * also stores each TS result; it refuses to write a stage with differences.
  * `--verify` records into a temp dir and lists the values that changed.
- * Replay fails for a stage recorded before the TS sources, fixtures or parity
- * scripts last changed: regenerate it with `--write`.
+ * Replay fails for a stage recorded before its TS sources, fixtures or parity
+ * scripts last changed (`goldens-inputs.ts` lists them per stage).
  *
  * Goldens live in `tests/goldens/<os>-<arch>/`: TS output depends on the
  * platform (directory order, ICU zone aliases, `/tmp` real path) and the
  * Rust CLI follows it. Only `linux-x64`, the CI platform, is checked in; the
- * `record goldens` CI job makes it.
+ * `record goldens` CI job makes it (scripts/rust/README.md).
  */
-import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
@@ -34,8 +33,15 @@ import {
   writeFileSync,
 } from "node:fs";
 import { cpus } from "node:os";
-import { join, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { gunzipSync } from "node:zlib";
+import {
+  type DirOrder,
+  probeDirOrder,
+  rootProblem,
+  takeLock,
+} from "./goldens-host";
+import { STAGES, type Stage, stageHashes } from "./goldens-inputs";
 import { GOLDENS_ROOT, indexLines } from "./parity-oracle";
 
 const REPO = join(import.meta.dir, "../..");
@@ -44,21 +50,8 @@ const PLATFORM =
 const GOLDENS_ALL = join(REPO, "tests/goldens");
 const GOLDENS = join(GOLDENS_ALL, PLATFORM);
 const ROOT = GOLDENS_ROOT;
-const STAGES = ["base", "search", "memory", "stats", "serve", "cli", "tui"];
 const MAX_BYTES = 10 * 1024 * 1024;
 const SHOWN = 20;
-/** Tracked inputs whose change makes the goldens stale. */
-const SOURCES = [
-  "apps/cli/src",
-  "apps/inspector",
-  "packages",
-  "bun.lock",
-  "package.json",
-  "scripts/rust",
-];
-const SOURCE_FILE =
-  /^(apps\/cli\/src\/|apps\/inspector\/(?!dist\/)|packages\/[^/]+\/(src|package\.json)|packages\/core\/test\/fixtures\/|bun\.lock$|package\.json$|scripts\/rust\/parity[^/]*(?<!\.test)\.ts$)/;
-
 const argv = process.argv.slice(2);
 const has = (f: string) => argv.includes(f);
 const value = (f: string) => {
@@ -69,32 +62,15 @@ const value = (f: string) => {
 /** `<stage>.json` beside each golden file. */
 interface StageMeta {
   readonly bun: string;
+  /** Listing order of a fresh dir under `root` when recorded. */
+  readonly dirOrder?: DirOrder;
   readonly gzBytes: number;
   readonly platform: string;
   readonly root: string;
-  /** `tsSourceHash` when this stage was recorded. */
+  /** `tsSourceHash` of this stage's inputs when recorded. */
   readonly tsSourceHash: string;
   readonly values: number;
 }
-
-/** sha256 over every tracked input file, path and bytes. */
-export const tsSourceHash = (repo = REPO) => {
-  const listed = Bun.spawnSync(["git", "ls-files", "-z", "--", ...SOURCES], {
-    cwd: repo,
-  });
-  const files = listed.stdout
-    .toString()
-    .split("\0")
-    .filter((f) => SOURCE_FILE.test(f) && existsSync(join(repo, f)))
-    .sort();
-  const h = createHash("sha256");
-  for (const f of files) {
-    h.update(`${f}\0`);
-    h.update(readFileSync(join(repo, f)));
-    h.update("\0");
-  }
-  return h.digest("hex");
-};
 
 const pinnedBun = () =>
   (
@@ -107,11 +83,11 @@ interface Outcome {
   readonly code: number;
   readonly log: string;
   readonly ms: number;
-  readonly stage: string;
+  readonly stage: Stage;
 }
 
 const runStage = async (
-  stage: string,
+  stage: Stage,
   mode: "record" | "replay",
   file: string,
   bin: string,
@@ -191,7 +167,12 @@ const summary = (o: Outcome) => {
 const goldenText = (file: string) =>
   existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : "";
 
-const writeStage = (stage: string, recorded: string, hash: string) => {
+const writeStage = (
+  stage: string,
+  recorded: string,
+  hash: string,
+  dirOrder: DirOrder
+) => {
   mkdirSync(GOLDENS, { recursive: true });
   const dest = join(GOLDENS, `${stage}.jsonl.gz`);
   copyFileSync(recorded, dest);
@@ -202,6 +183,7 @@ const writeStage = (stage: string, recorded: string, hash: string) => {
   );
   const meta: StageMeta = {
     bun: Bun.version,
+    dirOrder,
     gzBytes: statSync(dest).size,
     platform: PLATFORM,
     root: ROOT,
@@ -271,17 +253,31 @@ const fail = (message: string, code = 2): never => {
   process.exit(code);
 };
 
+const isStage = (s: string): s is Stage =>
+  (STAGES as readonly string[]).includes(s);
+
+/** `--bin`, relative to the repo unless absolute. */
+export const binPath = (arg: string | undefined, repo = REPO) =>
+  resolve(repo, arg ?? "target/parity/peektrace");
+
+/** How to fix stale goldens: CI records the checked-in platform. */
+const STALE_FIX =
+  PLATFORM === "linux-x64"
+    ? "Re-record them in CI: label the PR `record-goldens`, then copy the `goldens-*` artifacts into tests/goldens/linux-x64 (scripts/rust/README.md)."
+    : "Run: bun scripts/rust/goldens.ts --write";
+
 /** Flags, checked: unknown stages, a missing binary, the wrong Bun to
- * record with, stale goldens to replay. */
+ * record with, stale goldens or another scratch root to replay. */
 const options = () => {
   const write = has("--write");
   const verify = has("--verify");
-  const bin = join(REPO, value("--bin") ?? "target/parity/peektrace");
-  const picked = value("--stage")?.split(",") ?? STAGES;
-  const unknown = picked.filter((s) => !STAGES.includes(s));
+  const bin = binPath(value("--bin"));
+  const asked = value("--stage")?.split(",") ?? [...STAGES];
+  const unknown = asked.filter((s) => !isStage(s));
   if (unknown.length > 0) {
     fail(`unknown stage ${unknown.join(", ")}: ${STAGES.join(", ")}`);
   }
+  const picked = asked.filter(isStage);
   if (!existsSync(bin)) {
     fail(`missing ${bin}: cargo build --profile parity --bins --examples`);
   }
@@ -291,7 +287,7 @@ const options = () => {
       `goldens are recorded with Bun ${pinnedBun()} (package.json), this is ${Bun.version}: put that Bun first on PATH, or pass --any-bun`
     );
   }
-  const hash = tsSourceHash();
+  const hashes = stageHashes(REPO);
   const missing = picked.filter((s) => metaOf(s) === undefined);
   if (!recording && missing.length > 0) {
     fail(
@@ -299,15 +295,50 @@ const options = () => {
       1
     );
   }
-  const stale = picked.filter((s) => metaOf(s)?.tsSourceHash !== hash);
+  const stale = picked.filter((s) => metaOf(s)?.tsSourceHash !== hashes[s]);
   if (!recording && stale.length > 0) {
     fail(
-      `goldens are stale (${stale.join(", ")}): the TS sources, fixtures or parity scripts changed since they were recorded. Run: bun scripts/rust/goldens.ts --write`,
+      `goldens are stale (${stale.join(", ")}): their TS sources, fixtures or parity scripts changed since they were recorded. ${STALE_FIX}`,
+      1
+    );
+  }
+  const moved = picked.filter((s) => (metaOf(s)?.root ?? ROOT) !== ROOT);
+  if (!recording && moved.length > 0) {
+    fail(
+      `goldens for ${moved.join(", ")} were recorded under ${metaOf(moved[0] as Stage)?.root}, this run uses ${ROOT}: fixture text holds that path, so set PARITY_GOLDENS_ROOT to it.`,
       1
     );
   }
   const jobs = Number(value("--jobs")) || picked.length;
-  return { bin, hash, jobs, picked, recording, verify, write };
+  return { bin, hashes, jobs, picked, recording, verify, write };
+};
+
+/** Owns ROOT for this run and checks this host lists dirs in the order the
+ * picked goldens were recorded in. */
+const claimRoot = (o: ReturnType<typeof options>) => {
+  const problem = rootProblem(ROOT);
+  if (problem !== undefined) {
+    fail(`goldens root: ${problem}`);
+  }
+  const { holder, release } = takeLock(ROOT);
+  if (release === undefined) {
+    fail(
+      `goldens root ${ROOT} is in use by another run (pid ${holder}); wait for it to finish`
+    );
+  } else {
+    process.on("exit", release);
+  }
+  const order = probeDirOrder(ROOT);
+  const other = o.recording
+    ? []
+    : o.picked.filter((s) => (metaOf(s)?.dirOrder ?? order) !== order);
+  if (other.length > 0) {
+    fail(
+      `goldens for ${other.join(", ")} were recorded where a new dir lists its entries in ${metaOf(other[0] as Stage)?.dirOrder} order; under ${ROOT} this host lists them ${order}. tmpfs order varies with the kernel: replay on a matching host, or record your own set with PARITY_GOLDENS_PLATFORM=<name> --write.`,
+      1
+    );
+  }
+  return order;
 };
 
 const recordedFile = (s: string) => join(ROOT, "recorded", `${s}.jsonl.gz`);
@@ -335,12 +366,13 @@ const verifyReport = (picked: readonly string[], failed: number) => {
 /** `--write`: copy each passing stage in, with its index and meta. */
 const writeGoldens = (
   o: ReturnType<typeof options>,
-  outcomes: readonly Outcome[]
+  outcomes: readonly Outcome[],
+  order: DirOrder
 ) => {
   const allowed = has("--allow-diffs");
   const ok = outcomes.filter((x) => x.code === 0 || allowed);
   for (const x of ok) {
-    writeStage(x.stage, recordedFile(x.stage), o.hash);
+    writeStage(x.stage, recordedFile(x.stage), o.hashes[x.stage], order);
   }
   const total = goldenBytes();
   console.log(
@@ -355,6 +387,7 @@ const writeGoldens = (
 
 const main = async () => {
   const o = options();
+  const order = claimRoot(o);
   const perStage = Math.max(2, Math.ceil(cpus().length / Math.min(o.jobs, 3)));
   rmSync(join(ROOT, "recorded"), { recursive: true, force: true });
   const outcomes = await bounded(o.picked, o.jobs, async (s) => {
@@ -372,7 +405,7 @@ const main = async () => {
   if (o.verify) {
     process.exit(verifyReport(o.picked, failed) ? 0 : 1);
   }
-  const within = o.write ? writeGoldens(o, outcomes) : true;
+  const within = o.write ? writeGoldens(o, outcomes, order) : true;
   console.log(
     failed === 0 ? "goldens: OK" : `goldens: ${failed} stage(s) failed`
   );
