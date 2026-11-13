@@ -34,7 +34,7 @@ import {
 } from "node:fs";
 import { cpus } from "node:os";
 import { join, relative, resolve } from "node:path";
-import { gunzipSync } from "node:zlib";
+import { deflateSync } from "node:zlib";
 import {
   type DirOrder,
   probeDirOrder,
@@ -42,15 +42,15 @@ import {
   takeLock,
 } from "./goldens-host";
 import { STAGES, type Stage, stageHashes } from "./goldens-inputs";
-import { GOLDENS_ROOT, indexLines } from "./parity-oracle";
+import { GOLDENS_ROOT } from "./parity-oracle";
 
 const REPO = join(import.meta.dir, "../..");
 const PLATFORM =
   process.env.PARITY_GOLDENS_PLATFORM ?? `${process.platform}-${process.arch}`;
-const GOLDENS_ALL = join(REPO, "tests/goldens");
-const GOLDENS = join(GOLDENS_ALL, PLATFORM);
+const GOLDENS = join(REPO, "tests/goldens", PLATFORM);
 const ROOT = GOLDENS_ROOT;
-const MAX_BYTES = 10 * 1024 * 1024;
+/** Budget for the checked-in set, zlib-compressed as git stores it. */
+const MAX_PACKED_BYTES = 2 * 1024 * 1024;
 const SHOWN = 20;
 const argv = process.argv.slice(2);
 const has = (f: string) => argv.includes(f);
@@ -59,12 +59,15 @@ const value = (f: string) => {
   return at < 0 ? undefined : argv[at + 1];
 };
 
+const recordedFile = (s: string) => join(ROOT, "recorded", `${s}.jsonl`);
+const goldenFile = (s: string) => join(GOLDENS, `${s}.jsonl`);
+
 /** `<stage>.json` beside each golden file. */
 interface StageMeta {
   readonly bun: string;
+  readonly bytes: number;
   /** Listing order of a fresh dir under `root` when recorded. */
   readonly dirOrder?: DirOrder;
-  readonly gzBytes: number;
   readonly platform: string;
   readonly root: string;
   /** `tsSourceHash` of this stage's inputs when recorded. */
@@ -164,8 +167,8 @@ const summary = (o: Outcome) => {
   ].join("\n");
 };
 
-const goldenText = (file: string) =>
-  existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : "";
+const readGolden = (file: string) =>
+  existsSync(file) ? readFileSync(file, "utf8") : "";
 
 const writeStage = (
   stage: string,
@@ -174,17 +177,13 @@ const writeStage = (
   dirOrder: DirOrder
 ) => {
   mkdirSync(GOLDENS, { recursive: true });
-  const dest = join(GOLDENS, `${stage}.jsonl.gz`);
+  const dest = goldenFile(stage);
   copyFileSync(recorded, dest);
-  const lines = goldenText(dest).split("\n").filter(Boolean);
-  writeFileSync(
-    join(GOLDENS, `${stage}.index`),
-    `${indexLines(lines).join("\n")}\n`
-  );
+  const lines = readGolden(dest).split("\n").filter(Boolean);
   const meta: StageMeta = {
     bun: Bun.version,
+    bytes: statSync(dest).size,
     dirOrder,
-    gzBytes: statSync(dest).size,
     platform: PLATFORM,
     root: ROOT,
     tsSourceHash: hash,
@@ -203,14 +202,14 @@ const metaOf = (stage: string): StageMeta | undefined => {
     : undefined;
 };
 
-/** Bytes of every checked-in golden file, all platforms. */
-const goldenBytes = (dir = GOLDENS_ALL): number =>
-  existsSync(dir)
-    ? readdirSync(dir).reduce((n, name) => {
-        const path = join(dir, name);
-        const st = statSync(path);
-        return n + (st.isDirectory() ? goldenBytes(path) : st.size);
-      }, 0)
+/** zlib-compressed bytes of this platform's golden files: about what one
+ * full set costs in a git pack. */
+const packedBytes = () =>
+  existsSync(GOLDENS)
+    ? readdirSync(GOLDENS).reduce(
+        (n, name) => n + deflateSync(readFileSync(join(GOLDENS, name))).length,
+        0
+      )
     : 0;
 
 /** Fields that move from run to run and that every compare masks: clocks,
@@ -313,6 +312,17 @@ const options = () => {
   return { bin, hashes, jobs, picked, recording, verify, write };
 };
 
+/** Stages whose recorded dir order is missing or differs from `order`. */
+export const orderProblems = (
+  recorded: readonly (readonly [string, DirOrder | undefined])[],
+  order: DirOrder
+) => ({
+  other: recorded
+    .filter(([, r]) => r !== undefined && r !== order)
+    .map(([s]) => s),
+  unknown: recorded.filter(([, r]) => r === undefined).map(([s]) => s),
+});
+
 /** Owns ROOT for this run and checks this host lists dirs in the order the
  * picked goldens were recorded in. */
 const claimRoot = (o: ReturnType<typeof options>) => {
@@ -329,9 +339,19 @@ const claimRoot = (o: ReturnType<typeof options>) => {
     process.on("exit", release);
   }
   const order = probeDirOrder(ROOT);
-  const other = o.recording
-    ? []
-    : o.picked.filter((s) => (metaOf(s)?.dirOrder ?? order) !== order);
+  if (o.recording) {
+    return order;
+  }
+  const { other, unknown } = orderProblems(
+    o.picked.map((s) => [s, metaOf(s)?.dirOrder] as const),
+    order
+  );
+  if (unknown.length > 0) {
+    fail(
+      `goldens for ${unknown.join(", ")} do not record the dir order they were made under, so replay cannot tell whether this host matches. ${STALE_FIX}`,
+      1
+    );
+  }
   if (other.length > 0) {
     fail(
       `goldens for ${other.join(", ")} were recorded where a new dir lists its entries in ${metaOf(other[0] as Stage)?.dirOrder} order; under ${ROOT} this host lists them ${order}. tmpfs order varies with the kernel: replay on a matching host, or record your own set with PARITY_GOLDENS_PLATFORM=<name> --write.`,
@@ -341,14 +361,11 @@ const claimRoot = (o: ReturnType<typeof options>) => {
   return order;
 };
 
-const recordedFile = (s: string) => join(ROOT, "recorded", `${s}.jsonl.gz`);
-const goldenFile = (s: string) => join(GOLDENS, `${s}.jsonl.gz`);
-
 /** `--verify`: keys whose fresh recording differs from the checked-in one. */
 const verifyReport = (picked: readonly string[], failed: number) => {
   let changed = 0;
   for (const s of picked.filter((p) => existsSync(recordedFile(p)))) {
-    const keys = churn(goldenText(goldenFile(s)), goldenText(recordedFile(s)));
+    const keys = churn(readGolden(goldenFile(s)), readGolden(recordedFile(s)));
     changed += keys.length;
     for (const k of keys.slice(0, SHOWN)) {
       console.log(`  CHANGED ${s} ${k}`);
@@ -363,7 +380,7 @@ const verifyReport = (picked: readonly string[], failed: number) => {
   return ok;
 };
 
-/** `--write`: copy each passing stage in, with its index and meta. */
+/** `--write`: copy each passing stage in, with its meta. */
 const writeGoldens = (
   o: ReturnType<typeof options>,
   outcomes: readonly Outcome[],
@@ -374,12 +391,14 @@ const writeGoldens = (
   for (const x of ok) {
     writeStage(x.stage, recordedFile(x.stage), o.hashes[x.stage], order);
   }
-  const total = goldenBytes();
+  const packed = packedBytes();
   console.log(
-    `goldens: wrote ${ok.length} stage(s) to ${relative(REPO, GOLDENS)}; ${(total / 1024).toFixed(0)} KiB in ${relative(REPO, GOLDENS_ALL)}`
+    `goldens: wrote ${ok.length} stage(s) to ${relative(REPO, GOLDENS)}; ${(packed / 1024).toFixed(0)} KiB compressed`
   );
-  if (total > MAX_BYTES) {
-    console.error(`goldens: over the ${MAX_BYTES / 1024 / 1024} MiB budget`);
+  if (packed > MAX_PACKED_BYTES) {
+    console.error(
+      `goldens: over the ${MAX_PACKED_BYTES / 1024 / 1024} MiB compressed budget`
+    );
     return false;
   }
   return true;

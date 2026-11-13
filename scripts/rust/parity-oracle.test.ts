@@ -2,20 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { gunzipSync } from "node:zlib";
 import {
   decodeText,
   encodeText,
   goldenLines,
-  gzipLines,
-  indexLines,
+  goldenText,
   leaks,
   setOracleRoots,
 } from "./parity-oracle";
 import { canonStatsClock, maskStatsClock } from "./parity-stats-cases";
 
 const ORACLE = join(import.meta.dir, "parity-oracle.ts");
-const INDEX_LINE = /^k#3\t[0-9a-f]{12}$/;
 const ignore = (_line: string) => undefined;
 
 describe("placeholders", () => {
@@ -42,16 +39,10 @@ describe("golden files", () => {
     ]);
   });
 
-  test("gzip is byte-stable and round-trips", () => {
-    const lines = goldenLines(store);
-    const a = gzipLines(lines);
-    expect(Buffer.compare(a, gzipLines(lines))).toBe(0);
-    expect(gunzipSync(a).toString()).toBe(`${lines.join("\n")}\n`);
-  });
-
-  test("the index names each value with a short hash", () => {
-    const [line] = indexLines(['["k",3,"v"]']);
-    expect(line).toMatch(INDEX_LINE);
+  test("the file is plain text, one line per value", () => {
+    expect(goldenText(goldenLines(store))).toBe(
+      '["a",0,"one"]\n["b",0,{"x":1}]\n["b",1,{"x":2}]\n'
+    );
   });
 
   test("leaks names the forbidden text found", () => {
@@ -87,7 +78,7 @@ const parsed = (r: ReturnType<typeof script>) =>
 describe("record and replay", () => {
   test("replay returns what record kept, repeats in order, last one after", () => {
     const dir = mkdtempSync(join(tmpdir(), "oracle-"));
-    const file = join(dir, "s.jsonl.gz");
+    const file = join(dir, "s.jsonl");
     try {
       const rec = script(
         "record",
@@ -100,7 +91,7 @@ describe("record and replay", () => {
          ];`
       );
       expect(parsed(rec).out).toEqual(["/w/a1", "/w/a2", "boom"]);
-      const text = gunzipSync(readFileSync(file)).toString();
+      const text = readFileSync(file, "utf8");
       expect(text).toContain('["k",0,"<WORK>/a1"]');
       const rep = script(
         "replay",

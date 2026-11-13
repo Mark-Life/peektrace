@@ -5,7 +5,7 @@
 CI does not run it per push. `goldens.ts` replays the TS side from `tests/goldens/linux-x64/` and runs only the Rust binary, so the fixture check takes seconds once the binary is built.
 
 ```
-TS CLI ──record once──> tests/goldens/<os>-<arch>/<stage>.jsonl.gz
+TS CLI ──record once──> tests/goldens/<os>-<arch>/<stage>.jsonl
                               │
 Rust binary ──────────> same stage code, TS results replayed ──> diffs
 ```
@@ -46,7 +46,7 @@ gh run download <run-id> --pattern 'goldens-*' --dir .scratch/goldens
 cp .scratch/goldens/goldens-*/* tests/goldens/linux-x64/
 ```
 
-You can also record on a Linux x64 host. Put Bun 1.3.14 first on `PATH`, keep the default root `/dev/shm/peektrace-goldens`, then run `bun scripts/rust/goldens.ts --write --bin target/parity/peektrace`. tmpfs lists a directory in creation order on some kernels and newest first on others. `<stage>.json` stores the order (`dirOrder`), and the check refuses a host whose order differs. So a set recorded on a host whose order differs from the CI runner fails in CI. Use CI when in doubt.
+You can also record on a Linux x64 host. Put Bun 1.3.14 first on `PATH`, keep the default root `/dev/shm/peektrace-goldens`, then run `bun scripts/rust/goldens.ts --write --bin target/parity/peektrace`. tmpfs lists a directory in creation order on some kernels and newest first on others. `<stage>.json` stores the order (`dirOrder`), and the check refuses a host whose order differs, or a stage that does not store it. So a set recorded on a host whose order differs from the CI runner fails in CI. Use CI when in doubt.
 
 On macOS, `--write` records `tests/goldens/darwin-arm64/` for local checks. Git ignores it.
 
@@ -71,7 +71,7 @@ Record with the Bun version that `package.json` pins (`packageManager`); `--writ
 - Stored text has the stage dir, its real path and the repo replaced by `<WORK>`, `<RWORK>` and `<REPO>`. The fake upgrade server, the host asset name and a closed port are bound the same way. `--write` fails if your home dir, temp dir or repo path would land in a golden.
 - Fixture copies get fixed mtimes, since some rows print a file's mtime.
 - Clock values TS prints (stats `generatedAt` and window, export stamps, span durations, Effect log times) are masked when recorded, keeping the shape the compare-time masks expect.
-- `<stage>.index` lists each key with a short hash, so a regeneration shows as a readable diff.
+- Goldens are plain JSON lines, one value per line, sorted by key, so git stores a re-record as a small delta. `.gitattributes` turns off their text diff; `git diff --text` shows what a re-record changed.
 
 ## Live only
 

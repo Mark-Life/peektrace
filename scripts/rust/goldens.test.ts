@@ -3,13 +3,14 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { binPath } from "./goldens";
+import { binPath, orderProblems } from "./goldens";
 import { orderOf, rootProblem, takeLock } from "./goldens-host";
 import { STAGES, stageFiles } from "./goldens-inputs";
 
@@ -71,6 +72,32 @@ describe("orderOf", () => {
     expect(orderOf(["c", "a", "b"], ["c", "a", "b"])).toBe("creation");
     expect(orderOf(["c", "a", "b"], ["b", "a", "c"])).toBe("newest-first");
     expect(orderOf(["c", "a", "b"], ["a", "b", "c"])).toBe("other");
+  });
+});
+
+describe("orderProblems", () => {
+  test("a stage with no recorded order is unknown, not a match", () => {
+    expect(
+      orderProblems(
+        [
+          ["base", "creation"],
+          ["serve", undefined],
+          ["tui", "newest-first"],
+        ],
+        "creation"
+      )
+    ).toEqual({ other: ["tui"], unknown: ["serve"] });
+  });
+
+  test("every checked-in stage records its dir order", () => {
+    const dir = join(REPO, "tests/goldens/linux-x64");
+    const recorded = STAGES.map((s) => {
+      const meta = JSON.parse(readFileSync(join(dir, `${s}.json`), "utf8")) as {
+        dirOrder?: "creation" | "newest-first" | "other";
+      };
+      return [s, meta.dirOrder] as const;
+    });
+    expect(orderProblems(recorded, "creation").unknown).toEqual([]);
   });
 });
 

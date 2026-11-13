@@ -19,13 +19,14 @@
  *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp,
  *                                              # upgrade, help, telemetry
  *   bun scripts/rust/parity.ts --tui-only      # only the `tui` stage
- *
- * CI does not run this file per push: it replays recorded TS results with
- * `scripts/rust/goldens.ts`. Regenerate them after any change to the TS
- * sources, the fixtures or these scripts: `bun scripts/rust/goldens.ts
- * --write` (see `scripts/rust/README.md`).
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
+ *
+ * CI does not run this file per push: it replays recorded TS results with
+ * `scripts/rust/goldens.ts`. After a change to the TS sources, the fixtures
+ * or these scripts, re-record the checked-in linux-x64 set in CI: label the
+ * PR `record-goldens`, then copy the `goldens-*` artifacts into
+ * `tests/goldens/linux-x64` ("When to regenerate" in `scripts/rust/README.md`).
  *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).

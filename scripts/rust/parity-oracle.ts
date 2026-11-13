@@ -3,7 +3,7 @@
  *
  * - live (default): each TS call runs; `parity.ts` behaves as without this.
  * - record (`PARITY_ORACLE=record`): each TS call runs and its result is kept,
- *   then written to `PARITY_GOLDENS` (gzipped JSON lines) by `finishOracle`.
+ *   then written to `PARITY_GOLDENS` (JSON lines) by `finishOracle`.
  * - replay (`PARITY_ORACLE=replay`): each TS call returns the kept result, so
  *   only the Rust side runs.
  *
@@ -23,7 +23,6 @@ import {
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { gunzipSync, gzipSync } from "node:zlib";
 
 export type OracleMode = "live" | "record" | "replay";
 
@@ -46,8 +45,6 @@ export const GOLDENS_ROOT =
     : "/tmp/peektrace-goldens");
 /** Placeholder exit code of a replayed run that has no golden. */
 export const NO_GOLDEN = -999;
-const GZIP_OS_BYTE = 9;
-const GZIP_OS_UNIX = 3;
 
 interface Roots {
   readonly repo: string;
@@ -154,7 +151,7 @@ const load = () => {
     );
     return;
   }
-  const text = gunzipSync(readFileSync(FILE)).toString("utf8");
+  const text = readFileSync(FILE, "utf8");
   for (const line of text.split("\n")) {
     if (line === "") {
       continue;
@@ -285,21 +282,9 @@ export const goldenLines = (m: ReadonlyMap<string, readonly unknown[]>) =>
       (m.get(key) ?? []).map((v, n) => JSON.stringify([key, n, v]))
     );
 
-/** Gzip with a fixed header, so the same lines give the same bytes. */
-export const gzipLines = (lines: readonly string[]) => {
-  const out = gzipSync(Buffer.from(lines.map((l) => `${l}\n`).join("")), {
-    level: 9,
-  });
-  out[GZIP_OS_BYTE] = GZIP_OS_UNIX;
-  return out;
-};
-
-/** The `key#n<TAB>sha1` index that sits next to each golden file. */
-export const indexLines = (lines: readonly string[]) =>
-  lines.map((line) => {
-    const [key, n, v] = JSON.parse(line) as [string, number, unknown];
-    return `${key}#${n}\t${sha1(JSON.stringify(v)).slice(0, 12)}`;
-  });
+/** The golden file text: one line per value, each ending in a newline. */
+export const goldenText = (lines: readonly string[]) =>
+  lines.map((l) => `${l}\n`).join("");
 
 /** Text that must never reach a golden: the caller's home, temp dir, repo.
  * Paths written in the checked-in fixtures are fixture text, not leaks. */
@@ -360,7 +345,7 @@ const save = async () => {
     }
   }
   mkdirSync(dirname(FILE), { recursive: true });
-  await Bun.write(FILE, gzipLines(lines));
+  await Bun.write(FILE, goldenText(lines));
 };
 
 /** End of a run: record writes the goldens, replay reports keys no call
