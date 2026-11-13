@@ -9,24 +9,16 @@ use crate::source::DataSource;
 use crate::state::{Io, Request, Route, Ui};
 use crate::{state, views};
 
-#[cfg(not(target_arch = "wasm32"))]
-pub const FONTS: &[&[u8]] = &[
-    include_bytes!("../assets/fonts/geist.ttf"),
-    include_bytes!("../assets/fonts/geist-mono.ttf"),
-];
-
-/// Browsers give Rune no system fonts: Rune's embedded Inter covers Greek and
-/// Cyrillic, and a DejaVu Sans cut covers the UI's own `∞ ⋯ ▴ ▾`.
-#[cfg(target_arch = "wasm32")]
+/// Geist, plus a `DejaVu Sans` cut for the UI's own `∞ ⋯ ▴ ▾`, on every target:
+/// the web has no system fonts, and native fallback picks a per-OS symbol font
+/// whose widths shift the layout. Rune's embedded Inter covers Greek and
+/// Cyrillic on the web.
 pub const FONTS: &[&[u8]] = &[
     include_bytes!("../assets/fonts/geist.ttf"),
     include_bytes!("../assets/fonts/geist-mono.ttf"),
     include_bytes!("../assets/fonts/symbols.ttf"),
 ];
 
-#[cfg(not(target_arch = "wasm32"))]
-const FAMILIES: (&str, &str) = ("Geist", "Geist Mono");
-#[cfg(target_arch = "wasm32")]
 const FAMILIES: (&str, &str) = ("Geist, DejaVu Sans", "Geist Mono, DejaVu Sans");
 
 /// Wall-clock ms since 1970.

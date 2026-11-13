@@ -1,5 +1,5 @@
-//! The web build has no system fonts to fall back on, so every non-ASCII
-//! character the UI writes itself must be in the fonts it ships.
+//! Every non-ASCII character the UI writes itself must be in the fonts it
+//! ships: the web has no system fonts, and native ones differ per OS.
 
 use std::path::{Path, PathBuf};
 
@@ -67,5 +67,8 @@ fn shipped_fonts_cover_the_ui_glyphs() {
                 || !covers(&["geist-mono.ttf", "symbols.ttf"], *c)
         })
         .collect();
-    assert!(missing.is_empty(), "no glyph in the web fonts: {missing:?}");
+    assert!(
+        missing.is_empty(),
+        "no glyph in the shipped fonts: {missing:?}"
+    );
 }
