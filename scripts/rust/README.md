@@ -70,6 +70,7 @@ Record with the Bun version that `package.json` pins (`packageManager`); `--writ
 - The root is shared by every checkout on the host, so one run at a time holds it (`<root>/.lock`). A second run fails fast. The root must be a real directory you own, not a symlink.
 - Stored text has the stage dir, its real path and the repo replaced by `<WORK>`, `<RWORK>` and `<REPO>`. The fake upgrade server, the host asset name and a closed port are bound the same way. `--write` fails if your home dir, temp dir or repo path would land in a golden.
 - Fixture copies get fixed mtimes, since some rows print a file's mtime.
+- A stats case that relies on fixture data passes an explicit `days`. Fixture dates are fixed, so on a default window they leave it as days pass and the golden drifts. A default-window case compares only the resolved window.
 - Clock values TS prints (stats `generatedAt` and window, export stamps, span durations, Effect log times) are masked when recorded, keeping the shape the compare-time masks expect.
 - Goldens are plain JSON lines, one value per line, sorted by key, so git stores a re-record as a small delta. `.gitattributes` turns off their text diff; `git diff --text` shows what a re-record changed.
 
@@ -79,4 +80,4 @@ Record with the Bun version that `package.json` pins (`packageManager`); `--writ
 - The real-corpus suites.
 - TS state Rust reads in a live run (the stats `rule-lines.json` both sides share). In replay Rust writes its own.
 
-The nightly `parity live (TS vs Rust)` job runs `parity.ts --fixtures-only` and `goldens.ts --verify` on Linux. It is in `rust-live.yml`, which needs to be on the default branch for `schedule` and manual runs. Until then, label a PR `parity-live`: the job runs when the label is added and on each push after that.
+The nightly `parity live (TS vs Rust)` job runs `goldens.ts --verify` on Linux. A verify records every stage, which is a live run: it runs TS and Rust side by side and fails on any difference, then compares the new recording with `tests/goldens`. It is in `rust-live.yml`, which needs to be on the default branch for `schedule` and manual runs. Until then, label a PR `parity-live`: the job runs when the label is added and on each push after that.

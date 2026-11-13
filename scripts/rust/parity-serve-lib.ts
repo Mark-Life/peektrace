@@ -223,14 +223,18 @@ export type RpcExit =
   | { readonly kind: "fail"; readonly error: unknown }
   | { readonly kind: "die"; readonly cause: unknown };
 
-/** One TS RPC call over NDJSON; recorded and replayed as a TS result. */
+/** One TS RPC call over NDJSON; recorded (through `canon`, if given) and
+ * replayed as a TS result. */
 export const rpc = (
   port: number,
   tag: string,
-  payload: unknown = {}
+  payload: unknown = {},
+  canon?: (exit: RpcExit) => RpcExit
 ): Promise<RpcExit> =>
-  tsValue(`rpc ${port} ${tag} ${JSON.stringify(payload)}`, () =>
-    rpcLive(port, tag, payload)
+  tsValue(
+    `rpc ${port} ${tag} ${JSON.stringify(payload)}`,
+    () => rpcLive(port, tag, payload),
+    canon === undefined ? {} : { canon }
   );
 
 const rpcLive = async (

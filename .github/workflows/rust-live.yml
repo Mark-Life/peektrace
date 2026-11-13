@@ -106,8 +106,8 @@ jobs:
           path: /dev/shm/peektrace-goldens/*.log
 
   parity-live:
-    # The full harness, TS and Rust side by side, then a fresh recording
-    # compared with tests/goldens.
+    # A fresh recording compared with tests/goldens. Recording is a live
+    # run, TS and Rust side by side, so it also fails on any difference.
     name: parity live (TS vs Rust)
     if: >-
       github.event_name == 'schedule' ||
@@ -149,9 +149,5 @@ jobs:
       - name: Build (parity profile)
         run: cargo build --locked --profile parity --bins --examples
 
-      - name: Parity against the TS CLI
-        run: bun scripts/rust/parity.ts --fixtures-only --bin target/parity/peektrace
-
-      - name: Goldens match a fresh recording
-        if: success() || failure()
+      - name: Parity against the TS CLI, goldens match a fresh recording
         run: bun scripts/rust/goldens.ts --verify --bin target/parity/peektrace
