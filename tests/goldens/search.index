@@ -1,0 +1,448 @@
+ts ["--no-telemetry","--pretty","sessions","search","THE CONFIG","--limit","0"] 0239c90e8b#0	7cfa925ddab6
+ts ["--no-telemetry","--pretty","sessions","search","THE CONFIG","--limit","0"] 2277b81241#0	65dc97a6c131
+ts ["--no-telemetry","--pretty","sessions","search","THE CONFIG","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","THE CONFIG","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","THE CONFIG","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","--pretty","sessions","search","THE CONFIG","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","a\"b","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","a\"b","--limit","0"] 2277b81241#0	ef1b95a31ab2
+ts ["--no-telemetry","--pretty","sessions","search","a\"b","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","a\"b","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","a\"b","--limit","0"] d3ffd3f713#0	7bdd50848712
+ts ["--no-telemetry","--pretty","sessions","search","a\"b","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","an old walrus","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","an old walrus","--limit","0"] 2277b81241#0	5175c7db41fb
+ts ["--no-telemetry","--pretty","sessions","search","an old walrus","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","an old walrus","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","an old walrus","--limit","0"] d3ffd3f713#0	2adae51c3bbf
+ts ["--no-telemetry","--pretty","sessions","search","an old walrus","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","config loader","--limit","0"] 0239c90e8b#0	ffb6b38b3eaf
+ts ["--no-telemetry","--pretty","sessions","search","config loader","--limit","0"] 2277b81241#0	01f02d038b34
+ts ["--no-telemetry","--pretty","sessions","search","config loader","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","config loader","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","config loader","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","--pretty","sessions","search","config loader","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","k-sign","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","k-sign","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","--pretty","sessions","search","k-sign","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","k-sign","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","k-sign","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","--pretty","sessions","search","k-sign","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","quokka","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","quokka","--limit","0"] 2277b81241#0	0758ea9186ea
+ts ["--no-telemetry","--pretty","sessions","search","quokka","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","quokka","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","quokka","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","--pretty","sessions","search","quokka","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","s-long ß-sharp","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","s-long ß-sharp","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","--pretty","sessions","search","s-long ß-sharp","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","s-long ß-sharp","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","s-long ß-sharp","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","--pretty","sessions","search","s-long ß-sharp","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","sk-ant-api03","--limit","0"] 0239c90e8b#0	ca699e66c1ea
+ts ["--no-telemetry","--pretty","sessions","search","sk-ant-api03","--limit","0"] 2277b81241#0	f41cbc3b0a03
+ts ["--no-telemetry","--pretty","sessions","search","sk-ant-api03","--limit","0"] 3923e16ef2#0	36ad5f91dc1d
+ts ["--no-telemetry","--pretty","sessions","search","sk-ant-api03","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","sk-ant-api03","--limit","0"] d3ffd3f713#0	d4c0e0b94344
+ts ["--no-telemetry","--pretty","sessions","search","sk-ant-api03","--limit","0"] de123ef561#0	c642026ff5af
+ts ["--no-telemetry","--pretty","sessions","search","src/app.ts","--limit","0"] 0239c90e8b#0	97bf31a92980
+ts ["--no-telemetry","--pretty","sessions","search","src/app.ts","--limit","0"] 2277b81241#0	dab56faad6b9
+ts ["--no-telemetry","--pretty","sessions","search","src/app.ts","--limit","0"] 3923e16ef2#0	39d84cc9360e
+ts ["--no-telemetry","--pretty","sessions","search","src/app.ts","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","src/app.ts","--limit","0"] d3ffd3f713#0	9b0ec8eb7187
+ts ["--no-telemetry","--pretty","sessions","search","src/app.ts","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","the","--limit","0"] 0239c90e8b#0	4e9e1f387737
+ts ["--no-telemetry","--pretty","sessions","search","the","--limit","0"] 2277b81241#0	1d3c95dbbb30
+ts ["--no-telemetry","--pretty","sessions","search","the","--limit","0"] 3923e16ef2#0	eebdbf4ace7e
+ts ["--no-telemetry","--pretty","sessions","search","the","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","the","--limit","0"] d3ffd3f713#0	bca7bed14f57
+ts ["--no-telemetry","--pretty","sessions","search","the","--limit","0"] de123ef561#0	1a812abd656c
+ts ["--no-telemetry","--pretty","sessions","search","walrus","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","walrus","--limit","0"] 2277b81241#0	e2485f880dfb
+ts ["--no-telemetry","--pretty","sessions","search","walrus","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","walrus","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","walrus","--limit","0"] d3ffd3f713#0	98078baef8c7
+ts ["--no-telemetry","--pretty","sessions","search","walrus","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","ΟΔΟΣ","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","ΟΔΟΣ","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","--pretty","sessions","search","ΟΔΟΣ","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","ΟΔΟΣ","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","ΟΔΟΣ","--limit","0"] d3ffd3f713#0	ec78ee5ad38a
+ts ["--no-telemetry","--pretty","sessions","search","ΟΔΟΣ","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","--pretty","sessions","search","привет мир","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","--pretty","sessions","search","привет мир","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","--pretty","sessions","search","привет мир","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","--pretty","sessions","search","привет мир","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","--pretty","sessions","search","привет мир","--limit","0"] d3ffd3f713#0	0a46bc11a775
+ts ["--no-telemetry","--pretty","sessions","search","привет мир","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","   "] 0239c90e8b#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search","   "] 2277b81241#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search","   "] 3923e16ef2#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search","   "] bc6e3f4540#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search","   "] d3ffd3f713#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search","   "] de123ef561#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search",""] 0239c90e8b#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search",""] 2277b81241#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search",""] 3923e16ef2#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search",""] bc6e3f4540#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search",""] d3ffd3f713#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search",""] de123ef561#0	a1751b73c4f5
+ts ["--no-telemetry","sessions","search","--","-v","--json","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","--","-v","--json","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","--","-v","--json","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","--","-v","--json","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","--","-v","--json","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","--","-v","--json","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","--force","--json"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","--force","--json"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","--force","--json"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","--force","--json"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","--force","--json"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","--force","--json"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","--limit","0","--force","--json"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","--limit","0","--force","--json"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","--limit","0","--force","--json"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","--limit","0","--force","--json"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","--limit","0","--force","--json"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","--limit","0","--force","--json"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","-rf"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","-rf"] 2277b81241#0	0b6a2404a84d
+ts ["--no-telemetry","sessions","search","-rf"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","-rf"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","-rf"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","-rf"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","-walrus","--json"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","-walrus","--json"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","-walrus","--json"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","-walrus","--json"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","-walrus","--json"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","-walrus","--json"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","THE CONFIG","--json","--limit","0"] 0239c90e8b#0	d2d42f7e1ae7
+ts ["--no-telemetry","sessions","search","THE CONFIG","--json","--limit","0"] 2277b81241#0	868864fc4011
+ts ["--no-telemetry","sessions","search","THE CONFIG","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","THE CONFIG","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","THE CONFIG","--json","--limit","0"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","THE CONFIG","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","THE CONFIG","--limit","0"] 0239c90e8b#0	3bccfc63abcd
+ts ["--no-telemetry","sessions","search","THE CONFIG","--limit","0"] 2277b81241#0	4c388427f2c4
+ts ["--no-telemetry","sessions","search","THE CONFIG","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","THE CONFIG","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","THE CONFIG","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","THE CONFIG","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","a\"b","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","a\"b","--json","--limit","0"] 2277b81241#0	02e870f41687
+ts ["--no-telemetry","sessions","search","a\"b","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","a\"b","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","a\"b","--json","--limit","0"] d3ffd3f713#0	4a806c3e6d81
+ts ["--no-telemetry","sessions","search","a\"b","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","a\"b","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","a\"b","--limit","0"] 2277b81241#0	d202d59566d6
+ts ["--no-telemetry","sessions","search","a\"b","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","a\"b","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","a\"b","--limit","0"] d3ffd3f713#0	3ac0ceec2d1e
+ts ["--no-telemetry","sessions","search","a\"b","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","an old walrus","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","an old walrus","--json","--limit","0"] 2277b81241#0	80958a7f6d16
+ts ["--no-telemetry","sessions","search","an old walrus","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","an old walrus","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","an old walrus","--json","--limit","0"] d3ffd3f713#0	e6830179029e
+ts ["--no-telemetry","sessions","search","an old walrus","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","an old walrus","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","an old walrus","--limit","0"] 2277b81241#0	e84d4855950c
+ts ["--no-telemetry","sessions","search","an old walrus","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","an old walrus","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","an old walrus","--limit","0"] d3ffd3f713#0	31c2740c02c7
+ts ["--no-telemetry","sessions","search","an old walrus","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","an","old","walrus","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","an","old","walrus","--limit","0"] 2277b81241#0	e84d4855950c
+ts ["--no-telemetry","sessions","search","an","old","walrus","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","an","old","walrus","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","an","old","walrus","--limit","0"] d3ffd3f713#0	31c2740c02c7
+ts ["--no-telemetry","sessions","search","an","old","walrus","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","config loader","--json","--limit","0"] 0239c90e8b#0	1fbf937b0978
+ts ["--no-telemetry","sessions","search","config loader","--json","--limit","0"] 2277b81241#0	16239ae0b2a8
+ts ["--no-telemetry","sessions","search","config loader","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","config loader","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","config loader","--json","--limit","0"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","config loader","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","config loader","--limit","0"] 0239c90e8b#0	221bb483b641
+ts ["--no-telemetry","sessions","search","config loader","--limit","0"] 2277b81241#0	64eaf9681578
+ts ["--no-telemetry","sessions","search","config loader","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","config loader","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","config loader","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","config loader","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","git","push","--force","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","git","push","--force","--limit","0"] 2277b81241#0	0b6a2404a84d
+ts ["--no-telemetry","sessions","search","git","push","--force","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","git","push","--force","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","git","push","--force","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","git","push","--force","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","k-sign","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","k-sign","--json","--limit","0"] 2277b81241#0	af9af9f4081c
+ts ["--no-telemetry","sessions","search","k-sign","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","k-sign","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","k-sign","--json","--limit","0"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","k-sign","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","k-sign","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","k-sign","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","k-sign","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","k-sign","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","k-sign","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","k-sign","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","push","-rf","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","push","-rf","--json","--limit","0"] 2277b81241#0	af9af9f4081c
+ts ["--no-telemetry","sessions","search","push","-rf","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","push","-rf","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","push","-rf","--json","--limit","0"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","push","-rf","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","quokka","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","quokka","--json","--limit","0"] 2277b81241#0	d2ac5871d92f
+ts ["--no-telemetry","sessions","search","quokka","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","quokka","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","quokka","--json","--limit","0"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","quokka","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","quokka","--json"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","quokka","--json"] 2277b81241#0	d2ac5871d92f
+ts ["--no-telemetry","sessions","search","quokka","--json"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","quokka","--json"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","quokka","--json"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","quokka","--json"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","quokka","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","quokka","--limit","0"] 2277b81241#0	7ecf189118fd
+ts ["--no-telemetry","sessions","search","quokka","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","quokka","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","quokka","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","quokka","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--json","--limit","0"] 2277b81241#0	af9af9f4081c
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--json","--limit","0"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","s-long ß-sharp","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 0239c90e8b#0	4cf8130a0c95
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 2277b81241#0	6a52e9eae10c
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] 3923e16ef2#0	d94c256833c3
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] d3ffd3f713#0	5fccae3cb502
+ts ["--no-telemetry","sessions","search","sk-ant","--no-redact","--json","--limit","0"] de123ef561#0	863f69185878
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--json","--limit","0"] 0239c90e8b#0	535a74de3c34
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--json","--limit","0"] 2277b81241#0	259ea79f9d08
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--json","--limit","0"] 3923e16ef2#0	81548e379af5
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--json","--limit","0"] d3ffd3f713#0	f5c5511d23e7
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--json","--limit","0"] de123ef561#0	5ed2e8646fe6
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--limit","0"] 0239c90e8b#0	65b1307cd546
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--limit","0"] 2277b81241#0	cb44372068be
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--limit","0"] 3923e16ef2#0	6cc1f93987b1
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--limit","0"] d3ffd3f713#0	a01cbb787076
+ts ["--no-telemetry","sessions","search","sk-ant-api03","--limit","0"] de123ef561#0	aebdcc8eff01
+ts ["--no-telemetry","sessions","search","src/app.ts","--json","--limit","0"] 0239c90e8b#0	b875e8ae19b5
+ts ["--no-telemetry","sessions","search","src/app.ts","--json","--limit","0"] 2277b81241#0	23c5ddbba85d
+ts ["--no-telemetry","sessions","search","src/app.ts","--json","--limit","0"] 3923e16ef2#0	bfd24559a56e
+ts ["--no-telemetry","sessions","search","src/app.ts","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","src/app.ts","--json","--limit","0"] d3ffd3f713#0	16c90882d352
+ts ["--no-telemetry","sessions","search","src/app.ts","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","src/app.ts","--limit","0"] 0239c90e8b#0	6634e9cc16fb
+ts ["--no-telemetry","sessions","search","src/app.ts","--limit","0"] 2277b81241#0	db90dc34965d
+ts ["--no-telemetry","sessions","search","src/app.ts","--limit","0"] 3923e16ef2#0	459c4d75c22d
+ts ["--no-telemetry","sessions","search","src/app.ts","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","src/app.ts","--limit","0"] d3ffd3f713#0	a66c38e0652b
+ts ["--no-telemetry","sessions","search","src/app.ts","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","the","--agent","all","--json","--limit","0"] 0239c90e8b#0	e2969a0e243a
+ts ["--no-telemetry","sessions","search","the","--agent","all","--json","--limit","0"] 2277b81241#0	c2c5d5102f0d
+ts ["--no-telemetry","sessions","search","the","--agent","all","--json","--limit","0"] 3923e16ef2#0	c2354503d3b2
+ts ["--no-telemetry","sessions","search","the","--agent","all","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","the","--agent","all","--json","--limit","0"] d3ffd3f713#0	a0a419d7c5b9
+ts ["--no-telemetry","sessions","search","the","--agent","all","--json","--limit","0"] de123ef561#0	2cf0b2826f96
+ts ["--no-telemetry","sessions","search","the","--agent","claude","--json","--limit","0"] 0239c90e8b#0	7c592e8b7b50
+ts ["--no-telemetry","sessions","search","the","--agent","claude","--json","--limit","0"] 2277b81241#0	d07d5f0babd0
+ts ["--no-telemetry","sessions","search","the","--agent","claude","--json","--limit","0"] 3923e16ef2#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","claude","--json","--limit","0"] bc6e3f4540#0	a5130e395017
+ts ["--no-telemetry","sessions","search","the","--agent","claude","--json","--limit","0"] d3ffd3f713#0	a0a419d7c5b9
+ts ["--no-telemetry","sessions","search","the","--agent","claude","--json","--limit","0"] de123ef561#0	377b831e6b30
+ts ["--no-telemetry","sessions","search","the","--agent","codex","--json","--limit","0"] 0239c90e8b#0	1232ea201c9c
+ts ["--no-telemetry","sessions","search","the","--agent","codex","--json","--limit","0"] 2277b81241#0	462045ab836c
+ts ["--no-telemetry","sessions","search","the","--agent","codex","--json","--limit","0"] 3923e16ef2#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","codex","--json","--limit","0"] bc6e3f4540#0	3a9560ebe44f
+ts ["--no-telemetry","sessions","search","the","--agent","codex","--json","--limit","0"] d3ffd3f713#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","codex","--json","--limit","0"] de123ef561#0	1232ea201c9c
+ts ["--no-telemetry","sessions","search","the","--agent","opencode","--json","--limit","0"] 0239c90e8b#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","opencode","--json","--limit","0"] 2277b81241#0	f294a1f86165
+ts ["--no-telemetry","sessions","search","the","--agent","opencode","--json","--limit","0"] 3923e16ef2#0	c2354503d3b2
+ts ["--no-telemetry","sessions","search","the","--agent","opencode","--json","--limit","0"] bc6e3f4540#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","opencode","--json","--limit","0"] d3ffd3f713#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","opencode","--json","--limit","0"] de123ef561#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","pi","--json","--limit","0"] 0239c90e8b#0	b70517dfa5b1
+ts ["--no-telemetry","sessions","search","the","--agent","pi","--json","--limit","0"] 2277b81241#0	ec0529f218a9
+ts ["--no-telemetry","sessions","search","the","--agent","pi","--json","--limit","0"] 3923e16ef2#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","pi","--json","--limit","0"] bc6e3f4540#0	80b54a7a6286
+ts ["--no-telemetry","sessions","search","the","--agent","pi","--json","--limit","0"] d3ffd3f713#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--agent","pi","--json","--limit","0"] de123ef561#0	912c5b107ab5
+ts ["--no-telemetry","sessions","search","the","--json","--limit","0"] 0239c90e8b#0	e2969a0e243a
+ts ["--no-telemetry","sessions","search","the","--json","--limit","0"] 2277b81241#0	c2c5d5102f0d
+ts ["--no-telemetry","sessions","search","the","--json","--limit","0"] 3923e16ef2#0	c2354503d3b2
+ts ["--no-telemetry","sessions","search","the","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","the","--json","--limit","0"] d3ffd3f713#0	a0a419d7c5b9
+ts ["--no-telemetry","sessions","search","the","--json","--limit","0"] de123ef561#0	2cf0b2826f96
+ts ["--no-telemetry","sessions","search","the","--limit","0"] 0239c90e8b#0	adfdad4e3816
+ts ["--no-telemetry","sessions","search","the","--limit","0"] 2277b81241#0	e4f5f6a5e192
+ts ["--no-telemetry","sessions","search","the","--limit","0"] 3923e16ef2#0	934c96c78370
+ts ["--no-telemetry","sessions","search","the","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","the","--limit","0"] d3ffd3f713#0	34f4d380efee
+ts ["--no-telemetry","sessions","search","the","--limit","0"] de123ef561#0	06b6e45b279a
+ts ["--no-telemetry","sessions","search","the","--limit","1","--json"] 0239c90e8b#0	4cacf93027a3
+ts ["--no-telemetry","sessions","search","the","--limit","1","--json"] 2277b81241#0	03c6cac0ac54
+ts ["--no-telemetry","sessions","search","the","--limit","1","--json"] 3923e16ef2#0	26c24b0a85f9
+ts ["--no-telemetry","sessions","search","the","--limit","1","--json"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","the","--limit","1","--json"] d3ffd3f713#0	b5bec1bfbb82
+ts ["--no-telemetry","sessions","search","the","--limit","1","--json"] de123ef561#0	d4a960735105
+ts ["--no-telemetry","sessions","search","the","--limit","2"] 0239c90e8b#0	689da933a91b
+ts ["--no-telemetry","sessions","search","the","--limit","2"] 2277b81241#0	1baaaa947b35
+ts ["--no-telemetry","sessions","search","the","--limit","2"] 3923e16ef2#0	c134fdd33045
+ts ["--no-telemetry","sessions","search","the","--limit","2"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","the","--limit","2"] d3ffd3f713#0	34f4d380efee
+ts ["--no-telemetry","sessions","search","the","--limit","2"] de123ef561#0	7d435c5c52d1
+ts ["--no-telemetry","sessions","search","the","--project=--tmp-pi--","--json","--limit","0"] de123ef561#0	912c5b107ab5
+ts ["--no-telemetry","sessions","search","the","--project=-edge-s","--json","--limit","0"] d3ffd3f713#0	a0a419d7c5b9
+ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] 0239c90e8b#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] 2277b81241#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] 3923e16ef2#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] bc6e3f4540#0	71bba7424db0
+ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] d3ffd3f713#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--project=-home-demo-work","--json","--limit","0"] de123ef561#0	256916924dae
+ts ["--no-telemetry","sessions","search","the","--project=-tmp-peektrace-goldens-search-search-home-work","--json","--limit","0"] 2277b81241#0	6be0384b4a92
+ts ["--no-telemetry","sessions","search","the","--project=-~-work","--json","--limit","0"] 2277b81241#0	6be0384b4a92
+ts ["--no-telemetry","sessions","search","the","--project=cx","--json","--limit","0"] 2277b81241#0	462045ab836c
+ts ["--no-telemetry","sessions","search","the","--project=proj","--json","--limit","0"] 3923e16ef2#0	db82cff918a6
+ts ["--no-telemetry","sessions","search","the","--project=sessions-opencode","--json","--limit","0"] 0239c90e8b#0	770aad586e57
+ts ["--no-telemetry","sessions","search","the","--project=プロジェクト","--json","--limit","0"] 3923e16ef2#0	f4fc9086d2a9
+ts ["--no-telemetry","sessions","search","the","--since","100000w","--limit","0"] 0239c90e8b#0	adfdad4e3816
+ts ["--no-telemetry","sessions","search","the","--since","100000w","--limit","0"] 2277b81241#0	e4f5f6a5e192
+ts ["--no-telemetry","sessions","search","the","--since","100000w","--limit","0"] 3923e16ef2#0	934c96c78370
+ts ["--no-telemetry","sessions","search","the","--since","100000w","--limit","0"] bc6e3f4540#0	2edc376e4c25
+ts ["--no-telemetry","sessions","search","the","--since","100000w","--limit","0"] d3ffd3f713#0	34f4d380efee
+ts ["--no-telemetry","sessions","search","the","--since","100000w","--limit","0"] de123ef561#0	06b6e45b279a
+ts ["--no-telemetry","sessions","search","the","--since","2026-04-01","--json","--limit","0"] 0239c90e8b#0	e2969a0e243a
+ts ["--no-telemetry","sessions","search","the","--since","2026-04-01","--json","--limit","0"] 2277b81241#0	00546a42bf88
+ts ["--no-telemetry","sessions","search","the","--since","2026-04-01","--json","--limit","0"] 3923e16ef2#0	13ff58b55c6b
+ts ["--no-telemetry","sessions","search","the","--since","2026-04-01","--json","--limit","0"] bc6e3f4540#0	970a29de1ee6
+ts ["--no-telemetry","sessions","search","the","--since","2026-04-01","--json","--limit","0"] d3ffd3f713#0	a0a419d7c5b9
+ts ["--no-telemetry","sessions","search","the","--since","2026-04-01","--json","--limit","0"] de123ef561#0	2cf0b2826f96
+ts ["--no-telemetry","sessions","search","walrus","--agent","bogus"] 0239c90e8b#0	6b4740152a18
+ts ["--no-telemetry","sessions","search","walrus","--agent","bogus"] 2277b81241#0	6b4740152a18
+ts ["--no-telemetry","sessions","search","walrus","--agent","bogus"] 3923e16ef2#0	6b4740152a18
+ts ["--no-telemetry","sessions","search","walrus","--agent","bogus"] bc6e3f4540#0	6b4740152a18
+ts ["--no-telemetry","sessions","search","walrus","--agent","bogus"] d3ffd3f713#0	6b4740152a18
+ts ["--no-telemetry","sessions","search","walrus","--agent","bogus"] de123ef561#0	6b4740152a18
+ts ["--no-telemetry","sessions","search","walrus","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","walrus","--json","--limit","0"] 2277b81241#0	6ae6a1fdc58b
+ts ["--no-telemetry","sessions","search","walrus","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","walrus","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","walrus","--json","--limit","0"] d3ffd3f713#0	c202919ebaad
+ts ["--no-telemetry","sessions","search","walrus","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","walrus","--limit","-1"] 0239c90e8b#0	74b3d9f3eeae
+ts ["--no-telemetry","sessions","search","walrus","--limit","-1"] 2277b81241#0	74b3d9f3eeae
+ts ["--no-telemetry","sessions","search","walrus","--limit","-1"] 3923e16ef2#0	74b3d9f3eeae
+ts ["--no-telemetry","sessions","search","walrus","--limit","-1"] bc6e3f4540#0	74b3d9f3eeae
+ts ["--no-telemetry","sessions","search","walrus","--limit","-1"] d3ffd3f713#0	74b3d9f3eeae
+ts ["--no-telemetry","sessions","search","walrus","--limit","-1"] de123ef561#0	74b3d9f3eeae
+ts ["--no-telemetry","sessions","search","walrus","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","walrus","--limit","0"] 2277b81241#0	43595c472f2a
+ts ["--no-telemetry","sessions","search","walrus","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","walrus","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","walrus","--limit","0"] d3ffd3f713#0	d2c890ec44ec
+ts ["--no-telemetry","sessions","search","walrus","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","walrus","--limit","1.5"] 0239c90e8b#0	058664d8b24e
+ts ["--no-telemetry","sessions","search","walrus","--limit","1.5"] 2277b81241#0	058664d8b24e
+ts ["--no-telemetry","sessions","search","walrus","--limit","1.5"] 3923e16ef2#0	058664d8b24e
+ts ["--no-telemetry","sessions","search","walrus","--limit","1.5"] bc6e3f4540#0	058664d8b24e
+ts ["--no-telemetry","sessions","search","walrus","--limit","1.5"] d3ffd3f713#0	058664d8b24e
+ts ["--no-telemetry","sessions","search","walrus","--limit","1.5"] de123ef561#0	058664d8b24e
+ts ["--no-telemetry","sessions","search","walrus","--limit"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","walrus","--limit"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","walrus","--limit"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","walrus","--limit"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","walrus","--limit"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","walrus","--limit"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 2277b81241#0	f34e7f34757b
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] d3ffd3f713#0	a46dc2be7999
+ts ["--no-telemetry","sessions","search","walrus","--no-redact","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","walrus","--project=--tmp-pi--","--limit","0"] de123ef561#0	319a0eba37de
+ts ["--no-telemetry","sessions","search","walrus","--project=-edge-s","--limit","0"] d3ffd3f713#0	d2c890ec44ec
+ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] 0239c90e8b#0	a190b5654468
+ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] 2277b81241#0	a190b5654468
+ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] 3923e16ef2#0	a190b5654468
+ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] bc6e3f4540#0	1dcc9ba66263
+ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] d3ffd3f713#0	a190b5654468
+ts ["--no-telemetry","sessions","search","walrus","--project=-home-demo-work","--limit","0"] de123ef561#0	a190b5654468
+ts ["--no-telemetry","sessions","search","walrus","--project=-tmp-peektrace-goldens-search-search-home-work","--limit","0"] 2277b81241#0	a1b92acb95d3
+ts ["--no-telemetry","sessions","search","walrus","--project=-~-work","--limit","0"] 2277b81241#0	a1b92acb95d3
+ts ["--no-telemetry","sessions","search","walrus","--project=cx","--limit","0"] 2277b81241#0	7b383d9f5b42
+ts ["--no-telemetry","sessions","search","walrus","--project=proj","--limit","0"] 3923e16ef2#0	e5f75e2bcd4d
+ts ["--no-telemetry","sessions","search","walrus","--project=sessions-opencode","--limit","0"] 0239c90e8b#0	e7a2107463d0
+ts ["--no-telemetry","sessions","search","walrus","--project=プロジェクト","--limit","0"] 3923e16ef2#0	7b383d9f5b42
+ts ["--no-telemetry","sessions","search","walrus","--since","99999999999w"] 0239c90e8b#0	ad40c738d009
+ts ["--no-telemetry","sessions","search","walrus","--since","99999999999w"] 2277b81241#0	ad40c738d009
+ts ["--no-telemetry","sessions","search","walrus","--since","99999999999w"] 3923e16ef2#0	ad40c738d009
+ts ["--no-telemetry","sessions","search","walrus","--since","99999999999w"] bc6e3f4540#0	ad40c738d009
+ts ["--no-telemetry","sessions","search","walrus","--since","99999999999w"] d3ffd3f713#0	ad40c738d009
+ts ["--no-telemetry","sessions","search","walrus","--since","99999999999w"] de123ef561#0	ad40c738d009
+ts ["--no-telemetry","sessions","search","walrus","--since","bogus"] 0239c90e8b#0	e899de41bb93
+ts ["--no-telemetry","sessions","search","walrus","--since","bogus"] 2277b81241#0	e899de41bb93
+ts ["--no-telemetry","sessions","search","walrus","--since","bogus"] 3923e16ef2#0	e899de41bb93
+ts ["--no-telemetry","sessions","search","walrus","--since","bogus"] bc6e3f4540#0	e899de41bb93
+ts ["--no-telemetry","sessions","search","walrus","--since","bogus"] d3ffd3f713#0	e899de41bb93
+ts ["--no-telemetry","sessions","search","walrus","--since","bogus"] de123ef561#0	e899de41bb93
+ts ["--no-telemetry","sessions","search","walrus"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","walrus"] 2277b81241#0	fd9d4190886a
+ts ["--no-telemetry","sessions","search","walrus"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","walrus"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","walrus"] d3ffd3f713#0	c954ae714e5c
+ts ["--no-telemetry","sessions","search","walrus"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","zzz-no-such-text","--json"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","zzz-no-such-text","--json"] 2277b81241#0	af9af9f4081c
+ts ["--no-telemetry","sessions","search","zzz-no-such-text","--json"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","zzz-no-such-text","--json"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","zzz-no-such-text","--json"] d3ffd3f713#0	9cf0ca4e5333
+ts ["--no-telemetry","sessions","search","zzz-no-such-text","--json"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","zzz-no-such-text"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","zzz-no-such-text"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","zzz-no-such-text"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","zzz-no-such-text"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","zzz-no-such-text"] d3ffd3f713#0	b3408d18d751
+ts ["--no-telemetry","sessions","search","zzz-no-such-text"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--json","--limit","0"] 2277b81241#0	af9af9f4081c
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--json","--limit","0"] d3ffd3f713#0	27a1efed10a2
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--limit","0"] d3ffd3f713#0	010762cbb23b
+ts ["--no-telemetry","sessions","search","ΟΔΟΣ","--limit","0"] de123ef561#0	c2ee0151ba96
+ts ["--no-telemetry","sessions","search","привет мир","--json","--limit","0"] 0239c90e8b#0	c4ec73ad0b47
+ts ["--no-telemetry","sessions","search","привет мир","--json","--limit","0"] 2277b81241#0	af9af9f4081c
+ts ["--no-telemetry","sessions","search","привет мир","--json","--limit","0"] 3923e16ef2#0	0ba86be28059
+ts ["--no-telemetry","sessions","search","привет мир","--json","--limit","0"] bc6e3f4540#0	45a7064d3cd1
+ts ["--no-telemetry","sessions","search","привет мир","--json","--limit","0"] d3ffd3f713#0	548c0dd16b55
+ts ["--no-telemetry","sessions","search","привет мир","--json","--limit","0"] de123ef561#0	82860aacd101
+ts ["--no-telemetry","sessions","search","привет мир","--limit","0"] 0239c90e8b#0	603cb33fd5b8
+ts ["--no-telemetry","sessions","search","привет мир","--limit","0"] 2277b81241#0	59b7a2f7b369
+ts ["--no-telemetry","sessions","search","привет мир","--limit","0"] 3923e16ef2#0	290143d24485
+ts ["--no-telemetry","sessions","search","привет мир","--limit","0"] bc6e3f4540#0	c9764a513768
+ts ["--no-telemetry","sessions","search","привет мир","--limit","0"] d3ffd3f713#0	39c9a4bdfa31
+ts ["--no-telemetry","sessions","search","привет мир","--limit","0"] de123ef561#0	c2ee0151ba96
