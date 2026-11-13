@@ -63,4 +63,39 @@ mod tests {
         assert_eq!(click_action(Some(3), 3, true), ClickAction::Jump);
         assert_eq!(click_action(Some(2), 3, true), ClickAction::Show);
     }
+    // Ports of `packages/viz/test/timeline-hit.test.ts`: plot left 100, width 800.
+
+    #[test]
+    fn snapshots_spread_evenly_from_edge_to_edge() {
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 100.0), Some(0));
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 500.0), Some(2));
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 900.0), Some(4));
+    }
+
+    #[test]
+    fn the_nearest_snapshot_wins() {
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 199.0), Some(0));
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 201.0), Some(1));
+    }
+
+    #[test]
+    fn a_pointer_past_either_edge_clamps() {
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 0.0), Some(0));
+        assert_eq!(snap_index_at_x(100.0, 5, 800.0, 2000.0), Some(4));
+    }
+
+    #[test]
+    fn one_snapshot_is_always_it_none_is_none() {
+        assert_eq!(snap_index_at_x(100.0, 1, 800.0, 0.0), Some(0));
+        assert_eq!(snap_index_at_x(100.0, 1, 800.0, 900.0), Some(0));
+        assert_eq!(snap_index_at_x(100.0, 0, 800.0, 500.0), None);
+    }
+
+    #[test]
+    fn a_click_jumps_a_tap_shows_then_jumps() {
+        assert_eq!(click_action(None, 2, false), ClickAction::Jump);
+        assert_eq!(click_action(None, 2, true), ClickAction::Show);
+        assert_eq!(click_action(Some(1), 2, true), ClickAction::Show);
+        assert_eq!(click_action(Some(2), 2, true), ClickAction::Jump);
+    }
 }

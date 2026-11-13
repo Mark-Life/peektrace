@@ -133,4 +133,66 @@ mod tests {
             SettleEffect::Fire
         );
     }
+    // Ports of `apps/inspector/test/settle.test.ts`. The atom cases run on the
+    // sessions timing (wait 1500, max wait 4000) instead of TS's 20/60 ms.
+
+    fn run(s: &mut Settle, bumps: &[f64], until: f64, paused: bool) -> Vec<f64> {
+        let mut fired = Vec::new();
+        let mut t = 0.0;
+        while t <= until {
+            if bumps.contains(&t) {
+                step(s, SettleEvent::Bump { now: t }, paused);
+            }
+            if step(s, SettleEvent::Tick { now: t }, paused) == SettleEffect::Fire {
+                fired.push(t);
+            }
+            t += 50.0;
+        }
+        fired
+    }
+
+    #[test]
+    fn delay_is_capped_by_max_wait_under_continuous_bumps() {
+        let delays: Vec<f64> = [1000.0, 2000.0, 3000.0]
+            .into_iter()
+            .map(|now| settle_delay(now, 0.0, now, 1500.0, 4000.0))
+            .collect();
+        assert_eq!(delays, [1500.0, 1500.0, 1000.0]);
+        assert!(settle_delay(5000.0, 0.0, 5000.0, 1500.0, 4000.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_burst_of_bumps_fires_once() {
+        let mut s = Settle::Idle;
+        for _ in 0..3 {
+            step(&mut s, SettleEvent::Bump { now: 0.0 }, false);
+        }
+        assert_eq!(run(&mut s, &[], 8000.0, false), [1500.0]);
+    }
+
+    #[test]
+    fn continuous_bumps_still_fire_by_max_wait() {
+        let bumps: Vec<f64> = (0..10).map(|i| f64::from(i) * 500.0).collect();
+        let fired = run(&mut Settle::Idle, &bumps, 8000.0, false);
+        assert!(fired.len() > 1, "{fired:?}");
+        assert!(fired[0] < 4500.0, "fired before the last bump: {fired:?}");
+        assert_eq!(fired.last().copied(), Some(6000.0));
+    }
+
+    #[test]
+    fn pause_holds_bumps_and_resume_fires_at_once() {
+        let mut s = Settle::Idle;
+        assert_eq!(run(&mut s, &[0.0], 8000.0, true), Vec::<f64>::new());
+        assert_eq!(
+            step(&mut s, SettleEvent::Tick { now: 8000.0 }, false),
+            SettleEffect::Fire
+        );
+    }
+
+    #[test]
+    fn resume_with_nothing_pending_fires_nothing() {
+        let mut s = Settle::Idle;
+        assert_eq!(run(&mut s, &[], 1000.0, true), Vec::<f64>::new());
+        assert_eq!(run(&mut s, &[], 8000.0, false), Vec::<f64>::new());
+    }
 }
