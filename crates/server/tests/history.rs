@@ -310,14 +310,36 @@ fn an_append_moves_the_rev_and_only_the_last_page() {
 
 #[test]
 fn every_part_reads_into_the_protocol_types() {
-    use peektrace_protocol::view::{HistoryIndex, HistoryPage, SessionSummary};
+    use peektrace_protocol::view::{AnalyzedSession, HistoryIndex, HistoryPage, SessionSummary};
     use peektrace_protocol::{GrowthSeries, HistorySearchResult};
+    /// Every key `typed` writes is on the wire too: the types read only
+    /// some fields, but never invent one.
+    fn within(typed: &Value, wire: &Value, at: &str) {
+        match (typed, wire) {
+            (Value::Object(t), Value::Object(w)) => {
+                for (k, v) in t {
+                    let w = w
+                        .get(k)
+                        .unwrap_or_else(|| panic!("{at}.{k} is not on the wire"));
+                    within(v, w, &format!("{at}.{k}"));
+                }
+            }
+            (Value::Array(t), Value::Array(w)) => {
+                assert_eq!(t.len(), w.len(), "{at}");
+                for (i, (t, w)) in t.iter().zip(w).enumerate() {
+                    within(t, w, &format!("{at}[{i}]"));
+                }
+            }
+            _ => {}
+        }
+    }
     fn round<T>(body: &str) -> T
     where
         T: serde::de::DeserializeOwned + serde::Serialize + PartialEq + std::fmt::Debug,
     {
         let t: T = serde_json::from_str(body).expect("typed");
         let back = serde_json::to_value(&t).expect("value");
+        within(&back, &serde_json::from_str(body).expect("wire"), "");
         assert_eq!(serde_json::from_value::<T>(back).ok().as_ref(), Some(&t));
         t
     }
@@ -339,6 +361,10 @@ fn every_part_reads_into_the_protocol_types() {
         assert_eq!(Some(&page.meta.hash), sum.history.pages.first());
         assert_eq!(index.meta.hash, sum.history.index);
         assert_eq!(index.rows.len() as u64, page.meta.total);
-        assert!(index.rows.iter().all(|r| r.event.body.is_empty()));
+        // A full analysis never reads as a summary with no events.
+        assert!(serde_json::from_str::<AnalyzedSession>(&body("summary")).is_err());
+        let full: AnalyzedSession = round(&body("analysis"));
+        assert_eq!(full.meta, sum.meta);
+        assert_eq!(full.events.len(), index.rows.len());
     }
 }

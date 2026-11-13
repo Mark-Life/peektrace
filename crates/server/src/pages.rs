@@ -54,6 +54,14 @@ impl Built {
     }
 }
 
+/// `fresh` on the blocking pool: it stats every input, which on a slow
+/// mount would stall a runtime worker. A check that fails to run is stale.
+async fn fresh_off_runtime(built: Arc<Built>, version: u64) -> bool {
+    tokio::task::spawn_blocking(move || built.fresh(version))
+        .await
+        .unwrap_or(false)
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Lookup {
     Hit,
@@ -109,8 +117,9 @@ impl PagesCache {
     {
         let mut cell = self.cell(key);
         if let Some(b) = cell.get() {
-            if b.fresh(version) {
-                return Ok((Arc::clone(b), Lookup::Hit));
+            let held = Arc::clone(b);
+            if fresh_off_runtime(Arc::clone(&held), version).await {
+                return Ok((held, Lookup::Hit));
             }
             self.evict(key, &cell);
             cell = self.cell(key);

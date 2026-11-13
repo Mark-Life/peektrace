@@ -8,10 +8,9 @@ fn ev(k: EventKind) -> TimelineEvent {
 }
 
 fn tool(k: EventKind, id: &str) -> TimelineEvent {
-    TimelineEvent {
-        tool_use_id: Some(id.into()),
-        ..kind(k)
-    }
+    let mut built = kind(k);
+    built.tool_use_id = Some(id.into());
+    built
 }
 
 fn all(events: &[TimelineEvent]) -> Vec<usize> {
@@ -56,14 +55,16 @@ fn lanes() {
     for (k, lane) in expect {
         assert_eq!(lane_of(&ev(k)), lane, "{k:?}");
     }
-    let side = TimelineEvent {
-        is_sidechain: Some(true),
-        ..ev(K::UserPrompt)
+    let side = {
+        let mut built = ev(K::UserPrompt);
+        built.is_sidechain = Some(true);
+        built
     };
     assert_eq!(lane_of(&side), Lane::Agent);
-    let origin = |o| TimelineEvent {
-        prompt_origin: Some(o),
-        ..ev(K::UserPrompt)
+    let origin = |o| {
+        let mut built = ev(K::UserPrompt);
+        built.prompt_origin = Some(o);
+        built
     };
     assert_eq!(lane_of(&origin(PromptOrigin::Command)), Lane::User);
     assert_eq!(
@@ -74,25 +75,28 @@ fn lanes() {
 
 #[test]
 fn chip_labels() {
-    let t = |title: &str| TimelineEvent {
-        title: title.into(),
-        ..ev(EventKind::Attachment)
+    let t = |title: &str| {
+        let mut built = ev(EventKind::Attachment);
+        built.title = title.into();
+        built
     };
     assert_eq!(chip_label(&t("file: main.rs")), "main.rs");
     assert_eq!(chip_label(&t("edited_text_file: a.md")), "a.md");
     assert_eq!(chip_label(&t("hook output")), "hook output");
-    let blank = TimelineEvent {
-        attachment_type: Some("todo_reminder".into()),
-        ..t("  ")
+    let blank = {
+        let mut built = t("  ");
+        built.attachment_type = Some("todo_reminder".into());
+        built
     };
     assert_eq!(chip_label(&blank), "todo reminder");
 }
 
 #[test]
 fn clamp_counts_units() {
-    let e = |n: usize| TimelineEvent {
-        body: "x".repeat(n),
-        ..ev(EventKind::AssistantText)
+    let e = |n: usize| {
+        let mut built = ev(EventKind::AssistantText);
+        built.body = "x".repeat(n);
+        built
     };
     assert!(!needs_clamp(&e(CLAMP_CHARS)));
     assert!(needs_clamp(&e(CLAMP_CHARS + 1)));
@@ -159,9 +163,10 @@ fn chips_cluster_and_bands_split() {
     assert_eq!(types(&p), ["run", "band", "run"]);
     let p = plan(&[ev(K::SystemPrompt), ev(K::Attachment)], None);
     assert_eq!(types(&p), ["band", "run"]);
-    let origin = |o| TimelineEvent {
-        prompt_origin: Some(o),
-        ..ev(K::UserPrompt)
+    let origin = |o| {
+        let mut built = ev(K::UserPrompt);
+        built.prompt_origin = Some(o);
+        built
     };
     let p = plan(
         &[
@@ -252,14 +257,16 @@ fn call_lookup() {
 
 #[test]
 fn keys_follow_events() {
-    let r = |id: &str| TimelineEvent {
-        request_id: Some(id.into()),
-        ..ev(EventKind::AssistantText)
+    let r = |id: &str| {
+        let mut built = ev(EventKind::AssistantText);
+        built.request_id = Some(id.into());
+        built
     };
     let events = [
-        TimelineEvent {
-            kind: EventKind::UserPrompt,
-            ..r("r1")
+        {
+            let mut built = r("r1");
+            built.kind = EventKind::UserPrompt;
+            built
         },
         r("r1"),
         r("r2"),
@@ -275,12 +282,11 @@ fn keys_follow_events() {
 }
 
 fn style(body: &str) -> TimelineEvent {
-    TimelineEvent {
-        attachment_type: Some("output_style".into()),
-        body: body.into(),
-        title: "output_style".into(),
-        ..ev(EventKind::Attachment)
-    }
+    let mut built = ev(EventKind::Attachment);
+    built.attachment_type = Some("output_style".into());
+    built.body = body.into();
+    built.title = "output_style".into();
+    built
 }
 
 fn repeats(events: &[TimelineEvent]) -> Vec<bool> {
@@ -305,14 +311,16 @@ fn repeat_chips() {
         repeats(&[s(), reply(), style("other"), reply(), style("other")]),
         [false, false, true]
     );
-    let image = TimelineEvent {
-        attachment_type: Some("image".into()),
-        ..s()
+    let image = {
+        let mut built = s();
+        built.attachment_type = Some("image".into());
+        built
     };
     assert_eq!(repeats(&[image.clone(), reply(), image]), [false, false]);
-    let side = TimelineEvent {
-        is_sidechain: Some(true),
-        ..s()
+    let side = {
+        let mut built = s();
+        built.is_sidechain = Some(true);
+        built
     };
     assert_eq!(repeats(&[s(), reply(), side]), [false, false]);
 }

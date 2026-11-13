@@ -2,6 +2,8 @@
 //! the core JSON writers print them. Only the fields the app reads are typed;
 //! the rest are skipped, so new fields pass.
 
+use std::ops::{Deref, DerefMut};
+
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{AgentId, HistoryIndexMeta, HistoryPageMeta, SummaryHistory, UnreadableSession};
@@ -108,21 +110,15 @@ impl PromptOrigin {
     }
 }
 
-/// One row of the session timeline.
+/// A timeline event without its text, as a history index row carries it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TimelineEvent {
+pub struct EventMeta {
     pub index: usize,
     pub kind: EventKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ts: Option<String>,
     pub title: String,
-    /// Absent on history index rows.
-    #[serde(default)]
-    pub preview: String,
-    /// Absent on history index rows.
-    #[serde(default)]
-    pub body: String,
     #[serde(deserialize_with = "num")]
     pub tokens_est: f64,
     #[serde(
@@ -166,7 +162,30 @@ pub struct TimelineEvent {
     pub context_edit: Option<ContextEdit>,
 }
 
-impl TimelineEvent {
+/// One row of the session timeline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TimelineEvent {
+    #[serde(flatten)]
+    pub meta: EventMeta,
+    pub preview: String,
+    pub body: String,
+}
+
+impl Deref for TimelineEvent {
+    type Target = EventMeta;
+
+    fn deref(&self) -> &EventMeta {
+        &self.meta
+    }
+}
+
+impl DerefMut for TimelineEvent {
+    fn deref_mut(&mut self) -> &mut EventMeta {
+        &mut self.meta
+    }
+}
+
+impl EventMeta {
     pub fn sidechain(&self) -> bool {
         self.is_sidechain == Some(true)
     }
@@ -349,20 +368,14 @@ pub struct SessionCost {
     pub unreadable_subagents: Option<u64>,
 }
 
-/// `GET /api/sessions/{id}/analysis`, typed.
+/// The session analysis without its events, turns and snapshots.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AnalyzedSession {
+pub struct SessionMeta {
     pub provider: String,
     pub session_id: String,
     pub path: String,
     pub models: Vec<String>,
-    /// Absent in the session summary.
-    #[serde(default)]
-    pub events: Vec<TimelineEvent>,
-    /// Absent in the session summary.
-    #[serde(default)]
-    pub turns: Vec<Turn>,
     pub compaction_indexes: Vec<usize>,
     pub subagents: Vec<SubagentRef>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -382,9 +395,6 @@ pub struct AnalyzedSession {
     #[serde(deserialize_with = "num")]
     pub system_overhead_tokens: f64,
     pub budget: Vec<BudgetSlice>,
-    /// Absent in the session summary.
-    #[serde(default)]
-    pub snapshots: Vec<TurnSnapshot>,
     pub dumb_zone_cross_turn: i64,
     #[serde(deserialize_with = "num")]
     pub dumb_zone_fraction: f64,
@@ -403,12 +413,36 @@ pub struct AnalyzedSession {
     pub cost: Option<SessionCost>,
 }
 
+/// `GET /api/sessions/{id}/analysis`, typed.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AnalyzedSession {
+    #[serde(flatten)]
+    pub meta: SessionMeta,
+    pub events: Vec<TimelineEvent>,
+    pub turns: Vec<Turn>,
+    pub snapshots: Vec<TurnSnapshot>,
+}
+
+impl Deref for AnalyzedSession {
+    type Target = SessionMeta;
+
+    fn deref(&self) -> &SessionMeta {
+        &self.meta
+    }
+}
+
+impl DerefMut for AnalyzedSession {
+    fn deref_mut(&mut self) -> &mut SessionMeta {
+        &mut self.meta
+    }
+}
+
 /// `GET /api/sessions/{id}/summary`: the analysis with no events, turns
 /// or snapshots, plus the parts' hashes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SessionSummary {
     #[serde(flatten)]
-    pub analysis: AnalyzedSession,
+    pub meta: SessionMeta,
     pub history: SummaryHistory,
 }
 
@@ -426,7 +460,7 @@ pub struct HistoryPage {
 #[serde(rename_all = "camelCase")]
 pub struct HistoryRow {
     #[serde(flatten)]
-    pub event: TimelineEvent,
+    pub event: EventMeta,
     pub turn: u64,
     pub body_len: u64,
     pub body_id: u64,

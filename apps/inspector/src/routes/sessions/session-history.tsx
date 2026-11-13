@@ -57,7 +57,11 @@ import {
   useStickyHeight,
   useSubagentsJump,
 } from "../../lib/history-landing";
-import { mergeRow, neededPages } from "../../lib/history-pages";
+import {
+  mergeRow,
+  NOTHING_NEEDED,
+  neededBodies,
+} from "../../lib/history-pages";
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { visibleRows } from "../../lib/history-search";
 import { DEFAULT_HISTORY_SORT, isForwardOrder } from "../../lib/history-sort";
@@ -99,7 +103,9 @@ const KIND_OPTIONS = [
 ] as const;
 
 const NO_HITS: readonly string[] = [];
-const NO_PAGES: readonly number[] = [];
+
+const sameNumbers = (x: readonly number[], y: readonly number[]) =>
+  x.length === y.length && x.every((n, i) => n === y[i]);
 
 /** Keeps the warning in sight once the banner has scrolled away. */
 const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
@@ -180,24 +186,30 @@ export const SessionHistory = ({
     [a.compactionTurns, a.subagents, a.turnCount, events, req, seq]
   );
   const tools = useMemo(() => indexTools({ events }), [events]);
-  const [needed, setNeeded] = useState(NO_PAGES);
+  const [needed, setNeeded] = useState(NOTHING_NEEDED);
   const total = a.history.total;
   const onDrawn = useCallback(
     (drawn: readonly number[]) => {
-      const next = neededPages({ drawn, total });
+      const next = neededBodies({ drawn, total });
       setNeeded((prev) =>
-        prev.length === next.length && prev.every((p, i) => p === next[i])
+        sameNumbers(prev.pages, next.pages) && sameNumbers(prev.rows, next.rows)
           ? prev
           : next
       );
     },
     [total]
   );
+  const bodyLen = useCallback(
+    (pos: number) => events[pos]?.bodyLen ?? 0,
+    [events]
+  );
   const pages = useBodyPages({
+    bodyLen,
     hashes: a.history.pages,
     k,
     needed,
     onStale,
+    rev: a.history.rev,
   });
   const eventAt = useCallback((pos: number) => mergeRow(pos, pages), [pages]);
   const chatSession = useMemo(

@@ -1,5 +1,5 @@
 /** The session detail's data, in parts: a small summary first, then the growth
- *  series and the body-free history index, then event pages as rows are
+ *  series and the body-free history index, then event bodies as rows are
  *  drawn, plus server-side history search.
  *
  * The summary refetches on every settled sessions version bump, as the whole
@@ -22,7 +22,17 @@ import type {
   HistorySearchResult,
   SessionSummary,
 } from "./api-types.gen";
-import { PAGE_SIZE, type PageCache } from "./history-pages";
+import {
+  type BodyCache,
+  type BodyFetch,
+  EMPTY_BODIES,
+  missingFetches,
+  type Needed,
+  PAGE_SIZE,
+  runPositions,
+  storeBodies,
+  trimBodies,
+} from "./history-pages";
 import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
 
 /** One open session view: which transcript, and whether secrets are masked. */
@@ -33,9 +43,9 @@ export interface SessionKey {
   readonly redact: boolean;
 }
 
-/** Page requests in flight at once. */
+/** Body requests in flight at once. */
 const MAX_IN_FLIGHT = 4;
-/** Wait before a failed page or search request is asked again. */
+/** Wait before a failed body or search request is asked again. */
 const RETRY_MS = 2000;
 
 const queryOf = (k: SessionKey): Query => ({
@@ -118,47 +128,100 @@ export const useHistoryIndex = (k: SessionKey, s: SessionSummary | null) =>
 
 const keyText = (k: SessionKey) => `${k.id}\n${k.parent ?? ""}\n${k.redact}`;
 
-/** Event pages for the drawn rows: at most `MAX_IN_FLIGHT` requests at once,
- *  and a page no longer needed is aborted. A held page stays on screen while
- *  a changed one loads. A page whose hash is not the summary's raced a live
- *  write: it is dropped and `onStale` asks for a new summary. A failed
- *  request is asked again after `RETRY_MS`. */
+const pageKey = (page: number) => `p${page}`;
+const rowKey = (pos: number) => `@${pos}`;
+
+/** Each failed or stale-marked unit of a fetch: its page, or every row. */
+const unitsOf = (f: BodyFetch) =>
+  f.kind === "page"
+    ? [{ expect: f.hash, key: pageKey(f.page) }]
+    : runPositions(f.offset, f.limit).map((pos) => ({
+        expect: f.rev,
+        key: rowKey(pos),
+      }));
+
+type InFlight = Map<
+  string,
+  { readonly c: AbortController; readonly f: BodyFetch }
+>;
+
+/** Aborts and forgets requests `needed` no longer covers. */
+const abortUnwanted = (inflight: InFlight, needed: Needed) => {
+  const pages = new Set(needed.pages);
+  const rows = new Set(needed.rows);
+  for (const [fk, { c, f }] of inflight) {
+    const wanted =
+      f.kind === "page"
+        ? pages.has(f.page)
+        : runPositions(f.offset, f.limit).some((p) => rows.has(p));
+    if (!wanted) {
+      c.abort();
+      inflight.delete(fk);
+    }
+  }
+};
+
+const boundsOf = (f: BodyFetch) =>
+  f.kind === "page"
+    ? { limit: PAGE_SIZE, offset: f.page * PAGE_SIZE }
+    : { limit: f.limit, offset: f.offset };
+
+/** A page answers the summary when its hash is the summary's; a run, when
+ *  it came at the summary's rev. */
+const answersSummary = (
+  f: BodyFetch,
+  page: HistoryPage,
+  now: { readonly hashes: readonly string[]; readonly rev: string }
+) =>
+  f.kind === "page" ? page.hash === now.hashes[f.page] : page.rev === now.rev;
+
+/** Event bodies for the drawn rows: at most `MAX_IN_FLIGHT` requests at
+ *  once, and one no longer needed is aborted. A held body stays on screen
+ *  while a changed one loads. An answer that does not match the summary (a
+ *  page's hash, a run's rev) raced a live write: it is dropped and
+ *  `onStale` asks for a new summary. A failed request is asked again after
+ *  `RETRY_MS`. */
 export const useBodyPages = ({
+  bodyLen,
   hashes,
   k,
   needed,
   onStale,
+  rev,
 }: {
+  /** Body length of the event at a position, from the index. */
+  readonly bodyLen: (pos: number) => number;
   /** `summary.history.pages`. */
   readonly hashes: readonly string[];
   readonly k: SessionKey;
-  /** Page numbers the drawn rows need, sorted. */
-  readonly needed: readonly number[];
+  readonly needed: Needed;
   readonly onStale: () => void;
-}): PageCache => {
+  /** `summary.history.rev`. */
+  readonly rev: string;
+}): BodyCache => {
   const key = keyText(k);
   const [state, setState] = useState<{
     readonly key: string;
-    readonly pages: PageCache;
-  }>({ key, pages: new Map() });
-  const pages = state.key === key ? state.pages : new Map();
+    readonly cache: BodyCache;
+  }>({ cache: EMPTY_BODIES, key });
+  const cache = state.key === key ? state.cache : EMPTY_BODIES;
   if (state.key !== key) {
-    setState({ key, pages });
+    setState({ cache, key });
   }
-  const inflight = useRef(new Map<number, AbortController>());
-  /** `page:hash` keys whose answer did not match the summary. */
+  const inflight = useRef<InFlight>(new Map());
+  /** `unit:expected` keys whose answer did not match the summary. */
   const stale = useRef(new Set<string>());
-  /** Pages whose last request failed, until their retry is due. */
-  const failed = useRef(new Set<number>());
+  /** Units whose last request failed, until their retry is due. */
+  const failed = useRef(new Set<string>());
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
-  const latest = useRef({ hashes, k, onStale });
-  latest.current = { hashes, k, onStale };
+  const latest = useRef({ hashes, k, onStale, rev });
+  latest.current = { hashes, k, onStale, rev };
   const [tick, setTick] = useState(0);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: another session or redaction aborts the requests of the last one
   useEffect(
     () => () => {
-      for (const c of inflight.current.values()) {
+      for (const { c } of inflight.current.values()) {
         c.abort();
       }
       inflight.current.clear();
@@ -175,76 +238,78 @@ export const useBodyPages = ({
     if (tick < 0) {
       return;
     }
-    if ([...pages.keys()].some((p) => p >= hashes.length)) {
+    if (trimBodies(cache, hashes.length) !== cache) {
       setState((s) => ({
+        cache: trimBodies(s.cache, hashes.length),
         key: s.key,
-        pages: new Map([...s.pages].filter(([p]) => p < hashes.length)),
       }));
     }
-    const wanted = new Set(needed);
-    for (const [p, c] of inflight.current) {
-      if (!wanted.has(p)) {
-        c.abort();
-        inflight.current.delete(p);
-      }
-    }
-    const missing = needed.filter((p) => {
-      const hash = hashes[p];
-      return (
-        hash !== undefined &&
-        pages.get(p)?.hash !== hash &&
-        !inflight.current.has(p) &&
-        !failed.current.has(p) &&
-        !stale.current.has(`${p}:${hash}`)
-      );
+    abortUnwanted(inflight.current, needed);
+    const busy = new Set(
+      [...inflight.current.values()].flatMap(({ f }) =>
+        unitsOf(f).map((u) => u.key)
+      )
+    );
+    const skip = (unit: string, expect: string | undefined) =>
+      busy.has(unit) ||
+      failed.current.has(unit) ||
+      stale.current.has(`${unit}:${expect}`);
+    const todo = missingFetches({
+      bodyLen,
+      cache,
+      hashes,
+      needed,
+      rev,
+      skipPage: (p) => skip(pageKey(p), hashes[p]),
+      skipRow: (pos) => skip(rowKey(pos), rev),
     });
-    for (const p of missing) {
+    for (const f of todo) {
       if (inflight.current.size >= MAX_IN_FLIGHT) {
         break;
       }
-      const expected = hashes[p] ?? "";
+      const fk =
+        f.kind === "page" ? pageKey(f.page) : `r${f.offset}+${f.limit}`;
       const c = new AbortController();
-      inflight.current.set(p, c);
+      inflight.current.set(fk, { c, f });
       const done = () => {
-        if (inflight.current.get(p) === c) {
-          inflight.current.delete(p);
+        if (inflight.current.get(fk)?.c === c) {
+          inflight.current.delete(fk);
           setTick((t) => t + 1);
         }
       };
       const ask = apiGet<HistoryPage>(route(k, "history"), {
         ...queryOf(k),
-        limit: PAGE_SIZE,
-        offset: p * PAGE_SIZE,
+        ...boundsOf(f),
       });
       Effect.runPromise(ask, { signal: c.signal }).then(
         (page) => {
-          if (inflight.current.get(p) !== c) {
+          if (inflight.current.get(fk)?.c !== c) {
             return;
           }
-          if (page.hash === latest.current.hashes[p]) {
+          const now = latest.current;
+          if (answersSummary(f, page, now)) {
             setState((s) =>
-              s.key === key
-                ? {
-                    key,
-                    pages: new Map(s.pages).set(p, {
-                      events: page.events,
-                      hash: page.hash,
-                    }),
-                  }
-                : s
+              s.key === key ? { cache: storeBodies(s.cache, f, page), key } : s
             );
           } else {
-            stale.current.add(`${p}:${expected}`);
-            latest.current.onStale();
+            for (const u of unitsOf(f)) {
+              stale.current.add(`${u.key}:${u.expect}`);
+            }
+            now.onStale();
           }
           done();
         },
         () => {
           if (!c.signal.aborted) {
-            failed.current.add(p);
+            const units = unitsOf(f).map((u) => u.key);
+            for (const u of units) {
+              failed.current.add(u);
+            }
             const t = setTimeout(() => {
               timers.current.delete(t);
-              failed.current.delete(p);
+              for (const u of units) {
+                failed.current.delete(u);
+              }
               setTick((n) => n + 1);
             }, RETRY_MS);
             timers.current.add(t);
@@ -253,9 +318,9 @@ export const useBodyPages = ({
         }
       );
     }
-  }, [needed, hashes, pages, k, key, tick]);
+  }, [needed, hashes, rev, bodyLen, cache, k, key, tick]);
 
-  return pages;
+  return cache;
 };
 
 /** What the history filters by while searching: the positions matched for

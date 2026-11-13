@@ -1,5 +1,5 @@
-/** Paging the history: which pages drawn rows need, which held pages a new
- *  summary made stale, and index rows turned back into whole events. */
+/** Paging the history: which bodies drawn rows need, how they are fetched
+ *  and stored, and index rows turned back into whole events. */
 import { describe, expect, test } from "bun:test";
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import type { GrowthSeries } from "../src/lib/api-types.gen";
@@ -9,16 +9,19 @@ import {
   type EventRow,
 } from "../src/lib/chat-lane";
 import {
+  type BodyCache,
+  EMPTY_BODIES,
   hydrator,
   mergeRow,
-  neededPages,
-  type PageCache,
+  missingFetches,
+  type Needed,
+  neededBodies,
   pageOf,
   pagesFor,
   positionsOf,
   snapshotsOf,
-  stalePages,
-  turnRuleOf,
+  storeBodies,
+  trimBodies,
 } from "../src/lib/history-pages";
 import { indexRowsOf } from "./history-rows";
 
@@ -44,13 +47,15 @@ const EVENTS: readonly TimelineEvent[] = [
 
 const ROWS = indexRowsOf(EVENTS, [1, 1, 1, 1, 1, 1, 2]);
 
-const pages = (size: number, held: readonly number[]): PageCache =>
-  new Map(
+const pages = (size: number, held: readonly number[]): BodyCache => ({
+  pages: new Map(
     held.map((p) => [
       p,
       { events: EVENTS.slice(p * size, (p + 1) * size), hash: `h${p}` },
     ])
-  );
+  ),
+  rows: new Map(),
+});
 
 describe("pageOf and pagesFor", () => {
   test("positions map to fixed pages", () => {
@@ -97,36 +102,161 @@ describe("positionsOf", () => {
   });
 });
 
-describe("neededPages", () => {
-  test("drawn pages plus one page each way", () => {
-    expect(neededPages({ drawn: [250, 260], total: 1000 })).toEqual([1, 2, 3]);
-    expect(
-      neededPages({ drawn: [250, 450], prefetch: 2, total: 1000 })
-    ).toEqual([0, 1, 2, 4, 5, 6]);
+const pagesOf = (drawn: readonly number[], total: number, prefetch?: number) =>
+  neededBodies({ drawn, prefetch, total }).pages;
+
+describe("neededBodies", () => {
+  test("rows in event order need their pages plus one page each way", () => {
+    expect(pagesOf([250, 260], 1000)).toEqual([1, 2, 3]);
+    const screen = Array.from({ length: 201 }, (_, i) => 250 + i);
+    expect(pagesOf(screen, 1000, 2)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   });
 
   test("clamped to the pages the session has", () => {
-    expect(neededPages({ drawn: [0, 5], total: 150 })).toEqual([0, 1]);
-    expect(neededPages({ drawn: [120], total: 150 })).toEqual([0, 1]);
-    expect(neededPages({ drawn: [0], total: 50 })).toEqual([0]);
-    expect(neededPages({ drawn: [900], total: 150 })).toEqual([]);
-    expect(neededPages({ drawn: [], total: 150 })).toEqual([]);
+    expect(pagesOf([0, 5], 150)).toEqual([0, 1]);
+    expect(pagesOf([120], 150)).toEqual([0, 1]);
+    expect(pagesOf([0], 50)).toEqual([0]);
+    expect(neededBodies({ drawn: [900], total: 150 })).toEqual({
+      pages: [],
+      rows: [],
+    });
+    expect(neededBodies({ drawn: [], total: 150 })).toEqual({
+      pages: [],
+      rows: [],
+    });
   });
 
   test("a short list reports every row, so it needs every page", () => {
     const all = Array.from({ length: 150 }, (_, i) => i * 3);
-    expect(neededPages({ drawn: all, total: 450 })).toEqual([0, 1, 2, 3, 4]);
+    expect(pagesOf(all, 450)).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  test("rows spread over the transcript need only their own events", () => {
+    // A size sort: the biggest rows sit far apart.
+    const drawn = [1500, 12, 640, 1720, 980, 13, 1100];
+    expect(neededBodies({ drawn, total: 1861 })).toEqual({
+      pages: [],
+      rows: [12, 13, 640, 980, 1100, 1500, 1720],
+    });
   });
 });
 
-describe("stalePages", () => {
-  test("changed and new pages are stale", () => {
-    expect(stalePages(["a", "b", "c"], ["a", "x", "c", "d"])).toEqual([1, 3]);
+describe("missingFetches", () => {
+  const plan = (
+    needed: Needed,
+    {
+      bodyLen = () => 10_000,
+      cache = EMPTY_BODIES,
+      skip = () => false,
+    }: {
+      readonly bodyLen?: (pos: number) => number;
+      readonly cache?: BodyCache;
+      readonly skip?: (n: number) => boolean;
+    } = {}
+  ) =>
+    missingFetches({
+      bodyLen,
+      cache,
+      hashes: ["h0", "h1", "h2"],
+      needed,
+      rev: "r2",
+      size: 3,
+      skipPage: skip,
+      skipRow: skip,
+    });
+
+  test("pages not held at the summary's hash", () => {
+    const cache = pages(3, [0, 1]);
+    const held = {
+      ...cache,
+      pages: new Map(cache.pages).set(1, { events: [], hash: "old" }),
+    };
+    expect(plan({ pages: [0, 1, 2], rows: [] }, { cache: held })).toEqual([
+      { hash: "h1", kind: "page", page: 1 },
+      { hash: "h2", kind: "page", page: 2 },
+    ]);
+    expect(plan({ pages: [1, 2], rows: [] }, { skip: (p) => p === 1 })).toEqual(
+      [{ hash: "h2", kind: "page", page: 2 }]
+    );
   });
 
-  test("a shrunk session keeps only pages it still has", () => {
-    expect(stalePages(["a", "b", "c"], ["a", "y"])).toEqual([1]);
-    expect(stalePages([], [])).toEqual([]);
+  test("spread rows fetch runs; cheap gaps join, big ones split", () => {
+    const needed = { pages: [], rows: [0, 2, 6] };
+    expect(plan(needed)).toEqual([
+      { kind: "run", limit: 1, offset: 0, rev: "r2" },
+      { kind: "run", limit: 1, offset: 2, rev: "r2" },
+      { kind: "run", limit: 1, offset: 6, rev: "r2" },
+    ]);
+    expect(plan(needed, { bodyLen: (p) => (p === 1 ? 10 : 10_000) })).toEqual([
+      { kind: "run", limit: 3, offset: 0, rev: "r2" },
+      { kind: "run", limit: 1, offset: 6, rev: "r2" },
+    ]);
+  });
+
+  test("rows held at the rev, in a current page or skipped are not asked", () => {
+    const cache: BodyCache = {
+      pages: pages(3, [1]).pages,
+      rows: new Map([
+        [0, { event: EVENTS[0] as TimelineEvent, rev: "r2" }],
+        [6, { event: EVENTS[6] as TimelineEvent, rev: "r1" }],
+      ]),
+    };
+    expect(
+      plan({ pages: [], rows: [0, 4, 6, 7] }, { cache, skip: (p) => p === 7 })
+    ).toEqual([{ kind: "run", limit: 1, offset: 6, rev: "r2" }]);
+  });
+});
+
+describe("storeBodies and trimBodies", () => {
+  const answer = (events: readonly TimelineEvent[], rev = "r") => ({
+    events,
+    hash: "h",
+    rev,
+  });
+
+  test("a run stores its rows; a page drops the rows it holds", () => {
+    const run = storeBodies(
+      EMPTY_BODIES,
+      { kind: "run", limit: 2, offset: 4, rev: "r" },
+      answer(EVENTS.slice(4, 6)),
+      3
+    );
+    expect(mergeRow(4, run, 3)).toBe(EVENTS[4] ?? null);
+    expect(mergeRow(5, run, 3)).toBe(EVENTS[5] ?? null);
+    expect(mergeRow(3, run, 3)).toBeNull();
+    const page = storeBodies(
+      run,
+      { hash: "h", kind: "page", page: 1 },
+      answer(EVENTS.slice(3, 6)),
+      3
+    );
+    expect([...page.rows.keys()]).toEqual([]);
+    expect(mergeRow(3, page, 3)).toBe(EVENTS[3] ?? null);
+  });
+
+  test("a row fetched after its page wins", () => {
+    const newer = evt({ body: "newer" });
+    const both = storeBodies(
+      pages(3, [0]),
+      { kind: "run", limit: 1, offset: 1, rev: "r" },
+      answer([newer]),
+      3
+    );
+    expect(mergeRow(1, both, 3)).toBe(newer);
+    expect(mergeRow(0, both, 3)).toBe(EVENTS[0] ?? null);
+  });
+
+  test("a shrunk session drops bodies past its pages", () => {
+    const cache = storeBodies(
+      pages(3, [0, 1, 2]),
+      { kind: "run", limit: 1, offset: 6, rev: "r" },
+      answer([evt()]),
+      3
+    );
+    const trimmed = trimBodies(cache, 2, 3);
+    expect([...trimmed.pages.keys()]).toEqual([0, 1]);
+    expect([...trimmed.rows.keys()]).toEqual([]);
+    expect(trimBodies(trimmed, 2, 3)).toBe(trimmed);
   });
 });
 
@@ -235,10 +365,5 @@ describe("growth", () => {
         turnIndex: 1,
       },
     ]);
-  });
-
-  test("turn rules read turn n at n - 1", () => {
-    expect(turnRuleOf(GROWTH, 2)?.effort).toBe("high");
-    expect(turnRuleOf(GROWTH, 3)).toBeUndefined();
   });
 });
