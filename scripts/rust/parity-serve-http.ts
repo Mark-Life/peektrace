@@ -359,7 +359,13 @@ export const remoteErrors = (
       env
     );
     const rust = run([rustBin, "--remote", url, ...args], env);
-    compareRun(`serve remote error ${JSON.stringify(url)}`, ts, rust);
+    // Bun before 1.4 names a refused connection `ConnectionRefused`.
+    const tsErr = ts.stderr.replace("(ConnectionRefused)", "(ECONNREFUSED)");
+    compareRun(
+      `serve remote error ${JSON.stringify(url)}`,
+      { ...ts, stderr: tsErr },
+      rust
+    );
   }
 };
 
