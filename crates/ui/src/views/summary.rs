@@ -167,9 +167,10 @@ fn jump_chip(
     row_key: Option<String>,
     t: &Theme,
 ) -> El {
-    let c = chip(label, color, t)
+    // The name first, then the jump hint, as the inspector reads it out.
+    let c = chip(label.clone(), color, t)
         .key(key.to_owned())
-        .label(hint.clone())
+        .label(format!("{label}, {hint}"))
         .help(hint);
     let Some(target) = row_key else { return c };
     t.kit
@@ -349,3 +350,6 @@ pub fn parent_note(parent: &str, t: &Theme) -> El {
                 .key("open-parent"),
         )
 }
+
+#[cfg(test)]
+mod tests;
