@@ -443,7 +443,7 @@ fn main() -> ExitCode {
     };
     // A panic still reaches the store: the root is closed, so flush, then
     // carry on unwinding.
-    peektrace_telemetry::flush(peektrace_telemetry::EXIT_WAIT);
+    peektrace_telemetry::flush(peektrace_telemetry::exit_wait());
     code.unwrap_or_else(|payload| panic::resume_unwind(payload))
 }
 

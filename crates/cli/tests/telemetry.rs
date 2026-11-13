@@ -17,6 +17,7 @@ fn run_in(f: &Fixture, dir: &Path, envs: &[(&str, &str)], args: &[&str]) -> Outp
         .env_clear()
         .env("HOME", &f.home)
         .env("PEEKTRACE_DIR", dir)
+        .env("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS", "10000")
         .current_dir(&f.home)
         .stdin(Stdio::null());
     for (k, v) in envs {
@@ -125,6 +126,7 @@ fn default_store_lives_under_home() {
         Command::new(env!("CARGO_BIN_EXE_peektrace"))
             .args(args)
             .env_clear()
+            .env("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS", "10000")
             .env("HOME", &f.home)
             .current_dir(&f.home)
             .stdin(Stdio::null())
@@ -236,6 +238,7 @@ fn parallel_runs_all_land() {
             Command::new(env!("CARGO_BIN_EXE_peektrace"))
                 .args(["sessions", "ls"])
                 .env_clear()
+                .env("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS", "10000")
                 .env("HOME", &f.home)
                 .env("PEEKTRACE_DIR", &dir)
                 .stdout(Stdio::null())
@@ -267,6 +270,7 @@ fn create_store(dir: &Path) {
     let out = Command::new(env!("CARGO_BIN_EXE_peektrace"))
         .args(["--no-telemetry", "doctor", "--out", "/dev/null"])
         .env_clear()
+        .env("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS", "10000")
         .env("PEEKTRACE_DIR", dir)
         .output()
         .expect("run");
@@ -422,6 +426,7 @@ fn mcp_stopped_by(signal: &str) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_peektrace"))
         .arg("mcp")
         .env_clear()
+        .env("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS", "10000")
         .env("HOME", &f.home)
         .env("PEEKTRACE_DIR", &dir)
         .current_dir(&f.home)

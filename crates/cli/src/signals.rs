@@ -50,6 +50,6 @@ pub fn stop_signal() -> impl Future<Output = ()> {
 /// spans, so first emit the open ones and flush the store.
 pub fn exit_recorded(code: i32) -> ! {
     peektrace_telemetry::finish_open_roots();
-    peektrace_telemetry::flush(peektrace_telemetry::EXIT_WAIT);
+    peektrace_telemetry::flush(peektrace_telemetry::exit_wait());
     std::process::exit(code)
 }

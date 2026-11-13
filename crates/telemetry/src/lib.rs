@@ -22,6 +22,15 @@ pub use writer::Writer;
 /// How long a process waits at exit for its events to land.
 pub const EXIT_WAIT: Duration = Duration::from_millis(300);
 
+/// The exit wait: `EXIT_WAIT`, or the hidden `PEEKTRACE_TELEMETRY_EXIT_WAIT_MS`
+/// that tests raise so a slow machine cannot drop the row they read.
+pub fn exit_wait() -> Duration {
+    std::env::var("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .map_or(EXIT_WAIT, Duration::from_millis)
+}
+
 static WRITER: OnceLock<Writer> = OnceLock::new();
 
 /// Start the process writer for `dir` (`None`: record nothing) and return

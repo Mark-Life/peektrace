@@ -159,7 +159,7 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
         UserError::Invalid(format!("Could not open the telemetry store: {reason}"))
     };
     let dir = store::dir_of(env.peektrace_dir, env.home).map_err(|e| open_failed(e.to_string()))?;
-    peektrace_telemetry::wait_ready(peektrace_telemetry::EXIT_WAIT);
+    peektrace_telemetry::wait_ready(peektrace_telemetry::exit_wait());
     #[expect(clippy::cast_possible_truncation, reason = "a safe integer")]
     let (limit, now) = (last as i64, env.now_ms as i64);
     let rows = Store::open(&dir, now)

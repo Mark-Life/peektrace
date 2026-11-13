@@ -66,6 +66,7 @@ fn closing_the_terminal_ends_the_tui() {
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .env("TERM", "xterm-256color")
         .env("PEEKTRACE_DIR", dir.join(".peektrace"))
+        .env("PEEKTRACE_TELEMETRY_EXIT_WAIT_MS", "10000")
         .env("PEEKTRACE_CLAUDE_PROJECTS", fixtures("sessions/projects"))
         .env("TZ", "UTC")
         .current_dir(&dir)
