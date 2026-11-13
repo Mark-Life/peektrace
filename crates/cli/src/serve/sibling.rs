@@ -8,8 +8,6 @@ use std::sync::mpsc;
 use peektrace_core::watch::Watcher;
 use peektrace_protocol::WatchVersions;
 
-#[cfg(unix)]
-use super::unix_signal;
 use super::{GRACE, Prepared, until_forced, watch_warnings};
 
 /// SIGTERM or SIGHUP: a closed terminal ends the TUI. Ctrl-C reaches the
@@ -17,8 +15,8 @@ use super::{GRACE, Prepared, until_forced, watch_warnings};
 async fn tui_signal() {
     #[cfg(unix)]
     tokio::select! {
-        () = unix_signal(tokio::signal::unix::SignalKind::terminate()) => {},
-        () = unix_signal(tokio::signal::unix::SignalKind::hangup()) => {},
+        () = crate::signals::unix_signal(tokio::signal::unix::SignalKind::terminate()) => {},
+        () = crate::signals::unix_signal(tokio::signal::unix::SignalKind::hangup()) => {},
     }
     #[cfg(not(unix))]
     std::future::pending::<()>().await;

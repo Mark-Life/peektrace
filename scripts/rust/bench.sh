@@ -7,14 +7,14 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               statusline mcp upgrade tui
+#                                               statusline mcp upgrade tui telemetry
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
 # The serve suites live in bench-serve.sh, the statusline, mcp and upgrade suites in bench-stdio.sh,
-# and the TUI suite in bench-tui.sh, sourced below.
+# the TUI suite in bench-tui.sh and the telemetry suite in bench-telemetry.sh, sourced below.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # `set_input` gives the last case a file fed to stdin (hyperfine --input, `<` for GNU time).
 # Bash 3.2 compatible (macOS /bin/bash).
@@ -130,6 +130,8 @@ set_input() { C_INPUT[$((${#C_NAME[@]} - 1))]="$1"; }
 # Long-running processes: RSS_HOOKS run once per RSS round after the CLI cases;
 # add_mem_row <label> <file prefix> adds a row read from <prefix>-{bun,rust}.txt (KiB per line).
 RSS_HOOKS=() MEM_LABEL=() MEM_FILE=()
+# MEASURE_HOOKS run once after the latency runs; REPORT_HOOKS print a summary section before Method.
+MEASURE_HOOKS=() REPORT_HOOKS=()
 MEM_TITLE="Process memory"
 add_mem_row() { MEM_LABEL+=("$1"); MEM_FILE+=("$2"); }
 has_flag() { [[ " ${C_FLAGS[$1]} " == *" $2 "* ]]; }
@@ -189,7 +191,7 @@ suite_analyze() {
   rust_latest="$("$RUST_BIN" sessions analyze --latest --json 2>/dev/null | jq -r .sessionId)"
   ENV_EXTRA+=("latest: $bun_latest ($(size_bytes claude "$bun_latest" | fmt_bytes) at start), same session in both: $([[ "$bun_latest" == "$rust_latest" ]] && echo yes || echo no)")
   METHOD_EXTRA+=("\`--latest\` is the newest session, often a live one that grows during the run.")
-  METHOD_EXTRA+=("Telemetry: Bun records local telemetry on each run by default; Rust accepts \`--no-telemetry\` but has no telemetry store yet. Rows use defaults; the \`--no-telemetry\` row shows Bun's telemetry cost.")
+  METHOD_EXTRA+=("Telemetry: both CLIs record local telemetry on each run by default. Rows use defaults; the \`--no-telemetry\` row shows the telemetry cost of each.")
 }
 
 suite_analyze_codex() { analyze_top codex; }
@@ -301,11 +303,13 @@ suite_memory() {
 . "$ROOT/scripts/rust/bench-stdio.sh"
 # shellcheck source=scripts/rust/bench-tui.sh
 . "$ROOT/scripts/rust/bench-tui.sh"
+# shellcheck source=scripts/rust/bench-telemetry.sh
+. "$ROOT/scripts/rust/bench-telemetry.sh"
 trap 'stop_live; stop_fake_release' EXIT
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui | telemetry) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -369,6 +373,7 @@ if [[ "$REPORT_ONLY" != 1 ]]; then
   fi
 
   if [[ "${TUI:-0}" == 1 ]]; then tui_measure; fi
+  for hook in ${MEASURE_HOOKS[@]+"${MEASURE_HOOKS[@]}"}; do "$hook"; done
 
   # --- peak RSS (GNU time, interleaved) -----------------------------------------------
   # Each round runs every rss case on Bun, then Rust, so drift hits both alike.
@@ -481,6 +486,7 @@ row_rss() {
     echo
   fi
   if [[ "${TUI:-0}" == 1 ]]; then tui_summary; fi
+  for hook in ${REPORT_HOOKS[@]+"${REPORT_HOOKS[@]}"}; do "$hook"; done
   echo "## Method"
   echo
   echo "- Binaries: \`cargo build --release\` (fat LTO, stripped) and \`bun run build:binary\` (builds the inspector UI, then \`bun build --compile --minify\` with the UI and OpenTUI native lib embedded)."

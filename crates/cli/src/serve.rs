@@ -19,6 +19,7 @@ use tokio::sync::watch;
 
 use crate::args::ServeArgs;
 use crate::ls::{Context, UserError};
+use crate::signals::stop_signal;
 use crate::single::agent_roots;
 use crate::zone::SystemZone;
 
@@ -144,30 +145,6 @@ fn open_browser(url: &str) {
     }
 }
 
-#[cfg(unix)]
-async fn unix_signal(kind: tokio::signal::unix::SignalKind) {
-    match tokio::signal::unix::signal(kind) {
-        Ok(mut s) => {
-            s.recv().await;
-        }
-        Err(_) => std::future::pending::<()>().await,
-    }
-}
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        let _ = tokio::signal::ctrl_c().await;
-    };
-    #[cfg(unix)]
-    let term = unix_signal(tokio::signal::unix::SignalKind::terminate());
-    #[cfg(not(unix))]
-    let term = std::future::pending::<()>();
-    tokio::select! {
-        () = ctrl_c => {},
-        () = term => {},
-    }
-}
-
 /// Everything `serve` needs before it runs.
 pub struct Prepared {
     pub banner: Banner,
@@ -286,7 +263,7 @@ pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
         let stop = p.stop;
         let (signalled, stopping) = tokio::sync::oneshot::channel::<()>();
         let shutdown = async move {
-            shutdown_signal().await;
+            stop_signal().await;
             stop.send_replace(true);
             let _ = signalled.send(());
         };
@@ -296,7 +273,7 @@ pub fn run(p: Prepared, ready: impl FnOnce(&[String])) -> anyhow::Result<()> {
             }
         };
         let served = peektrace_server::serve(listener, app, shutdown);
-        until_forced(served, stopping, shutdown_signal, GRACE)
+        until_forced(served, stopping, stop_signal, GRACE)
             .await
             .unwrap_or(Ok(()))
     });

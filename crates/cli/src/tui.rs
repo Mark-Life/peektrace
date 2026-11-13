@@ -43,7 +43,7 @@ fn watchdog(signalled: Receiver<()>, finished: Arc<AtomicBool>) {
         if !finished.load(Ordering::Relaxed) {
             restore_terminal();
             otel::release();
-            std::process::exit(0);
+            crate::signals::exit_recorded(0);
         }
     });
 }

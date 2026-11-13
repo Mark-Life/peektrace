@@ -64,8 +64,32 @@ struct Job {
     args: JsValue,
 }
 
-/// Serve `input` until it ends, then wait for the calls in flight.
+/// Exit 0 on a stop signal, as TS does on an interrupt, recording the open
+/// `cli` root and queued `rpc.*` events. The handlers are in place before
+/// this returns.
+fn exit_on_signal() {
+    let Ok(rt) = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    else {
+        return;
+    };
+    let stopped = {
+        let _in_rt = rt.enter();
+        crate::signals::stop_signal()
+    };
+    let _ = std::thread::Builder::new()
+        .name("mcp-signal".to_owned())
+        .spawn(move || {
+            rt.block_on(stopped);
+            crate::signals::exit_recorded(0);
+        });
+}
+
+/// Serve `input` until it ends or a stop signal arrives, then wait for the
+/// calls in flight.
 pub fn serve(ctx: Context, input: impl BufRead) {
+    exit_on_signal();
     let shared = Arc::new(Shared::new(ctx));
     let (tx, rx) = mpsc::channel::<Job>();
     let rx = Arc::new(Mutex::new(rx));
