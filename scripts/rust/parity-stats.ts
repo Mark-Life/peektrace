@@ -26,7 +26,14 @@ import {
   buildPiRoot,
 } from "./parity-agents-fixtures";
 import { CODEX_NULLROW } from "./parity-codex-fixtures";
-import { fixtureEnv, REPO, report, rustBin, WORK } from "./parity-lib";
+import {
+  COPY,
+  fixtureEnv,
+  fixturesDir,
+  report,
+  rustBin,
+  WORK,
+} from "./parity-lib";
 import { buildOpencodeData } from "./parity-opencode-fixtures";
 import { PI_NULLROW } from "./parity-pi-fixtures";
 import { runCases, runErrors, type Stage } from "./parity-stats-cases";
@@ -65,7 +72,7 @@ const buildAgentsEdgeHome = (root: string) => {
   rmSync(join(home, ".pi/agent/sessions", PI_NULLROW));
   const oc = buildOpencodeData(
     join(base, "oc"),
-    join(REPO, "packages/core/test/fixtures/sessions/projects")
+    join(fixturesDir(), "sessions/projects")
   );
   oc.close();
   mkdirSync(join(home, ".peektrace"), { recursive: true });
@@ -90,7 +97,7 @@ const runFixtureSuites = (root: string) => {
   };
   runCases(tokyo, ALL_DAYS, SMALL_CAP, [], true);
   runErrors(tokyo);
-  const tsFixtures = join(REPO, "packages/core/test/fixtures");
+  const tsFixtures = fixturesDir();
   const emptyHome = join(root, "empty-home");
   const empty = join(root, "empty");
   rmSync(emptyHome, { recursive: true, force: true });
@@ -102,7 +109,7 @@ const runFixtureSuites = (root: string) => {
   rmSync(codexRoot, { recursive: true, force: true });
   // A copy: the Claude root also lists `sessions-codex/`, and two refs with
   // one path share one cache entry, which each side fills in its own order.
-  cpSync(join(tsFixtures, "sessions-codex"), codexRoot, { recursive: true });
+  cpSync(join(tsFixtures, "sessions-codex"), codexRoot, COPY);
   const ts: Stage = {
     name: "ts-fixtures",
     env: fixtureEnv(emptyHome, {

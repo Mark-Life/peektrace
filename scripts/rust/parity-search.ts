@@ -13,8 +13,8 @@ import {
   compareRun,
   firstLineDiff,
   fixtureEnv,
+  fixturesDir,
   pool,
-  REPO,
   type Run,
   report,
   run,
@@ -120,21 +120,18 @@ const runCase = async (
   args: string[],
   serial = false
 ) => {
-  const both = () =>
-    Promise.all([
-      runAsync([...TS_CMD, ...args], env),
-      runAsync([rustBin, ...args], env),
-    ]);
-  const [ts, rust] = serial
-    ? [
-        await runAsync([...TS_CMD, ...args], env),
-        await runAsync([rustBin, ...args], env),
-      ]
-    : await both();
   const json = args.includes("--json");
-  const early = json
-    ? truncated(ts.stdout)
-    : ts.stderr.includes("more sessions match");
+  const earlyOf = (r: Run) =>
+    json ? truncated(r.stdout) : r.stderr.includes("more sessions match");
+  // Record-time canon: what a truncated scan leaves to timing is dropped.
+  const canon = (r: Run) => (earlyOf(r) ? settle(r, json) : r);
+  const tsRun = () =>
+    runAsync([...TS_CMD, ...args], env, undefined, undefined, canon);
+  const both = () => Promise.all([tsRun(), runAsync([rustBin, ...args], env)]);
+  const [ts, rust] = serial
+    ? [await tsRun(), await runAsync([rustBin, ...args], env)]
+    : await both();
+  const early = earlyOf(ts);
   const label = `${name} [${args.join(" ")}]`;
   if (early) {
     compareRun(label, settle(ts, json), settle(rust, json));
@@ -169,7 +166,7 @@ const projectsOf = (env: Record<string, string>) => {
 const fixtureSuites = (suites: readonly Suite[]): Suite[] => {
   const emptyHome = join(WORK, "empty-home");
   mkdirSync(emptyHome, { recursive: true });
-  const fixtures = join(REPO, "packages/core/test/fixtures");
+  const fixtures = fixturesDir();
   const reuse = suites.filter((s) =>
     ["agents-fixtures", "edge"].includes(s.name)
   );

@@ -4,6 +4,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { report } from "./parity-lib";
+import { tsValueSync } from "./parity-oracle";
 import type { Counts } from "./parity-serve-cases";
 import {
   type Call,
@@ -189,7 +190,7 @@ export const tree = (root: string) => {
 };
 
 export const sameTree = (label: string, a: string, b: string) => {
-  const ta = tree(a);
+  const ta = new Map(tsValueSync(`${label} ts tree`, () => [...tree(a)]));
   const tb = tree(b);
   for (const k of new Set([...ta.keys(), ...tb.keys()])) {
     if (ta.get(k) !== tb.get(k)) {

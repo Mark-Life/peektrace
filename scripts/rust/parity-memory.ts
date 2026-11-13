@@ -33,6 +33,7 @@ import {
   EXTRA_NAMES,
   EXTRA_SLUGS,
 } from "./parity-memory-fixtures";
+import { tsValueSync } from "./parity-oracle";
 
 const READ_WRITE = 0o644;
 const BASE = ["--no-telemetry"];
@@ -128,7 +129,7 @@ const tree = (root: string, dir = ""): string[] =>
     });
 
 const diffTrees = (label: string, a: string, b: string) => {
-  const ta = tree(a);
+  const ta = tsValueSync(`${label} ts tree`, () => tree(a));
   const tb = tree(b);
   const at = ta.findIndex((line, i) => line !== tb[i]);
   if (at >= 0 || ta.length !== tb.length) {

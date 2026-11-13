@@ -3,6 +3,7 @@
 import { appendFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { report } from "./parity-lib";
+import { tsValue } from "./parity-oracle";
 import {
   api,
   type Pair,
@@ -355,7 +356,10 @@ const sameFiles = async (pair: Pair, label: string) => {
     Bun.file(join(dir, "settings.json"))
       .text()
       .catch(() => "<none>");
-  const [a, b] = await Promise.all([read(pair.tsDir), read(pair.rustDir)]);
+  const [a, b] = await Promise.all([
+    tsValue(`${label} ts settings file`, () => read(pair.tsDir)),
+    read(pair.rustDir),
+  ]);
   if (a !== b) {
     report(
       `serve ${label}: written files differ: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`

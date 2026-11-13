@@ -10,7 +10,15 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { buildPiRoot } from "./parity-agents-fixtures";
-import { fixtureEnv, newestAndLargest, REPO, run, WORK } from "./parity-lib";
+import {
+  COPY,
+  fixtureEnv,
+  fixturesDir,
+  newestAndLargest,
+  REPO,
+  run,
+  WORK,
+} from "./parity-lib";
 import { buildOpencodeData } from "./parity-opencode-fixtures";
 import {
   type Counts,
@@ -134,9 +142,9 @@ const stampOf = (path: string) => {
 
 const fixtureStage = async (c: Counts) => {
   const root = join(WORK, "serve");
-  const fixtures = join(REPO, "packages/core/test/fixtures");
+  const fixtures = fixturesDir();
   const claude = join(root, "claude");
-  cpSync(join(fixtures, "sessions/projects"), claude, { recursive: true });
+  cpSync(join(fixtures, "sessions/projects"), claude, COPY);
   const image = imageTranscript(claude);
   const oc = buildOpencodeData(
     join(root, "oc"),

@@ -2,3 +2,7 @@
 packages/core/test/fixtures/** -text
 # Checked byte for byte against the Rust generator output, which uses LF.
 apps/inspector/src/lib/api-types.gen.ts text eol=lf
+# Recorded TS outputs: binary gzip, plus a generated index per stage.
+tests/goldens/*.gz binary
+tests/goldens/*.index linguist-generated
+tests/goldens/manifest.json linguist-generated

@@ -2,9 +2,16 @@
  * events in the TS schema covering each redaction rule, every outcome,
  * odd numbers and keys, and one row past the retention window. */
 import { Database } from "bun:sqlite";
-import { mkdirSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { fixtureEnv, REPO, type Run, report, TS_CMD } from "./parity-lib";
+import { ORACLE_MODE, tsValueSync } from "./parity-oracle";
 
 export const spawn = (
   cmd: readonly string[],
@@ -156,14 +163,34 @@ const seedEvents = (now: number): Seed[] => {
   ];
 };
 
-/** A store made by TS, then filled with the seed rows. */
+const STORE_FILES = ["telemetry.db", "telemetry.db-wal"];
+
+/** The store files TS made, base64; replay writes them back. */
+const storeOf = (dir: string) =>
+  Object.fromEntries(
+    STORE_FILES.filter((f) => existsSync(join(dir, f))).map((f) => [
+      f,
+      readFileSync(join(dir, f)).toString("base64"),
+    ])
+  );
+
+/** A store made by TS, then filled with the seed rows; returns the clock
+ * the rows are relative to. */
 export const buildSeed = (dir: string, home: string) => {
   mkdirSync(dir, { recursive: true });
-  const made = spawn(
-    [...TS_CMD, "doctor", "--out", join(dir, "made.json")],
-    fixtureEnv(home, { PEEKTRACE_DIR: dir }),
-    REPO
-  );
+  const { made, files } = tsValueSync("telemetry seed store", () => ({
+    made: spawn(
+      [...TS_CMD, "doctor", "--out", join(dir, "made.json")],
+      fixtureEnv(home, { PEEKTRACE_DIR: dir }),
+      REPO
+    ),
+    files: storeOf(dir),
+  }));
+  if (ORACLE_MODE === "replay") {
+    for (const [f, b64] of Object.entries(files)) {
+      writeFileSync(join(dir, f), Buffer.from(b64, "base64"));
+    }
+  }
   if (made.code !== 0) {
     report(`telemetry seed: TS doctor failed: ${made.stdout}${made.stderr}`);
   }
@@ -171,7 +198,8 @@ export const buildSeed = (dir: string, home: string) => {
   const insert = db.prepare(
     "INSERT OR REPLACE INTO events (id,ts,kind,name,outcome,error_tag,duration_ms,interesting,data) VALUES (?,?,?,?,?,?,?,?,?)"
   );
-  for (const s of seedEvents(Date.now())) {
+  const now = Date.now();
+  for (const s of seedEvents(now)) {
     const interesting = s.outcome !== "success" || s.durationMs > SLOW_MS;
     insert.run(
       s.id,
@@ -187,4 +215,5 @@ export const buildSeed = (dir: string, home: string) => {
   }
   db.close();
   rmSync(join(dir, "made.json"), { force: true });
+  return now;
 };

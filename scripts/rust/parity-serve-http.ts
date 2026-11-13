@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { compareRun, report, run, rustBin, TS_CMD } from "./parity-lib";
+import { bind } from "./parity-oracle";
 import type { Counts, Pair } from "./parity-serve-cases";
 import { type RawAnswer, raw, type Server } from "./parity-serve-lib";
 
@@ -340,7 +341,9 @@ export const remoteCli = (
   });
   for (const args of cases) {
     c.cases += 1;
-    const ts = run([...TS_CMD, "--no-telemetry", ...args], env);
+    const ts = run([...TS_CMD, "--no-telemetry", ...args], env, {
+      canon: mask,
+    });
     const rust = run([rustBin, "--remote", url, ...args], env);
     compareRun(`serve remote ${args.join(" ")}`, mask(ts), mask(rust));
   }
@@ -351,6 +354,7 @@ export const remoteErrors = (
   env: Record<string, string>,
   closedPort: number
 ) => {
+  bind("<CLOSED>", `127.0.0.1:${closedPort}`);
   const urls = [`http://127.0.0.1:${closedPort}`, "", "ftp://x", "127.0.0.1:1"];
   for (const url of urls) {
     const args = ["sessions", "ls"];

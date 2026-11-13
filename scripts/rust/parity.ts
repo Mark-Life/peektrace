@@ -19,6 +19,11 @@
  *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp,
  *                                              # upgrade, help, telemetry
  *   bun scripts/rust/parity.ts --tui-only      # only the `tui` stage
+ *
+ * CI does not run this file per push: it replays recorded TS results with
+ * `scripts/rust/goldens.ts`. Regenerate them after any change to the TS
+ * sources, the fixtures or these scripts: `bun scripts/rust/goldens.ts
+ * --write` (see `scripts/rust/README.md`).
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
@@ -65,8 +70,8 @@ import {
   diffs,
   firstLineDiff,
   fixtureEnv,
+  fixturesDir,
   flag,
-  REPO,
   report,
   run,
   rustBin,
@@ -77,6 +82,7 @@ import {
 import { runMemoryStage } from "./parity-memory";
 import { runOpencodeStage } from "./parity-opencode";
 import { storeStamp } from "./parity-opencode-stamp";
+import { finishOracle } from "./parity-oracle";
 import { runSearchStage } from "./parity-search";
 import { runServeStage } from "./parity-serve";
 import { runStatsStage } from "./parity-stats";
@@ -206,7 +212,7 @@ const runSuite = (suite: Suite) => {
 const fixtureSuites = (): Suite[] => {
   const emptyHome = join(WORK, "empty-home");
   mkdirSync(emptyHome, { recursive: true });
-  const fixtures = join(REPO, "packages/core/test/fixtures");
+  const fixtures = fixturesDir();
   const edgeHome = buildEdge();
   return [
     {
@@ -485,6 +491,7 @@ const main = async () => {
   for (const path of locked.filter((p) => existsSync(p))) {
     chmodSync(path, READ_WRITE);
   }
+  await finishOracle();
   console.log(
     diffs.length === 0 ? "parity: OK" : `parity: ${diffs.length} difference(s)`
   );
