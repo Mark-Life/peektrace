@@ -39,7 +39,14 @@ pub fn same_chat_event(a: &TimelineEvent, b: &TimelineEvent) -> bool {
 
 /// Hashes exactly the fields [`same_chat_event`] compares.
 pub fn hash_chat_event(e: &TimelineEvent, h: &mut impl Hasher) {
-    (e.index, e.kind, &e.tool_name, &e.attachment_type, e.is_sidechain).hash(h);
+    (
+        e.index,
+        e.kind,
+        &e.tool_name,
+        &e.attachment_type,
+        e.is_sidechain,
+    )
+        .hash(h);
     e.prompt_origin.map(|o| discriminant(&o)).hash(h);
     (&e.prompt_source, &e.preview, &e.body).hash(h);
     (

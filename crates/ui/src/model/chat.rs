@@ -343,6 +343,6 @@ pub fn chip_window(
 }
 
 #[cfg(test)]
-mod tests;
-#[cfg(test)]
 mod port_tests;
+#[cfg(test)]
+mod tests;

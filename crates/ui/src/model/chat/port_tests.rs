@@ -26,7 +26,11 @@ fn a_harness_prompt_is_centred_a_persons_stays_right() {
         prompt_origin: Some(o),
         ..ev(EventKind::UserPrompt)
     };
-    for o in [PromptOrigin::Human, PromptOrigin::Sdk, PromptOrigin::Command] {
+    for o in [
+        PromptOrigin::Human,
+        PromptOrigin::Sdk,
+        PromptOrigin::Command,
+    ] {
         assert_eq!(lane_of(&prompt(o)), Lane::User, "{o:?}");
     }
     for o in [
@@ -201,7 +205,10 @@ fn show_expand_all_or_an_opened_repeat_reveal_every_chip() {
 
 #[test]
 fn an_opened_fresh_chip_does_not_reveal_repeats() {
-    assert_eq!(chip_window(&fold_items(), false, false, |i| i.pos == 0).folded, 2);
+    assert_eq!(
+        chip_window(&fold_items(), false, false, |i| i.pos == 0).folded,
+        2
+    );
 }
 
 fn window_of(flags: &str, show_all: bool) -> (usize, usize, Vec<usize>) {

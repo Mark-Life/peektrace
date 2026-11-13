@@ -34,7 +34,9 @@ const ROW_CHANGES: [(&str, Change); 12] = [
         e.attachment_type = Some("undefined-changed".into());
     }),
     ("isSidechain", |e| e.is_sidechain = Some(true)),
-    ("promptOrigin", |e| e.prompt_origin = Some(PromptOrigin::Harness)),
+    ("promptOrigin", |e| {
+        e.prompt_origin = Some(PromptOrigin::Harness);
+    }),
     ("promptSource", |e| {
         e.prompt_source = Some("undefined-changed".into());
     }),

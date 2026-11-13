@@ -168,9 +168,10 @@ fn jump_chip(
     t: &Theme,
 ) -> El {
     // The name first, then the jump hint, as the inspector reads it out.
-    let c = chip(label.clone(), color, t)
+    let name = format!("{label}, {hint}");
+    let c = chip(label, color, t)
         .key(key.to_owned())
-        .label(format!("{label}, {hint}"))
+        .label(name)
         .help(hint);
     let Some(target) = row_key else { return c };
     t.kit

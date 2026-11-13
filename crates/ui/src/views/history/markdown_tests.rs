@@ -15,12 +15,20 @@ thread_local! {
 
 fn view(_s: &Ui, _cx: &mut Cx<Ui>) -> El {
     let src = SRC.with(|s| s.borrow().clone());
-    col().w(900.0).padding(10.0).child(markdown(&src, &theme(true)))
+    col()
+        .w(900.0)
+        .padding(10.0)
+        .child(markdown(&src, &theme(true)))
 }
 
 fn render(src: &str) -> Runtime<Ui> {
     SRC.with(|s| *s.borrow_mut() = src.to_owned());
-    let mut rt = Runtime::new(Ui::new(None, 0.0, true), view, (1000.0, 800.0), Env::new(true, 1.0));
+    let mut rt = Runtime::new(
+        Ui::new(None, 0.0, true),
+        view,
+        (1000.0, 800.0),
+        Env::new(true, 1.0),
+    );
     for _ in 0..4 {
         rt.frame(1.0 / 60.0);
     }
@@ -36,7 +44,10 @@ fn texts(rt: &Runtime<Ui>) -> String {
 }
 
 fn with_role(rt: &Runtime<Ui>, role: &str) -> Vec<ElementInfo> {
-    rt.elements().into_iter().filter(|e| e.role == role).collect()
+    rt.elements()
+        .into_iter()
+        .filter(|e| e.role == role)
+        .collect()
 }
 
 /// Press the middle of the first link (else the first text) and return
@@ -169,4 +180,3 @@ fn text_past_the_size_limit_renders_verbatim() {
     assert!(with_role(&rt, "heading").is_empty());
     assert!(texts(&rt).contains("# heading"));
 }
-

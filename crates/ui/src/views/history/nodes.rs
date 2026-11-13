@@ -107,9 +107,8 @@ pub fn message(s: &Ui, pos: usize, e: &TimelineEvent, t: &Theme) -> El {
     if clamps && !raw {
         let label = if open { "Show less" } else { "Show all" };
         let key = format!("{id}:clamp");
-        meta = meta.child(
-            ghost(label, key, t, toggle_set(|s| &mut s.open, id.clone())).expanded(open),
-        );
+        meta = meta
+            .child(ghost(label, key, t, toggle_set(|s| &mut s.open, id.clone())).expanded(open));
     }
     let raw_label = if raw { "Markdown" } else { "Raw" };
     meta = meta.child(ghost(

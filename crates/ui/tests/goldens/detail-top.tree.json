@@ -821,7 +821,7 @@
     },
     {
       "key": "chip-cross",
-      "label": "jump to that turn in history",
+      "label": "entered dumb zone @ turn 89, jump to that turn in history",
       "rect": [757, 392, 155, 24],
       "role": "button"
     },
@@ -832,7 +832,7 @@
     },
     {
       "key": "chip-compactions",
-      "label": "jump to the first in history",
+      "label": "2 compaction(s), jump to the first in history",
       "rect": [918, 392, 91, 24],
       "role": "button"
     },

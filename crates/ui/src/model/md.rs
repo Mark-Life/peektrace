@@ -43,12 +43,12 @@ mod tests {
     #[test]
     fn escapes_html_but_not_code() {
         assert_eq!(escape_html("plain"), "plain");
-        assert_eq!(
-            escape_html("<x>\nhi\n</x>"),
-            "&lt;x>\nhi\n&lt;/x>"
-        );
+        assert_eq!(escape_html("<x>\nhi\n</x>"), "&lt;x>\nhi\n&lt;/x>");
         assert_eq!(escape_html("a <b>c</b>"), "a &lt;b>c&lt;/b>");
-        assert_eq!(escape_html("`<b>` and\n\n```\n<b>\n```"), "`<b>` and\n\n```\n<b>\n```");
+        assert_eq!(
+            escape_html("`<b>` and\n\n```\n<b>\n```"),
+            "`<b>` and\n\n```\n<b>\n```"
+        );
         assert_eq!(escape_html("<https://x.dev>"), "<https://x.dev>");
         assert_eq!(escape_html("1 < 2"), "1 < 2");
     }

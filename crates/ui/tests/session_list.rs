@@ -4,7 +4,6 @@
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::{SessionHeader, SessionListingView};
 use peektrace_ui::model::jstime::{DAY_MS, day_key, parse_date};
-use peektrace_ui::model::list::LIVE_MS;
 use peektrace_ui::state::Ui;
 use peektrace_ui::views;
 use rune::{Env, Runtime};
@@ -46,7 +45,7 @@ fn header(i: usize) -> SessionHeader {
         size_bytes: 1024,
         updated_at: iso(updated),
         cwd: Some(cwd),
-        git_branch: Some(if i % 2 == 0 { "HEAD" } else { "main" }.into()),
+        git_branch: Some(if i.is_multiple_of(2) { "HEAD" } else { "main" }.into()),
         model: Some("claude-opus-4".into()),
         title: Some(format!("Synthetic task {i}")),
         started_at: Some(iso(start)),
@@ -88,7 +87,12 @@ fn texts(rt: &Runtime<Ui>) -> Vec<String> {
 fn rows(rt: &Runtime<Ui>) -> Vec<rune::ElementInfo> {
     rt.elements()
         .into_iter()
-        .filter(|e| e.role == "link" && e.label.as_deref().is_some_and(|l| l.starts_with("Synthetic")))
+        .filter(|e| {
+            e.role == "link"
+                && e.label
+                    .as_deref()
+                    .is_some_and(|l| l.starts_with("Synthetic"))
+        })
         .collect()
 }
 
@@ -146,16 +150,20 @@ fn gives_every_row_the_same_fixed_height() {
 fn keeps_the_model_in_a_row_tooltip() {
     let rt = big();
     assert!(!rows(&rt).is_empty());
-    assert!(
-        rt.elements()
-            .iter()
-            .any(|e| e.help.as_deref().is_some_and(|h| h.ends_with(" · claude-opus-4")))
-    );
+    assert!(rt.elements().iter().any(|e| {
+        e.help
+            .as_deref()
+            .is_some_and(|h| h.ends_with(" · claude-opus-4"))
+    }));
 }
 
 #[test]
 fn shows_the_session_count_over_the_full_list() {
-    assert!(texts(&big()).iter().any(|t| t == &format!("{COUNT} sessions")));
+    assert!(
+        texts(&big())
+            .iter()
+            .any(|t| t == &format!("{COUNT} sessions"))
+    );
 }
 
 #[test]
@@ -171,7 +179,6 @@ fn marks_only_a_session_written_to_in_the_last_few_minutes() {
         updated_at: iso(now - 3_600_000),
         ..header(2)
     };
-    assert!(LIVE_MS > 30_000.0);
     let rt = runtime(vec![idle, live], now);
     let els = rt.elements();
     let dots: Vec<usize> = els

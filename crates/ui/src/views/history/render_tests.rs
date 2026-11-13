@@ -69,7 +69,12 @@ fn events() -> Vec<TimelineEvent> {
         TimelineEvent {
             title: "System prompt".into(),
             tokens_est: 2000.0,
-            ..evt(14, K::SystemPrompt, "## preamble\n\nYou are a coding agent.", "")
+            ..evt(
+                14,
+                K::SystemPrompt,
+                "## preamble\n\nYou are a coding agent.",
+                "",
+            )
         },
         TimelineEvent {
             prompt_origin: Some(PromptOrigin::TaskNotification),
@@ -136,7 +141,9 @@ fn state(open: bool) -> Ui {
 
 fn view(s: &Ui, _cx: &mut Cx<Ui>) -> El {
     let t = theme(true);
-    let Some(d) = &s.detail else { return rune::el() };
+    let Some(d) = &s.detail else {
+        return rune::el();
+    };
     col()
         .w_full()
         .h_full()
@@ -186,7 +193,10 @@ fn chat_renders_every_event_kind() {
     let els = rt.elements();
     let all = texts(&els);
     assert!(els.iter().any(|e| e.key.as_deref() == Some("dumbzone")));
-    assert!(els.iter().any(|e| e.role == "heading" && e.key.as_deref() == Some("turn1")));
+    assert!(
+        els.iter()
+            .any(|e| e.role == "heading" && e.key.as_deref() == Some("turn1"))
+    );
     // 15 non-system rows, minus the result folded into its call, minus the
     // three context injections that render as chips.
     assert_eq!(blocks(&els).len(), 11, "{:?}", blocks(&els));
@@ -247,7 +257,12 @@ fn collapsed_chat_toggles_say_closed() {
     // Only Show all keeps its body mounted while closed.
     let all = texts(&els);
     assert!(all.contains(&"x".repeat(1200)));
-    for hidden in ["summary of history", "running notes", "You are a coding agent.", "done"] {
+    for hidden in [
+        "summary of history",
+        "running notes",
+        "You are a coding agent.",
+        "done",
+    ] {
         assert!(!all.contains(hidden), "{hidden}");
     }
 }
@@ -274,6 +289,9 @@ fn expanded_chat_toggles_say_open_and_show_their_bodies() {
 fn the_chat_mounts_as_a_list_before_the_page_has_scrolled() {
     let rt = render(false);
     let els = rt.elements();
-    assert!(els.iter().any(|e| e.key.as_deref() == Some(super::ROWS_KEY)));
-    assert!(!blocks(&els).is_empty());
+    assert!(
+        els.iter()
+            .any(|e| e.key.as_deref() == Some(super::ROWS_KEY))
+    );
+    assert_ne!(blocks(&els), Vec::<String>::new());
 }

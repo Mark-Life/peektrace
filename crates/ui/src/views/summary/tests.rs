@@ -203,12 +203,7 @@ fn the_timeline_takes_clicks_and_focus_on_its_two_markers() {
     assert!(by_key(&els, "growth-hit").is_some());
     let markers: Vec<&ElementInfo> = els
         .iter()
-        .filter(|e| {
-            e.focusable
-                && e.key
-                    .as_deref()
-                    .is_some_and(|k| k.starts_with("growth-"))
-        })
+        .filter(|e| e.focusable && e.key.as_deref().is_some_and(|k| k.starts_with("growth-")))
         .collect();
     assert_eq!(markers.len(), 2, "{markers:?}");
     let labels: Vec<&str> = markers.iter().filter_map(|e| e.label.as_deref()).collect();

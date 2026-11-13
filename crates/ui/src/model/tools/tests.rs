@@ -272,5 +272,8 @@ fn body_views_by_title() {
     assert_eq!(body_view(&file("skills_instructions")), None);
     assert_eq!(body_view(&file("file: CLAUDE.md")), None);
     assert_eq!(body_view(&file("file: index.ts")), Some("typescript"));
-    assert_eq!(body_view(&file("opened_file_in_ide: main.py")), Some("text"));
+    assert_eq!(
+        body_view(&file("opened_file_in_ide: main.py")),
+        Some("text")
+    );
 }
