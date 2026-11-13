@@ -276,3 +276,218 @@ fn hiding_filters_reset_only_what_hides() {
     assert_eq!(hiding_filters(&h, &Filters::default()), vec![]);
     assert_eq!(active_count(&f), 3);
 }
+
+// Ports of `apps/inspector/test/session-list-model.test.ts` cases the tests
+// above do not already hold with the same fixture.
+
+fn cwd_project(cwd: Option<&str>, project: &str) -> SessionHeader {
+    with(|h| {
+        h.cwd = cwd.map(Into::into);
+        h.project = project.into();
+    })
+}
+
+fn opts(pairs: &[(&str, &str)]) -> Vec<FilterOption> {
+    pairs
+        .iter()
+        .map(|(value, label)| FilterOption {
+            value: (*value).into(),
+            label: (*label).into(),
+        })
+        .collect()
+}
+
+#[test]
+fn project_label_falls_back_to_the_stored_project() {
+    assert_eq!(
+        project_label(&cwd_project(None, "-home-dev-code-app")),
+        "-home-dev-code-app"
+    );
+    assert_eq!(project_label(&cwd_project(Some("/"), "root")), "root");
+}
+
+#[test]
+fn project_label_splits_a_windows_path() {
+    assert_eq!(
+        project_label(&cwd_project(Some("C:\\work\\tools\\cli"), "x")),
+        "cli"
+    );
+}
+
+#[test]
+fn project_options_key_by_cwd_and_label_by_folder() {
+    let hs = [
+        cwd_project(Some("/home/dev/code/web"), "p-web"),
+        cwd_project(Some("/home/dev/code/api"), "p-api"),
+        cwd_project(Some("/home/dev/code/api"), "p-api"),
+    ];
+    assert_eq!(
+        project_options(&hs),
+        opts(&[("/home/dev/code/api", "api"), ("/home/dev/code/web", "web")])
+    );
+}
+
+#[test]
+fn project_options_fall_back_to_the_slug() {
+    assert_eq!(
+        project_options(&[cwd_project(None, "p-web")]),
+        opts(&[("p-web", "p-web")])
+    );
+}
+
+#[test]
+fn project_options_merge_harnesses_in_one_folder() {
+    let hs = [
+        cwd_project(Some("/w/acme/app"), "-w-acme-app"),
+        cwd_project(Some("/w/acme/app"), "app"),
+    ];
+    assert_eq!(project_options(&hs), opts(&[("/w/acme/app", "app")]));
+}
+
+#[test]
+fn project_options_add_the_parent_on_a_shared_name() {
+    let hs = [
+        cwd_project(Some("/home/dev/one/app"), "p-one"),
+        cwd_project(Some("/home/dev/two/app"), "p-two"),
+        cwd_project(Some("/home/dev/code/web"), "p-web"),
+    ];
+    assert_eq!(
+        project_options(&hs),
+        opts(&[
+            ("/home/dev/one/app", "one/app"),
+            ("/home/dev/two/app", "two/app"),
+            ("/home/dev/code/web", "web"),
+        ])
+    );
+}
+
+#[test]
+fn project_options_use_the_full_path_on_a_second_collision() {
+    let hs = [
+        cwd_project(Some("/a/one/app"), "p-a"),
+        cwd_project(Some("/b/one/app"), "p-b"),
+    ];
+    assert_eq!(
+        project_options(&hs),
+        opts(&[("/a/one/app", "/a/one/app"), ("/b/one/app", "/b/one/app")])
+    );
+}
+
+#[test]
+fn visible_branch_hides_a_missing_branch() {
+    assert_eq!(visible_branch(None), None);
+}
+
+#[test]
+fn sort_breaks_ties_by_id() {
+    let hs: Vec<_> = ["c", "a", "b"]
+        .into_iter()
+        .map(|id| {
+            with(|h| {
+                h.id = id.into();
+                h.updated_at = "2026-05-01T00:00:00Z".into();
+            })
+        })
+        .collect();
+    assert_eq!(ids(&hs, FAR), ["a", "b", "c"]);
+}
+
+#[test]
+fn matches_a_project_key_from_cwd() {
+    let with_cwd = with(|h| h.cwd = Some("/home/dev/code/app".into()));
+    let f = Filters {
+        project: Some(project_key(&with_cwd).into()),
+        ..Filters::default()
+    };
+    assert!(matches(&with_cwd, &f));
+}
+
+#[test]
+fn active_days_of_one_stamp_and_of_none() {
+    let one = with(|h| h.updated_at = "2026-11-08T10:00:00Z".into());
+    assert_eq!(active_days(&one), ["2026-11-08"]);
+    assert_eq!(active_days(&header()), Vec::<String>::new());
+}
+
+#[test]
+fn active_days_skip_a_stamp_that_is_not_an_iso_day() {
+    let days = |started: &str, updated: &str| {
+        active_days(&with(|h| {
+            h.started_at = Some(started.into());
+            h.updated_at = updated.into();
+        }))
+    };
+    assert_eq!(
+        days("1/5/2025 10:00", "2025-01-05T10:00:00Z"),
+        ["2025-01-05"]
+    );
+    assert_eq!(days("2025-01-05T10:00:00Z", "garbage"), ["2025-01-05"]);
+    assert_eq!(days("bad", "worse"), Vec::<String>::new());
+}
+
+#[test]
+fn range_matches_any_day_the_session_was_active_on() {
+    let spanning = with(|h| {
+        h.started_at = Some("2026-11-01T09:00:00Z".into());
+        h.updated_at = "2026-11-03T10:00:00Z".into();
+    });
+    let day = |d: u8| format!("2026-11-{d:02}");
+    let on = |from: u8, to: Option<u8>| {
+        matches(
+            &spanning,
+            &Filters {
+                range: Some(DayRange {
+                    from: day(from),
+                    to: to.map(day),
+                }),
+                ..Filters::default()
+            },
+        )
+    };
+    assert!(on(1, None));
+    assert!(on(2, None));
+    assert!(on(3, None));
+    assert!(!on(4, None));
+    assert!(!on(4, Some(8)));
+    assert!(on(3, Some(8)));
+}
+
+#[test]
+fn stamp_title_names_the_shown_stamp_and_adds_the_start() {
+    let spanning = with(|h| {
+        h.started_at = Some("2026-11-01T09:00:00Z".into());
+        h.updated_at = "2026-11-03T10:00:00Z".into();
+    });
+    assert_eq!(
+        stamp_title(&spanning),
+        "Last activity Nov 3, 10:00 · started Nov 1, 09:00"
+    );
+    let started = with(|h| h.started_at = Some("2026-11-01T09:00:00Z".into()));
+    assert_eq!(stamp_title(&started), "Last activity Nov 1, 09:00");
+}
+
+#[test]
+fn hiding_filters_empty_when_the_session_passes() {
+    let h = with(|h| h.model = Some("m-1".into()));
+    assert_eq!(hiding_filters(&h, &Filters::default()), vec![]);
+    let f = Filters {
+        model: Some("m-1".into()),
+        ..Filters::default()
+    };
+    assert_eq!(hiding_filters(&h, &f), vec![]);
+}
+
+#[test]
+fn hiding_filters_reset_only_the_hiding_ones() {
+    let h = with(|h| h.model = Some("m-1".into()));
+    let f = Filters {
+        agent: Some(AgentId::Codex),
+        model: Some("m-1".into()),
+        query: "zzz".into(),
+        ..Filters::default()
+    };
+    let fix = hiding_filters(&h, &f);
+    assert_eq!(fix, [FilterName::Query, FilterName::Agent]);
+    let fixed = fix.into_iter().fold(f, Filters::without);
+    assert!(matches(&h, &fixed));
+}
