@@ -538,6 +538,8 @@ done
       row_rss "${G_LABEL[g]}: peak over the server life" "$OUT/srss-${G_NAME[g]}-peak"
     done
     echo
+  fi
+  if [[ "${SERVE:-0}" == 1 && " ${P_SIZE[*]-} " == *" yes "* ]]; then
     echo "## Serve payloads"
     echo
     echo "| response | Bun | Rust | Δ (Rust vs Bun) |"
