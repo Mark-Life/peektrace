@@ -16,6 +16,8 @@ use rune_kit::{Button, ButtonVariant, ControlSize};
 pub use body::{CUT_BYTES, PLAIN_BYTES, head_of};
 
 use crate::model::chat::{ChatNode, collapse_id};
+use crate::model::row::hash_chat_event;
+use crate::model::tools::tool_name_of;
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty};
 use crate::views::summary::{HISTORY_KEY, SUMMARY_KEY};
@@ -32,12 +34,25 @@ fn ids_of(n: &ChatNode) -> Vec<usize> {
     }
 }
 
-/// Everything a row's look depends on beyond the analysis revision.
+/// Everything a row's look depends on. Rows that show events hash the
+/// fields they render, so a live re-analysis keeps unchanged rows; turn
+/// rules and the dumb-zone band read the whole analysis and use its revision.
 fn row_version(s: &Ui, d: &Detail, i: usize, dark: bool) -> u64 {
     let mut h = DefaultHasher::new();
-    (d.rev, dark).hash(&mut h);
+    (&d.id, dark).hash(&mut h);
     let node = &d.plan[i];
-    for pos in ids_of(node) {
+    node.hash(&mut h);
+    let ids = ids_of(node);
+    if ids.is_empty() {
+        d.rev.hash(&mut h);
+    }
+    if let ChatNode::Tool { call, result } = node
+        && let Some(head) = call.or(*result)
+    {
+        tool_name_of(&d.a.events, &d.a.events[head], &d.tools).hash(&mut h);
+    }
+    for pos in ids {
+        hash_chat_event(&d.a.events[pos], &mut h);
         let id = collapse_id(pos);
         (
             s.open.contains(&id),
