@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use common::home::{self, BIG_TURN, FIXTURE_ID, LONG_ID, UNTITLED_ID};
-use peektrace_protocol::view::SessionListingView;
+use peektrace_protocol::view::{SessionListingView, SubagentRef};
 use peektrace_protocol::{AgentId, WatchVersions};
 use peektrace_ui::model::chat::{ChatNode, collapse_id};
 use peektrace_ui::source::in_process::InProcess;
@@ -378,8 +378,8 @@ fn watch_refresh(s: &mut Ui, bump: u32, listing: &SessionListingView) -> Vec<Req
 #[test]
 fn a_watch_refresh_reloads_the_open_session_only_when_it_changed() {
     let mut s = state(&home::build_home());
-    s.io = None;
     open(&mut s, LONG_ID);
+    s.io = None;
     s.pending.clear();
     let Some(mut listing) = s.rail.listing.clone() else {
         panic!("no listing");
@@ -404,6 +404,21 @@ fn a_watch_refresh_reloads_the_open_session_only_when_it_changed() {
     grow(&mut listing, true);
     assert!(matches!(
         watch_refresh(&mut s, 2, &listing).as_slice(),
+        [Request::Analysis { id, .. }] if id == LONG_ID
+    ));
+    // Subagent files are not in the listing: a session with some reloads.
+    if let Some(d) = s.detail.as_mut() {
+        d.a.subagents.push(SubagentRef {
+            id: "agent-1".to_owned(),
+            agent_type: None,
+            description: None,
+            tool_use_id: None,
+            turns: 1,
+            peak_context_tokens: 0.0,
+        });
+    }
+    assert!(matches!(
+        watch_refresh(&mut s, 3, &listing).as_slice(),
         [Request::Analysis { id, .. }] if id == LONG_ID
     ));
 }

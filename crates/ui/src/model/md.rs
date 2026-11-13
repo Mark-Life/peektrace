@@ -147,15 +147,40 @@ mod tests {
             out,
             "&lt;context>\nUse `Option<T>` and x&lt;y> here\n```rust\nlet v: Vec<u8> = a < b;\n```\n&lt;/context>"
         );
-        let shown: String = Parser::new(&out)
-            .filter_map(|ev| match ev {
-                Event::Code(t) | Event::Text(t) => Some(t.into_string()),
-                _ => None,
+        // The TS inspector's tree for `src`: text, code span, text, fence, text.
+        let nodes = Parser::new(&out)
+            .scan(false, |fenced, ev| {
+                Some(match ev {
+                    Event::Start(pulldown_cmark::Tag::CodeBlock(_)) => {
+                        *fenced = true;
+                        None
+                    }
+                    Event::End(pulldown_cmark::TagEnd::CodeBlock) => {
+                        *fenced = false;
+                        None
+                    }
+                    Event::Code(t) => Some(("code", t.into_string())),
+                    Event::Text(t) if *fenced => Some(("fence", t.into_string())),
+                    Event::Text(t) => Some(("text", t.into_string())),
+                    Event::SoftBreak => Some(("text", "\n".to_owned())),
+                    _ => None,
+                })
             })
-            .collect();
-        assert_eq!(
-            shown,
-            "<context>Use Option<T> and x<y> herelet v: Vec<u8> = a < b;\n</context>"
-        );
+            .flatten()
+            .fold(Vec::<(&str, String)>::new(), |mut acc, (kind, t)| {
+                match acc.last_mut() {
+                    Some((k, last)) if *k == kind => last.push_str(&t),
+                    _ => acc.push((kind, t)),
+                }
+                acc
+            });
+        let want = [
+            ("text", "<context>\nUse "),
+            ("code", "Option<T>"),
+            ("text", " and x<y> here"),
+            ("fence", "let v: Vec<u8> = a < b;\n"),
+            ("text", "</context>"),
+        ];
+        assert_eq!(nodes, want.map(|(k, t)| (k, t.to_owned())).to_vec());
     }
 }

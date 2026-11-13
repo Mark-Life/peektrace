@@ -285,13 +285,21 @@ impl Ui {
         true
     }
 
-    /// The open session needs a reload against `listing`. A subagent's file
-    /// is not in the listing, so it always reloads.
+    /// The open session needs a reload against `listing`. Subagent files are
+    /// not in the listing, so a subagent, or a session that has some, always
+    /// reloads.
     fn detail_stale(&self, listing: &SessionListingView) -> bool {
         self.selected.as_ref().is_some_and(|sel| {
             let old = self.rail.find(&sel.id).and_then(|i| self.rail.header(i));
             let new = listing.headers.iter().find(|h| h.id == sel.id);
-            sel.parent.is_some() || self.detail_error.is_some() || list::changed(old, new)
+            let has_subagents = self
+                .detail
+                .as_ref()
+                .is_some_and(|d| d.id == sel.id && !d.a.subagents.is_empty());
+            sel.parent.is_some()
+                || has_subagents
+                || self.detail_error.is_some()
+                || list::changed(old, new)
         })
     }
 
