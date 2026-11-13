@@ -22,7 +22,6 @@ import {
 import { buildOpencodeData } from "./parity-opencode-fixtures";
 import {
   type Counts,
-  imageCases,
   infoCases,
   readOnlyCases,
   realCases,
@@ -40,6 +39,7 @@ import {
   startupLines,
   staticHttp,
 } from "./parity-serve-http";
+import { imageCases } from "./parity-serve-images";
 import { freePort, withPair } from "./parity-serve-lib";
 import { remoteStatusline } from "./parity-statusline";
 
