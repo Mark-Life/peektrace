@@ -58,9 +58,9 @@ jobs:
         run: cargo test --locked
 
   windows:
-    # Lint, unit tests, the fixture listing, Codex/Pi discovery and memory
-    # reads, writes and path containment. The CLI end-to-end tests drive a
-    # POSIX HOME, so they stay off.
+    # Lint, unit tests, the fixture listing, Codex/Pi discovery, memory
+    # reads, writes and path containment, and the telemetry store. The CLI
+    # end-to-end tests drive a POSIX HOME, so they stay off.
     name: check (windows-latest)
     runs-on: windows-latest
     timeout-minutes: 20
@@ -88,6 +88,9 @@ jobs:
           cargo test --locked -p peektrace-core
           --test fixtures --test discovery --test codex --test pi
           --test pi_context_edit --test memory --test memory_fs
+
+      - name: Telemetry store and layer
+        run: cargo test --locked -p peektrace-telemetry --test writer --test layer
 
   parity-build:
     # Builds once; each stage job below restores the binary, the examples

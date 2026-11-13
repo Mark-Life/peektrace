@@ -189,7 +189,7 @@ suite_analyze() {
   rust_latest="$("$RUST_BIN" sessions analyze --latest --json 2>/dev/null | jq -r .sessionId)"
   ENV_EXTRA+=("latest: $bun_latest ($(size_bytes claude "$bun_latest" | fmt_bytes) at start), same session in both: $([[ "$bun_latest" == "$rust_latest" ]] && echo yes || echo no)")
   METHOD_EXTRA+=("\`--latest\` is the newest session, often a live one that grows during the run.")
-  METHOD_EXTRA+=("Telemetry: Bun records local telemetry on each run by default; Rust accepts \`--no-telemetry\` but has no telemetry store yet. Rows use defaults; the \`--no-telemetry\` row shows Bun's telemetry cost.")
+  METHOD_EXTRA+=("Telemetry: both CLIs record local telemetry on each run by default. Rows use defaults; the \`--no-telemetry\` row shows the telemetry cost of each.")
 }
 
 suite_analyze_codex() { analyze_top codex; }

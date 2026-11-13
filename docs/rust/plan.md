@@ -136,7 +136,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `-v`, `--version` | `0.0.0-dev` and a blank line | `0.0.0-dev` |
 | Telemetry store broken, locked or unwritable (garbage file, a dir, a `BEGIN EXCLUSIVE` holder, `PEEKTRACE_DIR` a file) | the command fails: Effect `ERROR` dump on stdout or `Failed to execute statement`, exit 1 | the event is dropped; output and exit code do not change |
 | `PEEKTRACE_DIR=""` with telemetry on | the command fails (`ENOENT ... mkdir`) | nothing is recorded |
-| Wide event `error` | Effect tag, message and fields; failing spans add `code.stacktrace` | tag `Error`, the printed message, `fields` `{}`; no stack attribute |
+| Wide event `error` | Effect tag, message and fields; failing spans add `code.stacktrace` | tag `Error`, the printed message (for `/api` `rpc.*` events, the bare `_tag`, such as `SessionNotFoundError`), `fields` `{}`; no stack attribute |
 | `serve`, `tui`, `mcp` stopped by a signal | `defect`, `All fibers interrupted without errors.` | `success` |
 | Wide event `platform` | `<os>; bun/<v>; node/<v>` | `<os>; rust/<arch>` |
 | Wide event child spans | `RpcServer.*`, `RpcClient.*`, `http.server *` | none of those (as with `--otel`) |

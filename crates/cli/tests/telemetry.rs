@@ -385,3 +385,57 @@ fn doctor_opens_the_store_even_opted_out() {
     assert_eq!(out.status.code(), Some(1));
     assert!(text(&out.stderr).starts_with("Could not open the telemetry store: "));
 }
+
+#[cfg(unix)]
+#[test]
+fn mcp_stopped_by_a_signal_still_records() {
+    use std::io::{BufRead as _, BufReader, Write as _};
+    let f = Fixture::new();
+    let dir = f.home.join("pt");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_peektrace"))
+        .arg("mcp")
+        .env_clear()
+        .env("HOME", &f.home)
+        .env("PEEKTRACE_DIR", &dir)
+        .current_dir(&f.home)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn mcp");
+    let mut stdin = child.stdin.take().expect("stdin");
+    let call = r#"{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sessions_list","arguments":{}}}"#;
+    writeln!(stdin, "{call}").expect("write");
+    let mut reply = String::new();
+    BufReader::new(child.stdout.take().expect("stdout"))
+        .read_line(&mut reply)
+        .expect("reply");
+    assert!(reply.contains(r#""id":1"#), "{reply}");
+    let killed = Command::new("kill")
+        .args(["-TERM", &child.id().to_string()])
+        .status()
+        .expect("kill");
+    assert!(killed.success());
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let status = loop {
+        if let Some(s) = child.try_wait().expect("wait") {
+            break s;
+        }
+        assert!(Instant::now() < deadline, "mcp ignored SIGTERM");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    drop(stdin);
+    assert_eq!(status.code(), Some(0));
+    let rows = rows(&dir);
+    assert_eq!(rows.len(), 2, "{rows:#?}");
+    assert!(
+        rows.iter()
+            .any(|r| r.starts_with("rpc rpc.sessions.listing success ")),
+        "{rows:#?}"
+    );
+    assert!(
+        rows.iter()
+            .any(|r| r.starts_with("cli cli success ") && r.contains(r#""argv":"mcp""#)),
+        "{rows:#?}"
+    );
+}

@@ -13,7 +13,7 @@ use peektrace_protocol::{
     AgentId, AgentScan, ApiError, ApiErrorBody, Capability, CapabilitySupport, PerAgentSupport,
     ScannedRoot, ServerInfo, SupportLevel,
 };
-use tracing::{Instrument as _, Span, field};
+use tracing::{Instrument as _, Span};
 
 use crate::AppState;
 
@@ -104,13 +104,20 @@ pub(crate) async fn blocking<T: Send + 'static, E: Into<Failure> + Send + 'stati
     }
 }
 
+/// The wire `_tag` of `e`, as plain text.
+fn error_tag(e: &ApiError) -> String {
+    serde_json::to_value(e)
+        .ok()
+        .and_then(|v| v.get("_tag")?.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "Error".to_owned())
+}
+
 /// Answer `result`, recording status and error on the current span.
 pub(crate) fn finish(result: Result<Res, Failure>) -> Res {
     let span = Span::current();
     let res = result.unwrap_or_else(|f| match f {
         Failure::Api(e) => {
-            let body = serde_json::to_value(&e).unwrap_or_default();
-            span.record("error", field::display(body.get("_tag").unwrap_or(&body)));
+            span.record("error", error_tag(&e).as_str());
             api_error(e)
         }
         Failure::Defect(reason) => {
@@ -235,5 +242,14 @@ mod tests {
         let r = blocking::<(), ApiError>(|| Err(bad_request("x"))).await;
         let res = finish(r.map(|()| json(String::new())));
         assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn error_tag_is_the_bare_tag() {
+        let e = ApiError::SessionNotFoundError {
+            id: "nope".to_owned(),
+            searched_root: "/r".to_owned(),
+        };
+        assert_eq!(error_tag(&e), "SessionNotFoundError");
     }
 }
