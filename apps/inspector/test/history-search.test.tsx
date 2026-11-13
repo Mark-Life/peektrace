@@ -88,6 +88,28 @@ test("the table sort still applies to the hits", () => {
   expect(sorted).toEqual([3, 2]);
 });
 
+test("server hits stand in for the text index, system rows still dropped", () => {
+  // What `/history/search` answers for "zephyr", plus the system event.
+  const hits = new Set([0, 2, 3]);
+  const fromHits = (kind: string, sort = DEFAULT_HISTORY_SORT) =>
+    visibleRows({ events: EVENTS, hits, kind, query: "zephyr", sort }).map(
+      ({ pos }) => pos
+    );
+  expect(fromHits("all")).toEqual(rows({ query: "zephyr" }));
+  expect(fromHits("tool-call")).toEqual([3]);
+  expect(fromHits("all", { dir: "desc", key: "tokens" })).toEqual([3, 2]);
+  // An empty query ignores the hits.
+  expect(
+    visibleRows({
+      events: EVENTS,
+      hits,
+      kind: "all",
+      query: "",
+      sort: DEFAULT_HISTORY_SORT,
+    }).map(({ pos }) => pos)
+  ).toEqual([1, 2, 3, 4]);
+});
+
 test("stepping wraps at both ends", () => {
   const hits = ["a", "b", "c"];
   expect(stepHit({ current: "a", dir: 1, hits })).toBe("b");

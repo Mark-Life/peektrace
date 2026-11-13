@@ -30,6 +30,7 @@ import {
   TableRowView,
   TranscriptTable,
 } from "../src/routes/sessions/transcript-table";
+import { indexRowsOf } from "./history-rows";
 
 /** The table list carrying an inline style (spacer or fixed height). */
 const STYLED_TABLE_LIST = /data-testid="table-transcript"[^>]*style=/;
@@ -578,4 +579,67 @@ test("a failed tool card keeps its badges out of the preview row", () => {
   expect(summary).not.toContain('data-testid="stats-marker"');
   expect(summary).toContain("b.ts");
   expect(summary).toContain("~0 → ~0");
+});
+
+test("rows whose page has not arrived draw as placeholders under the same keys", () => {
+  const index = indexRowsOf(EVENTS, TURNS);
+  const indexRows = ROWS.map(({ pos }) => ({
+    e: index[pos] ?? ROWS[0]?.e,
+    pos,
+  }));
+  const keysOf = (html: string) =>
+    [...html.matchAll(/data-key="([^"]+)"/g)].map(([, k]) => k);
+  const props = {
+    a: SESSION,
+    bulkKey: 0,
+    crossEvtIdx: 9,
+    isOpen: () => false,
+    jump: null,
+    landing: LANDING,
+    onToggle: noop,
+    stickyHeight: 0,
+    tools: indexTools(SESSION),
+    turns: TURNS,
+  };
+  const chat = (
+    rows: typeof indexRows,
+    eventAt?: (pos: number) => TimelineEvent | null
+  ) =>
+    renderToStaticMarkup(
+      <TranscriptChat
+        {...props}
+        activeMark={null}
+        allOpen={false}
+        eventAt={eventAt}
+        marks={NO_MARKS}
+        queryActive={false}
+        rows={rows}
+      />
+    );
+  const whole = chat(ROWS);
+  const pending = chat(indexRows, () => null);
+  expect(keysOf(pending)).toEqual(keysOf(whole));
+  expect(countOf(pending, "data-pending")).toBe(
+    countOf(whole, "aria-posinset=") - 3
+  );
+  expect(pending).not.toContain('data-testid="history-event"');
+  const loaded = chat(indexRows, (pos) => EVENTS[pos] ?? null);
+  expect(loaded).toBe(whole);
+  const table = (
+    rows: typeof indexRows,
+    eventAt?: (pos: number) => TimelineEvent | null
+  ) =>
+    renderToStaticMarkup(
+      <TranscriptTable
+        {...props}
+        eventAt={eventAt}
+        onSort={noop}
+        rows={rows}
+        sort={DEFAULT_HISTORY_SORT}
+      />
+    );
+  const tableWhole = table(ROWS);
+  const tablePending = table(indexRows, () => null);
+  expect(keysOf(tablePending)).toEqual(keysOf(tableWhole));
+  expect(countOf(tablePending, "data-pending")).toBe(ROWS.length);
 });
