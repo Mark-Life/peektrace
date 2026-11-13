@@ -36,7 +36,7 @@ const OVERSCAN = 10;
 
 /** Lists up to this long mount every item, so browser find-in-page and
  *  screen-reader browse mode still reach the whole transcript. */
-export const FULL_RENDER_MAX = 150;
+const FULL_RENDER_MAX = 150;
 
 /** A viewport to plan the first render against, before the pane is measured. */
 const FALLBACK_HEIGHT = 900;

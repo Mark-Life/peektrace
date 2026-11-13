@@ -22,7 +22,7 @@ import type {
 export const PAGE_SIZE = 100;
 
 /** Pages fetched past each end of the drawn rows. */
-export const PREFETCH = 1;
+const PREFETCH = 1;
 
 /** Event pages held so far, by page number. */
 export type PageCache = ReadonlyMap<
