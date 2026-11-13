@@ -190,7 +190,9 @@ fn growth_fields(a: &AnalyzedSession) -> String {
     let s = &a.snapshots;
     w.key("snapshots").begin_obj();
     w.key("turnIndex").begin_arr();
-    s.iter().for_each(|x| w.elem().int(int(x.turn_index)));
+    for x in s {
+        w.elem().int(int(x.turn_index));
+    }
     w.end_arr();
     column(&mut w, "ctx", &|i| s[i].ctx);
     column(&mut w, "outputTokens", &|i| s[i].output_tokens);

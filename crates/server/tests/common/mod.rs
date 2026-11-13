@@ -120,6 +120,7 @@ pub fn start(o: &Options<'_>) -> TestServer {
         tmp_dir: dir.to_string_lossy().into_owned(),
         now: o.now.clone().unwrap_or_else(peektrace_server::system_clock),
         stats_lock: o.stats_lock.clone().unwrap_or_default(),
+        pages: peektrace_server::pages::PagesCache::default(),
     };
     let guards = Guards {
         allow: Allowlist::new(o.host, port),

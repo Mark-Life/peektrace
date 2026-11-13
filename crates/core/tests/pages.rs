@@ -53,9 +53,8 @@ fn parse(s: &str) -> Value {
 }
 
 fn page_events(p: &SessionPages, limit: usize) -> Vec<Value> {
-    (0..)
-        .map(|i| i * limit)
-        .take_while(|&o| o < p.total())
+    (0..p.total())
+        .step_by(limit)
         .flat_map(|o| match parse(&p.page(o, limit)) {
             Value::Object(mut m) => match m.remove("events") {
                 Some(Value::Array(e)) => e,
@@ -239,8 +238,8 @@ fn search_folds_case_like_to_lower_case() {
     for q in ["a", "READ", " ", "\n", "zzz-no-match", title.as_str()] {
         assert_eq!(pages.search(q), expect(q), "{q:?}");
     }
-    assert!(!pages.search(&title).is_empty());
-    assert!(pages.search("zzz-no-match").is_empty());
+    assert_ne!(pages.search(&title), Vec::<usize>::new());
+    assert_eq!(pages.search("zzz-no-match"), Vec::<usize>::new());
     let json = parse(&pages.search_json(&[1, 4]));
     assert_eq!(json["positions"], json!([1, 4]));
     assert_eq!(json["rev"].as_str().map(str::len), Some(16));

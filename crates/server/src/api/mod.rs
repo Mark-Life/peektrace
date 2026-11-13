@@ -36,6 +36,7 @@ macro_rules! rpc_span {
     };
 }
 
+mod history;
 mod memory;
 mod params;
 mod search;
@@ -43,6 +44,7 @@ mod sessions;
 mod settings;
 mod stats;
 
+pub use history::{growth, history, history_index, history_search, summary};
 pub use memory::{
     memory_all, memory_create, memory_delete, memory_projects, memory_update, memory_vault,
 };
