@@ -102,6 +102,20 @@ fn panic_is_a_defect() {
 }
 
 #[test]
+fn panic_from_another_thread_is_a_defect() {
+    let events = traced(|| {
+        let _ = std::panic::catch_unwind(|| {
+            let _in = root("rpc").entered();
+            peektrace_telemetry::defect_on_panic(|| {
+                let Err(payload) = std::thread::spawn(|| panic!("worker")).join();
+                std::panic::resume_unwind(payload)
+            })
+        });
+    });
+    assert!(matches!(&events[0].outcome, Outcome::Defect { message } if message == "worker"));
+}
+
+#[test]
 fn nested_roots_orphans_and_kinds() {
     let events = traced(|| {
         let _orphan = info_span!("orphan").entered();

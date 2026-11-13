@@ -259,6 +259,8 @@ const runShape = (home: string, extra: Record<string, string>) => {
     [["sessions", "analyze", "nope"]],
     [["sessions", "ls", "--limit", "abc"]],
     [["memory", "ls"]],
+    [["stats", "refresh"]],
+    [["stats"]],
     [["--help"]],
     [[]],
     [["--version"]],

@@ -264,6 +264,12 @@ impl Backend for CoreBackend {
     fn call(&self, req: &Request) -> Response {
         let span = root_span(req);
         let _entered = span.enter();
+        peektrace_telemetry::defect_on_panic(|| self.answer(req, &span))
+    }
+}
+
+impl CoreBackend {
+    fn answer(&self, req: &Request, span: &Span) -> Response {
         match req {
             Request::Sessions => {
                 let listing =
@@ -277,7 +283,7 @@ impl Backend for CoreBackend {
                     local: self.zone.as_ref(),
                 };
                 let r = analyze_session(env, Target::Lookup(id), None, *redact);
-                record(&span, &r);
+                record(span, &r);
                 Response::Analyze(r.map(Box::new).map_err(|e| e.to_string()))
             }
             Request::Stamp { dirs } => Response::Stamp(Ok(tree_stamp(dirs))),
@@ -292,7 +298,7 @@ impl Backend for CoreBackend {
                 } else {
                     write_stored(&self.settings_path, doc.clone(), *expected)
                 };
-                record(&span, &r);
+                record(span, &r);
                 Response::Saved(r.map_err(|e| match e {
                     SettingsUpdateError::Changed { .. } => SaveError::Changed,
                     e @ SettingsUpdateError::Write { .. } => SaveError::Other(e.to_string()),
@@ -300,7 +306,7 @@ impl Backend for CoreBackend {
             }
             Request::Report { days, agent } => {
                 let r = self.stats(|env| report(env, &Self::scope(*days, *agent)));
-                record(&span, &r);
+                record(span, &r);
                 Response::Report(r.map(Box::new).map_err(|e| e.to_string()))
             }
             Request::Drill {
@@ -317,13 +323,13 @@ impl Backend for CoreBackend {
                 };
                 let r =
                     self.stats(|env| drill(env, &Self::scope(*days, *agent), *table, key, page));
-                record(&span, &r);
+                record(span, &r);
                 Response::Drill(r.map(Box::new).map_err(|e| e.to_string()))
             }
             Request::Refresh { agent } => {
                 let agents = agent.map(|a| vec![a]);
                 let r = self.stats(|env| refresh(env, agents.as_deref(), true).map(|_| ()));
-                record(&span, &r);
+                record(span, &r);
                 Response::Refreshed(r.map_err(|e| e.to_string()))
             }
         }

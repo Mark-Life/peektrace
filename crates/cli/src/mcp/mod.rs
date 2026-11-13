@@ -64,9 +64,9 @@ struct Job {
     args: JsValue,
 }
 
-/// A stop signal ends the process without unwinding, so first emit the
-/// open `cli` root and flush the store, queued `rpc.*` events included.
-/// The handlers are in place before this returns.
+/// Exit 0 on a stop signal, as TS does on an interrupt, recording the open
+/// `cli` root and queued `rpc.*` events. The handlers are in place before
+/// this returns.
 fn exit_on_signal() {
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -76,40 +76,14 @@ fn exit_on_signal() {
     };
     let stopped = {
         let _in_rt = rt.enter();
-        stop_signal()
+        crate::signals::stop_signal()
     };
-    let Some(stopped) = stopped else { return };
     let _ = std::thread::Builder::new()
         .name("mcp-signal".to_owned())
         .spawn(move || {
             rt.block_on(stopped);
-            peektrace_telemetry::finish_open_roots();
-            peektrace_telemetry::flush(peektrace_telemetry::EXIT_WAIT);
-            std::process::exit(0);
+            crate::signals::exit_recorded(0);
         });
-}
-
-/// Resolves on SIGTERM or SIGINT. Needs a runtime context.
-#[cfg(unix)]
-fn stop_signal() -> Option<impl std::future::Future<Output = ()>> {
-    use tokio::signal::unix::{SignalKind, signal};
-    let mut term = signal(SignalKind::terminate()).ok()?;
-    let mut int = signal(SignalKind::interrupt()).ok()?;
-    Some(async move {
-        tokio::select! {
-            _ = term.recv() => {},
-            _ = int.recv() => {},
-        }
-    })
-}
-
-/// Resolves on Ctrl-C. Needs a runtime context.
-#[cfg(not(unix))]
-fn stop_signal() -> Option<impl std::future::Future<Output = ()>> {
-    let mut c = tokio::signal::windows::ctrl_c().ok()?;
-    Some(async move {
-        c.recv().await;
-    })
 }
 
 /// Serve `input` until it ends or a stop signal arrives, then wait for the

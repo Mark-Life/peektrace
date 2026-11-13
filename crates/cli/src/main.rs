@@ -14,6 +14,7 @@ mod render;
 mod reorder;
 mod search;
 mod serve;
+mod signals;
 mod single;
 mod stats;
 mod stats_progress;
@@ -28,6 +29,7 @@ mod width;
 mod zone;
 
 use std::io::{self, Write as _};
+use std::panic::{self, AssertUnwindSafe};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -430,8 +432,34 @@ fn main() -> ExitCode {
             root: &root,
             scrub: argv::has_free_text(&argv),
         };
-        dispatch::dispatch(&raw, &argv, failure)
+        let caught = panic::catch_unwind(AssertUnwindSafe(|| {
+            crash_point();
+            dispatch::dispatch(&raw, &argv, failure)
+        }));
+        if let Err(payload) = &caught {
+            peektrace_telemetry::record_panic(payload.as_ref());
+        }
+        caught
     };
+    // A panic still reaches the store: the root is closed, so flush, then
+    // carry on unwinding.
     peektrace_telemetry::flush(peektrace_telemetry::EXIT_WAIT);
-    code
+    code.unwrap_or_else(|payload| panic::resume_unwind(payload))
 }
+
+/// `PEEKTRACE_TEST_PANIC=main` panics on this thread; `worker` panics on
+/// another and re-raises here, as rayon does. Debug builds only.
+#[cfg(debug_assertions)]
+fn crash_point() {
+    match std::env::var("PEEKTRACE_TEST_PANIC").as_deref() {
+        Ok("main") => panic!("test panic"),
+        Ok("worker") => {
+            let Err(payload) = std::thread::spawn(|| panic!("worker panic")).join();
+            panic::resume_unwind(payload);
+        }
+        _ => {}
+    }
+}
+
+#[cfg(not(debug_assertions))]
+const fn crash_point() {}

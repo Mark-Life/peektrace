@@ -183,7 +183,7 @@ fn traced<T>(
     span: &tracing::Span,
     f: impl FnOnce() -> Result<T, UserError>,
 ) -> Result<T, UserError> {
-    let out = span.in_scope(f);
+    let out = span.in_scope(|| peektrace_telemetry::defect_on_panic(f));
     if let Err(e) = &out {
         span.record("error", field::display(e));
     }

@@ -94,12 +94,20 @@ impl From<ApiError> for Failure {
 
 const DEFECT: &str = "Internal server error";
 
-/// Run blocking core work off the runtime. A panic there is a defect.
+/// Run blocking core work off the runtime. A panic there is a defect, and
+/// marks the entered root as one.
 pub(crate) async fn blocking<T: Send + 'static, E: Into<Failure> + Send + 'static>(
     f: impl FnOnce() -> Result<T, E> + Send + 'static,
 ) -> Result<T, Failure> {
     match tokio::task::spawn_blocking(f).await {
         Ok(r) => r.map_err(Into::into),
+        Err(e) if e.is_panic() => {
+            let payload = e.into_panic();
+            peektrace_telemetry::record_panic(payload.as_ref());
+            Err(Failure::Defect(peektrace_telemetry::layer::panic_message(
+                payload.as_ref(),
+            )))
+        }
         Err(e) => Err(Failure::Defect(e.to_string())),
     }
 }

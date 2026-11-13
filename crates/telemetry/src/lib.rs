@@ -74,6 +74,16 @@ pub fn record_panic(payload: &(dyn std::any::Any + Send)) {
     layer::mark_defect(&layer::panic_message(payload));
 }
 
+/// Run `f` inside a root; a panic marks that root as a defect, then keeps
+/// unwinding. Needed where `f` fans out to other threads (rayon): their
+/// panics come back without running the hook on this thread.
+pub fn defect_on_panic<T>(f: impl FnOnce() -> T) -> T {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(f)).unwrap_or_else(|payload| {
+        record_panic(payload.as_ref());
+        std::panic::resume_unwind(payload)
+    })
+}
+
 /// A panic marks the innermost entered root as a defect, then runs the
 /// hook that was there before.
 fn install_panic_hook() {

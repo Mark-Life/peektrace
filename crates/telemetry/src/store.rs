@@ -23,6 +23,12 @@ pub const DDL: [&str; 4] = [
     "CREATE INDEX IF NOT EXISTS idx_events_outcome     ON events(outcome, ts)",
 ];
 
+/// Drop rows older than the `MAX_ROWS`th newest. It reads only
+/// `idx_events_ts`, so a store under the cap costs nothing; TS's `id NOT IN`
+/// form scans the whole table. Rows tied with the cutoff `ts` stay.
+const CAP_PURGE: &str =
+    "DELETE FROM events WHERE ts < (SELECT ts FROM events ORDER BY ts DESC LIMIT 1 OFFSET ?1)";
+
 impl StoreError {
     /// Another connection holds the lock; trying again may work.
     pub fn is_busy(&self) -> bool {
@@ -109,10 +115,7 @@ impl Store {
         }
         let cutoff = now_ms - RETENTION_DAYS * MS_PER_DAY;
         conn.execute("DELETE FROM events WHERE ts < ?1", [cutoff])?;
-        conn.execute(
-            "DELETE FROM events WHERE id NOT IN (SELECT id FROM events ORDER BY ts DESC LIMIT ?1)",
-            [MAX_ROWS],
-        )?;
+        conn.execute(CAP_PURGE, [MAX_ROWS - 1])?;
         Ok(Self { conn })
     }
 
@@ -264,6 +267,26 @@ mod tests {
             })
             .unwrap();
         assert_eq!(oldest, "e6");
+    }
+
+    #[test]
+    fn cap_purge_reads_only_the_ts_index() {
+        let s = store();
+        let mut stmt = s
+            .connection()
+            .prepare(&format!("EXPLAIN QUERY PLAN {CAP_PURGE}"))
+            .unwrap();
+        let plan: Vec<String> = stmt
+            .query_map([MAX_ROWS - 1], |r| r.get(3))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert!(
+            plan.iter()
+                .filter(|p| p.contains("events"))
+                .all(|p| p.contains("INDEX idx_events_ts")),
+            "{plan:#?}"
+        );
     }
 
     #[test]

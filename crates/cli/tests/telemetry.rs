@@ -386,9 +386,36 @@ fn doctor_opens_the_store_even_opted_out() {
     assert!(text(&out.stderr).starts_with("Could not open the telemetry store: "));
 }
 
+#[test]
+fn a_panic_lands_as_a_defect() {
+    let f = Fixture::new();
+    for (point, message) in [("main", "test panic"), ("worker", "worker panic")] {
+        let dir = f.home.join(point);
+        let out = run_in(&f, &dir, &[("PEEKTRACE_TEST_PANIC", point)], &["-v"]);
+        assert_eq!(out.status.code(), Some(101), "{}", text(&out.stderr));
+        assert!(text(&out.stderr).contains(message));
+        let rows = rows(&dir);
+        assert_eq!(rows.len(), 1, "{rows:#?}");
+        assert!(rows[0].starts_with("cli cli defect "), "{}", rows[0]);
+        assert!(
+            rows[0].contains(&format!(r#""error":{{"message":"{message}"}}"#)),
+            "{}",
+            rows[0]
+        );
+    }
+}
+
+/// Both stop signals exit 0, as TS's runtime does on an interrupt.
 #[cfg(unix)]
 #[test]
 fn mcp_stopped_by_a_signal_still_records() {
+    for signal in ["-TERM", "-INT"] {
+        mcp_stopped_by(signal);
+    }
+}
+
+#[cfg(unix)]
+fn mcp_stopped_by(signal: &str) {
     use std::io::{BufRead as _, BufReader, Write as _};
     let f = Fixture::new();
     let dir = f.home.join("pt");
@@ -412,7 +439,7 @@ fn mcp_stopped_by_a_signal_still_records() {
         .expect("reply");
     assert!(reply.contains(r#""id":1"#), "{reply}");
     let killed = Command::new("kill")
-        .args(["-TERM", &child.id().to_string()])
+        .args([signal, &child.id().to_string()])
         .status()
         .expect("kill");
     assert!(killed.success());
@@ -421,13 +448,13 @@ fn mcp_stopped_by_a_signal_still_records() {
         if let Some(s) = child.try_wait().expect("wait") {
             break s;
         }
-        assert!(Instant::now() < deadline, "mcp ignored SIGTERM");
+        assert!(Instant::now() < deadline, "mcp ignored {signal}");
         std::thread::sleep(Duration::from_millis(20));
     };
     drop(stdin);
-    assert_eq!(status.code(), Some(0));
+    assert_eq!(status.code(), Some(0), "{signal}");
     let rows = rows(&dir);
-    assert_eq!(rows.len(), 2, "{rows:#?}");
+    assert_eq!(rows.len(), 2, "{signal} {rows:#?}");
     assert!(
         rows.iter()
             .any(|r| r.starts_with("rpc rpc.sessions.listing success ")),
@@ -437,5 +464,31 @@ fn mcp_stopped_by_a_signal_still_records() {
         rows.iter()
             .any(|r| r.starts_with("cli cli success ") && r.contains(r#""argv":"mcp""#)),
         "{rows:#?}"
+    );
+}
+
+#[test]
+fn stats_keeps_one_load_span_per_transcript() {
+    let f = Fixture::new();
+    let dir = f.home.join("pt");
+    let out = run_in(&f, &dir, &[], &["stats"]);
+    assert_eq!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    let rows = rows(&dir);
+    assert_eq!(rows.len(), 1, "{rows:#?}");
+    let transcripts: usize = rows[0]
+        .split(r#""name":"Stats.foldCorpus","durationMs":"#)
+        .nth(1)
+        .and_then(|s| s.split(r#""transcripts":"#).nth(1))
+        .and_then(|s| s.split('}').next())
+        .and_then(|n| n.parse().ok())
+        .expect("foldCorpus span");
+    assert!(transcripts > 0);
+    assert_eq!(
+        rows[0]
+            .matches(r#""name":"AgentRegistry.loadTranscript""#)
+            .count(),
+        transcripts,
+        "{}",
+        rows[0]
     );
 }
