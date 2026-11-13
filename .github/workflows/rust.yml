@@ -6,14 +6,12 @@ name: Rust
 # A nightly (or manual, or `parity-live` labelled PR) job runs the full live
 # harness, TS and Rust side by side, so goldens that drift from TS show up.
 
-# Push runs only on `rust` (and `rust-ci-goldens`, to measure this setup):
-# a push to a `rust-*` branch with an open PR already starts a
-# pull_request run, so a push run there would double it.
+# Push runs only on `rust`: a push to a `rust-*` branch with an open PR
+# already starts a pull_request run, so a push run there would double it.
 on:
   push:
     branches:
       - rust
-      - rust-ci-goldens
   pull_request:
     branches:
       - rust
