@@ -32,6 +32,7 @@ import {
   TS_CMD,
   WORK,
 } from "./parity-lib";
+import { bind, tsValue, tsValueSync } from "./parity-oracle";
 
 const PAYLOAD = new Uint8Array([0x70, 0x65, 0x65, 0x6b, 9, 9, 9]);
 const HEX = createHash("sha256").update(PAYLOAD).digest("hex");
@@ -261,7 +262,9 @@ const runChecks = async (fake: Fake, home: string) => {
     fake.state.mode = c.mode;
     fake.state.log = [];
     const ts = await runAsync([...TS_CMD, ...c.args], env);
-    const tsLog = fake.state.log.join("\n");
+    const tsLog = tsValueSync(`upgrade ${c.name} ts requests`, () =>
+      fake.state.log.join("\n")
+    );
     fake.state.log = [];
     const rustTarget = c.installs ? target("rust", c.name) : undefined;
     const rust = await runAsync(
@@ -327,8 +330,14 @@ const runInstalls = async (fake: Fake, home: string, asset: string) => {
     fake.state.mode = mode;
     fake.state.log = [];
     const tsPath = target("ts", mode);
-    const ts = await tsPerform(asset, tsPath, envFor(home, fake.origin));
-    const tsLog = fake.state.log.join("\n");
+    const { ts, tsLog, a } = await tsValue(
+      `upgrade install-${mode}`,
+      async () => ({
+        ts: await tsPerform(asset, tsPath, envFor(home, fake.origin)),
+        tsLog: fake.state.log.join("\n"),
+        a: snapshot(tsPath),
+      })
+    );
     fake.state.log = [];
     const rustPath = target("rust", mode);
     const rust = await runAsync(
@@ -352,7 +361,6 @@ const runInstalls = async (fake: Fake, home: string, asset: string) => {
       report(`${label}: ts driver failed: ${ts.err.slice(0, 200)}`);
     }
     compareRun(label, expected, rust);
-    const a = snapshot(tsPath);
     const b = snapshot(rustPath);
     for (const k of ["bytes", "mode", "files"] as const) {
       if (a[k] !== b[k]) {
@@ -371,6 +379,8 @@ const runInstalls = async (fake: Fake, home: string, asset: string) => {
 export const runUpgradeStage = async () => {
   const asset = hostAsset();
   const fake = fakeServer(asset);
+  bind("<ORIGIN>", fake.origin);
+  bind("<ASSET>", asset);
   const home = join(WORK, "upgrade-home");
   mkdirSync(home, { recursive: true });
   try {

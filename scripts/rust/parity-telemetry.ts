@@ -14,6 +14,7 @@ import { join } from "node:path";
 import {
   compareRun,
   fixtureEnv,
+  fixturesDir,
   REPO,
   type Run,
   report,
@@ -21,6 +22,7 @@ import {
   TS_CMD,
   WORK,
 } from "./parity-lib";
+import { ORACLE_MODE, tsValueSync } from "./parity-oracle";
 import { buildSeed, spawn } from "./parity-telemetry-seed";
 
 const ROOT = join(WORK, "telemetry");
@@ -56,6 +58,7 @@ const DOCTOR_CASES: readonly (readonly string[])[] = [
 
 const SIDE_FILES = /^telemetry\.db-(wal|shm)$/;
 const GENERATED_AT = /"generatedAt": \d+/;
+const EVENT_TS = /"ts": (\d+)/g;
 const WROTE = /^Wrote (\d+) events/;
 
 const sideFiles = (dir: string) =>
@@ -63,48 +66,69 @@ const sideFiles = (dir: string) =>
     .filter((f) => !SIDE_FILES.test(f))
     .sort();
 
-const bundles = (dir: string) =>
+/** Bundles with the clock masked; with `now`, event times read as offsets
+ * from it, so a recorded bundle matches one made later. */
+const bundles = (dir: string, now?: number) =>
   sideFiles(dir)
     .filter((f) => f.endsWith(".json"))
-    .map((f) => [
-      f,
-      readFileSync(join(dir, f), "utf8").replace(
+    .map((f) => {
+      const text = readFileSync(join(dir, f), "utf8").replace(
         GENERATED_AT,
         '"generatedAt": 0'
-      ),
-    ]);
+      );
+      return [
+        f,
+        now === undefined
+          ? text
+          : text.replace(
+              EVENT_TS,
+              (_, ts) => `"ts": "now-${now - Number(ts)}"`
+            ),
+      ];
+    });
+
+/** The TS side's result: recorded and replayed under `key`. */
+const tsSide = <T>(side: string, key: string, f: () => T) =>
+  side === "ts" ? tsValueSync(key, f) : f();
 
 /** A. `doctor` over copies of one seeded store. */
 const runDoctor = (home: string) => {
   const seed = join(ROOT, "seed");
-  buildSeed(seed, home);
+  const now = buildSeed(seed, home);
   const cases = [
     ...DOCTOR_CASES.map((args) => ({ args, fresh: false })),
     { args: ["doctor"], fresh: true },
   ];
-  cases.forEach(({ args, fresh }, i) => {
-    const label = `telemetry doctor [${args.join(" ")}]${fresh ? " fresh" : ""}`;
-    const runs = SIDES.map(([side, cmd]) => {
-      const dir = join(ROOT, "doctor", side, String(i));
-      if (fresh) {
-        mkdirSync(dir, { recursive: true });
-      } else {
-        cpSync(seed, dir, { recursive: true });
-      }
-      mkdirSync(join(dir, "adir"), { recursive: true });
-      const r = spawn(
-        [...cmd, ...args],
-        fixtureEnv(home, { PEEKTRACE_DIR: dir }),
-        dir
-      );
-      const norm = (s: string) => s.replaceAll(dir, "<dir>");
-      return {
-        run: { ...r, stdout: norm(r.stdout), stderr: norm(r.stderr) },
-        files: sideFiles(dir).join(","),
-        bundles: JSON.stringify(bundles(dir)),
-      };
-    });
-    const [ts, rust] = runs as [(typeof runs)[0], (typeof runs)[0]];
+  const doctorSide = (
+    side: string,
+    cmd: readonly string[],
+    i: number,
+    { args, fresh }: (typeof cases)[number]
+  ) => {
+    const dir = join(ROOT, "doctor", side, String(i));
+    if (fresh) {
+      mkdirSync(dir, { recursive: true });
+    } else {
+      cpSync(seed, dir, { recursive: true });
+    }
+    mkdirSync(join(dir, "adir"), { recursive: true });
+    const r = spawn(
+      [...cmd, ...args],
+      fixtureEnv(home, { PEEKTRACE_DIR: dir }),
+      dir
+    );
+    const norm = (s: string) => s.replaceAll(dir, "<dir>");
+    return {
+      run: { ...r, stdout: norm(r.stdout), stderr: norm(r.stderr) },
+      files: sideFiles(dir).join(","),
+      bundles: JSON.stringify(bundles(dir, now)),
+    };
+  };
+  cases.forEach((c, i) => {
+    const label = `telemetry doctor [${c.args.join(" ")}]${c.fresh ? " fresh" : ""}`;
+    const [ts, rust] = SIDES.map(([side, cmd]) =>
+      tsSide(side, label, () => doctorSide(side, cmd, i, c))
+    ) as [ReturnType<typeof doctorSide>, ReturnType<typeof doctorSide>];
     compareRun(label, ts.run, rust.run);
     if (ts.files !== rust.files) {
       report(`${label}: files ts=${ts.files} rust=${rust.files}`);
@@ -146,16 +170,19 @@ const rowCount = (dir: string) => {
 /** B. Which runs create the store and record. */
 const runOptOut = (home: string, extra: Record<string, string>) => {
   OPT_OUT.forEach(([env, args], i) => {
-    const [ts, rust] = SIDES.map(([side, cmd]) => {
-      const dir = join(ROOT, "optout", side, String(i));
-      spawn(
-        [...cmd, ...args],
-        { ...onEnv(home, { ...extra, PEEKTRACE_DIR: dir }), ...env },
-        REPO,
-        ""
-      );
-      return rowCount(dir);
-    });
+    const key = `telemetry opt-out [${JSON.stringify(env)} ${args.join(" ")}]`;
+    const [ts, rust] = SIDES.map(([side, cmd]) =>
+      tsSide(side, key, () => {
+        const dir = join(ROOT, "optout", side, String(i));
+        spawn(
+          [...cmd, ...args],
+          { ...onEnv(home, { ...extra, PEEKTRACE_DIR: dir }), ...env },
+          REPO,
+          ""
+        );
+        return rowCount(dir);
+      })
+    );
     if (ts !== rust) {
       report(
         `telemetry opt-out [${JSON.stringify(env)} ${args.join(" ")}]: ts=${ts} rust=${rust}`
@@ -273,22 +300,24 @@ const runShape = (home: string, extra: Record<string, string>) => {
   };
   for (const [args, stdin] of cases) {
     const label = `telemetry shape [${args.join(" ")}]`;
-    const [ts, rust] = SIDES.map(([side, cmd]) => {
-      const one = join(ROOT, "shape-one", side, args.join("_") || "bare");
-      spawn(
-        [...cmd, ...args],
-        onEnv(home, { ...extra, PEEKTRACE_DIR: one }),
-        REPO,
-        stdin ?? ""
-      );
-      spawn(
-        [...cmd, ...args],
-        onEnv(home, { ...extra, PEEKTRACE_DIR: dirs[side] }),
-        REPO,
-        stdin ?? ""
-      );
-      return events(one).map(shapeOf);
-    }) as [string[], string[]];
+    const [ts, rust] = SIDES.map(([side, cmd]) =>
+      tsSide(side, label, () => {
+        const one = join(ROOT, "shape-one", side, args.join("_") || "bare");
+        spawn(
+          [...cmd, ...args],
+          onEnv(home, { ...extra, PEEKTRACE_DIR: one }),
+          REPO,
+          stdin ?? ""
+        );
+        spawn(
+          [...cmd, ...args],
+          onEnv(home, { ...extra, PEEKTRACE_DIR: dirs[side] }),
+          REPO,
+          stdin ?? ""
+        );
+        return events(one).map(shapeOf);
+      })
+    ) as [string[], string[]];
     if (ts.length !== rust.length) {
       report(`${label}: events ts=${ts.length} rust=${rust.length}`);
       continue;
@@ -299,8 +328,13 @@ const runShape = (home: string, extra: Record<string, string>) => {
       }
     });
   }
-  if (schema(dirs.ts) !== schema(dirs.rust)) {
-    report(`telemetry schema: ts=${schema(dirs.ts)} rust=${schema(dirs.rust)}`);
+  const tsSchema = tsValueSync("telemetry schema ts", () => schema(dirs.ts));
+  if (tsSchema !== schema(dirs.rust)) {
+    report(`telemetry schema: ts=${tsSchema} rust=${schema(dirs.rust)}`);
+  }
+  if (ORACLE_MODE === "replay") {
+    console.log("telemetry cross-read: live only");
+    return cases.length + 1;
   }
   const count = (r: Run) =>
     WROTE.exec(r.stdout)?.[1] ?? `exit ${r.code}: ${r.stdout}${r.stderr}`;
@@ -383,7 +417,7 @@ export const runTelemetryStage = ({
   const home = join(ROOT, "home");
   mkdirSync(home, { recursive: true });
   if (fixtures) {
-    const corpus = join(REPO, "packages/core/test/fixtures");
+    const corpus = fixturesDir();
     const extra = {
       PEEKTRACE_CLAUDE_PROJECTS: corpus,
       PEEKTRACE_CODEX_SESSIONS: corpus,

@@ -2,7 +2,8 @@ name: Rust
 
 # Format, lint and tests for the Rust crates on macOS and Linux, lint, unit,
 # fixture, discovery and memory read/write tests on Windows, plus the parity
-# harness that diffs the Rust CLI against the TS CLI on fixtures.
+# check: the Rust CLI against the TS CLI results recorded in tests/goldens.
+# Recording goldens and the live TS-vs-Rust run are in rust-live.yml.
 
 # Push runs only on `rust`: a push to a `rust-*` branch with an open PR
 # already starts a pull_request run, so a push run there would double it.
@@ -14,16 +15,20 @@ on:
     branches:
       - rust
       - "rust-*"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: rust-${{ github.event.pull_request.number || github.sha }}
+  group: rust-${{ github.event_name }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
 
 jobs:
   check:
@@ -47,10 +52,14 @@ jobs:
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Format
+        if: runner.os == 'Linux'
         run: cargo fmt --all --check
 
+      # Clippy runs on both: some code is macOS only.
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
 
@@ -76,6 +85,8 @@ jobs:
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
@@ -92,12 +103,13 @@ jobs:
       - name: Telemetry store and layer
         run: cargo test --locked -p peektrace-telemetry --test writer --test layer
 
-  parity-build:
-    # Builds once; each stage job below restores the binary, the examples
-    # and the inspector build from the cache and needs no Rust toolchain.
-    name: parity build
+  goldens:
+    # Keeps the old check name for branch rules. Only the Rust side runs:
+    # the TS side comes from tests/goldens. A `record-goldens` PR label
+    # re-records them (rust-live.yml, scripts/rust/README.md).
+    name: parity (fixtures)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -110,89 +122,25 @@ jobs:
 
       - name: Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: parity
+          cache-on-failure: true
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.14
 
+      # The fixture builders and the TUI stage import TS modules.
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
       - name: Build the inspector (embedded in the binary)
         run: bun run --filter=inspector build
 
-      - name: Build release binary
-        run: |
-          cargo build --locked --release
-          cargo build --locked --release -p peektrace-core -p peektrace-tui --examples
+      # One cargo call: a second one for the examples resolves features again.
+      - name: Build (parity profile)
+        run: cargo build --locked --profile parity --bins --examples
 
-      - name: Save the build
-        uses: actions/cache/save@v4
-        with:
-          key: parity-bin-${{ github.sha }}
-          path: |
-            target/release/peektrace
-            target/release/examples/highlight
-            target/release/examples/views
-            apps/inspector/dist
-
-  parity:
-    name: parity (${{ matrix.stage }})
-    needs: parity-build
-    runs-on: ubuntu-latest
-    timeout-minutes: ${{ matrix.timeout }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { stage: base, timeout: 45 }
-          - { stage: stats, timeout: 30 }
-          - { stage: serve, timeout: 30 }
-          - { stage: search, timeout: 25 }
-          - { stage: memory, timeout: 20 }
-          - { stage: cli, timeout: 20 }
-          - { stage: tui, timeout: 20 }
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Restore the build
-        uses: actions/cache/restore@v4
-        with:
-          key: parity-bin-${{ github.sha }}
-          fail-on-cache-miss: true
-          path: |
-            target/release/peektrace
-            target/release/examples/highlight
-            target/release/examples/views
-            apps/inspector/dist
-
-      - name: Parity against the TS CLI
-        run: >-
-          bun scripts/rust/parity.ts --fixtures-only
-          --${{ matrix.stage }}-only --bin target/release/peektrace
-
-  parity-done:
-    # Keeps the old check name for branch rules.
-    name: parity (fixtures)
-    needs: parity
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - name: Every stage passed
-        if: needs.parity.result != 'success'
-        run: exit 1
+      - name: Rust against the goldens
+        run: bun scripts/rust/goldens.ts --bin target/parity/peektrace

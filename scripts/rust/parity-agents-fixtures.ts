@@ -15,6 +15,7 @@ import {
 import { dirname, join } from "node:path";
 import { doc } from "./parity-agents-rows";
 import { CODEX_LOCKED, codexFiles, meta } from "./parity-codex-fixtures";
+import { pinMtime } from "./parity-lib";
 import { chain, PI_LOCKED, piFiles, said, session } from "./parity-pi-fixtures";
 
 const NO_ACCESS = 0o000;
@@ -22,6 +23,7 @@ const NO_ACCESS = 0o000;
 const write = (path: string, body: string | Uint8Array) => {
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, body);
+  pinMtime(path);
 };
 
 /** Codex and Pi edge trees under `home`; returns the files made unreadable,
@@ -76,6 +78,7 @@ export const buildPiRoot = (fixtures: string, root: string) => {
   const src = join(fixtures, "sessions-pi");
   for (const name of readdirSync(src)) {
     copyFileSync(join(src, name), join(slug, name));
+    pinMtime(join(slug, name));
   }
   return root;
 };

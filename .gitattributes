@@ -2,3 +2,7 @@
 packages/core/test/fixtures/** -text
 # Checked byte for byte against the Rust generator output, which uses LF.
 apps/inspector/src/lib/api-types.gen.ts text eol=lf
+# Recorded TS outputs: plain JSON lines, so git stores a re-record as a delta.
+# No text diff: lines are long. `git diff --text` shows them.
+tests/goldens/**/*.jsonl -diff linguist-generated
+tests/goldens/**/*.json linguist-generated

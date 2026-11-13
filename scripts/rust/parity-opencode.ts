@@ -26,10 +26,10 @@ import {
   compareRun,
   DEFECT,
   fixtureEnv,
+  fixturesDir,
   newestAndLargest,
   newTally,
   pool,
-  REPO,
   report,
   reportUnseen,
   run,
@@ -363,7 +363,7 @@ export const runOpencodeStage = async (args: {
   if (args.fixtures) {
     const data = buildOpencodeData(
       join(WORK, "oc"),
-      join(REPO, "packages/core/test/fixtures/sessions/projects")
+      join(fixturesDir(), "sessions/projects")
     );
     try {
       await fixtureStage(tally, data);

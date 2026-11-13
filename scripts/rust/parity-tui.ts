@@ -42,6 +42,7 @@ import {
   TS_CMD,
   WORK,
 } from "./parity-lib";
+import { tsValueSync } from "./parity-oracle";
 
 const PORT_CASES: readonly (readonly string[])[] = [
   ["tui", "--port", "0", "--no-open"],
@@ -179,7 +180,9 @@ const compareTokens = (
     return 0;
   }
   cases.forEach((c, i) => {
-    const ts = tsTokens(c.code, c.lang);
+    const ts = tsValueSync(`${label} ${c.name} ${c.lang}`, () =>
+      tsTokens(c.code, c.lang)
+    );
     if (ts === rust[i]) {
       return;
     }
@@ -347,7 +350,10 @@ const viewCases = () => {
 };
 
 const compareViews = (bin: string) => {
-  const cases = viewCases();
+  // Each TS answer as JSON text, so a recorded `undefined` survives.
+  const cases = tsValueSync("tui views", () =>
+    viewCases().map(([req, ts]) => [req, JSON.stringify(ts) ?? null] as const)
+  );
   const rust = pipe(
     bin,
     cases.map(([req]) => JSON.stringify(req))
@@ -355,8 +361,7 @@ const compareViews = (bin: string) => {
   if (!rust) {
     return 0;
   }
-  cases.forEach(([req, ts], i) => {
-    const want = JSON.stringify(ts);
+  cases.forEach(([req, want], i) => {
     const got = parseLine(rust[i]);
     if (got === undefined || JSON.stringify(got) !== want) {
       report(

@@ -6,6 +6,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { createOpencodeSchema } from "../../packages/core/test/fixtures/opencode-db";
+import { FAKE_SECRETS } from "./parity-fake-secrets";
 
 type Row = Record<string, unknown>;
 
@@ -100,7 +101,7 @@ export const richSession = (a: Database) => {
   });
   part(a, s, "msg_u1", "prt_u2", {
     type: "text",
-    text: "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH1234 in /Users/demo/proj",
+    text: `${FAKE_SECRETS.anthropicOpencode} in /Users/demo/proj`,
     synthetic: true,
   });
   message(a, s, "msg_a1", 1, {
