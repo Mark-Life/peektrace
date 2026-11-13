@@ -3,6 +3,8 @@
 //! height across live appends.
 
 mod body;
+#[cfg(test)]
+mod markdown_tests;
 mod nodes;
 mod run;
 mod tool_card;

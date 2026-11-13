@@ -6,6 +6,7 @@ use rune_kit::{Button, ButtonVariant, ControlSize, Markdown};
 
 use crate::model::diff::{LineDiff, RowKind};
 use crate::model::format::fmt_bytes;
+use crate::model::md::escape_html;
 use crate::model::tools::EMPTY_BODY;
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
@@ -56,7 +57,7 @@ pub fn markdown(src: &str, t: &Theme) -> El {
     if src.chars().count() > MARKDOWN_CHAR_LIMIT {
         return plain(src, t);
     }
-    Markdown::new(src)
+    Markdown::new(escape_html(src))
         .selectable(true)
         .images(|_| None)
         .on_link_tx(|_s: &mut Ui, url: &str, tx: &mut Tx| {

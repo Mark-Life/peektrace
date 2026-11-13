@@ -24,6 +24,7 @@ anyhow = "1.0.104"
 jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-always"] }
 fancy-regex = { version = "0.20", default-features = false, features = ["std", "perf"] }
 icu_collator = { version = "2.4", features = ["unstable"] }
+pulldown-cmark = { version = "0.13", default-features = false }
 indexmap = "2.14"
 sha1_smol = "1.0"
 notify = "8"
