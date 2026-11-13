@@ -4,8 +4,8 @@
 //! kept.
 
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::SystemTime;
 
+use peektrace_core::sessions::inputs::Input;
 use peektrace_core::sessions::pages::SessionPages;
 use tokio::sync::OnceCell;
 
@@ -21,37 +21,24 @@ pub struct PagesKey {
     pub redact: bool,
 }
 
-/// Size and modified time of a path, `None` when it cannot be read.
-type Stamp = Option<(u64, Option<SystemTime>)>;
-
-fn stamp(path: &str) -> Stamp {
-    std::fs::metadata(path)
-        .ok()
-        .map(|m| (m.len(), m.modified().ok()))
-}
-
-fn stamps(paths: &[String]) -> Vec<Stamp> {
-    paths.iter().map(|p| stamp(p)).collect()
-}
-
-/// One analysis and what it was built from: the stamps of every path it
-/// read (transcript first) and the sessions watch version.
+/// One analysis and what it was built from: every path it read
+/// (transcript first), stamped before the read, and the sessions watch
+/// version.
 #[derive(Debug)]
 pub struct Built {
     pub pages: SessionPages,
     version: u64,
-    inputs: Vec<String>,
-    stamps: Vec<Stamp>,
+    inputs: Vec<Input>,
 }
 
 impl Built {
-    pub fn new(pages: SessionPages, version: u64, inputs: Vec<String>) -> Self {
-        let stamps = stamps(&inputs);
+    /// `inputs` must be stamped before the build reads them: stamping after
+    /// would let a write during the build pass as already seen.
+    pub const fn new(pages: SessionPages, version: u64, inputs: Vec<Input>) -> Self {
         Self {
             pages,
             version,
             inputs,
-            stamps,
         }
     }
 
@@ -62,8 +49,8 @@ impl Built {
     /// version to hold.
     fn fresh(&self, version: u64) -> bool {
         let jsonl = self.pages.analysis().parsed.provider.as_str() != "opencode"
-            && self.stamps.first().is_some_and(Option::is_some);
-        stamps(&self.inputs) == self.stamps && (jsonl || self.version == version)
+            && self.inputs.first().is_some_and(|i| i.stamp.is_some());
+        self.inputs.iter().all(Input::unchanged) && (jsonl || self.version == version)
     }
 }
 
@@ -145,6 +132,7 @@ impl PagesCache {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use peektrace_core::sessions::inputs::stamp_all;
 
     fn key(id: &str) -> PagesKey {
         PagesKey {
@@ -178,7 +166,7 @@ mod tests {
         cache
             .get(k, version, || async move {
                 let pages = empty_pages(&path);
-                Ok(Built::new(pages, version, vec![path]))
+                Ok(Built::new(pages, version, stamp_all([path])))
             })
             .await
             .map(|(_, l)| l)
@@ -204,6 +192,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn an_append_during_the_build_misses_next_time() {
+        let dir = std::env::temp_dir().join(format!("peektrace-pages-race-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let file = dir.join("t.jsonl");
+        std::fs::write(&file, "{}\n").expect("write");
+        let path = file.to_string_lossy().into_owned();
+        let cache = PagesCache::default();
+        let k = key("race");
+        let built = cache
+            .get(&k, 0, || async {
+                let inputs = stamp_all([path.clone()]);
+                let pages = empty_pages(&path);
+                std::fs::write(&file, "{}\n{}\n").expect("append");
+                Ok::<_, ()>(Built::new(pages, 0, inputs))
+            })
+            .await
+            .map(|(_, l)| l);
+        assert_eq!(built, Ok(Lookup::Miss));
+        assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Miss));
+        assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Hit));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
     async fn an_opencode_store_write_misses_without_a_watch_bump() {
         let dir = std::env::temp_dir().join(format!("peektrace-pages-oc-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir");
@@ -218,7 +230,7 @@ mod tests {
         let k = key("oc");
         let build = || async {
             let parsed = peektrace_core::opencode::parse_opencode_session(None, &path, "ses_1");
-            Ok::<_, ()>(Built::new(pages_of(parsed), 0, inputs.clone()))
+            Ok::<_, ()>(Built::new(pages_of(parsed), 0, stamp_all(inputs.clone())))
         };
         let lookup = |r: Result<(Arc<Built>, Lookup), ()>| r.map(|(_, l)| l);
         assert_eq!(lookup(cache.get(&k, 0, build).await), Ok(Lookup::Miss));

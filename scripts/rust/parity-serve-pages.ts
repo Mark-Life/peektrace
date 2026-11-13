@@ -2,18 +2,18 @@
  * each Rust part is compared with the matching cut of the TS analysis:
  * pages concatenated are its events, the summary is the rest of it, the
  * index and growth are projections of it. Turn numbers and search hits come
- * from the inspector's own functions, recorded like any TS value. Hashes are
- * opaque: they are only checked against each other. */
+ * from the inspector's former in-browser rules, recorded like any TS value.
+ * Hashes are opaque: they are only checked against each other. */
 
-import { searchIndexOf } from "../../apps/inspector/src/lib/history-search";
-import {
-  crossEvtIdx,
-  turnNumbers,
-} from "../../apps/inspector/src/lib/history-turns";
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "../../packages/core/src/services/sessions/schema";
+import {
+  crossEvtIdx,
+  searchIndexOf,
+  turnNumbers,
+} from "./parity-history-rules";
 import { tsValue } from "./parity-oracle";
 import { api, jsonDiff, type RpcExit } from "./parity-serve-lib";
 

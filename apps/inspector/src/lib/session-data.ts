@@ -267,6 +267,36 @@ export interface SearchHits {
   readonly query: string;
 }
 
+/** A search answer and what it was asked for. */
+export interface SearchAnswer {
+  readonly hits: ReadonlySet<number>;
+  readonly query: string;
+  /** `keyText` of the session searched. */
+  readonly session: string;
+}
+
+/** What the history shows for `query` given the latest answer. Only a new
+ *  query or session is pending: a new revision keeps the last hits shown,
+ *  so live appends do not dim the transcript while it searches again. */
+export const searchHitsOf = ({
+  answer,
+  query,
+  session,
+}: {
+  readonly answer: SearchAnswer | null;
+  readonly query: string;
+  readonly session: string;
+}): SearchHits => {
+  if (query === "") {
+    return { hits: undefined, pending: false, query: "" };
+  }
+  return {
+    hits: answer?.hits,
+    pending: answer?.session !== session || answer.query !== query,
+    query: answer?.query ?? "",
+  };
+};
+
 /** Server-side history search over title, preview and body, case folded.
  *  A newer query aborts the older request; answers are kept per summary
  *  revision, so stepping back to an earlier query is instant. A failed
@@ -281,13 +311,10 @@ export const useHistorySearch = ({
   /** `summary.history.rev`: a new revision searches again. */
   readonly rev: string;
 }): SearchHits => {
-  const [answer, setAnswer] = useState<{
-    readonly hits: ReadonlySet<number>;
-    readonly key: string;
-    readonly query: string;
-  } | null>(null);
+  const [answer, setAnswer] = useState<SearchAnswer | null>(null);
   const cache = useRef(new Map<string, ReadonlySet<number>>());
-  const key = `${keyText(k)}\n${rev}`;
+  const session = keyText(k);
+  const key = `${session}\n${rev}`;
   const want = `${key}\n${query}`;
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -296,7 +323,7 @@ export const useHistorySearch = ({
     }
     const held = cache.current.get(want);
     if (held) {
-      setAnswer({ hits: held, key, query });
+      setAnswer({ hits: held, query, session });
       return;
     }
     const c = new AbortController();
@@ -309,7 +336,7 @@ export const useHistorySearch = ({
       (r) => {
         const hits = new Set(r.positions);
         cache.current.set(want, hits);
-        setAnswer({ hits, key, query });
+        setAnswer({ hits, query, session });
       },
       () => {
         // The last answer stays meanwhile.
@@ -322,14 +349,6 @@ export const useHistorySearch = ({
       c.abort();
       clearTimeout(retry);
     };
-  }, [k, key, query, want, attempt]);
-  if (query === "") {
-    return { hits: undefined, pending: false, query: "" };
-  }
-  const fresh = answer !== null && answer.key === key && answer.query === query;
-  return {
-    hits: answer?.hits,
-    pending: !fresh,
-    query: answer?.query ?? "",
-  };
+  }, [k, query, session, want, attempt]);
+  return searchHitsOf({ answer, query, session });
 };

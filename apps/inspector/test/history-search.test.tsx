@@ -8,12 +8,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   matchLabel,
   rangesIn,
-  searchIndexOf,
   stepHit,
   textRanges,
   visibleRows,
 } from "../src/lib/history-search";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
+import { searchHitsOf } from "../src/lib/session-data";
 import { DEFAULT_SESSION_VIEW } from "../src/lib/session-view";
 import { queryStateFor } from "../src/lib/use-history-search";
 import {
@@ -52,20 +52,27 @@ const EVENTS = [
   }),
   evt({ body: "done", index: 4, preview: "done", title: "done" }),
 ];
-const INDEX = searchIndexOf(EVENTS);
+/** What `/history/search` answers for "zephyr" (matching and case folding
+ *  are tested on the Rust side): the system event too. */
+const ZEPHYR = new Set([0, 2, 3]);
 
-const rows = (over: { kind?: string; query?: string } = {}) =>
+const rows = (
+  over: {
+    kind?: string;
+    query?: string;
+    sort?: typeof DEFAULT_HISTORY_SORT;
+  } = {}
+) =>
   visibleRows({
     events: EVENTS,
-    index: INDEX,
+    hits: ZEPHYR,
     kind: over.kind ?? "all",
     query: over.query ?? "",
-    sort: DEFAULT_HISTORY_SORT,
+    sort: over.sort ?? DEFAULT_HISTORY_SORT,
   }).map(({ pos }) => pos);
 
-test("matches text past the first line, ignoring case", () => {
+test("hits filter the rows, system rows still dropped", () => {
   expect(rows({ query: "zephyr" })).toEqual([2, 3]);
-  expect(rows({ query: "ZEPHYR VALVE" })).toEqual([2]);
 });
 
 test("kind and query combine", () => {
@@ -73,41 +80,37 @@ test("kind and query combine", () => {
   expect(rows({ kind: "user-prompt", query: "zephyr" })).toEqual([]);
 });
 
-test("an empty query keeps every non-system event", () => {
+test("an empty query keeps every non-system event and ignores the hits", () => {
   expect(rows()).toEqual([1, 2, 3, 4]);
 });
 
 test("the table sort still applies to the hits", () => {
-  const sorted = visibleRows({
-    events: EVENTS,
-    index: INDEX,
-    kind: "all",
-    query: "zephyr",
-    sort: { dir: "desc", key: "tokens" },
-  }).map(({ pos }) => pos);
-  expect(sorted).toEqual([3, 2]);
+  expect(
+    rows({ query: "zephyr", sort: { dir: "desc", key: "tokens" } })
+  ).toEqual([3, 2]);
 });
 
-test("server hits stand in for the text index, system rows still dropped", () => {
-  // What `/history/search` answers for "zephyr", plus the system event.
-  const hits = new Set([0, 2, 3]);
-  const fromHits = (kind: string, sort = DEFAULT_HISTORY_SORT) =>
-    visibleRows({ events: EVENTS, hits, kind, query: "zephyr", sort }).map(
-      ({ pos }) => pos
-    );
-  expect(fromHits("all")).toEqual(rows({ query: "zephyr" }));
-  expect(fromHits("tool-call")).toEqual([3]);
-  expect(fromHits("all", { dir: "desc", key: "tokens" })).toEqual([3, 2]);
-  // An empty query ignores the hits.
-  expect(
-    visibleRows({
-      events: EVENTS,
-      hits,
-      kind: "all",
+test("a new revision keeps the last hits without dimming; a new query dims", () => {
+  const answer = { hits: ZEPHYR, query: "zephyr", session: "s" };
+  expect(searchHitsOf({ answer, query: "zephyr", session: "s" })).toEqual({
+    hits: ZEPHYR,
+    pending: false,
+    query: "zephyr",
+  });
+  expect(searchHitsOf({ answer, query: "zeph", session: "s" }).pending).toBe(
+    true
+  );
+  expect(searchHitsOf({ answer, query: "zephyr", session: "t" }).pending).toBe(
+    true
+  );
+  expect(searchHitsOf({ answer: null, query: "zephyr", session: "s" })).toEqual(
+    {
+      hits: undefined,
+      pending: true,
       query: "",
-      sort: DEFAULT_HISTORY_SORT,
-    }).map(({ pos }) => pos)
-  ).toEqual([1, 2, 3, 4]);
+    }
+  );
+  expect(searchHitsOf({ answer, query: "", session: "s" }).pending).toBe(false);
 });
 
 test("stepping wraps at both ends", () => {

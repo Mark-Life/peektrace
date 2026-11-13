@@ -1,19 +1,54 @@
-//! The files and dirs one analysis reads, so a cache can stamp them and tell
-//! when the analysis went stale. Missing paths are listed too: creating one
-//! can change the analysis.
+//! The files and dirs one analysis reads, stamped before the read, so a
+//! cache can tell when the analysis went stale. Missing paths are listed
+//! too: creating one can change the analysis.
 
 use std::collections::HashSet;
 use std::fs;
+use std::time::SystemTime;
 
 use super::context_files::{
     AGENTS_FILES, CLAUDE_FILES, LOCAL_FILE, MAX_RULE_DEPTH, RULES_DIR, memory_root, memory_slugs,
     project_dirs,
 };
 use super::resolve::slash_join;
-use super::service::FullParse;
 use crate::model::Agent;
 use crate::opencode;
 use crate::paths::real_path;
+
+/// Size and modified time of a path, `None` when it cannot be read.
+pub type Stamp = Option<(u64, Option<SystemTime>)>;
+
+pub fn stamp(path: &str) -> Stamp {
+    fs::metadata(path)
+        .ok()
+        .map(|m| (m.len(), m.modified().ok()))
+}
+
+/// A path an analysis reads and its stamp from before the read, so a write
+/// while the analysis runs leaves the stamp behind instead of hiding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Input {
+    pub path: String,
+    pub stamp: Stamp,
+}
+
+impl Input {
+    /// Whether the path still has the stamp it had before the read.
+    pub fn unchanged(&self) -> bool {
+        stamp(&self.path) == self.stamp
+    }
+}
+
+/// Stamp each path now; call before reading them.
+pub fn stamp_all(paths: impl IntoIterator<Item = String>) -> Vec<Input> {
+    paths
+        .into_iter()
+        .map(|path| Input {
+            stamp: stamp(&path),
+            path,
+        })
+        .collect()
+}
 
 /// `dir` and every entry under it, dirs included.
 fn tree(dir: &str, depth: usize, seen: &mut HashSet<String>, out: &mut Vec<String>) {
@@ -77,13 +112,12 @@ pub fn context_inputs(cwd: Option<&str>, home: &str, projects_root: &str) -> Vec
     global.chain(project).chain(memory).collect()
 }
 
-/// The transcript or store paths of one parsed session.
-pub fn transcript_inputs(full: &FullParse, opencode_root: &str) -> Vec<String> {
-    let p = &full.parsed;
-    match full.agent {
-        Agent::Claude => claude_transcript(&p.path),
-        Agent::Opencode => opencode::store_paths(&p.path, &p.session_id, opencode_root),
-        Agent::Codex | Agent::Pi => vec![p.path.clone()],
+/// The transcript or store paths of one session.
+pub fn transcript_inputs(agent: Agent, path: &str, id: &str, opencode_root: &str) -> Vec<String> {
+    match agent {
+        Agent::Claude => claude_transcript(path),
+        Agent::Opencode => opencode::store_paths(path, id, opencode_root),
+        Agent::Codex | Agent::Pi => vec![path.to_owned()],
     }
 }
 

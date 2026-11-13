@@ -14,10 +14,6 @@ import {
 import { visibleRows } from "../../apps/inspector/src/lib/history-search";
 import { DEFAULT_HISTORY_SORT } from "../../apps/inspector/src/lib/history-sort";
 import {
-  crossEvtIdx,
-  turnNumbers,
-} from "../../apps/inspector/src/lib/history-turns";
-import {
   bodyView,
   callView,
   indexTools,
@@ -62,6 +58,7 @@ import {
   clickAction,
   snapIndexAtX,
 } from "../../packages/viz/src/lib/timeline-hit";
+import { crossEvtIdx, turnNumbers } from "./parity-history-rules";
 
 /** Tool bodies past this many chars are skipped on both sides. */
 export const BODY_MAX = 200_000;
@@ -157,7 +154,7 @@ export const analysisAnswer = (a: AnalyzedSession) => {
   const cross = crossEvtIdx(a);
   const rows = visibleRows({
     events: a.events,
-    index: [],
+    hits: undefined,
     kind: "all",
     query: "",
     sort: DEFAULT_HISTORY_SORT,

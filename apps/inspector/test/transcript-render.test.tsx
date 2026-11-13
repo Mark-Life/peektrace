@@ -165,7 +165,7 @@ const ROWS = EVENTS.map((e, pos) => ({ e, pos })).filter(
   ({ e }) => e.kind !== "system"
 );
 
-/** `turnNumbers` shape: 1-based turn per event position, 0 before the first. */
+/** `row.turn` shape: 1-based turn per event position, 0 before the first. */
 const TURNS = EVENTS.map((e) => {
   if (e.requestId === "r1") {
     return 1;
