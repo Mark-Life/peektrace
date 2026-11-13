@@ -291,8 +291,26 @@ export interface RawAnswer {
  * server's answer is recorded and replayed. */
 export const raw = (port: number, request: string) =>
   tsPorts.has(port)
-    ? tsValue(`raw ${request}`, () => rawLive(port, request))
+    ? tsValue(`raw ${request}`, () => rawLive(port, request), {
+        canon: comparedHeaders,
+      })
     : rawLive(port, request);
+
+/** Headers the serve stage compares; the rest (date, etag) move per run. */
+const COMPARED_HEADERS = new Set([
+  "cache-control",
+  "content-type",
+  "location",
+  "referrer-policy",
+  "set-cookie",
+]);
+
+const comparedHeaders = (a: RawAnswer): RawAnswer => ({
+  ...a,
+  headers: Object.fromEntries(
+    Object.entries(a.headers).filter(([k]) => COMPARED_HEADERS.has(k))
+  ),
+});
 
 const rawLive = (port: number, request: string) =>
   new Promise<RawAnswer>((resolveAnswer, reject) => {

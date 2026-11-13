@@ -231,16 +231,32 @@ const goldenBytes = (dir = GOLDENS_ALL): number =>
       }, 0)
     : 0;
 
-/** Keys whose recorded value differs between two golden files. */
-const churn = (a: string, b: string) => {
+/** Fields that move from run to run and that every compare masks: clocks,
+ * file times TS servers write, counts of a truncated search. Matched in
+ * JSON text at any escaping depth. */
+const VOLATILE =
+  /(\\*"(?:generatedAt|fromIso|toIso|mtime|mtimeMs|expectedMtime|scannedSessions|unreadable)\\*":\s*)(\\*"[^"\\]*\\*"|[^,}\\\s]+)/g;
+/** Polls whose count depends on timing; replay reuses the last one. */
+const TIMED = /^rpc \d+ watch\.poll /;
+
+/** Keys whose recorded value differs between two golden files, beyond the
+ * volatile fields. */
+export const churn = (a: string, b: string) => {
   const map = (text: string) =>
     new Map(
       text
         .split("\n")
         .filter(Boolean)
-        .map((l) => {
+        .flatMap((l) => {
           const [k, n] = JSON.parse(l) as [string, number];
-          return [`${k}#${n}`, l] as const;
+          return TIMED.test(k)
+            ? []
+            : [
+                [
+                  `${k.replace(VOLATILE, "$1<v>")}#${n}`,
+                  l.replace(VOLATILE, "$1<v>"),
+                ] as const,
+              ];
         })
     );
   const ma = map(a);
