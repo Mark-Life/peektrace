@@ -1,9 +1,11 @@
 name: Rust
 
 # Format, lint and tests for the Rust crates on macOS and Linux, lint, unit,
-# fixture, discovery and memory read/write tests on Windows, plus the parity
-# check: the Rust CLI against the TS CLI results recorded in tests/goldens.
-# Recording goldens and the live TS-vs-Rust run are in rust-live.yml.
+# fixture, discovery and memory read/write tests on Windows, the Rune app
+# (build, wasm check, Runtime tests, headless goldens) on Linux with a compile
+# check on macOS and Windows, plus the parity check: the Rust CLI against the
+# TS CLI results recorded in tests/goldens. Recording goldens and the live
+# TS-vs-Rust run are in rust-live.yml.
 
 # Push runs only on `rust`: a push to a `rust-*` branch with an open PR
 # already starts a pull_request run, so a push run there would double it.
@@ -34,7 +36,7 @@ jobs:
   check:
     name: check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -66,13 +68,18 @@ jobs:
       - name: Test
         run: cargo test --locked
 
+      - name: Rune app compiles (Metal backend)
+        # The ui job builds the app on Linux only; this covers the macOS draw path.
+        if: runner.os == 'macOS'
+        run: cargo check --locked -p peektrace-app -p peektrace-ui --all-targets
+
   windows:
     # Lint, unit tests, the fixture listing, Codex/Pi discovery, memory
     # reads, writes and path containment, and the telemetry store. The CLI
     # end-to-end tests drive a POSIX HOME, so they stay off.
     name: check (windows-latest)
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
 
     steps:
       - name: Checkout
@@ -102,6 +109,72 @@ jobs:
 
       - name: Telemetry store and layer
         run: cargo test --locked -p peektrace-telemetry --test writer --test layer
+
+      - name: Rune app compiles (DX12 wgpu-hal patch)
+        run: cargo check --locked -p peektrace-app -p peektrace-ui --all-targets
+
+  ui:
+    # The Rune app (crates/ui, crates/app) sits outside default-members, so
+    # the jobs above never build its ~600 crates. Headless renders always
+    # open a GPU adapter: lavapipe gives one in software.
+    name: rune ui (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install toolchain
+        run: |
+          rustup toolchain install || rustup show
+          rustup target add wasm32-unknown-unknown
+
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Linux packages
+        # xkbcommon and wayland headers for the build; lavapipe (software
+        # Vulkan) for headless --snap and --tree.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            pkg-config libxkbcommon-dev libwayland-dev mesa-vulkan-drivers
+
+      - name: Clippy
+        run: cargo clippy --locked -p peektrace-ui -p peektrace-app --all-targets -- -D warnings
+
+      - name: wasm check
+        run: cargo check --locked -p peektrace-app --target wasm32-unknown-unknown
+
+      - name: Built-in Rune bundle (rune-ui)
+        # A small stand-in dist, so the embedded path compiles and its
+        # content-hash ETags get tested without a wasm build.
+        run: |
+          mkdir -p crates/app/dist
+          printf '<p>app</p>' > crates/app/dist/index.html
+          printf '\0asm' > crates/app/dist/app_bg.wasm
+          printf 'tiny' > crates/app/dist/app_bg.wasm.br
+          cargo clippy --locked -p peektrace-server -p peektrace-cli --features peektrace-cli/rune-ui --all-targets -- -D warnings
+          cargo test --locked -p peektrace-server --features rune-ui --lib rune_assets
+          rm -rf crates/app/dist
+
+      - name: Tests (unit, Runtime, drift, headless goldens)
+        run: |
+          export VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -1)
+          cargo test --locked -p peektrace-ui -p peektrace-app
+
+      - name: Snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rune-snaps
+          path: target/rune-snaps
+          if-no-files-found: ignore
 
   goldens:
     # Keeps the old check name for branch rules. Only the Rust side runs:
@@ -139,8 +212,11 @@ jobs:
         run: bun run --filter=inspector build
 
       # One cargo call: a second one for the examples resolves features again.
+      # The ui helpers probe needs only the pure model, so Rune stays off.
       - name: Build (parity profile)
-        run: cargo build --locked --profile parity --bins --examples
+        run: |
+          cargo build --locked --profile parity --bins --examples
+          cargo build --locked --profile parity -p peektrace-ui --no-default-features --examples
 
       - name: Rust against the goldens
         run: bun scripts/rust/goldens.ts --bin target/parity/peektrace

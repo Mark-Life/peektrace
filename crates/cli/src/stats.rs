@@ -19,7 +19,7 @@ use crate::render::table;
 use crate::single::{Output, agent_roots};
 use crate::stats_progress::{self, Progress};
 use crate::stats_render::{CLI_DRILL_HINT, render_drill, render_report, render_usage};
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 use std::io::{IsTerminal as _, Write as _};
 
 /// `Options.integer`: `Number(s)` that is a safe integer, blank rejected.

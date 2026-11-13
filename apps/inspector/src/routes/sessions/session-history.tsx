@@ -54,6 +54,10 @@ import {
 import { useHistoryPrefs } from "../../lib/history-prefs";
 import { searchIndexOf, visibleRows } from "../../lib/history-search";
 import { DEFAULT_HISTORY_SORT, isForwardOrder } from "../../lib/history-sort";
+import {
+  crossEvtIdx as crossEventIndex,
+  turnNumbers,
+} from "../../lib/history-turns";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import { useToolMarks } from "../../lib/session-markers";
@@ -88,22 +92,6 @@ const KIND_OPTIONS = [
 
 const NO_HITS: readonly string[] = [];
 const NO_INDEX: readonly string[] = [];
-
-/** Map every event to the 1-based turn it belongs to (for grouping). */
-const turnNumbers = (a: AnalyzedSession): number[] => {
-  const reqToTurn = new Map(
-    a.turns.map((t, i) => [t.requestId, i + 1] as const)
-  );
-  const out: number[] = [];
-  let cur = 0;
-  for (const e of a.events) {
-    if (e.requestId && reqToTurn.has(e.requestId)) {
-      cur = reqToTurn.get(e.requestId) ?? cur;
-    }
-    out.push(cur);
-  }
-  return out;
-};
 
 /** Keeps the warning in sight once the banner has scrolled away. */
 const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
@@ -175,12 +163,7 @@ export const SessionHistory = ({
   // switching back to the table restores the column sort it had.
   const effectiveSort = mode === "chat" ? DEFAULT_HISTORY_SORT : sort;
 
-  const crossEvtIdx =
-    a.dumbZoneCrossTurn >= 0
-      ? a.events.findIndex(
-          (e) => e.requestId === a.turns[a.dumbZoneCrossTurn]?.requestId
-        )
-      : -1;
+  const crossEvtIdx = crossEventIndex(a);
 
   const visible = useMemo(
     () =>

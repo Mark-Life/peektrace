@@ -14,7 +14,7 @@ use crate::ls::{
 };
 use crate::render::{self, clip_to_width, printable, short_id};
 use crate::single::{Output, agent_roots};
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 
 const PRETTY_PROJECT_WIDTH: usize = 16;
 const DATE_LENGTH: usize = 10;

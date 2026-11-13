@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Peektrace</title>
+    <style>
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font:
+        14px system-ui,
+        sans-serif;
+      color: #ebebeb;
+      background: #0a0a0a;
+    }
+    #status {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      line-height: 1.5;
+      text-align: center;
+    }
+    code {
+      padding: 1px 4px;
+      background: #222;
+      border-radius: 4px;
+    }
+    </style>
+  </head>
+  <body>
+    <div id="status">Loading…</div>
+    <script type="module">
+    const status = document.querySelector("#status");
+    const fallback = () => {
+      const where = window.isSecureContext
+        ? "Open it in a current Chrome or Edge"
+        : "Browsers turn WebGPU on only over https or on localhost. Tunnel with " +
+          "<code>ssh -L</code> and open it at <code>127.0.0.1</code>";
+      status.innerHTML =
+        `This view needs WebGPU. ${where}, use the desktop app ` +
+        "(<code>peektrace-app</code>), or run <code>peektrace serve</code> without " +
+        "<code>--ui rune</code> for the classic inspector.";
+    };
+    const adapter = navigator.gpu
+      ? await navigator.gpu.requestAdapter().catch(() => null)
+      : null;
+    if (adapter) {
+      try {
+        const { default: init } = await import("./app.js");
+        await init();
+        status.remove();
+      } catch (e) {
+        status.textContent = String(e);
+        console.error(e);
+      }
+    } else {
+      fallback();
+    }
+    </script>
+  </body>
+</html>

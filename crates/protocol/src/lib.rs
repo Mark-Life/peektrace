@@ -5,6 +5,7 @@
 
 #[cfg(test)]
 mod ts_gen;
+pub mod view;
 
 use serde::{Deserialize, Serialize};
 
