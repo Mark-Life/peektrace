@@ -16,6 +16,19 @@ fn sessions() -> Harness {
     Harness::new(build_home(), 160, 48)
 }
 
+/// The right pane of the screen: list cards show ids too.
+fn analysis_pane(t: &str) -> String {
+    let head = t
+        .lines()
+        .find(|l| l.contains("╭─Analysis"))
+        .expect("analysis pane");
+    let at = head[..head.find("╭─Analysis").unwrap_or(0)].chars().count();
+    t.lines()
+        .map(|l| l.chars().skip(at).collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 #[test]
 fn quit_keys_and_the_typing_gate() {
     let mut h = sessions();
@@ -191,9 +204,12 @@ fn g_toggles_the_growth_chart_from_the_list() {
     assert!(t.contains("◆"));
     h.keys(&["j"]);
     assert!(
-        h.text().contains("Context growth"),
-        "the chart stays while the list moves"
+        h.text().contains("No turns with usage to plot."),
+        "the chart stays while the list moves: {}",
+        h.text()
     );
+    h.keys(&["j"]);
+    assert!(h.text().contains("Context growth"), "{}", h.text());
     h.keys(&["g"]);
     assert!(h.text().contains("Full history"));
 }
@@ -218,7 +234,7 @@ fn a_stale_reply_is_dropped() {
     let (a, b) = (reply(&first[0]), reply(&second[0]));
     h.app.reply(b);
     h.app.reply(a);
-    let t = h.text();
+    let t = analysis_pane(&h.text());
     assert!(
         t.contains(&format!("{new} ·")),
         "the newer reply shows: {t}"
@@ -507,11 +523,11 @@ fn a_click_selects_a_card_and_toggles_a_history_row() {
         row,
         modifiers: KeyModifiers::NONE,
     };
-    h.app.mouse(click(11));
+    h.app.mouse(click(15));
     h.settle();
     assert!(
         h.text().contains("thinking · claude-opus-5-5"),
-        "second card: {}",
+        "third card: {}",
         h.text()
     );
     let t = h.text();

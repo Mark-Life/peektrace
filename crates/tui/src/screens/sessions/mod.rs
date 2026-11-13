@@ -284,9 +284,7 @@ impl State {
             Response::Sessions(res) => {
                 let keep = self.selected().map(|h| h.id.as_str().to_owned());
                 let res = res.map(|mut hs| {
-                    hs.sort_by(|a, b| {
-                        by_started_desc(a.started_at.as_deref(), b.started_at.as_deref())
-                    });
+                    hs.sort_by(list_order);
                     hs
                 });
                 if !self.list.land(r.id, res) {
@@ -499,6 +497,14 @@ fn subagent_dirs(s: &AnalyzedSession) -> Vec<String> {
         }
     }
     dirs
+}
+
+/// `startedAt` descending, then `updatedAt` descending, then path. Ties
+/// never fall back to directory order, which differs per filesystem.
+fn list_order(a: &SessionHeader, b: &SessionHeader) -> std::cmp::Ordering {
+    by_started_desc(a.started_at.as_deref(), b.started_at.as_deref())
+        .then_with(|| b.updated_at.cmp(&a.updated_at))
+        .then_with(|| a.path.cmp(&b.path))
 }
 
 /// `startedAt` descending, missing last.

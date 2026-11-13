@@ -10,15 +10,15 @@
  │ ╰───────────────────────────────────────╯  │ │                                                 │
  │ ╭───────────────────────────────────────╮  │ │ [t0] [user-prompt] Fix the flaky bui…       ~10 │
  │ │ [Claude] Claude session               │  │ │                                                 │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ [t0] [deferred tools delta] deferred_tools_  ~0 │
+ │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ [t0] [deferred tools delta] deferred_tools_  ~0 │
  │ ╰───────────────────────────────────────╯  │ │                                                 │
  │ ╭───────────────────────────────────────╮  │ │ [t1] [assistant-text] Step 1: checking …     ~7 │
  │ │ [Claude] Claude session               │  │ │   Step 1: checking with `Bash`.                 │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │                                                 │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │                                                 │
  │ ╰───────────────────────────────────────╯  │ │ [t1] [Bash] { "command": "npm…              ~15 │
  │ ╭───────────────────────────────────────╮  │ │                                                 │
  │ │ [Claude] Claude session               │  │ │ [t1] [tool-result] FAIL case1             1,280 │
- │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │                                                 │
+ │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │                                                 │
  │ ╰───────────────────────────────────────╯  │ │ [t2] [assistant-text] Step 2: checking …     ~7 │
  │ ╭───────────────────────────────────────╮  │ │                                                 │
  │ │ [Pi] Pi session                       │  │ │ [t2] [Read] { "file_path": "/…              ~12 │
