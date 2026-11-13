@@ -11,6 +11,7 @@ pub mod labels;
 pub mod measure;
 pub mod model;
 pub mod model_windows;
+pub mod pages;
 pub mod prompt;
 pub mod read;
 mod read_parsed;
