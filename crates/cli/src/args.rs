@@ -5,7 +5,8 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::otel::LogLevel;
 
-/// Local inspector for coding-agent sessions.
+/// Local, loopback-only inspector for Claude Code, Codex, Pi and `OpenCode`
+/// sessions: context-budget forensics, stats and Claude memory.
 #[derive(Debug, Parser)]
 #[expect(clippy::struct_excessive_bools, reason = "independent CLI flags")]
 #[command(name = "peektrace", disable_version_flag = true)]
@@ -14,7 +15,7 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub json: bool,
 
-    /// Render padded tables for people instead of tab-separated text
+    /// Render aligned tables, not tab-separated text
     #[arg(long, global = true)]
     pub pretty: bool,
 
@@ -22,21 +23,29 @@ pub struct Cli {
     #[arg(long = "read-only", global = true)]
     pub read_only: bool,
 
-    /// Print each finished span to stderr
+    /// Log Effect spans to stderr (or set `PEEKTRACE_OTEL`)
     #[arg(long, global = true)]
     pub otel: bool,
 
-    /// Minimum level of log lines printed to stderr
+    /// Set the minimum log level
     #[arg(long = "log-level", global = true, value_enum)]
     pub log_level: Option<LogLevel>,
 
     // Accepted for TS flag parity. No telemetry store exists yet, so nothing
-    // reads it.
-    /// Do not record local telemetry
-    #[arg(long = "no-telemetry", global = true)]
+    // reads them.
+    /// Disable local wide-event telemetry (on by default)
+    #[arg(long = "no-telemetry", global = true, overrides_with = "telemetry")]
     pub no_telemetry: bool,
 
-    /// Run sessions commands against a `peektrace serve` at this URL
+    /// Local wide-event telemetry (on by default)
+    #[arg(long, global = true, overrides_with = "no_telemetry", hide = true)]
+    pub telemetry: bool,
+
+    /// Print a completion script
+    #[arg(long, value_enum, value_name = "shell")]
+    pub completions: Option<Shell>,
+
+    /// Use `peektrace serve` over HTTP (`PEEKTRACE_TOKEN`)
     #[arg(long, global = true, value_parser = lossy())]
     pub remote: Option<String>,
 
@@ -48,16 +57,48 @@ pub struct Cli {
     pub command: Option<Command>,
 }
 
+/// Shells `--completions` writes a script for; `sh` gets the bash one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum Shell {
+    Sh,
+    Bash,
+    Fish,
+    Zsh,
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Command {
     /// List and analyze sessions
     Sessions(SessionsArgs),
-    /// Cross-session friction: what fails, what costs time, what to fix first
-    Stats(StatsArgs),
-    /// Browse and manage Claude memory files
+    /// Browse and delete Claude memory entries
     Memory(MemoryArgs),
-    /// Start the inspector server (API + web UI); loopback by default
+    /// Rank what fails and what costs time across all sessions
+    Stats(StatsArgs),
+    /// Print one-line context health for a status line
+    Statusline(StatuslineArgs),
+    /// Start the local web UI
     Serve(ServeArgs),
+    /// Serve read-only session and stats tools over stdio MCP
+    Mcp,
+    /// Upgrade the installed binary to the latest release
+    Upgrade(UpgradeArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct StatuslineArgs {
+    /// Give up and print "ctx --" after this many ms (default 1500)
+    #[arg(long, default_value = "1500", allow_hyphen_values = true, value_parser = lossy())]
+    pub timeout: String,
+}
+
+#[derive(Debug, Args)]
+pub struct UpgradeArgs {
+    /// Install a specific release tag instead of the latest (pin or downgrade)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub version: Option<String>,
+    /// Only report whether an update is available; download and write nothing
+    #[arg(long)]
+    pub check: bool,
 }
 
 /// `memory` with no subcommand prints its help and exits 0.
@@ -69,11 +110,11 @@ pub struct MemoryArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum MemoryCommand {
-    /// List projects with memory, or one project's memory files
+    /// List projects with memory, or the entries of one project
     Ls(MemoryLsArgs),
-    /// Print one memory file: frontmatter fields and body
+    /// Show the frontmatter and full body of one entry
     Show(MemoryNameArgs),
-    /// Delete one memory file and its MEMORY.md line
+    /// Delete one entry (blocked under --read-only)
     Rm(MemoryNameArgs),
 }
 
@@ -121,13 +162,13 @@ pub struct StatsArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum StatsCommand {
-    /// The calls behind one row of a stats table
+    /// Show the evidence behind one finding
     Drill(StatsDrillArgs),
-    /// An investigation prompt for the report or one row of it
+    /// Print a prompt to hand the report to an agent
     Prompt(StatsPromptArgs),
-    /// Re-extract the fact cache without computing a report
+    /// Rebuild the stats index
     Refresh(StatsRefreshArgs),
-    /// Tokens and estimated cost per day, month or 5-hour block
+    /// Show token and cost usage over time
     Usage(StatsUsageArgs),
 }
 
@@ -229,13 +270,13 @@ pub struct SessionsArgs {
 
 #[derive(Debug, Subcommand)]
 pub enum SessionsCommand {
-    /// List session headers, newest first
+    /// List session headers
     Ls(LsArgs),
     /// Show context forensics for one session
     Analyze(AnalyzeArgs),
     /// Export one session to HTML, Markdown or JSON
     Export(ExportArgs),
-    /// Find sessions whose text holds a phrase
+    /// Find sessions by text, redacted by default
     Search(SearchArgs),
 }
 

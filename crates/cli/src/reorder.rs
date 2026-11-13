@@ -7,19 +7,20 @@
 //! The flag lists mirror `args.rs`; a test checks them against clap.
 
 /// Global flags with no value.
-const GLOBAL_SWITCHES: [&str; 9] = [
+const GLOBAL_SWITCHES: [&str; 10] = [
     "--json",
     "--pretty",
     "--read-only",
     "--otel",
     "--no-telemetry",
+    "--telemetry",
     "-h",
     "--help",
     "-v",
     "--version",
 ];
-/// Global flags that take a value.
-const GLOBAL_VALUES: [&str; 2] = ["--log-level", "--remote"];
+/// Global flags that take a value (`--completions` is root-only).
+pub(crate) const GLOBAL_VALUES: [&str; 3] = ["--log-level", "--remote", "--completions"];
 const SEARCH_SWITCHES: [&str; 1] = ["--no-redact"];
 const SEARCH_VALUES: [&str; 4] = ["--agent", "--project", "--since", "--limit"];
 

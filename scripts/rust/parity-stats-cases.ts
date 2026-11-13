@@ -49,13 +49,11 @@ const stripClock = (stdout: string): string => {
   }
 };
 
-const normalise = (r: Run): Run => ({
-  ...r,
-  stdout: stripClock(r.stdout).replace(
-    WINDOW_LINE,
-    "peektrace stats  $1 window  <window>"
-  ),
-});
+/** A stats text or JSON body with its clock-dependent parts masked. */
+export const maskStatsClock = (text: string) =>
+  stripClock(text).replace(WINDOW_LINE, "peektrace stats  $1 window  <window>");
+
+const normalise = (r: Run): Run => ({ ...r, stdout: maskStatsClock(r.stdout) });
 
 export interface Stage {
   readonly env: Record<string, string>;

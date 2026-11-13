@@ -2,7 +2,9 @@
 
 mod args;
 mod argv;
+mod help;
 mod ls;
+mod mcp;
 mod memory;
 mod otel;
 mod remote;
@@ -16,6 +18,9 @@ mod stats_progress;
 mod stats_render;
 #[cfg(test)]
 mod stats_render_tests;
+mod statusline;
+mod upgrade;
+mod verdict;
 mod width;
 mod zone;
 
@@ -45,7 +50,7 @@ const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
 /// Values that are not valid UTF-8 are decoded lossily, as Node does.
 /// `cwd_flag` is the `--cwd` value; the working dir is read only when it is
 /// relative.
-fn gather_context(cwd_flag: Option<&str>) -> anyhow::Result<Context> {
+fn gather_context(cwd_flag: Option<&str>, always_cwd: bool) -> anyhow::Result<Context> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
@@ -55,14 +60,14 @@ fn gather_context(cwd_flag: Option<&str>) -> anyhow::Result<Context> {
     let settings = std::fs::read(roots_env.settings_path())
         .ok()
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
-    let cwd = cwd_flag
-        .filter(|c| select::needs_base_dir(c, &roots_env.home, roots_env.style))
-        .map(|_| {
-            std::env::current_dir()
-                .context("reading the current directory")
-                .map(|d| d.to_string_lossy().into_owned())
-        })
-        .transpose()?;
+    let cwd = (always_cwd
+        || cwd_flag.is_some_and(|c| select::needs_base_dir(c, &roots_env.home, roots_env.style)))
+    .then(|| {
+        std::env::current_dir()
+            .context("reading the current directory")
+            .map(|d| d.to_string_lossy().into_owned())
+    })
+    .transpose()?;
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .context("reading the clock")?;
@@ -97,17 +102,23 @@ fn print_stderr(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
 }
 
-/// Help for the command at `path` (empty for the root), exit 0.
-fn print_help(path: &[&str]) -> ExitCode {
-    let mut cmd = <Cli as clap::CommandFactory>::command();
-    cmd.build();
-    let help = path
-        .iter()
-        .try_fold(&mut cmd, |c, name| c.find_subcommand_mut(name))
-        .map(|c| c.render_help().to_string());
-    match help.map(|h| write_stdout(&[&h])) {
-        Some(Ok(())) => ExitCode::SUCCESS,
-        _ => ExitCode::FAILURE,
+/// A page or script that runs before any command, exit 0 (1 for a
+/// `--completions` value that names no shell).
+fn print_early(early: help::Early) -> ExitCode {
+    let text = match early {
+        help::Early::RootHelp => format!("{}\n", help::root_page(VERSION)),
+        help::Early::GroupHelp(g) => format!("{}\n", help::group_page(g, VERSION)),
+        help::Early::Completions(Ok(shell)) => help::completions(shell),
+        help::Early::Completions(Err(value)) => {
+            print_stderr(&format!(
+                "invalid value '{value}' for '--completions <shell>'\n  [possible values: sh, bash, fish, zsh]"
+            ));
+            return ExitCode::FAILURE;
+        }
+    };
+    match write_stdout(&[&text]) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(_) => ExitCode::FAILURE,
     }
 }
 
@@ -127,6 +138,9 @@ enum Run<'a> {
     StatsRefresh(&'a args::StatsRefreshArgs),
     StatsUsage(&'a args::StatsUsageArgs),
     Serve(&'a args::ServeArgs),
+    Statusline(&'a args::StatuslineArgs),
+    Mcp,
+    Upgrade(&'a args::UpgradeArgs),
 }
 
 impl<'a> Run<'a> {
@@ -142,7 +156,13 @@ impl<'a> Run<'a> {
             Self::StatsPrompt(_) => Some("stats prompt"),
             Self::StatsRefresh(_) => Some("stats refresh"),
             Self::StatsUsage(_) => Some("stats usage"),
-            Self::Ls(_) | Self::Analyze(_) | Self::Export(_) | Self::Serve(_) => None,
+            Self::Ls(_)
+            | Self::Analyze(_)
+            | Self::Export(_)
+            | Self::Serve(_)
+            | Self::Statusline(_)
+            | Self::Mcp
+            | Self::Upgrade(_) => None,
         }
     }
 
@@ -232,20 +252,46 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         ));
         return Ok(failure.fail(&e));
     }
-    let ctx = gather_context(cmd.cwd_flag())?;
+    if let Run::Mcp = cmd {
+        if cli.remote.is_some() {
+            let e = ls::UserError::Invalid(
+                "mcp runs locally only; remote is not supported yet".to_owned(),
+            );
+            return Ok(failure.fail(&e));
+        }
+        let ctx = gather_context(None, true)?;
+        print_warnings(cli, &warnings_of(&ctx));
+        mcp::serve(ctx, io::stdin().lock());
+        return Ok(ExitCode::SUCCESS);
+    }
+    if let Run::Upgrade(args) = cmd {
+        let env = upgrade::UpgradeEnv::from_process(VERSION);
+        let mut print = |line: &str| {
+            let _ = print_stdout(line);
+        };
+        return Ok(match upgrade::run(args, &env, &mut print) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => failure.fail(&e),
+        });
+    }
+    if let Run::Statusline(args) = cmd {
+        let deadline = match statusline::parse_timeout(&args.timeout) {
+            Ok(d) => d,
+            Err(e) => return Ok(failure.fail(&e)),
+        };
+        let ctx = gather_context(None, false)?;
+        print_warnings(cli, &warnings_of(&ctx));
+        let remote = cli.remote.as_deref().map(remote_of);
+        print_stdout(&statusline::run(ctx, remote, deadline))?;
+        return Ok(ExitCode::SUCCESS);
+    }
+    let ctx = gather_context(cmd.cwd_flag(), false)?;
     let globals = Globals {
         json: cli.json,
         pretty: cli.pretty,
         read_only: cli.read_only,
     };
-    let remote = cli.remote.as_deref().map(|r| {
-        remote::Remote::new(
-            r,
-            std::env::var(peektrace_server::auth::TOKEN_ENV)
-                .ok()
-                .as_deref(),
-        )
-    });
+    let remote = cli.remote.as_deref().map(remote_of);
     let remote = remote.as_ref();
     let out = match cmd {
         Run::Serve(args) => return run_serve(cli, args, &ctx, failure),
@@ -273,6 +319,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         Run::StatsPrompt(args) => stats::run_prompt(args, &ctx),
         Run::StatsRefresh(args) => stats::run_refresh(args, globals, &ctx),
         Run::StatsUsage(args) => stats::run_usage(args, globals, &ctx),
+        Run::Statusline(_) | Run::Mcp | Run::Upgrade(_) => unreachable!(),
     };
     let out = match out {
         Ok(out) => out,
@@ -294,6 +341,37 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
     }
     out.notes.iter().for_each(|n| print_stderr(n));
     Ok(ExitCode::SUCCESS)
+}
+
+fn remote_of(url: &str) -> remote::Remote {
+    remote::Remote::new(
+        url,
+        std::env::var(peektrace_server::auth::TOKEN_ENV)
+            .ok()
+            .as_deref(),
+    )
+}
+
+/// The unparseable-settings warning, for commands that print no other
+/// output of the listing.
+fn warnings_of(ctx: &Context) -> Vec<String> {
+    single::agent_roots(ctx).1
+}
+
+/// What the startup update check reads.
+fn notice_env(ctx: &Context) -> upgrade::notice::NoticeEnv {
+    let var = |k: &str| std::env::var(k).ok();
+    upgrade::notice::NoticeEnv {
+        version: VERSION.to_owned(),
+        exe: upgrade::notice::exe_path(),
+        cache_path: upgrade::notice::cache_path(
+            var("PEEKTRACE_DIR").as_deref(),
+            &ctx.roots_env.home,
+        ),
+        config: upgrade::release::ReleaseConfig::from_env(upgrade::release::BUILD_FEED, var),
+        now_ms: ctx.now_ms,
+        disabled: var("PEEKTRACE_NO_UPDATE_CHECK").is_some_and(|v| !v.is_empty()),
+    }
 }
 
 /// `serve`: print the banner once bound, then serve until stopped.
@@ -320,6 +398,9 @@ fn run_serve(
         if desktop {
             let _ = print_stdout(&format!("PEEKTRACE_READY:{}", banner.port));
         }
+        upgrade::notice::spawn_notice(notice_env(ctx), |line| {
+            let _ = print_stdout(line);
+        });
     })?;
     Ok(ExitCode::SUCCESS)
 }
@@ -328,6 +409,9 @@ fn main() -> ExitCode {
     let argv: Vec<String> = std::env::args_os()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
+    if let Some(early) = help::early(&argv) {
+        return print_early(early);
+    }
     if let Some(flag) = args::missing_value(&argv) {
         print_stderr(&format!("Missing value for {flag}."));
         return ExitCode::FAILURE;
@@ -350,9 +434,14 @@ fn main() -> ExitCode {
         };
     }
     let cmd = match &cli.command {
-        None => return print_help(&[]),
+        None => {
+            return match print_stdout(&help::banner()) {
+                Ok(()) => ExitCode::SUCCESS,
+                Err(_) => ExitCode::FAILURE,
+            };
+        }
         Some(Command::Sessions(SessionsArgs { command: None })) => {
-            return print_help(&["sessions"]);
+            return print_early(help::Early::GroupHelp("sessions"));
         }
         Some(Command::Sessions(SessionsArgs { command: Some(c) })) => match c {
             SessionsCommand::Ls(a) => Run::Ls(a),
@@ -360,7 +449,9 @@ fn main() -> ExitCode {
             SessionsCommand::Export(a) => Run::Export(a),
             SessionsCommand::Search(a) => Run::Search(a),
         },
-        Some(Command::Memory(MemoryArgs { command: None })) => return print_help(&["memory"]),
+        Some(Command::Memory(MemoryArgs { command: None })) => {
+            return print_early(help::Early::GroupHelp("memory"));
+        }
         Some(Command::Memory(MemoryArgs { command: Some(c) })) => match c {
             MemoryCommand::Ls(a) => Run::MemoryLs(a),
             MemoryCommand::Show(a) => Run::MemoryShow(a),
@@ -374,6 +465,9 @@ fn main() -> ExitCode {
             Some(StatsCommand::Usage(a)) => Run::StatsUsage(a),
         },
         Some(Command::Serve(a)) => Run::Serve(a),
+        Some(Command::Statusline(a)) => Run::Statusline(a),
+        Some(Command::Mcp) => Run::Mcp,
+        Some(Command::Upgrade(a)) => Run::Upgrade(a),
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);

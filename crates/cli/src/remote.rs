@@ -63,6 +63,20 @@ pub struct Remote {
     agent: ureq::Agent,
 }
 
+/// A failed call: the server error's `_tag`, when it sent one, and the CLI
+/// message.
+#[derive(Debug)]
+pub struct Failure {
+    pub tag: Option<String>,
+    pub error: UserError,
+}
+
+/// A failed fetch: a server error body, or any other failure.
+enum Fetch {
+    Api(JsValue),
+    Other(UserError),
+}
+
 /// How a call failed below the API: an HTTP status or a transport detail.
 enum Transport {
     Status(u16),
@@ -137,17 +151,42 @@ impl Remote {
         segments: &[&str],
         query: &[(&str, &str)],
     ) -> Result<JsValue, UserError> {
+        self.get(segments, query).map_err(|f| f.error)
+    }
+
+    /// [`Self::get_json`], keeping the `_tag` of a server error.
+    pub fn get(&self, segments: &[&str], query: &[(&str, &str)]) -> Result<JsValue, Failure> {
+        self.fetch(segments, query).map_err(|e| match e {
+            Fetch::Api(v) => {
+                let body = v.get("error").unwrap_or(&v);
+                Failure {
+                    tag: body
+                        .get("_tag")
+                        .and_then(JsValue::as_str)
+                        .map(str::to_owned),
+                    error: UserError::Invalid(format_api_error(body)),
+                }
+            }
+            Fetch::Other(error) => Failure { tag: None, error },
+        })
+    }
+
+    fn fetch(&self, segments: &[&str], query: &[(&str, &str)]) -> Result<JsValue, Fetch> {
         if !self.url.contains("://") {
-            return Err(self.fail(&Transport::Detail("ERR_INVALID_URL".to_owned())));
+            return Err(Fetch::Other(
+                self.fail(&Transport::Detail("ERR_INVALID_URL".to_owned())),
+            ));
         }
         if !is_http_url(&self.url) {
-            return Err(self.fail(&Transport::Detail("ERR_INVALID_URL".to_owned())));
+            return Err(Fetch::Other(
+                self.fail(&Transport::Detail("ERR_INVALID_URL".to_owned())),
+            ));
         }
         if !cfg!(feature = "https") && self.url.starts_with("https:") {
-            return Err(UserError::Invalid(format!(
+            return Err(Fetch::Other(UserError::Invalid(format!(
                 "Cannot reach {}: this peektrace build has no TLS support. Use an http:// URL (for example through ssh -L), or build with `--features https`.",
                 self.url
-            )));
+            ))));
         }
         let base = self.url.strip_suffix('/').unwrap_or(&self.url);
         let path = segments.iter().fold(String::new(), |mut acc, s| {
@@ -166,7 +205,9 @@ impl Remote {
         if let Some(t) = &self.bearer {
             req = req.header("Authorization", &format!("Bearer {t}"));
         }
-        let mut res = req.call().map_err(|e| self.fail(&transport_detail(&e)))?;
+        let mut res = req
+            .call()
+            .map_err(|e| Fetch::Other(self.fail(&transport_detail(&e))))?;
         let status = res.status().as_u16();
         let is_json = res
             .headers()
@@ -179,17 +220,17 @@ impl Remote {
             .with_config()
             .limit(u64::MAX)
             .read_to_string()
-            .map_err(|e| self.fail(&Transport::Detail(format!("reading the response: {e}"))))?;
+            .map_err(|e| {
+                Fetch::Other(self.fail(&Transport::Detail(format!("reading the response: {e}"))))
+            })?;
         let value = is_json.then_some(body.as_str()).and_then(JsValue::parse);
         match (status, value) {
             (200..=299, Some(v)) => Ok(v),
-            (200..=299, None) => {
-                Err(self.fail(&Transport::Detail("unexpected response".to_owned())))
-            }
-            (_, Some(v)) if v.get("error").is_some() => Err(UserError::Invalid(format_api_error(
-                v.get("error").unwrap_or(&v),
-            ))),
-            (n, _) => Err(self.fail(&Transport::Status(n))),
+            (200..=299, None) => Err(Fetch::Other(
+                self.fail(&Transport::Detail("unexpected response".to_owned())),
+            )),
+            (_, Some(v)) if v.get("error").is_some() => Err(Fetch::Api(v)),
+            (n, _) => Err(Fetch::Other(self.fail(&Transport::Status(n)))),
         }
     }
 }

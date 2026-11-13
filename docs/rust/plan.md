@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs. The `cli` stage (`--cli-only`) covers `statusline` (stdin payloads, flags, `--otel` span names, the real corpus, and `--remote` against the serve pair), `mcp` (one process per side, replies matched by id and compared byte for byte, the real corpus), `upgrade` (a local fake release server: `--check` runs, and installs on temp targets through `PEEKTRACE_UPGRADE_TARGET`) and the owned help pages. It never calls GitHub and never runs TS `upgrade` without `--check`.
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
@@ -97,7 +97,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `index.html` cache | `no-store` only when embedded | `no-store` for every source |
 | Bad request payload (`agent=bogus`, settings body without `settings`) | Effect `Die` | 400 `BadRequestError` |
 | Session image | `{data, mediaType}` base64, or `null` | raw bytes, or 404 `ImageNotFoundError` |
-| `serve` startup lines | `RPC: <url>/rpc`, `via watch.poll`, update notice | `API: <url>/api`, `via /api/events`, no update notice (no `upgrade` yet) |
+| `serve` startup lines | `RPC: <url>/rpc`, `via watch.poll` | `API: <url>/api`, `via /api/events` |
 | `serve --port` near 65535, bind error text | Node messages | `No free port in range ...`, OS message |
 | `serve --port abc` | `@effect/cli` integer error | clap's message. Exit code 1 in both. |
 | `--remote` lenient URLs (`localhost:4630`, `http:/host`) | Bun `fetch` accepts some | parsed with WHATWG rules; no scheme gives the "Include the scheme" error |
@@ -118,6 +118,21 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Memory write IO failure | `Die` | 500 `text/plain` defect, logged with path and OS text |
 | Stats calls at once | passes run in parallel and race on the cache index | one pass at a time per server |
 | `--remote` for `stats*`, `sessions search`, `memory *` | works | refused with "--remote is not supported for ... in the Rust build yet." (exit 1) |
+| `statusline` deadline | `--timeout` covers stdin, lookup and remote calls, not the parse | covers the parse too: a worker thread reads and analyzes, and a run past the deadline prints `ctx --` |
+| `statusline` stdin over 1 MB | the chunk that crosses 1 MB is kept, so the cut depends on how the writer chunks the pipe | read in 64 KiB chunks. Real payloads are a few KB. |
+| `upgrade --version X --check` (`--version` first) | prints the CLI version: `@effect/cli` takes it as the root flag | pins `X` |
+| `upgrade` delta route (binpatch) | patches a compiled Bun binary when a patch chain exists | always a full download; the line says `downloaded <size>` |
+| `upgrade` failure causes | Bun text, e.g. `SyntaxError: JSON Parse error: ...`, `TypeError: ECONNREFUSED: ...`, `Error: ENOENT: ..., open '<tmp>'` | `ureq` or OS text. `Error: GitHub API responded <n>`, `Error: download responded <n>` and `Error: fetch responded <n>` match. |
+| `upgrade` target | `process.execPath` | the real path of the running binary; the hidden `PEEKTRACE_UPGRADE_TARGET` overrides it (tests and parity) |
+| `upgrade` and the update notice over `https` (GitHub) | supported | need the `https` cargo feature; the default build fails with "no TLS support" and the notice stays silent |
+| MCP telemetry | `RpcServer.*` and `RpcClient.*` spans; `sessions_analyze` with `latest` or `cwd` opens `rpc.sessions.list`, then `rpc.sessions.analyze` | no RPC transport spans; one `rpc.sessions.analyze` span that carries the listing's `sessions.unreadable` |
+| MCP tool defect | `formatCliError` of the defect | the panic message, as an `isError` result |
+| `--completions <shell>` | `@effect/cli` scripts; a bad shell gives `Invalid subcommand for peektrace - ...` | `clap_complete` scripts (`sh` gets the bash one); a bad shell gives `invalid value ... [possible values: sh, bash, fish, zsh]`. Exit code 1 in both. |
+| `--wizard` | `@effect/cli` interactive builder | not ported |
+| Leaf `--help` pages (`sessions ls --help`, `stats --help`, ...) | `@effect/cli` pages with ANSI | clap pages |
+| Bare `sessions` / `memory` | the `@effect/cli` group page | the owned group page `sessions --help` prints |
+| Root `--help` rows and the bare-command banner | list `tui` and `doctor` | leave them out until those commands exist |
+| `-v`, `--version` | `0.0.0-dev` and a blank line | `0.0.0-dev` |
 
 ## Risks
 
@@ -148,3 +163,8 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 12. Port `--remote` for `stats*`, `sessions search` and `memory *`? The text output needs JSON readers for each result; `--json` could pass the body through.
 13. Markers now skip the server stats lock and merge into the index under a short lock. Should a corpus-wide pass waiting on the lock also time out?
 14. An unknown usage `tz` is 500 `StatsScanError` (the TS tag). Move it to 400?
+15. `PEEKTRACE_UPGRADE_TARGET` ships in release builds, so parity runs on the release binary. Keep it, or gate it behind a debug build and run parity on a debug binary?
+16. Turn on the `https` feature (rustls, ~1 MB) by default? Without it `upgrade` and the update notice cannot reach GitHub. Links to question 10.
+17. Windows `upgrade`: keep the "re-run the installer" message, or rename the running `.exe` aside and replace it?
+18. Release builds need `PEEKTRACE_VERSION` at compile time, and `PEEKTRACE_RELEASE_BASE_URL`, `PEEKTRACE_RELEASE_API`, `PEEKTRACE_RELEASE_TAG_PREFIX` and `PEEKTRACE_RELEASE_ASSET_PREFIX` to point `upgrade` at Rust releases. Without all four release vars, `upgrade` refuses and the update notice stays off, unless `PEEKTRACE_BASE_URL` and `PEEKTRACE_GITHUB_API` are set at run time. Pick the tag prefix and asset names with `cargo-dist`.
+19. `PEEKTRACE_DIR=""` puts `update-check.json` in the working dir, as TS does. Treat empty as unset in both?

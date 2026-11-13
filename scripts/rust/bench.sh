@@ -7,12 +7,14 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
+#                                               statusline mcp upgrade
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
-# The serve suites live in bench-serve.sh, sourced below.
+# The serve suites live in bench-serve.sh, the statusline, mcp and upgrade suites in bench-stdio.sh, sourced below.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
+# `set_input` gives the last case a file fed to stdin (hyperfine --input, `<` for GNU time).
 # Bash 3.2 compatible (macOS /bin/bash).
 set -euo pipefail
 
@@ -105,10 +107,10 @@ fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 < 1048576) printf
 # Commands are strings hyperfine -N splits shell-style. Conclude commands run after each run, untimed.
 # flags: space-separated words; "rss" adds a peak RSS row (CLI cases only), "cpu" adds a CPU time row,
 # "live" needs the long-running servers of the serve suite.
-C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_BUN=() C_RUST=() C_BUN_END=() C_RUST_END=() C_PREP=()
+C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_BUN=() C_RUST=() C_BUN_END=() C_RUST_END=() C_PREP=() C_INPUT=()
 add_pair() {
   C_NAME+=("$1"); C_WARMUP+=("$2"); C_RUNS+=("$3"); C_FLAGS+=("$4"); C_LABEL+=("$5")
-  C_BUN+=("$6"); C_RUST+=("$7"); C_BUN_END+=("${8:-}"); C_RUST_END+=("${9:-}"); C_PREP+=("")
+  C_BUN+=("$6"); C_RUST+=("$7"); C_BUN_END+=("${8:-}"); C_RUST_END+=("${9:-}"); C_PREP+=(""); C_INPUT+=("")
 }
 # add_case <name> <warmup> <runs> <flags> <label> <args...>
 # Args are joined with spaces, so no single arg may contain a space.
@@ -119,6 +121,13 @@ add_case() {
 }
 # set_prepare <command> -> run before each timed and RSS run of the last case; no shell, so no globs or pipes.
 set_prepare() { C_PREP[$((${#C_NAME[@]} - 1))]="$1"; }
+# set_input <file> -> stdin of the last case; default /dev/null.
+set_input() { C_INPUT[$((${#C_NAME[@]} - 1))]="$1"; }
+# Long-running processes: RSS_HOOKS run once per RSS round after the CLI cases;
+# add_mem_row <label> <file prefix> adds a row read from <prefix>-{bun,rust}.txt (KiB per line).
+RSS_HOOKS=() MEM_LABEL=() MEM_FILE=()
+MEM_TITLE="Process memory"
+add_mem_row() { MEM_LABEL+=("$1"); MEM_FILE+=("$2"); }
 has_flag() { [[ " ${C_FLAGS[$1]} " == *" $2 "* ]]; }
 
 ENV_EXTRA=()
@@ -284,10 +293,13 @@ suite_memory() {
 # --- serve -----------------------------------------------------------------------
 # shellcheck source=scripts/rust/bench-serve.sh
 . "$ROOT/scripts/rust/bench-serve.sh"
+# shellcheck source=scripts/rust/bench-stdio.sh
+. "$ROOT/scripts/rust/bench-stdio.sh"
+trap 'stop_live; stop_fake_release' EXIT
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -321,9 +333,11 @@ for ((c = 0; c < N_CASES; c++)); do
   if has_flag "$c" live && ((${#LIVE_PIDS[@]} == 0)); then start_live; fi
   prep=()
   [[ -n "${C_PREP[c]}" ]] && prep=(--prepare "${C_PREP[c]}")
+  input=()
+  [[ -n "${C_INPUT[c]}" ]] && input=(--input "${C_INPUT[c]}")
   conclude=()
   [[ -n "${C_BUN_END[c]}" ]] && conclude=(--conclude "${C_BUN_END[c]}" --conclude "${C_RUST_END[c]}")
-  hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} \
+  hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} ${input[@]+"${input[@]}"} \
     --export-json "$OUT/${C_NAME[c]}.json" \
     ${conclude[@]+"${conclude[@]}"} \
     --command-name bun "${C_BUN[c]}" \
@@ -354,9 +368,10 @@ for ((i = 1; i <= RSS_ROUNDS; i++)); do
       if [[ "$impl" == bun ]]; then read -ra argv <<<"${C_BUN[c]}"; else read -ra argv <<<"${C_RUST[c]}"; fi
       if ((${#prep[@]})); then "${prep[@]}"; fi
       # %M is KiB on both macOS gtime and Linux GNU time; keep only its last stderr line.
-      "$GTIME" -f %M "${argv[@]}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
+      "$GTIME" -f %M "${argv[@]}" <"${C_INPUT[c]:-/dev/null}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
     done
   done
+  for hook in ${RSS_HOOKS[@]+"${RSS_HOOKS[@]}"}; do "$hook"; done
 done
 
 echo "load at end (1/5/15 min): $(uptime | sed 's/.*load averages*: //')" >>"$OUT/env.txt"
@@ -417,6 +432,14 @@ row_rss() {
     echo "| command | Bun | Rust | Δ (Rust vs Bun) |"
     echo "|---|---|---|---|"
     for c in $RSS_CASES; do row_rss "${C_LABEL[c]}" "$OUT/rss-${C_NAME[c]}"; done
+    echo
+  fi
+  if ((${#MEM_LABEL[@]})); then
+    echo "## $MEM_TITLE"
+    echo
+    echo "| process RSS | Bun | Rust | Δ (Rust vs Bun) |"
+    echo "|---|---|---|---|"
+    for ((m = 0; m < ${#MEM_LABEL[@]}; m++)); do row_rss "${MEM_LABEL[m]}" "${MEM_FILE[m]}"; done
     echo
   fi
   if [[ "${SERVE:-0}" == 1 ]]; then
