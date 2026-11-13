@@ -6,6 +6,8 @@ mod body;
 #[cfg(test)]
 mod markdown_tests;
 mod nodes;
+#[cfg(test)]
+mod render_tests;
 mod run;
 mod tool_card;
 
