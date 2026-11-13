@@ -336,7 +336,8 @@ const runScript = async (
   lines: readonly string[],
   env: Record<string, string>,
   cwd: string,
-  retry: boolean
+  retry: boolean,
+  liveFilter: () => Promise<(f: string) => boolean> = async () => () => false
 ) => {
   const input = `${lines.join("\n")}\n`;
   for (let attempt = 0; ; attempt++) {
@@ -346,7 +347,14 @@ const runScript = async (
     ]);
     const { found, count } = compare(label, lines, ts, rust);
     if (found.length === 0 || !retry || attempt > 0) {
-      for (const f of found) {
+      const live = await liveFilter();
+      const kept = found.filter((f) => !live(f));
+      if (kept.length < found.length) {
+        console.log(
+          `  ${found.length - kept.length} live-session replies skipped`
+        );
+      }
+      for (const f of kept) {
         report(f);
       }
       return count;
@@ -366,18 +374,46 @@ const titleWord = (rows: readonly Row[]) =>
     .flatMap((r) => (r.title ?? "").split(NON_LETTERS))
     .find((w) => w.length >= MIN_WORD) ?? "parity";
 
-const realLines = async (env: Record<string, string>) => {
+const listRows = async (env: Record<string, string>) => {
   const ls = await runAsync(
     [rustBin, "--json", "sessions", "ls", "--limit", "0"],
     env
   );
-  const rows = JSON.parse(ls.stdout || "[]") as Row[];
+  return JSON.parse(ls.stdout || "[]") as Row[];
+};
+
+/** Case ids whose session grew while the suite ran (an agent is writing
+ * to it): their replies differ by timing, not by behaviour. */
+const liveCases =
+  (before: readonly Row[], picked: readonly Row[]) =>
+  async (env: Record<string, string>) => {
+    const after = new Map(
+      (await listRows(env)).map((r) => [r.id, r.sizeBytes] as const)
+    );
+    const grew = (r: Row | undefined) =>
+      r !== undefined && after.get(r.id) !== r.sizeBytes;
+    const ids = new Set<string>();
+    if (grew(before[0])) {
+      ids.add("r-latest");
+    }
+    picked.forEach((r, i) => {
+      if (grew(r)) {
+        ids.add(`r-an-${i}`);
+        ids.add(`r-an-json-${i}`);
+      }
+    });
+    return (f: string) => [...ids].some((id) => f.includes(`"${id}"`));
+  };
+
+const realLines = async (env: Record<string, string>) => {
+  const rows = await listRows(env);
   const largest = [...rows]
     .sort((x, y) => y.sizeBytes - x.sizeBytes)
     .slice(0, 2);
   const picked = [...rows.slice(0, 2), ...largest];
   const q = titleWord(rows.slice(0, 20));
-  return [
+  const live = liveCases(rows, picked);
+  const lines = [
     call("r-ls3", "sessions_list", { limit: 3 }),
     call("r-ls20", "sessions_list", { limit: 20 }),
     call("r-ls-json", "sessions_list", { limit: 5, format: "json" }),
@@ -392,6 +428,7 @@ const realLines = async (env: Record<string, string>) => {
       call(`r-an-json-${i}`, "sessions_analyze", { id: r.id, format: "json" }),
     ]),
   ];
+  return { lines, live: () => live(env) };
 };
 
 export const runMcpStage = async ({
@@ -437,8 +474,8 @@ export const runMcpStage = async ({
       PEEKTRACE_NO_TELEMETRY: "1",
       PEEKTRACE_NO_UPDATE_CHECK: "1",
     };
-    const lines = await realLines(env);
-    const n = await runScript("mcp-real", lines, env, REPO, true);
+    const { lines, live } = await realLines(env);
+    const n = await runScript("mcp-real", lines, env, REPO, true, live);
     console.log(`suite mcp-real: ${n} replies`);
   }
 };
