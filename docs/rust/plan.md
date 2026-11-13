@@ -170,7 +170,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 
 ## Decisions
 
-**Rune is native only (2026-11-13).** The browser UI stays the React inspector over `/api` + SSE; Rust owns the TUI and every backend. Measured on the Rune web build: WebGPU only (no page at all without it), 4.0 MiB brotli bundle, session list 299 ms vs 206 ms for React. Rune opened the biggest session in 434 ms against React's 592 ms. That gap came from React loading the whole analysis, so the inspector moved to paged session routes instead. `serve --ui rune` stays, marked experimental.
+**Rune is native only (2026-11-13).** The browser UI stays the React inspector over `/api` + SSE; Rust owns the TUI and every backend. Measured on the Rune web build: WebGPU only (no page at all without it), 4.0 MiB brotli bundle, session list 299 ms vs 206 ms for React. Rune opened the biggest session in 434 ms against React's 592 ms. That gap came from React loading the whole analysis, so the inspector moved to paged session routes instead. `serve --ui rune` stays, marked experimental. After the move, same method (fresh headless Chromium per run, median of 5, first transcript row drawn): the biggest real session (48 MiB) 558 ms against 616 ms before, with 280 KB of session data instead of 2.2 MB; a 49 MB synthetic session 483 ms against 714 ms. The rest of the open time is the app shell and the session list, the same in both.
 
 ## Telemetry decisions
 
