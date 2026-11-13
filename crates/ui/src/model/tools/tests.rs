@@ -224,3 +224,53 @@ fn small_helpers() {
     assert_eq!(body_view(&file("file: a.md")), None);
     assert_eq!(body_view(&file("hook")), None);
 }
+
+// Ports of `tool-event.test.ts` result and body cases the tests above do not
+// hold with the same input.
+
+#[test]
+fn a_text_block_holding_json_stays_a_json_code_block() {
+    let blocks = r#"[{"text":"{\"items\":[1,2]}","type":"text"}]"#;
+    assert_eq!(
+        result_pane(&result(blocks)),
+        Body::Code {
+            code: "{\n  \"items\": [\n    1,\n    2\n  ]\n}".into(),
+            language: "json"
+        }
+    );
+}
+
+#[test]
+fn a_server_tool_result_is_prose_a_request_id_alone_is_not() {
+    let hits = TimelineEvent {
+        request_id: Some("r1".into()),
+        server_tool: Some(true),
+        title: "web_search result".into(),
+        ..result("- [Bun 1.4](https://bun.sh/blog/bun-v1.4)")
+    };
+    assert_eq!(
+        result_pane(&hits),
+        Body::Prose {
+            text: hits.body.clone()
+        }
+    );
+    let shell = TimelineEvent {
+        server_tool: None,
+        body: "a.md\nb.md".into(),
+        ..hits
+    };
+    assert!(matches!(result_pane(&shell), Body::Code { .. }));
+}
+
+#[test]
+fn body_views_by_title() {
+    let file = |t: &str| TimelineEvent {
+        title: t.into(),
+        body: "x".into(),
+        ..kind(EventKind::Attachment)
+    };
+    assert_eq!(body_view(&file("skills_instructions")), None);
+    assert_eq!(body_view(&file("file: CLAUDE.md")), None);
+    assert_eq!(body_view(&file("file: index.ts")), Some("typescript"));
+    assert_eq!(body_view(&file("opened_file_in_ide: main.py")), Some("text"));
+}
