@@ -30,29 +30,44 @@ fn stamp(path: &str) -> Stamp {
         .map(|m| (m.len(), m.modified().ok()))
 }
 
-/// One analysis and when it was true: the sessions watch version and the
-/// main transcript's stamp at build time.
+/// The stamps of the files an analysis read: the transcript, then each
+/// subagent transcript folded into it.
+fn stamps(pages: &SessionPages) -> Vec<Stamp> {
+    let p = &pages.analysis().parsed;
+    std::iter::once(p.path.as_str())
+        .chain(p.subagents.iter().map(|s| s.path.as_str()))
+        .map(stamp)
+        .collect()
+}
+
+/// One analysis and what it was built from: its files' stamps and the
+/// sessions watch version.
 #[derive(Debug)]
 pub struct Built {
     pub pages: SessionPages,
     version: u64,
-    stamp: Stamp,
+    stamps: Vec<Stamp>,
 }
 
 impl Built {
     pub fn new(pages: SessionPages, version: u64) -> Self {
-        let stamp = stamp(&pages.analysis().parsed.path);
+        let stamps = stamps(&pages);
         Self {
             pages,
             version,
-            stamp,
+            stamps,
         }
     }
 
-    /// Still valid: no watch bump and the transcript is unchanged, which
-    /// also catches appends when the watcher is not running.
+    /// Still valid: its files are unchanged, which also catches appends when
+    /// the watcher is not running. Other sessions' writes bump the watch
+    /// version too, so a JSONL transcript ignores it. An `OpenCode` store
+    /// writes through its WAL, which the stamps do not see, so it is valid
+    /// only until the next watch bump.
     fn fresh(&self, version: u64) -> bool {
-        self.version == version && stamp(&self.pages.analysis().parsed.path) == self.stamp
+        let jsonl = self.pages.analysis().parsed.provider.as_str() != "opencode"
+            && self.stamps.first().is_some_and(Option::is_some);
+        stamps(&self.pages) == self.stamps && (jsonl || self.version == version)
     }
 }
 
@@ -170,7 +185,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn hits_until_the_version_or_the_file_moves() {
+    async fn hits_until_the_file_moves() {
         let dir = std::env::temp_dir().join(format!("peektrace-pages-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir");
         let file = dir.join("t.jsonl");
@@ -180,7 +195,8 @@ mod tests {
         let k = key("a");
         assert_eq!(get(&cache, &k, 0, &path).await, Ok(Lookup::Miss));
         assert_eq!(get(&cache, &k, 0, &path).await, Ok(Lookup::Hit));
-        assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Miss));
+        // Another session's write bumps the version; this file did not move.
+        assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Hit));
         std::fs::write(&file, "{}\n{}\n").expect("append");
         assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Miss));
         assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Hit));
@@ -194,6 +210,8 @@ mod tests {
             assert_eq!(get(&cache, &key(id), 0, "/nope").await, Ok(Lookup::Miss));
         }
         assert_eq!(get(&cache, &key("e"), 0, "/nope").await, Ok(Lookup::Hit));
+        // No file to stamp: a watch bump is the only sign of change.
+        assert_eq!(get(&cache, &key("e"), 1, "/nope").await, Ok(Lookup::Miss));
         assert_eq!(get(&cache, &key("a"), 0, "/nope").await, Ok(Lookup::Miss));
         let failed = cache
             .get(&key("f"), 0, || async { Err::<Built, _>("boom") })
