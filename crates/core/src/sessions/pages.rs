@@ -10,7 +10,7 @@ use crate::js::json_out::Writer;
 use crate::js::{text, units};
 use crate::sessions::model::{AnalyzedSession, BudgetKey, ParsedSession, TurnShape};
 use crate::sessions::model::{TimelineEvent, Turn, TurnField};
-use crate::sessions::write::{analyzed_json_with, write_analysis_fields, write_event_fields};
+use crate::sessions::write::{write_analysis_fields, write_event_fields};
 
 /// Events per page the client asks for.
 pub const PAGE_SIZE: usize = 100;
@@ -207,6 +207,17 @@ fn growth_fields(a: &AnalyzedSession) -> String {
     doc[1..doc.len() - 1].to_owned()
 }
 
+/// The summary keys, no braces: the analysis without events, turns and
+/// snapshots.
+fn summary_fields(a: &AnalyzedSession) -> String {
+    let mut w = Writer::new(false);
+    w.begin_obj();
+    write_analysis_fields(&mut w, a, false);
+    w.end_obj();
+    let doc = w.finish();
+    doc[1..doc.len() - 1].to_owned()
+}
+
 /// One history index row: the event without its text, plus its turn, body
 /// length (UTF-16 units) and body id.
 fn row_json(e: &TimelineEvent, turn: usize, body_id: usize) -> String {
@@ -234,7 +245,6 @@ pub struct SessionPages {
     analysis: AnalyzedSession,
     rev: String,
     events: Vec<String>,
-    page_hashes: Vec<String>,
     summary: String,
     growth: String,
     index: String,
@@ -244,9 +254,8 @@ pub struct SessionPages {
 
 impl SessionPages {
     pub fn new(a: AnalyzedSession) -> Self {
-        let rev = hash_hex(&analyzed_json_with(&a, false));
         let events: Vec<String> = a.parsed.events.iter().map(event_json).collect();
-        let page_hashes = events.chunks(PAGE_SIZE).map(array_hash).collect();
+        let page_hashes: Vec<String> = events.chunks(PAGE_SIZE).map(array_hash).collect();
         let turns = turn_numbers(&a.parsed);
         let ids = body_ids(&a.parsed.events);
         let rows: Vec<String> = a
@@ -257,6 +266,17 @@ impl SessionPages {
             .map(|(pos, e)| row_json(e, turns[pos], ids[pos]))
             .collect();
         let index_hash = array_hash(&rows);
+        let fields = growth_fields(&a);
+        let growth_hash = hash_hex(&format!("{{{fields}}}"));
+        let summary_fields = summary_fields(&a);
+        // Every served part is in the hash, so it moves whenever one does.
+        let rev = page_hashes
+            .iter()
+            .chain([&index_hash, &growth_hash])
+            .fold(Fnv::new().write(summary_fields.as_bytes()), |h, x| {
+                h.write(b",").write(x.as_bytes())
+            })
+            .hex();
         let mut index = format!(
             r#"{{"rev":"{rev}","hash":"{index_hash}","total":{},"crossEvent":{},"rows":"#,
             events.len(),
@@ -264,39 +284,25 @@ impl SessionPages {
         );
         push_array(&mut index, &rows);
         index.push('}');
-        let fields = growth_fields(&a);
-        let growth_hash = hash_hex(&format!("{{{fields}}}"));
         let growth = format!(r#"{{"rev":"{rev}","hash":"{growth_hash}",{fields}}}"#);
-        let mut pages = Self {
+        let pages = page_hashes
+            .iter()
+            .map(|h| format!(r#""{h}""#))
+            .collect::<Vec<_>>()
+            .join(",");
+        let summary = format!(
+            r#"{{{summary_fields},"history":{{"rev":"{rev}","total":{},"pageSize":{PAGE_SIZE},"pages":[{pages}],"index":"{index_hash}","growth":"{growth_hash}"}}}}"#,
+            events.len()
+        );
+        Self {
             analysis: a,
             rev,
             events,
-            page_hashes,
-            summary: String::new(),
+            summary,
             growth,
             index,
             search: OnceLock::new(),
-        };
-        pages.summary = pages.summary_json(&index_hash, &growth_hash);
-        pages
-    }
-
-    fn summary_json(&self, index_hash: &str, growth_hash: &str) -> String {
-        let mut w = Writer::new(false);
-        w.begin_obj();
-        write_analysis_fields(&mut w, &self.analysis, false);
-        w.key("history").begin_obj();
-        w.key("rev").str(&self.rev);
-        w.key("total").int(int(self.events.len()));
-        w.key("pageSize").int(int(PAGE_SIZE));
-        w.key("pages").begin_arr();
-        self.page_hashes.iter().for_each(|h| w.elem().str(h));
-        w.end_arr();
-        w.key("index").str(index_hash);
-        w.key("growth").str(growth_hash);
-        w.end_obj();
-        w.end_obj();
-        w.finish()
+        }
     }
 
     pub fn rev(&self) -> &str {

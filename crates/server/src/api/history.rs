@@ -6,7 +6,7 @@ use std::sync::Arc;
 use axum::extract::{Path, RawQuery, State};
 use axum::http::Method;
 use peektrace_core::sessions::pages::{MAX_LIMIT, PAGE_SIZE, SessionPages};
-use peektrace_core::sessions::service::{AnalyzeOverrides, Target, analyze_session_with};
+use peektrace_core::sessions::service::{AnalyzeOverrides, Target, analyze_session_tracked};
 use peektrace_protocol::ApiError;
 use tracing::{Instrument as _, Span};
 
@@ -38,7 +38,7 @@ async fn load(state: Arc<AppState>, key: PagesKey) -> Result<Arc<Built>, Failure
             blocking(move || {
                 let _entered = current.enter();
                 let k = build_key;
-                analyze_session_with(
+                analyze_session_tracked(
                     env(&state),
                     Target::Lookup(&k.id),
                     k.parent.as_deref(),
@@ -48,7 +48,7 @@ async fn load(state: Arc<AppState>, key: PagesKey) -> Result<Arc<Built>, Failure
                         dumb_zone: k.dumb_zone,
                     },
                 )
-                .map(|a| Built::new(SessionPages::new(a), version))
+                .map(|t| Built::new(SessionPages::new(t.analysis), version, t.inputs))
                 .map_err(session_error)
             })
         })

@@ -6,6 +6,7 @@ pub mod context_edits;
 pub mod context_files;
 pub mod cost;
 pub mod images;
+pub mod inputs;
 pub mod jsonl;
 pub mod labels;
 pub mod measure;

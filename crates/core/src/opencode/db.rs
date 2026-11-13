@@ -41,9 +41,8 @@ pub(super) struct Db {
     conn: Connection,
 }
 
-/// Every `opencode*.db` in `data_dir`, in directory order (not sorted: the
-/// first DB that holds an id wins). A file that fails to open is skipped.
-pub(super) fn open_dbs(data_dir: &str) -> Vec<Db> {
+/// Names of the `opencode*.db` files in `data_dir`, in directory order.
+pub(super) fn db_names(data_dir: &str) -> Vec<String> {
     entries(data_dir)
         .into_iter()
         .filter(|name| {
@@ -54,6 +53,14 @@ pub(super) fn open_dbs(data_dir: &str) -> Vec<Db> {
             let db = name.ends_with(".db");
             name.starts_with("opencode") && db
         })
+        .collect()
+}
+
+/// Every `opencode*.db` in `data_dir`, in directory order (not sorted: the
+/// first DB that holds an id wins). A file that fails to open is skipped.
+pub(super) fn open_dbs(data_dir: &str) -> Vec<Db> {
+    db_names(data_dir)
+        .into_iter()
         .filter_map(|name| {
             let path = PathStyle::NATIVE.join(&[data_dir, &name]);
             let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;

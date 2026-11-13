@@ -21,7 +21,7 @@ pub struct PagesKey {
     pub redact: bool,
 }
 
-/// Size and modified time of a transcript, `None` when it cannot be read.
+/// Size and modified time of a path, `None` when it cannot be read.
 type Stamp = Option<(u64, Option<SystemTime>)>;
 
 fn stamp(path: &str) -> Stamp {
@@ -30,44 +30,40 @@ fn stamp(path: &str) -> Stamp {
         .map(|m| (m.len(), m.modified().ok()))
 }
 
-/// The stamps of the files an analysis read: the transcript, then each
-/// subagent transcript folded into it.
-fn stamps(pages: &SessionPages) -> Vec<Stamp> {
-    let p = &pages.analysis().parsed;
-    std::iter::once(p.path.as_str())
-        .chain(p.subagents.iter().map(|s| s.path.as_str()))
-        .map(stamp)
-        .collect()
+fn stamps(paths: &[String]) -> Vec<Stamp> {
+    paths.iter().map(|p| stamp(p)).collect()
 }
 
-/// One analysis and what it was built from: its files' stamps and the
-/// sessions watch version.
+/// One analysis and what it was built from: the stamps of every path it
+/// read (transcript first) and the sessions watch version.
 #[derive(Debug)]
 pub struct Built {
     pub pages: SessionPages,
     version: u64,
+    inputs: Vec<String>,
     stamps: Vec<Stamp>,
 }
 
 impl Built {
-    pub fn new(pages: SessionPages, version: u64) -> Self {
-        let stamps = stamps(&pages);
+    pub fn new(pages: SessionPages, version: u64, inputs: Vec<String>) -> Self {
+        let stamps = stamps(&inputs);
         Self {
             pages,
             version,
+            inputs,
             stamps,
         }
     }
 
-    /// Still valid: its files are unchanged, which also catches appends when
-    /// the watcher is not running. Other sessions' writes bump the watch
-    /// version too, so a JSONL transcript ignores it. An `OpenCode` store
-    /// writes through its WAL, which the stamps do not see, so it is valid
-    /// only until the next watch bump.
+    /// Still valid: its inputs are unchanged, which also catches appends
+    /// when the watcher is not running. Other sessions' writes bump the
+    /// watch version too, so a JSONL transcript ignores it. An `OpenCode`
+    /// store is shared by every session in it, so it also needs the
+    /// version to hold.
     fn fresh(&self, version: u64) -> bool {
         let jsonl = self.pages.analysis().parsed.provider.as_str() != "opencode"
             && self.stamps.first().is_some_and(Option::is_some);
-        stamps(&self.pages) == self.stamps && (jsonl || self.version == version)
+        stamps(&self.inputs) == self.stamps && (jsonl || self.version == version)
     }
 }
 
@@ -161,7 +157,10 @@ mod tests {
     }
 
     fn empty_pages(path: &str) -> SessionPages {
-        let parsed = peektrace_core::codex::parse_codex_session("", path, "s");
+        pages_of(peektrace_core::codex::parse_codex_session("", path, "s"))
+    }
+
+    fn pages_of(parsed: peektrace_core::sessions::model::ParsedSession) -> SessionPages {
         let a = peektrace_core::sessions::analyze::analyze(
             parsed,
             peektrace_core::sessions::analyze::AnalyzeOptions {
@@ -178,7 +177,8 @@ mod tests {
         let path = path.to_owned();
         cache
             .get(k, version, || async move {
-                Ok(Built::new(empty_pages(&path), version))
+                let pages = empty_pages(&path);
+                Ok(Built::new(pages, version, vec![path]))
             })
             .await
             .map(|(_, l)| l)
@@ -200,6 +200,32 @@ mod tests {
         std::fs::write(&file, "{}\n{}\n").expect("append");
         assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Miss));
         assert_eq!(get(&cache, &k, 1, &path).await, Ok(Lookup::Hit));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn an_opencode_store_write_misses_without_a_watch_bump() {
+        let dir = std::env::temp_dir().join(format!("peektrace-pages-oc-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let db = dir.join("opencode.db");
+        std::fs::write(&db, "x").expect("write");
+        let inputs = vec![
+            dir.to_string_lossy().into_owned(),
+            db.to_string_lossy().into_owned(),
+        ];
+        let path = format!("{}#ses_1", inputs[0]);
+        let cache = PagesCache::default();
+        let k = key("oc");
+        let build = || async {
+            let parsed = peektrace_core::opencode::parse_opencode_session(None, &path, "ses_1");
+            Ok::<_, ()>(Built::new(pages_of(parsed), 0, inputs.clone()))
+        };
+        let lookup = |r: Result<(Arc<Built>, Lookup), ()>| r.map(|(_, l)| l);
+        assert_eq!(lookup(cache.get(&k, 0, build).await), Ok(Lookup::Miss));
+        assert_eq!(lookup(cache.get(&k, 0, build).await), Ok(Lookup::Hit));
+        std::fs::write(&db, "xy").expect("write");
+        assert_eq!(lookup(cache.get(&k, 0, build).await), Ok(Lookup::Miss));
+        assert_eq!(lookup(cache.get(&k, 1, build).await), Ok(Lookup::Miss));
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -232,7 +258,7 @@ mod tests {
                     .get(&key("x"), 0, || async move {
                         builds.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                         tokio::task::yield_now().await;
-                        Ok::<_, ()>(Built::new(empty_pages("/nope"), 0))
+                        Ok::<_, ()>(Built::new(empty_pages("/nope"), 0, Vec::new()))
                     })
                     .await
                     .map(|(_, l)| l)

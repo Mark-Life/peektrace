@@ -35,6 +35,8 @@ export interface SessionKey {
 
 /** Page requests in flight at once. */
 const MAX_IN_FLIGHT = 4;
+/** Wait before a failed page or search request is asked again. */
+const RETRY_MS = 2000;
 
 const queryOf = (k: SessionKey): Query => ({
   parent: k.parent ?? undefined,
@@ -63,10 +65,12 @@ export const useSessionSummary = (k: SessionKey) => {
 
 /** A part with its own hash (`/growth`, `/history/index`), fetched beside
  *  the summary and refetched once each time the summary names a hash other
- *  than the one held. `want` is null until the summary is here. */
+ *  than the one held. A failed part is asked again once per new summary.
+ *  `s` is null until the summary is here. */
 const usePart = <A extends { readonly hash: string }>(
   k: SessionKey,
   part: readonly string[],
+  s: SessionSummary | null,
   want: string | null
 ) => {
   const { id, parent, redact } = k;
@@ -83,34 +87,42 @@ const usePart = <A extends { readonly hash: string }>(
   const result = useAtomValue(atom);
   const refresh = useAtomRefresh(atom);
   const held = Result.isSuccess(result) ? result.value.hash : null;
+  const failed = Result.isFailure(result) && !result.waiting;
   const asked = useRef(want);
+  const retried = useRef<SessionSummary | null>(null);
   useEffect(() => {
-    if (
-      want === null ||
-      held === null ||
-      held === want ||
-      asked.current === want
-    ) {
+    if (s === null || want === null) {
+      return;
+    }
+    if (failed) {
+      if (retried.current !== s) {
+        retried.current = s;
+        refresh();
+      }
+      return;
+    }
+    if (held === null || held === want || asked.current === want) {
       return;
     }
     asked.current = want;
     refresh();
-  }, [held, want, refresh]);
-  return result;
+  }, [failed, held, s, want, refresh]);
+  return { refresh, result };
 };
 
 export const useGrowth = (k: SessionKey, s: SessionSummary | null) =>
-  usePart<GrowthSeries>(k, ["growth"], s?.history.growth ?? null);
+  usePart<GrowthSeries>(k, ["growth"], s, s?.history.growth ?? null);
 
 export const useHistoryIndex = (k: SessionKey, s: SessionSummary | null) =>
-  usePart<HistoryIndex>(k, ["history", "index"], s?.history.index ?? null);
+  usePart<HistoryIndex>(k, ["history", "index"], s, s?.history.index ?? null);
 
 const keyText = (k: SessionKey) => `${k.id}\n${k.parent ?? ""}\n${k.redact}`;
 
 /** Event pages for the drawn rows: at most `MAX_IN_FLIGHT` requests at once,
  *  and a page no longer needed is aborted. A held page stays on screen while
  *  a changed one loads. A page whose hash is not the summary's raced a live
- *  write: it is dropped and `onStale` asks for a new summary. */
+ *  write: it is dropped and `onStale` asks for a new summary. A failed
+ *  request is asked again after `RETRY_MS`. */
 export const useBodyPages = ({
   hashes,
   k,
@@ -134,7 +146,11 @@ export const useBodyPages = ({
     setState({ key, pages });
   }
   const inflight = useRef(new Map<number, AbortController>());
-  const failed = useRef(new Set<string>());
+  /** `page:hash` keys whose answer did not match the summary. */
+  const stale = useRef(new Set<string>());
+  /** Pages whose last request failed, until their retry is due. */
+  const failed = useRef(new Set<number>());
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const latest = useRef({ hashes, k, onStale });
   latest.current = { hashes, k, onStale };
   const [tick, setTick] = useState(0);
@@ -146,6 +162,11 @@ export const useBodyPages = ({
         c.abort();
       }
       inflight.current.clear();
+      for (const t of timers.current) {
+        clearTimeout(t);
+      }
+      timers.current.clear();
+      failed.current.clear();
     },
     [key]
   );
@@ -173,7 +194,8 @@ export const useBodyPages = ({
         hash !== undefined &&
         pages.get(p)?.hash !== hash &&
         !inflight.current.has(p) &&
-        !failed.current.has(`${p}:${hash}`)
+        !failed.current.has(p) &&
+        !stale.current.has(`${p}:${hash}`)
       );
     });
     for (const p of missing) {
@@ -212,14 +234,20 @@ export const useBodyPages = ({
                 : s
             );
           } else {
-            failed.current.add(`${p}:${expected}`);
+            stale.current.add(`${p}:${expected}`);
             latest.current.onStale();
           }
           done();
         },
         () => {
           if (!c.signal.aborted) {
-            failed.current.add(`${p}:${expected}`);
+            failed.current.add(p);
+            const t = setTimeout(() => {
+              timers.current.delete(t);
+              failed.current.delete(p);
+              setTick((n) => n + 1);
+            }, RETRY_MS);
+            timers.current.add(t);
           }
           done();
         }
@@ -241,7 +269,8 @@ export interface SearchHits {
 
 /** Server-side history search over title, preview and body, case folded.
  *  A newer query aborts the older request; answers are kept per summary
- *  revision, so stepping back to an earlier query is instant. */
+ *  revision, so stepping back to an earlier query is instant. A failed
+ *  request is asked again after `RETRY_MS`. */
 export const useHistorySearch = ({
   k,
   query,
@@ -260,8 +289,9 @@ export const useHistorySearch = ({
   const cache = useRef(new Map<string, ReadonlySet<number>>());
   const key = `${keyText(k)}\n${rev}`;
   const want = `${key}\n${query}`;
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (query === "") {
+    if (query === "" || attempt < 0) {
       return;
     }
     const held = cache.current.get(want);
@@ -270,6 +300,7 @@ export const useHistorySearch = ({
       return;
     }
     const c = new AbortController();
+    let retry: ReturnType<typeof setTimeout> | undefined;
     const ask = apiGet<HistorySearchResult>(route(k, "history", "search"), {
       ...queryOf(k),
       q: query,
@@ -281,11 +312,17 @@ export const useHistorySearch = ({
         setAnswer({ hits, key, query });
       },
       () => {
-        // Aborted by a newer query, or failed: the last answer stays.
+        // The last answer stays meanwhile.
+        if (!c.signal.aborted) {
+          retry = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+        }
       }
     );
-    return () => c.abort();
-  }, [k, key, query, want]);
+    return () => {
+      c.abort();
+      clearTimeout(retry);
+    };
+  }, [k, key, query, want, attempt]);
   if (query === "") {
     return { hits: undefined, pending: false, query: "" };
   }

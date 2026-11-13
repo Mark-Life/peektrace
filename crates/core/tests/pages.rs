@@ -82,7 +82,9 @@ fn summary_is_the_analysis_without_its_arrays() {
             .expect("history");
         assert_eq!(got, want);
         let total = pages.total();
-        assert_eq!(history["rev"], json!(hash_hex(&full)));
+        assert_eq!(history["rev"].as_str().map(str::len), Some(16));
+        assert_eq!(history["rev"], parse(pages.index())["rev"]);
+        assert_eq!(history["rev"], parse(pages.growth())["rev"]);
         assert_eq!(history["total"], json!(total));
         assert_eq!(history["pageSize"], json!(PAGE_SIZE));
         let n = history["pages"].as_array().map_or(0, Vec::len);
@@ -90,6 +92,16 @@ fn summary_is_the_analysis_without_its_arrays() {
         assert_eq!(history["index"], parse(pages.index())["hash"], "index hash");
         assert_eq!(history["growth"], parse(pages.growth())["hash"]);
     }
+}
+
+#[test]
+fn rev_is_stable_and_moves_with_the_analysis() {
+    let revs: Vec<String> = [claude(None), claude(None), claude(Some(0.001))]
+        .into_iter()
+        .map(|a| SessionPages::new(a).rev().to_owned())
+        .collect();
+    assert_eq!(revs[0], revs[1]);
+    assert_ne!(revs[0], revs[2]);
 }
 
 #[test]

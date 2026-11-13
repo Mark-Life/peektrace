@@ -89,6 +89,8 @@ const SessionBody = ({
   indexResult,
   k,
   landing,
+  onRetryGrowth,
+  onRetryIndex,
   onStale,
   onSummary,
   onTurn,
@@ -103,6 +105,8 @@ const SessionBody = ({
   readonly indexResult: Result.Result<HistoryIndex, unknown>;
   readonly k: SessionKey;
   readonly landing: JumpLanding;
+  readonly onRetryGrowth: () => void;
+  readonly onRetryIndex: () => void;
   readonly onStale: () => void;
   readonly onSummary: () => void;
   readonly onTurn: (turn: number) => void;
@@ -125,13 +129,19 @@ const SessionBody = ({
       <ExportButtons k={k} />
       <BudgetBar a={s} />
       {chart === null ? (
-        <GrowthPending />
+        <ResultView
+          onRetry={onRetryGrowth}
+          pending={<GrowthPending />}
+          result={growthResult}
+        >
+          {() => <GrowthPending />}
+        </ResultView>
       ) : (
         <GrowthTimeline a={chart} onTurn={onTurn} />
       )}
       <LoadedArtifacts a={s} />
       <TranscriptSourceContext.Provider value={source}>
-        <ResultView result={indexResult}>
+        <ResultView onRetry={onRetryIndex} result={indexResult}>
           {(index) => (
             <SessionHistory
               growth={growth}
@@ -171,8 +181,8 @@ const SessionDetailView = ({
   const { refresh: retry, result } = useSessionSummary(k);
   // Asked for beside the summary, not after it: one round trip less.
   const summary = Result.isSuccess(result) ? result.value : null;
-  const growthResult = useGrowth(k, summary);
-  const indexResult = useHistoryIndex(k, summary);
+  const growth = useGrowth(k, summary);
+  const index = useHistoryIndex(k, summary);
   const root = useScrollRoot();
   const history = useRef<HTMLElement>(null);
   const jumpButton = useRef<HTMLButtonElement>(null);
@@ -237,10 +247,12 @@ const SessionDetailView = ({
       <ResultView onRetry={retry} result={result}>
         {(s) => (
           <SessionBody
-            growthResult={growthResult}
-            indexResult={indexResult}
+            growthResult={growth.result}
+            indexResult={index.result}
             k={k}
             landing={landing}
+            onRetryGrowth={growth.refresh}
+            onRetryIndex={index.refresh}
             onStale={retry}
             onSummary={toSummary}
             onTurn={onTurn}

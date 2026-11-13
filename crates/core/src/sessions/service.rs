@@ -9,6 +9,7 @@ use tracing::{debug, field, info_span};
 use super::analyze::{AnalyzeOptions, analyze};
 use super::context_files::gather_on_disk_context_files;
 use super::cost::turns_cost;
+use super::inputs::{context_inputs, transcript_inputs};
 use super::model::{AnalyzedSession, ParsedSession, SubagentRef, TurnsCost};
 use super::redact::{redact_parsed, redact_session};
 use super::resolve::{
@@ -372,18 +373,61 @@ pub fn analyze_session_with(
     redact: bool,
     overrides: AnalyzeOverrides,
 ) -> Result<AnalyzedSession, SessionError> {
+    analyze_inner(env, target, parent, redact, overrides, false).map(|t| t.analysis)
+}
+
+/// An analysis and every path whose change can change it.
+#[derive(Debug)]
+pub struct Tracked {
+    pub analysis: AnalyzedSession,
+    pub inputs: Vec<String>,
+}
+
+/// [`analyze_session_with`], plus the paths it read (see
+/// [`super::inputs`]).
+pub fn analyze_session_tracked(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+    redact: bool,
+    overrides: AnalyzeOverrides,
+) -> Result<Tracked, SessionError> {
+    analyze_inner(env, target, parent, redact, overrides, true)
+}
+
+/// Home and projects root of the Claude root that owns `source`.
+fn context_roots<'a>(env: SessionEnv<'a>, source: Option<&str>) -> (&'a str, &'a str) {
+    source
+        .and_then(|s| env.roots.claude.iter().find(|c| c.id == s))
+        .or_else(|| env.roots.claude.first())
+        .map_or(("", ""), |s| (s.home.as_str(), s.projects_root.as_str()))
+}
+
+fn analyze_inner(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+    redact: bool,
+    overrides: AnalyzeOverrides,
+    track: bool,
+) -> Result<Tracked, SessionError> {
     let span = info_span!("Sessions.analyze", id = target.id(), error = field::Empty);
     let _entered = span.enter();
     let result = parse_full(env, target, parent).map(|full| {
-        let files = if full.agent == Agent::Claude {
-            let owning = full
-                .source
-                .as_deref()
-                .and_then(|s| env.roots.claude.iter().find(|c| c.id == s))
-                .or_else(|| env.roots.claude.first());
-            let (home, root) =
-                owning.map_or(("", ""), |s| (s.home.as_str(), s.projects_root.as_str()));
-            gather_on_disk_context_files(full.parsed.cwd.as_deref(), home, root)
+        let claude = full.agent == Agent::Claude;
+        let (home, root) = context_roots(env, full.source.as_deref());
+        let cwd = full.parsed.cwd.as_deref();
+        let inputs = if track {
+            let context = claude.then(|| context_inputs(cwd, home, root));
+            transcript_inputs(&full, &default_root(&env.roots.opencode))
+                .into_iter()
+                .chain(context.into_iter().flatten())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let files = if claude {
+            gather_on_disk_context_files(cwd, home, root)
         } else {
             Vec::new()
         };
@@ -399,7 +443,10 @@ pub fn analyze_session_with(
         if redact {
             redact_session(&mut a);
         }
-        a
+        Tracked {
+            analysis: a,
+            inputs,
+        }
     });
     if let Err(e) = &result {
         span.record("error", field::display(e));
