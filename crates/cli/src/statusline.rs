@@ -18,7 +18,7 @@ use crate::ls::{Context, UserError, parse_limit};
 use crate::remote::Remote;
 use crate::single::agent_roots;
 use crate::verdict::{fraction_of, verdict};
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 
 pub const FALLBACK: &str = "ctx --";
 const MAX_STDIN_BYTES: usize = 1_000_000;

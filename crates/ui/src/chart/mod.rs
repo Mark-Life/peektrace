@@ -2,4 +2,5 @@
 
 pub mod geom;
 pub mod hit;
+#[cfg(feature = "view")]
 pub mod view;

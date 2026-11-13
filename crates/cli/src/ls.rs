@@ -12,7 +12,7 @@ use peektrace_core::{
 use crate::args::LsArgs;
 use crate::remote::Remote;
 use crate::render;
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 
 /// What the process reads from its surroundings, gathered by `main`.
 #[derive(Debug, Clone)]

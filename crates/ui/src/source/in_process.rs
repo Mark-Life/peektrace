@@ -3,11 +3,9 @@
 
 use std::sync::{Arc, Mutex, PoisonError};
 
-use jiff::Timestamp;
-use jiff::tz::{Offset, TimeZone};
 use peektrace_core::PathStyle;
 use peektrace_core::header_cache::HeaderCache;
-use peektrace_core::js::time::LocalZone;
+use peektrace_core::js::system_zone::SystemZone;
 use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::sessions::resolve::SessionError;
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
@@ -19,32 +17,6 @@ use peektrace_protocol::{ApiError, WatchVersions};
 use tracing::{field, info_span};
 
 use super::{DataSource, LoadError, OnVersions, Reply, decode};
-
-/// The system zone (or `TZ`) for timestamps without an offset.
-#[derive(Debug)]
-pub struct SystemZone(TimeZone);
-
-impl SystemZone {
-    pub fn load() -> Self {
-        Self(TimeZone::try_system().unwrap_or(TimeZone::UTC))
-    }
-}
-
-impl LocalZone for SystemZone {
-    fn offset_at_wall_ms(&self, wall_ms: i64) -> i64 {
-        let (min, max) = (
-            Timestamp::MIN.as_millisecond(),
-            Timestamp::MAX.as_millisecond(),
-        );
-        let Ok(wall) = Timestamp::from_millisecond(wall_ms.clamp(min, max)) else {
-            return 0;
-        };
-        self.0
-            .to_ambiguous_timestamp(Offset::UTC.to_datetime(wall))
-            .compatible()
-            .map_or(0, |at| wall.as_millisecond() - at.as_millisecond())
-    }
-}
 
 struct Inner {
     roots: AgentRoots,
@@ -89,7 +61,7 @@ impl InProcess {
             inner: Arc::new(Inner {
                 roots,
                 headers: HeaderCache::default(),
-                zone: SystemZone::load(),
+                zone: SystemZone::default(),
             }),
             watcher: Mutex::new(None),
         }

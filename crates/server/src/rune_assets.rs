@@ -1,15 +1,14 @@
 //! The Rune web app's files (`serve --ui rune`): a directory on disk, the
 //! copy built in with the `rune-ui` feature, or the checkout's
 //! `crates/app/dist` in debug builds. File names carry no hash, so every
-//! file but the page revalidates by `ETag`; a `.br` twin is sent to clients
-//! that accept brotli.
+//! file but the page revalidates by `ETag` (size and mtime on disk, the
+//! content hash when built in), answered before any read; a `.br` twin is
+//! sent to clients that accept brotli.
 
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
 use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, Response, StatusCode, header};
-use sha2::{Digest as _, Sha256};
 
 use crate::assets::{normalize, under_root};
 
@@ -42,14 +41,62 @@ const fn dev_dist() -> Option<PathBuf> {
     None
 }
 
+/// A file found for a request: its `ETag` stem and where its bytes are.
+struct Hit {
+    tag: String,
+    body: Bytes,
+}
+
+enum Bytes {
+    Disk(PathBuf),
+    #[cfg(feature = "rune-ui")]
+    Static(std::borrow::Cow<'static, [u8]>),
+}
+
+impl Bytes {
+    fn load(self) -> Option<Body> {
+        match self {
+            Self::Disk(path) => std::fs::read(path).ok().map(Body::from),
+            #[cfg(feature = "rune-ui")]
+            Self::Static(data) => Some(Body::from(data)),
+        }
+    }
+}
+
 #[cfg(feature = "rune-ui")]
-fn embedded_get(path: &str) -> Option<Vec<u8>> {
-    Embedded::get(path).map(|f| f.data.into_owned())
+fn embedded_hit(path: &str) -> Option<Hit> {
+    Embedded::get(path).map(|f| Hit {
+        tag: hex16(&f.metadata.sha256_hash()),
+        body: Bytes::Static(f.data),
+    })
 }
 
 #[cfg(not(feature = "rune-ui"))]
-const fn embedded_get(_path: &str) -> Option<Vec<u8>> {
+const fn embedded_hit(_path: &str) -> Option<Hit> {
     None
+}
+
+/// First 16 hex digits of a digest.
+#[cfg(feature = "rune-ui")]
+fn hex16(digest: &[u8]) -> String {
+    use std::fmt::Write as _;
+    digest
+        .iter()
+        .take(8)
+        .fold(String::with_capacity(16), |mut out, b| {
+            let _ = write!(out, "{b:02x}");
+            out
+        })
+}
+
+/// A disk file's tag from its size and mtime, so revalidation needs no read.
+fn disk_tag(meta: &std::fs::Metadata) -> String {
+    let mtime = meta
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map_or(0, |d| d.as_nanos());
+    format!("{:x}-{mtime:x}", meta.len())
 }
 
 impl RuneSource {
@@ -61,7 +108,7 @@ impl RuneSource {
             let label = dir.display().to_string();
             return (Self::Dir(dir), label);
         }
-        if embedded_get("index.html").is_some() {
+        if embedded_hit("index.html").is_some() {
             return (Self::Embedded, "embedded".to_owned());
         }
         dev_dist().map_or_else(
@@ -73,22 +120,27 @@ impl RuneSource {
         )
     }
 
-    fn read(&self, rel: &str) -> Option<Vec<u8>> {
+    /// Find `rel` without reading it.
+    fn find(&self, rel: &str) -> Option<Hit> {
         match self {
             Self::Dir(root) => {
                 let path = under_root(rel).filter(|r| r.components().next().is_some())?;
                 let full = root.join(path);
-                std::fs::metadata(&full)
+                let meta = std::fs::metadata(&full)
                     .ok()
                     .filter(std::fs::Metadata::is_file)?;
-                std::fs::read(full).ok()
+                Some(Hit {
+                    tag: disk_tag(&meta),
+                    body: Bytes::Disk(full),
+                })
             }
-            Self::Embedded => embedded_get(rel),
+            Self::Embedded => embedded_hit(rel),
             Self::Missing => None,
         }
     }
 
     /// Answer a GET or HEAD for the decoded path, given the request headers.
+    /// Blocks on the disk for a `Dir` source.
     pub fn respond(&self, pathname: &str, req: &HeaderMap) -> Response<Body> {
         if *self == Self::Missing {
             return plain(StatusCode::SERVICE_UNAVAILABLE, NOT_BUILT);
@@ -96,27 +148,31 @@ impl RuneSource {
         let rel = pathname.trim_start_matches('/');
         let is_twin = Path::new(rel).extension().is_some_and(|e| e == "br");
         let file = (!rel.is_empty() && rel != "index.html" && !is_twin)
-            .then(|| self.read(rel))
+            .then(|| self.find(rel))
             .flatten();
-        let Some(bytes) = file else {
+        let Some(file) = file else {
             if is_twin {
                 return plain(StatusCode::NOT_FOUND, "");
             }
-            return self.read("index.html").map_or_else(
-                || plain(StatusCode::SERVICE_UNAVAILABLE, NOT_BUILT),
-                |b| {
-                    let mut res = Response::new(Body::from(b));
-                    set(&mut res, header::CONTENT_TYPE, "text/html;charset=utf-8");
-                    set(&mut res, header::CACHE_CONTROL, "no-store");
-                    res
-                },
-            );
+            return self
+                .find("index.html")
+                .and_then(|h| h.body.load())
+                .map_or_else(
+                    || plain(StatusCode::SERVICE_UNAVAILABLE, NOT_BUILT),
+                    |b| {
+                        let mut res = Response::new(b);
+                        set(&mut res, header::CONTENT_TYPE, "text/html;charset=utf-8");
+                        set(&mut res, header::CACHE_CONTROL, "no-store");
+                        res
+                    },
+                );
         };
         let twin = accepts_br(req)
-            .then(|| self.read(&format!("{rel}.br")))
+            .then(|| self.find(&format!("{rel}.br")))
             .flatten();
-        let (body, encoded) = twin.map_or((bytes, false), |b| (b, true));
-        let etag = format!("\"{}{}\"", hash16(&body), if encoded { "-br" } else { "" });
+        let encoded = twin.is_some();
+        let hit = twin.unwrap_or(file);
+        let etag = format!("\"{}{}\"", hit.tag, if encoded { "-br" } else { "" });
         let fresh = req
             .get(header::IF_NONE_MATCH)
             .and_then(|v| v.to_str().ok())
@@ -126,7 +182,10 @@ impl RuneSource {
             *r.status_mut() = StatusCode::NOT_MODIFIED;
             r
         } else {
-            Response::new(Body::from(body))
+            let Some(body) = hit.body.load() else {
+                return plain(StatusCode::NOT_FOUND, "");
+            };
+            Response::new(body)
         };
         set(&mut res, header::CONTENT_TYPE, content_type(rel));
         set(&mut res, header::CACHE_CONTROL, "no-cache");
@@ -153,17 +212,6 @@ fn plain(code: StatusCode, body: &'static str) -> Response<Body> {
         set(&mut res, header::CONTENT_TYPE, "text/plain;charset=utf-8");
     }
     res
-}
-
-/// First 16 hex digits of the SHA-256 of `bytes`.
-fn hash16(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .take(8)
-        .fold(String::with_capacity(16), |mut out, b| {
-            let _ = write!(out, "{b:02x}");
-            out
-        })
 }
 
 /// `Accept-Encoding` lists `br` with a non-zero q.
@@ -276,6 +324,46 @@ mod tests {
             RuneSource::Missing.respond("/", &HeaderMap::new()).status(),
             StatusCode::SERVICE_UNAVAILABLE
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn revalidation_skips_the_read() {
+        use std::os::unix::fs::PermissionsExt as _;
+        let dir = std::env::temp_dir().join(format!("rune-etag-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<p>app</p>").unwrap();
+        let wasm = dir.join("app_bg.wasm");
+        std::fs::write(&wasm, b"\0asm").unwrap();
+        std::fs::write(dir.join("app_bg.wasm.br"), b"tiny").unwrap();
+        let src = RuneSource::Dir(dir.clone());
+        let br = headers(&[("accept-encoding", "br")]);
+        let tag = |h: &HeaderMap| src.respond("/app_bg.wasm", h).headers()[header::ETAG].clone();
+        let etag = tag(&HeaderMap::new());
+        // The twin goes out without touching the plain file.
+        std::fs::set_permissions(&wasm, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let unreadable = std::fs::read(&wasm).is_err();
+        if unreadable {
+            let res = src.respond("/app_bg.wasm", &br);
+            assert_eq!(res.status(), StatusCode::OK);
+            assert_eq!(res.headers()[header::CONTENT_ENCODING], "br");
+            let mut again = HeaderMap::new();
+            again.insert(header::IF_NONE_MATCH, etag.clone());
+            assert_eq!(
+                src.respond("/app_bg.wasm", &again).status(),
+                StatusCode::NOT_MODIFIED
+            );
+        }
+        std::fs::set_permissions(&wasm, std::fs::Permissions::from_mode(0o644)).unwrap();
+        let later = std::time::SystemTime::now() + std::time::Duration::from_secs(60);
+        std::fs::File::options()
+            .write(true)
+            .open(&wasm)
+            .and_then(|f| f.set_modified(later))
+            .unwrap();
+        assert_ne!(tag(&HeaderMap::new()), etag);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

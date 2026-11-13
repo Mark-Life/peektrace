@@ -10,6 +10,7 @@ use peektrace_ui::chart::geom::{Growth, growth, pos};
 use peektrace_ui::chart::hit::{ClickAction, click_action, snap_index_at_x};
 use peektrace_ui::model::chat::{
     ChatNode, Lane, build_chat_plan, chat_ids_of, chat_node_keys, chip_label, lane_of, needs_clamp,
+    visible_rows,
 };
 use peektrace_ui::model::format::{first_line, fmt, fmt_bytes, fmt_k, fmt_pct, zone_of};
 use peektrace_ui::model::jsnum::to_fixed;
@@ -195,7 +196,7 @@ fn pane(p: &ToolPane) -> Value {
 fn analysis_answer(a: &AnalyzedSession) -> Value {
     let turns = turn_numbers(a);
     let cross = cross_event_index(a);
-    let rows: Vec<usize> = (0..a.events.len()).collect();
+    let rows = visible_rows(&a.events);
     let plan = build_chat_plan(&a.events, &rows, &turns, cross);
     let ix = index_tools(&a.events);
     let tools: Vec<Value> = a

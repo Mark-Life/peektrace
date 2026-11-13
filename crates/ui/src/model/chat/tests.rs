@@ -367,3 +367,48 @@ fn chip_windows() {
     let w = chip_window(&mostly, false, true, |_| false);
     assert_eq!((w.shown.len(), w.folded, w.hidden), (9, 0, 0));
 }
+
+#[test]
+fn visible_rows_skip_system_events() {
+    use EventKind as K;
+    let events = [
+        ev(K::Attachment),
+        ev(K::System),
+        ev(K::UserPrompt),
+        ev(K::System),
+        ev(K::AssistantText),
+    ];
+    let rows = visible_rows(&events);
+    assert_eq!(rows, [0, 2, 4]);
+    let nodes = build_chat_plan(&events, &rows, &vec![0; events.len()], None);
+    assert_eq!(types(&nodes), ["run", "message", "message"]);
+    assert_eq!(
+        nodes[0],
+        ChatNode::Run(vec![RunItem {
+            pos: 0,
+            repeat: false
+        }])
+    );
+    assert_eq!(chat_ids_of(&events, &rows), ["chat:0", "chat:2", "chat:4"]);
+}
+
+#[test]
+fn first_spawn_follows_the_transcript_not_the_subagent_list() {
+    use EventKind as K;
+    let agent = |id: Option<&str>| SubagentRef {
+        id: "a".into(),
+        agent_type: None,
+        description: None,
+        tool_use_id: id.map(Into::into),
+        turns: 0,
+        peak_context_tokens: 0.0,
+    };
+    let events = [
+        tool(K::ToolCall, "other"),
+        tool(K::ToolCall, "early"),
+        tool(K::ToolCall, "late"),
+    ];
+    let list = [agent(Some("late")), agent(None), agent(Some("early"))];
+    assert_eq!(first_spawn(&events, &list), Some("early"));
+    assert_eq!(first_spawn(&events, &[agent(Some("gone"))]), None);
+}

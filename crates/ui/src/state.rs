@@ -12,7 +12,7 @@ use rune::{AppHandle, TextEdit, Tx};
 
 use crate::chart::geom::{Growth, growth};
 use crate::model::chat::{
-    ChatNode, build_chat_plan, chat_ids_of, chat_node_keys, plan_index_of_turn,
+    ChatNode, build_chat_plan, chat_ids_of, chat_node_keys, plan_index_of_turn, visible_rows,
 };
 use crate::model::list::{self, Filters};
 use crate::model::settle::{Settle, SettleEffect, SettleEvent, step};
@@ -72,6 +72,8 @@ pub struct Detail {
     pub a: AnalyzedSession,
     pub turns: Vec<usize>,
     pub cross: Option<usize>,
+    /// Event positions the history shows, in order.
+    pub rows: Vec<usize>,
     pub plan: Vec<ChatNode>,
     pub keys: Vec<String>,
     pub ids: Vec<String>,
@@ -85,7 +87,7 @@ impl Detail {
     pub fn new(id: String, a: AnalyzedSession, rev: u64) -> Self {
         let turns = turn_numbers(&a);
         let cross = cross_event_index(&a);
-        let rows: Vec<usize> = (0..a.events.len()).collect();
+        let rows = visible_rows(&a.events);
         let plan = build_chat_plan(&a.events, &rows, &turns, cross);
         let keys = chat_node_keys(&plan);
         let ids = chat_ids_of(&a.events, &rows);
@@ -96,6 +98,7 @@ impl Detail {
             a,
             turns,
             cross,
+            rows,
             plan,
             keys,
             ids,
@@ -441,6 +444,3 @@ impl Ui {
 fn hiding_query(f: &Filters, q: &TextEdit) -> bool {
     f.query.is_empty() && !q.text.is_empty()
 }
-
-#[cfg(test)]
-mod tests;

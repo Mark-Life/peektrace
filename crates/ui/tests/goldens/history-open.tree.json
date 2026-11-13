@@ -581,11 +581,11 @@
     },
     {
       "key": "detail-col",
-      "rect": [616, 60, 808, 28281],
+      "rect": [616, 60, 808, 28137],
       "role": "group"
     },
     {
-      "rect": [616, 60, 808, 28281],
+      "rect": [616, 60, 808, 28137],
       "role": "group"
     },
     {
@@ -1079,7 +1079,7 @@
     {
       "rect": [616, 923, 808, 20],
       "role": "text",
-      "text": "Full history · 366 events · 2/120 turns in dumb zone"
+      "text": "Full history · 364 events · 2/120 turns in dumb zone"
     },
     {
       "rect": [616, 947, 808, 15],
@@ -1133,7 +1133,7 @@
     },
     {
       "key": "history-rows",
-      "rect": [616, 1010, 808, 27283],
+      "rect": [616, 1010, 808, 27139],
       "role": "group"
     },
     {

@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use peektrace_protocol::view::{EventKind, TimelineEvent};
+use peektrace_protocol::view::{EventKind, SubagentRef, TimelineEvent};
 
 use super::labels::{event_badge_label, js_trim};
 use super::utf16;
@@ -87,13 +87,14 @@ pub fn collapse_id(pos: usize) -> String {
     format!("chat:{pos}")
 }
 
-/// The collapse id a node toggles; runs and separators have none.
-pub fn collapse_id_of(n: &ChatNode) -> Option<String> {
-    match n {
-        ChatNode::Message(p) | ChatNode::Band(p) | ChatNode::Notice(p) => Some(collapse_id(*p)),
-        ChatNode::Tool { call, result } => call.or(*result).map(collapse_id),
-        _ => None,
-    }
+/// Event positions the history shows: every event but `system` ones.
+pub fn visible_rows(events: &[TimelineEvent]) -> Vec<usize> {
+    events
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.kind != EventKind::System)
+        .map(|(p, _)| p)
+        .collect()
 }
 
 fn is_chip(e: &TimelineEvent) -> bool {
@@ -282,6 +283,18 @@ pub fn plan_index_of_call(events: &[TimelineEvent], plan: &[ChatNode], id: &str)
         ChatNode::Tool { call, result } => has(*call) || (call.is_none() && has(*result)),
         _ => false,
     })
+}
+
+/// The first event, in transcript order, that spawned one of `subagents`.
+pub fn first_spawn<'a>(events: &'a [TimelineEvent], subagents: &[SubagentRef]) -> Option<&'a str> {
+    let ids: HashSet<&str> = subagents
+        .iter()
+        .filter_map(|s| s.tool_use_id.as_deref())
+        .collect();
+    events
+        .iter()
+        .filter_map(|e| e.tool_use_id.as_deref())
+        .find(|id| ids.contains(id))
 }
 
 /// A run's chips split at every opened one: closed neighbours stay chip rows.

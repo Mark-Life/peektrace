@@ -11,6 +11,8 @@ import {
   laneOf,
   needsClamp,
 } from "../../apps/inspector/src/lib/chat-lane";
+import { visibleRows } from "../../apps/inspector/src/lib/history-search";
+import { DEFAULT_HISTORY_SORT } from "../../apps/inspector/src/lib/history-sort";
 import {
   crossEvtIdx,
   turnNumbers,
@@ -153,7 +155,13 @@ const isTool = (e: TimelineEvent) =>
 export const analysisAnswer = (a: AnalyzedSession) => {
   const turns = turnNumbers(a);
   const cross = crossEvtIdx(a);
-  const rows = a.events.map((e, pos) => ({ e, pos }));
+  const rows = visibleRows({
+    events: a.events,
+    index: [],
+    kind: "all",
+    query: "",
+    sort: DEFAULT_HISTORY_SORT,
+  });
   const plan = buildChatPlan({ crossEvtIdx: cross, rows, turns });
   const tools = indexTools(a);
   return {

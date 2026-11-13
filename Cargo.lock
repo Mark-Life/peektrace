@@ -3165,7 +3165,6 @@ name = "peektrace-ui"
 version = "0.0.0"
 dependencies = [
  "icu_collator",
- "jiff",
  "js-sys",
  "peektrace-core",
  "peektrace-protocol",

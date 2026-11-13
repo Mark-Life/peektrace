@@ -132,7 +132,7 @@ pub fn heading(d: &Detail, t: &Theme) -> El {
         .child(
             text(format!(
                 "Full history · {} events · {}/{} turns in dumb zone",
-                a.events.len(),
+                d.rows.len(),
                 a.dumb_zone_turns,
                 a.turn_count
             ))

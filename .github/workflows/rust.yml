@@ -191,17 +191,12 @@ jobs:
       - name: Build the inspector (embedded in the binary)
         run: bun run --filter=inspector build
 
-      - name: Linux packages for the Rune helpers probe
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            pkg-config libxkbcommon-dev libwayland-dev
-
       # One cargo call: a second one for the examples resolves features again.
+      # The ui helpers probe needs only the pure model, so Rune stays off.
       - name: Build (parity profile)
         run: |
           cargo build --locked --profile parity --bins --examples
-          cargo build --locked --profile parity -p peektrace-ui --examples
+          cargo build --locked --profile parity -p peektrace-ui --no-default-features --examples
 
       - name: Rust against the goldens
         run: bun scripts/rust/goldens.ts --bin target/parity/peektrace

@@ -9,8 +9,8 @@ publish.workspace = true
 
 [dependencies]
 peektrace-protocol.workspace = true
-rune.workspace = true
-rune-kit.workspace = true
+rune = { workspace = true, optional = true }
+rune-kit = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 icu_collator.workspace = true
@@ -19,7 +19,6 @@ tracing.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 peektrace-core.workspace = true
-jiff.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "=0.2.129"
@@ -30,6 +29,27 @@ web-sys = { version = "0.3", features = ["Window", "Location", "History", "Reque
 [dev-dependencies]
 peektrace-core.workspace = true
 serde_json.workspace = true
+
+[features]
+default = ["view"]
+# The Rune views and app shell; off, only the pure model and chart geometry build.
+view = ["dep:rune", "dep:rune-kit"]
+
+[[test]]
+name = "drift"
+required-features = ["view"]
+
+[[test]]
+name = "runtime"
+required-features = ["view"]
+
+[[test]]
+name = "session_list"
+required-features = ["view"]
+
+[[test]]
+name = "tool_event"
+required-features = ["view"]
 
 [lints]
 workspace = true

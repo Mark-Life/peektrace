@@ -230,8 +230,7 @@ fn chips(d: &Detail, t: &Theme) -> El {
     }
     let n = a.subagents.len();
     if n > 0 {
-        let first = a.subagents.iter().find_map(|s| s.tool_use_id.as_deref());
-        let target = first
+        let target = crate::model::chat::first_spawn(&a.events, &a.subagents)
             .and_then(|id| crate::model::chat::plan_index_of_call(&a.events, &d.plan, id))
             .map(|i| d.keys[i].clone());
         r = r.child(jump_chip(

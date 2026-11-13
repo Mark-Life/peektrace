@@ -97,13 +97,8 @@ impl Assets {
         })
     }
 
-    /// Answer a GET or HEAD for `raw_path` (no query).
-    pub fn respond(&self, raw_path: &str) -> Response<Body> {
-        self.respond_to(raw_path, &axum::http::HeaderMap::new())
-    }
-
-    /// [`Self::respond`] with the request headers, which the Rune app reads
-    /// for brotli and `If-None-Match`.
+    /// Answer a GET or HEAD for `raw_path` (no query). The Rune app reads
+    /// the request headers for brotli and `If-None-Match`. Blocks on disk.
     pub fn respond_to(&self, raw_path: &str, req: &axum::http::HeaderMap) -> Response<Body> {
         let Ok(decoded) = percent_encoding::percent_decode_str(raw_path).decode_utf8() else {
             return status(StatusCode::NOT_FOUND, "");

@@ -1,10 +1,11 @@
 //! The system time zone for `Date.parse` local time, loaded on first use.
+//! The CLI, the server and the desktop app share it, so `TZ` reads the same.
 
 use std::sync::OnceLock;
 
+use super::time::{LocalZone, zone_named};
 use jiff::Timestamp;
 use jiff::tz::{Offset, TimeZone};
-use peektrace_core::js::time::LocalZone;
 
 /// tzdb names with a POSIX rule shape that Bun reads as UTC.
 const POSIX_SHAPED: [&str; 5] = ["EST5EDT", "CST6CDT", "MST7MDT", "PST8PDT", "posixrules"];
@@ -59,7 +60,7 @@ fn load() -> TimeZone {
         Some(Some(t)) => TzVar::Text(t),
         Some(None) => TzVar::NotUtf8,
     };
-    zone_for(var, peektrace_core::js::time::zone_named, TimeZone::system)
+    zone_for(var, zone_named, TimeZone::system)
 }
 
 /// The `TZ` zone as Bun reads it, else the OS zone, else UTC.
@@ -116,7 +117,7 @@ mod tests {
 
     /// Hours east of UTC on 2026-07-01 for `TZ`, with UTC as the OS zone.
     fn hours(tz: TzVar<'_>) -> i64 {
-        let tz = zone_for(tz, peektrace_core::js::time::zone_named, || TimeZone::UTC);
+        let tz = zone_for(tz, zone_named, || TimeZone::UTC);
         let at = "2026-07-01T00:00:00Z"
             .parse::<Timestamp>()
             .unwrap_or_default();

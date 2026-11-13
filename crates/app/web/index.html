@@ -36,8 +36,12 @@
     <script type="module">
     const status = document.querySelector("#status");
     const fallback = () => {
+      const where = window.isSecureContext
+        ? "Open it in a current Chrome or Edge"
+        : "Browsers turn WebGPU on only over https or on localhost. Tunnel with " +
+          "<code>ssh -L</code> and open it at <code>127.0.0.1</code>";
       status.innerHTML =
-        "This view needs WebGPU. Open it in a current Chrome or Edge, use the desktop app " +
+        `This view needs WebGPU. ${where}, use the desktop app ` +
         "(<code>peektrace-app</code>), or run <code>peektrace serve</code> without " +
         "<code>--ui rune</code> for the classic inspector.";
     };

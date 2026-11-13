@@ -142,22 +142,6 @@ pub fn active_count(f: &Filters) -> usize {
     .count()
 }
 
-/// Distinct non-empty values of one header field, in code unit order.
-pub fn distinct<'a>(
-    headers: &'a [SessionHeader],
-    pick: impl Fn(&'a SessionHeader) -> Option<&'a str>,
-) -> Vec<&'a str> {
-    let mut out: Vec<&str> = headers
-        .iter()
-        .filter_map(pick)
-        .filter(|v| !v.is_empty())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect();
-    out.sort_by(|a, b| a.encode_utf16().cmp(b.encode_utf16()));
-    out
-}
-
 fn is_day_key(s: &str) -> bool {
     let b = s.as_bytes();
     b.len() == 10
