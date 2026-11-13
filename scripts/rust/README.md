@@ -2,10 +2,10 @@
 
 `parity.ts` runs the TS CLI and the Rust CLI side by side and diffs their output: on the fixtures, on generated edge trees and on your real corpora. It is the full check, and it is slow (about 50 min on a CI runner), because every TS case starts Bun.
 
-CI does not run it per push. `goldens.ts` replays the TS side from `tests/goldens/` and runs only the Rust binary, so the fixture check takes a few minutes.
+CI does not run it per push. `goldens.ts` replays the TS side from `tests/goldens/linux-x64/` and runs only the Rust binary, so the fixture check takes seconds once the binary is built.
 
 ```
-TS CLI ──record once──> tests/goldens/<stage>.jsonl.gz
+TS CLI ──record once──> tests/goldens/<os>-<arch>/<stage>.jsonl.gz
                               │
 Rust binary ──────────> same stage code, TS results replayed ──> diffs
 ```
@@ -29,6 +29,19 @@ cargo build --profile parity --bins --examples
 
 Add `--stage base,serve` to `goldens.ts` to run some stages only. Stages: `base` (`sessions ls`, OpenCode, analyze/export), `search`, `memory`, `stats`, `serve`, `cli` (statusline, mcp, upgrade, help, telemetry), `tui`.
 
+## Platforms
+
+TS output depends on the platform, and the Rust CLI follows it: directory read order, ICU time zone aliases (`Asia/Calcutta` on macOS, `Asia/Kolkata` on Linux), and `/tmp`, which is a symlink on macOS. So goldens are per platform, in `tests/goldens/<os>-<arch>/`. Only `linux-x64`, the CI platform, is checked in.
+
+To regenerate it, push a commit whose message contains `[record goldens]` (or run the workflow by hand once it is on the default branch). The `record goldens (<stage>)` jobs record each stage on Linux and upload a `goldens-<stage>` artifact:
+
+```sh
+gh run download <run-id> --pattern 'goldens-*' --dir .scratch/goldens
+cp .scratch/goldens/goldens-*/* tests/goldens/linux-x64/
+```
+
+On macOS, `--write` records `tests/goldens/darwin-arm64/` for local checks. Git ignores it.
+
 ## When to regenerate
 
 Run `--write` after any change to:
@@ -38,9 +51,9 @@ Run `--write` after any change to:
 - the parity scripts: `scripts/rust/parity*.ts`
 - dependencies: `bun.lock`, `package.json`
 
-`tests/goldens/manifest.json` keeps a hash of these files. The check fails with `goldens are stale` when it does not match, so a change cannot skip the regeneration. Rust changes never need it.
+Each stage's `<stage>.json` keeps a hash of these files. The check fails with `goldens are stale` when it does not match, so a change cannot skip the regeneration. Rust changes never need it.
 
-Record with the Bun version that `package.json` pins (`packageManager`); `--write` refuses another one. Put that Bun first on `PATH`, then commit every file in `tests/goldens/`.
+Record with the Bun version that `package.json` pins (`packageManager`); `--write` refuses another one.
 
 ## How replay works
 
@@ -50,7 +63,7 @@ Record with the Bun version that `package.json` pins (`packageManager`); `--writ
 - Stored text has the stage dir, its real path and the repo replaced by `<WORK>`, `<RWORK>` and `<REPO>`. The fake upgrade server, the host asset name and a closed port are bound the same way. `--write` fails if your home dir, temp dir or repo path would land in a golden.
 - Fixture copies get fixed mtimes, since some rows print a file's mtime.
 - Clock values TS prints (stats `generatedAt` and window, export stamps, span durations, Effect log times) are masked when recorded, keeping the shape the compare-time masks expect.
-- `tests/goldens/<stage>.index` lists each key with a short hash, so a regeneration shows as a readable diff.
+- `<stage>.index` lists each key with a short hash, so a regeneration shows as a readable diff.
 
 ## Live only
 

@@ -69,14 +69,9 @@ const pairs = (): [string, string][] => {
     ["<REPO>", roots.repo],
     ...binds,
   ];
-  const rw = real(roots.work);
-  if (rw !== roots.work) {
-    all.push(["<RWORK>", rw]);
-  }
-  const rr = real(roots.repo);
-  if (rr !== roots.repo) {
-    all.push(["<RREPO>", rr]);
-  }
+  // Always present, so a value recorded where the real path differs (macOS
+  // `/tmp`) decodes where it does not. Ties keep `<WORK>` first.
+  all.push(["<RWORK>", real(roots.work)], ["<RREPO>", real(roots.repo)]);
   return all.sort((a, b) => b[1].length - a[1].length);
 };
 

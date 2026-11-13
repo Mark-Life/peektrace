@@ -16,12 +16,18 @@
  * `--verify` records into a temp dir and lists the values that changed.
  * Replay fails for a stage recorded before the TS sources, fixtures or parity
  * scripts last changed: regenerate it with `--write`.
+ *
+ * Goldens live in `tests/goldens/<os>-<arch>/`: TS output depends on the
+ * platform (directory order, ICU zone aliases, `/tmp` real path) and the
+ * Rust CLI follows it. Only `linux-x64`, the CI platform, is checked in; the
+ * `record goldens` CI job makes it.
  */
 import { createHash } from "node:crypto";
 import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -33,7 +39,10 @@ import { gunzipSync } from "node:zlib";
 import { indexLines } from "./parity-oracle";
 
 const REPO = join(import.meta.dir, "../..");
-const GOLDENS = join(REPO, "tests/goldens");
+const PLATFORM =
+  process.env.PARITY_GOLDENS_PLATFORM ?? `${process.platform}-${process.arch}`;
+const GOLDENS_ALL = join(REPO, "tests/goldens");
+const GOLDENS = join(GOLDENS_ALL, PLATFORM);
 const ROOT = process.env.PARITY_GOLDENS_ROOT ?? "/tmp/peektrace-goldens";
 const STAGES = ["base", "search", "memory", "stats", "serve", "cli", "tui"];
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -57,16 +66,12 @@ const value = (f: string) => {
   return at < 0 ? undefined : argv[at + 1];
 };
 
-interface Manifest {
+/** `<stage>.json` beside each golden file. */
+interface StageMeta {
   readonly bun: string;
+  readonly gzBytes: number;
   readonly platform: string;
   readonly root: string;
-  readonly schema: 1;
-  readonly stages: Record<string, StageEntry>;
-}
-
-interface StageEntry {
-  readonly gzBytes: number;
   /** `tsSourceHash` when this stage was recorded. */
   readonly tsSourceHash: string;
   readonly values: number;
@@ -186,11 +191,7 @@ const summary = (o: Outcome) => {
 const goldenText = (file: string) =>
   existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : "";
 
-const writeStage = (
-  stage: string,
-  recorded: string,
-  hash: string
-): StageEntry => {
+const writeStage = (stage: string, recorded: string, hash: string) => {
   mkdirSync(GOLDENS, { recursive: true });
   const dest = join(GOLDENS, `${stage}.jsonl.gz`);
   copyFileSync(recorded, dest);
@@ -199,19 +200,36 @@ const writeStage = (
     join(GOLDENS, `${stage}.index`),
     `${indexLines(lines).join("\n")}\n`
   );
-  return {
-    values: lines.length,
+  const meta: StageMeta = {
+    bun: Bun.version,
     gzBytes: statSync(dest).size,
+    platform: PLATFORM,
+    root: ROOT,
     tsSourceHash: hash,
+    values: lines.length,
   };
+  writeFileSync(
+    join(GOLDENS, `${stage}.json`),
+    `${JSON.stringify(meta, null, 2)}\n`
+  );
 };
 
-const readManifest = (): Manifest | undefined => {
-  const path = join(GOLDENS, "manifest.json");
+const metaOf = (stage: string): StageMeta | undefined => {
+  const path = join(GOLDENS, `${stage}.json`);
   return existsSync(path)
-    ? (JSON.parse(readFileSync(path, "utf8")) as Manifest)
+    ? (JSON.parse(readFileSync(path, "utf8")) as StageMeta)
     : undefined;
 };
+
+/** Bytes of every checked-in golden file, all platforms. */
+const goldenBytes = (dir = GOLDENS_ALL): number =>
+  existsSync(dir)
+    ? readdirSync(dir).reduce((n, name) => {
+        const path = join(dir, name);
+        const st = statSync(path);
+        return n + (st.isDirectory() ? goldenBytes(path) : st.size);
+      }, 0)
+    : 0;
 
 /** Keys whose recorded value differs between two golden files. */
 const churn = (a: string, b: string) => {
@@ -258,10 +276,14 @@ const options = () => {
     );
   }
   const hash = tsSourceHash();
-  const manifest = readManifest();
-  const stale = picked.filter(
-    (s) => manifest?.stages[s]?.tsSourceHash !== hash
-  );
+  const missing = picked.filter((s) => metaOf(s) === undefined);
+  if (!recording && missing.length > 0) {
+    fail(
+      `no ${PLATFORM} goldens for ${missing.join(", ")} in ${relative(REPO, GOLDENS)}: only linux-x64 is checked in. Record your own with --write, or run parity.ts.`,
+      1
+    );
+  }
+  const stale = picked.filter((s) => metaOf(s)?.tsSourceHash !== hash);
   if (!recording && stale.length > 0) {
     fail(
       `goldens are stale (${stale.join(", ")}): the TS sources, fixtures or parity scripts changed since they were recorded. Run: bun scripts/rust/goldens.ts --write`,
@@ -269,7 +291,7 @@ const options = () => {
     );
   }
   const jobs = Number(value("--jobs")) || picked.length;
-  return { bin, hash, jobs, manifest, picked, recording, verify, write };
+  return { bin, hash, jobs, picked, recording, verify, write };
 };
 
 const recordedFile = (s: string) => join(ROOT, "recorded", `${s}.jsonl.gz`);
@@ -294,31 +316,19 @@ const verifyReport = (picked: readonly string[], failed: number) => {
   return ok;
 };
 
-/** `--write`: copy each passing stage in, then the index and manifest. */
+/** `--write`: copy each passing stage in, with its index and meta. */
 const writeGoldens = (
   o: ReturnType<typeof options>,
   outcomes: readonly Outcome[]
 ) => {
   const allowed = has("--allow-diffs");
   const ok = outcomes.filter((x) => x.code === 0 || allowed);
-  const stages = { ...o.manifest?.stages };
   for (const x of ok) {
-    stages[x.stage] = writeStage(x.stage, recordedFile(x.stage), o.hash);
+    writeStage(x.stage, recordedFile(x.stage), o.hash);
   }
-  const total = Object.values(stages).reduce((n, s) => n + s.gzBytes, 0);
-  const next: Manifest = {
-    schema: 1,
-    bun: Bun.version,
-    platform: `${process.platform}-${process.arch}`,
-    root: ROOT,
-    stages,
-  };
-  writeFileSync(
-    join(GOLDENS, "manifest.json"),
-    `${JSON.stringify(next, null, 2)}\n`
-  );
+  const total = goldenBytes();
   console.log(
-    `goldens: wrote ${ok.length} stage(s), ${(total / 1024).toFixed(0)} KiB in ${relative(REPO, GOLDENS)}`
+    `goldens: wrote ${ok.length} stage(s) to ${relative(REPO, GOLDENS)}; ${(total / 1024).toFixed(0)} KiB in ${relative(REPO, GOLDENS_ALL)}`
   );
   if (total > MAX_BYTES) {
     console.error(`goldens: over the ${MAX_BYTES / 1024 / 1024} MiB budget`);
