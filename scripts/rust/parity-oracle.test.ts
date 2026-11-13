@@ -8,6 +8,7 @@ import {
   goldenLines,
   goldenText,
   leaks,
+  missingGoldenLine,
   setOracleRoots,
 } from "./parity-oracle";
 import { canonStatsClock, maskStatsClock } from "./parity-stats-cases";
@@ -106,9 +107,8 @@ describe("record and replay", () => {
       );
       const r = parsed(rep);
       expect(r.out).toEqual(["/w/a1", "/w/a2", "/w/a2", "boom", "gone"]);
-      expect(r.lines).toEqual([
-        "no golden for nope: run bun scripts/rust/goldens.ts --write",
-      ]);
+      expect(r.lines).toEqual([missingGoldenLine("nope")]);
+      expect(r.lines[0]).not.toContain("--write");
       const unused = parsed(
         script("replay", file, `const out = o.tsValueSync("k", () => 1);`)
       );

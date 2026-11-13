@@ -11,9 +11,11 @@ const READY = /PEEKTRACE_READY:(\d+)/;
 const START_TIMEOUT_MS = 30_000;
 const MAX_PATHS = 10;
 /** TS servers listen on fixed ports when goldens are recorded or replayed,
- * so the keys and the recorded text do not move from run to run. */
-const TS_PORT_BASE = 47_310;
-const TS_PORT_SPAN = 100;
+ * so the keys and the recorded text do not move from run to run. The range
+ * sits below every OS ephemeral range (Linux 32768+, macOS and Windows
+ * 49152+), so no client socket the kernel opens can hold one. */
+export const TS_PORT_BASE = 20_000;
+export const TS_PORT_SPAN = 100;
 let tsServers = 0;
 const tsPorts = new Set<number>();
 

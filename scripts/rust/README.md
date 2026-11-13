@@ -60,6 +60,8 @@ Re-record a stage after a change to one of its inputs. `goldens-inputs.ts` lists
 
 Each stage's `<stage>.json` keeps a hash of its inputs. The check fails with `goldens are stale` and names the stages when the hash does not match, so a change cannot skip the regeneration. Re-record only those stages: label the PR, then copy just their artifacts. Rust changes never need it.
 
+Some stages build their case lists from Rust output: the search projects, the `sessions ls` rows, OpenCode ids, telemetry ids. When a replay with fresh hashes reports `no golden for <key>`, often next to `golden not used: <key>`, Rust now picks other cases than TS. Fix the Rust side: re-recording does not help.
+
 Record with the Bun version that `package.json` pins (`packageManager`); `--write` refuses another one.
 
 ## How replay works

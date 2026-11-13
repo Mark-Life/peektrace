@@ -184,11 +184,17 @@ const keep = (key: string, n: number, value: unknown) => {
 
 const MISSING = Symbol("missing");
 
+/** Why a replay asks for a key the recording lacks. The input hash already
+ * catches stale goldens, so the case list changed: some stages build it from
+ * Rust output, and re-recording cannot help. */
+export const missingGoldenLine = (key: string) =>
+  `no golden for ${key}: the case list differs from the recording (did Rust output that picks cases change?)`;
+
 /** The kept value for call `n` of `key`, or the last one past the end. */
 const recall = (key: string, n: number): unknown => {
   const list = store.get(key);
   if (list === undefined || list.length === 0) {
-    reportLine(`no golden for ${key}: run bun scripts/rust/goldens.ts --write`);
+    reportLine(missingGoldenLine(key));
     return MISSING;
   }
   return roundTrip(list[Math.min(n, list.length - 1)], decodeText);
@@ -349,7 +355,7 @@ const save = async () => {
 };
 
 /** End of a run: record writes the goldens, replay reports keys no call
- * asked for (a case list that shrank). */
+ * asked for (a case list that shrank or picked other cases). */
 export const finishOracle = async () => {
   if (ORACLE_MODE === "record") {
     await save();
