@@ -218,13 +218,16 @@ const runCase = (label: string, c: Case, env: Record<string, string>) => {
   compareRun(`statusline ${label}`, ts, rust);
 };
 
-/** Span names of an `--otel` run, timings dropped and RPC spans removed. */
+/** Span lines of an `--otel` run, timings dropped, RPC spans removed and
+ * sorted: Rust's worker thread interleaves its spans with the main thread's,
+ * so only the set of spans is stable. */
 const spanNames = (stderr: string) =>
   stderr
     .split("\n")
     .filter((l) => l.startsWith("[otel] "))
     .map((l) => l.replace(DURATION, " "))
-    .filter((l) => !RPC_SPAN.test(l));
+    .filter((l) => !RPC_SPAN.test(l))
+    .sort();
 
 const otelCase = (
   h: ReturnType<typeof buildHome>,
