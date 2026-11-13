@@ -8,12 +8,12 @@ use std::sync::Arc;
 use common::home::{self, BIG_TURN, FIXTURE_ID, LONG_ID, UNTITLED_ID};
 use peektrace_protocol::{AgentId, WatchVersions};
 use peektrace_ui::model::chat::{ChatNode, collapse_id};
-use peektrace_ui::source::DataSource;
 use peektrace_ui::source::in_process::InProcess;
+use peektrace_ui::source::{DataSource, WatchEvent};
 use peektrace_ui::state::{Io, Request, Route, Ui};
 use peektrace_ui::views::session_list::row_key;
 use peektrace_ui::{load_now, views};
-use rune::{App, Env, Runtime, Tx};
+use rune::{App, Env, Key, KeyEvent, Mods, Runtime, Tx};
 
 const SIZE: (f32, f32) = (1440.0, 900.0);
 
@@ -328,4 +328,95 @@ fn watch_bumps_settle_into_one_refetch() {
     assert_eq!(s.pending, vec![]);
     s.tick(4.0, now_ms(), &mut tx);
     assert_eq!(s.pending.len(), 2);
+}
+
+fn press(rt: &mut Runtime<Ui>, key: Key) {
+    rt.key(KeyEvent {
+        key,
+        mods: Mods::default(),
+    });
+    settle(rt);
+}
+
+fn y_of(rt: &Runtime<Ui>, key: &str) -> f32 {
+    rt.find(key).map_or(f32::NAN, |(_, y)| y)
+}
+
+#[test]
+fn end_scrolls_the_detail_unless_a_rail_row_has_focus() {
+    let mut s = state(&home::build_home());
+    s.io = None;
+    open(&mut s, LONG_ID);
+    let mut rt = runtime(s);
+    rt.on_key = Some(peektrace_ui::on_key);
+    let top = y_of(&rt, "summary");
+    rt.pointer_move(1000.0, 600.0);
+    press(&mut rt, Key::End);
+    let after = y_of(&rt, "summary");
+    assert!(after.is_nan() || after < top, "{top} -> {after}");
+    assert_eq!(rt.state.cursor.as_deref(), Some(LONG_ID));
+
+    click(&mut rt, &row_key(LONG_ID));
+    press(&mut rt, Key::Home);
+    let first = rt.state.rail.rows[0];
+    let first = rt.state.rail.header(first).map(|h| h.id.clone());
+    assert_ne!(first.as_deref(), Some(LONG_ID));
+    assert_eq!(rt.state.cursor, first);
+    // Focus follows the cursor, so the rail keeps the keys.
+    press(&mut rt, Key::Text("j".into()));
+    let second = rt.state.rail.rows[1];
+    let second = rt.state.rail.header(second).map(|h| h.id.clone());
+    assert_eq!(rt.state.cursor, second);
+}
+
+#[test]
+fn d_flips_the_theme_on_screen() {
+    let mut s = state(&home::build_home());
+    s.io = None;
+    let mut rt = Runtime::new(s, views::view, SIZE, Env::new(false, 1.0));
+    rt.on_key = Some(peektrace_ui::on_key);
+    settle(&mut rt);
+    assert!(has_text(&rt, "Dark"));
+    press(&mut rt, Key::Text("d".into()));
+    assert_eq!(rt.state.dark, Some(true));
+    assert!(has_text(&rt, "Light"));
+}
+
+#[test]
+fn a_reconnect_after_a_server_restart_refetches() {
+    let mut s = state(&home::build_home());
+    s.io = None;
+    open(&mut s, LONG_ID);
+    s.pending.clear();
+    let mut tx = Tx::default();
+    let at = |sessions| {
+        WatchEvent::Versions(WatchVersions {
+            memory: 0,
+            sessions,
+        })
+    };
+    s.on_watch(at(50), 0.0, &mut tx);
+    // The restarted server counts from 0: no bump, so nothing reloads.
+    s.on_watch(at(0), 10.0, &mut tx);
+    s.tick(11.0, now_ms(), &mut tx);
+    assert_eq!(s.pending, vec![]);
+    s.on_watch(WatchEvent::Reconnected, 12.0, &mut tx);
+    assert!(matches!(
+        s.pending.as_slice(),
+        [Request::Sessions { .. }, Request::Analysis { id, .. }] if id == LONG_ID
+    ));
+}
+
+#[test]
+fn watch_problems_show_over_the_rail() {
+    let mut s = state(&home::build_home());
+    s.io = None;
+    let msg = peektrace_core::watch::WatchProblem::Limit {
+        path: "/h/.claude/projects".into(),
+    }
+    .message();
+    s.on_watch(WatchEvent::Problems(vec![msg]), 0.0, &mut Tx::default());
+    let rt = runtime(s);
+    assert!(rt.find("watch-problems").is_some());
+    assert!(has_text(&rt, "fs.inotify.max_user_watches"));
 }

@@ -110,7 +110,7 @@ fn typing(tx: &Tx) -> bool {
         .is_some_and(|k| k == "search" || k.ends_with("/search") || k.contains("search"))
 }
 
-/// Move the rail cursor by `step` rows.
+/// Move the rail cursor, and focus with it, by `step` rows.
 fn move_cursor(s: &mut Ui, step: isize, tx: &mut Tx) {
     let ids: Vec<&str> = s
         .rail
@@ -132,25 +132,36 @@ fn move_cursor(s: &mut Ui, step: isize, tx: &mut Tx) {
         (Some(i), d) => i.saturating_add_signed(d).min(ids.len() - 1),
     };
     let id = ids[next].to_owned();
-    tx.scroll_into_view(views::session_list::row_key(&id));
+    let key = views::session_list::row_key(&id);
+    tx.scroll_into_view(key.clone());
+    tx.focus(key, true);
     s.cursor = Some(id);
 }
 
+/// Window keys: `⌘B`, `/` and `d`, whatever has focus outside a text field.
 pub fn on_key(s: &mut Ui, ev: &KeyEvent, tx: &mut Tx) -> bool {
     if ev.is_command('b') {
         s.nav_collapsed = !s.nav_collapsed;
         return true;
     }
-    if typing(tx)
-        || ev.mods.cmd
-        || ev.mods.ctrl
-        || s.route != Route::Sessions && ev.key != Key::Text("d".into())
-    {
+    if typing(tx) || ev.mods.cmd || ev.mods.ctrl {
         return false;
     }
     match &ev.key {
-        Key::Text(t) if t == "/" => tx.focus("search", true),
-        Key::Text(t) if t == "d" => s.dark = Some(!s.dark.unwrap_or(true)),
+        Key::Text(t) if t == "d" => s.dark = Some(!s.is_dark()),
+        Key::Text(t) if t == "/" && s.route == Route::Sessions => tx.focus("search", true),
+        _ => return false,
+    }
+    true
+}
+
+/// Rail keys, heard only while a rail row has focus: j / k and the arrows
+/// move the cursor, Home / End jump to the ends, Return opens the cursor.
+pub fn rail_key(s: &mut Ui, ev: &KeyEvent, tx: &mut Tx) -> bool {
+    if ev.mods.cmd || ev.mods.ctrl || ev.mods.alt {
+        return false;
+    }
+    match &ev.key {
         Key::Text(t) if t == "j" => move_cursor(s, 1, tx),
         Key::Text(t) if t == "k" => move_cursor(s, -1, tx),
         Key::Down => move_cursor(s, 1, tx),
@@ -273,7 +284,7 @@ pub fn app(source: &Arc<dyn DataSource>) -> App<Ui> {
         source.watch(Box::new(move |v| {
             watch_handle.update(move |s, tx| {
                 let clock = tx.clock();
-                s.on_versions(v, clock, tx);
+                s.on_watch(v, clock, tx);
             });
         }));
     }

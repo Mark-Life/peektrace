@@ -82,7 +82,7 @@ fn events() -> Vec<TimelineEvent> {
             ..evt(
                 15,
                 K::UserPrompt,
-                "<task-notification>done</task-notification>",
+                "<task-notification>\n<task-id>b7</task-id>\n<status>completed</status>\n</task-notification>",
                 "",
             )
         },
@@ -261,7 +261,7 @@ fn collapsed_chat_toggles_say_closed() {
         "summary of history",
         "running notes",
         "You are a coding agent.",
-        "done",
+        "task-id",
     ] {
         assert!(!all.contains(hidden), "{hidden}");
     }
@@ -278,11 +278,15 @@ fn expanded_chat_toggles_say_open_and_show_their_bodies() {
         "summary of history",
         "running notes",
         "You are a coding agent.",
-        "<task-notification>done</task-notification>",
+        "task-id",
+        "b7",
+        "completed",
         &"x".repeat(1200),
     ] {
         assert!(all.contains(shown), "{shown}");
     }
+    // The notification reads as a field table, not its tags.
+    assert!(!all.contains("<task-id>"));
 }
 
 #[test]

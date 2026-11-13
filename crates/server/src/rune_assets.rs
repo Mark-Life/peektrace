@@ -18,7 +18,8 @@ use crate::assets::{normalize, under_root};
 #[allow_missing = true]
 struct Embedded;
 
-const NOT_BUILT: &str = "Rune UI not built. Run: scripts/rust/build-rune-web.sh";
+/// The bundle went missing while the server runs.
+const NOT_BUILT: &str = "Rune UI files are missing. Restart peektrace serve.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RuneSource {

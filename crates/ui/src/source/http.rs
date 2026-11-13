@@ -12,9 +12,9 @@ use wasm_bindgen::prelude::Closure;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{EventSource, MessageEvent, Request, RequestCredentials, RequestInit, Response};
 
-use super::{DataSource, LoadError, OnVersions, Reply, decode, decode_error};
+use super::{DataSource, LoadError, OnVersions, Reply, WatchEvent, decode, decode_error};
 
-/// Stream errors in a row before polling takes over.
+/// Stream errors without an open between them before polling takes over.
 const STREAM_TRIES: u32 = 3;
 const POLL_MS: i32 = 1000;
 
@@ -85,14 +85,21 @@ fn encode(s: &str) -> String {
         .unwrap_or_default()
 }
 
-fn poll(on_versions: Rc<OnVersions>) {
+/// Poll `/api/watch` every second. `recovering`: the first answer after a
+/// stream failure also reports a reconnect.
+fn poll(on_versions: Rc<OnVersions>, recovering: bool) {
     spawn_local(async move {
+        let mut recovering = recovering;
         if let Ok((200, body)) = get("/api/watch").await
             && let Ok(v) = serde_json::from_str::<WatchVersions>(&body)
         {
-            on_versions(v);
+            on_versions(WatchEvent::Versions(v));
+            if recovering {
+                recovering = false;
+                on_versions(WatchEvent::Reconnected);
+            }
         }
-        let next = Closure::once_into_js(move || poll(on_versions));
+        let next = Closure::once_into_js(move || poll(on_versions, recovering));
         if let Some(w) = web_sys::window() {
             let _ = w.set_timeout_with_callback_and_timeout_and_arguments_0(
                 next.unchecked_ref(),
@@ -100,6 +107,15 @@ fn poll(on_versions: Rc<OnVersions>) {
             );
         }
     });
+}
+
+/// Stream state between its events.
+#[derive(Debug, Default)]
+struct Stream {
+    /// Errors since the last open.
+    failures: Cell<u32>,
+    /// An error happened; the next versions also report a reconnect.
+    recovering: Cell<bool>,
 }
 
 impl DataSource for Http {
@@ -118,31 +134,43 @@ impl DataSource for Http {
     fn watch(&self, on_versions: OnVersions) {
         let on_versions = Rc::new(on_versions);
         let Ok(es) = EventSource::new("/api/events") else {
-            poll(on_versions);
+            poll(on_versions, false);
             return;
         };
+        let stream = Rc::new(Stream::default());
+        let open_stream = Rc::clone(&stream);
+        let on_open = Closure::<dyn FnMut()>::new(move || open_stream.failures.set(0));
+        let _ = es.add_event_listener_with_callback("open", on_open.as_ref().unchecked_ref());
+        on_open.forget();
         let deliver = Rc::clone(&on_versions);
+        let message_stream = Rc::clone(&stream);
         let on_message = Closure::<dyn FnMut(MessageEvent)>::new(move |ev: MessageEvent| {
-            if let Some(v) = ev
+            let Some(v) = ev
                 .data()
                 .as_string()
                 .and_then(|d| serde_json::from_str::<WatchVersions>(&d).ok())
-            {
-                deliver(v);
+            else {
+                return;
+            };
+            deliver(WatchEvent::Versions(v));
+            if message_stream.recovering.replace(false) {
+                deliver(WatchEvent::Reconnected);
             }
         });
         let _ =
             es.add_event_listener_with_callback("versions", on_message.as_ref().unchecked_ref());
         on_message.forget();
-        let errors = Rc::new(Cell::new(0_u32));
         let source = es.clone();
         let on_error = Closure::<dyn FnMut()>::new(move || {
-            errors.set(errors.get() + 1);
-            if errors.get() == STREAM_TRIES {
+            stream.failures.set(stream.failures.get() + 1);
+            stream.recovering.set(true);
+            // The browser stops retrying after an HTTP error: CLOSED.
+            if stream.failures.get() >= STREAM_TRIES || source.ready_state() == EventSource::CLOSED
+            {
                 let _span =
                     info_span!("app.watch.events", error = "stream failed; polling").entered();
                 source.close();
-                poll(Rc::clone(&on_versions));
+                poll(Rc::clone(&on_versions), true);
             }
         });
         es.set_onerror(Some(on_error.as_ref().unchecked_ref()));

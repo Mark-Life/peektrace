@@ -2,7 +2,7 @@
 
 use std::fmt::Write as _;
 
-use peektrace_protocol::view::{AnalyzedSession, EventKind, TimelineEvent};
+use peektrace_protocol::view::{AnalyzedSession, EventKind, PromptOrigin, TimelineEvent};
 use rune::{Color, El, col, rich, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
@@ -11,6 +11,7 @@ use crate::model::chat::{Lane, collapse_id, lane_of, needs_clamp};
 use crate::model::format::{fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::jsnum::{js_round, to_fixed, to_js_string};
 use crate::model::labels::{event_tokens, thinking_note, token_label};
+use crate::model::notice::{NoticeField, notification_fields};
 use crate::model::tools::body_view;
 use crate::state::Ui;
 use crate::theme::{Theme, hex_or_grey, ty, zone_text};
@@ -309,11 +310,13 @@ pub fn notice(s: &Ui, pos: usize, e: &TimelineEvent, t: &Theme) -> El {
     if let Some(src) = &e.prompt_source {
         head = head.child(badge(src, t.muted_fg, t));
     }
-    head = head.child(
-        text(format!("{} tok", token_label(e, fmt_k)))
-            .font(ty::MONO_11)
-            .color(t.muted_fg),
-    );
+    if e.tokens_est != 0.0 {
+        head = head.child(
+            text(format!("{} tok", token_label(e, fmt_k)))
+                .font(ty::MONO_11)
+                .color(t.muted_fg),
+        );
+    }
     let head = t
         .kit
         .interactive(head)
@@ -334,9 +337,60 @@ pub fn notice(s: &Ui, pos: usize, e: &TimelineEvent, t: &Theme) -> El {
         .gap(6.0)
         .child(head);
     if open {
-        c = c.child(event_body(&id, e, full, t));
+        let fields = if e.prompt_origin == Some(PromptOrigin::TaskNotification) {
+            notification_fields(&e.body)
+        } else {
+            Vec::new()
+        };
+        c = c.child(if fields.is_empty() {
+            event_body(&id, e, full, t)
+        } else {
+            notice_fields(&fields, t)
+        });
     }
     lane_row(Lane::Center, c)
+}
+
+/// Mono advance of `ty::MONO_11`, to size the label column.
+const MONO_11_ADVANCE: f32 = 6.7;
+
+/// A task notification's fields as a label / value table.
+fn notice_fields(fields: &[NoticeField<'_>], t: &Theme) -> El {
+    let widest = fields
+        .iter()
+        .map(|f| f.tag.chars().count())
+        .max()
+        .unwrap_or(0);
+    #[expect(clippy::cast_precision_loss, reason = "tag lengths are small")]
+    let label_w = widest as f32 * MONO_11_ADVANCE;
+    col()
+        .w_full()
+        .radius(6.0)
+        .border(1.0, t.border)
+        .fill(t.bg)
+        .px(12.0)
+        .py(8.0)
+        .gap(4.0)
+        .children(fields.iter().map(|f| {
+            row()
+                .w_full()
+                .gap(12.0)
+                .child(
+                    text(f.label())
+                        .font(ty::MONO_11)
+                        .color(t.muted_fg)
+                        .w(label_w),
+                )
+                .child(
+                    text(f.value.to_owned())
+                        .font(ty::MONO_11)
+                        .color(t.fg)
+                        .wrap()
+                        .selectable(true)
+                        .grow(1.0)
+                        .min_w(0.0),
+                )
+        }))
 }
 
 fn rule_line(t: &Theme) -> El {

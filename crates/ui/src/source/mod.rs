@@ -49,12 +49,24 @@ impl std::fmt::Display for LoadError {
 }
 
 pub type Reply<T> = Box<dyn FnOnce(Result<T, LoadError>) + Send + 'static>;
-pub type OnVersions = Box<dyn Fn(WatchVersions) + Send + Sync + 'static>;
+/// What a source's watch reports.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WatchEvent {
+    Versions(WatchVersions),
+    /// Changes that will not reach the app, one sentence each.
+    Problems(Vec<String>),
+    /// The live link came back after a failure. A restarted server counts
+    /// from 0 again, so no bump would show what changed meanwhile.
+    Reconnected,
+}
+
+pub type OnVersions = Box<dyn Fn(WatchEvent) + Send + Sync + 'static>;
 
 pub trait DataSource: Send + Sync + 'static {
     fn sessions(&self, reply: Reply<SessionListingView>);
     fn analysis(&self, id: String, parent: Option<String>, reply: Reply<AnalyzedSession>);
-    /// Calls `on_versions` with the current versions, then after each change.
+    /// Calls `on_versions` with the current versions, then after each change
+    /// and on each reconnect.
     fn watch(&self, on_versions: OnVersions);
     /// The listing now, for headless runs; `None` where loads cannot block.
     fn sessions_now(&self) -> Option<Result<SessionListingView, LoadError>> {

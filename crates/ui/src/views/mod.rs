@@ -221,7 +221,8 @@ fn sessions(s: &Ui, cx: &mut Cx<Ui>, t: &Theme, layer: &mut Vec<El>) -> El {
 }
 
 pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
-    let t = theme(s.dark.unwrap_or_else(|| cx.system_dark()));
+    s.system_dark.set(cx.system_dark());
+    let t = theme(s.is_dark());
     let mut layer = Vec::new();
     let content = match s.route {
         Route::Sessions => sessions(s, cx, &t, &mut layer),

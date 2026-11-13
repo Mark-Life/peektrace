@@ -11,6 +11,7 @@ pub mod jstime;
 pub mod labels;
 pub mod list;
 pub mod md;
+pub mod notice;
 pub mod row;
 pub mod settle;
 pub mod tools;

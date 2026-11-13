@@ -1,10 +1,10 @@
 /** `serve --ui rune` static answers (Rust only: TS has no such flag), on a
  * fake bundle: types, brotli twins, ETags, the page and its fallback, the
- * 404 for twins asked by name, `/api` untouched, and the 503 when the
- * bundle is missing. */
+ * 404 for twins asked by name, `/api` untouched, and the startup error
+ * when the bundle dir has no page. */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { fixtureEnv, report, WORK } from "./parity-lib";
+import { fixtureEnv, report, run, rustBin, WORK } from "./parity-lib";
 import { freePort, startServer, stopServer } from "./parity-serve-lib";
 
 interface Expect {
@@ -155,24 +155,29 @@ export const runRuneServeChecks = async () => {
   } finally {
     await stopServer(server);
   }
-  const emptyPort = await freePort();
-  const empty = await startServer(
-    "rust",
-    ["--ui", "rune", "--port", String(emptyPort)],
+  // A bundle dir without its page stops serve before it binds.
+  const missing = run(
+    [
+      rustBin,
+      "serve",
+      "--ui",
+      "rune",
+      "--no-open",
+      "--port",
+      String(await freePort()),
+    ],
     {
       ...fixtureEnv(home),
+      PEEKTRACE_CLIENT: "desktop",
+      PEEKTRACE_NO_UPDATE_CHECK: "1",
       PEEKTRACE_RUNE_DIR: join(WORK, "rune-missing"),
     }
   );
-  try {
-    const res = await fetchRaw(empty.port, "/");
-    checks++;
-    const text = await res.text();
-    if (res.status !== 503 || !text.startsWith("Rune UI not built")) {
-      report(`ui serve missing bundle: ${res.status} ${text.slice(0, 60)}`);
-    }
-  } finally {
-    await stopServer(empty);
+  checks++;
+  if (missing.code === 0 || !missing.stderr.includes("has no index.html")) {
+    report(
+      `ui serve missing bundle: exit ${missing.code} ${missing.stderr.slice(0, 120)}`
+    );
   }
   return checks;
 };

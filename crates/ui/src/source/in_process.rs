@@ -10,13 +10,13 @@ use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::sessions::resolve::SessionError;
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::{analyzed_json_with, listing_json};
-use peektrace_core::watch::Watcher;
+use peektrace_core::watch::{WatchProblem, Watcher};
 use peektrace_core::{AgentRoots, ListFilter, list_sessions_cached};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
 use peektrace_protocol::{ApiError, WatchVersions};
 use tracing::{field, info_span};
 
-use super::{DataSource, LoadError, OnVersions, Reply, decode};
+use super::{DataSource, LoadError, OnVersions, Reply, WatchEvent, decode};
 
 struct Inner {
     roots: AgentRoots,
@@ -154,22 +154,33 @@ impl DataSource for InProcess {
 
     fn watch(&self, on_versions: OnVersions) {
         let span = root_span!("app.watch.events");
-        let on_versions: Arc<dyn Fn(WatchVersions) + Send + Sync> = Arc::from(on_versions);
+        let on_versions: Arc<dyn Fn(WatchEvent) + Send + Sync> = Arc::from(on_versions);
         let notify = Arc::clone(&on_versions);
         let watcher = Watcher::start(&self.inner.roots, move |v| {
-            notify(WatchVersions {
+            notify(WatchEvent::Versions(WatchVersions {
                 memory: v.memory,
                 sessions: v.sessions,
-            });
+            }));
         });
-        if let Some(p) = watcher.problems().first() {
-            span.record("error", field::debug(p));
+        let problems: Vec<String> = watcher
+            .problems()
+            .iter()
+            .map(WatchProblem::message)
+            .collect();
+        if let Some(p) = problems.first() {
+            span.record("error", p.as_str());
+        }
+        if !problems.is_empty() {
+            for p in &problems {
+                eprintln!("peektrace-app: warning: {p}");
+            }
+            on_versions(WatchEvent::Problems(problems));
         }
         let now = watcher.versions();
-        on_versions(WatchVersions {
+        on_versions(WatchEvent::Versions(WatchVersions {
             memory: now.memory,
             sessions: now.sessions,
-        });
+        }));
         *self.watcher.lock().unwrap_or_else(PoisonError::into_inner) = Some(watcher);
     }
 

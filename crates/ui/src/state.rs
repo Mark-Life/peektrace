@@ -3,6 +3,7 @@
 //! [`Ui::apply_listing`] and [`Ui::apply_analysis`] and change nothing when
 //! a newer request superseded them.
 
+use std::cell::Cell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -18,7 +19,7 @@ use crate::model::list::{self, Filters};
 use crate::model::settle::{Settle, SettleEffect, SettleEvent, step};
 use crate::model::tools::{ToolIndex, index_tools};
 use crate::model::turns::{cross_event_index, turn_numbers};
-use crate::source::{DataSource, LoadError};
+use crate::source::{DataSource, LoadError, WatchEvent};
 
 /// The search applies this long after the last key.
 pub const SEARCH_WRITE_S: f64 = 0.25;
@@ -172,11 +173,15 @@ pub struct Ui {
     pub nav_collapsed: bool,
     /// `None` follows the system.
     pub dark: Option<bool>,
+    /// The system theme as the last view saw it; key handlers cannot ask.
+    pub system_dark: Cell<bool>,
     pub now_ms: f64,
     pub now_fixed: bool,
     pub settle: Settle,
     pub paused: bool,
     pub versions: Option<WatchVersions>,
+    /// Why live refresh misses changes, shown over the rail.
+    pub watch_problems: Vec<String>,
     pub syncing: u32,
     pub pending: Vec<Request>,
     pub sessions_rid: u64,
@@ -205,17 +210,24 @@ impl Ui {
             cursor: None,
             nav_collapsed: false,
             dark: None,
+            system_dark: Cell::new(true),
             now_ms,
             now_fixed,
             settle: Settle::Idle,
             paused: false,
             versions: None,
+            watch_problems: Vec::new(),
             syncing: 0,
             pending: Vec::new(),
             sessions_rid: 0,
             analysis_rid: 0,
             io,
         }
+    }
+
+    /// The theme on screen: the user's pick, else the system's.
+    pub fn is_dark(&self) -> bool {
+        self.dark.unwrap_or_else(|| self.system_dark.get())
     }
 
     pub fn request_sessions(&mut self) {
@@ -375,6 +387,20 @@ impl Ui {
     pub fn turn_row(&self, n: usize) -> Option<&str> {
         let d = self.detail.as_ref()?;
         plan_index_of_turn(&d.plan, n).map(|i| d.keys[i].as_str())
+    }
+
+    /// A watch event at `clock` seconds. A reconnect reloads the listing and
+    /// the open session at once.
+    pub fn on_watch(&mut self, ev: WatchEvent, clock: f64, tx: &mut Tx) {
+        match ev {
+            WatchEvent::Versions(v) => self.on_versions(v, clock, tx),
+            WatchEvent::Problems(p) => self.watch_problems = p,
+            WatchEvent::Reconnected => {
+                self.request_sessions();
+                self.request_analysis();
+                tx.wake_after(std::time::Duration::ZERO);
+            }
+        }
     }
 
     /// Watch versions arrived at `clock` seconds; a sessions bump starts

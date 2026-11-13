@@ -173,6 +173,27 @@ fn controls(s: &Ui, t: &Theme, layer: &mut Vec<El>) -> El {
         .child(agent_select(s, t, layer))
 }
 
+/// Why the list may be stale: live refresh misses some changes.
+fn watch_problems(s: &Ui, t: &Theme) -> Option<El> {
+    (!s.watch_problems.is_empty()).then(|| {
+        col()
+            .key("watch-problems")
+            .w_full()
+            .radius(8.0)
+            .border(1.0, t.destructive)
+            .px(10.0)
+            .py(8.0)
+            .gap(4.0)
+            .children(s.watch_problems.iter().map(|p| {
+                text(format!("Warning: {p}"))
+                    .font(ty::XS)
+                    .color(t.destructive)
+                    .wrap()
+                    .selectable(true)
+            }))
+    })
+}
+
 fn count_line(s: &Ui, t: &Theme) -> El {
     let n = s.rail.rows.len();
     let mut r = row().w_full().center_y().justify_between().child(
@@ -226,6 +247,7 @@ fn rows(s: &Ui, t: &Theme) -> El {
     let theme = t.clone();
     col()
         .key("rail-rows")
+        .on_key(crate::rail_key)
         .w_full()
         .growth(GrowthSpec::default())
         .virtual_rows(
@@ -281,6 +303,7 @@ pub fn rail(s: &Ui, t: &Theme, layer: &mut Vec<El>) -> El {
         .h_full()
         .gap(8.0)
         .child(controls(s, t, layer))
+        .children(watch_problems(s, t))
         .child(count_line(s, t))
         .child(
             col()

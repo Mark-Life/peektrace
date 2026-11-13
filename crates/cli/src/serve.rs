@@ -38,15 +38,21 @@ const RUNE_DIR_ENV: &str = "PEEKTRACE_RUNE_DIR";
 /// WebGPU needs a secure context, which plain HTTP gives only on localhost.
 const RUNE_REMOTE: &str = "  WARNING: --ui rune needs WebGPU, which browsers enable only on https or localhost. From another machine, tunnel with ssh -L and open http://127.0.0.1:<port>/.";
 
-/// The Rune source as served assets; a build without the bundle fails
-/// instead of serving 503s.
+/// The Rune source as served assets; a build without the bundle, or a
+/// bundle directory without its page, fails instead of serving 503s.
 fn rune_assets((src, label): (RuneSource, String)) -> Result<(Assets, String), UserError> {
-    if src == RuneSource::Missing {
-        return Err(UserError::Invalid(format!(
+    match &src {
+        RuneSource::Missing => Err(UserError::Invalid(format!(
             "--ui rune: this build does not include the Rune UI. Set {RUNE_DIR_ENV} to a built Rune web app directory, or serve without --ui rune."
-        )));
+        ))),
+        RuneSource::Dir(dir) if !dir.join("index.html").is_file() => {
+            Err(UserError::Invalid(format!(
+                "--ui rune: {RUNE_DIR_ENV} points at {}, which has no index.html. Set it to a built Rune web app directory.",
+                dir.display()
+            )))
+        }
+        _ => Ok((Assets::Rune(src), format!("{label}, rune"))),
     }
-    Ok((Assets::Rune(src), format!("{label}, rune")))
 }
 
 /// What `serve` prints before it starts answering.
@@ -103,19 +109,7 @@ pub fn banner(host: &str, port: u16, read_only: bool, token: Option<&str>, ui: &
 pub fn watch_warnings(problems: &[WatchProblem]) -> Vec<String> {
     problems
         .iter()
-        .map(|p| match p {
-            WatchProblem::Limit { path } => format!(
-                "  WARNING: live refresh misses changes under {}: the OS file-watch limit is reached. On Linux raise fs.inotify.max_user_watches (e.g. sudo sysctl fs.inotify.max_user_watches=524288) and restart.",
-                path.display()
-            ),
-            WatchProblem::Root { path, reason } => format!(
-                "  WARNING: live refresh is off for {} ({reason}).",
-                path.display()
-            ),
-            WatchProblem::Unavailable { reason } => {
-                format!("  WARNING: live refresh is off ({reason}).")
-            }
-        })
+        .map(|p| format!("  WARNING: {}", p.message()))
         .collect()
 }
 
@@ -347,12 +341,21 @@ mod tests {
     }
 
     #[test]
-    fn a_build_without_the_rune_ui_refuses_to_serve_it() {
+    fn a_build_or_dir_without_the_rune_ui_refuses_to_serve_it() {
         let err = rune_assets((RuneSource::Missing, "not built".into())).unwrap_err();
         assert!(err.to_string().contains(RUNE_DIR_ENV));
-        let (assets, label) = rune_assets((RuneSource::Dir("/d".into()), "/d".into())).unwrap();
-        assert_eq!(assets, Assets::Rune(RuneSource::Dir("/d".into())));
+        let typo = rune_assets((RuneSource::Dir("/no/such/dir".into()), "x".into())).unwrap_err();
+        assert!(
+            typo.to_string()
+                .contains("/no/such/dir, which has no index.html")
+        );
+        let dir = std::env::temp_dir().join(format!("rune-dir-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<p>app</p>").unwrap();
+        let (assets, label) = rune_assets((RuneSource::Dir(dir.clone()), "/d".into())).unwrap();
+        assert_eq!(assets, Assets::Rune(RuneSource::Dir(dir.clone())));
         assert_eq!(label, "/d, rune");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
