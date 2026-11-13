@@ -205,6 +205,7 @@ fn broken_stores_never_fail_a_command() {
     run_in(&f, &locked, &[], &["--version"]);
     let holder = Connection::open(db(&locked)).unwrap();
     holder.execute_batch("BEGIN EXCLUSIVE").unwrap();
+    #[cfg_attr(not(unix), allow(unused_mut))]
     let mut dirs = vec![garbage, as_dir, a_file, locked, PathBuf::new()];
     #[cfg(unix)]
     {
