@@ -108,9 +108,9 @@ const SessionBody = ({
   const growthResult = useGrowth(k, s);
   const indexResult = useHistoryIndex(k, s);
   const growth = Result.isSuccess(growthResult) ? growthResult.value : null;
-  const snapshots = useMemo(
-    () => (growth === null ? null : snapshotsOf(growth)),
-    [growth]
+  const chart = useMemo(
+    () => (growth === null ? null : { ...s, snapshots: snapshotsOf(growth) }),
+    [growth, s]
   );
   const source = useMemo(() => ({ id: k.id, parent: k.parent }), [k]);
   return (
@@ -118,10 +118,10 @@ const SessionBody = ({
       <VerdictHeader a={s} onJump={request} />
       <ExportButtons k={k} />
       <BudgetBar a={s} />
-      {snapshots === null ? (
+      {chart === null ? (
         <GrowthPending />
       ) : (
-        <GrowthTimeline a={{ ...s, snapshots }} onTurn={onTurn} />
+        <GrowthTimeline a={chart} onTurn={onTurn} />
       )}
       <LoadedArtifacts a={s} />
       <TranscriptSourceContext.Provider value={source}>
