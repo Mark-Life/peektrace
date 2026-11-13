@@ -19,7 +19,11 @@ import {
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
-import type { SessionSummary } from "../../lib/api-types.gen";
+import type {
+  GrowthSeries,
+  HistoryIndex,
+  SessionSummary,
+} from "../../lib/api-types.gen";
 import { useTitleOverride } from "../../lib/document-title";
 import {
   type JumpLanding,
@@ -81,6 +85,8 @@ const GrowthPending = () => (
 /** Everything below the summary cards' first paint: the growth chart and the
  *  history, each drawn as its part arrives. */
 const SessionBody = ({
+  growthResult,
+  indexResult,
   k,
   landing,
   onStale,
@@ -93,6 +99,8 @@ const SessionBody = ({
   seq,
   view,
 }: {
+  readonly growthResult: Result.Result<GrowthSeries, unknown>;
+  readonly indexResult: Result.Result<HistoryIndex, unknown>;
   readonly k: SessionKey;
   readonly landing: JumpLanding;
   readonly onStale: () => void;
@@ -105,8 +113,6 @@ const SessionBody = ({
   readonly seq: number;
   readonly view: SessionView;
 }) => {
-  const growthResult = useGrowth(k, s);
-  const indexResult = useHistoryIndex(k, s);
   const growth = Result.isSuccess(growthResult) ? growthResult.value : null;
   const chart = useMemo(
     () => (growth === null ? null : { ...s, snapshots: snapshotsOf(growth) }),
@@ -163,6 +169,10 @@ const SessionDetailView = ({
   const redact = view.state.redacted;
   const k = useMemo(() => ({ id, parent, redact }), [id, parent, redact]);
   const { refresh: retry, result } = useSessionSummary(k);
+  // Asked for beside the summary, not after it: one round trip less.
+  const summary = Result.isSuccess(result) ? result.value : null;
+  const growthResult = useGrowth(k, summary);
+  const indexResult = useHistoryIndex(k, summary);
   const root = useScrollRoot();
   const history = useRef<HTMLElement>(null);
   const jumpButton = useRef<HTMLButtonElement>(null);
@@ -227,6 +237,8 @@ const SessionDetailView = ({
       <ResultView onRetry={retry} result={result}>
         {(s) => (
           <SessionBody
+            growthResult={growthResult}
+            indexResult={indexResult}
             k={k}
             landing={landing}
             onStale={retry}

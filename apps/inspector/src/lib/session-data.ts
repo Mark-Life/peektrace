@@ -61,12 +61,13 @@ export const useSessionSummary = (k: SessionKey) => {
   return { refresh, result: useAtomValue(atom) };
 };
 
-/** A part with its own hash (`/growth`, `/history/index`), refetched once
- *  each time the summary names a hash other than the one held. */
+/** A part with its own hash (`/growth`, `/history/index`), fetched beside
+ *  the summary and refetched once each time the summary names a hash other
+ *  than the one held. `want` is null until the summary is here. */
 const usePart = <A extends { readonly hash: string }>(
   k: SessionKey,
   part: readonly string[],
-  want: string
+  want: string | null
 ) => {
   const { id, parent, redact } = k;
   const path = part.join("/");
@@ -84,7 +85,12 @@ const usePart = <A extends { readonly hash: string }>(
   const held = Result.isSuccess(result) ? result.value.hash : null;
   const asked = useRef(want);
   useEffect(() => {
-    if (held === null || held === want || asked.current === want) {
+    if (
+      want === null ||
+      held === null ||
+      held === want ||
+      asked.current === want
+    ) {
       return;
     }
     asked.current = want;
@@ -93,11 +99,11 @@ const usePart = <A extends { readonly hash: string }>(
   return result;
 };
 
-export const useGrowth = (k: SessionKey, s: SessionSummary) =>
-  usePart<GrowthSeries>(k, ["growth"], s.history.growth);
+export const useGrowth = (k: SessionKey, s: SessionSummary | null) =>
+  usePart<GrowthSeries>(k, ["growth"], s?.history.growth ?? null);
 
-export const useHistoryIndex = (k: SessionKey, s: SessionSummary) =>
-  usePart<HistoryIndex>(k, ["history", "index"], s.history.index);
+export const useHistoryIndex = (k: SessionKey, s: SessionSummary | null) =>
+  usePart<HistoryIndex>(k, ["history", "index"], s?.history.index ?? null);
 
 const keyText = (k: SessionKey) => `${k.id}\n${k.parent ?? ""}\n${k.redact}`;
 
