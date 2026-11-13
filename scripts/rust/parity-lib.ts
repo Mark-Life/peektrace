@@ -90,6 +90,14 @@ export const fixturesDir = () => {
   return dir;
 };
 
+/** Set a generated fixture file's mtime to a fixed time when goldens are
+ * recorded or replayed (rows with no timestamp print it). */
+export const pinMtime = (path: string) => {
+  if (PINNED) {
+    utimesSync(path, FIXED_MTIME, FIXED_MTIME);
+  }
+};
+
 /** Copy options that keep source mtimes when goldens are recorded or
  * replayed, so copies of pinned fixtures stay pinned. */
 export const COPY = { recursive: true, preserveTimestamps: PINNED } as const;

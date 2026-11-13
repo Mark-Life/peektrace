@@ -14,8 +14,8 @@
  * check, since fixture text holds it. `--write` is a live parity run that
  * also stores each TS result; it refuses to write a stage with differences.
  * `--verify` records into a temp dir and lists the values that changed.
- * Replay fails when the TS sources, fixtures or parity scripts changed since
- * the goldens were written: regenerate them with `--write`.
+ * Replay fails for a stage recorded before the TS sources, fixtures or parity
+ * scripts last changed: regenerate it with `--write`.
  */
 import { createHash } from "node:crypto";
 import {
@@ -62,8 +62,14 @@ interface Manifest {
   readonly platform: string;
   readonly root: string;
   readonly schema: 1;
-  readonly stages: Record<string, { values: number; gzBytes: number }>;
+  readonly stages: Record<string, StageEntry>;
+}
+
+interface StageEntry {
+  readonly gzBytes: number;
+  /** `tsSourceHash` when this stage was recorded. */
   readonly tsSourceHash: string;
+  readonly values: number;
 }
 
 /** sha256 over every tracked input file, path and bytes. */
@@ -180,7 +186,11 @@ const summary = (o: Outcome) => {
 const goldenText = (file: string) =>
   existsSync(file) ? gunzipSync(readFileSync(file)).toString("utf8") : "";
 
-const writeStage = (stage: string, recorded: string) => {
+const writeStage = (
+  stage: string,
+  recorded: string,
+  hash: string
+): StageEntry => {
   mkdirSync(GOLDENS, { recursive: true });
   const dest = join(GOLDENS, `${stage}.jsonl.gz`);
   copyFileSync(recorded, dest);
@@ -189,7 +199,11 @@ const writeStage = (stage: string, recorded: string) => {
     join(GOLDENS, `${stage}.index`),
     `${indexLines(lines).join("\n")}\n`
   );
-  return { values: lines.length, gzBytes: statSync(dest).size };
+  return {
+    values: lines.length,
+    gzBytes: statSync(dest).size,
+    tsSourceHash: hash,
+  };
 };
 
 const readManifest = (): Manifest | undefined => {
@@ -245,9 +259,12 @@ const options = () => {
   }
   const hash = tsSourceHash();
   const manifest = readManifest();
-  if (!recording && manifest?.tsSourceHash !== hash) {
+  const stale = picked.filter(
+    (s) => manifest?.stages[s]?.tsSourceHash !== hash
+  );
+  if (!recording && stale.length > 0) {
     fail(
-      "goldens are stale: the TS sources, fixtures or parity scripts changed since they were written. Run: bun scripts/rust/goldens.ts --write",
+      `goldens are stale (${stale.join(", ")}): the TS sources, fixtures or parity scripts changed since they were recorded. Run: bun scripts/rust/goldens.ts --write`,
       1
     );
   }
@@ -286,7 +303,7 @@ const writeGoldens = (
   const ok = outcomes.filter((x) => x.code === 0 || allowed);
   const stages = { ...o.manifest?.stages };
   for (const x of ok) {
-    stages[x.stage] = writeStage(x.stage, recordedFile(x.stage));
+    stages[x.stage] = writeStage(x.stage, recordedFile(x.stage), o.hash);
   }
   const total = Object.values(stages).reduce((n, s) => n + s.gzBytes, 0);
   const next: Manifest = {
@@ -294,9 +311,6 @@ const writeGoldens = (
     bun: Bun.version,
     platform: `${process.platform}-${process.arch}`,
     root: ROOT,
-    // A stage that failed keeps its old goldens, so they stay stale.
-    tsSourceHash:
-      ok.length === outcomes.length ? o.hash : (o.manifest?.tsSourceHash ?? ""),
     stages,
   };
   writeFileSync(

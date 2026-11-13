@@ -13,9 +13,16 @@
  * `<REPO>`, plus whatever `bind` adds, so goldens hold no machine paths.
  */
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 export type OracleMode = "live" | "record" | "replay";
@@ -73,8 +80,32 @@ const pairs = (): [string, string][] => {
   return all.sort((a, b) => b[1].length - a[1].length);
 };
 
-export const encodeText = (s: string) =>
-  pairs().reduce((acc, [token, actual]) => acc.replaceAll(actual, token), s);
+let shield: string[] | undefined;
+
+/** Fixture text that spells a placeholder path (a fixture recorded in the
+ * repo dir): kept as written, since the fixture says the same on any host. */
+const shielded = () => {
+  shield ??= fixturePaths(pairs().map(([, actual]) => actual));
+  return shield;
+};
+
+const SHIELD = "\u0001";
+
+export const encodeText = (s: string) => {
+  const keep = shielded().filter((k) => s.includes(k));
+  const hidden = keep.reduce(
+    (acc, k, i) => acc.replaceAll(k, `${SHIELD}${i}${SHIELD}`),
+    s
+  );
+  const done = pairs().reduce(
+    (acc, [token, actual]) => acc.replaceAll(actual, token),
+    hidden
+  );
+  return keep.reduce(
+    (acc, k, i) => acc.replaceAll(`${SHIELD}${i}${SHIELD}`, k),
+    done
+  );
+};
 
 export const decodeText = (s: string) =>
   [...pairs()]
@@ -87,6 +118,7 @@ const roundTrip = (v: unknown, f: (s: string) => string): unknown =>
 /** The stage root, the repo and the diff sink; `parity-lib` sets them. */
 export const setOracleRoots = (r: Roots) => {
   roots = r;
+  shield = undefined;
   if (ORACLE_MODE === "replay") {
     load();
   }
@@ -264,9 +296,16 @@ export const indexLines = (lines: readonly string[]) =>
     return `${key}#${n}\t${sha1(JSON.stringify(v)).slice(0, 12)}`;
   });
 
-/** Text that must never reach a golden: the caller's home, temp dir, repo. */
-export const leaks = (text: string, forbidden: readonly string[]) =>
-  forbidden.filter((f) => f.length > 1 && text.includes(f));
+/** Text that must never reach a golden: the caller's home, temp dir, repo.
+ * Paths written in the checked-in fixtures are fixture text, not leaks. */
+export const leaks = (
+  text: string,
+  forbidden: readonly string[],
+  allowed: readonly string[] = []
+) => {
+  const rest = allowed.reduce((acc, a) => acc.replaceAll(a, ""), text);
+  return forbidden.filter((f) => f.length > 1 && rest.includes(f));
+};
 
 const forbidden = () =>
   [
@@ -278,11 +317,39 @@ const forbidden = () =>
     real(roots?.repo ?? ""),
   ].filter((f) => f !== "" && f !== "/" && f !== "/tmp");
 
+const PATH_TAIL = /^[^\s"'<>\\]*/;
+
+/** Every forbidden path as the fixture files spell it, longest first. */
+const fixturePaths = (bad: readonly string[]) => {
+  const found = new Set<string>();
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) {
+        walk(path);
+        continue;
+      }
+      const text = readFileSync(path, "utf8");
+      for (const f of bad) {
+        for (const part of text.split(f).slice(1)) {
+          found.add(f + (PATH_TAIL.exec(part)?.[0] ?? ""));
+        }
+      }
+    }
+  };
+  const fixtures = join(roots?.repo ?? "", "packages/core/test/fixtures");
+  if (PINNED && existsSync(fixtures)) {
+    walk(fixtures);
+  }
+  return [...found].sort((a, b) => b.length - a.length);
+};
+
 const save = async () => {
   const lines = goldenLines(store);
   const bad = forbidden();
+  const allowed = fixturePaths(bad);
   for (const line of lines) {
-    const hits = leaks(line, bad);
+    const hits = leaks(line, bad, allowed);
     if (hits.length > 0) {
       reportLine(`golden leaks ${hits.join(", ")}: ${line.slice(0, 160)}`);
     }

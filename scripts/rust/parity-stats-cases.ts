@@ -27,6 +27,7 @@ type Args = readonly string[];
 const TS_DEFECT =
   /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#|Could not scan the corpus: TypeError/m;
 const WINDOW_LINE = /^peektrace stats {2}(\S+) window {2}.* → .*$/m;
+const DATA_RANGE = /^Data \(\d{4}-\d{2}-\d{2} → \d{4}-\d{2}-\d{2}\):$/m;
 const BASE = ["--no-telemetry"];
 const GENERATED_AT = /^ {2}"generatedAt": .*\n/m;
 const FROM_ISO = /^ {4}"fromIso": .*\n/m;
@@ -49,9 +50,12 @@ const stripClock = (stdout: string): string => {
   }
 };
 
-/** A stats text or JSON body with its clock-dependent parts masked. */
+/** A stats text or JSON body with its clock-dependent parts masked: the
+ * report window line and the prompt's `Data (<from> → <to>):` line. */
 export const maskStatsClock = (text: string) =>
-  stripClock(text).replace(WINDOW_LINE, "peektrace stats  $1 window  <window>");
+  stripClock(text)
+    .replace(WINDOW_LINE, "peektrace stats  $1 window  <window>")
+    .replace(DATA_RANGE, "Data (<window>):");
 
 const normalise = (r: Run): Run => ({ ...r, stdout: maskStatsClock(r.stdout) });
 

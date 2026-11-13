@@ -59,6 +59,9 @@ describe("golden files", () => {
       "/Users/me",
     ]);
     expect(leaks("<WORK>/x", ["/Users/me"])).toEqual([]);
+    expect(
+      leaks("cwd /Users/me/proj", ["/Users/me"], ["/Users/me/proj"])
+    ).toEqual([]);
   });
 });
 
@@ -144,6 +147,13 @@ describe("stats clock canon", () => {
     expect(maskStatsClock(canon)).toBe(maskStatsClock(json));
     expect(JSON.parse(canon).causes[0].key).toBe("cause:x");
     expect(canonStatsClock(run(canon)).stdout).toBe(canon);
+  });
+
+  test("a prompt's data range is masked", () => {
+    const text = "Fix it.\n\nData (1926-12-08 → 2026-11-13):\n- corpus\n";
+    expect(maskStatsClock(text)).toBe(
+      "Fix it.\n\nData (<window>):\n- corpus\n"
+    );
   });
 
   test("text output gets its window line masked", () => {

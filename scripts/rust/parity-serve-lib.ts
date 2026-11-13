@@ -36,6 +36,20 @@ const drain = async (
   }
 };
 
+const running = new Set<Subprocess>();
+const stopAll = () => {
+  for (const proc of running) {
+    proc.kill();
+  }
+};
+process.on("exit", stopAll);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    stopAll();
+    process.exit(130);
+  });
+}
+
 /** Start `serve` and wait for its `PEEKTRACE_READY:<port>` line. */
 export const startServer = async (
   label: "ts" | "rust",
@@ -54,6 +68,7 @@ export const startServer = async (
     stdout: "pipe",
     stderr: "pipe",
   });
+  running.add(proc);
   const out = { stdout: "", stderr: "" };
   drain(proc.stdout, (s) => {
     out.stdout += s;
@@ -131,6 +146,12 @@ const startTs = async (
     ["--port", String(port), ...args],
     env
   );
+  if (PINNED && server.port !== port) {
+    await stopServer(server);
+    throw new Error(
+      `TS serve took port ${server.port}, not ${port}: free ${TS_PORT_BASE}-${TS_PORT_BASE + TS_PORT_SPAN - 1}`
+    );
+  }
   await tsValue(key, () => ({ ...server.out }));
   return server;
 };
@@ -190,6 +211,7 @@ export const withPair = async (
 
 export const stopServer = async (s: Server | undefined) => {
   if (s?.proc) {
+    running.delete(s.proc);
     s.proc.kill();
     await s.proc.exited;
   }
