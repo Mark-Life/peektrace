@@ -4,22 +4,31 @@
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Instant;
 
-use peektrace_core::PathStyle;
+use peektrace_core::capabilities::{self, SupportLevel as CoreLevel};
 use peektrace_core::header_cache::HeaderCache;
+use peektrace_core::js::json_out::Writer;
 use peektrace_core::js::system_zone::SystemZone;
+use peektrace_core::js::value::JsValue;
 use peektrace_core::roots::{self, RootsEnv};
-use peektrace_core::sessions::resolve::SessionError;
+use peektrace_core::sessions::resolve::{self, SessionError};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::{analyzed_json_with, listing_json};
+use peektrace_core::settings_doc::{
+    self, ChangeReason, SettingsUpdateError, StoredSettings, validate_settings, write_settings_doc,
+};
 use peektrace_core::stats::cache::{StatsCache, cache_root};
 use peektrace_core::stats::service::{
     DrillHits, DrillPage, ReportRequest, StatsEnv, StatsError, drill_hits, report,
 };
 use peektrace_core::watch::{WatchProblem, Watcher};
-use peektrace_core::{AgentRoots, ListFilter, list_sessions_cached};
+use peektrace_core::{Agent, AgentRoots, ListFilter, PathStyle, list_sessions_cached};
 use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
-use peektrace_protocol::{AgentId, ApiError, DrillTable, WatchVersions};
+use peektrace_protocol::{
+    AgentId, AgentScan, ApiError, Capability, CapabilitySupport, DrillTable, FileChangeReason,
+    PerAgentSupport, READ_ONLY_REASON, ScannedRoot, ServerInfo, SettingsResult, SettingsUpdate,
+    SupportLevel, WatchVersions,
+};
 use tracing::{Span, field, info_span};
 
 use super::{DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode};
@@ -40,6 +49,9 @@ struct Inner {
     drilled: Mutex<Option<Drilled>>,
     /// A fixed clock for headless runs and tests.
     now: Option<f64>,
+    settings_path: String,
+    user_home: String,
+    read_only: bool,
 }
 
 struct Drilled {
@@ -137,9 +149,117 @@ fn session_error(e: SessionError) -> LoadError {
     })
 }
 
+const fn agent_id(a: Agent) -> AgentId {
+    match a {
+        Agent::Claude => AgentId::Claude,
+        Agent::Codex => AgentId::Codex,
+        Agent::Pi => AgentId::Pi,
+        Agent::Opencode => AgentId::Opencode,
+    }
+}
+
+const fn level(l: CoreLevel) -> SupportLevel {
+    match l {
+        CoreLevel::Supported => SupportLevel::Supported,
+        CoreLevel::Partial => SupportLevel::Partial,
+        CoreLevel::Planned => SupportLevel::Planned,
+        CoreLevel::Unsupported => SupportLevel::Unsupported,
+    }
+}
+
+/// The matrix as `GET /api/capabilities` sends it.
+pub fn capability_rows() -> Vec<Capability> {
+    capabilities::list_capabilities()
+        .iter()
+        .map(|c| {
+            let [claude, codex, pi, opencode] = c.per_agent.map(|s| CapabilitySupport {
+                level: level(s.level),
+                note: s.note.map(str::to_owned),
+            });
+            Capability {
+                id: c.id.to_owned(),
+                group: c.group.to_owned(),
+                title: c.title.to_owned(),
+                description: c.description.to_owned(),
+                per_agent: PerAgentSupport {
+                    claude,
+                    codex,
+                    pi,
+                    opencode,
+                },
+            }
+        })
+        .collect()
+}
+
+/// The scanned roots as `GET /api/server` sends them.
+pub fn server_info_of(roots: &AgentRoots, read_only: bool, user_home: &str) -> ServerInfo {
+    ServerInfo {
+        read_only,
+        user_home: user_home.to_owned(),
+        agents: Agent::ALL
+            .into_iter()
+            .map(|agent| AgentScan {
+                agent: agent_id(agent),
+                roots: roots
+                    .of(agent)
+                    .iter()
+                    .enumerate()
+                    .map(|(i, s)| ScannedRoot {
+                        is_default: i == 0,
+                        home: s.home.clone(),
+                        path: s.projects_root.clone(),
+                        exists: resolve::exists(&s.projects_root),
+                    })
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
+fn settings_body(s: &StoredSettings) -> String {
+    let mut w = Writer::new(false);
+    w.begin_obj();
+    write_settings_doc(w.key("settings"), &s.doc);
+    w.key("mtimeMs").int(s.mtime_ms);
+    w.key("path").str(&s.path);
+    w.end_obj();
+    w.finish()
+}
+
+fn update_error(e: SettingsUpdateError) -> ApiError {
+    match e {
+        SettingsUpdateError::Changed { path, reason } => ApiError::FileChangedError {
+            path,
+            reason: match reason {
+                ChangeReason::Mtime => FileChangeReason::Mtime,
+                ChangeReason::Missing => FileChangeReason::Missing,
+            },
+        },
+        SettingsUpdateError::Write { path, reason } => {
+            ApiError::SettingsWriteError { path, reason }
+        }
+    }
+}
+
+fn bad_request(reason: impl Into<String>) -> LoadError {
+    LoadError::Api(ApiError::BadRequestError {
+        reason: reason.into(),
+    })
+}
+
 impl InProcess {
     /// Sessions under `roots`; the stats fact cache in `stats_cache`.
     pub fn new(roots: AgentRoots, stats_cache: String) -> Self {
+        Self::with_env(roots, stats_cache, String::new(), String::new())
+    }
+
+    fn with_env(
+        roots: AgentRoots,
+        stats_cache: String,
+        settings_path: String,
+        user_home: String,
+    ) -> Self {
         Self {
             inner: Arc::new(Inner {
                 roots,
@@ -150,6 +270,9 @@ impl InProcess {
                 wanted: Mutex::new(None),
                 drilled: Mutex::new(None),
                 now: crate::fixed_now(),
+                settings_path,
+                user_home,
+                read_only: false,
             }),
             watcher: Mutex::new(None),
         }
@@ -160,6 +283,15 @@ impl InProcess {
     pub fn at(mut self, now_ms: f64) -> Self {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.now = Some(now_ms);
+        }
+        self
+    }
+
+    /// Refuse settings writes, as a `--read-only` server does.
+    #[must_use]
+    pub fn with_read_only(mut self, read_only: bool) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.read_only = read_only;
         }
         self
     }
@@ -178,11 +310,13 @@ impl InProcess {
     /// Roots under `home`, with env vars read through `var`.
     pub fn for_home(home: String, var: impl Fn(&str) -> Option<String>) -> Self {
         let env = RootsEnv::from_vars(home, PathStyle::NATIVE, var);
-        let settings = std::fs::read(env.settings_path())
+        let settings_path = env.settings_path();
+        let settings = std::fs::read(&settings_path)
             .ok()
             .map(|b| roots::parse_settings(&String::from_utf8_lossy(&b)))
             .unwrap_or_default();
-        Self::new(AgentRoots::resolve(&env, &settings), cache_root(&env))
+        let roots = AgentRoots::resolve(&env, &settings);
+        Self::with_env(roots, cache_root(&env), settings_path, env.home)
     }
 
     /// Run `f` on a stats env after earlier corpus passes; under
@@ -215,6 +349,28 @@ impl InProcess {
         out
     }
 
+    fn capabilities_list() -> Vec<Capability> {
+        let _span = root_span!("app.capabilities.list").entered();
+        capability_rows()
+    }
+
+    fn info(inner: &Inner) -> ServerInfo {
+        let _span = root_span!("app.server.info").entered();
+        server_info_of(&inner.roots, inner.read_only, &inner.user_home)
+    }
+
+    fn read_settings(inner: &Inner) -> Result<SettingsResult, LoadError> {
+        let span = root_span!("app.settings.get");
+        let _entered = span.enter();
+        let out = decode(&settings_body(&settings_doc::read_stored(
+            &inner.settings_path,
+        )));
+        if let Err(e) = &out {
+            span.record("error", field::display(e));
+        }
+        out
+    }
+
     fn stats_screen(
         inner: &Inner,
         scope: StatsScope,
@@ -237,6 +393,31 @@ impl InProcess {
             text: Some(text_of(&r, scope.agent)),
             generated: at(r.generated_at, offset_at(&inner.zone, r.generated_at)),
         });
+        if let Err(e) = &out {
+            span.record("error", field::display(e));
+        }
+        out
+    }
+
+    fn write_settings(inner: &Inner, update: &SettingsUpdate) -> Result<SettingsResult, LoadError> {
+        let span = root_span!("app.settings.update");
+        let _entered = span.enter();
+        let out = (|| {
+            if inner.read_only {
+                return Err(LoadError::Api(ApiError::SettingsWriteError {
+                    path: "settings.json".to_owned(),
+                    reason: READ_ONLY_REASON.to_owned(),
+                }));
+            }
+            let text =
+                serde_json::to_string(&update.settings).map_err(|e| bad_request(e.to_string()))?;
+            let value = JsValue::parse(&text).ok_or_else(|| bad_request("body is not JSON"))?;
+            let doc = validate_settings(&value).map_err(bad_request)?;
+            let stored =
+                settings_doc::write_stored(&inner.settings_path, doc, update.expected_mtime)
+                    .map_err(|e| LoadError::Api(update_error(e)))?;
+            decode(&settings_body(&stored))
+        })();
         if let Err(e) = &out {
             span.record("error", field::display(e));
         }
@@ -368,6 +549,22 @@ impl DataSource for InProcess {
         );
     }
 
+    fn capabilities(&self, reply: Reply<Vec<Capability>>) {
+        self.spawn(|_| Ok(Self::capabilities_list()), reply);
+    }
+
+    fn server_info(&self, reply: Reply<ServerInfo>) {
+        self.spawn(|inner| Ok(Self::info(inner)), reply);
+    }
+
+    fn settings(&self, reply: Reply<SettingsResult>) {
+        self.spawn(Self::read_settings, reply);
+    }
+
+    fn save_settings(&self, update: SettingsUpdate, reply: Reply<SettingsResult>) {
+        self.spawn(move |inner| Self::write_settings(inner, &update), reply);
+    }
+
     fn watch(&self, on_versions: OnVersions) {
         let span = root_span!("app.watch.events");
         let on_versions: Arc<dyn Fn(WatchEvent) + Send + Sync> = Arc::from(on_versions);
@@ -410,6 +607,25 @@ impl DataSource for InProcess {
         parent: Option<&str>,
     ) -> Option<Result<AnalyzedSession, LoadError>> {
         Some(Self::analyze(&self.inner, id, parent))
+    }
+
+    fn capabilities_now(&self) -> Option<Result<Vec<Capability>, LoadError>> {
+        Some(Ok(Self::capabilities_list()))
+    }
+
+    fn server_info_now(&self) -> Option<Result<ServerInfo, LoadError>> {
+        Some(Ok(Self::info(&self.inner)))
+    }
+
+    fn settings_now(&self) -> Option<Result<SettingsResult, LoadError>> {
+        Some(Self::read_settings(&self.inner))
+    }
+
+    fn save_settings_now(
+        &self,
+        update: SettingsUpdate,
+    ) -> Option<Result<SettingsResult, LoadError>> {
+        Some(Self::write_settings(&self.inner, &update))
     }
 
     fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>) {

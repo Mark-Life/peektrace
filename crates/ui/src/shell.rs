@@ -3,11 +3,20 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use rune::{App, AppSpec, Key, KeyEvent, Tx};
+use peektrace_protocol::AgentId;
+use rune::{App, AppSpec, Key, KeyEvent, Mods, Tx};
 
+use crate::model::shortcuts::{Modifiers, key_of, matches, shortcut_allowed};
 use crate::source::DataSource;
+use crate::state::settings::{APP_ID, FormRow};
 use crate::state::{Io, Request, Route, Ui};
 use crate::{state, views};
+
+/// Keycaps and modifier rules follow the Mac.
+pub const MAC: bool = cfg!(target_os = "macos");
+
+/// Focus keys of text fields, by prefix: single keys type there.
+pub const TEXT_FIELDS: &[&str] = &["search", "settings-path-", "settings-label-"];
 
 /// Geist, plus a `DejaVu Sans` cut for the UI's own `∞ ⋯ ▴ ▾`, on every target:
 /// the web has no system fonts, and native fallback picks a per-OS symbol font
@@ -44,6 +53,14 @@ pub fn fixed_now() -> Option<f64> {
     }
     #[cfg(target_arch = "wasm32")]
     None
+}
+
+/// A reply landed: one load fewer in flight, and the next ones go out.
+fn landed(s: &mut Ui, tx: &mut Tx) {
+    s.syncing = s.syncing.saturating_sub(1);
+    if !s.pending.is_empty() {
+        tx.wake_after(Duration::ZERO);
+    }
 }
 
 /// Hand queued loads to the source; replies land through the app handle.
@@ -83,30 +100,55 @@ pub fn dispatch(s: &mut Ui) {
                 scope,
                 Box::new(move |res| {
                     h.update(move |s, tx| {
-                        s.syncing = s.syncing.saturating_sub(1);
                         s.apply_stats(rid, scope, res);
-                        if !s.pending.is_empty() {
-                            tx.wake_after(Duration::ZERO);
-                        }
+                        landed(s, tx);
                     });
                 }),
             ),
             Request::StatsDrill { rid, scope, ask } => {
-                let landed = ask.clone();
+                let asked = ask.clone();
                 io.source.stats_drill(
                     scope,
-                    ask,
+                    asked,
                     Box::new(move |res| {
                         h.update(move |s, tx| {
-                            s.syncing = s.syncing.saturating_sub(1);
-                            s.apply_drill(rid, scope, landed, res);
-                            if !s.pending.is_empty() {
-                                tx.wake_after(Duration::ZERO);
-                            }
+                            s.apply_drill(rid, scope, ask, res);
+                            landed(s, tx);
                         });
                     }),
                 );
             }
+            Request::Capabilities { rid } => io.source.capabilities(Box::new(move |res| {
+                h.update(move |s, tx| {
+                    s.apply_capabilities(rid, res);
+                    landed(s, tx);
+                });
+            })),
+            Request::ServerInfo { rid } => io.source.server_info(Box::new(move |res| {
+                h.update(move |s, tx| {
+                    s.apply_server_info(rid, res);
+                    landed(s, tx);
+                });
+            })),
+            Request::Settings { rid } => io.source.settings(Box::new(move |res| {
+                h.update(move |s, tx| {
+                    s.apply_settings(rid, res);
+                    landed(s, tx);
+                });
+            })),
+            Request::SaveSettings { rid, update } => io.source.save_settings(
+                update,
+                Box::new(move |res| {
+                    h.update(move |s, tx| {
+                        if s.apply_save(rid, res, tx.clock())
+                            && let Some(t) = &s.toast
+                        {
+                            tx.wake_at(t.until);
+                        }
+                        landed(s, tx);
+                    });
+                }),
+            ),
         }
     }
 }
@@ -139,6 +181,26 @@ pub fn load_now(s: &mut Ui) {
                     s.apply_drill(rid, scope, ask, r);
                 }
             }
+            Request::Capabilities { rid } => {
+                if let Some(r) = source.capabilities_now() {
+                    s.apply_capabilities(rid, r);
+                }
+            }
+            Request::ServerInfo { rid } => {
+                if let Some(r) = source.server_info_now() {
+                    s.apply_server_info(rid, r);
+                }
+            }
+            Request::Settings { rid } => {
+                if let Some(r) = source.settings_now() {
+                    s.apply_settings(rid, r);
+                }
+            }
+            Request::SaveSettings { rid, update } => {
+                if let Some(r) = source.save_settings_now(update) {
+                    s.apply_save(rid, r, 0.0);
+                }
+            }
         }
     }
 }
@@ -158,8 +220,31 @@ fn poll(s: &mut Ui, clock: f64, tx: &mut Tx) -> bool {
 }
 
 fn typing(tx: &Tx) -> bool {
-    tx.focused()
-        .is_some_and(|k| k == "search" || k.ends_with("/search") || k.contains("search"))
+    tx.focused().is_some_and(|k| {
+        k.split('/')
+            .any(|seg| TEXT_FIELDS.iter().any(|p| seg.starts_with(p)))
+            || k.contains("search")
+    })
+}
+
+/// The modifiers as a browser names them. Off the Mac, a character typed
+/// with Ctrl and Alt is `AltGr`.
+const fn modifiers(m: Mods) -> Modifiers {
+    if MAC {
+        Modifiers {
+            meta: m.cmd || m.logo,
+            ctrl: m.ctrl,
+            alt: m.alt,
+            alt_graph: false,
+        }
+    } else {
+        Modifiers {
+            meta: m.logo,
+            ctrl: m.ctrl || m.cmd,
+            alt: m.alt,
+            alt_graph: (m.ctrl || m.cmd) && m.alt,
+        }
+    }
 }
 
 /// Move the rail cursor, and focus with it, by `step` rows.
@@ -190,19 +275,45 @@ fn move_cursor(s: &mut Ui, step: isize, tx: &mut Tx) {
     s.cursor = Some(id);
 }
 
-/// Window keys: `⌘B`, `/` and `d`, whatever has focus outside a text field.
+/// Window keys: `⌘B`, `/`, `d` and `?`, whatever has focus outside a text
+/// field, read by where the key sits when the layout types another symbol.
+/// Escape leaves Capabilities for Settings. An open dialog owns every key.
 pub fn on_key(s: &mut Ui, ev: &KeyEvent, tx: &mut Tx) -> bool {
+    if s.dialog_open() {
+        return false;
+    }
     if ev.is_command('b') {
         s.nav_collapsed = !s.nav_collapsed;
         return true;
     }
-    if typing(tx) || ev.mods.cmd || ev.mods.ctrl {
+    if typing(tx) {
         return false;
     }
-    match &ev.key {
-        Key::Text(t) if t == "d" => s.dark = Some(!s.is_dark()),
-        Key::Text(t) if t == "/" && s.route == Route::Sessions => tx.focus("search", true),
-        _ => return false,
+    if ev.key == Key::Escape && s.route == Route::Capabilities {
+        s.go(Route::Settings);
+        tx.set_title(format!("{} · Peektrace", Route::Settings.title()));
+        tx.wake_after(Duration::ZERO);
+        return true;
+    }
+    let Key::Text(typed) = &ev.key else {
+        return false;
+    };
+    if !shortcut_allowed(modifiers(ev.mods), typed, MAC) {
+        return false;
+    }
+    let code = tx
+        .physical_key()
+        .map(|c| format!("{c:?}"))
+        .unwrap_or_default();
+    let key = key_of(typed, &code, ev.mods.shift);
+    if matches("theme", &key) {
+        s.flip_theme();
+    } else if matches("help", &key) {
+        s.help_open = true;
+    } else if matches("search", &key) && s.route == Route::Sessions {
+        tx.focus("search", true);
+    } else {
+        return false;
     }
     true
 }
@@ -283,6 +394,33 @@ pub const SCENES: &[Scene] = &[
         stats_scene(s);
         s.dark = Some(false);
     }),
+    ("settings", settings_scene),
+    ("settings-rows", |s| {
+        settings_scene(s);
+        s.settings.rows[0] = vec![
+            FormRow {
+                path: rune::TextEdit::new("~/work/.claude"),
+                label: rune::TextEdit::new("work"),
+            },
+            FormRow::default(),
+        ];
+    }),
+    ("settings-conflict", |s| {
+        settings_scene(s);
+        s.settings.conflict = true;
+    }),
+    ("settings-readonly", |s| {
+        settings_scene(s);
+        if let Some(v) = &mut s.info.value {
+            v.read_only = true;
+        }
+    }),
+    ("capabilities", capabilities_scene),
+    ("capabilities-cell", |s| {
+        capabilities_scene(s);
+        s.open_cell("session.debug-context", AgentId::Codex);
+    }),
+    ("shortcuts", |s| s.help_open = true),
 ];
 
 fn stats_scene(s: &mut Ui) {
@@ -295,6 +433,16 @@ fn first_cause(s: &Ui) -> Option<String> {
         .screen()
         .and_then(|x| x.report.causes.first())
         .map(|c| c.key.clone())
+}
+
+fn settings_scene(s: &mut Ui) {
+    s.go(Route::Settings);
+    load_now(s);
+}
+
+fn capabilities_scene(s: &mut Ui) {
+    s.go(Route::Capabilities);
+    load_now(s);
 }
 
 fn scene_session(s: &Ui) -> Option<String> {
@@ -355,6 +503,9 @@ pub fn app(source: &Arc<dyn DataSource>) -> App<Ui> {
             now.unwrap_or_else(wall_ms),
             now.is_some(),
         );
+        if !headless {
+            s.use_prefs(rune::prefs::Prefs::open(APP_ID));
+        }
         s.request_sessions();
         #[cfg(target_arch = "wasm32")]
         if let Some(sel) = crate::web::read() {

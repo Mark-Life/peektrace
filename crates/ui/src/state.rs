@@ -4,12 +4,14 @@
 //! a newer request superseded them. A watch refresh reloads the listing,
 //! then the open session only when its file changed.
 
+pub mod settings;
+
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::sync::Arc;
 
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
-use peektrace_protocol::{AgentId, WatchVersions};
+use peektrace_protocol::{AgentId, SettingsUpdate, WatchVersions};
 use rune::{AppHandle, TextEdit, Tx};
 
 use crate::chart::geom::{Growth, growth};
@@ -51,7 +53,7 @@ impl Route {
 }
 
 /// A load the app layer runs; `rid` names the request in its slot.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Request {
     Sessions {
         rid: u64,
@@ -69,6 +71,19 @@ pub enum Request {
         rid: u64,
         scope: StatsScope,
         ask: DrillAsk,
+    },
+    Capabilities {
+        rid: u64,
+    },
+    ServerInfo {
+        rid: u64,
+    },
+    Settings {
+        rid: u64,
+    },
+    SaveSettings {
+        rid: u64,
+        update: SettingsUpdate,
     },
 }
 
@@ -204,6 +219,13 @@ pub struct Ui {
     pub stats: StatsState,
     /// A stats link's call, scrolled to once its session loads.
     pub pending_call: Option<String>,
+    pub settings: settings::SettingsState,
+    pub caps: settings::CapsState,
+    pub info: settings::InfoState,
+    pub help_open: bool,
+    pub toast: Option<settings::Toast>,
+    /// Where the theme pick persists.
+    pub prefs: rune::prefs::Prefs,
     pub io: Option<Io>,
 }
 
@@ -242,6 +264,12 @@ impl Ui {
             analysis_rid: 0,
             stats: StatsState::default(),
             pending_call: None,
+            settings: settings::SettingsState::default(),
+            caps: settings::CapsState::default(),
+            info: settings::InfoState::default(),
+            help_open: false,
+            toast: None,
+            prefs: rune::prefs::Prefs::memory(),
             io,
         }
     }
@@ -494,6 +522,10 @@ impl Ui {
             }
             SettleEffect::WakeAt(t) => tx.wake_at(t / 1000.0),
             SettleEffect::None => {}
+        }
+        if self.toast.as_ref().is_some_and(|t| clock >= t.until) {
+            self.toast = None;
+            changed = true;
         }
         if !self.now_fixed && now_ms - self.now_ms >= NOW_TICK_S * 1000.0 {
             self.now_ms = now_ms;

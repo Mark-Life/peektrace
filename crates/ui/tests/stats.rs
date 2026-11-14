@@ -558,6 +558,15 @@ impl DataSource for Failing {
     ) {
     }
     fn watch(&self, _: OnVersions) {}
+    fn capabilities(&self, _: Reply<Vec<peektrace_protocol::Capability>>) {}
+    fn server_info(&self, _: Reply<peektrace_protocol::ServerInfo>) {}
+    fn settings(&self, _: Reply<peektrace_protocol::SettingsResult>) {}
+    fn save_settings(
+        &self,
+        _: peektrace_protocol::SettingsUpdate,
+        _: Reply<peektrace_protocol::SettingsResult>,
+    ) {
+    }
     fn stats_report(&self, _: StatsScope, reply: Reply<StatsScreen>) {
         reply(scan_failed());
     }
