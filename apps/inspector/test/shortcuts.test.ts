@@ -96,9 +96,10 @@ describe("shortcutAllowed", () => {
   });
 
   test("modifier chords belong to the browser and the OS", () => {
-    expect(shortcutAllowed(press({ metaKey: true }))).toBe(false);
-    expect(shortcutAllowed(press({ ctrlKey: true }))).toBe(false);
-    expect(shortcutAllowed(press({ altKey: true }))).toBe(false);
+    // Off a Mac: there, Option that types a bound key is allowed (below).
+    expect(shortcutAllowed(press({ metaKey: true }), false)).toBe(false);
+    expect(shortcutAllowed(press({ ctrlKey: true }), false)).toBe(false);
+    expect(shortcutAllowed(press({ altKey: true }), false)).toBe(false);
   });
 
   test("AltGr, which some layouts need for [ and ], still runs", () => {
