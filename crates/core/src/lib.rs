@@ -24,6 +24,7 @@ pub mod sessions;
 pub mod settings_doc;
 pub mod stats;
 pub mod watch;
+pub mod wire;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions, list_sessions_cached};
 pub use model::{
