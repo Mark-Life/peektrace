@@ -25,8 +25,9 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # each with a gzipped copy (<asset>.gz, what everything downloads by default),
 # plus SHA256SUMS. SHA256SUMS lists the UNCOMPRESSED binaries only: every route
 # verifies the bytes it installs against that line. Both Linux binaries are
-# glibc-only, built on Ubuntu 22.04 so they need glibc 2.35 or newer; musl
-# (Alpine) is not shipped. `upgrade` downloads whole binaries,
+# glibc-only, linked with cargo-zigbuild against glibc 2.17, so they run on
+# any distro from 2014 on (RHEL 7+, Debian 8+, Ubuntu 14.04+); musl (Alpine)
+# is not shipped. `upgrade` downloads whole binaries,
 # so no delta patches are published.
 #
 # Release notes come from the matching `## <tag>` section of CHANGELOG.md
@@ -144,13 +145,15 @@ jobs:
           - runner: macos-latest
             target: x86_64-apple-darwin
             asset: peektrace-darwin-x64
-          # 22.04 sets the glibc floor at 2.35 (Ubuntu 22.04, Debian 12).
-          - runner: ubuntu-22.04
+          # `glibc` links through cargo-zigbuild against that glibc version.
+          - runner: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             asset: peektrace-linux-x64
-          - runner: ubuntu-22.04-arm
+            glibc: "2.17"
+          - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             asset: peektrace-linux-arm64
+            glibc: "2.17"
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             asset: peektrace-windows-x64.exe
@@ -175,6 +178,18 @@ jobs:
           rustup toolchain install || rustup show
           rustup target add ${{ matrix.target }}
 
+      - name: Install zig
+        if: matrix.glibc
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.17.0
+
+      - name: Install cargo-zigbuild
+        if: matrix.glibc
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild
+
       # `https` adds TLS, which `upgrade` and `--remote https://` need. The
       # PEEKTRACE_RELEASE_* vars point `upgrade` and the update notice at this
       # repo's releases; a build without all four never offers an upgrade.
@@ -186,9 +201,14 @@ jobs:
           PEEKTRACE_RELEASE_API: https://api.github.com/repos/${{ github.repository }}
           PEEKTRACE_RELEASE_TAG_PREFIX: cli-v
           PEEKTRACE_RELEASE_ASSET_PREFIX: peektrace-
+          GLIBC: ${{ matrix.glibc }}
         run: |
           set -euo pipefail
-          cargo build --release --locked -p peektrace-cli --features https --target ${{ matrix.target }}
+          if [ -n "$GLIBC" ]; then
+            cargo zigbuild --release --locked -p peektrace-cli --features https --target "${{ matrix.target }}.$GLIBC"
+          else
+            cargo build --release --locked -p peektrace-cli --features https --target ${{ matrix.target }}
+          fi
           exe=""
           [ "$RUNNER_OS" = Windows ] && exe=.exe
           mkdir -p out
@@ -203,7 +223,7 @@ jobs:
           codesign --verify --verbose "out/${{ matrix.asset }}"
 
       - name: Check the glibc floor
-        if: runner.os == 'Linux'
+        if: matrix.glibc
         run: |
           set -euo pipefail
           max="$(objdump -T "out/${{ matrix.asset }}" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' | sed 's/^GLIBC_//' | sort -uV | tail -n1)"
@@ -213,7 +233,7 @@ jobs:
             exit 1
           fi
         env:
-          GLIBC_FLOOR: "2.35"
+          GLIBC_FLOOR: ${{ matrix.glibc }}
 
       # The macOS runner is arm64, so the x64 binary cannot run here.
       - name: Check the binary's version
@@ -415,7 +435,7 @@ jobs:
           publish_dir "dist-npm/peektrace"
 
   # End-to-end check of the published release on real Linux hardware, one job
-  # per arch, on the 22.04 images that set the glibc floor. It drives the
+  # per arch, on older 22.04 images. It drives the
   # real scripts/install.sh, which also covers
   # uname-based arch detection, asset naming and checksum verification.
   #
