@@ -445,7 +445,7 @@ export type HistoryIndex = { rows: ReadonlyArray<HistoryRow>, rev: string, hash:
  */
 crossEvent: number, };
 
-export type SessionHeader = { id: string, path: string, agent: AgentId, cwd?: string, project: string, gitBranch?: string, model?: string, title?: string, startedAt?: string, updatedAt?: string, messageCount: number, sizeBytes: number, 
+export type SessionHeader = { id: string, path: string, agent: AgentId, cwd?: string, project: string, gitBranch?: string, model?: string, title?: string, startedAt?: string, updatedAt: string, messageCount: number, sizeBytes: number, 
 /**
  * Source id when the agent has more than one configured root.
  */
@@ -495,7 +495,7 @@ export type GraphNode = { slug: string, type: string, bytes: number, inIndex: bo
 
 export type LinkEdgeKind = "wiki" | "markdown" | "index";
 
-export type LinkEdge = { from: string, to: string, kind: LinkEdgeKind, resolved: boolean, resolvedTo?: string, ambiguous?: boolean, candidates?: ReadonlyArray<string>, line?: number, };
+export type LinkEdge = { from: string, to: string, kind: LinkEdgeKind, resolved: boolean, resolvedTo?: string, ambiguous?: boolean, candidates?: ReadonlyArray<string>, line: number, };
 
 export type GraphData = { nodes: ReadonlyArray<GraphNode>, edges: ReadonlyArray<LinkEdge>, orphans: ReadonlyArray<string>, };
 

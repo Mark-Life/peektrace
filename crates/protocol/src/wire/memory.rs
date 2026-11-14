@@ -196,8 +196,7 @@ pub struct LinkEdge {
     pub ambiguous: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub candidates: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub line: Option<f64>,
+    pub line: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

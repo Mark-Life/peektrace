@@ -352,8 +352,7 @@ pub struct SessionHeader {
     pub title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub started_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_at: Option<String>,
+    pub updated_at: String,
     pub message_count: f64,
     pub size_bytes: f64,
     /// Source id when the agent has more than one configured root.
