@@ -180,7 +180,7 @@ pub struct UnreadableSession {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SessionListing {
-    #[cfg_attr(test, ts(type = "SessionHeader[]"))]
+    #[cfg_attr(test, ts(type = "readonly SessionHeader[]"))]
     pub headers: Vec<serde_json::Value>,
     pub unreadable: Vec<UnreadableSession>,
 }
