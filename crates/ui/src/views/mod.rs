@@ -2,6 +2,7 @@
 
 pub mod history;
 pub mod session_list;
+pub mod stats;
 pub mod summary;
 pub mod widgets;
 
@@ -51,6 +52,12 @@ fn nav_row(s: &Ui, route: Route, t: &Theme) -> El {
         .label(label)
         .focusable(true)
         .on_press_tx(move |s: &mut Ui, tx: &mut Tx| {
+            if s.route == Route::Stats && route != Route::Stats {
+                s.leave_stats();
+            }
+            if route == Route::Stats {
+                s.enter_stats(tx.clock());
+            }
             s.route = route;
             tx.set_title(if route == Route::Sessions {
                 s.title()
@@ -124,8 +131,13 @@ fn header(s: &Ui, t: &Theme) -> El {
         .center_y()
         .border_sides([0.0, 0.0, 1.0, 0.0], t.border)
         .child(text(s.route.title()).font(ty::SM_MEDIUM).color(t.fg));
-    if s.route == Route::Sessions {
-        r = r.child(text("Context debug").font(ty::XS).color(t.muted_fg));
+    let hint = match s.route {
+        Route::Sessions => Some("Context debug"),
+        Route::Stats => Some("What fails, what costs time"),
+        _ => None,
+    };
+    if let Some(h) = hint {
+        r = r.child(text(h).font(ty::XS).color(t.muted_fg));
     }
     r = r.child(spacer());
     if s.syncing > 0 {
@@ -230,6 +242,7 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
     let mut layer = Vec::new();
     let content = match s.route {
         Route::Sessions => sessions(s, cx, &t, &mut layer),
+        Route::Stats => stats::view(s, cx, &t, &mut layer),
         other => el().key("stub").w_full().grow(1.0).child(notice(
             other.title(),
             &stub_text(other.title()),

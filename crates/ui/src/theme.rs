@@ -129,6 +129,7 @@ pub mod ty {
     pub const BASE_SEMI: TextStyle = TextStyle::new(16.0, 600.0);
     pub const LG_SEMI: TextStyle = TextStyle::new(18.0, 600.0);
     pub const MONO_XS: TextStyle = TextStyle::new(12.0, 400.0).mono();
+    pub const MONO_SM: TextStyle = TextStyle::new(14.0, 400.0).mono();
     pub const MONO_11: TextStyle = TextStyle::new(11.0, 400.0).mono();
     pub const CHART_10: TextStyle = TextStyle::new(10.0, 400.0);
     pub const CHART_11: TextStyle = TextStyle::new(11.0, 400.0);

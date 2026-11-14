@@ -18,9 +18,11 @@ use crate::model::chat::{
 };
 use crate::model::list::{self, Filters};
 use crate::model::settle::{Settle, SettleEffect, SettleEvent, step};
+use crate::model::stats::{DrillAsk, StatsScope};
 use crate::model::tools::{ToolIndex, index_tools};
 use crate::model::turns::{cross_event_index, turn_numbers};
 use crate::source::{DataSource, LoadError, WatchEvent};
+use crate::state_stats::StatsState;
 
 /// The search applies this long after the last key.
 pub const SEARCH_WRITE_S: f64 = 0.25;
@@ -58,6 +60,15 @@ pub enum Request {
         rid: u64,
         id: String,
         parent: Option<String>,
+    },
+    StatsReport {
+        rid: u64,
+        scope: StatsScope,
+    },
+    StatsDrill {
+        rid: u64,
+        scope: StatsScope,
+        ask: DrillAsk,
     },
 }
 
@@ -190,6 +201,9 @@ pub struct Ui {
     pub recheck_detail: bool,
     pub sessions_rid: u64,
     pub analysis_rid: u64,
+    pub stats: StatsState,
+    /// A stats link's call, scrolled to once its session loads.
+    pub pending_call: Option<String>,
     pub io: Option<Io>,
 }
 
@@ -226,6 +240,8 @@ impl Ui {
             recheck_detail: false,
             sessions_rid: 0,
             analysis_rid: 0,
+            stats: StatsState::default(),
+            pending_call: None,
             io,
         }
     }
