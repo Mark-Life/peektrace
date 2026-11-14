@@ -138,3 +138,61 @@ fn the_report_view_keeps_every_row_core_writes() {
     assert_eq!(dv.hits.len(), d.hits.len());
     assert_eq!(dv.key, *key);
 }
+
+/// The in-process source copies the server's `/api/capabilities` and
+/// `/api/server` mapping; both must read core the same way.
+#[test]
+fn capabilities_and_server_info_match_the_server_shapes() {
+    use peektrace_core::capabilities::list_capabilities;
+    use peektrace_core::sessions::resolve;
+    use peektrace_ui::source::DataSource as _;
+    use peektrace_ui::source::in_process::{InProcess, capability_rows, server_info_of};
+    use serde_json::{Value, json};
+
+    let want: Vec<Value> = list_capabilities()
+        .iter()
+        .map(|c| {
+            let per: serde_json::Map<String, Value> = peektrace_core::Agent::ALL
+                .into_iter()
+                .map(|a| {
+                    let s = c.support(a);
+                    let mut cell = json!({ "level": s.level.as_str() });
+                    if let Some(n) = s.note {
+                        cell["note"] = json!(n);
+                    }
+                    (a.as_str().to_owned(), cell)
+                })
+                .collect();
+            json!({"id": c.id, "group": c.group, "title": c.title, "description": c.description, "perAgent": per})
+        })
+        .collect();
+    assert_eq!(
+        serde_json::to_value(capability_rows()).unwrap_or_default(),
+        Value::Array(want)
+    );
+
+    let home = home::build_home();
+    let dir = home.to_string_lossy().into_owned();
+    let env = peektrace_core::roots::RootsEnv::from_vars(dir.clone(), PathStyle::NATIVE, |_| None);
+    let roots = AgentRoots::resolve(&env, &peektrace_core::roots::Settings::default());
+    let agents: Vec<Value> = peektrace_core::Agent::ALL
+        .into_iter()
+        .map(|a| {
+            let rs: Vec<Value> = roots
+                .of(a)
+                .iter()
+                .enumerate()
+                .map(|(i, s)| json!({"isDefault": i == 0, "home": s.home, "path": s.projects_root, "exists": resolve::exists(&s.projects_root)}))
+                .collect();
+            json!({"agent": a.as_str(), "roots": rs})
+        })
+        .collect();
+    let want = json!({"readOnly": false, "userHome": dir, "agents": agents});
+    let got = serde_json::to_value(server_info_of(&roots, false, &dir)).unwrap_or_default();
+    assert_eq!(got, want);
+    let live = InProcess::for_home(dir, |_| None)
+        .server_info_now()
+        .and_then(Result::ok)
+        .map(|i| serde_json::to_value(i).unwrap_or_default());
+    assert_eq!(live, Some(want));
+}
