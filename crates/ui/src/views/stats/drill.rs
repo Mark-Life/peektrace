@@ -278,7 +278,7 @@ pub fn sheet(v: &V<'_>, layer: &mut Vec<El>) {
             .absolute(0.0, 0.0)
             .w_full()
             .h_full()
-            .fill(rune::Color::BLACK.alpha(0.4))
+            .fill(t.kit.c.scrim)
             .a11y_hidden(),
     );
     layer.push(

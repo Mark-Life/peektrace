@@ -31,6 +31,9 @@ pub struct Theme {
 
 /// Control borders: the primary at this alpha.
 const INPUT_ALPHA: f32 = 0.2;
+/// The backdrop behind every dialog and sheet.
+const SCRIM_DARK: f32 = 0.6;
+const SCRIM_LIGHT: f32 = 0.35;
 
 fn build(dark: bool) -> Theme {
     let (bg, fg, primary) = if dark {
@@ -59,6 +62,7 @@ fn build(dark: bool) -> Theme {
     kit.c.border_muted = input;
     kit.c.border_weak = input;
     kit.c.border_base = input;
+    kit.c.scrim = Color::BLACK.alpha(if dark { SCRIM_DARK } else { SCRIM_LIGHT });
     Theme {
         kit,
         dark,
@@ -161,5 +165,13 @@ mod tests {
             assert_eq!(c.border_base, t.input, "field selects, dark {dark}");
             assert!(t.input.a >= 0.2, "dark {dark}");
         }
+    }
+
+    #[test]
+    fn dialogs_dim_the_page_more_in_dark_than_in_light() {
+        let (dark, light) = (theme(true).kit.c.scrim, theme(false).kit.c.scrim);
+        assert!((0.5..=0.6).contains(&dark.a), "{}", dark.a);
+        assert!(light.a >= 0.3 && light.a < dark.a, "{}", light.a);
+        assert_eq!([dark.r, dark.g, dark.b], [0.0, 0.0, 0.0]);
     }
 }
