@@ -315,7 +315,7 @@ pub fn verdict(d: &Detail, width: f32, t: &Theme) -> El {
 pub fn jump_to_history(t: &Theme) -> El {
     Button::new("Jump to history ↓")
         .variant(ButtonVariant::Ghost)
-        .control_size(ControlSize::Small)
+        .control_size(ControlSize::Large)
         .on_press_tx(|_s: &mut Ui, tx: &mut Tx| tx.scroll_into_view(HISTORY_KEY))
         .build(&t.kit)
         .key("jump-history")
@@ -336,7 +336,7 @@ pub fn parent_note(parent: &str, t: &Theme) -> El {
         .child(
             Button::new("Open parent session")
                 .variant(ButtonVariant::Ghost)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press_tx(move |s: &mut Ui, tx: &mut Tx| {
                     s.select(&id, None);
                     tx.set_title(s.title());

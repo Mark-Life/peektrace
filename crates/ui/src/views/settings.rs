@@ -138,7 +138,7 @@ fn agent_card(
         row().child(
             Button::new(copy::ADD_ROOT)
                 .variant(ButtonVariant::Outline)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .disabled(off)
                 .on_press(move |s: &mut Ui| s.add_root(agent))
                 .build(&t.kit)
@@ -177,6 +177,7 @@ fn conflict(s: &Ui, off: bool, t: &Theme) -> El {
                 .child(
                     Button::new(copy::CONFLICT_RELOAD)
                         .variant(ButtonVariant::Outline)
+                        .control_size(ControlSize::Large)
                         .disabled(off)
                         .on_press_tx(|s: &mut Ui, tx: &mut Tx| {
                             s.request_settings();
@@ -188,6 +189,7 @@ fn conflict(s: &Ui, off: bool, t: &Theme) -> El {
                 .child(
                     Button::new(copy::CONFLICT_OVERWRITE)
                         .variant(ButtonVariant::Danger)
+                        .control_size(ControlSize::Large)
                         .disabled(off || s.settings.busy)
                         .on_press_tx(|s: &mut Ui, tx: &mut Tx| {
                             s.save_settings(false);
@@ -240,6 +242,7 @@ fn editor(s: &Ui, loaded: &SettingsResult, info: &ServerInfo, t: &Theme) -> El {
     form = form.child(
         row().w_full().child(spacer()).child(
             Button::new(if busy { copy::SAVING } else { copy::SAVE })
+                .control_size(ControlSize::Large)
                 .disabled(off || busy)
                 .on_press_tx(|s: &mut Ui, tx: &mut Tx| {
                     s.save_settings(true);
@@ -272,6 +275,7 @@ fn capabilities_card(t: &Theme) -> El {
         row().child(
             Button::new(copy::CAPS_OPEN)
                 .variant(ButtonVariant::Outline)
+                .control_size(ControlSize::Large)
                 .on_press_tx(|s: &mut Ui, tx: &mut Tx| {
                     s.go(Route::Capabilities);
                     tx.set_title(format!("{} · Peektrace", Route::Capabilities.title()));

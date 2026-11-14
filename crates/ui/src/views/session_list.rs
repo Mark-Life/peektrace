@@ -207,7 +207,7 @@ fn count_line(s: &Ui, t: &Theme) -> El {
         r = r.child(
             Button::new(format!("Clear {active}"))
                 .variant(ButtonVariant::Ghost)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press(|s: &mut Ui| s.reset_filters())
                 .build(&t.kit)
                 .key("clear-filters"),
@@ -234,7 +234,7 @@ fn empty(title: &str, body: &str, t: &Theme, reset: bool) -> El {
         c = c.child(
             Button::new("Reset filters")
                 .variant(ButtonVariant::Outline)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press(|s: &mut Ui| s.reset_filters())
                 .build(&t.kit)
                 .key("reset-filters"),

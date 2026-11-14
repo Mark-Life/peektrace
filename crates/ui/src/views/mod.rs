@@ -179,6 +179,7 @@ fn detail(s: &Ui, cx: &mut Cx<Ui>, t: &Theme) -> El {
             |e| {
                 notice("Could not load this session", &e.to_string(), t).child(
                     rune_kit::Button::new("Retry")
+                        .control_size(rune_kit::ControlSize::Large)
                         .on_press(|s: &mut Ui| s.request_analysis())
                         .build(&t.kit)
                         .key("retry"),

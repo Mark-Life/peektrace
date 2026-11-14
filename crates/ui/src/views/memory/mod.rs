@@ -64,7 +64,7 @@ fn error_text(e: &LoadError) -> String {
 
 fn retry(t: &Theme) -> El {
     Button::new("Retry")
-        .control_size(ControlSize::Small)
+        .control_size(ControlSize::Large)
         .on_press(|s: &mut Ui| s.request_memory())
         .build(&t.kit)
         .key("mem-retry")
@@ -72,7 +72,7 @@ fn retry(t: &Theme) -> El {
 
 fn create_anywhere(t: &Theme) -> El {
     Button::new("New memory in…")
-        .control_size(ControlSize::Small)
+        .control_size(ControlSize::Large)
         .on_press(|s: &mut Ui| s.memory.dialog = Some(Dialog::Create(CreateTarget::Pick)))
         .build(&t.kit)
         .key("mem-create-anywhere")

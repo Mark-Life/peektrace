@@ -173,7 +173,7 @@
       "role": "group"
     },
     {
-      "rect": [280, 98, 513, 28],
+      "rect": [280, 98, 521, 28],
       "role": "group"
     },
     {
@@ -229,34 +229,34 @@
     {
       "key": "stats-rescan",
       "label": "Rescan",
-      "rect": [568, 100, 92, 24],
+      "rect": [568, 98, 96, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [580, 104, 16, 16],
+      "rect": [582, 104, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [602, 102, 46, 20],
+      "rect": [604, 102, 46, 20],
       "role": "text",
       "text": "Rescan"
     },
     {
       "key": "stats-prompt",
       "label": "Copy prompt",
-      "rect": [668, 100, 125, 24],
+      "rect": [672, 98, 129, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [680, 104, 16, 16],
+      "rect": [686, 104, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [702, 102, 79, 20],
+      "rect": [708, 102, 79, 20],
       "role": "text",
       "text": "Copy prompt"
     },

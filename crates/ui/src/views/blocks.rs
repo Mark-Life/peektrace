@@ -35,7 +35,7 @@ pub fn failure(e: &LoadError, retrying: bool, retry: fn(&mut Ui), t: &Theme) -> 
         copy::RETRY
     })
     .variant(ButtonVariant::Outline)
-    .control_size(ControlSize::Small)
+    .control_size(ControlSize::Large)
     .disabled(retrying)
     .on_press(retry)
     .build(&t.kit)

@@ -121,7 +121,7 @@ pub fn secondary_badge(label: impl Into<String>, t: &Theme) -> El {
         )
 }
 
-/// A small button: outline or ghost, 24 tall.
+/// An outline or ghost button, as tall as the selects and fields.
 pub fn small_button(label: impl Into<String>, ghost: bool, t: &Theme) -> Button {
     let _ = t;
     Button::new(label)
@@ -130,7 +130,7 @@ pub fn small_button(label: impl Into<String>, ghost: bool, t: &Theme) -> Button 
         } else {
             ButtonVariant::Outline
         })
-        .control_size(ControlSize::Regular)
+        .control_size(ControlSize::Large)
 }
 
 fn section(key: &str, title: &str, by: &str, body: Vec<El>, t: &Theme) -> El {
