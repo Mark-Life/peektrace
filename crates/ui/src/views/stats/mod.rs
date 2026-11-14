@@ -190,6 +190,8 @@ pub struct V<'a> {
     pub s: &'a Ui,
     pub r: &'a StatsReportView,
     pub text: Option<&'a StatsText>,
+    /// `generatedAt` in local time.
+    pub generated: &'a str,
     pub bp: Bp,
     pub titles: &'a SessionTitles,
     pub t: &'a Theme,
@@ -304,6 +306,7 @@ fn body(s: &Ui, bp: Bp, t: &Theme, layer: &mut Vec<El>) -> Vec<El> {
         s,
         r: &screen.report,
         text: screen.text.as_ref(),
+        generated: &screen.generated,
         bp,
         titles: &titles,
         t,

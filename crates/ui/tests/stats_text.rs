@@ -23,7 +23,7 @@ use peektrace_ui::model::stats::chips::{
 use peektrace_ui::model::stats::derive::text_of;
 
 fn text(r: &StatsReport) -> StatsText {
-    text_of(r, None, 0.0)
+    text_of(r, None)
 }
 
 /// Samples as the views read them: through the report JSON.

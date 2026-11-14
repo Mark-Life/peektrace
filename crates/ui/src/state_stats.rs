@@ -281,20 +281,30 @@ impl Ui {
     }
 
     /// Open a sample's session, through its parent for a subagent, and
-    /// scroll to `call` once the analysis lands.
-    pub fn open_sample(&mut self, sid: &str, parent: Option<String>, call: Option<String>) {
+    /// scroll to `call`: now when that session is already loaded, else once
+    /// its analysis lands.
+    pub fn open_sample(
+        &mut self,
+        sid: &str,
+        parent: Option<String>,
+        call: Option<String>,
+        tx: &mut Tx,
+    ) {
         self.leave_stats();
         self.select(sid, parent);
         self.pending_call = call;
+        if let Some(key) = self.take_call_target() {
+            tx.scroll_into_view(key);
+        }
     }
 
     /// Open the transcript row of the pending call; its history key, for
-    /// the caller to scroll to.
+    /// the caller to scroll to. The pending call clears once an analysis is
+    /// on screen, found or not, so it never fires on a later reload.
     pub fn take_call_target(&mut self) -> Option<String> {
         let d = self.detail.as_ref()?;
-        let call = self.pending_call.as_deref()?;
-        let pos = *d.tools.calls.get(call)?;
-        self.pending_call = None;
+        let call = self.pending_call.take()?;
+        let pos = *d.tools.calls.get(call.as_str())?;
         let i = d.plan.iter().position(|n| match n {
             ChatNode::Tool { call, result } => *call == Some(pos) || *result == Some(pos),
             ChatNode::Run(items) => items.iter().any(|it| it.pos == pos),

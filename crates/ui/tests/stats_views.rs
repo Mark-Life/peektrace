@@ -21,15 +21,17 @@ use peektrace_protocol::view::SessionListingView;
 use peektrace_protocol::{ApiError, DrillTable};
 use peektrace_ui::model::stats::StatsScope;
 use peektrace_ui::model::stats::derive::text_of;
+use peektrace_ui::model::stats::format::at;
 use peektrace_ui::source::{LoadError, StatsScreen, decode};
 use peektrace_ui::state::{Route, Ui};
 use peektrace_ui::views;
-use rune::{ElementInfo, Env, Runtime};
+use rune::{ElementInfo, Env, Runtime, Tx};
 
 fn screen(r: &StatsReport) -> StatsScreen {
     StatsScreen {
         report: decode(&r.to_json(false)).expect("report view"),
-        text: Some(text_of(r, None, 0.0)),
+        text: Some(text_of(r, None)),
+        generated: at(r.generated_at, 0.0),
     }
 }
 
@@ -378,7 +380,7 @@ fn a_subagent_link_opens_the_subagent_through_its_parent() {
         (SUBAGENT, Some(CHIP_PARENT))
     );
     let mut s = Ui::new(None, 0.0, true);
-    s.open_sample(CHIP_PARENT, None, None);
+    s.open_sample(CHIP_PARENT, None, None, &mut Tx::default());
     assert_eq!(s.selected.and_then(|x| x.parent), None);
 }
 
@@ -386,9 +388,14 @@ fn a_subagent_link_opens_the_subagent_through_its_parent() {
 #[test]
 fn a_drill_link_names_the_call_to_scroll_to() {
     let mut s = Ui::new(None, 0.0, true);
-    s.open_sample(CHIP_PARENT, None, Some("toolu_42".into()));
+    s.open_sample(
+        CHIP_PARENT,
+        None,
+        Some("toolu_42".into()),
+        &mut Tx::default(),
+    );
     assert_eq!(s.pending_call.as_deref(), Some("toolu_42"));
-    s.open_sample(CHIP_PARENT, None, None);
+    s.open_sample(CHIP_PARENT, None, None, &mut Tx::default());
     assert_eq!(s.pending_call, None);
 }
 

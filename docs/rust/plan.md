@@ -236,5 +236,5 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 33. `virtual_rows` takes one row height estimate: ask Rune for per-row estimates, or live with the scroll thumb moving on long unvisited transcripts?
 34. Move the inspector off `@workspace/core` before cutover: types from Rust plus a `view-core` package, or server export?
 35. Keep or drop the Rune web build after the native app ships?
-36. Rune app Stats: draw the detector marks in the opened transcript (`DataSource::markers` exists), or leave the link at the call?
+36. Rune app Stats: draw the detector marks in the opened transcript, or leave the link at the call?
 37. Rune web build Stats: add a server route for the inspector-format findings and prompts, or keep them native only?

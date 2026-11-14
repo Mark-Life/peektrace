@@ -8,6 +8,7 @@
  * Cells the inspector writes inline in JSX (cause, fail and time columns,
  * the drill page note) are spelled here with the same `n`/`hms`/`pct`. */
 
+import { DRILL_PAGE } from "../../apps/inspector/src/lib/stats-atoms";
 import {
   at,
   chipLabelOf,
@@ -25,9 +26,11 @@ import {
 } from "../../apps/inspector/src/lib/stats-format";
 import { drillLabel } from "../../apps/inspector/src/routes/stats/drill-panel";
 import {
+  CLUSTER_ROWS,
   clusterRows,
   shapeRows,
 } from "../../apps/inspector/src/routes/stats/evidence";
+import { VISIBLE } from "../../apps/inspector/src/routes/stats/findings";
 import {
   agentOf,
   daysOf,
@@ -51,13 +54,6 @@ import type {
 } from "../../packages/core/src/services/stats/schema";
 import { widthOf } from "../../packages/viz/src/components/rank-bar";
 import { fmtK } from "../../packages/viz/src/lib/session-format";
-
-/** Hits fetched per drill page (`DRILL_PAGE`). */
-export const DRILL_PAGE = 200;
-/** Finding cards shown before "Show N more" (`VISIBLE`). */
-const VISIBLE = 6;
-/** Clusters drawn as bars (`CLUSTER_ROWS`). */
-const CLUSTER_ROWS = 10;
 
 export const STATS_SWEEP = [
   0, 0.4, 9.995, 10, 42, 59.4, 59.6, 60, 119.6, 187, 3599.6, 3600, 18_277, -1,

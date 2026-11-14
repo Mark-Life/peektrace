@@ -116,7 +116,7 @@ fn prompts(p: &Prompts) -> Value {
     json!({"report": p.report, "cause": map(&p.cause), "fail": map(&p.fail), "time": map(&p.time)})
 }
 
-fn text_json(t: &StatsText) -> Value {
+fn text_json(t: &StatsText, generated: String) -> Value {
     json!({
         "findings": t.findings.iter().map(|f| json!({
             "detector": f.detector, "impact": f.impact, "key": f.key, "note": f.note,
@@ -127,7 +127,7 @@ fn text_json(t: &StatsText) -> Value {
         "ruleLines": map(&t.rule_lines),
         "suggestedRule": map(&t.suggested_rule),
         "timeNotes": map(&t.time_notes),
-        "generated": t.generated,
+        "generated": generated,
     })
 }
 
@@ -210,10 +210,10 @@ pub fn stats_answer(req: &Value) -> Value {
         return json!({"error": "decode"});
     };
     let titles = titles_of(req);
-    let text = text_of(&r, s.agent, 0.0);
+    let text = text_of(&r, s.agent);
     json!({
         "report": serde_json::from_str::<Value>(&body).unwrap_or(Value::Null),
-        "text": text_json(&text),
+        "text": text_json(&text, at(r.generated_at, 0.0)),
         "view": view_json(&view, &titles),
         "showMore": rows::show_more(text.findings.len()),
         "retryWindow": peektrace_ui::model::stats::RETRY_WINDOW,

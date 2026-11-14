@@ -13,7 +13,7 @@ import { RankBar, type RankRow } from "@workspace/viz/components/rank-bar";
 import { hms, n, pct } from "../../lib/stats-format";
 
 /** Clusters drawn as bars before the list gets longer than it is useful. */
-const CLUSTER_ROWS = 10;
+export const CLUSTER_ROWS = 10;
 
 /** One labelled figure in the waiting header. */
 const Figure = ({

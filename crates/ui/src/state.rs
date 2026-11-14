@@ -355,6 +355,7 @@ impl Ui {
             id: id.to_owned(),
             parent,
         });
+        self.pending_call = None;
         self.detail = None;
         self.detail_error = None;
         self.open.clear();

@@ -13,18 +13,18 @@ use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::{analyzed_json_with, listing_json};
 use peektrace_core::stats::cache::{StatsCache, cache_root};
 use peektrace_core::stats::service::{
-    DrillPage, ReportRequest, StatsEnv, StatsError, drill, markers, markers_json, refresh, report,
+    DrillPage, ReportRequest, StatsEnv, StatsError, drill, report,
 };
-use peektrace_core::stats::usage_service::{UsageRequest, usage};
 use peektrace_core::watch::{WatchProblem, Watcher};
 use peektrace_core::{AgentRoots, ListFilter, list_sessions_cached};
-use peektrace_protocol::stats::{DrillView, MarkersView, RefreshView, UsageView};
+use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
-use peektrace_protocol::{AgentId, ApiError, RefreshBody, UsageBy, UsageQuery, WatchVersions};
+use peektrace_protocol::{AgentId, ApiError, WatchVersions};
 use tracing::{Span, field, info_span};
 
 use super::{DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode};
 use crate::model::stats::derive::{core_agent, offset_at, text_of};
+use crate::model::stats::format::at;
 use crate::model::stats::{DrillAsk, StatsScope};
 
 struct Inner {
@@ -102,32 +102,6 @@ fn report_request(scope: StatsScope) -> ReportRequest {
         days: Some(f64::from(scope.days)),
         force: false,
         limit: None,
-    }
-}
-
-fn number(s: Option<&String>) -> Option<f64> {
-    s.map(|v| peektrace_core::js::num::parse_number(v))
-        .filter(|v| v.is_finite())
-}
-
-#[expect(clippy::cast_possible_truncation, reason = "a whole day count")]
-fn usage_request(q: &UsageQuery) -> UsageRequest {
-    use peektrace_core::stats::detectors::usage::UsageBy as CoreBy;
-    UsageRequest {
-        agents: q.agent.as_ref().map(|a| {
-            a.iter()
-                .filter_map(|s| AgentId::parse(s))
-                .map(core_agent)
-                .collect()
-        }),
-        by: match q.by {
-            UsageBy::Day => CoreBy::Day,
-            UsageBy::Month => CoreBy::Month,
-            UsageBy::Block => CoreBy::Block,
-        },
-        days: number(q.days.as_ref()).map(|d| d as i64),
-        force: q.force.as_deref() == Some("true"),
-        tz: Some(q.tz.clone().unwrap_or_else(|| "UTC".to_owned())),
     }
 }
 
@@ -228,11 +202,8 @@ impl InProcess {
         })?;
         let out = decode(&r.to_json(false)).map(|view| StatsScreen {
             report: view,
-            text: Some(text_of(
-                &r,
-                scope.agent,
-                offset_at(&inner.zone, r.generated_at),
-            )),
+            text: Some(text_of(&r, scope.agent)),
+            generated: at(r.generated_at, offset_at(&inner.zone, r.generated_at)),
         });
         if let Err(e) = &out {
             span.record("error", field::display(e));
@@ -378,55 +349,6 @@ impl DataSource for InProcess {
 
     fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>) {
         self.spawn(move |inner| Self::stats_page(inner, scope, &ask), reply);
-    }
-
-    fn stats_usage(&self, query: UsageQuery, reply: Reply<UsageView>) {
-        self.spawn(
-            move |inner| {
-                let span = stats_span!("app.stats.usage");
-                let _entered = span.enter();
-                let req = usage_request(&query);
-                let body = Self::with_stats(inner, &span, true, |env| {
-                    Ok(usage(env, &req)?.to_json(false))
-                })?;
-                decode(&body)
-            },
-            reply,
-        );
-    }
-
-    fn stats_refresh(&self, body: RefreshBody, reply: Reply<RefreshView>) {
-        self.spawn(
-            move |inner| {
-                let span = stats_span!("app.stats.refresh");
-                let _entered = span.enter();
-                let agents: Option<Vec<_>> =
-                    body.agents.map(|a| a.into_iter().map(core_agent).collect());
-                let force = body.force.unwrap_or(false);
-                let out = Self::with_stats(inner, &span, true, |env| {
-                    Ok(refresh(env, agents.as_deref(), force)?.to_json(false))
-                })?;
-                decode(&out)
-            },
-            reply,
-        );
-    }
-
-    fn markers(&self, sid: String, agent: Option<AgentId>, reply: Reply<MarkersView>) {
-        self.spawn(
-            move |inner| {
-                let span = stats_span!("app.stats.markers");
-                span.record("session.id", sid.as_str());
-                let _entered = span.enter();
-                let agents = agents_of(agent);
-                let body = Self::with_stats(inner, &span, false, |env| {
-                    let found = markers(env, &sid, agents.as_deref(), false)?;
-                    Ok(markers_json(&sid, &found, false))
-                })?;
-                decode(&body)
-            },
-            reply,
-        );
     }
 
     fn stats_report_now(&self, scope: StatsScope) -> Option<Result<StatsScreen, LoadError>> {

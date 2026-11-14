@@ -11,8 +11,8 @@ mod common;
 use std::sync::Arc;
 
 use common::home::{self, STATS_MAIN_ID};
-use peektrace_protocol::stats::{DrillView, MarkersView, RefreshView, UsageView};
-use peektrace_protocol::{AgentId, ApiError, RefreshBody, UsageQuery};
+use peektrace_protocol::stats::DrillView;
+use peektrace_protocol::{AgentId, ApiError};
 use peektrace_ui::model::stats::{DrillAsk, StatsScope};
 use peektrace_ui::source::in_process::InProcess;
 use peektrace_ui::source::{DataSource, LoadError, OnVersions, Reply, StatsScreen};
@@ -249,6 +249,43 @@ fn a_subagent_chip_opens_through_its_parent_at_the_call() {
 }
 
 #[test]
+fn a_chip_into_the_open_session_opens_the_call_at_once() {
+    let mut rt = runtime(stats_state());
+    let chip = keys_with(&rt, "stats-session-link:agent-a1")
+        .into_iter()
+        .next()
+        .expect("subagent chip");
+    click(&mut rt, &chip);
+    load(&mut rt);
+    rt.update(|s, _| {
+        s.enter_stats(0.0);
+        s.open.clear();
+    });
+    settle(&mut rt);
+    click(&mut rt, &chip);
+    assert_eq!(rt.state.route, Route::Sessions);
+    assert!(
+        rt.state.pending.is_empty(),
+        "no reload for the same session"
+    );
+    assert_eq!(rt.state.pending_call, None);
+    assert!(rt.state.open.iter().any(|id| id.starts_with("chat:")));
+}
+
+#[test]
+fn a_pending_call_drops_when_another_session_opens() {
+    let mut rt = runtime(stats_state());
+    let chip = keys_with(&rt, "stats-session-link:agent-a1")
+        .into_iter()
+        .next()
+        .expect("subagent chip");
+    click(&mut rt, &chip);
+    assert!(rt.state.pending_call.is_some());
+    rt.update(|s, _| s.select(STATS_MAIN_ID, None));
+    assert_eq!(rt.state.pending_call, None);
+}
+
+#[test]
 fn folded_samples_list_every_target() {
     let mut rt = runtime(stats_state());
     let more = keys_with(&rt, "stats-session-more:")
@@ -446,15 +483,6 @@ impl DataSource for Failing {
         reply(scan_failed());
     }
     fn stats_drill(&self, _: StatsScope, _: DrillAsk, reply: Reply<DrillView>) {
-        reply(scan_failed());
-    }
-    fn stats_usage(&self, _: UsageQuery, reply: Reply<UsageView>) {
-        reply(scan_failed());
-    }
-    fn stats_refresh(&self, _: RefreshBody, reply: Reply<RefreshView>) {
-        reply(scan_failed());
-    }
-    fn markers(&self, _: String, _: Option<AgentId>, reply: Reply<MarkersView>) {
         reply(scan_failed());
     }
     fn stats_report_now(&self, _: StatsScope) -> Option<Result<StatsScreen, LoadError>> {

@@ -7,7 +7,6 @@ use rune_kit::{Collapsible, Select};
 
 use super::copy::prompt_button;
 use super::{REFRESH, SHIELD_CHECK, V, muted, small_button};
-use crate::model::stats::format::at;
 use crate::model::stats::rows::{DAY_OPTIONS, caveats_line, corpus_line, window_line};
 use crate::state::Ui;
 use crate::theme::ty;
@@ -89,9 +88,6 @@ fn controls(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
 
 pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
     let (s, r, t) = (v.s, v.r, v.t);
-    let generated = v
-        .text
-        .map_or_else(|| at(r.generated_at, 0.0), |x| x.generated.clone());
     let mut list = col().key("stats-caveats").w_full().gap(4.0).pl(16.0);
     list = list
         .children(r.caveats.iter().map(|c| muted(format!("• {c}"), t)))
@@ -126,7 +122,7 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
                 .child(spacer())
                 .child(controls(v, rescanning, layer)),
         )
-        .child(muted(window_line(r, &generated), t).key("stats-window"))
+        .child(muted(window_line(r, v.generated), t).key("stats-window"))
         .child(
             row()
                 .gap(6.0)

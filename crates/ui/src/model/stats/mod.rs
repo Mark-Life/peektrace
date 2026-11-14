@@ -83,8 +83,6 @@ pub struct StatsText {
     pub suggested_rule: HashMap<String, String>,
     /// Time key to its note.
     pub time_notes: HashMap<String, String>,
-    /// `generatedAt` in local time.
-    pub generated: String,
 }
 
 /// Calls within which a similar call counts as a retry (core `RETRY_WINDOW`).

@@ -5,7 +5,7 @@ use std::borrow::Cow;
 
 use peektrace_js::num::to_js_string;
 use peektrace_protocol::stats::{DrillHitView, DrillView};
-use rune::{El, GrowthSpec, ScrollSpec, col, el, memo, row, spacer, text};
+use rune::{El, GrowthSpec, ScrollSpec, Tx, col, el, memo, row, spacer, text};
 use rune_kit::{IconButton, IconButtonVariant};
 
 use super::{V, error_view, mono, muted, outline_badge, skeleton, small_button, title_for};
@@ -89,7 +89,9 @@ fn hit_view(s: &Ui, h: &DrillHitView, t: &Theme) -> El {
             sm.parent.as_deref().unwrap_or(&sm.sid)
         ))
         .focusable(true)
-        .on_press(move |s: &mut Ui| s.open_sample(&sid, parent.clone(), call.clone()));
+        .on_press_tx(move |s: &mut Ui, tx: &mut Tx| {
+            s.open_sample(&sid, parent.clone(), call.clone(), tx);
+        });
     let mut c = col().w_full().gap(4.0).pb(8.0).child(link);
     if h.pair_line.is_some() {
         let (sid, parent, call) = (
@@ -100,7 +102,9 @@ fn hit_view(s: &Ui, h: &DrillHitView, t: &Theme) -> El {
         c = c.child(
             row().w_full().child(spacer()).child(
                 small_button("Open the retry", true, t)
-                    .on_press(move |s: &mut Ui| s.open_sample(&sid, parent.clone(), call.clone()))
+                    .on_press_tx(move |s: &mut Ui, tx: &mut Tx| {
+                        s.open_sample(&sid, parent.clone(), call.clone(), tx);
+                    })
                     .build(&t.kit)
                     .key(format!("drill-retry:{}", hit_id(h))),
             ),

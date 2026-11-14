@@ -1,5 +1,6 @@
 /** Runs the `ui` stage's Stats questions (see `parity-ui-stats.ts`). */
 import { join } from "node:path";
+import { DRILL_PAGE } from "../../apps/inspector/src/lib/stats-atoms";
 import type { SessionTitles } from "../../apps/inspector/src/lib/stats-format";
 import { findingsOf } from "../../apps/inspector/src/lib/stats-format";
 import type { AgentId } from "../../packages/core/src/services/agent-id";
@@ -10,7 +11,6 @@ import type {
 import { fixtureEnv, WORK } from "./parity-lib";
 import { buildStatsHome, unlockStatsHome } from "./parity-stats-fixtures";
 import {
-  DRILL_PAGE,
   drillAnswer,
   STATS_AGENTS,
   STATS_DAYS,

@@ -4,7 +4,7 @@
 
 use peektrace_js::num::to_js_string;
 use peektrace_protocol::stats::SampleRefView;
-use rune::{El, col, icon, row, text};
+use rune::{El, Tx, col, icon, row, text};
 use rune_kit::Popover;
 
 use super::{ARROW_UP_RIGHT, V, small_button};
@@ -16,9 +16,9 @@ fn sample_id(s: &SampleRefView) -> String {
     format!("{}:{}", s.sid, to_js_string(s.seq))
 }
 
-fn open(s: &SampleRefView) -> impl Fn(&mut Ui) + 'static {
+fn open(s: &SampleRefView) -> impl Fn(&mut Ui, &mut Tx) + 'static {
     let (sid, parent, call) = (s.sid.clone(), s.parent.clone(), s.tool_use_id.clone());
-    move |ui: &mut Ui| ui.open_sample(&sid, parent.clone(), call.clone())
+    move |ui: &mut Ui, tx: &mut Tx| ui.open_sample(&sid, parent.clone(), call.clone(), tx)
 }
 
 fn chip(v: &V<'_>, group: &[&SampleRefView]) -> El {
@@ -55,7 +55,7 @@ fn chip(v: &V<'_>, group: &[&SampleRefView]) -> El {
         .label(c.label)
         .help(title_of(group))
         .focusable(true)
-        .on_press(open(first))
+        .on_press_tx(open(first))
 }
 
 fn targets(v: &V<'_>, owner: &str, group: &[&SampleRefView], layer: &mut Vec<El>) -> El {
@@ -101,7 +101,7 @@ fn targets(v: &V<'_>, owner: &str, group: &[&SampleRefView], layer: &mut Vec<El>
                 .label(target_label(s))
                 .help(s.line.clone())
                 .focusable(true)
-                .on_press(open(s))
+                .on_press_tx(open(s))
         }));
     Popover::new(format!("stats-targets-{}", id.replace(['/', ':'], "-")))
         .trigger(trigger)

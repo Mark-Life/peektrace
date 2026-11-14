@@ -76,9 +76,8 @@ fn prompts_of(r: &StatsReport, agent: Option<Agent>) -> Prompts {
     }
 }
 
-/// Everything core writes for `r`, scoped to `agent`; `generated` in a
-/// zone `offset_ms` east of UTC.
-pub fn text_of(r: &StatsReport, agent: Option<AgentId>, offset_ms: f64) -> StatsText {
+/// Everything core writes for `r`, scoped to `agent`.
+pub fn text_of(r: &StatsReport, agent: Option<AgentId>) -> StatsText {
     let findings = findings_with(r, &INSPECTOR)
         .into_iter()
         .map(|f| FindingView {
@@ -111,6 +110,5 @@ pub fn text_of(r: &StatsReport, agent: Option<AgentId>, offset_ms: f64) -> Stats
             .iter()
             .filter_map(|t| Some((t.key.as_str().to_owned(), time_note_with(t, &INSPECTOR)?)))
             .collect(),
-        generated: at(r.generated_at, offset_ms),
     }
 }

@@ -1,7 +1,8 @@
 //! How the stats screen spells numbers, as the inspector's
 //! `lib/stats-format.ts` does in a browser.
 
-use peektrace_js::num::{js_round, parse_number, to_fixed, to_js_string};
+use peektrace_js::num::{js_round, to_fixed, to_js_string};
+pub use peektrace_js::num::{rate_text, to_locale_string as n};
 use peektrace_js::time::to_iso_string;
 
 const SEC_PER_MIN: f64 = 60.0;
@@ -31,38 +32,6 @@ pub fn hms(sec: f64) -> String {
 /// A 0-1 share as a percentage with two decimals.
 pub fn pct(share: f64) -> String {
     format!("{}%", to_fixed(share * 100.0, 2))
-}
-
-/// `n.toLocaleString()` in en-US: grouped, up to three fraction digits.
-pub fn n(value: f64) -> String {
-    if !value.is_finite() {
-        return to_js_string(value);
-    }
-    // `toFixed` prints exponents from 1e21 on; ICU still groups the digits.
-    let s = if value.abs() >= 1e21 {
-        format!("{:.0}", value.abs())
-    } else {
-        to_fixed(value.abs(), 3)
-    };
-    let (int, frac) = s.split_once('.').unwrap_or((&s, ""));
-    let frac = frac.trim_end_matches('0');
-    let mut grouped = String::with_capacity(int.len() + int.len() / 3);
-    for (i, c) in int.chars().enumerate() {
-        if i > 0 && (int.len() - i).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(c);
-    }
-    let sign = if value < 0.0 && (grouped != "0" || !frac.is_empty()) {
-        "-"
-    } else {
-        ""
-    };
-    if frac.is_empty() {
-        format!("{sign}{grouped}")
-    } else {
-        format!("{sign}{grouped}.{frac}")
-    }
 }
 
 /// `new Date(ms).toLocaleString()` in en-US, `offset_ms` east of UTC:
@@ -96,30 +65,6 @@ pub fn at(epoch_ms: f64, offset_ms: f64) -> String {
         .strip_prefix('0')
         .map_or(year, |y| y.trim_start_matches('0'));
     format!("{}/{}/{year}, {h12}{rest} {half}", num(month), num(day))
-}
-
-/// `String(Number(x.toPrecision(2)))` for a small positive rate.
-fn precision2(x: f64) -> String {
-    if x == 0.0 || !x.is_finite() {
-        return to_js_string(x);
-    }
-    let e = x.abs().log10().floor();
-    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-    let digits = (1.0 - e).max(0.0) as u32;
-    to_js_string(parse_number(&to_fixed(x, digits)))
-}
-
-/// A per-1k rate: `<0.01` for a tiny nonzero rate, whole above 10, else two
-/// significant digits (core `rateText`).
-pub fn rate_text(rate: f64, hits: f64) -> String {
-    if hits > 0.0 && rate < 0.01 {
-        return "<0.01".to_owned();
-    }
-    if rate >= 10.0 {
-        n(js_round(rate))
-    } else {
-        precision2(rate)
-    }
 }
 
 #[cfg(test)]

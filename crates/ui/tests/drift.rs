@@ -68,43 +68,7 @@ fn labels_and_cost_match_core() {
 }
 
 #[test]
-fn stats_numbers_match_core() {
-    use peektrace_core::stats::format as core_fmt;
-    use peektrace_ui::model::stats::format;
-    let sweep = [
-        0.0,
-        1.0,
-        12.0,
-        999.0,
-        1000.0,
-        1234.0,
-        1_234_567.0,
-        0.5,
-        0.125,
-        1.0005,
-        2.4996,
-        12.345_6,
-        -3.0,
-        -1234.5,
-        1e15,
-        9_007_199_254_740_991.0,
-    ];
-    for x in sweep {
-        assert_eq!(format::n(x), core_fmt::count(x), "{x}");
-    }
-    for (rate, hits) in [
-        (0.0, 0.0),
-        (0.001, 1.0),
-        (0.125, 1.0),
-        (3.33, 2.0),
-        (12.5, 1.0),
-        (1234.5, 9.0),
-    ] {
-        assert_eq!(
-            format::rate_text(rate, hits),
-            core_fmt::rate_text(rate, hits)
-        );
-    }
+fn stats_retry_window_matches_core() {
     assert!(
         (peektrace_ui::model::stats::RETRY_WINDOW
             - peektrace_core::stats::detectors::pairing::RETRY_WINDOW)
@@ -151,7 +115,7 @@ fn the_report_view_keeps_every_row_core_writes() {
         assert_eq!(a.samples.len(), b.samples.len());
         assert_eq!(a.rule.is_some(), b.rule.is_some());
     }
-    let text = peektrace_ui::model::stats::derive::text_of(&r, None, 0.0);
+    let text = peektrace_ui::model::stats::derive::text_of(&r, None);
     assert_eq!(
         text.findings.len(),
         peektrace_core::stats::findings::findings_of(&r).len()

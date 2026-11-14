@@ -9,9 +9,9 @@ pub mod in_process;
 #[cfg(target_arch = "wasm32")]
 pub mod http;
 
-use peektrace_protocol::stats::{DrillView, MarkersView, RefreshView, StatsReportView, UsageView};
+use peektrace_protocol::stats::{DrillView, StatsReportView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView, mend_surrogates};
-use peektrace_protocol::{AgentId, ApiError, ApiErrorBody, RefreshBody, UsageQuery, WatchVersions};
+use peektrace_protocol::{ApiError, ApiErrorBody, WatchVersions};
 
 use crate::model::stats::{DrillAsk, StatsScope, StatsText};
 
@@ -21,6 +21,8 @@ use crate::model::stats::{DrillAsk, StatsScope, StatsText};
 pub struct StatsScreen {
     pub report: StatsReportView,
     pub text: Option<StatsText>,
+    /// `generatedAt` in the source's local time.
+    pub generated: String,
 }
 
 /// Why a load failed.
@@ -98,10 +100,6 @@ pub trait DataSource: Send + Sync + 'static {
     fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>);
     /// One page of the calls behind a row.
     fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>);
-    fn stats_usage(&self, query: UsageQuery, reply: Reply<UsageView>);
-    fn stats_refresh(&self, body: RefreshBody, reply: Reply<RefreshView>);
-    /// The detector marks of one session.
-    fn markers(&self, sid: String, agent: Option<AgentId>, reply: Reply<MarkersView>);
     fn stats_report_now(&self, _scope: StatsScope) -> Option<Result<StatsScreen, LoadError>> {
         None
     }
