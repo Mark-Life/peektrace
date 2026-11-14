@@ -30,7 +30,14 @@ const sliceBg = (key: string, color: string): string =>
     : color;
 
 /** Stacked bar + category table for the peak-turn budget. */
-export const BudgetBar = ({ a }: { readonly a: AnalyzedSession }) => {
+export const BudgetBar = ({
+  a,
+}: {
+  readonly a: Pick<
+    AnalyzedSession,
+    "budget" | "contextWindow" | "peakContextTokens"
+  >;
+}) => {
   const total = a.budget.reduce((s, b) => s + b.tokens, 0) || 1;
   const free = Math.max(0, a.contextWindow - a.peakContextTokens);
   return (

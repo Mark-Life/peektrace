@@ -15,12 +15,12 @@ use crate::paths::{claude_slug, posix};
 const MAX_INDEX_LINES: usize = 200;
 /// Claude Code cuts MEMORY.md past this many UTF-16 units, at a newline.
 const MEMORY_MAX_CHARS: usize = 25_000;
-const MAX_RULE_DEPTH: usize = 8;
+pub(super) const MAX_RULE_DEPTH: usize = 8;
 
-const CLAUDE_FILES: [&str; 2] = ["CLAUDE.md", ".claude/CLAUDE.md"];
-const AGENTS_FILES: [&str; 2] = ["AGENTS.md", ".claude/AGENTS.md"];
-const LOCAL_FILE: &str = "CLAUDE.local.md";
-const RULES_DIR: &str = ".claude/rules";
+pub(super) const CLAUDE_FILES: [&str; 2] = ["CLAUDE.md", ".claude/CLAUDE.md"];
+pub(super) const AGENTS_FILES: [&str; 2] = ["AGENTS.md", ".claude/AGENTS.md"];
+pub(super) const LOCAL_FILE: &str = "CLAUDE.local.md";
+pub(super) const RULES_DIR: &str = ".claude/rules";
 
 /// One context file as it sits on disk, symlinks followed.
 struct ContextRead {
@@ -299,6 +299,12 @@ fn outside_worktree(dir: &str, co: Option<&Checkout>) -> bool {
     co.is_some_and(|co| {
         co.main_root != co.root && within(dir, &co.main_root) && !within(dir, &co.root)
     })
+}
+
+/// The root `cwd`'s memory dir is keyed by: its main git checkout, else
+/// `cwd` itself.
+pub(super) fn memory_root(cwd: &str) -> String {
+    git_checkout(&project_dirs(cwd)).map_or_else(|| cwd.to_owned(), |c| c.main_root)
 }
 
 /// Project instruction files for `cwd` in load order, and the root its

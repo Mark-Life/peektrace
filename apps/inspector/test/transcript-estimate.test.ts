@@ -8,6 +8,7 @@ import {
   estimateChatNode,
   estimateTableRow,
 } from "../src/lib/transcript-estimate";
+import { indexRowsOf } from "./history-rows";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   body: "",
@@ -96,5 +97,21 @@ describe("estimateTableRow", () => {
     expect(estimateTableRow({ divider: true, open: false })).toBeGreaterThan(
       base
     );
+  });
+});
+
+describe("index rows", () => {
+  test("a row's body length sizes it like the body would", () => {
+    const body = "x".repeat(2000);
+    const [row] = indexRowsOf([evt({ body })], [0]);
+    if (!row) {
+      throw new Error("no row");
+    }
+    const fromRow = { row: { e: row, pos: 0 }, type: "message" } as const;
+    for (const open of [false, true]) {
+      expect(
+        estimateChatNode({ allOpen: open, isOpen: () => open, n: fromRow })
+      ).toBe(size(message(body), open));
+    }
   });
 });

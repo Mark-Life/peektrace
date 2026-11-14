@@ -54,6 +54,7 @@ fn open_events(watcher: bool) -> Running {
         tmp_dir: "/tmp".to_owned(),
         now: peektrace_server::system_clock(),
         stats_lock: Arc::default(),
+        pages: peektrace_server::pages::PagesCache::default(),
     };
     let guards = Guards {
         allow: Allowlist::new("127.0.0.1", port),

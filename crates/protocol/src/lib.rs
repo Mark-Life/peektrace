@@ -3,9 +3,15 @@
 //! Session headers, parsed sessions and analyses are written by the core
 //! JSON writers, so only their names appear here.
 
+mod history;
 #[cfg(test)]
 mod ts_gen;
 pub mod view;
+
+pub use history::{
+    GrowthSeries, GrowthSlices, GrowthSnapshots, GrowthTurn, HistoryIndexMeta, HistoryPageMeta,
+    HistoryPageQuery, HistorySearchQuery, HistorySearchResult, SummaryHistory,
+};
 
 use serde::{Deserialize, Serialize};
 

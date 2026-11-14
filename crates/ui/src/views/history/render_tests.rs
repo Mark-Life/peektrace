@@ -10,12 +10,11 @@ use crate::state::{Detail, Route, Selected, Ui};
 use crate::theme::theme;
 
 fn evt(index: usize, k: EventKind, body: &str, request: &str) -> TimelineEvent {
-    TimelineEvent {
-        index,
-        body: body.into(),
-        request_id: (!request.is_empty()).then(|| request.to_owned()),
-        ..kind(k)
-    }
+    let mut built = kind(k);
+    built.index = index;
+    built.body = body.into();
+    built.request_id = (!request.is_empty()).then(|| request.to_owned());
+    built
 }
 
 /// One of every kind, plus a paired tool run, an orphan result, a cluster
@@ -25,85 +24,94 @@ fn events() -> Vec<TimelineEvent> {
     vec![
         evt(0, K::UserPrompt, "hello", "r1"),
         evt(1, K::AssistantText, "sure", "r1"),
-        TimelineEvent {
-            tokens_est: 900.0,
-            ..evt(2, K::AssistantThinking, "", "r1")
+        {
+            let mut built = evt(2, K::AssistantThinking, "", "r1");
+            built.tokens_est = 900.0;
+            built
         },
-        TimelineEvent {
-            tool_name: Some("Read".into()),
-            tool_use_id: Some("t1".into()),
-            ..evt(3, K::ToolCall, r#"{"file_path":"/a/b.ts"}"#, "r1")
+        {
+            let mut built = evt(3, K::ToolCall, r#"{"file_path":"/a/b.ts"}"#, "r1");
+            built.tool_name = Some("Read".into());
+            built.tool_use_id = Some("t1".into());
+            built
         },
-        TimelineEvent {
-            tool_use_id: Some("t1".into()),
-            ..evt(4, K::ToolResult, "file contents", "r1")
+        {
+            let mut built = evt(4, K::ToolResult, "file contents", "r1");
+            built.tool_use_id = Some("t1".into());
+            built
         },
-        TimelineEvent {
-            is_error: Some(true),
-            tool_use_id: Some("orphan".into()),
-            ..evt(5, K::ToolResult, "boom", "r1")
+        {
+            let mut built = evt(5, K::ToolResult, "boom", "r1");
+            built.is_error = Some(true);
+            built.tool_use_id = Some("orphan".into());
+            built
         },
-        TimelineEvent {
-            loaded_category: Some("claude-md".into()),
-            title: "file: CLAUDE.md".into(),
-            tokens_est: 1200.0,
-            ..evt(6, K::Attachment, "# project rules", "")
+        {
+            let mut built = evt(6, K::Attachment, "# project rules", "");
+            built.loaded_category = Some("claude-md".into());
+            built.title = "file: CLAUDE.md".into();
+            built.tokens_est = 1200.0;
+            built
         },
-        TimelineEvent {
-            loaded_category: Some("skills".into()),
-            title: "skill_listing (12 skills)".into(),
-            ..evt(7, K::Attachment, "skills", "")
+        {
+            let mut built = evt(7, K::Attachment, "skills", "");
+            built.loaded_category = Some("skills".into());
+            built.title = "skill_listing (12 skills)".into();
+            built
         },
         evt(8, K::System, "ignored", ""),
         evt(9, K::Compaction, "summary of history", ""),
         evt(10, K::Summary, "running notes", ""),
-        TimelineEvent {
-            title: "meta".into(),
-            ..evt(11, K::Meta, "note", "")
+        {
+            let mut built = evt(11, K::Meta, "note", "");
+            built.title = "meta".into();
+            built
         },
-        TimelineEvent {
-            is_sidechain: Some(true),
-            ..evt(12, K::UserPrompt, "sub work", "r2")
+        {
+            let mut built = evt(12, K::UserPrompt, "sub work", "r2");
+            built.is_sidechain = Some(true);
+            built
         },
         evt(13, K::AssistantText, &"x".repeat(1200), "r2"),
-        TimelineEvent {
-            title: "System prompt".into(),
-            tokens_est: 2000.0,
-            ..evt(
+        {
+            let mut built = evt(
                 14,
                 K::SystemPrompt,
                 "## preamble\n\nYou are a coding agent.",
                 "",
-            )
+            );
+            built.title = "System prompt".into();
+            built.tokens_est = 2000.0;
+            built
         },
-        TimelineEvent {
-            prompt_origin: Some(PromptOrigin::TaskNotification),
-            title: "Task notification".into(),
-            ..evt(
+        {
+            let mut built = evt(
                 15,
                 K::UserPrompt,
                 "<task-notification>\n<task-id>b7</task-id>\n<status>completed</status>\n</task-notification>",
                 "",
-            )
+            );
+            built.prompt_origin = Some(PromptOrigin::TaskNotification);
+            built.title = "Task notification".into();
+            built
         },
     ]
 }
 
 fn session() -> AnalyzedSession {
-    AnalyzedSession {
-        compaction_indexes: vec![9],
-        dumb_zone_cross_turn: 1,
-        dumb_zone_fraction: 0.5,
-        dumb_zone_turns: 1,
-        events: events(),
-        models: vec!["claude-opus-4".into()],
-        session_id: "s".into(),
-        tool_call_count: 1,
-        turn_count: 2,
-        turns: vec![turn("r1"), turn("r2")],
-        user_message_count: 2,
-        ..analysis()
-    }
+    let mut built = analysis();
+    built.compaction_indexes = vec![9];
+    built.dumb_zone_cross_turn = 1;
+    built.dumb_zone_fraction = 0.5;
+    built.dumb_zone_turns = 1;
+    built.events = events();
+    built.models = vec!["claude-opus-4".into()];
+    built.session_id = "s".into();
+    built.tool_call_count = 1;
+    built.turn_count = 2;
+    built.turns = vec![turn("r1"), turn("r2")];
+    built.user_message_count = 2;
+    built
 }
 
 /// The rows without the `system` event, the TS turn numbers (no carry) and

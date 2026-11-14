@@ -287,7 +287,7 @@ pub struct ServeArgs {
 pub enum WebUi {
     /// The React inspector
     Inspector,
-    /// The Rune app (WebGPU)
+    /// The Rune app (WebGPU, experimental)
     Rune,
 }
 

@@ -5,7 +5,12 @@
  * scrollbar honest and the page from jumping when a block is finally measured.
  * Heights are in CSS pixels and include the gap below each chat block.
  */
-import { type ChatNode, chatCollapseIdOf } from "./chat-lane";
+import {
+  bodyLength,
+  type ChatNode,
+  chatCollapseIdOf,
+  type EventRow,
+} from "./chat-lane";
 
 /** Space below each chat block, as a class on each chat item and in pixels. */
 export const CHAT_ITEM_CLASS = "pb-3";
@@ -30,28 +35,28 @@ const HEADER = {
   run: 40,
   tool: 44,
   turn: 28,
-} as const satisfies Record<ChatNode["type"], number>;
+} as const satisfies Record<ChatNode<EventRow>["type"], number>;
 
 /** Height of `chars` of wrapped text, capped at `max`. */
 const textHeight = (chars: number, max: number) =>
   Math.min(Math.ceil(chars / CHARS_PER_LINE) * LINE, max);
 
 /** What one opened chat node adds below its header. */
-const openedBody = (n: ChatNode) => {
+const openedBody = (n: ChatNode<EventRow>) => {
   if (n.type === "tool") {
     return OPENED_TOOL;
   }
   if (n.type === "message" || n.type === "band" || n.type === "notice") {
-    return textHeight(n.row.e.body.length, OPENED_BODY);
+    return textHeight(bodyLength(n.row.e), OPENED_BODY);
   }
   return n.type === "run" ? OPENED_BODY : 0;
 };
 
 /** What a collapsed message shows: its body, up to the clamp. Thinking stays
  *  folded to one line until opened. */
-const collapsedBody = (n: ChatNode) =>
+const collapsedBody = (n: ChatNode<EventRow>) =>
   n.type === "message" && n.row.e.kind !== "assistant-thinking"
-    ? textHeight(n.row.e.body.length, CLAMPED_BODY)
+    ? textHeight(bodyLength(n.row.e), CLAMPED_BODY)
     : 0;
 
 /** Guessed height of one chat node. A chip cluster has no id of its own, so it
@@ -63,7 +68,7 @@ export const estimateChatNode = ({
 }: {
   readonly allOpen: boolean;
   readonly isOpen: (id: string) => boolean;
-  readonly n: ChatNode;
+  readonly n: ChatNode<EventRow>;
 }) => {
   const id = chatCollapseIdOf(n);
   const open = id === null ? allOpen && n.type === "run" : isOpen(id);

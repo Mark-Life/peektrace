@@ -9,7 +9,7 @@ use peektrace_core::js::time::Utc;
 use peektrace_core::sessions::analyze::{AnalyzeOptions, analyze};
 use peektrace_core::sessions::redact::redact_session;
 use peektrace_core::sessions::write::analyzed_json_with;
-use peektrace_protocol::view::{AnalyzedSession, EventKind, TimelineEvent, mend_surrogates};
+use peektrace_protocol::view::{AnalyzedSession, EventKind, EventMeta, mend_surrogates};
 use peektrace_ui::model::diff::RowKind;
 use peektrace_ui::model::tools::{
     Body, ToolPane, ToolState, call_view, index_tools, result_pane, tool_name_of, tool_state,
@@ -133,11 +133,12 @@ fn a_result_borrows_the_tool_name_its_event_never_records() {
 fn an_unpaired_event_still_names_something_renderable() {
     let a = outcomes();
     let ix = index_tools(&a.events);
-    let orphan = TimelineEvent {
+    let mut orphan = a.events[event_at(&a, "call-ok", EventKind::ToolResult)].clone();
+    orphan.meta = EventMeta {
         title: "tool_result".into(),
         tool_use_id: Some("nothing-matches-this".into()),
         tool_name: None,
-        ..a.events[event_at(&a, "call-ok", EventKind::ToolResult)].clone()
+        ..orphan.meta
     };
     assert_eq!(tool_name_of(&a.events, &orphan, &ix), "tool");
 }
