@@ -28,14 +28,8 @@ import {
   MessagesSquareIcon,
   SettingsIcon,
 } from "lucide-react";
-import {
-  type ComponentType,
-  type CSSProperties,
-  type ReactNode,
-  useState,
-} from "react";
+import { type ComponentType, type ReactNode, useState } from "react";
 import { useDocumentTitle } from "../lib/document-title";
-import { hasInsetTitlebar } from "../lib/host";
 import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
 import { ScrollRootContext } from "../lib/scroll-root";
@@ -88,39 +82,6 @@ const PAGE_ITEMS: readonly NavItem[] = [
 
 const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(true|false)/;
 
-/** Space the macOS traffic lights need, kept clear of app chrome. */
-const TITLEBAR_HEIGHT = "h-8";
-
-/**
- * The lights end at x≈58, past the stock 3rem icon rail, so the desktop rail is
- * widened to keep them inside the sidebar in either state — the content pane
- * never has to make room for window chrome.
- */
-const INSET_RAIL_WIDTH = "5rem";
-
-/** Reserves the titlebar row above the sidebar's own header. */
-const TitlebarSpacer = () =>
-  hasInsetTitlebar() ? (
-    <div aria-hidden="true" className={cn(TITLEBAR_HEIGHT, "shrink-0")} />
-  ) : null;
-
-/** Drags the window from the titlebar row (Electrobun reads this class). */
-const TitlebarDragRegion = () => {
-  const collapsed = useSidebar().state === "collapsed";
-  if (!hasInsetTitlebar()) {
-    return null;
-  }
-  return (
-    <div
-      className={cn(
-        "electrobun-webkit-app-region-drag fixed top-0 left-0 z-30",
-        TITLEBAR_HEIGHT,
-        collapsed ? "w-(--sidebar-width-icon)" : "w-(--sidebar-width)"
-      )}
-    />
-  );
-};
-
 /** Content header: section title, the sidebar toggle, the sync dot and the
  *  read-only badge. */
 const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
@@ -168,16 +129,9 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
     <SidebarProvider
       className="h-dvh min-h-0"
       defaultOpen={readSidebarCookie()}
-      style={
-        hasInsetTitlebar()
-          ? ({ "--sidebar-width-icon": INSET_RAIL_WIDTH } as CSSProperties)
-          : undefined
-      }
     >
       <ShellSkipLinks />
-      <TitlebarDragRegion />
       <Sidebar collapsible="icon">
-        <TitlebarSpacer />
         <SidebarHeader>
           <div className="flex h-8 items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 font-bold text-primary text-xs">
