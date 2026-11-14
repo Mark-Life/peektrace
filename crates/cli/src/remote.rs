@@ -416,7 +416,7 @@ mod tests {
         let e = JsValue::parse(r#"{"_tag":"SomeNewError","feature":"stats"}"#).unwrap();
         assert_eq!(format_api_error(&e), "Error: SomeNewError");
     }
-    // serve-auth.test.ts splitRemote cases and the 403 port hint.
+    // Splitting `--remote` URLs and the 403 port hint.
 
     #[test]
     fn split_remote_never_leaks_or_loses_the_token() {

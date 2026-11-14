@@ -1,4 +1,4 @@
-//! The settings document the editor reads (`settings.test.ts`, `parseSettings`).
+//! The settings document the editor reads.
 
 use peektrace_core::js::json_out::Writer;
 use peektrace_core::settings_doc::{settings_doc, write_settings_doc};

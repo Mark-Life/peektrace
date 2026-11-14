@@ -70,7 +70,7 @@ fn long_tier() {
     assert!((cost - 100_001.0 * 0.5 / 1e6).abs() < 1e-12);
 }
 
-// TS `cost.test.ts`, Claude cases of the price table and turn cost.
+// Claude cases of the price table and turn cost.
 
 fn input_rate(id: &str) -> Option<f64> {
     card_for(id).map(|c| c.rates.input)

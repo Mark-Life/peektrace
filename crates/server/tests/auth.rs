@@ -1,4 +1,4 @@
-//! Host, Origin and token guards (`serve-auth.test.ts` server cases).
+//! Host, Origin and token guards.
 
 mod common;
 
@@ -146,7 +146,7 @@ fn loopback_is_strict_about_host_and_origin() {
     assert_eq!(s.get("/health").header("referrer-policy"), None);
 }
 
-// serve-auth.test.ts "authed server" and "loopback server" cases, one each.
+// One authed server and one loopback server.
 
 #[test]
 fn no_credentials_gives_401_with_the_token_hint() {

@@ -1,5 +1,4 @@
-//! Golden analysis, redaction and session cost. Ported from `analyze` and
-//! the Claude cases of `cost` TS tests.
+//! Golden analysis, redaction and Claude session cost.
 #![allow(clippy::float_cmp)]
 
 mod common;

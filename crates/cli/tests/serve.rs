@@ -1,5 +1,5 @@
 //! `peektrace serve` as a process: flags, token, posture, ports and the
-//! `--remote` client (`serve-auth-e2e.test.ts`, `find-free-port.test.ts`).
+//! `--remote` client.
 
 use std::io::{BufRead as _, BufReader};
 use std::net::TcpListener;
@@ -260,7 +260,7 @@ fn remote_with_token_url_env_token_or_none() {
     assert_eq!(out, local.1);
 }
 
-// serve-auth-e2e.test.ts cases with the TS assertions: the write probe is
+// Auth end to end over a live server: the write probe is
 // `memory.create`, under a Claude projects root in the server's HOME.
 
 const PROJECT: &str = "-Users-demo-auth";

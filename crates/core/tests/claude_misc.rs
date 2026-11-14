@@ -1,6 +1,5 @@
-//! Small helpers and defensive parsing. Ported from `first-line`,
-//! `defensive`, `images`, `skip-system-prompt`, `labels` and `tool-schema`
-//! TS tests.
+//! Small helpers and defensive parsing: first lines, images, system prompt
+//! skipping, labels and tool schemas.
 #![allow(clippy::float_cmp)]
 
 mod common;

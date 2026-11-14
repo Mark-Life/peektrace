@@ -1,4 +1,4 @@
-//! The CLI surface (TS `help.test.ts`, `cli-surface.test.ts`): banner,
+//! The CLI surface: banner,
 //! owned help pages and completion scripts the shells accept.
 
 mod common;
@@ -163,7 +163,7 @@ fn strip_ansi(text: &str) -> String {
     out
 }
 
-/// TS `help.test.ts` "peektrace <args> lists every command compactly".
+/// `peektrace <args>` lists every command compactly.
 #[test]
 fn root_help_lists_every_command_compactly() {
     let h = Home::new("surface");
@@ -193,7 +193,7 @@ fn root_help_lists_every_command_compactly() {
     }
 }
 
-/// TS `help.test.ts` "--completions wins over --help", in both spellings.
+/// `--completions` wins over `--help`, in both spellings.
 #[test]
 fn completions_win_over_help_as_a_zsh_script() {
     let h = Home::new("surface");
@@ -207,7 +207,7 @@ fn completions_win_over_help_as_a_zsh_script() {
     }
 }
 
-/// TS `help.test.ts` "--help=true shows the owned page".
+/// `--help=true` shows the owned page.
 #[test]
 fn help_equals_true_shows_the_owned_page() {
     let r = Home::new("surface").run(&["--help=true"]);
@@ -215,8 +215,7 @@ fn help_equals_true_shows_the_owned_page() {
     assert!(strip_ansi(&r.out).contains("GLOBAL OPTIONS"));
 }
 
-/// TS `help.test.ts` "completions do not call the positive telemetry flag a
-/// disable". The `--no-telemetry` row may say "Disable"; `--telemetry` not.
+/// Completions do not call the positive telemetry flag a disable. The `--no-telemetry` row may say "Disable"; `--telemetry` not.
 #[test]
 fn completions_do_not_call_the_positive_telemetry_flag_a_disable() {
     let r = Home::new("surface").run(&["--completions", "zsh"]);
@@ -229,8 +228,7 @@ fn completions_do_not_call_the_positive_telemetry_flag_a_disable() {
     }
 }
 
-/// TS `help.test.ts` "upgrade --help states each default once, hides the
-/// wizard". Leaf pages come from clap, so only the shared parts carry over.
+/// `upgrade --help` states each default once and hides the wizard. Leaf pages come from clap, so only the shared parts carry over.
 #[test]
 fn upgrade_help_states_each_default_once_and_hides_the_wizard() {
     let r = Home::new("surface").run(&["upgrade", "--help"]);
@@ -241,7 +239,7 @@ fn upgrade_help_states_each_default_once_and_hides_the_wizard() {
     assert!(!text.contains("--wizard"));
 }
 
-/// TS `help.test.ts` "<group> --help lists its rows within 100 columns".
+/// `<group> --help` lists its rows within 100 columns.
 #[test]
 fn group_help_lists_its_rows_within_100_columns() {
     let h = Home::new("surface");
@@ -265,7 +263,7 @@ fn group_help_lists_its_rows_within_100_columns() {
     }
 }
 
-/// TS `help.test.ts` "--version and -v print the version".
+/// `--version` and `-v` print the version.
 #[test]
 fn version_flags_print_the_version() {
     let h = Home::new("surface");
@@ -276,8 +274,7 @@ fn version_flags_print_the_version() {
     }
 }
 
-/// TS `cli-surface.test.ts` "banner names all four agents": the `Try:`
-/// line.
+/// The banner's `Try:` line names all four agents.
 #[test]
 fn banner_try_line_names_stats() {
     let r = Home::new("surface").run(&[]);
@@ -286,7 +283,7 @@ fn banner_try_line_names_stats() {
     assert!(try_line.contains("| tui |"), "{}", r.out);
 }
 
-/// TS `cli-surface.test.ts` "--json works before and after the subcommand".
+/// `--json` works before and after the subcommand.
 #[test]
 fn json_works_before_and_after_the_subcommand() {
     let h = Home::new("surface");

@@ -1,5 +1,5 @@
 //! `peektrace statusline`, run as a real process fed Claude Code's stdin
-//! JSON (TS `statusline.test.ts`).
+//! JSON.
 
 mod common;
 

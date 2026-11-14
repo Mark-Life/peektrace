@@ -1,5 +1,4 @@
-//! Pi `context_edit` entries, ported from the TS test
-//! `pi-context-edit.test.ts`. Same fixtures, same assertions. Cases already
+//! Pi `context_edit` entries. Cases already
 //! held by `agents.rs` `pi_context_edits` are not repeated here.
 
 mod common;

@@ -1,6 +1,5 @@
-//! Claude record types, usage fields and server tools. Ported from
-//! `parse-records`, `record-types`, `thinking-tokens`, `streamed-output`,
-//! `server-tools`, `first-line` and `defensive` TS tests.
+//! Claude record types, usage fields, thinking tokens, streamed output and
+//! server tools.
 #![allow(clippy::float_cmp)]
 
 mod common;

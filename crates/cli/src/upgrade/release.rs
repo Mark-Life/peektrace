@@ -373,7 +373,7 @@ mod tests {
         assert!(ReleaseConfig::from_env(None, both).is_some());
     }
 
-    /// TS `upgrade.test.ts` `detectAsset`.
+    /// Asset name per platform and arch.
     #[test]
     fn assets() {
         let ok = |p, a| match detect_asset(p, a) {
@@ -425,7 +425,7 @@ mod tests {
         );
     }
 
-    /// TS `upgrade.test.ts` `parseLatestCliTag`.
+    /// The newest `cli-v` tag from the releases list.
     #[test]
     fn latest_tags() {
         let p = |s: &str| JsValue::parse(s).as_ref().and_then(parse_latest_tag);
@@ -443,7 +443,7 @@ mod tests {
         );
     }
 
-    /// TS `upgrade.test.ts` `parseChecksum`.
+    /// One asset's hash from `SHA256SUMS`.
     #[test]
     fn checksums() {
         let sums = "ABC123  peektrace-darwin-arm64\n\n  def  *other\nfff peektrace-linux-x64  \n";
@@ -459,7 +459,7 @@ mod tests {
         assert_eq!(parse_checksum("solo", "solo"), Some("solo".to_owned()));
     }
 
-    /// TS `upgrade.test.ts` `compareVersions`.
+    /// Version order, with dev builds oldest.
     #[test]
     fn versions() {
         assert_eq!(compare_versions("cli-v9.9.9", "0.0.0-dev"), Greater);
@@ -474,7 +474,7 @@ mod tests {
         assert_eq!(normalize_tag("0.0.0-dev"), "cli-v0.0.0-dev");
     }
 
-    /// TS `upgrade.test.ts` "pure helpers", with its own fixtures.
+    /// The pure helpers over a second set of inputs.
     #[test]
     fn pure_helpers_ts_fixtures() {
         let p = |s: &str| JsValue::parse(s).as_ref().and_then(parse_latest_tag);

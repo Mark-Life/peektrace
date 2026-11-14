@@ -1,6 +1,5 @@
-//! `peektrace mcp` over a real process (TS `mcp-stdio.test.ts` and
-//! `mcp-tools.test.ts`): one synthetic home, every request in one script,
-//! replies looked up by id.
+//! `peektrace mcp` over a real process: one synthetic home, every request in
+//! one script, replies looked up by id.
 
 mod common;
 

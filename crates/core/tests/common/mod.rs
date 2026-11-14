@@ -252,7 +252,7 @@ impl Drop for TempDir {
     }
 }
 
-/// The file ref a header builder takes (`HEADER_ARGS` in the TS tests).
+/// The file ref a header builder takes.
 pub fn file_ref(id: &str, slug: &str, path: &str, size_bytes: u64) -> SessionFileRef {
     SessionFileRef {
         id: SessionId::new(id),

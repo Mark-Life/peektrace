@@ -1,6 +1,4 @@
-//! Pi parser and header, ported from the TS tests `pi.test.ts`,
-//! `pi-branches.test.ts`, the Pi cases of `context-entries.test.ts` and the
-//! Pi cases of `cost.test.ts`. Same fixtures, same assertions.
+//! Pi parser, header, branches, context entries and cost.
 
 mod common;
 
@@ -27,7 +25,7 @@ fn of_kind(p: &ParsedSession, kind: EventKind) -> Vec<&TimelineEvent> {
     p.events.iter().filter(|e| e.kind == kind).collect()
 }
 
-// pi.test.ts
+// Parser
 
 #[test]
 fn normalizes_provider_and_session_metadata() {
@@ -187,7 +185,7 @@ fn header_tolerates_a_fully_garbage_transcript() {
     assert_eq!(h.malformed_lines, Some(2));
 }
 
-// pi-branches.test.ts
+// Branches
 
 const TS: &str = "2026-01-01T00:00:00.000Z";
 
@@ -352,7 +350,7 @@ fn a_session_info_title_off_the_branch_still_applies() {
     assert_eq!(live(&p), ["a1", "a3"]);
 }
 
-// context-entries.test.ts, Pi
+// Context entries
 
 fn context() -> ParsedSession {
     let rel = "sessions-pi/pi-context.jsonl";
@@ -473,7 +471,7 @@ fn a_system_prompt_stays_inside_the_measured_system_floor() {
     );
 }
 
-// cost.test.ts, Pi
+// Cost
 
 fn close(a: Option<f64>, b: f64, digits: i32) -> bool {
     a.is_some_and(|a| (a - b).abs() < 10f64.powi(-digits) / 2.0)

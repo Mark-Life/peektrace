@@ -150,7 +150,7 @@ mod cache_tests;
 mod tests {
     use super::*;
 
-    /// TS `mcp-protocol.test.ts` `requestLines`.
+    /// Requests split on newlines only.
     #[test]
     fn lines_split_on_newlines_only() {
         let mut got = Vec::new();

@@ -1,5 +1,4 @@
-//! Workflow runs and the subagents they spawn. Ported from `workflows` and
-//! `workflow-subagents` TS tests.
+//! Workflow runs and the subagents they spawn.
 #![allow(clippy::float_cmp)]
 
 mod common;

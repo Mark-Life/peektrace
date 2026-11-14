@@ -1,5 +1,4 @@
-//! Home-path collapsing in exports. Ported from the `collapseHomePaths`
-//! cases of the `export` TS test.
+//! Home-path collapsing in exports.
 
 use peektrace_core::export::{ExportOptions, HomeCollapser, render_json};
 use peektrace_core::sessions::model::{ParsedSession, Provider};

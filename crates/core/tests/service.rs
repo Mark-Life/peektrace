@@ -1,6 +1,5 @@
 //! One session end to end through the service: lookup, subagent folding,
-//! redaction and analysis. Ported from `service` and the Claude fold cases
-//! of `swallowed-errors` TS tests.
+//! redaction and analysis, plus the Claude fold cases of swallowed errors.
 #![allow(clippy::float_cmp)]
 
 mod common;

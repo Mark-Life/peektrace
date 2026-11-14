@@ -116,7 +116,7 @@ fn unreadable_and_link(a: &Path) {
 #[cfg(not(unix))]
 const fn unreadable_and_link(_: &Path) {}
 
-/// The vault of core's `memory.test.ts` plus both `fixtures/memory` files.
+/// A small memory vault plus both `fixtures/memory` files.
 fn seed_vault(dir: &Path) {
     put(
         &dir.join("a.md"),

@@ -242,7 +242,7 @@ pub fn ref_of(sid: &str) -> TranscriptRef {
     }
 }
 
-/// Parse `text` as the TS test default does (no sidechain turns, keep the
+/// Parse `text` with the test defaults (no sidechain turns, keep the
 /// system prompt) and extract its facts.
 pub fn facts_of_text(text: &str, sid: &str, redact: bool, skip_system_prompt: bool) -> Vec<Fact> {
     let path = format!("/fixture/proj/{sid}.jsonl");

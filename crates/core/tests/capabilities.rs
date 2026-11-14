@@ -1,4 +1,4 @@
-//! The static support matrix (`capabilities.test.ts`).
+//! The static support matrix.
 
 use peektrace_core::capabilities::{SupportLevel, list_capabilities};
 
@@ -53,8 +53,6 @@ fn session_view_supported_everywhere() {
             .is_some_and(|n| n.contains("inferred"))
     );
 }
-
-// capabilities.test.ts, same assertions.
 
 use peektrace_core::Agent;
 
