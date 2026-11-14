@@ -2,8 +2,12 @@
 //! `memory-project-options.test.ts` and the browse table's rules.
 
 use peektrace_js::time::Utc;
-use peektrace_protocol::view::memory::{EntryView, LinkView};
-use peektrace_protocol::{CapabilitySupport, FileChangeReason, PerAgentSupport};
+use peektrace_protocol::view::SessionHeader;
+use peektrace_protocol::view::memory::{DeleteView, EntryView, LinkView, ProjectLabelView};
+use peektrace_protocol::{
+    AgentId, ApiError, Capability, CapabilitySupport, FileChangeReason, PerAgentSupport,
+    SupportLevel,
+};
 use serde_json::json;
 
 use super::*;
