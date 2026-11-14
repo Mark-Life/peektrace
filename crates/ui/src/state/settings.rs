@@ -310,9 +310,10 @@ impl Ui {
         self.caps.selection = Some((cap.to_owned(), agent));
     }
 
-    /// A dialog owns the keys while it is open.
+    /// A dialog owns the keys while it is open: the shortcuts dialog, a
+    /// capability cell or the Stats drill sheet.
     pub const fn dialog_open(&self) -> bool {
-        self.help_open || self.caps.selection.is_some()
+        self.help_open || self.caps.selection.is_some() || self.stats.drill.is_some()
     }
 
     /// What the next theme press does, from the look on screen.

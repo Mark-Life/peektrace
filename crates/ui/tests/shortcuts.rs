@@ -6,6 +6,7 @@ mod common;
 use std::sync::Arc;
 
 use common::home;
+use peektrace_protocol::DrillTable;
 use peektrace_ui::model::shortcuts::{SHORTCUTS, Scope, key_label, native};
 use peektrace_ui::source::DataSource;
 use peektrace_ui::source::in_process::InProcess;
@@ -338,3 +339,45 @@ fn a_focused_control_that_is_not_a_field_leaves_the_keys() {
     assert!(rt.state.help_open);
 }
 
+/// The Stats drill sheet is a dialog: window keys wait while it is open,
+/// and Escape closes the sheet, not the route.
+#[test]
+fn escape_closes_the_drill_sheet_and_window_keys_wait() {
+    #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
+    let now = peektrace_js::time::parse_date(home::NOW, &peektrace_js::time::Utc)
+        .map_or(0.0, |ms| ms as f64);
+    let dir = home::stats_home().to_string_lossy().into_owned();
+    let peektrace = format!("{dir}/.peektrace");
+    let source: Arc<dyn DataSource> = Arc::new(
+        InProcess::for_home(dir, move |k| {
+            (k == "PEEKTRACE_DIR").then(|| peektrace.clone())
+        })
+        .at(now),
+    );
+    let handle = App::new(peektrace_ui::spec()).handle();
+    let mut s = Ui::new(Some(Io { source, handle }), now, true);
+    s.enter_stats(0.0);
+    load_now(&mut s);
+    let cause = s
+        .stats
+        .screen()
+        .and_then(|x| x.report.causes.first())
+        .map(|c| c.key.clone())
+        .expect("a cause row");
+    s.open_drill(DrillTable::Cause, &cause);
+    load_now(&mut s);
+    let mut rt = runtime(s, true);
+    assert!(rt.find("stats-drill").is_some());
+    let dark = rt.state.is_dark();
+    text_key(&mut rt, "?");
+    text_key(&mut rt, "d");
+    assert!(!rt.state.help_open, "? waits while the sheet is open");
+    assert_eq!(rt.state.is_dark(), dark, "d waits while the sheet is open");
+    press(&mut rt, Key::Escape);
+    assert!(rt.state.stats.drill.is_none());
+    assert!(rt.find("stats-drill").is_none());
+    assert_eq!(rt.state.route, Route::Stats);
+    text_key(&mut rt, "?");
+    assert!(rt.state.help_open);
+    assert!(rt.find("shortcuts-list").is_some());
+}
