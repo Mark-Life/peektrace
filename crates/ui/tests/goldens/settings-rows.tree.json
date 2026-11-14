@@ -15,65 +15,70 @@
       "role": "group"
     },
     {
-      "rect": [10, 10, 236, 47],
+      "key": "titlebar-band",
+      "rect": [10, 10, 236, 32],
       "role": "group"
     },
     {
-      "rect": [16, 10, 224, 18],
+      "rect": [10, 46, 236, 47],
+      "role": "group"
+    },
+    {
+      "rect": [16, 46, 224, 18],
       "role": "text",
       "text": "Peektrace"
     },
     {
-      "rect": [16, 30, 224, 15],
+      "rect": [16, 66, 224, 15],
       "role": "text",
       "text": "Agent session inspector"
     },
     {
       "key": "nav-sessions",
       "label": "Sessions",
-      "rect": [10, 61, 236, 32],
+      "rect": [10, 97, 236, 32],
       "role": "link"
     },
     {
-      "rect": [20, 68, 60, 18],
+      "rect": [20, 104, 60, 18],
       "role": "text",
       "text": "Sessions"
     },
     {
       "key": "nav-stats",
       "label": "Stats",
-      "rect": [10, 97, 236, 32],
+      "rect": [10, 133, 236, 32],
       "role": "link"
     },
     {
-      "rect": [20, 104, 35, 18],
+      "rect": [20, 140, 35, 18],
       "role": "text",
       "text": "Stats"
     },
     {
       "key": "nav-memory",
       "label": "Memory",
-      "rect": [10, 133, 236, 32],
+      "rect": [10, 169, 236, 32],
       "role": "link"
     },
     {
-      "rect": [20, 140, 54, 18],
+      "rect": [20, 176, 54, 18],
       "role": "text",
       "text": "Memory"
     },
     {
       "key": "nav-settings",
       "label": "Settings",
-      "rect": [10, 169, 236, 32],
+      "rect": [10, 205, 236, 32],
       "role": "link"
     },
     {
-      "rect": [20, 176, 55, 18],
+      "rect": [20, 212, 55, 18],
       "role": "text",
       "text": "Settings"
     },
     {
-      "rect": [10, 205, 236, 654],
+      "rect": [10, 241, 236, 618],
       "role": "group"
     },
     {
