@@ -50,46 +50,14 @@ import { ResultView } from "../lib/result-view";
 import { navigate } from "../lib/routes";
 import { useFreshServerInfo, withLastSuccess } from "../lib/server-info";
 import { updateSettingsAtom } from "../lib/settings-atoms";
+import {
+  assemble,
+  defaultRoots,
+  type Row,
+  type RowsByAgent,
+  seedRows,
+} from "../lib/settings-form";
 import { wireErrorMessage, wireErrorOf } from "../lib/wire-error";
-
-/** One editable extra-root row. */
-interface Row {
-  readonly label: string;
-  readonly path: string;
-}
-
-type RowsByAgent = Record<AgentId, Row[]>;
-
-/** Seed the editable per-agent rows from the loaded settings. */
-const seedRows = (settings: PeektraceSettings): RowsByAgent =>
-  Object.fromEntries(
-    AGENT_IDS.map((agent) => [
-      agent,
-      (settings.roots?.[agent] ?? []).map((entry) => ({
-        path: entry.path,
-        label: entry.label ?? "",
-      })),
-    ])
-  ) as RowsByAgent;
-
-/** Collapse the editable rows back into a `PeektraceSettings` (drop empties). */
-const assemble = (rows: RowsByAgent): PeektraceSettings => {
-  const roots: Partial<Record<AgentId, { path: string; label?: string }[]>> =
-    {};
-  for (const agent of AGENT_IDS) {
-    const cleaned = rows[agent]
-      .map((r) => {
-        const path = r.path.trim();
-        const label = r.label.trim();
-        return label ? { path, label } : { path };
-      })
-      .filter((r) => r.path !== "");
-    if (cleaned.length > 0) {
-      roots[agent] = cleaned;
-    }
-  }
-  return Object.keys(roots).length > 0 ? { roots } : {};
-};
 
 /** Per-agent card: a list of extra roots with add/remove + path/label inputs. */
 const AgentRoots = ({
@@ -194,15 +162,6 @@ const AgentRoots = ({
     </Card>
   );
 };
-
-/** The scanned default folder per agent, from `server.info`. */
-const defaultRoots = (info: ServerInfo) =>
-  new Map(
-    info.agents.flatMap(({ agent, roots }) => {
-      const root = roots.find((r) => r.isDefault);
-      return root ? [[agent, root] as const] : [];
-    })
-  );
 
 /** The editor form, seeded from one loaded snapshot (re-keyed on refresh). */
 export const SettingsEditor = ({
