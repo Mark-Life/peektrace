@@ -47,7 +47,8 @@ upgrade` replaces the binary in place, and `peektrace upgrade --check` only
 reports whether a newer release exists.
 
 Binaries cover macOS (arm64, x64), Linux (x64, arm64) and Windows (x64). The
-Linux builds link glibc — on musl (Alpine) or anything else, build from source.
+Linux builds need glibc 2.35 or newer (Ubuntu 22.04, Debian 12, RHEL 10). On older
+glibc, musl (Alpine) or anything else, build from source.
 
 ## From npm
 

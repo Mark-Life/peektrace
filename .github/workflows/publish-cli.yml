@@ -25,7 +25,8 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 # each with a gzipped copy (<asset>.gz, what everything downloads by default),
 # plus SHA256SUMS. SHA256SUMS lists the UNCOMPRESSED binaries only: every route
 # verifies the bytes it installs against that line. Both Linux binaries are
-# glibc-only; musl (Alpine) is not shipped. `upgrade` downloads whole binaries,
+# glibc-only, built on Ubuntu 22.04 so they need glibc 2.35 or newer; musl
+# (Alpine) is not shipped. `upgrade` downloads whole binaries,
 # so no delta patches are published.
 #
 # Release notes come from the matching `## <tag>` section of CHANGELOG.md
@@ -143,10 +144,11 @@ jobs:
           - runner: macos-latest
             target: x86_64-apple-darwin
             asset: peektrace-darwin-x64
-          - runner: ubuntu-latest
+          # 22.04 sets the glibc floor at 2.35 (Ubuntu 22.04, Debian 12).
+          - runner: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             asset: peektrace-linux-x64
-          - runner: ubuntu-24.04-arm
+          - runner: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             asset: peektrace-linux-arm64
           - runner: windows-latest
@@ -199,6 +201,19 @@ jobs:
           set -euo pipefail
           codesign --sign - --force --timestamp=none "out/${{ matrix.asset }}"
           codesign --verify --verbose "out/${{ matrix.asset }}"
+
+      - name: Check the glibc floor
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          max="$(objdump -T "out/${{ matrix.asset }}" | grep -oE 'GLIBC_[0-9]+(\.[0-9]+)+' | sed 's/^GLIBC_//' | sort -uV | tail -n1)"
+          echo "newest glibc symbol: $max"
+          if [ "$(printf '%s\n' "$max" "$GLIBC_FLOOR" | sort -V | tail -n1)" != "$GLIBC_FLOOR" ]; then
+            echo "::error::${{ matrix.asset }} needs glibc $max, above the $GLIBC_FLOOR floor" >&2
+            exit 1
+          fi
+        env:
+          GLIBC_FLOOR: "2.35"
 
       # The macOS runner is arm64, so the x64 binary cannot run here.
       - name: Check the binary's version
@@ -400,7 +415,8 @@ jobs:
           publish_dir "dist-npm/peektrace"
 
   # End-to-end check of the published release on real Linux hardware, one job
-  # per arch. It drives the real scripts/install.sh, which also covers
+  # per arch, on the 22.04 images that set the glibc floor. It drives the
+  # real scripts/install.sh, which also covers
   # uname-based arch detection, asset naming and checksum verification.
   #
   # Runs AFTER publish because it installs from the release, so it cannot gate
@@ -414,9 +430,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
+          - runner: ubuntu-22.04
             arch: x64
-          - runner: ubuntu-24.04-arm
+          - runner: ubuntu-22.04-arm
             arch: arm64
 
     steps:
