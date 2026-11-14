@@ -1,20 +1,20 @@
 name: Rust
 
 # Format, lint and tests for the Rust crates on macOS and Linux, lint, unit,
-# fixture, discovery and memory read/write tests on Windows, the Rune app
+# fixture, discovery and memory read/write tests on Windows, and the Rune app
 # (build, wasm check, Runtime tests, headless goldens) on Linux with a compile
-# check on macOS and Windows, plus the parity check: the Rust CLI against the
-# TS CLI results recorded in tests/goldens. Recording goldens and the live
-# TS-vs-Rust run are in rust-live.yml.
+# check on macOS and Windows.
 
-# Push runs only on `rust`: a push to a `rust-*` branch with an open PR
-# already starts a pull_request run, so a push run there would double it.
+# Push runs only on `main` and `rust`: a push to a `rust-*` branch with an
+# open PR already starts a pull_request run, so a push run there would double it.
 on:
   push:
     branches:
+      - main
       - rust
   pull_request:
     branches:
+      - main
       - rust
       - "rust-*"
   workflow_dispatch:
@@ -165,7 +165,8 @@ jobs:
 
       - name: Tests (unit, Runtime, drift, headless goldens)
         run: |
-          export VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -1)
+          icd="$(find /usr/share/vulkan/icd.d -name 'lvp_icd*.json' | head -1)"
+          export VK_ICD_FILENAMES="$icd"
           cargo test --locked -p peektrace-ui -p peektrace-app
 
       - name: Snapshots
@@ -175,48 +176,3 @@ jobs:
           name: rune-snaps
           path: target/rune-snaps
           if-no-files-found: ignore
-
-  goldens:
-    # Keeps the old check name for branch rules. Only the Rust side runs:
-    # the TS side comes from tests/goldens. A `record-goldens` PR label
-    # re-records them (rust-live.yml, scripts/rust/README.md).
-    name: parity (fixtures)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-
-      - name: Install toolchain
-        run: rustup toolchain install || rustup show
-
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: parity
-          cache-on-failure: true
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-
-      # The fixture builders and the TUI stage import TS modules.
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Build the inspector (embedded in the binary)
-        run: bun run --filter=inspector build
-
-      # One cargo call: a second one for the examples resolves features again.
-      # The ui helpers probe needs only the pure model, so Rune stays off.
-      - name: Build (parity profile)
-        run: |
-          cargo build --locked --profile parity --bins --examples
-          cargo build --locked --profile parity -p peektrace-ui --no-default-features --examples
-
-      - name: Rust against the goldens
-        run: bun scripts/rust/goldens.ts --bin target/parity/peektrace

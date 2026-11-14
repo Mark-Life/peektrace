@@ -55,7 +55,3 @@ assets/.raw/
 
 # Local scratch space
 /.scratch
-
-# Parity goldens: only the CI platform's set is checked in.
-/tests/goldens/*
-!/tests/goldens/linux-x64/
