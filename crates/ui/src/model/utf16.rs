@@ -19,6 +19,15 @@ pub fn clip(s: &str, max: usize) -> String {
     }
 }
 
+/// `s.slice(from, to)`, a split pair shown as U+FFFD.
+pub fn slice(s: &str, from: usize, to: usize) -> String {
+    let out = units::slice(s, from, to);
+    match to_display(&out) {
+        std::borrow::Cow::Borrowed(_) => out,
+        std::borrow::Cow::Owned(shown) => shown,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -30,5 +39,6 @@ mod tests {
         assert_eq!(clip("a😀b", 3), "a😀…");
         assert_eq!(clip("abcdef", 3), "abc…");
         assert_eq!(clip("abc", 3), "abc");
+        assert_eq!(slice("a😀b", 2, 4), "\u{FFFD}b");
     }
 }
