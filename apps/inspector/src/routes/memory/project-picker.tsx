@@ -5,7 +5,6 @@
  * the server's project labels fill the list before they arrive.
  */
 import { Result, useAtomValue } from "@effect-atom/atom-react";
-import type { ProjectLabel } from "@workspace/core/services/memory/types";
 import { Button } from "@workspace/ui/components/button";
 import { Label } from "@workspace/ui/components/label";
 import {
@@ -15,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select";
+import type { ProjectLabel } from "@workspace/view-core/api-types.gen";
 import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
 import { sessionsListAtom } from "../../lib/atoms";

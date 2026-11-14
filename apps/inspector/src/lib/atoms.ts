@@ -4,15 +4,15 @@
  * `useAtomValue` and branch on the `Result` union (see `result-view.tsx`).
  */
 import { Atom } from "@effect-atom/atom-react";
-import type { AllVaults } from "@workspace/core/services/memory/types";
-import { Effect } from "effect";
-import { apiGet } from "./api";
 import type {
+  AllVaults,
   Capability,
   ServerInfo,
   SessionListing,
   SettingsResult,
-} from "./api-types.gen";
+} from "@workspace/view-core/api-types.gen";
+import { Effect } from "effect";
+import { apiGet } from "./api";
 import { sharedHeadersAtom } from "./share-headers";
 
 /** Live capability matrix. */

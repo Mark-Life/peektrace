@@ -8,8 +8,6 @@
  * cell gates every write affordance. Writes refresh `allVaultsAtom` so gauges re-validate.
  */
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
-import type { AllVaults } from "@workspace/core/services/memory/types";
-import { MEMORY_TYPES } from "@workspace/core/services/memory/types";
 import {
   Accordion,
   AccordionContent,
@@ -32,8 +30,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select";
+import type { AllVaults, Capability } from "@workspace/view-core/api-types.gen";
+import { MEMORY_TYPES } from "@workspace/view-core/constants.gen";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Capability } from "../../lib/api-types.gen";
 import {
   allVaultsAtom,
   capabilitiesAtom,
@@ -51,7 +50,7 @@ import { CreateAnywhereButton } from "./project-picker";
 import { VaultSection } from "./vault-section";
 
 /** Project overview cards across all discovered vaults. */
-const Overview = ({ all }: { readonly all: typeof AllVaults.Type }) => (
+const Overview = ({ all }: { readonly all: AllVaults }) => (
   <div
     className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
     data-testid="memory-overview"
@@ -109,7 +108,7 @@ const Filters = ({
   onType,
   onScope,
 }: {
-  readonly all: typeof AllVaults.Type;
+  readonly all: AllVaults;
   readonly query: string;
   readonly type: string;
   readonly scope: string;
@@ -162,7 +161,7 @@ export const Explorer = ({
   caps,
   readOnly,
 }: {
-  readonly all: typeof AllVaults.Type;
+  readonly all: AllVaults;
   readonly caps: readonly Capability[];
   readonly readOnly: boolean;
 }) => {

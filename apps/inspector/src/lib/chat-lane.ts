@@ -7,10 +7,11 @@
  * components, and a wrong lane or a lost result is a unit-test failure rather
  * than something you have to spot by eye in a 2000-event session.
  */
-import { eventBadgeLabel } from "@workspace/core/services/sessions/labels";
-import { isUserAuthored } from "@workspace/core/services/sessions/prompt-origin";
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import type { HistoryRow } from "./api-types.gen";
+import type {
+  HistoryRow,
+  TimelineEvent,
+} from "@workspace/view-core/api-types.gen";
+import { eventBadgeLabel, isUserAuthored } from "./event-labels";
 import { chatCollapseId } from "./session-view";
 
 /** Which column an event reads in: prompts right, model work left, context centred. */

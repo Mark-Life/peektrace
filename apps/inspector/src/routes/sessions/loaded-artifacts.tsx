@@ -4,7 +4,7 @@
  * "trim me" hint when heavy). The biggest single events live in the full history
  * table instead, where the Tokens column sorts every event by size.
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 
 type Artifacts = Pick<AnalyzedSession, "onDiskContextFiles">;
 

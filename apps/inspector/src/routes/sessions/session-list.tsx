@@ -12,7 +12,6 @@ import {
   type Range,
   useVirtualizer,
 } from "@tanstack/react-virtual";
-import type { SessionHeader } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -38,6 +37,7 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
+import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { RefObject } from "react";

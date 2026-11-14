@@ -1,6 +1,6 @@
 /** "Copy prompt": hand an agent the data behind a row, or the whole report, as
- * a ready investigation prompt. The text is core's, so it matches
- * `peektrace stats prompt` word for word. */
+ * a ready investigation prompt. The text comes from `stats-prompts`, which
+ * matches `peektrace stats prompt` word for word. */
 import { CopyButton } from "./copy-button";
 
 export const PromptButton = ({

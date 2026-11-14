@@ -8,7 +8,7 @@
  * Kept beside the JSX rather than inside it so it is unit-testable: a field that
  * `EventRow` renders but this function forgets would leave a visibly stale row.
  */
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 
 /** The `TimelineEvent` fields a transcript row renders. Adding a field to the
  *  row means adding it here — that is the whole contract. */

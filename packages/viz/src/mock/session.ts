@@ -4,11 +4,10 @@
  * session shaped to show every state the session views can render — context
  * climbing into the dumb zone, two compaction cliffs that evict growable
  * history, and a peak that lands late rather than last. Every value is typed
- * against the core schemas, so a schema change breaks this file rather than the
+ * against the generated wire types, so a schema change breaks this file rather than the
  * demo, and the per-turn category slices sum exactly to that turn's context, as
  * a real analysis guarantees.
  */
-import { CAT_META } from "@workspace/core/services/sessions/analyze";
 import type {
   AnalyzedSession,
   BudgetKey,
@@ -16,7 +15,8 @@ import type {
   TimelineEvent,
   Turn,
   TurnSnapshot,
-} from "@workspace/core/services/sessions/schema";
+} from "@workspace/view-core/api-types.gen";
+import { CAT_META } from "@workspace/view-core/constants.gen";
 
 const TURN_COUNT = 75;
 const PEAK_TURN_INDEX = 69;
@@ -456,7 +456,7 @@ const DUMB_ZONE_TURNS = CTX_BY_TURN.filter(
  * 48, and peaking at 612,140 tokens on turn 70 — which the smaller final turn
  * would have hidden.
  */
-export const MOCK_SESSION: typeof AnalyzedSession.Type = {
+export const MOCK_SESSION: AnalyzedSession = {
   provider: "claude-code",
   sessionId: SESSION_ID,
   path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}.jsonl`,

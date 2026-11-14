@@ -5,13 +5,6 @@
  * figures — `~in → ~out` — because summing them would invent a number the
  * transcript never recorded.
  */
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import { tokenLabel } from "@workspace/core/services/sessions/tokens";
-import { CAUSES } from "@workspace/core/services/stats/detectors/causes";
-import type {
-  CauseKind,
-  SessionMarker,
-} from "@workspace/core/services/stats/schema";
 import {
   Tool,
   ToolContent,
@@ -20,9 +13,16 @@ import {
 } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
+import type {
+  CauseKind,
+  SessionMarker,
+  TimelineEvent,
+} from "@workspace/view-core/api-types.gen";
+import { CAUSES } from "@workspace/view-core/constants.gen";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
 import { CornerDownLeftIcon } from "lucide-react";
 import { memo } from "react";
+import { tokenLabel } from "../../lib/event-tokens";
 import { callView, resultPane } from "../../lib/tool-event";
 import { sameToolPair } from "../../lib/transcript-row";
 import { ChatRow, RawToggle } from "./chat-message";

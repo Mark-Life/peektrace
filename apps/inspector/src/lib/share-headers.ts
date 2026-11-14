@@ -7,7 +7,7 @@
  * `useMemo` dependencies see stable identities.
  */
 import { Atom, Result } from "@effect-atom/atom-react";
-import type { SessionHeader } from "@workspace/core/services/sessions/schema";
+import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import { Option } from "effect";
 
 /** Field-by-field equality. Every `SessionHeader` field is a primitive. */

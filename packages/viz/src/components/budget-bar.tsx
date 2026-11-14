@@ -3,10 +3,9 @@
  * Partitions the peak-turn context into every `BudgetKey` slice — including the
  * recovered `thinking` band and the honest `unattributed` residual — as a single
  * stacked bar plus a per-category table (tokens, % window, % context). Slice
- * order/colors come from core `CAT_META`; hatched slices (system+tools,
+ * order/colors come from `CAT_META` (generated from the Rust core); hatched slices (system+tools,
  * unattributed) are inferred rather than measured.
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import {
   Table,
   TableBody,
@@ -15,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
+import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { fmt, fmtK, PERCENT } from "../lib/session-format";
 
 /** Hatched (inferred) slices get a diagonal overlay rather than a flat fill. */

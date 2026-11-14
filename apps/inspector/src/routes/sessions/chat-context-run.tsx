@@ -5,12 +5,8 @@
  * conversation; as chips they read as one line of "here is what was loaded", and
  * each chip still opens to its full recorded body.
  */
-import type { LoadedCategory } from "@workspace/core/services/sessions/schema";
-import {
-  eventTokens,
-  tokenLabel,
-} from "@workspace/core/services/sessions/tokens";
 import { Badge } from "@workspace/ui/components/badge";
+import type { LoadedCategory } from "@workspace/view-core/api-types.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import {
   BellIcon,
@@ -32,6 +28,7 @@ import {
   type RunItem,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
+import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import { chatCollapseId } from "../../lib/session-view";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 import { EventBody } from "./event-body";

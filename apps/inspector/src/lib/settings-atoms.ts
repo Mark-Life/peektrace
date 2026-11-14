@@ -4,8 +4,11 @@
  * a stale `expectedMtime` fails with `FileChangedError`.
  */
 import { Atom } from "@effect-atom/atom-react";
+import type {
+  SettingsResult,
+  SettingsUpdate,
+} from "@workspace/view-core/api-types.gen";
 import { apiSend } from "./api";
-import type { SettingsResult, SettingsUpdate } from "./api-types.gen";
 
 export const updateSettingsAtom = Atom.fn(
   ({ payload }: { readonly payload: SettingsUpdate }) =>

@@ -1,49 +1,42 @@
-/** Download the session as HTML, Markdown or JSON. The detail holds only
- * parts of the analysis, so a click fetches the whole one first, with the
- * same redaction as the screen. */
-import {
-  EXPORT_FORMATS,
-  type ExportFormat,
-} from "@workspace/core/services/sessions/export/index";
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+/** Download the session as HTML, Markdown or JSON. The server renders the
+ * file with the same redaction as the screen. */
 import { Button } from "@workspace/ui/components/button";
+import { EXPORT_FORMATS } from "@workspace/view-core/constants.gen";
 import { Effect } from "effect";
 import { DownloadIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { apiGet, apiPath } from "../../lib/api";
-import { exportFile } from "../../lib/export-file";
+import { apiBlob } from "../../lib/api";
+import {
+  type ExportFormat,
+  exportName,
+  exportRequest,
+} from "../../lib/export-file";
 import type { SessionKey } from "../../lib/session-data";
 import { wireErrorMessage } from "../../lib/wire-error";
 
-const download = (
-  a: AnalyzedSession,
-  format: ExportFormat,
-  redacted: boolean
-) => {
-  const file = exportFile(a, format, redacted);
-  const url = URL.createObjectURL(new Blob([file.text], { type: file.type }));
+const download = (blob: Blob, name: string) => {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = file.name;
+  link.download = name;
   link.click();
   URL.revokeObjectURL(url);
 };
 
-const analysisOf = (k: SessionKey) =>
-  apiGet<AnalyzedSession>(apiPath("sessions", k.id, "analysis"), {
-    parent: k.parent ?? undefined,
-    redact: k.redact ? undefined : "false",
-  });
+const exportOf = (k: SessionKey, format: ExportFormat) => {
+  const { path, query } = exportRequest(k, format);
+  return apiBlob(path, query);
+};
 
 export const ExportButtons = ({ k }: { readonly k: SessionKey }) => {
   const [busy, setBusy] = useState<ExportFormat | null>(null);
   const run = (format: ExportFormat) => {
     setBusy(format);
-    Effect.runPromise(Effect.either(analysisOf(k)))
+    Effect.runPromise(Effect.either(exportOf(k, format)))
       .then((r) => {
         if (r._tag === "Right") {
-          download(r.right, format, k.redact);
+          download(r.right, exportName(k.id, format));
         } else {
           const e = r.left;
           const why =

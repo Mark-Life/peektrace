@@ -1,9 +1,10 @@
 /** Inputs for the `ui` stage's Settings, theme and shortcut checks. */
+
+import type { RowsByAgent } from "../../apps/inspector/src/lib/settings-form";
 import type {
   ApiError,
   ServerInfo,
-} from "../../apps/inspector/src/lib/api-types.gen";
-import type { RowsByAgent } from "../../apps/inspector/src/lib/settings-form";
+} from "../../packages/view-core/src/api-types.gen";
 
 const AGENTS = ["claude", "codex", "pi", "opencode"] as const;
 

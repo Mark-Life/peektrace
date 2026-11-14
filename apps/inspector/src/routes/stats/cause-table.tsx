@@ -5,14 +5,6 @@
  * folded into another. A cause whose rule already sits in a memory file and
  * still fires says so, with the env or prompt-level change that would stop it.
  */
-import {
-  rateText,
-  suggestedRuleOf,
-} from "@workspace/core/services/stats/findings";
-import type {
-  CauseRow,
-  RuleCheck,
-} from "@workspace/core/services/stats/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -24,8 +16,10 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
+import type { CauseRow, RuleCheck } from "@workspace/view-core/api-types.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
+import { rateText, suggestedRuleOf } from "../../lib/stats-findings";
 import {
   hms,
   NO_RULE,

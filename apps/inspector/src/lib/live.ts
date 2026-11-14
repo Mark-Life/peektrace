@@ -13,9 +13,9 @@
  * `BroadcastChannel`. An HTTP/1.1 browser allows 6 connections per host, so
  * one open stream per tab would block requests once 6 tabs are open.
  */
+import type { WatchVersions } from "@workspace/view-core/api-types.gen";
 import { Effect } from "effect";
 import { apiGet, apiUrl } from "./api";
-import type { WatchVersions } from "./api-types.gen";
 
 const POLL_INTERVAL = 1000;
 const MAX_FAILED_OPENS = 3;

@@ -5,8 +5,8 @@
  * plain-text 401/403 guard answers). `BASE_URL` defaults to `""` (same
  * origin); set `VITE_PEEKTRACE_BASE_URL` to target another server.
  */
+import type { ApiError } from "@workspace/view-core/api-types.gen";
 import { Effect } from "effect";
-import type { ApiError } from "./api-types.gen";
 
 /** A failure below the API: no answer, or an answer that is not JSON. */
 export interface TransportError {

@@ -5,8 +5,8 @@
  * `Cause`. This pulls the first expected failure out so callers can branch on
  * `_tag` (e.g. show the CAS-conflict choice) instead of stringly-matching.
  */
+import type { ApiError } from "@workspace/view-core/api-types.gen";
 import { Cause, type Exit, Option } from "effect";
-import type { ApiError } from "./api-types.gen";
 
 /** Every typed error an `/api` route answers with. */
 export type WireError = ApiError;

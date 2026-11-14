@@ -12,16 +12,16 @@ import {
   useAtomRefresh,
   useAtomValue,
 } from "@effect-atom/atom-react";
-import { Effect } from "effect";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { apiGet, apiPath, type Query } from "./api";
 import type {
   GrowthSeries,
   HistoryIndex,
   HistoryPage,
   HistorySearchResult,
   SessionSummary,
-} from "./api-types.gen";
+} from "@workspace/view-core/api-types.gen";
+import { Effect } from "effect";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { apiGet, apiPath, type Query } from "./api";
 import {
   type BodyCache,
   type BodyFetch,

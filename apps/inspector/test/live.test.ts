@@ -1,7 +1,7 @@
 /** Live versions: the event stream, the polling fallback, and the refresh
  * after a reconnect. */
 import { describe, expect, test } from "bun:test";
-import type { WatchVersions } from "../src/lib/api-types.gen";
+import type { WatchVersions } from "@workspace/view-core/api-types.gen";
 import { type LiveChannel, type LiveShare, startLive } from "../src/lib/live";
 
 type Listener = (event: { data?: string }) => void;

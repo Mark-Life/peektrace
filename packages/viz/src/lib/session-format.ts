@@ -2,12 +2,12 @@
  *
  * Holds the numeric/health vocabulary the session charts share: peak-gauge
  * bands, budget stacking order, and token/byte/percent formatting. `CAT_META`
- * (label/color/estimate flag per budget key) is re-exported straight from core
- * so the UI never re-declares it.
+ * (label/color/estimate flag per budget key) is generated from the Rust core
+ * (`constants.gen`), so the UI never re-declares it.
  */
-import type { BudgetKey } from "@workspace/core/services/sessions/schema";
+import type { BudgetKey } from "@workspace/view-core/api-types.gen";
 
-export { CAT_META } from "@workspace/core/services/sessions/analyze";
+export { CAT_META } from "@workspace/view-core/constants.gen";
 
 /** Floor → top stacking order for the budget bar + timeline. */
 export const STACK_ORDER: readonly BudgetKey[] = [

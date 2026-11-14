@@ -4,15 +4,11 @@
  * may never load them). `dangling` = index lines pointing at a file that no
  * longer exists. A clean vault shows a single reassuring line.
  */
-import type { VaultDiff } from "@workspace/core/services/memory/types";
+import type { VaultDiff } from "@workspace/view-core/api-types.gen";
 import { FileWarningIcon, LinkIcon } from "lucide-react";
 
 /** Render the orphans / dangling lists for one vault. */
-export const DiffPanel = ({
-  diff,
-}: {
-  readonly diff: typeof VaultDiff.Type;
-}) => {
+export const DiffPanel = ({ diff }: { readonly diff: VaultDiff }) => {
   const clean = diff.orphans.length === 0 && diff.dangling.length === 0;
   if (clean) {
     return (

@@ -9,7 +9,7 @@
  * A touch screen has no hover, so there the first tap shows the guide and a
  * second tap on the same snapshot reports it.
  */
-import type { TurnSnapshot } from "@workspace/core/services/sessions/schema";
+import type { TurnSnapshot } from "@workspace/view-core/api-types.gen";
 
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useRef, useState } from "react";

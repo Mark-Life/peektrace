@@ -5,7 +5,7 @@
  * failed or pending marker query leaves the transcript exactly as it was.
  */
 import { Result, useAtomValue } from "@effect-atom/atom-react";
-import type { SessionMarker } from "@workspace/core/services/stats/schema";
+import type { SessionMarker } from "@workspace/view-core/api-types.gen";
 import { useMemo } from "react";
 import { useSessionMarkers } from "./stats-atoms";
 

@@ -5,7 +5,7 @@ import { Atom } from "@effect-atom/atom-react";
 import type {
   DeleteResult,
   MemoryEntry,
-} from "@workspace/core/services/memory/types";
+} from "@workspace/view-core/api-types.gen";
 import { apiPath, apiSend } from "./api";
 
 interface MemoryRef {

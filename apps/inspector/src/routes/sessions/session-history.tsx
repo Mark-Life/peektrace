@@ -23,6 +23,11 @@ import {
 } from "@workspace/ui/components/select";
 import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
+import type {
+  GrowthSeries,
+  HistoryIndex,
+  SessionSummary,
+} from "@workspace/view-core/api-types.gen";
 import {
   ArrowUpIcon,
   ChevronsDownUpIcon,
@@ -39,11 +44,6 @@ import {
   useRef,
   useState,
 } from "react";
-import type {
-  GrowthSeries,
-  HistoryIndex,
-  SessionSummary,
-} from "../../lib/api-types.gen";
 import { chatIdsOf } from "../../lib/chat-lane";
 import {
   isHiddenJump,

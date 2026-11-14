@@ -8,15 +8,6 @@
  */
 
 import {
-  fmtThinkingMs,
-  thinkingNote,
-} from "@workspace/core/services/sessions/labels";
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import {
-  eventTokens,
-  tokenLabel,
-} from "@workspace/core/services/sessions/tokens";
-import {
   CodeBlock,
   CodeBlockCopyButton,
 } from "@workspace/ui/components/ai-elements/code-block";
@@ -24,6 +15,7 @@ import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 import {
   fmt,
   fmtK,
@@ -34,6 +26,8 @@ import {
 import { BrainIcon, ChevronRightIcon } from "lucide-react";
 import { memo, type ReactNode, useState } from "react";
 import { type ChatLane, needsClamp } from "../../lib/chat-lane";
+import { fmtThinkingMs, thinkingNote } from "../../lib/event-labels";
+import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import { chatPanelId, disclosureProps } from "../../lib/session-view";
 import { EMPTY_BODY } from "../../lib/tool-event";
 import { sameChatRow } from "../../lib/transcript-row";

@@ -12,13 +12,13 @@
  */
 import type { Atom } from "@effect-atom/atom-react";
 import { type Result, useAtomValue } from "@effect-atom/atom-react";
-import type { AgentId } from "@workspace/core/services/agent-id";
-import { RETRY_WINDOW } from "@workspace/core/services/stats/detectors/retry-gates";
 import type {
+  AgentId,
   DrillResult,
   DrillTable,
   StatsReport,
-} from "@workspace/core/services/stats/schema";
+} from "@workspace/view-core/api-types.gen";
+import { RETRY_WINDOW } from "@workspace/view-core/constants.gen";
 import { useState } from "react";
 import type { ApiFailure } from "../lib/api";
 import { ResultView } from "../lib/result-view";

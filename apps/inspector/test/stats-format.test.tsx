@@ -10,7 +10,7 @@ import type {
   CauseRow,
   FailRow,
   TimeRow,
-} from "@workspace/core/services/stats/schema";
+} from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
 import { markedSessionHash } from "../src/lib/routes";
 import {

@@ -1,7 +1,7 @@
 /** Memory page: empty state with a create action, no agent selector. */
 import { describe, expect, test } from "bun:test";
+import type { Capability } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
-import type { Capability } from "../src/lib/api-types.gen";
 import { Explorer } from "../src/routes/memory/memory-explorer";
 
 const caps = (claude: Capability["perAgent"]["claude"]["level"]) => [

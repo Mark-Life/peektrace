@@ -1,6 +1,8 @@
 /** Index rows built from whole events, as `/history/index` serves them. */
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import type { HistoryRow } from "../src/lib/api-types.gen";
+import type {
+  HistoryRow,
+  TimelineEvent,
+} from "@workspace/view-core/api-types.gen";
 
 export const indexRowsOf = (
   events: readonly TimelineEvent[],

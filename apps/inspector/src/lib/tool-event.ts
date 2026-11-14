@@ -6,11 +6,11 @@
  * `TimelineEvent.body`/`preview`, which the server has already redacted, so no
  * rendering path added here can reach around the redaction toggle.
  */
-import type { LineDiff } from "@workspace/core/diff";
-import { diffLines } from "@workspace/core/diff";
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+import type { LineDiff } from "@workspace/view-core/diff";
+import { diffLines } from "@workspace/view-core/diff";
 import { FILE_TITLE_PREFIXES } from "./chat-lane";
 
 /** Text shown when an event carries no body at all. */

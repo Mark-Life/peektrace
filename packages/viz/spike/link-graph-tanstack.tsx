@@ -22,7 +22,7 @@ import { forceLayout } from "@tanstack/charts/network/force";
 import { scaleLinear } from "@tanstack/charts-scales/linear";
 import { scaleOrdinal } from "@tanstack/charts-scales/ordinal";
 import { Chart } from "@tanstack/react-charts";
-import type { GraphData } from "@workspace/core/services/memory/types";
+import type { GraphData } from "@workspace/view-core/api-types.gen";
 import { useMemo } from "react";
 
 /** Node radius scales from this minimum across this range by byte size. */
@@ -59,7 +59,7 @@ interface EdgeRow {
 }
 
 export interface LinkGraphTanstackProps {
-  readonly graph: typeof GraphData.Type;
+  readonly graph: GraphData;
   /** Rendered width cap in px, clamped to the geometry's usable range. */
   readonly maxWidth?: number;
   readonly onSelect?: (slug: string) => void;

@@ -6,13 +6,13 @@
  */
 
 import { useAtomValue } from "@effect-atom/atom-react";
-import type { SampleRef } from "@workspace/core/services/stats/schema";
 import { Button } from "@workspace/ui/components/button";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@workspace/ui/components/popover";
+import type { SampleRef } from "@workspace/view-core/api-types.gen";
 import { ArrowUpRightIcon } from "lucide-react";
 import { markedSessionHash } from "../../lib/routes";
 import { sessionTitlesAtom } from "../../lib/session-titles";

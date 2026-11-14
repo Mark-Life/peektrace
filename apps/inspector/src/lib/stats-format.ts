@@ -1,34 +1,27 @@
 /** Formatters for the stats screen, and the findings order bound to them.
  *
- * Which rows lead a cold start, and what each one says, is core's answer
- * (`services/stats/findings`); this file only supplies how a number is spelled
- * in a browser. The terminal binds the same functions to its own primitives, so
- * neither surface can drift from the other by editing a sentence.
+ * Which rows lead a cold start, and what each one says, is `stats-findings`'
+ * answer; this file only supplies how a number is spelled in a browser. The
+ * Rust TUI and native app keep a port of the same sentences (`stats::findings`).
  */
+import { fmtK } from "@workspace/viz/lib/session-format";
 import {
   findingsOf as coreFindingsOf,
   timeNote as coreTimeNote,
   type FindingFormat,
-} from "@workspace/core/services/stats/findings";
-import {
-  type PromptTarget,
-  statsPrompt,
-} from "@workspace/core/services/stats/prompts";
-import { fmtK } from "@workspace/viz/lib/session-format";
+} from "./stats-findings";
+import { type PromptTarget, statsPrompt } from "./stats-prompts";
 
-export type { Finding } from "@workspace/core/services/stats/findings";
-export {
-  NO_RULE,
-  ruleLine,
-  suggestedRules,
-} from "@workspace/core/services/stats/findings";
+export { NO_RULE } from "@workspace/view-core/constants.gen";
+export type { Finding } from "./stats-findings";
+export { ruleLine, suggestedRules } from "./stats-findings";
 
-import type { AgentId } from "@workspace/core/services/agent-id";
 import type {
+  AgentId,
   SampleRef,
   StatsReport,
   TimeRow,
-} from "@workspace/core/services/stats/schema";
+} from "@workspace/view-core/api-types.gen";
 
 const SEC_PER_MIN = 60;
 const SEC_PER_HOUR = 3600;
@@ -61,7 +54,7 @@ export const n = (value: number): string => value.toLocaleString();
 export const at = (epochMs: number): string =>
   new Date(epochMs).toLocaleString();
 
-/** How this surface spells a number, for the sentences core composes. */
+/** How this surface spells a number, for the sentences `stats-findings` composes. */
 const FORMAT: FindingFormat = { count: n, hms, pct, tokens: fmtK };
 
 /** What a time row can say for itself, from its own columns. */
@@ -79,7 +72,7 @@ export const findingsOf = (report: StatsReport) =>
 /** The investigation prompt for one row, or null when no row has the key. */
 export type PromptFor = (target: PromptTarget) => string | null;
 
-/** Bind core's prompt builder to this report, its agent scope and this
+/** Bind the prompt builder to this report, its agent scope and this
  * surface's number spelling, so every button copies the CLI's text. */
 export const promptsOf =
   (report: StatsReport, agent: AgentId | null): PromptFor =>

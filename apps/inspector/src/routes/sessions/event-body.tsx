@@ -1,12 +1,12 @@
 /** A non-tool event body as the reader should see it: Markdown for text the
  *  agent or the harness wrote, a highlighted block for a file's content. */
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import {
   CodeBlock,
   CodeBlockCopyButton,
 } from "@workspace/ui/components/ai-elements/code-block";
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 import { bodyView, EMPTY_BODY } from "../../lib/tool-event";
 import { EventImages } from "./event-images";
 

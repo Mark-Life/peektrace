@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@workspace/ui/lib/utils";
 /** Wikilink graph for a vault, drawn as a static SVG circular layout.
  *
  * Nodes (memory files) sit on a circle; edges are the resolved `[[wikilinks]]`
@@ -7,8 +8,7 @@
  * edges are dashed/red. Deterministic layout (no physics) keeps it cheap and
  * stable across renders. Clicking a node calls `onSelect(slug)`.
  */
-import type { GraphData } from "@workspace/core/services/memory/types";
-import { cn } from "@workspace/ui/lib/utils";
+import type { GraphData } from "@workspace/view-core/api-types.gen";
 
 /** SVG viewbox size + circle radius for the ring layout. */
 const SIZE = 320;
@@ -45,7 +45,7 @@ export const layout = (slugs: readonly string[]) => {
 };
 
 interface LinkGraphProps {
-  readonly graph: typeof GraphData.Type;
+  readonly graph: GraphData;
   /** Rendered width cap in px, clamped to the geometry's usable range. */
   readonly maxWidth?: number;
   readonly onSelect?: (slug: string) => void;

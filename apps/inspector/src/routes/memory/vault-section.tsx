@@ -6,10 +6,6 @@
  * `canWrite` (supported capability, writable server). Link clicks and
  * graph-node clicks expand the target row in place.
  */
-import type {
-  MemoryEntry,
-  MemoryVault,
-} from "@workspace/core/services/memory/types";
 import { Button } from "@workspace/ui/components/button";
 import {
   Card,
@@ -17,6 +13,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card";
+import type {
+  MemoryEntry,
+  MemoryVault,
+} from "@workspace/view-core/api-types.gen";
 import { BudgetGauge } from "@workspace/viz/components/budget-gauge";
 import { LinkGraph } from "@workspace/viz/components/link-graph";
 import { TypeDonut } from "@workspace/viz/components/type-donut";

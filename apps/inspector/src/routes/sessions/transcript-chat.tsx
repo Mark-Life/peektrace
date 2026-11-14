@@ -8,18 +8,17 @@
  * here rather than inside a card, so a memoized card compares two strings
  * instead of the whole tool index, which is rebuilt on every re-analysis.
  */
-import type {
-  AnalyzedSession,
-  TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
-import { tokenLabel } from "@workspace/core/services/sessions/tokens";
-import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
+import type {
+  AnalyzedSession,
+  GrowthTurn,
+  SessionMarker,
+  TimelineEvent,
+} from "@workspace/view-core/api-types.gen";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
-import type { GrowthTurn } from "../../lib/api-types.gen";
 import {
   buildChatPlan,
   type ChatNode,
@@ -29,6 +28,7 @@ import {
   laneOf,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
+import { tokenLabel } from "../../lib/event-tokens";
 import {
   alignOf,
   type HistoryJump,

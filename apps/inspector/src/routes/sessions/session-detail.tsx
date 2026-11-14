@@ -10,6 +10,11 @@
  */
 import { Result } from "@effect-atom/atom-react";
 import { Button } from "@workspace/ui/components/button";
+import type {
+  GrowthSeries,
+  HistoryIndex,
+  SessionSummary,
+} from "@workspace/view-core/api-types.gen";
 import { BudgetBar } from "@workspace/viz/components/budget-bar";
 import {
   GrowthTimeline,
@@ -22,11 +27,6 @@ import {
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
-import type {
-  GrowthSeries,
-  HistoryIndex,
-  SessionSummary,
-} from "../../lib/api-types.gen";
 import { useTitleOverride } from "../../lib/document-title";
 import {
   type JumpLanding,

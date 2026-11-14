@@ -4,7 +4,6 @@
  * references that are now broken; we toast them so the user knows what to fix.
  */
 import { useAtomSet } from "@effect-atom/atom-react";
-import type { MemoryEntry } from "@workspace/core/services/memory/types";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -15,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog";
 import { Button } from "@workspace/ui/components/button";
+import type { MemoryEntry } from "@workspace/view-core/api-types.gen";
 import { Exit } from "effect";
 import { useState } from "react";
 import { toast } from "sonner";

@@ -8,18 +8,6 @@
  * view. (The chat layout pairs them; it also never sums the two figures.)
  */
 import {
-  eventBadgeLabel,
-  thinkingNote,
-} from "@workspace/core/services/sessions/labels";
-import type {
-  AnalyzedSession,
-  TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
-import {
-  eventTokens,
-  tokenLabel,
-} from "@workspace/core/services/sessions/tokens";
-import {
   Tool,
   ToolContent,
   ToolHeader,
@@ -31,6 +19,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible";
+import type {
+  AnalyzedSession,
+  TimelineEvent,
+} from "@workspace/view-core/api-types.gen";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
@@ -38,6 +30,8 @@ import type {
   EventRow as AnyEvent,
   TranscriptRowRef,
 } from "../../lib/chat-lane";
+import { eventBadgeLabel, thinkingNote } from "../../lib/event-labels";
+import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import {
   alignOf,
   type HistoryJump,
