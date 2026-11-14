@@ -18,7 +18,7 @@ pub const MAC: bool = cfg!(target_os = "macos");
 /// Focus keys of text fields, by prefix: single keys type there.
 pub const TEXT_FIELDS: &[&str] = &["search", "settings-path-", "settings-label-"];
 
-/// Geist, plus a `DejaVu Sans` cut for the UI's own `∞ ⋯ ▴ ▾`, on every target:
+/// Geist, plus a `DejaVu Sans` cut for the UI's own `∞ ⋯ ▴ ▾ ⌘`, on every target:
 /// the web has no system fonts, and native fallback picks a per-OS symbol font
 /// whose widths shift the layout. Rune's embedded Inter covers Greek and
 /// Cyrillic on the web.

@@ -912,22 +912,22 @@
       "role": "group"
     },
     {
-      "rect": [512, 606, 374, 18],
+      "rect": [512, 606, 373, 18],
       "role": "text",
       "text": "Collapse or expand the sidebar"
     },
     {
       "label": "⌘B",
-      "rect": [902, 608, 26, 14],
+      "rect": [901, 608, 27, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [902, 608, 26, 14],
+      "rect": [901, 608, 27, 14],
       "role": "group"
     },
     {
-      "rect": [906, 610, 18, 11],
+      "rect": [905, 610, 19, 11],
       "role": "text",
       "text": "⌘B"
     },

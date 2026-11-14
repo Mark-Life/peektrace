@@ -180,7 +180,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app Escape on Capabilities | browser Back returns to Settings | Escape returns to Settings (no rail entry, no Back) |
 | Experimental `serve --ui rune`: web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
 | Experimental `serve --ui rune`: Stats | findings, prompts, rule badges and time notes | none: core writes that text, so the web build hides it |
-| Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
+| Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾ ⌘`; CJK and emoji show as boxes |
 
 ## Decisions
 

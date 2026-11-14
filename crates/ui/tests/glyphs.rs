@@ -56,17 +56,12 @@ fn ui_chars() -> Vec<(char, String)> {
     out
 }
 
-/// Drawn by Rune's embedded Inter, next in the fallback chain on every
-/// target: `⌘` only shows on macOS keycaps.
-const RUNE_INTER: &[char] = &['⌘'];
-
 #[test]
 fn shipped_fonts_cover_the_ui_glyphs() {
     let chars = ui_chars();
     assert!(chars.iter().any(|(c, _)| *c == '▾'), "scan found no ▾");
     let missing: Vec<_> = chars
         .iter()
-        .filter(|(c, _)| !RUNE_INTER.contains(c))
         .filter(|(c, _)| {
             !covers(&["geist.ttf", "symbols.ttf"], *c)
                 || !covers(&["geist-mono.ttf", "symbols.ttf"], *c)
