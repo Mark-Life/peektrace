@@ -20,9 +20,6 @@ out/
 build
 dist
 
-# Staged npm packages (scripts/release/build-npm.ts)
-/dist-npm/
-
 
 # Debug
 npm-debug.log*

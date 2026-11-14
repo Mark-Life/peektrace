@@ -14,7 +14,6 @@
       // through the `extends` merge and then errors on it.
       "!.agents/**/*",
       "!.claude/**/*",
-      "!scripts/release/npm",
       // Generated from crates/protocol, crates/core and crates/server.
       "!packages/view-core/src/*.gen.ts",
       "!apps/inspector/test/fixtures/**/*",
