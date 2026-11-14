@@ -14,6 +14,9 @@ use crate::theme::{EMERALD_500, Theme, hex_or_grey, theme, ty};
 
 const NAV_W: f32 = 256.0;
 const NAV_COLLAPSED_W: f32 = 56.0;
+/// The empty band over the nav that keeps the macOS traffic lights clear
+/// of the brand, as the inspector's desktop shell does.
+const TITLEBAR_BAND_H: f32 = 32.0;
 const HEADER_H: f32 = 44.0;
 const DETAIL_MAX_W: f32 = 1800.0;
 
@@ -67,7 +70,16 @@ fn nav_row(s: &Ui, route: Route, t: &Theme) -> El {
         })
 }
 
-fn nav(s: &Ui, t: &Theme) -> El {
+/// The nav's width: collapsed, it still clears the traffic lights.
+pub fn nav_width(collapsed: bool, inset: f32) -> f32 {
+    match (collapsed, inset > 0.0) {
+        (false, _) => NAV_W,
+        (true, false) => NAV_COLLAPSED_W,
+        (true, true) => NAV_COLLAPSED_W.max(inset + 13.0),
+    }
+}
+
+fn nav(s: &Ui, inset: f32, t: &Theme) -> El {
     let brand = if s.nav_collapsed {
         col().child(text("P").font(ty::BASE_SEMI).color(t.primary))
     } else {
@@ -95,17 +107,21 @@ fn nav(s: &Ui, t: &Theme) -> El {
         .label("Toggle theme")
         .focusable(true)
         .on_press(move |s: &mut Ui| s.dark = Some(!dark));
+    let band = (inset > 0.0).then(|| {
+        rune::el()
+            .key("titlebar-band")
+            .w_full()
+            .h(TITLEBAR_BAND_H)
+            .window_drag()
+    });
     col()
         .key("nav")
-        .w(if s.nav_collapsed {
-            NAV_COLLAPSED_W
-        } else {
-            NAV_W
-        })
+        .w(nav_width(s.nav_collapsed, inset))
         .h_full()
         .fill(t.sidebar)
         .padding(10.0)
         .gap(4.0)
+        .children(band)
         .child(brand.pb(12.0).px(6.0))
         .children(
             [
@@ -129,6 +145,7 @@ fn header(s: &Ui, t: &Theme) -> El {
         .px(16.0)
         .gap(10.0)
         .center_y()
+        .window_drag()
         .border_sides([0.0, 0.0, 1.0, 0.0], t.border)
         .child(text(s.route.title()).font(ty::SM_MEDIUM).color(t.fg));
     let hint = match s.route {
@@ -249,13 +266,19 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
             &t,
         )),
     };
-    let base = row().w_full().h_full().fill(t.bg).child(nav(s, &t)).child(
-        col()
-            .grow(1.0)
-            .h_full()
-            .min_w(0.0)
-            .child(header(s, &t))
-            .child(content),
-    );
+    let inset = cx.titlebar_inset();
+    let base = row()
+        .w_full()
+        .h_full()
+        .fill(t.bg)
+        .child(nav(s, inset, &t))
+        .child(
+            col()
+                .grow(1.0)
+                .h_full()
+                .min_w(0.0)
+                .child(header(s, &t))
+                .child(content),
+        );
     rune_kit::root(base, layer)
 }

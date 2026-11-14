@@ -1,0 +1,7117 @@
+{
+  "elements": [
+    {
+      "key": "kit-root",
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        0,
+        0,
+        1440,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "nav",
+      "rect": [
+        0,
+        0,
+        256,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "titlebar-band",
+      "rect": [
+        10,
+        10,
+        236,
+        32
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        10,
+        46,
+        236,
+        47
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        16,
+        46,
+        224,
+        18
+      ],
+      "role": "text",
+      "text": "Peektrace"
+    },
+    {
+      "rect": [
+        16,
+        66,
+        224,
+        15
+      ],
+      "role": "text",
+      "text": "Agent session inspector"
+    },
+    {
+      "key": "nav-sessions",
+      "label": "Sessions",
+      "rect": [
+        10,
+        97,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        104,
+        60,
+        18
+      ],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "key": "nav-stats",
+      "label": "Stats",
+      "rect": [
+        10,
+        133,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        140,
+        35,
+        18
+      ],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "key": "nav-memory",
+      "label": "Memory",
+      "rect": [
+        10,
+        169,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        176,
+        54,
+        18
+      ],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "key": "nav-settings",
+      "label": "Settings",
+      "rect": [
+        10,
+        205,
+        236,
+        32
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        20,
+        212,
+        55,
+        18
+      ],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [
+        10,
+        241,
+        236,
+        618
+      ],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Toggle theme",
+      "rect": [
+        10,
+        862,
+        236,
+        28
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        18,
+        869,
+        28,
+        15
+      ],
+      "role": "text",
+      "text": "Light"
+    },
+    {
+      "rect": [
+        256,
+        0,
+        1184,
+        900
+      ],
+      "role": "group"
+    },
+    {
+      "key": "header",
+      "rect": [
+        256,
+        0,
+        1184,
+        44
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        272,
+        13,
+        35,
+        18
+      ],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "rect": [
+        317,
+        15,
+        148,
+        15
+      ],
+      "role": "text",
+      "text": "What fails, what costs time"
+    },
+    {
+      "rect": [
+        475,
+        22,
+        949,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-scroll",
+      "rect": [
+        256,
+        44,
+        1184,
+        856
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-route",
+      "rect": [
+        256,
+        44,
+        1184,
+        3020
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-col",
+      "rect": [
+        280,
+        68,
+        1136,
+        2972
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-header",
+      "rect": [
+        280,
+        68,
+        1136,
+        122
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        68,
+        1136,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-corpus",
+      "rect": [
+        280,
+        71,
+        689,
+        18
+      ],
+      "role": "text",
+      "text": "3 transcripts · 1 projects · 23 tool calls · 23 shell calls · 12m40s of shell time"
+    },
+    {
+      "rect": [
+        981,
+        80,
+        9,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1002,
+        68,
+        414,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-days",
+      "label": "Window",
+      "rect": [
+        1002,
+        68,
+        81,
+        24
+      ],
+      "role": "combobox"
+    },
+    {
+      "key": "value",
+      "rect": [
+        1010,
+        72,
+        49,
+        16
+      ],
+      "role": "text",
+      "text": "60 days"
+    },
+    {
+      "key": "chevron",
+      "rect": [
+        1063,
+        72,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "stats-agent",
+      "label": "Agent",
+      "rect": [
+        1091,
+        68,
+        93,
+        24
+      ],
+      "role": "combobox"
+    },
+    {
+      "key": "value",
+      "rect": [
+        1099,
+        72,
+        61,
+        16
+      ],
+      "role": "text",
+      "text": "All agents"
+    },
+    {
+      "key": "chevron",
+      "rect": [
+        1164,
+        72,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "stats-rescan",
+      "label": "Rescan",
+      "rect": [
+        1192,
+        68,
+        92,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1204,
+        72,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1226,
+        70,
+        46,
+        20
+      ],
+      "role": "text",
+      "text": "Rescan"
+    },
+    {
+      "key": "stats-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        1291,
+        68,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1303,
+        72,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1325,
+        70,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "key": "stats-window",
+      "rect": [
+        280,
+        104,
+        1136,
+        15
+      ],
+      "role": "text",
+      "text": "2026-04-02 → 2026-06-01 · generated 6/1/2026, 10:03:00 AM · peektrace-stats/v2 · detector v2"
+    },
+    {
+      "rect": [
+        280,
+        131,
+        1136,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        132,
+        14,
+        14
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        300,
+        131,
+        525,
+        15
+      ],
+      "role": "text",
+      "text": "Command text, error signatures and cluster labels are redacted before they are stored or shown."
+    },
+    {
+      "key": "stats-caveats-toggle",
+      "rect": [
+        280,
+        158,
+        1136,
+        32
+      ],
+      "role": "group"
+    },
+    {
+      "key": "trigger",
+      "label": "10 caveats travel with these numbers",
+      "rect": [
+        280,
+        158,
+        1136,
+        32
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        280,
+        162,
+        259,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "title",
+      "rect": [
+        280,
+        164,
+        227,
+        20
+      ],
+      "role": "text",
+      "text": "10 caveats travel with these numbers"
+    },
+    {
+      "key": "arrow",
+      "rect": [
+        515,
+        162,
+        24,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        520,
+        167,
+        14,
+        14
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "stats-findings-section",
+      "rect": [
+        280,
+        222,
+        1136,
+        1125
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        222,
+        1136,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        222,
+        128,
+        20
+      ],
+      "role": "text",
+      "text": "Flagged findings"
+    },
+    {
+      "rect": [
+        416,
+        227,
+        333,
+        15
+      ],
+      "role": "text",
+      "text": "ranked by cheapest fix first, then by each table's own impact"
+    },
+    {
+      "key": "stats-findings",
+      "rect": [
+        280,
+        254,
+        1136,
+        1093
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        254,
+        1136,
+        944
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        254,
+        1136,
+        274
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding:cause:cause:zsh-glob-path",
+      "rect": [
+        280,
+        254,
+        562,
+        244
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        266,
+        538,
+        46
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        266,
+        295,
+        18
+      ],
+      "role": "text",
+      "text": "unmatched path glob (zsh no matches found)"
+    },
+    {
+      "rect": [
+        595,
+        266,
+        53,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        603,
+        269,
+        37,
+        15
+      ],
+      "role": "text",
+      "text": "retries"
+    },
+    {
+      "rect": [
+        655,
+        266,
+        110,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        663,
+        269,
+        94,
+        15
+      ],
+      "role": "text",
+      "text": "zsh-glob-path"
+    },
+    {
+      "rect": [
+        773,
+        266,
+        57,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        292,
+        294,
+        488,
+        18
+      ],
+      "role": "text",
+      "text": "3 retries (main 2 / sub 1) · 21s · 6.6K ctx tokens re-read"
+    },
+    {
+      "rect": [
+        292,
+        320,
+        538,
+        30
+      ],
+      "role": "text",
+      "text": "zsh: an unmatched glob aborts the command even with 2>/dev/null. List with find or fd, or quote the pattern."
+    },
+    {
+      "rect": [
+        292,
+        358,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "3 hits · 3 sessions with a retry · 1 projects · hits main 2 / sub 1"
+    },
+    {
+      "rect": [
+        292,
+        381,
+        538,
+        105
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        292,
+        381,
+        538,
+        73
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        381,
+        538,
+        54
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        381,
+        344,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:agent-a1:0",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        292,
+        381,
+        303,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        300,
+        387,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        316,
+        385,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        508,
+        385,
+        80,
+        15
+      ],
+      "role": "text",
+      "text": " · subagent"
+    },
+    {
+      "key": "stats-targets-finding-cause-cause-zsh-glob-path-agent-a1-0-trigger",
+      "rect": [
+        597,
+        381,
+        39,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-more:agent-a1:0",
+      "label": "Open one of 2 samples",
+      "rect": [
+        597,
+        381,
+        39,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [
+        609,
+        383,
+        15,
+        20
+      ],
+      "role": "text",
+      "text": "×2"
+    },
+    {
+      "rect": [
+        292,
+        411,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:88888888-8888-4888-8888-888888888888:0",
+      "label": "-Users-demo-stats/88888888",
+      "rect": [
+        292,
+        411,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        300,
+        417,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        316,
+        415,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/88888888"
+    },
+    {
+      "rect": [
+        292,
+        439,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "ls src/*.ts"
+    },
+    {
+      "key": "finding-copy",
+      "label": "Copy rule",
+      "rect": [
+        292,
+        462,
+        105,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        304,
+        466,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        326,
+        464,
+        59,
+        20
+      ],
+      "role": "text",
+      "text": "Copy rule"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        405,
+        462,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        417,
+        466,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        439,
+        464,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        538,
+        486,
+        191,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        736,
+        462,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        748,
+        466,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        770,
+        464,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "key": "stats-finding:cause:cause:command-not-found",
+      "rect": [
+        854,
+        254,
+        562,
+        274
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        266,
+        538,
+        46
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        266,
+        132,
+        18
+      ],
+      "role": "text",
+      "text": "command not found"
+    },
+    {
+      "rect": [
+        1006,
+        266,
+        53,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1014,
+        269,
+        37,
+        15
+      ],
+      "role": "text",
+      "text": "retries"
+    },
+    {
+      "rect": [
+        1066,
+        266,
+        139,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1074,
+        269,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "command-not-found"
+    },
+    {
+      "rect": [
+        1213,
+        266,
+        192,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        866,
+        294,
+        488,
+        18
+      ],
+      "role": "text",
+      "text": "2 retries (main 2 / sub 0) · 14s · 8.4K ctx tokens re-read"
+    },
+    {
+      "rect": [
+        866,
+        320,
+        538,
+        60
+      ],
+      "role": "text",
+      "text": "rule in ~/.claude/CLAUDE.md:3 · still firing main 105/1k, sub 250/1k since 2026-05-28: install the binaries on this host, or fix PATH (~/.zshenv for zsh (every zsh reads it); ~/.bashrc for bash under Claude Code, whose shell snapshot captures it; other agents' bash reads no rc file, so export PATH before starting them): a memory line cannot add a binary"
+    },
+    {
+      "rect": [
+        866,
+        388,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "3 hits · 2 sessions with a retry · 1 projects · hits main 2 / sub 1"
+    },
+    {
+      "rect": [
+        866,
+        411,
+        538,
+        105
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        866,
+        411,
+        538,
+        73
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        411,
+        538,
+        54
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        411,
+        344,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:agent-a1:2",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        866,
+        411,
+        303,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        874,
+        417,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        890,
+        415,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        1082,
+        415,
+        80,
+        15
+      ],
+      "role": "text",
+      "text": " · subagent"
+    },
+    {
+      "key": "stats-targets-finding-cause-cause-command-not-found-agent-a1-2-trigger",
+      "rect": [
+        1171,
+        411,
+        39,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-more:agent-a1:2",
+      "label": "Open one of 2 samples",
+      "rect": [
+        1171,
+        411,
+        39,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1183,
+        413,
+        15,
+        20
+      ],
+      "role": "text",
+      "text": "×2"
+    },
+    {
+      "rect": [
+        866,
+        441,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:88888888-8888-4888-8888-888888888888:2",
+      "label": "-Users-demo-stats/88888888",
+      "rect": [
+        866,
+        441,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        874,
+        447,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        890,
+        445,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/88888888"
+    },
+    {
+      "rect": [
+        866,
+        469,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "fdd src"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        866,
+        492,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        878,
+        496,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        900,
+        494,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        999,
+        516,
+        303,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        1310,
+        492,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1322,
+        496,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1344,
+        494,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "rect": [
+        280,
+        540,
+        1136,
+        244
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding:cause:cause:sleep-blocked",
+      "rect": [
+        280,
+        540,
+        562,
+        214
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        552,
+        538,
+        46
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        552,
+        320,
+        18
+      ],
+      "role": "text",
+      "text": "harness blocked sleep N followed by a command"
+    },
+    {
+      "rect": [
+        620,
+        552,
+        53,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        628,
+        554,
+        37,
+        15
+      ],
+      "role": "text",
+      "text": "retries"
+    },
+    {
+      "rect": [
+        680,
+        552,
+        110,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        688,
+        554,
+        94,
+        15
+      ],
+      "role": "text",
+      "text": "sleep-blocked"
+    },
+    {
+      "rect": [
+        798,
+        552,
+        32,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        292,
+        580,
+        496,
+        18
+      ],
+      "role": "text",
+      "text": "2 retries (main 2 / sub 0) · 14s · 12.4K ctx tokens re-read"
+    },
+    {
+      "rect": [
+        292,
+        605,
+        538,
+        30
+      ],
+      "role": "text",
+      "text": "Don't sleep N && cmd: wait with an until-loop (until grep -q DONE f; do sleep 2; done), Monitor, or run_in_background."
+    },
+    {
+      "rect": [
+        292,
+        643,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "2 hits · 2 sessions with a retry · 1 projects · hits main 2 / sub 0"
+    },
+    {
+      "rect": [
+        292,
+        666,
+        538,
+        75
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        292,
+        666,
+        538,
+        43
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        666,
+        538,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        666,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:4",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        292,
+        666,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        300,
+        672,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        316,
+        671,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        518,
+        666,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:88888888-8888-4888-8888-888888888888:4",
+      "label": "-Users-demo-stats/88888888",
+      "rect": [
+        518,
+        666,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        526,
+        672,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        542,
+        671,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/88888888"
+    },
+    {
+      "rect": [
+        292,
+        694,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "sleep 30 && curl -s localhost:3000/health"
+    },
+    {
+      "key": "finding-copy",
+      "label": "Copy rule",
+      "rect": [
+        292,
+        717,
+        105,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        304,
+        721,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        326,
+        719,
+        59,
+        20
+      ],
+      "role": "text",
+      "text": "Copy rule"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        405,
+        717,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        417,
+        721,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        439,
+        719,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        538,
+        741,
+        191,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        736,
+        717,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        748,
+        721,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        770,
+        719,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "key": "stats-finding:cause:cause:pkill-self-kill",
+      "rect": [
+        854,
+        540,
+        562,
+        244
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        552,
+        538,
+        46
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        552,
+        317,
+        18
+      ],
+      "role": "text",
+      "text": "pkill -f matched and killed its own shell (exit 144)"
+    },
+    {
+      "rect": [
+        1191,
+        552,
+        53,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1199,
+        554,
+        37,
+        15
+      ],
+      "role": "text",
+      "text": "retries"
+    },
+    {
+      "rect": [
+        1252,
+        552,
+        124,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1260,
+        554,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "pkill-self-kill"
+    },
+    {
+      "rect": [
+        1384,
+        552,
+        21,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        866,
+        580,
+        513,
+        18
+      ],
+      "role": "text",
+      "text": "1 retries (main 1 / sub 0) · 7.00s · 13.2K ctx tokens re-read"
+    },
+    {
+      "rect": [
+        866,
+        605,
+        538,
+        60
+      ],
+      "role": "text",
+      "text": "pkill -f PAT matches the harness shell, whose command line holds the whole call, and kills it (exit 144). Kill by name (pkill -x NAME) or by a saved PID (kill \"$(cat srv.pid)\"). A bracketed '[p]attern' helps only when no other part of the call repeats the plain text: pkill -f '[b]un run dev'; bun run dev & still dies."
+    },
+    {
+      "rect": [
+        866,
+        673,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "1 hits · 1 sessions with a retry · 1 projects · hits main 1 / sub 0"
+    },
+    {
+      "rect": [
+        866,
+        696,
+        538,
+        75
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        866,
+        696,
+        538,
+        43
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        696,
+        538,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        696,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:11",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        866,
+        696,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        874,
+        702,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        890,
+        701,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        866,
+        724,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "pkill -f 'bun run dev'"
+    },
+    {
+      "key": "finding-copy",
+      "label": "Copy rule",
+      "rect": [
+        866,
+        747,
+        105,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        878,
+        751,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        900,
+        749,
+        59,
+        20
+      ],
+      "role": "text",
+      "text": "Copy rule"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        979,
+        747,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        991,
+        751,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1013,
+        749,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        1112,
+        771,
+        191,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        1310,
+        747,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1322,
+        751,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1344,
+        749,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "rect": [
+        280,
+        795,
+        1136,
+        203
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding:cause:cause:rm-guard",
+      "rect": [
+        280,
+        795,
+        562,
+        203
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        807,
+        538,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        807,
+        190,
+        18
+      ],
+      "role": "text",
+      "text": "harness dangerous-rm guard"
+    },
+    {
+      "rect": [
+        490,
+        807,
+        53,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        498,
+        810,
+        37,
+        15
+      ],
+      "role": "text",
+      "text": "retries"
+    },
+    {
+      "rect": [
+        550,
+        807,
+        74,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        558,
+        810,
+        58,
+        15
+      ],
+      "role": "text",
+      "text": "rm-guard"
+    },
+    {
+      "rect": [
+        632,
+        807,
+        106,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        746,
+        807,
+        84,
+        35
+      ],
+      "role": "text",
+      "text": "1 sessions"
+    },
+    {
+      "rect": [
+        292,
+        850,
+        538,
+        30
+      ],
+      "role": "text",
+      "text": "rm absolute paths, never $VAR/* or a path behind cd: write rm -rf -- \"${D:?}\"/x so an empty variable cannot widen the target."
+    },
+    {
+      "rect": [
+        292,
+        888,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "1 hits · 0 sessions with a retry · 1 projects · hits main 1 / sub 0"
+    },
+    {
+      "rect": [
+        292,
+        911,
+        538,
+        75
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        292,
+        911,
+        538,
+        43
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        911,
+        538,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        911,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:10",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        292,
+        911,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        300,
+        917,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        316,
+        916,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        292,
+        939,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "rm -rf $DIR/*"
+    },
+    {
+      "key": "finding-copy",
+      "label": "Copy rule",
+      "rect": [
+        292,
+        962,
+        105,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        304,
+        966,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        326,
+        964,
+        59,
+        20
+      ],
+      "role": "text",
+      "text": "Copy rule"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        405,
+        962,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        417,
+        966,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        439,
+        964,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        538,
+        986,
+        191,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        736,
+        962,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        748,
+        966,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        770,
+        964,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "key": "stats-finding:fail:scan:test",
+      "rect": [
+        854,
+        795,
+        562,
+        188
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        807,
+        538,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        807,
+        92,
+        18
+      ],
+      "role": "text",
+      "text": "N failing tests"
+    },
+    {
+      "rect": [
+        966,
+        807,
+        40,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        974,
+        810,
+        24,
+        15
+      ],
+      "role": "text",
+      "text": "fails"
+    },
+    {
+      "rect": [
+        1014,
+        807,
+        124,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1022,
+        810,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "piped-exit-code"
+    },
+    {
+      "rect": [
+        1146,
+        807,
+        166,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        1320,
+        807,
+        84,
+        35
+      ],
+      "role": "text",
+      "text": "1 sessions"
+    },
+    {
+      "rect": [
+        866,
+        850,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "1 of 1 pipe into head/tail/grep, so the exit code is the pipe's"
+    },
+    {
+      "rect": [
+        866,
+        873,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "1 calls · 1 projects · 0 flagged"
+    },
+    {
+      "rect": [
+        866,
+        896,
+        538,
+        75
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        866,
+        896,
+        538,
+        43
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        896,
+        538,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        896,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:8",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        866,
+        896,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        874,
+        902,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        890,
+        901,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        866,
+        924,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "bun test | tail -5"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        866,
+        947,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        878,
+        951,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        900,
+        949,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        999,
+        971,
+        303,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        1310,
+        947,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1322,
+        951,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1344,
+        949,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "rect": [
+        280,
+        1010,
+        1136,
+        188
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding:fail:scan:tsc",
+      "rect": [
+        280,
+        1010,
+        562,
+        188
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        1022,
+        538,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        1022,
+        81,
+        18
+      ],
+      "role": "text",
+      "text": "error TS####"
+    },
+    {
+      "rect": [
+        381,
+        1022,
+        40,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        389,
+        1025,
+        24,
+        15
+      ],
+      "role": "text",
+      "text": "fails"
+    },
+    {
+      "rect": [
+        429,
+        1022,
+        310,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        746,
+        1022,
+        84,
+        35
+      ],
+      "role": "text",
+      "text": "1 sessions"
+    },
+    {
+      "rect": [
+        292,
+        1065,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "the command printed a failure and still exited 0"
+    },
+    {
+      "rect": [
+        292,
+        1088,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "1 calls · 1 projects · 0 flagged"
+    },
+    {
+      "rect": [
+        292,
+        1111,
+        538,
+        75
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        292,
+        1111,
+        538,
+        43
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        1111,
+        538,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        1111,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:7",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        292,
+        1111,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        300,
+        1117,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        316,
+        1116,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        292,
+        1139,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "bun run typecheck"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        292,
+        1162,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        304,
+        1166,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        326,
+        1164,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        425,
+        1186,
+        303,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        736,
+        1162,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        748,
+        1166,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        770,
+        1164,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "key": "stats-finding:time:build",
+      "rect": [
+        854,
+        1010,
+        562,
+        173
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        1022,
+        538,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        1022,
+        33,
+        18
+      ],
+      "role": "text",
+      "text": "build"
+    },
+    {
+      "rect": [
+        907,
+        1022,
+        42,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        915,
+        1025,
+        26,
+        15
+      ],
+      "role": "text",
+      "text": "time"
+    },
+    {
+      "rect": [
+        956,
+        1022,
+        390,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-finding-impact",
+      "rect": [
+        1354,
+        1022,
+        51,
+        18
+      ],
+      "role": "text",
+      "text": "10m00s"
+    },
+    {
+      "rect": [
+        866,
+        1050,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "1 of 1 runs returned at a harness ceiling (10m00s of 10m00s): these seconds are a floor"
+    },
+    {
+      "rect": [
+        866,
+        1073,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "78.95% of shell time · 1 runs"
+    },
+    {
+      "rect": [
+        866,
+        1096,
+        538,
+        75
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-links",
+      "rect": [
+        866,
+        1096,
+        538,
+        43
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        1096,
+        538,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        866,
+        1096,
+        220,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:9",
+      "label": "-Users-demo-stats/77777777",
+      "rect": [
+        866,
+        1096,
+        220,
+        24
+      ],
+      "role": "link"
+    },
+    {
+      "rect": [
+        874,
+        1102,
+        12,
+        12
+      ],
+      "role": "icon"
+    },
+    {
+      "rect": [
+        890,
+        1101,
+        188,
+        15
+      ],
+      "role": "text",
+      "text": "-Users-demo-stats/77777777"
+    },
+    {
+      "rect": [
+        866,
+        1124,
+        538,
+        15
+      ],
+      "role": "text",
+      "text": "bun run build"
+    },
+    {
+      "key": "finding-prompt",
+      "label": "Copy prompt",
+      "rect": [
+        866,
+        1147,
+        125,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        878,
+        1151,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        900,
+        1149,
+        79,
+        20
+      ],
+      "role": "text",
+      "text": "Copy prompt"
+    },
+    {
+      "rect": [
+        999,
+        1171,
+        303,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "finding-drill",
+      "label": "All calls",
+      "rect": [
+        1310,
+        1147,
+        94,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1322,
+        1151,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1344,
+        1149,
+        48,
+        20
+      ],
+      "role": "text",
+      "text": "All calls"
+    },
+    {
+      "key": "stats-suggested-rules",
+      "rect": [
+        280,
+        1210,
+        1136,
+        137
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        1222,
+        1112,
+        24
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        292,
+        1225,
+        108,
+        18
+      ],
+      "role": "text",
+      "text": "Suggested rules"
+    },
+    {
+      "rect": [
+        408,
+        1227,
+        247,
+        15
+      ],
+      "role": "text",
+      "text": "lines no CLAUDE.md / AGENTS.md states yet"
+    },
+    {
+      "rect": [
+        662,
+        1234,
+        538,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-copy-all",
+      "label": "Copy all suggested rules",
+      "rect": [
+        1208,
+        1222,
+        196,
+        24
+      ],
+      "role": "button"
+    },
+    {
+      "key": "icon",
+      "rect": [
+        1220,
+        1226,
+        16,
+        16
+      ],
+      "role": "icon"
+    },
+    {
+      "key": "label",
+      "rect": [
+        1242,
+        1224,
+        150,
+        20
+      ],
+      "role": "text",
+      "text": "Copy all suggested rules"
+    },
+    {
+      "rect": [
+        292,
+        1254,
+        1112,
+        81
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        300,
+        1254,
+        1104,
+        15
+      ],
+      "role": "text",
+      "text": "• zsh: an unmatched glob aborts the command even with 2>/dev/null. List with find or fd, or quote the pattern."
+    },
+    {
+      "rect": [
+        300,
+        1271,
+        1104,
+        15
+      ],
+      "role": "text",
+      "text": "• Don't sleep N && cmd: wait with an until-loop (until grep -q DONE f; do sleep 2; done), Monitor, or run_in_background."
+    },
+    {
+      "rect": [
+        300,
+        1288,
+        1104,
+        30
+      ],
+      "role": "text",
+      "text": "• pkill -f PAT matches the harness shell, whose command line holds the whole call, and kills it (exit 144). Kill by name (pkill -x NAME) or by a saved PID (kill \"$(cat srv.pid)\"). A bracketed '[p]attern' helps only when no other part of the call repeats the plain text: pkill -f '[b]un run dev'; bun run dev & still dies."
+    },
+    {
+      "rect": [
+        300,
+        1320,
+        1104,
+        15
+      ],
+      "role": "text",
+      "text": "• rm absolute paths, never $VAR/* or a path behind cd: write rm -rf -- \"${D:?}\"/x so an empty variable cannot widen the target."
+    },
+    {
+      "key": "stats-causes-section",
+      "rect": [
+        280,
+        1379,
+        1136,
+        398
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        1379,
+        1136,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        1379,
+        130,
+        20
+      ],
+      "role": "text",
+      "text": "Avoidable retries"
+    },
+    {
+      "rect": [
+        418,
+        1384,
+        319,
+        15
+      ],
+      "role": "text",
+      "text": "ranked by sessions with a retry, then sessions, then retries"
+    },
+    {
+      "rect": [
+        280,
+        1411,
+        1136,
+        30
+      ],
+      "role": "text",
+      "text": "A retry is a failed call followed within 3 calls by a similar call of the same tool that succeeded: a round trip a rule or an env fix would have saved. Retry time is the call-to-call gap; context re-read is what the retrying model call carried. Neither is added to the other."
+    },
+    {
+      "key": "cause-table",
+      "rect": [
+        280,
+        1453,
+        1136,
+        324
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        1453,
+        1136,
+        36
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1464,
+        352,
+        15
+      ],
+      "role": "text",
+      "text": "Cause"
+    },
+    {
+      "rect": [
+        648,
+        1464,
+        72,
+        15
+      ],
+      "role": "text",
+      "text": "Hits"
+    },
+    {
+      "rect": [
+        728,
+        1464,
+        96,
+        15
+      ],
+      "role": "text",
+      "text": "Retries"
+    },
+    {
+      "rect": [
+        832,
+        1464,
+        128,
+        15
+      ],
+      "role": "text",
+      "text": "Hits main / sub"
+    },
+    {
+      "rect": [
+        968,
+        1464,
+        96,
+        15
+      ],
+      "role": "text",
+      "text": "Retry time"
+    },
+    {
+      "rect": [
+        1072,
+        1464,
+        128,
+        15
+      ],
+      "role": "text",
+      "text": "Context re-read"
+    },
+    {
+      "rect": [
+        1208,
+        1464,
+        200,
+        15
+      ],
+      "role": "text",
+      "text": "Rule"
+    },
+    {
+      "key": "cause-row:cause:zsh-glob-path",
+      "label": "unmatched path glob (zsh no matches found)",
+      "rect": [
+        280,
+        1489,
+        1136,
+        58
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1497,
+        352,
+        42
+      ],
+      "role": "group"
+    },
+    {
+      "key": "cause-toggle:cause:zsh-glob-path",
+      "rect": [
+        288,
+        1497,
+        352,
+        18
+      ],
+      "role": "text",
+      "text": "unmatched path glob (zsh no matches found)"
+    },
+    {
+      "rect": [
+        288,
+        1519,
+        352,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1519,
+        110,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        296,
+        1521,
+        94,
+        15
+      ],
+      "role": "text",
+      "text": "zsh-glob-path"
+    },
+    {
+      "rect": [
+        402,
+        1519,
+        38,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        410,
+        1521,
+        22,
+        15
+      ],
+      "role": "text",
+      "text": "rule"
+    },
+    {
+      "rect": [
+        648,
+        1497,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        712,
+        1497,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "3"
+    },
+    {
+      "rect": [
+        728,
+        1497,
+        96,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        816,
+        1497,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "3"
+    },
+    {
+      "rect": [
+        766,
+        1517,
+        58,
+        15
+      ],
+      "role": "text",
+      "text": "3 sessions"
+    },
+    {
+      "rect": [
+        832,
+        1497,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        918,
+        1497,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2 / 1"
+    },
+    {
+      "rect": [
+        968,
+        1497,
+        96,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1039,
+        1497,
+        26,
+        18
+      ],
+      "role": "text",
+      "text": "21s"
+    },
+    {
+      "rect": [
+        1072,
+        1497,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1166,
+        1497,
+        34,
+        18
+      ],
+      "role": "text",
+      "text": "6.6K"
+    },
+    {
+      "rect": [
+        1208,
+        1497,
+        200,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1208,
+        1497,
+        200,
+        15
+      ],
+      "role": "text",
+      "text": "—"
+    },
+    {
+      "key": "cause-row:cause:command-not-found",
+      "label": "command not found",
+      "rect": [
+        280,
+        1547,
+        1136,
+        58
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1555,
+        352,
+        42
+      ],
+      "role": "group"
+    },
+    {
+      "key": "cause-toggle:cause:command-not-found",
+      "rect": [
+        288,
+        1555,
+        352,
+        18
+      ],
+      "role": "text",
+      "text": "command not found"
+    },
+    {
+      "rect": [
+        288,
+        1576,
+        352,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1576,
+        139,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        296,
+        1579,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "command-not-found"
+    },
+    {
+      "rect": [
+        431,
+        1576,
+        37,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        439,
+        1579,
+        21,
+        15
+      ],
+      "role": "text",
+      "text": "env"
+    },
+    {
+      "rect": [
+        648,
+        1555,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        712,
+        1555,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "3"
+    },
+    {
+      "rect": [
+        728,
+        1555,
+        96,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        816,
+        1555,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "2"
+    },
+    {
+      "rect": [
+        766,
+        1574,
+        59,
+        15
+      ],
+      "role": "text",
+      "text": "2 sessions"
+    },
+    {
+      "rect": [
+        832,
+        1555,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        918,
+        1555,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2 / 1"
+    },
+    {
+      "rect": [
+        968,
+        1555,
+        96,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1039,
+        1555,
+        26,
+        18
+      ],
+      "role": "text",
+      "text": "14s"
+    },
+    {
+      "rect": [
+        1072,
+        1555,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1166,
+        1555,
+        34,
+        18
+      ],
+      "role": "text",
+      "text": "8.4K"
+    },
+    {
+      "rect": [
+        1208,
+        1555,
+        200,
+        19
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1208,
+        1555,
+        200,
+        19
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1216,
+        1557,
+        484,
+        15
+      ],
+      "role": "text",
+      "text": "rule in ~/.claude/CLAUDE.md:3 · still firing main 105/1k, sub 250/1k since 2026-05-28"
+    },
+    {
+      "key": "cause-row:cause:sleep-blocked",
+      "label": "harness blocked sleep N followed by a command",
+      "rect": [
+        280,
+        1604,
+        1136,
+        58
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1612,
+        352,
+        42
+      ],
+      "role": "group"
+    },
+    {
+      "key": "cause-toggle:cause:sleep-blocked",
+      "rect": [
+        288,
+        1612,
+        352,
+        18
+      ],
+      "role": "text",
+      "text": "harness blocked sleep N followed by a command"
+    },
+    {
+      "rect": [
+        288,
+        1634,
+        352,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1634,
+        110,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        296,
+        1636,
+        94,
+        15
+      ],
+      "role": "text",
+      "text": "sleep-blocked"
+    },
+    {
+      "rect": [
+        402,
+        1634,
+        38,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        410,
+        1636,
+        22,
+        15
+      ],
+      "role": "text",
+      "text": "rule"
+    },
+    {
+      "rect": [
+        648,
+        1612,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        712,
+        1612,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "2"
+    },
+    {
+      "rect": [
+        728,
+        1612,
+        96,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        816,
+        1612,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "2"
+    },
+    {
+      "rect": [
+        766,
+        1632,
+        59,
+        15
+      ],
+      "role": "text",
+      "text": "2 sessions"
+    },
+    {
+      "rect": [
+        832,
+        1612,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        918,
+        1612,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2 / 0"
+    },
+    {
+      "rect": [
+        968,
+        1612,
+        96,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1039,
+        1612,
+        26,
+        18
+      ],
+      "role": "text",
+      "text": "14s"
+    },
+    {
+      "rect": [
+        1072,
+        1612,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1158,
+        1612,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "12.4K"
+    },
+    {
+      "rect": [
+        1208,
+        1612,
+        200,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1208,
+        1612,
+        200,
+        15
+      ],
+      "role": "text",
+      "text": "—"
+    },
+    {
+      "key": "cause-row:cause:pkill-self-kill",
+      "label": "pkill -f matched and killed its own shell (exit 144)",
+      "rect": [
+        280,
+        1662,
+        1136,
+        58
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1670,
+        352,
+        42
+      ],
+      "role": "group"
+    },
+    {
+      "key": "cause-toggle:cause:pkill-self-kill",
+      "rect": [
+        288,
+        1670,
+        352,
+        18
+      ],
+      "role": "text",
+      "text": "pkill -f matched and killed its own shell (exit 144)"
+    },
+    {
+      "rect": [
+        288,
+        1691,
+        352,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1691,
+        124,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        296,
+        1694,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "pkill-self-kill"
+    },
+    {
+      "rect": [
+        416,
+        1691,
+        38,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        424,
+        1694,
+        22,
+        15
+      ],
+      "role": "text",
+      "text": "rule"
+    },
+    {
+      "rect": [
+        648,
+        1670,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        712,
+        1670,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        728,
+        1670,
+        96,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        816,
+        1670,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        769,
+        1689,
+        56,
+        15
+      ],
+      "role": "text",
+      "text": "1 sessions"
+    },
+    {
+      "rect": [
+        832,
+        1670,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        918,
+        1670,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "1 / 0"
+    },
+    {
+      "rect": [
+        968,
+        1670,
+        96,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1022,
+        1670,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "7.00s"
+    },
+    {
+      "rect": [
+        1072,
+        1670,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1158,
+        1670,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "13.2K"
+    },
+    {
+      "rect": [
+        1208,
+        1670,
+        200,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1208,
+        1670,
+        200,
+        15
+      ],
+      "role": "text",
+      "text": "—"
+    },
+    {
+      "key": "cause-row:cause:rm-guard",
+      "label": "harness dangerous-rm guard",
+      "rect": [
+        280,
+        1719,
+        1136,
+        58
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1727,
+        352,
+        42
+      ],
+      "role": "group"
+    },
+    {
+      "key": "cause-toggle:cause:rm-guard",
+      "rect": [
+        288,
+        1727,
+        352,
+        18
+      ],
+      "role": "text",
+      "text": "harness dangerous-rm guard"
+    },
+    {
+      "rect": [
+        288,
+        1749,
+        352,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1749,
+        74,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        296,
+        1751,
+        58,
+        15
+      ],
+      "role": "text",
+      "text": "rm-guard"
+    },
+    {
+      "rect": [
+        366,
+        1749,
+        38,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        374,
+        1751,
+        22,
+        15
+      ],
+      "role": "text",
+      "text": "rule"
+    },
+    {
+      "rect": [
+        648,
+        1727,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        712,
+        1727,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        728,
+        1727,
+        96,
+        35
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        816,
+        1727,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "0"
+    },
+    {
+      "rect": [
+        765,
+        1747,
+        59,
+        15
+      ],
+      "role": "text",
+      "text": "0 sessions"
+    },
+    {
+      "rect": [
+        832,
+        1727,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        918,
+        1727,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "1 / 0"
+    },
+    {
+      "rect": [
+        968,
+        1727,
+        96,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1056,
+        1727,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "—"
+    },
+    {
+      "rect": [
+        1072,
+        1727,
+        128,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1192,
+        1727,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "—"
+    },
+    {
+      "rect": [
+        1208,
+        1727,
+        200,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1208,
+        1727,
+        200,
+        15
+      ],
+      "role": "text",
+      "text": "—"
+    },
+    {
+      "key": "stats-fails-section",
+      "rect": [
+        280,
+        1809,
+        1136,
+        220
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        1809,
+        1136,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        1809,
+        78,
+        20
+      ],
+      "role": "text",
+      "text": "What fails"
+    },
+    {
+      "rect": [
+        366,
+        1814,
+        214,
+        15
+      ],
+      "role": "text",
+      "text": "ranked by sessions spanned, then calls"
+    },
+    {
+      "rect": [
+        280,
+        1841,
+        1136,
+        15
+      ],
+      "role": "text",
+      "text": "A row says a call printed a failure — never that something broke. Flagged counts the calls that set the agent's own error flag; the gap between it and Calls is what an error panel alone would miss."
+    },
+    {
+      "key": "fail-table",
+      "rect": [
+        280,
+        1868,
+        1136,
+        161
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        1868,
+        1136,
+        36
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1878,
+        616,
+        15
+      ],
+      "role": "text",
+      "text": "What"
+    },
+    {
+      "rect": [
+        912,
+        1878,
+        160,
+        15
+      ],
+      "role": "text",
+      "text": "Where"
+    },
+    {
+      "rect": [
+        1080,
+        1878,
+        80,
+        15
+      ],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "rect": [
+        1168,
+        1878,
+        72,
+        15
+      ],
+      "role": "text",
+      "text": "Calls"
+    },
+    {
+      "rect": [
+        1248,
+        1878,
+        72,
+        15
+      ],
+      "role": "text",
+      "text": "Flagged"
+    },
+    {
+      "rect": [
+        1328,
+        1878,
+        80,
+        15
+      ],
+      "role": "text",
+      "text": "Projects"
+    },
+    {
+      "key": "fail-row:flag:Bash",
+      "label": "Bash errors",
+      "rect": [
+        280,
+        1904,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1912,
+        420,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1912,
+        420,
+        18
+      ],
+      "role": "text",
+      "text": "Bash errors"
+    },
+    {
+      "rect": [
+        716,
+        1912,
+        160,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        716,
+        1912,
+        160,
+        15
+      ],
+      "role": "text",
+      "text": "Bash"
+    },
+    {
+      "rect": [
+        884,
+        1912,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        956,
+        1912,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        972,
+        1912,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1036,
+        1912,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1052,
+        1912,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1116,
+        1912,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1132,
+        1912,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1204,
+        1912,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "key": "fail-row:scan:test",
+      "label": "N failing tests",
+      "rect": [
+        280,
+        1937,
+        1136,
+        58
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        1945,
+        420,
+        42
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1945,
+        420,
+        18
+      ],
+      "role": "text",
+      "text": "N failing tests"
+    },
+    {
+      "rect": [
+        288,
+        1967,
+        420,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        1967,
+        124,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        296,
+        1969,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "piped-exit-code"
+    },
+    {
+      "rect": [
+        716,
+        1945,
+        160,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        716,
+        1945,
+        160,
+        15
+      ],
+      "role": "text",
+      "text": "Bash exit 0"
+    },
+    {
+      "rect": [
+        884,
+        1945,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        956,
+        1945,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        972,
+        1945,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1036,
+        1945,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1052,
+        1945,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1116,
+        1945,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "0"
+    },
+    {
+      "rect": [
+        1132,
+        1945,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1204,
+        1945,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "key": "fail-row:scan:tsc",
+      "label": "error TS####",
+      "rect": [
+        280,
+        1995,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2003,
+        420,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2003,
+        420,
+        18
+      ],
+      "role": "text",
+      "text": "error TS####"
+    },
+    {
+      "rect": [
+        716,
+        2003,
+        160,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        716,
+        2003,
+        160,
+        15
+      ],
+      "role": "text",
+      "text": "Bash exit 0"
+    },
+    {
+      "rect": [
+        884,
+        2003,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        956,
+        2003,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        972,
+        2003,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1036,
+        2003,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1052,
+        2003,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1116,
+        2003,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "0"
+    },
+    {
+      "rect": [
+        1132,
+        2003,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1204,
+        2003,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "key": "stats-time-section",
+      "rect": [
+        280,
+        2060,
+        1136,
+        299
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2060,
+        1136,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2060,
+        125,
+        20
+      ],
+      "role": "text",
+      "text": "What costs time"
+    },
+    {
+      "rect": [
+        413,
+        2065,
+        151,
+        15
+      ],
+      "role": "text",
+      "text": "ranked by seconds charged"
+    },
+    {
+      "rect": [
+        280,
+        2092,
+        1136,
+        15
+      ],
+      "role": "text",
+      "text": "Each command line is charged to exactly one job; Co-present counts the lines that hold the job and were charged to a higher-priority one. Tools that wait on a human are out of the denominator."
+    },
+    {
+      "key": "time-table",
+      "rect": [
+        280,
+        2119,
+        1136,
+        240
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2119,
+        1136,
+        36
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2130,
+        616,
+        15
+      ],
+      "role": "text",
+      "text": "Job"
+    },
+    {
+      "rect": [
+        912,
+        2130,
+        80,
+        15
+      ],
+      "role": "text",
+      "text": "Time"
+    },
+    {
+      "rect": [
+        1000,
+        2130,
+        80,
+        15
+      ],
+      "role": "text",
+      "text": "Share"
+    },
+    {
+      "rect": [
+        1088,
+        2130,
+        64,
+        15
+      ],
+      "role": "text",
+      "text": "Runs"
+    },
+    {
+      "rect": [
+        1160,
+        2130,
+        88,
+        15
+      ],
+      "role": "text",
+      "text": "Co-present"
+    },
+    {
+      "rect": [
+        1256,
+        2130,
+        72,
+        15
+      ],
+      "role": "text",
+      "text": "Median"
+    },
+    {
+      "rect": [
+        1336,
+        2130,
+        72,
+        15
+      ],
+      "role": "text",
+      "text": "p95"
+    },
+    {
+      "key": "time-row:build",
+      "label": "build",
+      "rect": [
+        280,
+        2155,
+        1136,
+        36
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2163,
+        616,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2164,
+        33,
+        18
+      ],
+      "role": "text",
+      "text": "build"
+    },
+    {
+      "rect": [
+        329,
+        2163,
+        66,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        337,
+        2166,
+        50,
+        15
+      ],
+      "role": "text",
+      "text": "1 capped"
+    },
+    {
+      "rect": [
+        912,
+        2163,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        942,
+        2163,
+        51,
+        18
+      ],
+      "role": "text",
+      "text": "10m00s"
+    },
+    {
+      "rect": [
+        1000,
+        2163,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1030,
+        2163,
+        51,
+        18
+      ],
+      "role": "text",
+      "text": "78.95%"
+    },
+    {
+      "rect": [
+        1088,
+        2163,
+        64,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1144,
+        2163,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1160,
+        2163,
+        88,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1240,
+        2163,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1256,
+        2163,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1278,
+        2163,
+        51,
+        18
+      ],
+      "role": "text",
+      "text": "10m00s"
+    },
+    {
+      "rect": [
+        1336,
+        2163,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1358,
+        2163,
+        51,
+        18
+      ],
+      "role": "text",
+      "text": "10m00s"
+    },
+    {
+      "key": "time-row:wait/poll",
+      "label": "waiting",
+      "rect": [
+        280,
+        2191,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2199,
+        616,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2199,
+        48,
+        18
+      ],
+      "role": "text",
+      "text": "waiting"
+    },
+    {
+      "rect": [
+        912,
+        2199,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        950,
+        2199,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2m06s"
+    },
+    {
+      "rect": [
+        1000,
+        2199,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1030,
+        2199,
+        51,
+        18
+      ],
+      "role": "text",
+      "text": "16.58%"
+    },
+    {
+      "rect": [
+        1088,
+        2199,
+        64,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1144,
+        2199,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "5"
+    },
+    {
+      "rect": [
+        1160,
+        2199,
+        88,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1240,
+        2199,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "5"
+    },
+    {
+      "rect": [
+        1256,
+        2199,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1286,
+        2199,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        1336,
+        2199,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1366,
+        2199,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "1m00s"
+    },
+    {
+      "key": "time-row:file-io",
+      "label": "file i/o",
+      "rect": [
+        280,
+        2225,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2233,
+        616,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2233,
+        43,
+        18
+      ],
+      "role": "text",
+      "text": "file i/o"
+    },
+    {
+      "rect": [
+        912,
+        2233,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        967,
+        2233,
+        26,
+        18
+      ],
+      "role": "text",
+      "text": "18s"
+    },
+    {
+      "rect": [
+        1000,
+        2233,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1038,
+        2233,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.37%"
+    },
+    {
+      "rect": [
+        1088,
+        2233,
+        64,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1144,
+        2233,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "9"
+    },
+    {
+      "rect": [
+        1160,
+        2233,
+        88,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1231,
+        2233,
+        17,
+        18
+      ],
+      "role": "text",
+      "text": "11"
+    },
+    {
+      "rect": [
+        1256,
+        2233,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1286,
+        2233,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        1336,
+        2233,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1366,
+        2233,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "key": "time-row:other",
+      "label": "other",
+      "rect": [
+        280,
+        2258,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2266,
+        616,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2266,
+        35,
+        18
+      ],
+      "role": "text",
+      "text": "other"
+    },
+    {
+      "rect": [
+        912,
+        2266,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        967,
+        2266,
+        26,
+        18
+      ],
+      "role": "text",
+      "text": "10s"
+    },
+    {
+      "rect": [
+        1000,
+        2266,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1038,
+        2266,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "1.32%"
+    },
+    {
+      "rect": [
+        1088,
+        2266,
+        64,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1144,
+        2266,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "5"
+    },
+    {
+      "rect": [
+        1160,
+        2266,
+        88,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1240,
+        2266,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "5"
+    },
+    {
+      "rect": [
+        1256,
+        2266,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1286,
+        2266,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        1336,
+        2266,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1366,
+        2266,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "key": "time-row:test",
+      "label": "tests",
+      "rect": [
+        280,
+        2292,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2300,
+        616,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2300,
+        34,
+        18
+      ],
+      "role": "text",
+      "text": "tests"
+    },
+    {
+      "rect": [
+        912,
+        2300,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        950,
+        2300,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "4.00s"
+    },
+    {
+      "rect": [
+        1000,
+        2300,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1038,
+        2300,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "0.53%"
+    },
+    {
+      "rect": [
+        1088,
+        2300,
+        64,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1144,
+        2300,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "2"
+    },
+    {
+      "rect": [
+        1160,
+        2300,
+        88,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1240,
+        2300,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "2"
+    },
+    {
+      "rect": [
+        1256,
+        2300,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1286,
+        2300,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        1336,
+        2300,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1366,
+        2300,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "key": "time-row:typecheck",
+      "label": "typecheck",
+      "rect": [
+        280,
+        2325,
+        1136,
+        34
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2333,
+        616,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2333,
+        70,
+        18
+      ],
+      "role": "text",
+      "text": "typecheck"
+    },
+    {
+      "rect": [
+        912,
+        2333,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        950,
+        2333,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        1000,
+        2333,
+        80,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1038,
+        2333,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "0.26%"
+    },
+    {
+      "rect": [
+        1088,
+        2333,
+        64,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1144,
+        2333,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1160,
+        2333,
+        88,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1240,
+        2333,
+        9,
+        18
+      ],
+      "role": "text",
+      "text": "1"
+    },
+    {
+      "rect": [
+        1256,
+        2333,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1286,
+        2333,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        1336,
+        2333,
+        72,
+        18
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1366,
+        2333,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "key": "stats-waiting-section",
+      "rect": [
+        280,
+        2391,
+        1136,
+        201
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2391,
+        1136,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2391,
+        59,
+        20
+      ],
+      "role": "text",
+      "text": "Waiting"
+    },
+    {
+      "rect": [
+        347,
+        2396,
+        145,
+        15
+      ],
+      "role": "text",
+      "text": "ranked by seconds parked"
+    },
+    {
+      "key": "stats-waiting",
+      "rect": [
+        280,
+        2423,
+        1136,
+        169
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2423,
+        1136,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2423,
+        42,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2423,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2m06s"
+    },
+    {
+      "rect": [
+        280,
+        2440,
+        42,
+        15
+      ],
+      "role": "text",
+      "text": "waiting"
+    },
+    {
+      "rect": [
+        346,
+        2423,
+        69,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        346,
+        2423,
+        69,
+        18
+      ],
+      "role": "text",
+      "text": "16.58%"
+    },
+    {
+      "rect": [
+        346,
+        2440,
+        69,
+        15
+      ],
+      "role": "text",
+      "text": "of bash time"
+    },
+    {
+      "rect": [
+        439,
+        2423,
+        26,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        439,
+        2423,
+        26,
+        18
+      ],
+      "role": "text",
+      "text": "5"
+    },
+    {
+      "rect": [
+        439,
+        2440,
+        26,
+        15
+      ],
+      "role": "text",
+      "text": "calls"
+    },
+    {
+      "rect": [
+        489,
+        2423,
+        48,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        489,
+        2423,
+        48,
+        18
+      ],
+      "role": "text",
+      "text": "2"
+    },
+    {
+      "rect": [
+        489,
+        2440,
+        48,
+        15
+      ],
+      "role": "text",
+      "text": "sessions"
+    },
+    {
+      "rect": [
+        561,
+        2423,
+        42,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        561,
+        2423,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "2.00s"
+    },
+    {
+      "rect": [
+        561,
+        2440,
+        42,
+        15
+      ],
+      "role": "text",
+      "text": "median"
+    },
+    {
+      "rect": [
+        627,
+        2423,
+        42,
+        33
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        627,
+        2423,
+        42,
+        18
+      ],
+      "role": "text",
+      "text": "1m00s"
+    },
+    {
+      "rect": [
+        627,
+        2440,
+        42,
+        15
+      ],
+      "role": "text",
+      "text": "p95"
+    },
+    {
+      "key": "rank-bar",
+      "rect": [
+        280,
+        2467,
+        1136,
+        124
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:wait:loop-poll",
+      "rect": [
+        280,
+        2467,
+        1136,
+        25
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2467,
+        1136,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2467,
+        51,
+        15
+      ],
+      "role": "text",
+      "text": "loop-poll"
+    },
+    {
+      "rect": [
+        343,
+        2482,
+        898,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1253,
+        2467,
+        36,
+        15
+      ],
+      "role": "text",
+      "text": "2m00s"
+    },
+    {
+      "rect": [
+        1301,
+        2467,
+        116,
+        15
+      ],
+      "role": "text",
+      "text": "2 calls · 15.79%"
+    },
+    {
+      "rect": [
+        280,
+        2486,
+        1136,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2486,
+        1082,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:wait:bare-delay",
+      "rect": [
+        280,
+        2500,
+        1136,
+        25
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2500,
+        1136,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2500,
+        61,
+        15
+      ],
+      "role": "text",
+      "text": "bare-delay"
+    },
+    {
+      "rect": [
+        353,
+        2515,
+        895,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1260,
+        2500,
+        36,
+        15
+      ],
+      "role": "text",
+      "text": "6.00s"
+    },
+    {
+      "rect": [
+        1308,
+        2500,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "3 calls · 0.79%"
+    },
+    {
+      "rect": [
+        280,
+        2519,
+        1136,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2519,
+        54,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:wait:curl-retry",
+      "rect": [
+        280,
+        2533,
+        1136,
+        25
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2533,
+        1136,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2533,
+        54,
+        15
+      ],
+      "role": "text",
+      "text": "curl-retry"
+    },
+    {
+      "rect": [
+        346,
+        2548,
+        903,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1260,
+        2533,
+        36,
+        15
+      ],
+      "role": "text",
+      "text": "0.00s"
+    },
+    {
+      "rect": [
+        1308,
+        2533,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "0 calls · 0.00%"
+    },
+    {
+      "rect": [
+        280,
+        2552,
+        1136,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2552,
+        6,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:wait:watcher",
+      "rect": [
+        280,
+        2566,
+        1136,
+        25
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2566,
+        1136,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2566,
+        46,
+        15
+      ],
+      "role": "text",
+      "text": "watcher"
+    },
+    {
+      "rect": [
+        338,
+        2581,
+        910,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1260,
+        2566,
+        36,
+        15
+      ],
+      "role": "text",
+      "text": "0.00s"
+    },
+    {
+      "rect": [
+        1308,
+        2566,
+        108,
+        15
+      ],
+      "role": "text",
+      "text": "0 calls · 0.00%"
+    },
+    {
+      "rect": [
+        280,
+        2585,
+        1136,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2585,
+        6,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "stats-clusters-section",
+      "rect": [
+        280,
+        2623,
+        1136,
+        393
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2623,
+        1136,
+        20
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        280,
+        2623,
+        104,
+        20
+      ],
+      "role": "text",
+      "text": "Error clusters"
+    },
+    {
+      "rect": [
+        392,
+        2628,
+        215,
+        15
+      ],
+      "role": "text",
+      "text": "ranked by rows, then sessions spanned"
+    },
+    {
+      "key": "stats-clusters",
+      "rect": [
+        280,
+        2655,
+        1136,
+        361
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-bar",
+      "rect": [
+        280,
+        2655,
+        1136,
+        361
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:<n> fail",
+      "label": "<n> fail",
+      "rect": [
+        280,
+        2655,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2659,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2659,
+        41,
+        15
+      ],
+      "role": "text",
+      "text": "<n> fail"
+    },
+    {
+      "rect": [
+        341,
+        2674,
+        877,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2659,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "2 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2659,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "2 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2678,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2678,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:Blocked: sleep <n>",
+      "label": "Blocked: sleep <n>",
+      "rect": [
+        280,
+        2696,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2700,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2700,
+        106,
+        15
+      ],
+      "role": "text",
+      "text": "Blocked: sleep <n>"
+    },
+    {
+      "rect": [
+        406,
+        2715,
+        812,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2700,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "2 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2700,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "2 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2719,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2719,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:zsh:<n>: command not found: jqq",
+      "label": "zsh:<n>: command not found: jqq",
+      "rect": [
+        280,
+        2737,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2741,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2741,
+        187,
+        15
+      ],
+      "role": "text",
+      "text": "zsh:<n>: command not found: jqq"
+    },
+    {
+      "rect": [
+        487,
+        2756,
+        731,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2741,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "2 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2741,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "2 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2760,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2760,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:zsh:<n>: no matches found: <path>*.js",
+      "label": "zsh:<n>: no matches found: <path>*.js",
+      "rect": [
+        280,
+        2778,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2782,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2782,
+        213,
+        15
+      ],
+      "role": "text",
+      "text": "zsh:<n>: no matches found: <path>*.js"
+    },
+    {
+      "rect": [
+        513,
+        2797,
+        705,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2782,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "2 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2782,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "2 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2801,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2801,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:<path>(<n>): error TS2304: Cannot find name <str>.",
+      "label": "<path>(<n>): error TS2304: Cannot find name <str>. — x",
+      "rect": [
+        280,
+        2819,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2823,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2823,
+        311,
+        15
+      ],
+      "role": "text",
+      "text": "<path>(<n>): error TS2304: Cannot find name <str>. — x"
+    },
+    {
+      "rect": [
+        611,
+        2838,
+        607,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2823,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "1 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2823,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "1 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2842,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2842,
+        560,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:Dangerous rm operation detected: refusing",
+      "label": "Dangerous rm operation detected: refusing",
+      "rect": [
+        280,
+        2860,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2864,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2864,
+        241,
+        15
+      ],
+      "role": "text",
+      "text": "Dangerous rm operation detected: refusing"
+    },
+    {
+      "rect": [
+        541,
+        2879,
+        677,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2864,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "1 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2864,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "1 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2883,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2883,
+        560,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:Exit code 144",
+      "label": "Exit code 144",
+      "rect": [
+        280,
+        2901,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2905,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2905,
+        75,
+        15
+      ],
+      "role": "text",
+      "text": "Exit code 144"
+    },
+    {
+      "rect": [
+        375,
+        2920,
+        844,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2905,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "1 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2905,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "1 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2924,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2924,
+        560,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:zsh:<n>: command not found: fdd",
+      "label": "zsh:<n>: command not found: fdd",
+      "rect": [
+        280,
+        2942,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2946,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2946,
+        189,
+        15
+      ],
+      "role": "text",
+      "text": "zsh:<n>: command not found: fdd"
+    },
+    {
+      "rect": [
+        489,
+        2961,
+        730,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2946,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "1 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2946,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "1 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        2965,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2965,
+        560,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "key": "rank-row:cluster:zsh:<n>: no matches found: <path>*.ts",
+      "label": "zsh:<n>: no matches found: <path>*.ts",
+      "rect": [
+        280,
+        2983,
+        1136,
+        33
+      ],
+      "role": "button"
+    },
+    {
+      "rect": [
+        288,
+        2987,
+        1120,
+        15
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        2987,
+        215,
+        15
+      ],
+      "role": "text",
+      "text": "zsh:<n>: no matches found: <path>*.ts"
+    },
+    {
+      "rect": [
+        515,
+        3002,
+        704,
+        0
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        1230,
+        2987,
+        44,
+        15
+      ],
+      "role": "text",
+      "text": "1 rows"
+    },
+    {
+      "rect": [
+        1286,
+        2987,
+        123,
+        15
+      ],
+      "role": "text",
+      "text": "1 sessions · Bash"
+    },
+    {
+      "rect": [
+        288,
+        3006,
+        1120,
+        6
+      ],
+      "role": "group"
+    },
+    {
+      "rect": [
+        288,
+        3006,
+        560,
+        6
+      ],
+      "role": "group"
+    }
+  ],
+  "title": "Peektrace"
+}

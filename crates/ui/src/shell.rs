@@ -255,6 +255,7 @@ pub const SCENES: &[Scene] = &[
         open_scene(s);
         s.dark = Some(false);
     }),
+    ("nav-collapsed", |s| s.nav_collapsed = true),
     ("stats", stats_scene),
     ("stats-pending", |s| s.enter_stats(0.0)),
     ("stats-cause-open", |s| {

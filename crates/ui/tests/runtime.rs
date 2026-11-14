@@ -318,9 +318,9 @@ fn scroll_to(rt: &mut Runtime<Ui>, key: &str) {
 #[test]
 fn stub_routes() {
     let mut s = state(&home::build_home());
-    s.route = Route::Stats;
+    s.route = Route::Memory;
     let rt = runtime(s);
-    assert!(has_text(&rt, "Stats is not in the desktop app yet."));
+    assert!(has_text(&rt, "Memory is not in the desktop app yet."));
 }
 
 #[test]
