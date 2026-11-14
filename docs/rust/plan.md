@@ -166,7 +166,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app tool bodies over 32 KiB | shown whole | the first 32 KiB to a line end, plus `Show full output (<size>)`; over 128 KiB the full body draws uncoloured |
 | Rune app JSON tool args nested deeper than 128 | parsed | read as not JSON, shown verbatim |
 | Rune app Stats error panel | `The request failed.` for `StatsScanError` and `StatsRowNotFoundError` | the same line, then the reason |
-| Rune app Stats copy buttons | a failed copy says so and shows the text to copy by hand | native copy cannot fail; no fallback |
+| Rune app Stats copy buttons | `navigator.clipboard`, then a hidden-textarea copy; a failure says so and shows the text to copy by hand | native: no second try; a failure, found by reading the clipboard back (a plain Rune copy reports nothing), says so and shows the text to select by hand. Web: says "Copied" unchecked, since the read would prompt; no copy button shows on the web today |
 | Rune app Stats breakpoints (`md`, `lg`) | viewport width | width of the stats column |
 | Rune app Stats session links | open the transcript with the detector's marks drawn | open the session at the call; no detector marks yet |
 | Rune app Stats days or agent change with the drill sheet open | the drill key stays in the hash and reads against the new report | the sheet closes |

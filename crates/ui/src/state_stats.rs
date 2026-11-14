@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::{AgentId, DrillTable};
-use rune::Tx;
+use rune::{ClipboardContent, Tx};
 
 use crate::model::chat::{ChatNode, collapse_id};
 use crate::model::stats::{DrillAsk, StatsScope};
@@ -59,6 +59,22 @@ impl<T> Slot<T> {
 
 pub type DrillKey = (StatsScope, DrillAsk);
 
+/// A copy button's state after a press.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CopyState {
+    /// Written; the read back that tells whether it took is on its way.
+    Copying,
+    /// On the clipboard; reads "Copied" until this clock.
+    Copied { until: f64 },
+    /// The clipboard does not hold it: the button shows the text to copy by hand.
+    Failed,
+}
+
+/// Whether the clipboard read back holds `wrote`; a platform may turn `\n` into `\r\n`.
+fn holds(wrote: &str, read: &str) -> bool {
+    wrote.lines().eq(read.lines())
+}
+
 #[derive(Debug, Default)]
 #[expect(clippy::struct_excessive_bools, reason = "independent view flags")]
 pub struct StatsState {
@@ -78,8 +94,8 @@ pub struct StatsState {
     pub agent_open: bool,
     /// The open `×N` sample list, by its chip key.
     pub targets_open: Option<String>,
-    /// The copy button that reads "Copied", and the clock when it stops.
-    pub copied: Option<(String, f64)>,
+    /// The last pressed copy button and its state.
+    pub copy: Option<(String, CopyState)>,
     /// The clock as the last tick saw it.
     pub clock: f64,
     pub rid: u64,
@@ -113,10 +129,15 @@ impl StatsState {
         self.drills.get(&(self.scope, self.drill_ask()?))
     }
 
-    pub fn copied(&self, id: &str) -> bool {
-        self.copied
-            .as_ref()
-            .is_some_and(|(k, until)| k == id && self.clock < *until)
+    /// What the copy button `id` shows: `None` while idle or still copying.
+    pub fn copy_shown(&self, id: &str) -> Option<CopyState> {
+        match self.copy.as_ref() {
+            Some((k, CopyState::Copied { until })) if k == id && self.clock < *until => {
+                Some(CopyState::Copied { until: *until })
+            }
+            Some((k, CopyState::Failed)) if k == id => Some(CopyState::Failed),
+            _ => None,
+        }
     }
 
     /// Whole seconds since this scope's first ask.
@@ -144,6 +165,7 @@ impl Ui {
         self.stats.days_open = false;
         self.stats.agent_open = false;
         self.stats.targets_open = None;
+        self.stats.copy = None;
     }
 
     /// Ask for the current scope's report: the first time, or again.
@@ -195,7 +217,11 @@ impl Ui {
         match self.stats.reports.get_mut(&scope) {
             Some(slot) if slot.rid == rid => {
                 if !matches!(result, Err(LoadError::Superseded)) {
+                    let fresh = result.is_ok();
                     slot.land(result);
+                    if fresh {
+                        self.drop_drills(scope);
+                    }
                 } else if scope == self.stats.scope {
                     self.stats_ask(self.stats.clock);
                 } else if slot.pending() {
@@ -208,6 +234,16 @@ impl Ui {
                 true
             }
             _ => false,
+        }
+    }
+
+    /// A new pass may see new calls, so the scope's cached drill pages go;
+    /// an open drill asks again from its first page.
+    fn drop_drills(&mut self, scope: StatsScope) {
+        self.stats.drills.retain(|(s, _), _| *s != scope);
+        if scope == self.stats.scope && self.stats.drill.is_some() {
+            self.stats.page = (String::new(), 0);
+            self.ensure_drill();
         }
     }
 
@@ -293,13 +329,39 @@ impl Ui {
         self.stats.open_cause = (!open).then(|| key.to_owned());
     }
 
-    /// Copy `text` and let the button `id` say so for a moment.
+    /// Copy `text`, then let the button `id` say whether it took. A plain
+    /// Rune copy reports nothing, so the native app reads the clipboard
+    /// back; a browser would prompt for that read, so the web trusts it.
     pub fn copy_text(&mut self, id: String, text: String, tx: &mut Tx) {
+        self.stats.copy = Some((id.clone(), CopyState::Copying));
+        if cfg!(target_arch = "wasm32") {
+            tx.copy(text);
+            self.copy_landed(&id, true, tx);
+            return;
+        }
+        tx.copy(text.clone());
+        tx.read_clipboard(move |s: &mut Self, read: &ClipboardContent, tx: &mut Tx| {
+            s.copy_landed(&id, holds(&text, read.text()), tx);
+        });
+    }
+
+    /// The copy of button `id` took or failed; a later press replaced it
+    /// when that button is no longer copying.
+    pub fn copy_landed(&mut self, id: &str, ok: bool, tx: &mut Tx) {
+        if self.stats.copy != Some((id.to_owned(), CopyState::Copying)) {
+            return;
+        }
         let clock = tx.clock();
-        tx.copy(text);
         self.stats.clock = clock;
-        self.stats.copied = Some((id, clock + COPIED_S));
-        tx.wake_at(clock + COPIED_S);
+        let state = if ok {
+            tx.wake_at(clock + COPIED_S);
+            CopyState::Copied {
+                until: clock + COPIED_S,
+            }
+        } else {
+            CopyState::Failed
+        };
+        self.stats.copy = Some((id.to_owned(), state));
     }
 
     /// Open a sample's session, through its parent for a subagent, and
@@ -354,10 +416,10 @@ impl Ui {
             changed |= self.stats.elapsed().total_cmp(&before).is_ne();
             tx.wake_after(Duration::from_secs(1));
         }
-        if let Some((_, until)) = self.stats.copied
+        if let Some((_, CopyState::Copied { until })) = self.stats.copy
             && clock >= until
         {
-            self.stats.copied = None;
+            self.stats.copy = None;
             self.stats.clock = clock;
             changed = true;
         }

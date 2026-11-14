@@ -12,11 +12,12 @@ use std::sync::Arc;
 
 use common::home::{self, STATS_MAIN_ID};
 use peektrace_protocol::stats::DrillView;
-use peektrace_protocol::{AgentId, ApiError};
+use peektrace_protocol::{AgentId, ApiError, DrillTable};
 use peektrace_ui::model::stats::{DrillAsk, StatsScope};
 use peektrace_ui::source::in_process::InProcess;
 use peektrace_ui::source::{DataSource, LoadError, OnVersions, Reply, StatsScreen};
 use peektrace_ui::state::{Io, Request, Route, Ui};
+use peektrace_ui::state_stats::CopyState;
 use peektrace_ui::{load_now, views};
 use rune::{App, Env, Key, KeyEvent, Mods, Runtime};
 
@@ -324,6 +325,56 @@ fn the_drill_sheet_pages_and_closes() {
     assert!(rt.find("stats-drill").is_none());
 }
 
+/// The `zsh-glob-path` cause drill, as the UI caches it.
+fn glob_drill(rt: &Runtime<Ui>) -> Vec<DrillAsk> {
+    rt.state
+        .pending
+        .iter()
+        .filter_map(|r| match r {
+            Request::StatsDrill { ask, .. } if ask.key == "cause:zsh-glob-path" => {
+                Some(ask.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn rescan_drops_the_cached_drill_pages() {
+    let mut rt = runtime(stats_state());
+    press(&mut rt, "cause-row:cause:zsh-glob-path");
+    press(&mut rt, "cause-drill");
+    load(&mut rt);
+    rt.update(|s, tx| {
+        s.close_drill();
+        s.stats_ask(tx.clock());
+    });
+    load(&mut rt);
+    assert!(
+        rt.state.stats.drills.is_empty(),
+        "{:?}",
+        rt.state.stats.drills.keys()
+    );
+    rt.update(|s, _| s.open_drill(DrillTable::Cause, "cause:zsh-glob-path"));
+    assert_eq!(glob_drill(&rt).len(), 1, "the drill asks again");
+}
+
+#[test]
+fn rescan_asks_the_open_drill_again_from_its_first_page() {
+    let mut rt = runtime(stats_state());
+    press(&mut rt, "cause-row:cause:zsh-glob-path");
+    press(&mut rt, "cause-drill");
+    load(&mut rt);
+    rt.update(|s, tx| {
+        s.stats.page = ("cause:cause:zsh-glob-path".to_owned(), 25);
+        s.stats_ask(tx.clock());
+        load_now(s);
+    });
+    let asks = glob_drill(&rt);
+    assert_eq!(asks.len(), 1, "{asks:?}");
+    assert_eq!(asks[0].offset, 0);
+}
+
 #[test]
 fn a_fail_row_opens_its_drill_and_its_detail() {
     let mut rt = runtime(stats_state());
@@ -386,18 +437,46 @@ fn pending_counts_from_the_first_ask_not_from_mount() {
     assert!(texts(&rt).iter().any(|t| t == "15 s"), "{:?}", texts(&rt));
 }
 
+/// A runtime whose copies go to an in-memory clipboard.
+fn with_clipboard(s: Ui) -> (Runtime<Ui>, rune::clipboard::MemoryClipboard) {
+    let mut rt = runtime(s);
+    let board = rune::clipboard::memory();
+    rt.use_clipboard(&board);
+    (rt, board)
+}
+
 #[test]
 fn copy_says_copied_then_reverts() {
-    let mut rt = runtime(stats_state());
+    let (mut rt, board) = with_clipboard(stats_state());
     rt.update(|s, tx| s.copy_text("stats-prompt".into(), "x".into(), tx));
     settle(&mut rt);
+    assert_eq!(board.text().as_deref().map(String::as_str), Some("x"));
     assert!(has_text(&rt, "Copied"));
-    let until = rt.state.stats.copied.as_ref().map_or(0.0, |c| c.1);
+    let until = match rt.state.stats.copy {
+        Some((_, CopyState::Copied { until })) => until,
+        ref other => panic!("not copied: {other:?}"),
+    };
     rt.update(|s, tx| {
         s.stats_tick(until + 0.1, tx);
     });
     settle(&mut rt);
     assert!(!has_text(&rt, "Copied"));
+}
+
+#[test]
+fn a_failed_copy_says_so_and_shows_the_text() {
+    let (mut rt, board) = with_clipboard(stats_state());
+    board.fail_writes(Some("no clipboard"));
+    press(&mut rt, "stats-prompt");
+    assert_eq!(
+        rt.state.stats.copy,
+        Some(("stats-prompt".to_owned(), CopyState::Failed))
+    );
+    assert!(has_text(&rt, "Copy failed") && !has_text(&rt, "Copied"));
+    assert!(rt.find("stats-prompt-manual").is_some());
+    board.fail_writes(None);
+    press(&mut rt, "stats-prompt");
+    assert!(has_text(&rt, "Copied") && rt.find("stats-prompt-manual").is_none());
 }
 
 #[test]
