@@ -149,13 +149,15 @@ fn create(s: &Ui, target: &CreateTarget, t: &Theme, layer: &mut Vec<El>) {
         .placeholder("api-conventions")
         .on_edit(move |s: &mut Ui| &mut s.memory.draft_mut(&tg).name)
         .build(&t.kit)
-        .key("mem-create-name");
+        .key("mem-create-name")
+        .w_full();
     let tg = target.clone();
     let description = TextInput::new(&d.description)
         .placeholder("One-line hook for the index")
         .on_edit(move |s: &mut Ui| &mut s.memory.draft_mut(&tg).description)
         .build(&t.kit)
-        .key("mem-create-description");
+        .key("mem-create-description")
+        .w_full();
     let (t1, t2, t3) = (target.clone(), target.clone(), target.clone());
     let kind = type_select(
         TypeField("mem-create-type", &d.kind, d.kind_open),
@@ -178,7 +180,8 @@ fn create(s: &Ui, target: &CreateTarget, t: &Theme, layer: &mut Vec<El>) {
         .rows(6)
         .on_edit(move |s: &mut Ui| &mut s.memory.draft_mut(&tg).body)
         .build(&t.kit)
-        .key("mem-create-body");
+        .key("mem-create-body")
+        .w_full();
     let blocked = d.busy || d.name.text.is_empty() || project.is_none();
     let tg = target.clone();
     let submit = Button::new(if d.busy {
@@ -272,7 +275,8 @@ fn edit(f: &EditForm, t: &Theme, layer: &mut Vec<El>) {
         let description = TextInput::new(&f.description)
             .on_edit(|s: &mut Ui| s.memory.edit_text(false))
             .build(&t.kit)
-            .key("mem-edit-description");
+            .key("mem-edit-description")
+            .w_full();
         let kind = type_select(
             TypeField("mem-edit-type", &f.kind, f.kind_open),
             t,
@@ -298,7 +302,8 @@ fn edit(f: &EditForm, t: &Theme, layer: &mut Vec<El>) {
             .rows(8)
             .on_edit(|s: &mut Ui| s.memory.edit_text(true))
             .build(&t.kit)
-            .key("mem-edit-body");
+            .key("mem-edit-body")
+            .w_full();
         let cancel = Button::new("Cancel")
             .variant(ButtonVariant::Ghost)
             .on_press(|s: &mut Ui| s.memory.dialog = None)
