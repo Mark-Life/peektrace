@@ -1,0 +1,990 @@
+{
+  "elements": [
+    {
+      "key": "kit-root",
+      "rect": [0, 0, 1440, 900],
+      "role": "group"
+    },
+    {
+      "rect": [0, 0, 1440, 900],
+      "role": "group"
+    },
+    {
+      "key": "nav",
+      "rect": [0, 0, 256, 900],
+      "role": "group"
+    },
+    {
+      "rect": [10, 10, 236, 47],
+      "role": "group"
+    },
+    {
+      "rect": [16, 10, 224, 18],
+      "role": "text",
+      "text": "Peektrace"
+    },
+    {
+      "rect": [16, 30, 224, 15],
+      "role": "text",
+      "text": "Agent session inspector"
+    },
+    {
+      "key": "nav-sessions",
+      "label": "Sessions",
+      "rect": [10, 61, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 68, 60, 18],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "key": "nav-stats",
+      "label": "Stats",
+      "rect": [10, 97, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 104, 35, 18],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "key": "nav-memory",
+      "label": "Memory",
+      "rect": [10, 133, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 140, 54, 18],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "key": "nav-settings",
+      "label": "Settings",
+      "rect": [10, 169, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 176, 55, 18],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [10, 205, 236, 654],
+      "role": "group"
+    },
+    {
+      "rect": [10, 862, 236, 28],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Switch to light theme",
+      "rect": [10, 862, 44, 28],
+      "role": "button"
+    },
+    {
+      "rect": [18, 869, 28, 15],
+      "role": "text",
+      "text": "Light"
+    },
+    {
+      "key": "shortcuts-button",
+      "label": "Keyboard shortcuts",
+      "rect": [62, 862, 92, 28],
+      "role": "button"
+    },
+    {
+      "rect": [70, 868, 76, 16],
+      "role": "group"
+    },
+    {
+      "rect": [70, 868, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [92, 869, 54, 15],
+      "role": "text",
+      "text": "Shortcuts"
+    },
+    {
+      "rect": [256, 0, 1184, 900],
+      "role": "group"
+    },
+    {
+      "key": "header",
+      "rect": [256, 0, 1184, 44],
+      "role": "group"
+    },
+    {
+      "rect": [272, 13, 78, 18],
+      "role": "text",
+      "text": "Capabilities"
+    },
+    {
+      "rect": [360, 15, 82, 15],
+      "role": "text",
+      "text": "Support matrix"
+    },
+    {
+      "rect": [452, 22, 973, 0],
+      "role": "group"
+    },
+    {
+      "key": "capabilities-scroll",
+      "rect": [256, 44, 1184, 856],
+      "role": "group"
+    },
+    {
+      "rect": [256, 44, 1184, 615],
+      "role": "group"
+    },
+    {
+      "key": "capabilities",
+      "rect": [280, 68, 1136, 567],
+      "role": "group"
+    },
+    {
+      "rect": [280, 68, 1136, 567],
+      "role": "group"
+    },
+    {
+      "key": "capability-matrix",
+      "rect": [280, 68, 1136, 529],
+      "role": "group"
+    },
+    {
+      "rect": [280, 68, 1136, 40],
+      "role": "group"
+    },
+    {
+      "rect": [280, 68, 454, 40],
+      "role": "group"
+    },
+    {
+      "rect": [288, 79, 67, 18],
+      "role": "text",
+      "text": "Capability"
+    },
+    {
+      "rect": [734, 68, 170, 40],
+      "role": "group"
+    },
+    {
+      "rect": [742, 79, 47, 18],
+      "role": "text",
+      "text": "Claude"
+    },
+    {
+      "rect": [905, 68, 170, 40],
+      "role": "group"
+    },
+    {
+      "rect": [913, 79, 43, 18],
+      "role": "text",
+      "text": "Codex"
+    },
+    {
+      "rect": [1075, 68, 170, 40],
+      "role": "group"
+    },
+    {
+      "rect": [1083, 79, 13, 18],
+      "role": "text",
+      "text": "Pi"
+    },
+    {
+      "rect": [1246, 68, 170, 40],
+      "role": "group"
+    },
+    {
+      "rect": [1254, 79, 70, 18],
+      "role": "text",
+      "text": "OpenCode"
+    },
+    {
+      "rect": [280, 108, 1136, 27],
+      "role": "group"
+    },
+    {
+      "rect": [288, 114, 61, 15],
+      "role": "text",
+      "text": "SESSIONS"
+    },
+    {
+      "rect": [280, 135, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 135, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 143, 438, 18],
+      "role": "text",
+      "text": "Session browser"
+    },
+    {
+      "rect": [288, 163, 438, 15],
+      "role": "text",
+      "text": "Browse sessions and open a transcript with full history."
+    },
+    {
+      "rect": [734, 135, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.view-claude",
+      "label": "Supported",
+      "rect": [742, 143, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 143, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 147, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [905, 135, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.view-codex",
+      "label": "Supported",
+      "rect": [913, 143, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 143, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 147, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [1075, 135, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.view-pi",
+      "label": "Supported",
+      "rect": [1083, 143, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 143, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 147, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [1246, 135, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.view-opencode",
+      "label": "Supported",
+      "rect": [1254, 143, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 143, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 147, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [280, 186, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 186, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 194, 438, 18],
+      "role": "text",
+      "text": "Context debug"
+    },
+    {
+      "rect": [288, 213, 438, 15],
+      "role": "text",
+      "text": "Reproduce the context-budget forensics at peak."
+    },
+    {
+      "rect": [734, 186, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.debug-context-claude",
+      "label": "Supported",
+      "rect": [742, 194, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 194, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 197, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [905, 186, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.debug-context-codex",
+      "label": "Partial",
+      "rect": [913, 194, 53, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 194, 53, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 197, 37, 15],
+      "role": "text",
+      "text": "Partial"
+    },
+    {
+      "rect": [1075, 186, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.debug-context-pi",
+      "label": "Partial",
+      "rect": [1083, 194, 53, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 194, 53, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 197, 37, 15],
+      "role": "text",
+      "text": "Partial"
+    },
+    {
+      "rect": [1246, 186, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-session.debug-context-opencode",
+      "label": "Partial",
+      "rect": [1254, 194, 53, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 194, 53, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 197, 37, 15],
+      "role": "text",
+      "text": "Partial"
+    },
+    {
+      "rect": [280, 236, 1136, 27],
+      "role": "group"
+    },
+    {
+      "rect": [288, 242, 53, 15],
+      "role": "text",
+      "text": "MEMORY"
+    },
+    {
+      "rect": [280, 263, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 263, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 271, 438, 18],
+      "role": "text",
+      "text": "Memory explorer"
+    },
+    {
+      "rect": [288, 291, 438, 15],
+      "role": "text",
+      "text": "View memories across all projects with budget + link graph."
+    },
+    {
+      "rect": [734, 263, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.view-claude",
+      "label": "Supported",
+      "rect": [742, 271, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 271, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 275, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [905, 263, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.view-codex",
+      "label": "Planned",
+      "rect": [913, 271, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 271, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 275, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1075, 263, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.view-pi",
+      "label": "Planned",
+      "rect": [1083, 271, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 271, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 275, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1246, 263, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.view-opencode",
+      "label": "Planned",
+      "rect": [1254, 271, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 271, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 275, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [280, 314, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 314, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 322, 438, 18],
+      "role": "text",
+      "text": "Memory edit"
+    },
+    {
+      "rect": [288, 341, 438, 15],
+      "role": "text",
+      "text": "Create, edit and delete memories with safe atomic writes."
+    },
+    {
+      "rect": [734, 314, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.crud-claude",
+      "label": "Supported",
+      "rect": [742, 322, 76, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 322, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 325, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [905, 314, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.crud-codex",
+      "label": "Planned",
+      "rect": [913, 322, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 322, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 325, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1075, 314, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.crud-pi",
+      "label": "Planned",
+      "rect": [1083, 322, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 322, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 325, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1246, 314, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-memory.crud-opencode",
+      "label": "Planned",
+      "rect": [1254, 322, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 322, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 325, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [280, 364, 1136, 27],
+      "role": "group"
+    },
+    {
+      "rect": [288, 370, 27, 15],
+      "role": "text",
+      "text": "MCP"
+    },
+    {
+      "rect": [280, 391, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 391, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 399, 438, 18],
+      "role": "text",
+      "text": "MCP dashboard"
+    },
+    {
+      "rect": [288, 419, 438, 15],
+      "role": "text",
+      "text": "Inspect configured MCP servers and their tools."
+    },
+    {
+      "rect": [734, 391, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-mcp.dashboard-claude",
+      "label": "Planned",
+      "rect": [742, 399, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 399, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 403, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [905, 391, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-mcp.dashboard-codex",
+      "label": "Planned",
+      "rect": [913, 399, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 399, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 403, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1075, 391, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-mcp.dashboard-pi",
+      "label": "Planned",
+      "rect": [1083, 399, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 399, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 403, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1246, 391, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-mcp.dashboard-opencode",
+      "label": "Planned",
+      "rect": [1254, 399, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 399, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 403, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [280, 442, 1136, 27],
+      "role": "group"
+    },
+    {
+      "rect": [288, 448, 40, 15],
+      "role": "text",
+      "text": "SKILLS"
+    },
+    {
+      "rect": [280, 469, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 469, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 477, 438, 18],
+      "role": "text",
+      "text": "Skills browser"
+    },
+    {
+      "rect": [288, 496, 438, 15],
+      "role": "text",
+      "text": "Browse installed agent skills."
+    },
+    {
+      "rect": [734, 469, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-skills.browser-claude",
+      "label": "Planned",
+      "rect": [742, 477, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 477, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 480, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [905, 469, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-skills.browser-codex",
+      "label": "Planned",
+      "rect": [913, 477, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 477, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 480, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1075, 469, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-skills.browser-pi",
+      "label": "Planned",
+      "rect": [1083, 477, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 477, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 480, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [1246, 469, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-skills.browser-opencode",
+      "label": "Planned",
+      "rect": [1254, 477, 62, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 477, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 480, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [280, 519, 1136, 27],
+      "role": "group"
+    },
+    {
+      "rect": [288, 525, 50, 15],
+      "role": "text",
+      "text": "HISTORY"
+    },
+    {
+      "rect": [280, 546, 1136, 51],
+      "role": "group"
+    },
+    {
+      "rect": [280, 546, 454, 51],
+      "role": "group"
+    },
+    {
+      "rect": [288, 554, 438, 18],
+      "role": "text",
+      "text": "File-history diff"
+    },
+    {
+      "rect": [288, 574, 438, 15],
+      "role": "text",
+      "text": "Diff file-history snapshots captured during a session."
+    },
+    {
+      "rect": [734, 546, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-file-history.diff-claude",
+      "label": "Unsupported",
+      "rect": [742, 554, 89, 22],
+      "role": "button"
+    },
+    {
+      "rect": [742, 554, 89, 22],
+      "role": "group"
+    },
+    {
+      "rect": [750, 558, 73, 15],
+      "role": "text",
+      "text": "Unsupported"
+    },
+    {
+      "rect": [905, 546, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-file-history.diff-codex",
+      "label": "Unsupported",
+      "rect": [913, 554, 89, 22],
+      "role": "button"
+    },
+    {
+      "rect": [913, 554, 89, 22],
+      "role": "group"
+    },
+    {
+      "rect": [921, 558, 73, 15],
+      "role": "text",
+      "text": "Unsupported"
+    },
+    {
+      "rect": [1075, 546, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-file-history.diff-pi",
+      "label": "Unsupported",
+      "rect": [1083, 554, 89, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1083, 554, 89, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1091, 558, 73, 15],
+      "role": "text",
+      "text": "Unsupported"
+    },
+    {
+      "rect": [1246, 546, 170, 38],
+      "role": "group"
+    },
+    {
+      "key": "cap-cell-file-history.diff-opencode",
+      "label": "Unsupported",
+      "rect": [1254, 554, 89, 22],
+      "role": "button"
+    },
+    {
+      "rect": [1254, 554, 89, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1262, 558, 73, 15],
+      "role": "text",
+      "text": "Unsupported"
+    },
+    {
+      "key": "cap-legend",
+      "rect": [280, 613, 1136, 22],
+      "role": "group"
+    },
+    {
+      "rect": [280, 613, 213, 22],
+      "role": "group"
+    },
+    {
+      "rect": [280, 613, 76, 22],
+      "role": "group"
+    },
+    {
+      "rect": [288, 616, 60, 15],
+      "role": "text",
+      "text": "Supported"
+    },
+    {
+      "rect": [362, 616, 132, 15],
+      "role": "text",
+      "text": "Built and working today."
+    },
+    {
+      "rect": [509, 613, 244, 22],
+      "role": "group"
+    },
+    {
+      "rect": [509, 613, 53, 22],
+      "role": "group"
+    },
+    {
+      "rect": [517, 616, 37, 15],
+      "role": "text",
+      "text": "Partial"
+    },
+    {
+      "rect": [568, 616, 185, 15],
+      "role": "text",
+      "text": "Partially built — some paths work."
+    },
+    {
+      "rect": [769, 613, 230, 22],
+      "role": "group"
+    },
+    {
+      "rect": [769, 613, 62, 22],
+      "role": "group"
+    },
+    {
+      "rect": [777, 616, 46, 15],
+      "role": "text",
+      "text": "Planned"
+    },
+    {
+      "rect": [837, 616, 162, 15],
+      "role": "text",
+      "text": "On the roadmap, not yet built."
+    },
+    {
+      "rect": [1015, 613, 230, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1015, 613, 89, 22],
+      "role": "group"
+    },
+    {
+      "rect": [1023, 616, 73, 15],
+      "role": "text",
+      "text": "Unsupported"
+    },
+    {
+      "rect": [1110, 616, 135, 15],
+      "role": "text",
+      "text": "Not applicable / no plan."
+    }
+  ],
+  "title": "Peektrace"
+}

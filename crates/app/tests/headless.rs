@@ -108,6 +108,13 @@ fn scenes_match_goldens() {
         ("history-open", "dark", vec![session.as_str()]),
         ("light", "light", vec![session.as_str()]),
         ("nav-collapsed", "dark", vec![]),
+        ("settings", "dark", vec![]),
+        ("settings-rows", "dark", vec![]),
+        ("settings-conflict", "dark", vec![]),
+        ("settings-readonly", "dark", vec![]),
+        ("capabilities", "dark", vec![]),
+        ("capabilities-cell", "dark", vec![]),
+        ("shortcuts", "dark", vec![]),
     ] {
         let got = render(&full, scene, theme, &extra);
         check(scene, &got);

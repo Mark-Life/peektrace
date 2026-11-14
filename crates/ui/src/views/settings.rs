@@ -72,17 +72,21 @@ fn root_row(s: &Ui, agent: AgentId, i: usize, off: bool, t: &Theme) -> El {
     let path = TextInput::new(&r.path)
         .placeholder(copy::PATH_PLACEHOLDER)
         .label(copy::PATH_LABEL)
+        .width(None)
         .disabled(off)
         .on_edit(move |s: &mut Ui| s.settings.edit(a, i, false))
         .build(&t.kit)
-        .key(format!("settings-path-{id}-{i}"));
+        .key(format!("settings-path-{id}-{i}"))
+        .w_full();
     let label = TextInput::new(&r.label)
         .placeholder(copy::LABEL_PLACEHOLDER)
         .label(copy::LABEL_LABEL)
+        .width(None)
         .disabled(off)
         .on_edit(move |s: &mut Ui| s.settings.edit(a, i, true))
         .build(&t.kit)
-        .key(format!("settings-label-{id}-{i}"));
+        .key(format!("settings-label-{id}-{i}"))
+        .w_full();
     let remove = IconButton::new(&glyphs::CLOSE)
         .variant(IconButtonVariant::Ghost)
         .label(copy::REMOVE_ROOT)
