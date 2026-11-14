@@ -47,8 +47,7 @@ fn the_search_box_is_named_for_screen_readers() {
     let field = els
         .iter()
         .find(|e| e.key.as_deref() == Some("mem-search"))
-        .map(|e| e.path.clone())
-        .unwrap_or_else(|| panic!("no mem-search"));
+        .map_or_else(|| panic!("no mem-search"), |e| e.path.clone());
     let named = els.iter().any(|e| {
         e.path.starts_with(&field) && e.focusable && e.label.as_deref() == Some("Search memories")
     });
