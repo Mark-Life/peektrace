@@ -1,7 +1,9 @@
 # Fixtures are compared byte for byte (sizes, line endings): never convert them.
 packages/core/test/fixtures/** -text
 # Checked byte for byte against the Rust generator output, which uses LF.
-apps/inspector/src/lib/api-types.gen.ts text eol=lf
+packages/view-core/src/*.gen.ts text eol=lf
+# The server analyses fixture is compared byte for byte too.
+apps/inspector/test/fixtures/tool-event/** text eol=lf
 # Recorded TS outputs: plain JSON lines, so git stores a re-record as a delta.
 # No text diff: lines are long. `git diff --text` shows them.
 tests/goldens/**/*.jsonl -diff linguist-generated
