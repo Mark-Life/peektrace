@@ -1,8 +1,0 @@
-{
-  "$schema": "https://unpkg.com/knip@5/schema.json",
-  "workspaces": {
-    "apps/cli": {
-      "entry": ["test/support/list-commands.ts"]
-    }
-  }
-}

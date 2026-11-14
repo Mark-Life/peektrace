@@ -2,12 +2,7 @@
   "overrides": {
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "effect": "3.21.4",
-    "@effect/cli": "0.75.2",
-    "@effect/platform": "0.96.2",
-    "@effect/platform-bun": "0.90.0",
-    "@effect/platform-node-shared": "0.60.0",
-    "@effect/rpc": "0.75.1"
+    "effect": "3.21.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.15",
@@ -15,22 +10,18 @@
     "@workspace/typescript-config": "workspace:*",
     "bun-types": "^1.3.14",
     "husky": "^9.1.7",
-    "portless": "^0.13.0",
     "tsrs": "^0.23.0-ts7.1.0-beta",
-    "turbo": "^2.9.14",
     "typescript": "6.0.3",
     "ultracite": "7.7.0"
   },
-  "name": "netxjs-monorepo",
+  "name": "peektrace-workspace",
   "scripts": {
-    "build": "turbo build",
-    "dev": "turbo dev",
+    "build": "bun run --filter=inspector build",
+    "dev": "bun run --filter=inspector dev",
     "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
-    "tui": "bun run --filter=inspector build && bun run apps/cli/src/index.ts tui",
-    "desktop:dev": "bun run --filter=@workspace/desktop dev",
-    "desktop:package": "bun run --filter=@workspace/desktop package:mac",
+    "tui": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- tui",
     "lint": "bun run check",
-    "typecheck": "turbo typecheck",
+    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit -p scripts",
     "format": "bun run fix",
     "check": "bunx --bun ultracite check",
     "fix": "bunx --bun ultracite fix",

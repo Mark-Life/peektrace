@@ -113,7 +113,10 @@ const stageWrapper = ({ out, readme, version }: StageOptions) => {
   cpSync(join(NPM_SRC, "peektrace.js"), shim);
   chmodSync(shim, EXECUTABLE_MODE);
   cpSync(join(NPM_SRC, "postinstall.js"), join(pkgDir, "postinstall.js"));
-  writeFileSync(join(pkgDir, "README.md"), npmReadme(readme, `cli-v${version}`));
+  writeFileSync(
+    join(pkgDir, "README.md"),
+    npmReadme(readme, `cli-v${version}`)
+  );
   return pkgDir;
 };
 

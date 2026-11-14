@@ -10,7 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pickTargets, stage } from "./build-npm";
-import { TARGETS, variantName } from "./npm-meta";
+import { TARGETS, type Target, variantName } from "./npm-meta";
 
 const README = "# Peektrace\n\nUse it.\n\n# Develop\n\ndev only\n";
 
@@ -27,7 +27,7 @@ afterEach(() => {
   }
 });
 
-const assetsDir = (targets = TARGETS) => {
+const assetsDir = (targets: readonly Target[] = TARGETS) => {
   const dir = scratch();
   for (const t of targets) {
     writeFileSync(join(dir, t.asset), `bin ${t.asset}`);
@@ -55,9 +55,9 @@ describe("stage", () => {
     expect(Object.values(wrapper.optionalDependencies)).toEqual(
       TARGETS.map(() => "1.2.3")
     );
-    expect(readFileSync(join(out, "peektrace/README.md"), "utf8")).not.toContain(
-      "dev only"
-    );
+    expect(
+      readFileSync(join(out, "peektrace/README.md"), "utf8")
+    ).not.toContain("dev only");
     const win = join(out, "@peektrace/cli-win32-x64");
     expect(readFileSync(join(win, "bin/peektrace.exe"), "utf8")).toBe(
       "bin peektrace-windows-x64.exe"
@@ -85,9 +85,9 @@ describe("stage", () => {
       targets: [host],
       readme: README,
     });
-    expect(existsSync(join(out, "@peektrace/cli-linux-arm64/bin/peektrace"))).toBe(
-      true
-    );
+    expect(
+      existsSync(join(out, "@peektrace/cli-linux-arm64/bin/peektrace"))
+    ).toBe(true);
     expect(existsSync(join(out, "@peektrace/cli-darwin-arm64"))).toBe(false);
   });
 

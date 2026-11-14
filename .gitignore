@@ -15,26 +15,13 @@ node_modules
 # Testing
 coverage
 
-# Turbo
-.turbo
-
-# Vercel
-.vercel
-
 # Build Outputs
-.next/
 out/
 build
 dist
 
-# Staged npm publish artifacts (peektrace CLI per-platform packages)
+# Staged npm packages (scripts/release/build-npm.ts)
 /dist-npm/
-
-# Desktop build + packaging output (electrobun writes to build/ and artifacts/;
-# resources/ is the staged sidecar binary). The committed app icon lives in
-# apps/desktop/assets/, so nothing under build/ needs to be tracked.
-apps/desktop/resources/
-apps/desktop/artifacts/
 
 
 # Debug

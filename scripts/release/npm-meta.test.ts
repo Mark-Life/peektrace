@@ -1,10 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  DESCRIPTION,
-  KEYWORDS,
-  TARGETS,
-  variantName,
-} from "./npm-meta";
+import { DESCRIPTION, KEYWORDS, TARGETS, variantName } from "./npm-meta";
 
 describe("npm metadata", () => {
   test("description names all four agents", () => {
