@@ -6,7 +6,7 @@ mod common;
 use std::sync::Arc;
 
 use common::home;
-use peektrace_ui::model::shortcuts::{SHORTCUTS, Scope, key_label};
+use peektrace_ui::model::shortcuts::{SHORTCUTS, Scope, key_label, native};
 use peektrace_ui::source::DataSource;
 use peektrace_ui::source::in_process::InProcess;
 use peektrace_ui::state::settings::THEME_KEY;
@@ -116,7 +116,7 @@ fn the_toggle_button_flips_like_d() {
 }
 
 #[test]
-fn question_mark_lists_every_shortcut() {
+fn question_mark_lists_every_handled_shortcut() {
     let mut rt = runtime(state(), true);
     text_key(&mut rt, "?");
     assert!(rt.state.help_open);
@@ -128,21 +128,50 @@ fn question_mark_lists_every_shortcut() {
         .filter_map(|e| e.text.or(e.label))
         .collect();
     for s in &SHORTCUTS {
-        assert!(rt.find(&format!("shortcut-{}", s.id)).is_some(), "{}", s.id);
-        assert!(all.iter().any(|t| t == s.label), "{}", s.label);
+        let shown = rt.find(&format!("shortcut-{}", s.id)).is_some();
+        assert_eq!(shown, native(s), "{}", s.id);
+        assert_eq!(all.iter().any(|t| t == s.label), native(s), "{}", s.label);
     }
     let sidebar = if MAC { "⌘B" } else { "Ctrl+B" };
     assert!(all.iter().any(|t| t.contains(sidebar)), "{sidebar}");
     assert_eq!(key_label("Mod+b", MAC), sidebar);
-    for heading in ["SESSIONS", "TRANSCRIPT", "GENERAL"] {
+    for heading in ["SESSIONS", "GENERAL"] {
         assert!(all.iter().any(|t| t == heading), "{heading}");
     }
+    assert!(
+        !all.iter().any(|t| t == "TRANSCRIPT"),
+        "a group with no handled key is left out"
+    );
 
     let dark = rt.state.dark;
     text_key(&mut rt, "d");
     assert_eq!(rt.state.dark, dark, "the dialog owns the keys");
     press(&mut rt, Key::Escape);
     assert!(!rt.state.help_open);
+}
+
+/// Keycaps follow `Ui::mac`, not the build target, and the `shortcuts`
+/// scene pins the Mac caps so its golden holds on every OS.
+#[test]
+fn keycaps_follow_the_state_and_the_scene_pins_mac() {
+    for mac in [true, false] {
+        let mut s = state();
+        s.mac = mac;
+        s.help_open = true;
+        let rt = runtime(s, true);
+        let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
+        let (want, other) = (key_label("Mod+b", mac), key_label("Mod+b", !mac));
+        assert!(texts.iter().any(|t| *t == want), "{want}");
+        assert!(!texts.iter().any(|t| *t == other), "{other}");
+    }
+    let (_, scene) = peektrace_ui::SCENES
+        .iter()
+        .find(|(name, _)| *name == "shortcuts")
+        .expect("shortcuts scene");
+    let mut s = state();
+    s.mac = false;
+    scene(&mut s);
+    assert!(s.help_open && s.mac);
 }
 
 #[test]
@@ -156,11 +185,9 @@ fn the_footer_button_opens_the_dialog() {
     assert!(rt.state.help_open);
 }
 
-/// Every global key the native app binds does something; `[` and `]`
-/// (turn steps) are listed in the dialog but not bound yet.
+/// Every global key the dialog lists does something; the rest do nothing.
 #[test]
-fn each_bound_global_key_has_an_effect() {
-    let unbound = ["prevTurn", "nextTurn"];
+fn each_listed_global_key_has_an_effect() {
     for s in SHORTCUTS.iter().filter(|s| s.scope == Scope::Global) {
         let mut rt = runtime(state(), true);
         let before = (rt.state.dark, rt.state.help_open);
@@ -172,7 +199,7 @@ fn each_bound_global_key_has_an_effect() {
             .iter()
             .any(|e| e.focused && e.path.contains("search"));
         let acted = after != before || focus_moved;
-        assert_eq!(acted, !unbound.contains(&s.id), "{} ({key})", s.id);
+        assert_eq!(acted, native(s), "{} ({key})", s.id);
     }
 }
 

@@ -420,7 +420,10 @@ pub const SCENES: &[Scene] = &[
         capabilities_scene(s);
         s.open_cell("session.debug-context", AgentId::Codex);
     }),
-    ("shortcuts", |s| s.help_open = true),
+    ("shortcuts", |s| {
+        s.help_open = true;
+        s.mac = true;
+    }),
 ];
 
 fn stats_scene(s: &mut Ui) {

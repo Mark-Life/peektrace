@@ -634,385 +634,320 @@
     {
       "key": "shortcuts-dialog",
       "label": "Keyboard shortcuts",
-      "rect": [496, 155, 448, 591],
+      "rect": [496, 221, 448, 459],
       "role": "dialog"
     },
     {
       "key": "header",
-      "rect": [496, 155, 448, 76],
+      "rect": [496, 221, 448, 76],
       "role": "group"
     },
     {
-      "rect": [512, 171, 398, 44],
+      "rect": [512, 237, 398, 44],
       "role": "group"
     },
     {
-      "rect": [512, 171, 398, 20],
+      "rect": [512, 237, 398, 20],
       "role": "text",
       "text": "Keyboard shortcuts"
     },
     {
-      "rect": [512, 195, 398, 20],
+      "rect": [512, 261, 398, 20],
       "role": "text",
       "text": "Single keys do nothing while you type in a text field."
     },
     {
       "key": "close",
       "label": "Close",
-      "rect": [910, 169, 20, 20],
+      "rect": [910, 235, 20, 20],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [912, 171, 16, 16],
+      "rect": [912, 237, 16, 16],
       "role": "icon"
     },
     {
       "key": "body",
-      "rect": [496, 231, 448, 515],
+      "rect": [496, 297, 448, 383],
       "role": "group"
     },
     {
-      "rect": [496, 231, 448, 515],
+      "rect": [496, 297, 448, 383],
       "role": "group"
     },
     {
       "key": "shortcuts-list",
-      "rect": [512, 231, 416, 499],
+      "rect": [512, 297, 416, 367],
       "role": "group"
     },
     {
       "label": "Sessions",
-      "rect": [512, 231, 416, 235],
+      "rect": [512, 297, 416, 235],
       "role": "group"
     },
     {
-      "rect": [512, 231, 416, 15],
+      "rect": [512, 297, 416, 15],
       "role": "text",
       "text": "SESSIONS"
     },
     {
-      "rect": [512, 250, 416, 15],
+      "rect": [512, 316, 416, 15],
       "role": "text",
       "text": "Moving and opening work while a session row has focus."
     },
     {
       "key": "shortcut-listDown",
-      "rect": [512, 269, 416, 30],
+      "rect": [512, 335, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 275, 367, 18],
+      "rect": [512, 341, 367, 18],
       "role": "text",
       "text": "Next session"
     },
     {
       "label": "J ↓",
-      "rect": [895, 277, 33, 14],
+      "rect": [895, 343, 33, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [895, 277, 15, 14],
+      "rect": [895, 343, 15, 14],
       "role": "group"
     },
     {
-      "rect": [899, 278, 7, 11],
+      "rect": [899, 344, 7, 11],
       "role": "text",
       "text": "J"
     },
     {
       "key": "key1",
-      "rect": [912, 277, 16, 14],
+      "rect": [912, 343, 16, 14],
       "role": "group"
     },
     {
-      "rect": [916, 278, 8, 11],
+      "rect": [916, 344, 8, 11],
       "role": "text",
       "text": "↓"
     },
     {
       "key": "shortcut-listUp",
-      "rect": [512, 302, 416, 30],
+      "rect": [512, 368, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 308, 367, 18],
+      "rect": [512, 374, 367, 18],
       "role": "text",
       "text": "Previous session"
     },
     {
       "label": "K ↑",
-      "rect": [895, 310, 34, 14],
+      "rect": [895, 376, 34, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [895, 310, 16, 14],
+      "rect": [895, 376, 16, 14],
       "role": "group"
     },
     {
-      "rect": [899, 312, 8, 11],
+      "rect": [899, 378, 8, 11],
       "role": "text",
       "text": "K"
     },
     {
       "key": "key1",
-      "rect": [912, 310, 16, 14],
+      "rect": [912, 376, 16, 14],
       "role": "group"
     },
     {
-      "rect": [916, 312, 8, 11],
+      "rect": [916, 378, 8, 11],
       "role": "text",
       "text": "↑"
     },
     {
       "key": "shortcut-listFirst",
-      "rect": [512, 336, 416, 30],
+      "rect": [512, 402, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 342, 362, 18],
+      "rect": [512, 408, 362, 18],
       "role": "text",
       "text": "First session"
     },
     {
       "label": "Home",
-      "rect": [890, 344, 39, 14],
+      "rect": [890, 410, 39, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [890, 344, 39, 14],
+      "rect": [890, 410, 39, 14],
       "role": "group"
     },
     {
-      "rect": [894, 345, 31, 11],
+      "rect": [894, 411, 31, 11],
       "role": "text",
       "text": "Home"
     },
     {
       "key": "shortcut-listLast",
-      "rect": [512, 369, 416, 30],
+      "rect": [512, 435, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 375, 372, 18],
+      "rect": [512, 441, 372, 18],
       "role": "text",
       "text": "Last session"
     },
     {
       "label": "End",
-      "rect": [900, 377, 28, 14],
+      "rect": [900, 443, 28, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [900, 377, 28, 14],
+      "rect": [900, 443, 28, 14],
       "role": "group"
     },
     {
-      "rect": [904, 379, 20, 11],
+      "rect": [904, 445, 20, 11],
       "role": "text",
       "text": "End"
     },
     {
       "key": "shortcut-listOpen",
-      "rect": [512, 403, 416, 30],
+      "rect": [512, 469, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 409, 364, 18],
+      "rect": [512, 475, 364, 18],
       "role": "text",
       "text": "Open the focused session"
     },
     {
       "label": "Enter",
-      "rect": [892, 411, 36, 14],
+      "rect": [892, 477, 36, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [892, 411, 36, 14],
+      "rect": [892, 477, 36, 14],
       "role": "group"
     },
     {
-      "rect": [896, 412, 28, 11],
+      "rect": [896, 478, 28, 11],
       "role": "text",
       "text": "Enter"
     },
     {
       "key": "shortcut-search",
-      "rect": [512, 436, 416, 30],
+      "rect": [512, 502, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 442, 386, 18],
+      "rect": [512, 508, 386, 18],
       "role": "text",
       "text": "Focus search"
     },
     {
       "label": "/",
-      "rect": [914, 444, 14, 14],
+      "rect": [914, 510, 14, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [914, 444, 14, 14],
+      "rect": [914, 510, 14, 14],
       "role": "group"
     },
     {
-      "rect": [918, 446, 6, 11],
+      "rect": [918, 512, 6, 11],
       "role": "text",
       "text": "/"
     },
     {
-      "label": "Transcript",
-      "rect": [512, 482, 416, 116],
-      "role": "group"
-    },
-    {
-      "rect": [512, 482, 416, 15],
-      "role": "text",
-      "text": "TRANSCRIPT"
-    },
-    {
-      "rect": [512, 501, 416, 30],
-      "role": "text",
-      "text": "In an open transcript. The table view moves by turn only when sorted by Turn."
-    },
-    {
-      "key": "shortcut-prevTurn",
-      "rect": [512, 535, 416, 30],
-      "role": "group"
-    },
-    {
-      "rect": [512, 541, 386, 18],
-      "role": "text",
-      "text": "Previous turn"
-    },
-    {
-      "label": "[",
-      "rect": [914, 543, 14, 14],
-      "role": "group"
-    },
-    {
-      "key": "key0",
-      "rect": [914, 543, 14, 14],
-      "role": "group"
-    },
-    {
-      "rect": [919, 544, 4, 11],
-      "role": "text",
-      "text": "["
-    },
-    {
-      "key": "shortcut-nextTurn",
-      "rect": [512, 568, 416, 30],
-      "role": "group"
-    },
-    {
-      "rect": [512, 574, 386, 18],
-      "role": "text",
-      "text": "Next turn"
-    },
-    {
-      "label": "]",
-      "rect": [914, 576, 14, 14],
-      "role": "group"
-    },
-    {
-      "key": "key0",
-      "rect": [914, 576, 14, 14],
-      "role": "group"
-    },
-    {
-      "rect": [919, 578, 4, 11],
-      "role": "text",
-      "text": "]"
-    },
-    {
       "label": "General",
-      "rect": [512, 614, 416, 116],
+      "rect": [512, 548, 416, 116],
       "role": "group"
     },
     {
-      "rect": [512, 614, 416, 15],
+      "rect": [512, 548, 416, 15],
       "role": "text",
       "text": "GENERAL"
     },
     {
       "key": "shortcut-theme",
-      "rect": [512, 633, 416, 30],
+      "rect": [512, 567, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 639, 384, 18],
+      "rect": [512, 573, 384, 18],
       "role": "text",
       "text": "Switch light / dark theme"
     },
     {
       "label": "D",
-      "rect": [912, 641, 16, 14],
+      "rect": [912, 575, 16, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [912, 641, 16, 14],
+      "rect": [912, 575, 16, 14],
       "role": "group"
     },
     {
-      "rect": [916, 642, 8, 11],
+      "rect": [916, 576, 8, 11],
       "role": "text",
       "text": "D"
     },
     {
       "key": "shortcut-sidebar",
-      "rect": [512, 666, 416, 30],
+      "rect": [512, 600, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 672, 374, 18],
+      "rect": [512, 606, 374, 18],
       "role": "text",
       "text": "Collapse or expand the sidebar"
     },
     {
       "label": "⌘B",
-      "rect": [902, 674, 26, 14],
+      "rect": [902, 608, 26, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [902, 674, 26, 14],
+      "rect": [902, 608, 26, 14],
       "role": "group"
     },
     {
-      "rect": [906, 676, 18, 11],
+      "rect": [906, 610, 18, 11],
       "role": "text",
       "text": "⌘B"
     },
     {
       "key": "shortcut-help",
-      "rect": [512, 700, 416, 30],
+      "rect": [512, 634, 416, 30],
       "role": "group"
     },
     {
-      "rect": [512, 706, 386, 18],
+      "rect": [512, 640, 386, 18],
       "role": "text",
       "text": "Show keyboard shortcuts"
     },
     {
       "label": "?",
-      "rect": [914, 708, 15, 14],
+      "rect": [914, 642, 15, 14],
       "role": "group"
     },
     {
       "key": "key0",
-      "rect": [914, 708, 15, 14],
+      "rect": [914, 642, 15, 14],
       "role": "group"
     },
     {
-      "rect": [918, 709, 7, 11],
+      "rect": [918, 643, 7, 11],
       "role": "text",
       "text": "?"
     }

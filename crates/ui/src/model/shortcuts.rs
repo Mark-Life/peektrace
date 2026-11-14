@@ -164,6 +164,15 @@ pub const fn group_note(g: Group) -> Option<&'static str> {
     }
 }
 
+/// Table rows the native app has no handler for yet; its dialog leaves
+/// them out.
+const NOT_NATIVE: [&str; 2] = ["prevTurn", "nextTurn"];
+
+/// Whether the native app handles shortcut `s`.
+pub fn native(s: &Shortcut) -> bool {
+    !NOT_NATIVE.contains(&s.id)
+}
+
 pub fn shortcut(id: &str) -> Option<&'static Shortcut> {
     SHORTCUTS.iter().find(|s| s.id == id)
 }

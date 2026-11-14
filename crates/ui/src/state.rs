@@ -223,6 +223,8 @@ pub struct Ui {
     pub caps: settings::CapsState,
     pub info: settings::InfoState,
     pub help_open: bool,
+    /// Keycaps read `⌘` rather than `Ctrl+`; scenes pin it.
+    pub mac: bool,
     pub toast: Option<settings::Toast>,
     /// Where the theme pick persists.
     pub prefs: rune::prefs::Prefs,
@@ -268,6 +270,7 @@ impl Ui {
             caps: settings::CapsState::default(),
             info: settings::InfoState::default(),
             help_open: false,
+            mac: crate::shell::MAC,
             toast: None,
             prefs: rune::prefs::Prefs::memory(),
             io,

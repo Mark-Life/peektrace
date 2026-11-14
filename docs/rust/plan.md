@@ -176,7 +176,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app: leaving Settings and coming back | the form remounts and unsaved edits are lost | edits stay while the file's mtime is unchanged; a changed file re-seeds the form |
 | Rune app icons on Settings, the theme toggle and toasts (trash, plus, save, info, warning, sun, moon) | lucide icons | text labels; rune-kit glyphs only for close, lock, keyboard and the error toast |
 | Rune app theme pick | `localStorage["theme"]` | `prefs.json` key `theme` in the OS config dir (`com.mark-life.peektrace`), same values `system`, `light`, `dark`; headless runs keep it in memory |
-| Rune app `[` and `]` (previous, next turn) | bound | listed in the shortcuts dialog, not bound yet |
+| Rune app `[` and `]` (previous, next turn) | bound | not bound yet; the shortcuts dialog leaves them (and the empty Transcript group) out |
 | Rune app Escape on Capabilities | browser Back returns to Settings | Escape returns to Settings (no rail entry, no Back) |
 | Experimental `serve --ui rune`: web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
 | Experimental `serve --ui rune`: Stats | findings, prompts, rule badges and time notes | none: core writes that text, so the web build hides it |

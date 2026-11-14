@@ -87,6 +87,7 @@ async fn load_with<T: serde::de::DeserializeOwned>(
 ) -> Result<T, LoadError> {
     let span = info_span!(
         "app.fetch",
+        http.method = method,
         http.route = route,
         http.status = field::Empty,
         error = field::Empty

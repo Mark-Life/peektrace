@@ -5,55 +5,62 @@ use rune::{El, col, icon, row, text};
 use rune_kit::{Dialog, Keybind, Toast, glyphs};
 
 use crate::model::shortcuts::{
-    GROUPS, HELP_BUTTON, HELP_NOTE, HELP_TITLE, SHORTCUTS, group_note, key_label, shortcut,
+    GROUPS, Group, HELP_BUTTON, HELP_NOTE, HELP_TITLE, SHORTCUTS, Shortcut, group_note, key_label,
+    native, shortcut,
 };
-use crate::shell::MAC;
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
 
 const HELP_W: f32 = 448.0;
 
 /// A shortcut's keycaps, from the table.
-pub fn keycaps(id: &str) -> Vec<String> {
+pub fn keycaps(id: &str, mac: bool) -> Vec<String> {
     shortcut(id).map_or_else(Vec::new, |s| {
-        s.keys.iter().map(|k| key_label(k, MAC)).collect()
+        s.keys.iter().map(|k| key_label(k, mac)).collect()
     })
 }
 
-fn list(t: &Theme) -> El {
-    col()
-        .key("shortcuts-list")
-        .w_full()
-        .gap(16.0)
-        .children(GROUPS.into_iter().map(|g| {
-            let mut section = col()
-                .w_full()
-                .gap(4.0)
-                .role("group")
-                .label(g.as_str())
-                .child(
-                    text(g.as_str().to_uppercase())
-                        .font(ty::XS_MEDIUM)
-                        .color(t.muted_fg),
-                );
-            if let Some(note) = group_note(g) {
-                section = section.child(text(note).font(ty::XS).color(t.muted_fg).wrap().w_full());
-            }
-            section.children(SHORTCUTS.iter().filter(|s| s.group == g).map(|s| {
-                row()
-                    .key(format!("shortcut-{}", s.id))
-                    .w_full()
-                    .py(6.0)
-                    .gap(16.0)
-                    .center_y()
-                    .border_sides([0.0, 0.0, 1.0, 0.0], t.border)
-                    .child(text(s.label).font(ty::SM).color(t.fg).grow(1.0))
-                    .child(Keybind::new(&keycaps(s.id)).build(&t.kit))
-            }))
-        }))
+/// The dialog rows of group `g`: the shortcuts the app handles.
+fn rows(g: Group) -> impl Iterator<Item = &'static Shortcut> {
+    SHORTCUTS.iter().filter(move |s| s.group == g && native(s))
 }
 
-/// The `?` dialog: every shortcut, grouped.
+fn list(mac: bool, t: &Theme) -> El {
+    col().key("shortcuts-list").w_full().gap(16.0).children(
+        GROUPS
+            .into_iter()
+            .filter(|&g| rows(g).next().is_some())
+            .map(|g| {
+                let mut section = col()
+                    .w_full()
+                    .gap(4.0)
+                    .role("group")
+                    .label(g.as_str())
+                    .child(
+                        text(g.as_str().to_uppercase())
+                            .font(ty::XS_MEDIUM)
+                            .color(t.muted_fg),
+                    );
+                if let Some(note) = group_note(g) {
+                    section =
+                        section.child(text(note).font(ty::XS).color(t.muted_fg).wrap().w_full());
+                }
+                section.children(rows(g).map(|s| {
+                    row()
+                        .key(format!("shortcut-{}", s.id))
+                        .w_full()
+                        .py(6.0)
+                        .gap(16.0)
+                        .center_y()
+                        .border_sides([0.0, 0.0, 1.0, 0.0], t.border)
+                        .child(text(s.label).font(ty::SM).color(t.fg).grow(1.0))
+                        .child(Keybind::new(&keycaps(s.id, mac)).build(&t.kit))
+                }))
+            }),
+    )
+}
+
+/// The `?` dialog: every shortcut the app handles, grouped.
 pub fn help(s: &Ui, t: &Theme, layer: &mut Vec<El>) {
     Dialog::new("shortcuts", HELP_TITLE)
         .description(HELP_NOTE)
@@ -61,7 +68,7 @@ pub fn help(s: &Ui, t: &Theme, layer: &mut Vec<El>) {
         .open(s.help_open)
         .fit()
         .on_close(|s: &mut Ui| s.help_open = false)
-        .child(col().w_full().px(16.0).pb(16.0).child(list(t)))
+        .child(col().w_full().px(16.0).pb(16.0).child(list(s.mac, t)))
         .build(&t.kit, layer);
 }
 
@@ -106,7 +113,7 @@ pub fn footer(s: &Ui, t: &Theme) -> El {
         .key("theme-toggle")
         .label(theme_label.clone())
         .help(theme_label)
-        .help_keys(keycaps("theme"))
+        .help_keys(keycaps("theme", s.mac))
         .on_press(|s: &mut Ui| s.flip_theme());
     let mut keys = row()
         .gap(6.0)
@@ -119,7 +126,7 @@ pub fn footer(s: &Ui, t: &Theme) -> El {
         .key("shortcuts-button")
         .label(HELP_TITLE)
         .help(HELP_TITLE)
-        .help_keys(keycaps("help"))
+        .help_keys(keycaps("help", s.mac))
         .on_press(|s: &mut Ui| s.help_open = true);
     if s.nav_collapsed {
         col().gap(8.0).items_center().child(theme).child(help)
