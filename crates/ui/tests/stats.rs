@@ -1,7 +1,10 @@
 //! The Stats screen driven through Rune's `Runtime` on a synthetic HOME,
 //! with core answering in process. A failing source stands in for errors.
 
-#![allow(clippy::assert_is_empty, reason = "the keys print on failure where it matters")]
+#![allow(
+    clippy::assert_is_empty,
+    reason = "the keys print on failure where it matters"
+)]
 
 mod common;
 

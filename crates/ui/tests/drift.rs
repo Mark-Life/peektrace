@@ -2,7 +2,10 @@
 //! on its own session model and the app on the wire types. These tests keep
 //! the copies equal to core.
 
-#![allow(clippy::assert_is_empty, reason = "the keys print on failure where it matters")]
+#![allow(
+    clippy::assert_is_empty,
+    reason = "the keys print on failure where it matters"
+)]
 
 mod common;
 

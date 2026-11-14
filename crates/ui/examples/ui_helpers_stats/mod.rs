@@ -3,13 +3,13 @@
 
 use std::collections::HashMap;
 
+use peektrace_core::AgentRoots;
 use peektrace_core::PathStyle;
 use peektrace_core::js::time::Utc;
 use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::stats::accumulate::DrillTable as CoreTable;
 use peektrace_core::stats::cache::{StatsCache, cache_root};
 use peektrace_core::stats::service::{DrillPage, ReportRequest, StatsEnv, drill, report};
-use peektrace_core::AgentRoots;
 use peektrace_protocol::stats::{DrillView, SampleRefView, StatsReportView};
 use peektrace_protocol::{AgentId, DrillTable};
 use peektrace_ui::model::format::fmt_k;
@@ -132,10 +132,14 @@ fn text_json(t: &StatsText) -> Value {
 }
 
 fn rank(rows: &[RankRow], max: f64) -> Value {
-    json!(rows.iter().map(|r| json!({
-        "key": r.key, "label": r.label, "valueText": r.value_text,
-        "secondary": r.secondary, "width": rows::width_of(r.value, max),
-    })).collect::<Vec<_>>())
+    json!(
+        rows.iter()
+            .map(|r| json!({
+                "key": r.key, "label": r.label, "valueText": r.value_text,
+                "secondary": r.secondary, "width": rows::width_of(r.value, max),
+            }))
+            .collect::<Vec<_>>()
+    )
 }
 
 fn chips(samples: &[SampleRefView], titles: &SessionTitles) -> Value {
