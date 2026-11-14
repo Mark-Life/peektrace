@@ -22,8 +22,8 @@
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
 # The serve suites live in bench-serve.sh, the statusline, mcp and upgrade suites in bench-stdio.sh,
-# the TUI suite in bench-tui.sh, the telemetry suite in bench-telemetry.sh, and the app and web
-# suites in bench-app.sh, sourced below.
+# the TUI suite in bench-tui.sh, the telemetry suite in bench-telemetry.sh, the app and web
+# suites in bench-app.sh, and the stats-screen and settings suites in bench-screens.sh, sourced below.
 # `add_rust` adds a Rust-only case (no Bun counterpart): Bun cells print n/a.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # `set_input` gives the last case a file fed to stdin (hyperfine --input, `<` for GNU time).
@@ -338,6 +338,8 @@ suite_memory() {
 . "$ROOT/scripts/rust/bench-ci.sh"
 # shellcheck source=scripts/rust/bench-app.sh
 . "$ROOT/scripts/rust/bench-app.sh"
+# shellcheck source=scripts/rust/bench-screens.sh
+. "$ROOT/scripts/rust/bench-screens.sh"
 trap 'stop_live; stop_fake_release; stop_web' EXIT
 
 for suite in $BENCH_SUITES; do
