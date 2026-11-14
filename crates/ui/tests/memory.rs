@@ -343,19 +343,60 @@ fn a_write_under_a_live_watch_scans_the_vaults_once() {
     assert_eq!(loads(&s), 1, "a bump that never comes still reloads");
 }
 
+fn type_key(rt: &mut Runtime<Ui>, t: &str) {
+    rt.key(KeyEvent {
+        key: Key::Text(t.into()),
+        mods: Mods::default(),
+    });
+    settle(rt);
+}
+
+/// A memory dialog owns the window keys, as the shortcuts dialog and the
+/// Stats drill sheet do; its text fields still type them.
 #[test]
-fn d_does_nothing_while_a_dialog_is_open() {
+fn window_keys_wait_while_a_memory_dialog_is_open() {
     let mut s = on_memory(&mem_home());
     s.io = None;
     s.memory.dialog = Some(Dialog::Create(CreateTarget::Pick));
     let mut rt = runtime(s);
     rt.on_key = Some(peektrace_ui::on_key);
-    rt.key(KeyEvent {
-        key: Key::Text("d".into()),
-        mods: Mods::default(),
+    assert!(rt.state.dialog_open());
+    type_key(&mut rt, "?");
+    type_key(&mut rt, "d");
+    assert!(!rt.state.help_open, "? waits while the dialog is open");
+    assert_eq!(rt.state.dark, None, "d waits while the dialog is open");
+    click(&mut rt, "mem-create-name");
+    type_key(&mut rt, "d");
+    type_key(&mut rt, "?");
+    assert_eq!(rt.state.memory.draft(&CreateTarget::Pick).name.text, "d?");
+    assert!(!rt.state.help_open);
+    assert_eq!(rt.state.dark, None);
+    rt.update(|s, tx| {
+        s.memory.dialog = None;
+        tx.blur();
     });
     settle(&mut rt);
-    assert_eq!(rt.state.dark, None);
+    type_key(&mut rt, "?");
+    assert!(
+        rt.state.help_open,
+        "? opens the shortcuts once the dialog closes"
+    );
+}
+
+/// The Memory nav entry leaves Stats through the same route switch as the
+/// other entries, so the Stats sheet and toggles reset.
+#[test]
+fn the_memory_nav_entry_leaves_stats() {
+    let mut s = on_memory(&mem_home());
+    s.io = None;
+    s.route = Route::Stats;
+    s.stats.show_all = true;
+    s.stats.days_open = true;
+    let mut rt = runtime(s);
+    click(&mut rt, "nav-memory");
+    assert_eq!(rt.state.route, Route::Memory);
+    assert!(!rt.state.stats.show_all);
+    assert!(!rt.state.stats.days_open);
 }
 
 #[test]
