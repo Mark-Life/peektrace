@@ -14,7 +14,7 @@ use common::stats_report::{
     PARENT, cause_row, fail_row, firing, main_sample, report, sample, sample_at, three_causes,
     time_row,
 };
-use common::tree::blank_leaves_under;
+use common::tree::{blank_leaves_under, by_key, inside};
 use peektrace_core::stats::accumulate::SampleRef;
 use peektrace_core::stats::schema::Job;
 use peektrace_core::stats::service::StatsReport;
@@ -433,4 +433,45 @@ fn a_mixed_group_shows_the_subagent_tag() {
     );
     assert!(has_text(&rt, "subagent"));
     assert!(!keys_with(&rt, "stats-session-more:").is_empty());
+}
+
+#[test]
+fn a_long_rule_badge_stays_in_its_cell_at_every_width() {
+    let long = "~/.claude/CLAUDE.md → ~/.agents/skills/agent-to-human/rules/shell-and-globs.md";
+    let r = report(
+        vec![cause_row(|c| {
+            c.rule = Some({
+                let mut f = firing();
+                f.matches[0].path = long.into();
+                f
+            });
+        })],
+        vec![],
+        vec![],
+    );
+    let key = format!("cause-rule:{}", r.causes[0].key);
+    for w in [1440.0, 900.0, 600.0] {
+        let rt = runtime_at(ui(&r), w);
+        let els = rt.elements();
+        let table =
+            by_key(&els, "cause-table").map_or_else(|| panic!("no table at {w}"), |e| e.rect);
+        let i = els
+            .iter()
+            .position(|e| e.key.as_deref() == Some(key.as_str()))
+            .unwrap_or_else(|| panic!("no rule badge at {w}"));
+        let badge = els[i].rect;
+        assert!(inside(badge, table), "{w}: badge {badge:?} table {table:?}");
+        assert!(badge[0] + badge[2] <= w, "{w}: badge {badge:?}");
+        assert!(
+            els[i].help.as_deref().is_some_and(|h| h.contains(long)),
+            "{w}"
+        );
+        for e in els.iter().filter(|e| e.parent == Some(i)) {
+            assert!(
+                inside(e.rect, badge),
+                "{w}: text {:?} badge {badge:?}",
+                e.rect
+            );
+        }
+    }
 }

@@ -90,6 +90,7 @@ pub fn mono(s: impl Into<String>, t: &Theme) -> El {
 pub fn outline_badge(label: impl Into<String>, mono: bool, t: &Theme) -> El {
     row()
         .h(20.0)
+        .shrink()
         .px(8.0)
         .radius(6.0)
         .center_y()
@@ -97,18 +98,27 @@ pub fn outline_badge(label: impl Into<String>, mono: bool, t: &Theme) -> El {
         .child(
             text(label.into())
                 .font(if mono { ty::MONO_XS } else { ty::XS_MEDIUM })
-                .color(t.fg),
+                .color(t.fg)
+                .truncate()
+                .min_w(0.0),
         )
 }
 
 pub fn secondary_badge(label: impl Into<String>, t: &Theme) -> El {
     row()
         .h(20.0)
+        .shrink()
         .px(8.0)
         .radius(6.0)
         .center_y()
         .fill(t.muted)
-        .child(text(label.into()).font(ty::XS_MEDIUM).color(t.fg))
+        .child(
+            text(label.into())
+                .font(ty::XS_MEDIUM)
+                .color(t.fg)
+                .truncate()
+                .min_w(0.0),
+        )
 }
 
 /// A small button: outline or ghost, 24 tall.
