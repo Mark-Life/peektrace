@@ -56,7 +56,7 @@ fn card(v: &V<'_>, f: &FindingView, layer: &mut Vec<El>) -> El {
             .font(ty::MONO_SM)
             .color(t.fg)
             .wrap()
-            .min_w(0.0)
+            .shrink()
             .key("stats-finding-impact"),
     );
     let samples = samples_of(v.r, f.table, &f.key);
