@@ -56,7 +56,6 @@ resolves against whatever host is serving the page. Override at build time with
 
 Both modes hit the **same** paths (`/api`, `/api/events`); only who answers
 them differs. The backend is the Rust binary (`crates/cli`, bin `peektrace`).
-The TypeScript `apps/cli` server speaks `/rpc` and does not answer `/api`.
 
 ### Dev — Vite dev server + proxy
 
