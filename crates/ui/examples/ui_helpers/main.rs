@@ -2,6 +2,7 @@
 //! line, one JSON answer per stdout line. `scripts/rust/parity-ui.ts`
 //! asks the TS inspector the same questions and diffs the answers.
 
+mod memory;
 mod settings;
 mod stats;
 
@@ -308,7 +309,9 @@ fn growth_answer(a: &AnalyzedSession, g: &Growth) -> Value {
     })
 }
 
-fn answer(req: &Value) -> Value {
+/// `line` is the raw request: maps whose key order matters decode from it,
+/// since `Value` sorts keys.
+fn answer(req: &Value, line: &str) -> Value {
     let load = || -> Option<AnalyzedSession> {
         let path = req["path"].as_str()?;
         let body = std::fs::read_to_string(path).ok()?;
@@ -318,6 +321,9 @@ fn answer(req: &Value) -> Value {
         "list" => list_answer(req),
         "num" => num_answer(req),
         "hit" => hit_answer(req),
+        "memory" => memory::rules(req),
+        "memoryFixed" => memory::fixed(req),
+        "memoryGeom" => memory::geom(line),
         "analysis" => load().map_or(Value::Null, |a| analysis_answer(&a)),
         "growth" => load().map_or(Value::Null, |a| {
             growth(&a).map_or(Value::Null, |g| growth_answer(&a, &g))
@@ -341,6 +347,6 @@ fn main() {
     let mut out = std::io::BufWriter::new(std::io::stdout().lock());
     for line in stdin.lock().lines().map_while(Result::ok) {
         let req: Value = serde_json::from_str(&line).unwrap_or(Value::Null);
-        let _ = writeln!(out, "{}", answer(&req));
+        let _ = writeln!(out, "{}", answer(&req, &line));
     }
 }
