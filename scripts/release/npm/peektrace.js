@@ -3,9 +3,8 @@
 /**
  * Published `bin` launcher for the `peektrace` npm package.
  *
- * This is NOT the in-monorepo dev entry (`src/index.ts`). It ships only inside
- * the generated `dist-npm/peektrace/` wrapper and is staged there by
- * `scripts/build-npm.ts`. Zero runtime dependencies: pure Node CommonJS using
+ * It ships only inside the generated `dist-npm/peektrace/` wrapper, staged
+ * there by `scripts/release/build-npm.ts`. Zero runtime dependencies: pure Node CommonJS using
  * only `child_process`/`fs`/`path`/`os`, so it runs under npm, bun and pnpm.
  *
  * Binary selection: the real compiled executable lives in a per-platform

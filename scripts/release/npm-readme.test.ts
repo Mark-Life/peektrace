@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { npmReadme } from "../scripts/npm-readme";
+import { npmReadme } from "./npm-readme";
 
 const RELATIVE_MD_LINK = /\]\((?!https?:|#)/;
 const REF = "cli-v0.0.0-test";
@@ -11,7 +11,7 @@ describe("npmReadme (synthetic input)", () => {
     "",
     "![shot](assets/a.webp)",
     "",
-    "See [cli docs](apps/cli/README.md) and [site](https://example.com).",
+    "See [cli docs](docs/cli.md) and [site](https://example.com).",
     "",
     "# Develop",
     "",
@@ -30,7 +30,7 @@ describe("npmReadme (synthetic input)", () => {
   });
   test("pins relative links to ref, keeps absolute", () => {
     expect(out).toContain(
-      `](https://github.com/Mark-Life/peektrace/blob/${REF}/apps/cli/README.md)`
+      `](https://github.com/Mark-Life/peektrace/blob/${REF}/docs/cli.md)`
     );
     expect(out).toContain("](https://example.com)");
   });
@@ -42,7 +42,7 @@ describe("npmReadme (synthetic input)", () => {
 
 describe("npmReadme (root README)", async () => {
   const root = await Bun.file(
-    join(import.meta.dirname, "../../../README.md")
+    join(import.meta.dirname, "../../README.md")
   ).text();
   const out = npmReadme(root, REF);
 

@@ -4,7 +4,7 @@ import {
   KEYWORDS,
   TARGETS,
   variantName,
-} from "../scripts/npm-meta";
+} from "./npm-meta";
 
 describe("npm metadata", () => {
   test("description names all four agents", () => {

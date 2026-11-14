@@ -28,7 +28,7 @@ build
 dist
 
 # Staged npm publish artifacts (peektrace CLI per-platform packages)
-apps/cli/dist-npm/
+/dist-npm/
 
 # Desktop build + packaging output (electrobun writes to build/ and artifacts/;
 # resources/ is the staged sidecar binary). The committed app icon lives in

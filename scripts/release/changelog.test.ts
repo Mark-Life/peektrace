@@ -37,7 +37,7 @@ See [guide](docs/guide.md) and [site](https://example.com) and [top](#top).
 - desktop
 `;
 
-const REPO_CHANGELOG = join(import.meta.dir, "../../../CHANGELOG.md");
+const REPO_CHANGELOG = join(import.meta.dir, "../../CHANGELOG.md");
 const SCRIPT = join(import.meta.dir, "release-notes.ts");
 
 describe("changelogSection", () => {

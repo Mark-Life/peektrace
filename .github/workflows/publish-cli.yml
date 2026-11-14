@@ -2,49 +2,55 @@ name: Publish CLI
 
 run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
 
-# Releases the `peektrace` CLI binaries. A push of a `cli-v<semver>` tag drives
-# an automatic release; workflow_dispatch stays available for repair runs. The
-# tag is the source of truth for the version: the workflow strips `cli-v`,
-# stamps the bare semver into apps/cli/package.json, then build:npm
-# cross-compiles all five platform binaries on this one host and stages them
-# under dist-npm/.
+# Releases the `peektrace` CLI, the Rust binary built from crates/cli. A push of
+# a `cli-v<semver>` tag drives an automatic release; workflow_dispatch stays
+# available for repair runs. The tag is the source of truth for the version: the
+# workflow strips `cli-v` and bakes the bare semver into the binary at compile
+# time (`PEEKTRACE_VERSION`). The Cargo workspace version stays 0.0.0.
 #
-# Native installers are the primary channel. The staged binaries are published as raw assets on the GitHub Release for the tag
-# (peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
-# peektrace-linux-arm64, peektrace-windows-x64.exe + a SHA256SUMS), which the
-# curl|sh / irm|iex installers (scripts/install.sh, scripts/install.ps1)
-# download. Both Linux binaries are glibc-only; musl (Alpine) is not shipped.
+# Jobs:
+#   version    checks the tag and derives the version.
+#   inspector  builds apps/inspector/dist once. Every binary embeds this copy.
+#   build      one native runner per target. Both darwin targets build on
+#              macos-latest and get an ad-hoc signature (free, no Apple account;
+#              an unsigned arm64 binary is 'killed: 9' on first launch).
+#   publish    collects the five binaries, creates the GitHub Release, then
+#              publishes npm LAST.
+#   smoke-linux installs the published release on real Linux x64 and arm64.
 #
-# Each binary also ships a gzipped copy (<asset>.gz, what everything downloads by default)
-# and, when it is small enough to be worth it, a delta patch from the previous
-# cli-v* release (<asset>.patch) that `peektrace upgrade` applies in place.
-# SHA256SUMS records the UNCOMPRESSED digest, which stays the trust anchor for
-# every route. The job runs on
-# macOS so both darwin binaries can be ad-hoc codesigned (free, no Apple
-# account) — without a signature a cross-compiled arm64 binary is 'killed: 9' by
-# the kernel on first launch.
+# Release assets, which scripts/install.sh, scripts/install.ps1 and
+# `peektrace upgrade` (crates/cli/src/upgrade) download:
+#   peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
+#   peektrace-linux-arm64, peektrace-windows-x64.exe
+# each with a gzipped copy (<asset>.gz, what everything downloads by default),
+# plus SHA256SUMS. SHA256SUMS lists the UNCOMPRESSED binaries only: every route
+# verifies the bytes it installs against that line. Both Linux binaries are
+# glibc-only; musl (Alpine) is not shipped. `upgrade` downloads whole binaries,
+# so no delta patches are published.
 #
 # Release notes come from the matching `## <tag>` section of CHANGELOG.md
-# (apps/cli/scripts/release-notes.ts); a tag with no section gets GitHub's
+# (scripts/release/release-notes.ts); a tag with no section gets GitHub's
 # generated notes. To backfill an old release without rebuilding it (a
 # workflow_dispatch run builds and uploads binaries from the dispatched branch):
-#   bun apps/cli/scripts/release-notes.ts cli-v0.8.0 \
+#   bun scripts/release/release-notes.ts cli-v0.8.0 \
 #     | gh release edit cli-v0.8.0 --repo Mark-Life/peektrace --notes-file -
 #
-# npm is the second channel: `npx peektrace`. It publishes LAST, after the
-# GitHub Release, so a registry failure costs the npm channel and nothing else.
+# npm is the second channel: `npx peektrace`. It publishes after the GitHub
+# Release, so a registry failure costs the npm channel and nothing else.
 #
-# npm layout (see apps/cli/scripts/build-npm.ts): five scoped per-platform
-# packages `@peektrace/cli-<platform>-<arch>` (each os/cpu-filtered) plus the
-# unscoped `peektrace` wrapper whose optionalDependencies pin those variants at
-# the exact version. The variants MUST publish before the wrapper so its optional
-# deps resolve. Requires the `peektrace` npm org.
+# npm layout (scripts/release/build-npm.ts stages it from the release binaries):
+# five scoped per-platform packages `@peektrace/cli-<platform>-<arch>` (each
+# os/cpu-filtered) plus the unscoped `peektrace` wrapper whose
+# optionalDependencies pin those variants at the exact version. The variants
+# MUST publish before the wrapper so its optional deps resolve. Requires the
+# `peektrace` npm org.
 #
-# npm auth is TRUSTED PUBLISHING (OIDC) — there is no NPM_TOKEN. Each of the six
+# npm auth is TRUSTED PUBLISHING (OIDC): there is no NPM_TOKEN. Each of the six
 # packages names Mark-Life/peektrace + publish-cli.yml as its trusted publisher
-# on npmjs.com, and the job's `id-token: write` permission is what lets npm mint
-# a credential scoped to a single run. A package can only be configured after it
-# exists, so each name was bootstrapped with a manual 0.0.0 placeholder publish.
+# on npmjs.com, and the publish job's `id-token: write` permission is what lets
+# npm mint a credential scoped to a single run. A package can only be configured
+# after it exists, so each name was bootstrapped with a manual 0.0.0 placeholder
+# publish.
 
 on:
   push:
@@ -58,27 +64,179 @@ on:
         type: string
 
 permissions:
-  contents: write
-  # Lets the runner mint the OIDC token npm exchanges for a short-lived
-  # publish credential (see the npm publish step). Without it `npm publish`
-  # finds no OIDC environment and falls back to token auth, which is not
-  # configured.
-  id-token: write
+  contents: read
 
 concurrency:
   group: publish-cli-${{ github.ref }}
   cancel-in-progress: false
 
-jobs:
-  publish:
-    # macOS runner so both darwin binaries can be ad-hoc codesigned before
-    # release (see header). Bun cross-compiles all five targets from here.
-    runs-on: macos-latest
-    timeout-minutes: 30
+env:
+  CARGO_TERM_COLOR: always
 
-    # Consumed by smoke-linux, which pins the installer to this exact tag.
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
     outputs:
       tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Derive version from tag
+        id: version
+        env:
+          RAW_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${RAW_TAG#cli-v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Tag '$RAW_TAG' does not yield a valid semver (got '$VERSION'). Expected cli-v<semver>." >&2
+            exit 1
+          fi
+          echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing peektrace@$VERSION ($RAW_TAG)"
+
+  inspector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build inspector UI
+        run: bun run --filter=inspector build
+
+      - name: Upload inspector build
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspector-dist
+          path: apps/inspector/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    name: build (${{ matrix.asset }})
+    needs: [version, inspector]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: macos-latest
+            target: aarch64-apple-darwin
+            asset: peektrace-darwin-arm64
+          - runner: macos-latest
+            target: x86_64-apple-darwin
+            asset: peektrace-darwin-x64
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            asset: peektrace-linux-x64
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            asset: peektrace-linux-arm64
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset: peektrace-windows-x64.exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # crates/server embeds apps/inspector/dist into release builds.
+      - name: Download inspector build
+        uses: actions/download-artifact@v4
+        with:
+          name: inspector-dist
+          path: apps/inspector/dist
+
+      - name: Install toolchain
+        shell: bash
+        # rust-toolchain.toml pins the version and components.
+        run: |
+          rustup toolchain install || rustup show
+          rustup target add ${{ matrix.target }}
+
+      # `https` adds TLS, which `upgrade` and `--remote https://` need. The
+      # PEEKTRACE_RELEASE_* vars point `upgrade` and the update notice at this
+      # repo's releases; a build without all four never offers an upgrade.
+      - name: Build
+        shell: bash
+        env:
+          PEEKTRACE_VERSION: ${{ needs.version.outputs.version }}
+          PEEKTRACE_RELEASE_BASE_URL: https://github.com/${{ github.repository }}/releases/download
+          PEEKTRACE_RELEASE_API: https://api.github.com/repos/${{ github.repository }}
+          PEEKTRACE_RELEASE_TAG_PREFIX: cli-v
+          PEEKTRACE_RELEASE_ASSET_PREFIX: peektrace-
+        run: |
+          set -euo pipefail
+          cargo build --release --locked -p peektrace-cli --features https --target ${{ matrix.target }}
+          exe=""
+          [ "$RUNNER_OS" = Windows ] && exe=.exe
+          mkdir -p out
+          cp "target/${{ matrix.target }}/release/peektrace$exe" "out/${{ matrix.asset }}"
+          ls -l out
+
+      - name: Ad-hoc codesign
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          codesign --sign - --force --timestamp=none "out/${{ matrix.asset }}"
+          codesign --verify --verbose "out/${{ matrix.asset }}"
+
+      # The macOS runner is arm64, so the x64 binary cannot run here.
+      - name: Check the binary's version
+        if: matrix.target != 'x86_64-apple-darwin'
+        shell: bash
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          got="$("out/${{ matrix.asset }}" --version | tr -d '\r')"
+          if [ "$got" != "$VERSION" ]; then
+            echo "::error::${{ matrix.asset }} --version printed '$got', expected '$VERSION'" >&2
+            exit 1
+          fi
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ matrix.asset }}
+          path: out/${{ matrix.asset }}
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: write
+      # Lets the runner mint the OIDC token npm exchanges for a short-lived
+      # publish credential. Without it `npm publish` finds no OIDC environment
+      # and falls back to token auth, which is not configured.
+      id-token: write
+
+    env:
+      TAG: ${{ needs.version.outputs.tag }}
+      VERSION: ${{ needs.version.outputs.version }}
 
     steps:
       - name: Checkout
@@ -97,217 +255,78 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      # Trusted publishing needs npm >= 11.5.1, which no Node release bundles
-      # yet — Node 24 ships 11.3.x. Upgrading in place is what makes `npm
-      # publish` detect the OIDC environment at all.
+      # Trusted publishing needs npm >= 11.5.1, which Node 24 does not bundle.
+      # Upgrading in place is what makes `npm publish` detect the OIDC
+      # environment at all.
       - name: Upgrade npm for trusted publishing
         run: |
           npm install -g npm@latest
           npm --version
 
-      - name: Derive version from tag
-        id: version
-        env:
-          RAW_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bin-*
+          path: release
+          merge-multiple: true
+
+      # Artifacts drop the exec bit. The linux-x64 binary runs on this host:
+      # check that it serves the embedded inspector before anything ships.
+      - name: Check the binaries
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${RAW_TAG#cli-v}"
-          if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
-            echo "::error::Tag '$RAW_TAG' does not yield a valid semver (got '$VERSION'). Expected cli-v<semver>." >&2
-            exit 1
-          fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG=$RAW_TAG" >> "$GITHUB_ENV"
-          echo "tag=$RAW_TAG" >> "$GITHUB_OUTPUT"
-          echo "Publishing peektrace@$VERSION ($RAW_TAG)"
-
-      # `--cpu='*' --os='*'` pulls EVERY optional platform dependency, not just
-      # the runner's. @opentui/core resolves its native Zig library through
-      # per-platform optional deps (`@opentui/core-<platform>-<arch>`), and
-      # `bun build --compile` folds `process.platform`/`process.arch` to the
-      # target's values, so a cross-compile statically imports the TARGET's
-      # native package. Without these flags the arm64 macOS runner only has
-      # `@opentui/core-darwin-arm64` installed and the other four targets fail
-      # with "Could not resolve: @opentui/core-linux-x64". The lockfile already
-      # records all variants, so `--frozen-lockfile` still holds.
-      - name: Install dependencies
-        run: bun install --frozen-lockfile --cpu='*' --os='*'
-
-      # Stamp AFTER install so the frozen lockfile check sees the committed
-      # version. Use `npm pkg set` rather than `npm version`: the latter resolves
-      # dependencies and chokes on the `workspace:*` protocol (EUNSUPPORTEDPROTOCOL),
-      # while `npm pkg set` just rewrites the version field. build-npm.ts re-reads
-      # apps/cli/package.json at build time and stamps VERSION into the wrapper,
-      # every variant, and the wrapper's optionalDependencies, so they all match.
-      - name: Stamp CLI version
-        run: npm pkg set version="$VERSION"
-        working-directory: apps/cli
-
-      - name: Build inspector UI
-        run: bun run --filter=inspector build
-
-      # The inspector calls `/api`; refuse to ship a TS binary that only
-      # answers `/rpc`, or its UI loads no data.
-      - name: Check the TS server answers the inspector API
-        run: bun scripts/rust/ts-ui-guard.ts
-
-      # The Linux native libraries ship with debug info. `build-plugins.ts`
-      # strips a copy at build time; the macOS runner's own `strip` cannot read
-      # ELF, so use llvm-strip (works for both Linux archs). Stripping is
-      # required here so a release never silently regresses in size.
-      - name: Install llvm-strip
-        run: |
-          brew list llvm >/dev/null 2>&1 || brew install llvm
-          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
-          "$(brew --prefix llvm)/bin/llvm-strip" --version
-
-      - name: Stage npm packages
-        run: bun run --filter=peektrace build:npm
-        env:
-          PEEKTRACE_STRIP_REQUIRED: "1"
-
-      # Collect the five already-compiled binaries from the staged npm packages
-      # and rename them to the SHARED-CONTRACT release-asset names the installers
-      # (scripts/install.sh / scripts/install.ps1) download.
-      - name: Collect release binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          DIST=apps/cli/dist-npm/@peektrace
-          mkdir -p release
-          cp "$DIST/cli-darwin-arm64/bin/peektrace"    release/peektrace-darwin-arm64
-          cp "$DIST/cli-darwin-x64/bin/peektrace"      release/peektrace-darwin-x64
-          cp "$DIST/cli-linux-x64/bin/peektrace"       release/peektrace-linux-x64
-          cp "$DIST/cli-linux-arm64/bin/peektrace"     release/peektrace-linux-arm64
-          cp "$DIST/cli-win32-x64/bin/peektrace.exe"   release/peektrace-windows-x64.exe
           chmod +x release/peektrace-darwin-arm64 release/peektrace-darwin-x64 \
                    release/peektrace-linux-x64 release/peektrace-linux-arm64
           ls -l release
+          [ "$(find release -type f | wc -l)" -eq 5 ] || { echo "::error::expected 5 binaries" >&2; exit 1; }
 
-      # Ad-hoc sign BOTH darwin binaries (free, no Apple account). A
-      # cross-compiled unsigned arm64 binary is 'killed: 9' on first launch;
-      # signing here + curl-install (no quarantine attr) means it just runs.
-      - name: Ad-hoc codesign macOS binaries
-        shell: bash
-        run: |
-          set -euo pipefail
-          for bin in release/peektrace-darwin-arm64 release/peektrace-darwin-x64; do
-            codesign --sign - --force --timestamp=none "$bin"
-            codesign --verify --verbose "$bin"
+          home="$RUNNER_TEMP/home"
+          mkdir -p "$home"
+          HOME="$home" release/peektrace-linux-x64 serve --port 47321 --no-open &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            if page="$(curl -fsS http://127.0.0.1:47321/)"; then
+              if [[ "$page" == *'<div id="root">'* ]]; then
+                echo "serve answered with the inspector"
+                exit 0
+              fi
+              echo "::error::serve answered, but not with the inspector page" >&2
+              exit 1
+            fi
+            sleep 1
           done
+          echo "::error::serve never responded" >&2
+          exit 1
 
-      # Gzipped copies of every binary. These are what the installers and
-      # `peektrace upgrade` download by default — roughly a third of the raw
-      # size — with the uncompressed asset kept as the fallback (and as the
-      # integrity anchor: SHA256SUMS records the UNCOMPRESSED digest, so both
-      # routes verify against the same line).
-      - name: Compress release binaries
+      # Gzipped copies, about a third of the raw size, are what the installers
+      # and `peektrace upgrade` download first. SHA256SUMS records the
+      # UNCOMPRESSED digests, so both routes verify against the same line.
+      - name: Compress and checksum
         working-directory: release
         shell: bash
         run: |
           set -euo pipefail
+          sha256sum peektrace-* > SHA256SUMS
           for bin in peektrace-*; do
-            gzip -9 -c "$bin" > "$bin.gz"
+            gzip -9 -n -c "$bin" > "$bin.gz"
             printf '%s: %s -> %s bytes\n' "$bin" "$(wc -c < "$bin")" "$(wc -c < "$bin.gz")"
           done
-
-      # Delta patches. `peektrace upgrade` reads <asset>.patch off the release
-      # to walk an installed binary forward one release at a time instead of
-      # re-downloading ~110 MB; binpatch's githubReleaseSource expects exactly
-      # this asset naming plus the .gz above (whose size it uses as the budget).
-      #
-      # The wire format is TRDIFF10 (bsdiff + zstd) from zig-bsdiff — the same
-      # generator binpatch's own composite action installs. That action is not
-      # used directly because its previous-release lookup takes the newest
-      # release outright, and this repo interleaves desktop-v* tags.
-      - name: Install zig-bsdiff
-        shell: bash
-        env:
-          BSDIFF_VERSION: "0.1.19"
-          BSDIFF_SHA256: e4ae17e632774de5b5c61fa32cb2d79fa9aa5b1fff3d174f2c54f7f0f666dab0
-        run: |
-          set -euo pipefail
-          TARBALL="zig-bsdiff-darwin-arm64.tar.gz"
-          curl --retry 3 --retry-delay 5 --retry-all-errors -sfLo "$TARBALL" \
-            "https://github.com/blackboardsh/zig-bsdiff/releases/download/v${BSDIFF_VERSION}/${TARBALL}"
-          echo "${BSDIFF_SHA256}  ${TARBALL}" | shasum -a 256 -c -
-          sudo tar -xz -C /usr/local/bin < "$TARBALL"
-          rm "$TARBALL"
-
-      # Diff against the previous cli-v* release. Patches are generated from the
-      # SIGNED darwin binaries (this runs after the codesign step) so a patched
-      # binary is byte-identical to the released one and keeps its signature.
-      #
-      # Best-effort: no previous release, a missing asset, or a patch too large
-      # to be worth downloading just means that platform ships without a patch
-      # this release and clients fall back to the full download.
-      - name: Generate delta patches
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Gate well under binpatch's client-side 60%-of-gzip ceiling. A
-          # release that moves Bun's own runtime bytes lands far above this.
-          MAX_RATIO: "50"
-        run: |
-          set -euo pipefail
-          PREV_TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq "[.[] | select(.draft == false and (.tag_name | startswith(\"cli-v\")) and .tag_name != \"$TAG\")] | .[0].tag_name // empty")"
-
-          if [ -z "$PREV_TAG" ]; then
-            echo "No previous cli-v* release; publishing without patches."
-            exit 0
-          fi
-          echo "Diffing against $PREV_TAG"
-
-          mkdir -p old
-          for bin in release/peektrace-*; do
-            name="$(basename "$bin")"
-            case "$name" in *.gz | *.patch) continue ;; esac
-
-            # Prefer the previous release's .gz; releases predating it only
-            # carry the raw asset.
-            if gh release download "$PREV_TAG" --repo "$GITHUB_REPOSITORY" \
-                 --pattern "$name.gz" --dir old 2>/dev/null; then
-              gunzip -f "old/$name.gz"
-            elif ! gh release download "$PREV_TAG" --repo "$GITHUB_REPOSITORY" \
-                   --pattern "$name" --dir old 2>/dev/null; then
-              echo "::warning::$PREV_TAG has no $name; skipping its patch."
-              continue
-            fi
-
-            bsdiff "old/$name" "$bin" "release/$name.patch" --use-zstd
-
-            patch_size="$(wc -c < "release/$name.patch")"
-            gz_size="$(wc -c < "release/$name.gz")"
-            ratio="$(awk "BEGIN { printf \"%.0f\", ($patch_size / $gz_size) * 100 }")"
-            if [ "$ratio" -gt "$MAX_RATIO" ]; then
-              echo "::warning::$name.patch is ${ratio}% of the gzipped binary (limit ${MAX_RATIO}%); dropping it."
-              rm "release/$name.patch"
-            else
-              echo "$name.patch: $patch_size bytes (${ratio}% of gzipped)"
-            fi
-            rm -f "old/$name"
-          done
-
-      # Checksums the installers verify. Lines: "<sha256>  <asset>". Covers the
-      # binaries, their .gz copies and the patches.
-      - name: Generate SHA256SUMS
-        working-directory: release
-        run: shasum -a 256 peektrace-* > SHA256SUMS
+          cat SHA256SUMS
 
       # Create the Release for this tag if missing, then (re)upload every asset.
       # The body is the tag's CHANGELOG.md section; if it is missing (or the
       # extraction fails) a new release falls back to generated notes and an
       # existing release keeps its body.
-      - name: Publish GitHub Release with raw binaries
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           notes="$RUNNER_TEMP/release-notes.md"
-          if bun apps/cli/scripts/release-notes.ts "$TAG" > "$notes"; then
+          if bun scripts/release/release-notes.ts "$TAG" > "$notes"; then
             [ -s "$notes" ] || echo "::warning::no CHANGELOG.md section for $TAG; using generated notes"
           else
             echo "::warning::release notes extraction failed; using generated notes"
@@ -327,23 +346,20 @@ jobs:
           elif [ -s "$notes" ]; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file "$notes"
           fi
-          # Globbed rather than listed: the binaries, their .gz copies and
-          # whichever .patch files survived the size gate.
           gh release upload "$TAG" \
             release/peektrace-* \
             release/SHA256SUMS \
             --repo "$GITHUB_REPOSITORY" --clobber
 
+      - name: Stage npm packages
+        run: bun scripts/release/build-npm.ts --version "$VERSION" --assets release --out dist-npm
+
       # LAST on purpose. The GitHub Release feeds the curl/irm installers and
-      # `peektrace upgrade`; npm is the second channel. Running this earlier
-      # meant one registry error skipped every step above it and shipped no
-      # binaries at all.
+      # `peektrace upgrade`; npm is the second channel, so one registry error
+      # must not cost the binaries.
       #
-      # Auth is OIDC via trusted publishing — no NPM_TOKEN. npm exchanges the
-      # runner's `id-token` for a credential good for this run only, and each
-      # package must name this repo + workflow as its trusted publisher on
-      # npmjs.com. Publishing from a public repo this way also attaches
-      # provenance automatically.
+      # Auth is OIDC via trusted publishing (see the header). Publishing from a
+      # public repo this way also attaches provenance automatically.
       - name: Publish to npm
         shell: bash
         run: |
@@ -351,7 +367,7 @@ jobs:
 
           # Idempotent publish: skip if the exact name@version already exists,
           # and treat a race where npm reports it as already published as
-          # success — so a partially-failed run is safe to retry.
+          # success, so a partially-failed run is safe to retry.
           publish_dir() {
             local dir="$1"
             local name version
@@ -375,25 +391,22 @@ jobs:
             return 1
           }
 
-          # Per-platform variants FIRST (sequentially — the registry 409s on
+          # Per-platform variants FIRST (sequentially: the registry 409s on
           # concurrent packument writes), then the wrapper LAST so its
           # optionalDependencies already exist in the registry.
-          for d in apps/cli/dist-npm/@peektrace/cli-*; do
+          for d in dist-npm/@peektrace/cli-*; do
             publish_dir "$d"
           done
-          publish_dir "apps/cli/dist-npm/peektrace"
+          publish_dir "dist-npm/peektrace"
 
-  # End-to-end check of the published release on real Linux hardware, one job per
-  # arch. The publish job builds every target on macOS and can execute none of
-  # them, so this is the only place a cross-compiled Linux binary actually runs.
-  # It drives the real scripts/install.sh, which also covers uname-based arch
-  # detection, asset naming and checksum verification.
+  # End-to-end check of the published release on real Linux hardware, one job
+  # per arch. It drives the real scripts/install.sh, which also covers
+  # uname-based arch detection, asset naming and checksum verification.
   #
   # Runs AFTER publish because it installs from the release, so it cannot gate
-  # one — a failure flags a release to repair via workflow_dispatch. `ubuntu-*-arm`
-  # runners are free for public repos.
+  # one: a failure flags a release to repair via workflow_dispatch.
   smoke-linux:
-    needs: publish
+    needs: [version, publish]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
 
@@ -416,21 +429,21 @@ jobs:
       # cli-v*" API lookup.
       - name: Install from the published release
         env:
-          PEEKTRACE_VERSION: ${{ needs.publish.outputs.tag }}
+          PEEKTRACE_VERSION: ${{ needs.version.outputs.tag }}
           PEEKTRACE_INSTALL_DIR: ${{ runner.temp }}/peektrace-bin
         run: sh scripts/install.sh
 
-      # `serve` is the headless path a VPS actually uses: it boots the server and
-      # serves the embedded inspector UI, which proves the assets survived the
-      # cross-compile. The TUI needs a TTY and is not exercised here. `--no-open`
-      # because a runner has no `xdg-open` to spawn.
+      # `serve` is the headless path a VPS uses: it boots the server and serves
+      # the embedded inspector UI. The TUI needs a TTY and is not exercised
+      # here. `--no-open` because a runner has no `xdg-open` to spawn.
       - name: Run the installed binary
         env:
           BIN: ${{ runner.temp }}/peektrace-bin/peektrace
+          VERSION: ${{ needs.version.outputs.version }}
         shell: bash
         run: |
           set -euo pipefail
-          "$BIN" --version
+          [ "$("$BIN" --version)" = "$VERSION" ]
           "$BIN" --help > /dev/null
 
           "$BIN" serve --port 47321 --no-open &
@@ -438,7 +451,7 @@ jobs:
           trap 'kill "$server" 2>/dev/null || true' EXIT
 
           for _ in $(seq 1 30); do
-            if curl -fsS -o /dev/null http://127.0.0.1:47321/; then
+            if page="$(curl -fsS http://127.0.0.1:47321/)" && [[ "$page" == *'<div id="root">'* ]]; then
               echo "serve responded on ${{ matrix.arch }}"
               exit 0
             fi

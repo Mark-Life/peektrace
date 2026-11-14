@@ -1,6 +1,6 @@
 /**
- * Pure CHANGELOG.md helpers shared by the release workflow and the website.
- * No Bun or Node APIs: the web app imports this file directly.
+ * Pure CHANGELOG.md helpers for the release workflow.
+ * No Bun or Node APIs.
  */
 
 const HEADING = /^## (\S+)(?:\s+[—–-]\s+(\d{4}-\d{2}-\d{2}))?/;
