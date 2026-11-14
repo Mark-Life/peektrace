@@ -1,0 +1,843 @@
+{
+  "golden": {
+    "budget": [
+      {
+        "color": "#6e7681",
+        "estimated": true,
+        "key": "system_tools",
+        "label": "System + tool definitions",
+        "note": "inferred floor — not in transcript",
+        "short": "System",
+        "tokens": 258
+      },
+      {
+        "color": "#58a6ff",
+        "estimated": true,
+        "key": "listings",
+        "label": "Skill / agent / tool listings",
+        "short": "Listings",
+        "tokens": 12
+      },
+      {
+        "color": "#bc8cff",
+        "estimated": true,
+        "key": "memory",
+        "label": "CLAUDE.md / AGENTS.md (in transcript)",
+        "short": "Memory",
+        "tokens": 17
+      },
+      {
+        "color": "#3fb950",
+        "estimated": true,
+        "key": "prompts",
+        "label": "User prompts",
+        "short": "Prompts",
+        "tokens": 13
+      },
+      {
+        "color": "#f0883e",
+        "estimated": true,
+        "key": "tool_results",
+        "label": "Tool results",
+        "short": "Tool results",
+        "tokens": 350
+      },
+      {
+        "color": "#d29922",
+        "estimated": true,
+        "key": "assistant_text",
+        "label": "Assistant text + tool calls",
+        "short": "Assistant",
+        "tokens": 31
+      },
+      {
+        "color": "#db61a2",
+        "estimated": true,
+        "key": "thinking",
+        "label": "Assistant thinking (retained)",
+        "note": "usage thinking_tokens where logged, else output_tokens − visible text",
+        "short": "Thinking",
+        "tokens": 469
+      }
+    ],
+    "compactionIndexes": [],
+    "compactionTurns": [],
+    "contextWindow": 1000000,
+    "contextWindowInferred": true,
+    "cost": {
+      "source": "estimate",
+      "subagentsUsd": 0.000076,
+      "totalUsd": 0.1170385
+    },
+    "cwd": "/Users/demo/proj",
+    "dumbZoneCrossTurn": -1,
+    "dumbZoneFraction": 0.4,
+    "dumbZoneTurns": 0,
+    "durationMs": 30000,
+    "endedAt": "2026-06-01T10:00:30.000Z",
+    "events": [
+      {
+        "body": "Please refactor the auth module and run the tests.",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "user-prompt",
+        "preview": "Please refactor the auth module and run the tests.",
+        "promptOrigin": "human",
+        "title": "User prompt",
+        "tokensEst": 13,
+        "ts": "2026-06-01T10:00:00.000Z"
+      },
+      {
+        "attachmentType": "file",
+        "body": "# Project rules\nUse TypeScript. Keep functions pure. Prefer Effect.\n",
+        "index": 1,
+        "isSidechain": false,
+        "kind": "attachment",
+        "loadedCategory": "claude-md",
+        "preview": "# Project rules",
+        "title": "file: CLAUDE.md",
+        "tokensEst": 17,
+        "ts": "2026-06-01T10:00:00.500Z"
+      },
+      {
+        "attachmentType": "skill_listing",
+        "body": "skill-a: does a\nskill-b: does b\nskill-c: does c\n",
+        "index": 2,
+        "isSidechain": false,
+        "kind": "attachment",
+        "loadedCategory": "skills",
+        "preview": "skill-a: does a",
+        "title": "skill_listing (3 skills)",
+        "tokensEst": 12,
+        "ts": "2026-06-01T10:00:01.000Z"
+      },
+      {
+        "body": "",
+        "index": 3,
+        "isSidechain": false,
+        "kind": "assistant-thinking",
+        "preview": "(content not stored in transcript)",
+        "requestId": "req-1",
+        "title": "Thinking",
+        "tokensEst": 0,
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "body": "I'll start by reading the auth module to understand the current structure.",
+        "index": 3,
+        "isSidechain": false,
+        "kind": "assistant-text",
+        "preview": "I'll start by reading the auth module to understand the current structure.",
+        "requestId": "req-1",
+        "title": "Assistant",
+        "tokensEst": 19,
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "body": "{\n  \"file_path\": \"/Users/demo/proj/src/auth.ts\"\n}",
+        "index": 3,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"file_path\": \"/Users/demo/proj/src/auth.ts\" }",
+        "requestId": "req-1",
+        "title": "Read",
+        "tokensEst": 12,
+        "toolName": "Read",
+        "toolUseId": "tool-1",
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "body": "export const API_KEY = \"[REDACTED:anthropic-key]\";\nexport function login(user, pass) { return user === \"root\"; }",
+        "index": 4,
+        "isError": false,
+        "isSidechain": false,
+        "kind": "tool-result",
+        "preview": "export const API_KEY = \"[REDACTED:anthropic-key]\";",
+        "title": "tool_result",
+        "tokensEst": 36,
+        "tokensMeasured": 350,
+        "toolUseId": "tool-1",
+        "ts": "2026-06-01T10:00:06.000Z"
+      },
+      {
+        "body": "",
+        "index": 5,
+        "isSidechain": false,
+        "kind": "assistant-thinking",
+        "preview": "(content not stored in transcript)",
+        "requestId": "req-2",
+        "title": "Thinking",
+        "tokensEst": 0,
+        "ts": "2026-06-01T10:00:12.000Z"
+      },
+      {
+        "body": "The auth module looks fine. Now I will run the test suite to confirm the refactor is safe.",
+        "index": 5,
+        "isSidechain": false,
+        "kind": "assistant-text",
+        "preview": "The auth module looks fine. Now I will run the test suite to confirm the refactor is safe.",
+        "requestId": "req-2",
+        "title": "Assistant",
+        "tokensEst": 23,
+        "ts": "2026-06-01T10:00:12.000Z"
+      },
+      {
+        "body": "Also add a test for the logout path.",
+        "index": 6,
+        "isSidechain": false,
+        "kind": "user-prompt",
+        "preview": "Also add a test for the logout path.",
+        "promptOrigin": "human",
+        "title": "User prompt",
+        "tokensEst": 9,
+        "ts": "2026-06-01T10:00:20.000Z"
+      },
+      {
+        "body": "Added a logout test and everything passes.",
+        "index": 7,
+        "isSidechain": false,
+        "kind": "assistant-text",
+        "preview": "Added a logout test and everything passes.",
+        "requestId": "req-3",
+        "title": "Assistant",
+        "tokensEst": 11,
+        "ts": "2026-06-01T10:00:25.000Z"
+      },
+      {
+        "body": "subagent working in its own window",
+        "index": 8,
+        "isSidechain": true,
+        "kind": "assistant-text",
+        "preview": "subagent working in its own window",
+        "requestId": "req-sub",
+        "title": "Assistant",
+        "tokensEst": 9,
+        "ts": "2026-06-01T10:00:13.000Z"
+      }
+    ],
+    "finalContextTokens": 970,
+    "gitBranch": "main",
+    "models": ["claude-opus-4", "claude-haiku"],
+    "onDiskContextFiles": [],
+    "path": "/tmp/projects/-tmp-tool-event/11111111-1111-4111-8111-111111111111.jsonl",
+    "peakCacheReadTokens": 1000,
+    "peakContextTokens": 1150,
+    "peakTurnIndex": 1,
+    "provider": "claude-code",
+    "sessionId": "11111111-1111-4111-8111-111111111111",
+    "sidechainCost": {
+      "costUsd": 0.000076
+    },
+    "snapshots": [
+      {
+        "cacheReadTokens": 0,
+        "ctx": 300,
+        "model": "claude-opus-4",
+        "outputTokens": 500,
+        "slices": {
+          "assistant_text": 0,
+          "files": 0,
+          "listings": 12,
+          "memory": 17,
+          "other": 0,
+          "prompts": 13,
+          "system_tools": 258,
+          "thinking": 0,
+          "tool_results": 0,
+          "unattributed": 0
+        },
+        "ts": "2026-06-01T10:00:05.000Z",
+        "turnIndex": 0
+      },
+      {
+        "cacheReadTokens": 1000,
+        "ctx": 1150,
+        "model": "claude-opus-4",
+        "outputTokens": 800,
+        "slices": {
+          "assistant_text": 31,
+          "files": 0,
+          "listings": 12,
+          "memory": 17,
+          "other": 0,
+          "prompts": 13,
+          "system_tools": 258,
+          "thinking": 469,
+          "tool_results": 350,
+          "unattributed": 0
+        },
+        "ts": "2026-06-01T10:00:12.000Z",
+        "turnIndex": 1
+      },
+      {
+        "cacheReadTokens": 900,
+        "ctx": 970,
+        "model": "claude-opus-4",
+        "outputTokens": 100,
+        "slices": {
+          "assistant_text": 22.603174603174605,
+          "files": 0,
+          "listings": 5.022927689594356,
+          "memory": 7.115814226925338,
+          "other": 0,
+          "prompts": 9.20870076425632,
+          "system_tools": 258,
+          "thinking": 521.5473251028807,
+          "tool_results": 146.50205761316872,
+          "unattributed": 0
+        },
+        "ts": "2026-06-01T10:00:25.000Z",
+        "turnIndex": 2
+      }
+    ],
+    "startedAt": "2026-06-01T10:00:00.000Z",
+    "subagents": [],
+    "systemOverheadTokens": 258,
+    "title": "Refactor auth module",
+    "toolCallCount": 1,
+    "totalOutputTokens": 1400,
+    "turnCount": 3,
+    "turns": [
+      {
+        "cacheCreationTokens": 200,
+        "cacheReadTokens": 0,
+        "contextTokens": 300,
+        "costUsd": 0.04275,
+        "eventIndexes": [3, 4, 5],
+        "inputTokens": 100,
+        "model": "claude-opus-4",
+        "outputTokens": 500,
+        "requestId": "req-1",
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "cacheCreationTokens": 100,
+        "cacheReadTokens": 1000,
+        "contextTokens": 1150,
+        "costUsd": 0.064125,
+        "eventIndexes": [7, 8],
+        "inputTokens": 50,
+        "model": "claude-opus-4",
+        "outputTokens": 800,
+        "requestId": "req-2",
+        "ts": "2026-06-01T10:00:12.000Z"
+      },
+      {
+        "cacheCreationTokens": 50,
+        "cacheReadTokens": 900,
+        "contextTokens": 970,
+        "costUsd": 0.0100875,
+        "eventIndexes": [10],
+        "inputTokens": 20,
+        "model": "claude-opus-4",
+        "outputTokens": 100,
+        "requestId": "req-3",
+        "ts": "2026-06-01T10:00:25.000Z"
+      }
+    ],
+    "userMessageCount": 2,
+    "version": "1.2.3",
+    "webFetchRequests": 0,
+    "webSearchRequests": 0
+  },
+  "goldenRaw": {
+    "budget": [
+      {
+        "color": "#6e7681",
+        "estimated": true,
+        "key": "system_tools",
+        "label": "System + tool definitions",
+        "note": "inferred floor — not in transcript",
+        "short": "System",
+        "tokens": 258
+      },
+      {
+        "color": "#58a6ff",
+        "estimated": true,
+        "key": "listings",
+        "label": "Skill / agent / tool listings",
+        "short": "Listings",
+        "tokens": 12
+      },
+      {
+        "color": "#bc8cff",
+        "estimated": true,
+        "key": "memory",
+        "label": "CLAUDE.md / AGENTS.md (in transcript)",
+        "short": "Memory",
+        "tokens": 17
+      },
+      {
+        "color": "#3fb950",
+        "estimated": true,
+        "key": "prompts",
+        "label": "User prompts",
+        "short": "Prompts",
+        "tokens": 13
+      },
+      {
+        "color": "#f0883e",
+        "estimated": true,
+        "key": "tool_results",
+        "label": "Tool results",
+        "short": "Tool results",
+        "tokens": 350
+      },
+      {
+        "color": "#d29922",
+        "estimated": true,
+        "key": "assistant_text",
+        "label": "Assistant text + tool calls",
+        "short": "Assistant",
+        "tokens": 31
+      },
+      {
+        "color": "#db61a2",
+        "estimated": true,
+        "key": "thinking",
+        "label": "Assistant thinking (retained)",
+        "note": "usage thinking_tokens where logged, else output_tokens − visible text",
+        "short": "Thinking",
+        "tokens": 469
+      }
+    ],
+    "compactionIndexes": [],
+    "compactionTurns": [],
+    "contextWindow": 1000000,
+    "contextWindowInferred": true,
+    "cost": {
+      "source": "estimate",
+      "subagentsUsd": 0.000076,
+      "totalUsd": 0.1170385
+    },
+    "cwd": "/Users/demo/proj",
+    "dumbZoneCrossTurn": -1,
+    "dumbZoneFraction": 0.4,
+    "dumbZoneTurns": 0,
+    "durationMs": 30000,
+    "endedAt": "2026-06-01T10:00:30.000Z",
+    "events": [
+      {
+        "body": "Please refactor the auth module and run the tests.",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "user-prompt",
+        "preview": "Please refactor the auth module and run the tests.",
+        "promptOrigin": "human",
+        "title": "User prompt",
+        "tokensEst": 13,
+        "ts": "2026-06-01T10:00:00.000Z"
+      },
+      {
+        "attachmentType": "file",
+        "body": "# Project rules\nUse TypeScript. Keep functions pure. Prefer Effect.\n",
+        "index": 1,
+        "isSidechain": false,
+        "kind": "attachment",
+        "loadedCategory": "claude-md",
+        "preview": "# Project rules",
+        "title": "file: CLAUDE.md",
+        "tokensEst": 17,
+        "ts": "2026-06-01T10:00:00.500Z"
+      },
+      {
+        "attachmentType": "skill_listing",
+        "body": "skill-a: does a\nskill-b: does b\nskill-c: does c\n",
+        "index": 2,
+        "isSidechain": false,
+        "kind": "attachment",
+        "loadedCategory": "skills",
+        "preview": "skill-a: does a",
+        "title": "skill_listing (3 skills)",
+        "tokensEst": 12,
+        "ts": "2026-06-01T10:00:01.000Z"
+      },
+      {
+        "body": "",
+        "index": 3,
+        "isSidechain": false,
+        "kind": "assistant-thinking",
+        "preview": "(content not stored in transcript)",
+        "requestId": "req-1",
+        "title": "Thinking",
+        "tokensEst": 0,
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "body": "I'll start by reading the auth module to understand the current structure.",
+        "index": 3,
+        "isSidechain": false,
+        "kind": "assistant-text",
+        "preview": "I'll start by reading the auth module to understand the current structure.",
+        "requestId": "req-1",
+        "title": "Assistant",
+        "tokensEst": 19,
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "body": "{\n  \"file_path\": \"/Users/demo/proj/src/auth.ts\"\n}",
+        "index": 3,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"file_path\": \"/Users/demo/proj/src/auth.ts\" }",
+        "requestId": "req-1",
+        "title": "Read",
+        "tokensEst": 12,
+        "toolName": "Read",
+        "toolUseId": "tool-1",
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "body": "export const API_KEY = \"sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234\";\nexport function login(user, pass) { return user === \"root\"; }",
+        "index": 4,
+        "isError": false,
+        "isSidechain": false,
+        "kind": "tool-result",
+        "preview": "export const API_KEY = \"sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234\";",
+        "title": "tool_result",
+        "tokensEst": 36,
+        "tokensMeasured": 350,
+        "toolUseId": "tool-1",
+        "ts": "2026-06-01T10:00:06.000Z"
+      },
+      {
+        "body": "",
+        "index": 5,
+        "isSidechain": false,
+        "kind": "assistant-thinking",
+        "preview": "(content not stored in transcript)",
+        "requestId": "req-2",
+        "title": "Thinking",
+        "tokensEst": 0,
+        "ts": "2026-06-01T10:00:12.000Z"
+      },
+      {
+        "body": "The auth module looks fine. Now I will run the test suite to confirm the refactor is safe.",
+        "index": 5,
+        "isSidechain": false,
+        "kind": "assistant-text",
+        "preview": "The auth module looks fine. Now I will run the test suite to confirm the refactor is safe.",
+        "requestId": "req-2",
+        "title": "Assistant",
+        "tokensEst": 23,
+        "ts": "2026-06-01T10:00:12.000Z"
+      },
+      {
+        "body": "Also add a test for the logout path.",
+        "index": 6,
+        "isSidechain": false,
+        "kind": "user-prompt",
+        "preview": "Also add a test for the logout path.",
+        "promptOrigin": "human",
+        "title": "User prompt",
+        "tokensEst": 9,
+        "ts": "2026-06-01T10:00:20.000Z"
+      },
+      {
+        "body": "Added a logout test and everything passes.",
+        "index": 7,
+        "isSidechain": false,
+        "kind": "assistant-text",
+        "preview": "Added a logout test and everything passes.",
+        "requestId": "req-3",
+        "title": "Assistant",
+        "tokensEst": 11,
+        "ts": "2026-06-01T10:00:25.000Z"
+      },
+      {
+        "body": "subagent working in its own window",
+        "index": 8,
+        "isSidechain": true,
+        "kind": "assistant-text",
+        "preview": "subagent working in its own window",
+        "requestId": "req-sub",
+        "title": "Assistant",
+        "tokensEst": 9,
+        "ts": "2026-06-01T10:00:13.000Z"
+      }
+    ],
+    "finalContextTokens": 970,
+    "gitBranch": "main",
+    "models": ["claude-opus-4", "claude-haiku"],
+    "onDiskContextFiles": [],
+    "path": "/tmp/projects/-tmp-tool-event/11111111-1111-4111-8111-111111111111.jsonl",
+    "peakCacheReadTokens": 1000,
+    "peakContextTokens": 1150,
+    "peakTurnIndex": 1,
+    "provider": "claude-code",
+    "sessionId": "11111111-1111-4111-8111-111111111111",
+    "sidechainCost": {
+      "costUsd": 0.000076
+    },
+    "snapshots": [
+      {
+        "cacheReadTokens": 0,
+        "ctx": 300,
+        "model": "claude-opus-4",
+        "outputTokens": 500,
+        "slices": {
+          "assistant_text": 0,
+          "files": 0,
+          "listings": 12,
+          "memory": 17,
+          "other": 0,
+          "prompts": 13,
+          "system_tools": 258,
+          "thinking": 0,
+          "tool_results": 0,
+          "unattributed": 0
+        },
+        "ts": "2026-06-01T10:00:05.000Z",
+        "turnIndex": 0
+      },
+      {
+        "cacheReadTokens": 1000,
+        "ctx": 1150,
+        "model": "claude-opus-4",
+        "outputTokens": 800,
+        "slices": {
+          "assistant_text": 31,
+          "files": 0,
+          "listings": 12,
+          "memory": 17,
+          "other": 0,
+          "prompts": 13,
+          "system_tools": 258,
+          "thinking": 469,
+          "tool_results": 350,
+          "unattributed": 0
+        },
+        "ts": "2026-06-01T10:00:12.000Z",
+        "turnIndex": 1
+      },
+      {
+        "cacheReadTokens": 900,
+        "ctx": 970,
+        "model": "claude-opus-4",
+        "outputTokens": 100,
+        "slices": {
+          "assistant_text": 22.603174603174605,
+          "files": 0,
+          "listings": 5.022927689594356,
+          "memory": 7.115814226925338,
+          "other": 0,
+          "prompts": 9.20870076425632,
+          "system_tools": 258,
+          "thinking": 521.5473251028807,
+          "tool_results": 146.50205761316872,
+          "unattributed": 0
+        },
+        "ts": "2026-06-01T10:00:25.000Z",
+        "turnIndex": 2
+      }
+    ],
+    "startedAt": "2026-06-01T10:00:00.000Z",
+    "subagents": [],
+    "systemOverheadTokens": 258,
+    "title": "Refactor auth module",
+    "toolCallCount": 1,
+    "totalOutputTokens": 1400,
+    "turnCount": 3,
+    "turns": [
+      {
+        "cacheCreationTokens": 200,
+        "cacheReadTokens": 0,
+        "contextTokens": 300,
+        "costUsd": 0.04275,
+        "eventIndexes": [3, 4, 5],
+        "inputTokens": 100,
+        "model": "claude-opus-4",
+        "outputTokens": 500,
+        "requestId": "req-1",
+        "ts": "2026-06-01T10:00:05.000Z"
+      },
+      {
+        "cacheCreationTokens": 100,
+        "cacheReadTokens": 1000,
+        "contextTokens": 1150,
+        "costUsd": 0.064125,
+        "eventIndexes": [7, 8],
+        "inputTokens": 50,
+        "model": "claude-opus-4",
+        "outputTokens": 800,
+        "requestId": "req-2",
+        "ts": "2026-06-01T10:00:12.000Z"
+      },
+      {
+        "cacheCreationTokens": 50,
+        "cacheReadTokens": 900,
+        "contextTokens": 970,
+        "costUsd": 0.0100875,
+        "eventIndexes": [10],
+        "inputTokens": 20,
+        "model": "claude-opus-4",
+        "outputTokens": 100,
+        "requestId": "req-3",
+        "ts": "2026-06-01T10:00:25.000Z"
+      }
+    ],
+    "userMessageCount": 2,
+    "version": "1.2.3",
+    "webFetchRequests": 0,
+    "webSearchRequests": 0
+  },
+  "outcomes": {
+    "budget": [
+      {
+        "color": "#6e7681",
+        "estimated": true,
+        "key": "system_tools",
+        "label": "System + tool definitions",
+        "note": "inferred floor — not in transcript",
+        "short": "System",
+        "tokens": 10
+      }
+    ],
+    "compactionIndexes": [],
+    "compactionTurns": [],
+    "contextWindow": 1000000,
+    "contextWindowInferred": true,
+    "cost": {
+      "source": "estimate",
+      "totalUsd": 0.0009
+    },
+    "dumbZoneCrossTurn": -1,
+    "dumbZoneFraction": 0.4,
+    "dumbZoneTurns": 0,
+    "events": [
+      {
+        "body": "{\n  \"command\": \"bun test\\necho done\",\n  \"description\": \"Run the suite\",\n  \"timeout\": 120000\n}",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"command\": \"bun test\\necho done\", \"description\": \"Run the suite\", \"timeout\": 120000 }",
+        "requestId": "req-1",
+        "title": "Bash",
+        "tokensEst": 23,
+        "toolName": "Bash",
+        "toolUseId": "call-ok"
+      },
+      {
+        "body": "{\n  \"pattern\": \"TODO\"\n}",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"pattern\": \"TODO\" }",
+        "requestId": "req-1",
+        "title": "Grep",
+        "tokensEst": 6,
+        "toolName": "Grep",
+        "toolUseId": "call-bad"
+      },
+      {
+        "body": "{\n  \"file_path\": \"/a.ts\"\n}",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"file_path\": \"/a.ts\" }",
+        "requestId": "req-1",
+        "title": "Write",
+        "tokensEst": 7,
+        "toolName": "Write",
+        "toolUseId": "call-open"
+      },
+      {
+        "body": "{\n  \"file_path\": \"/src/a.ts\",\n  \"old_string\": \"const a = 1;\\nconst b = 2;\",\n  \"new_string\": \"const a = 1;\\nconst b = 3;\",\n  \"replace_all\": false\n}",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"file_path\": \"/src/a.ts\", \"old_string\": \"const a = 1;\\nconst b = 2;\", \"new_string\": \"const a = 1;\\nconst b = 3;\", \"replace_all\": false }",
+        "requestId": "req-1",
+        "title": "Edit",
+        "tokensEst": 37,
+        "toolName": "Edit",
+        "toolUseId": "call-edit"
+      },
+      {
+        "body": "{\n  \"file_path\": \"/docs/b.md\",\n  \"edits\": [\n    {\n      \"old_string\": \"# One\",\n      \"new_string\": \"# Uno\"\n    },\n    {\n      \"old_string\": \"# Two\",\n      \"new_string\": \"# Dos\"\n    }\n  ]\n}",
+        "index": 0,
+        "isSidechain": false,
+        "kind": "tool-call",
+        "preview": "{ \"file_path\": \"/docs/b.md\", \"edits\": [ { \"old_string\": \"# One\", \"new_string\": \"# Uno\" }, { \"old_string\": \"# Two\", \"new_string\": \"# Dos\" } ] }",
+        "requestId": "req-1",
+        "title": "MultiEdit",
+        "tokensEst": 47,
+        "toolName": "MultiEdit",
+        "toolUseId": "call-multi"
+      },
+      {
+        "body": "ok",
+        "index": 1,
+        "isError": false,
+        "isSidechain": false,
+        "kind": "tool-result",
+        "preview": "ok",
+        "title": "tool_result",
+        "tokensEst": 1,
+        "toolUseId": "call-ok"
+      },
+      {
+        "body": "boom",
+        "index": 1,
+        "isError": true,
+        "isSidechain": false,
+        "kind": "tool-result",
+        "preview": "boom",
+        "title": "tool_result (error)",
+        "tokensEst": 1,
+        "toolUseId": "call-bad"
+      }
+    ],
+    "finalContextTokens": 10,
+    "models": ["claude-opus-4"],
+    "onDiskContextFiles": [],
+    "path": "/tmp/projects/-tmp-tool-event/outcomes.jsonl",
+    "peakCacheReadTokens": 0,
+    "peakContextTokens": 10,
+    "peakTurnIndex": 0,
+    "provider": "claude-code",
+    "sessionId": "outcomes",
+    "snapshots": [
+      {
+        "cacheReadTokens": 0,
+        "ctx": 10,
+        "model": "claude-opus-4",
+        "outputTokens": 10,
+        "slices": {
+          "assistant_text": 0,
+          "files": 0,
+          "listings": 0,
+          "memory": 0,
+          "other": 0,
+          "prompts": 0,
+          "system_tools": 10,
+          "thinking": 0,
+          "tool_results": 0,
+          "unattributed": 0
+        },
+        "turnIndex": 0
+      }
+    ],
+    "subagents": [],
+    "systemOverheadTokens": 10,
+    "toolCallCount": 5,
+    "totalOutputTokens": 10,
+    "turnCount": 1,
+    "turns": [
+      {
+        "cacheCreationTokens": 0,
+        "cacheReadTokens": 0,
+        "contextTokens": 10,
+        "costUsd": 0.0009,
+        "eventIndexes": [0, 1, 2, 3, 4],
+        "inputTokens": 10,
+        "model": "claude-opus-4",
+        "outputTokens": 10,
+        "requestId": "req-1"
+      }
+    ],
+    "userMessageCount": 0,
+    "webFetchRequests": 0,
+    "webSearchRequests": 0
+  }
+}
