@@ -127,21 +127,23 @@ fn usage_query(q: &UsageQuery) -> String {
         peektrace_protocol::UsageBy::Month => "month",
         peektrace_protocol::UsageBy::Block => "block",
     };
-    let mut out = format!("by={by}");
     let pairs = [
         ("days", q.days.as_ref()),
         ("tz", q.tz.as_ref()),
         ("force", q.force.as_ref()),
     ];
-    for (k, v) in pairs {
-        if let Some(v) = v {
-            out.push_str(&format!("&{k}={}", encode(v)));
-        }
-    }
-    for a in q.agent.iter().flatten() {
-        out.push_str(&format!("&agent={}", encode(a)));
-    }
-    out
+    let named = pairs
+        .into_iter()
+        .filter_map(|(k, v)| v.map(|v| format!("&{k}={}", encode(v))));
+    let agents = q
+        .agent
+        .iter()
+        .flatten()
+        .map(|a| format!("&agent={}", encode(a)));
+    std::iter::once(format!("by={by}"))
+        .chain(named)
+        .chain(agents)
+        .collect()
 }
 
 /// Poll `/api/watch` every second. `recovering`: the first answer after a
