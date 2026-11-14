@@ -143,7 +143,7 @@ fn header(s: &Ui, t: &Theme) -> El {
         Route::Stats => "What fails, what costs time",
         Route::Settings => "Agent roots",
         Route::Capabilities => "Support matrix",
-        _ => "",
+        Route::Memory => "",
     };
     if !hint.is_empty() {
         r = r.child(text(hint).font(ty::XS).color(t.muted_fg));
@@ -257,7 +257,7 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
         Route::Stats => stats::view(s, cx, &t, &mut layer),
         Route::Settings => settings::page(s, &t),
         Route::Capabilities => capabilities::page(s, &t, &mut layer),
-        other => el().key("stub").w_full().grow(1.0).child(notice(
+        other @ Route::Memory => el().key("stub").w_full().grow(1.0).child(notice(
             other.title(),
             &stub_text(other.title()),
             &t,

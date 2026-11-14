@@ -161,8 +161,8 @@ fn keycaps_follow_the_state_and_the_scene_pins_mac() {
         let rt = runtime(s, true);
         let texts: Vec<String> = rt.elements().into_iter().filter_map(|e| e.text).collect();
         let (want, other) = (key_label("Mod+b", mac), key_label("Mod+b", !mac));
-        assert!(texts.iter().any(|t| *t == want), "{want}");
-        assert!(!texts.iter().any(|t| *t == other), "{other}");
+        assert!(texts.contains(&want), "{want}");
+        assert!(!texts.contains(&other), "{other}");
     }
     let (_, scene) = peektrace_ui::SCENES
         .iter()
@@ -337,3 +337,4 @@ fn a_focused_control_that_is_not_a_field_leaves_the_keys() {
     text_key(&mut rt, "?");
     assert!(rt.state.help_open);
 }
+
