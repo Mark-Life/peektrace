@@ -157,6 +157,15 @@ impl InProcess {
         }
     }
 
+    /// The same source with its stats clock fixed at `now_ms`.
+    #[must_use]
+    pub fn at(mut self, now_ms: f64) -> Self {
+        if let Some(inner) = Arc::get_mut(&mut self.inner) {
+            inner.now = Some(now_ms);
+        }
+        self
+    }
+
     /// Roots from `HOME`, the agent env vars and `settings.json`, as the CLI
     /// reads them.
     pub fn from_env() -> Self {
