@@ -33,8 +33,11 @@ src/
 `lib/api.ts` wraps `fetch`. Each call, such as `apiGet<AllVaults>("/api/memory")`,
 is an `Effect` that fails with the server's typed `ApiError` or a
 `TransportError` (no answer, or a non-JSON answer such as a 401). The wire types
-in `lib/api-types.gen.ts` come from the Rust structs: regenerate them with
-`cargo test -p peektrace-protocol`, never by hand.
+in `@workspace/view-core/api-types.gen` come from the Rust structs, and the
+shared constants in `@workspace/view-core/constants.gen` come from Rust too.
+Never edit them by hand: regenerate them with
+`UPDATE_TS_TYPES=1 cargo test -p peektrace-protocol` (types) and
+`UPDATE_TS_TYPES=1 cargo test -p peektrace-core` (constants).
 
 `lib/atoms.ts` turns each call into an `Atom<Result<Success, ApiFailure>>`.
 `Result` is the loading/success/failure **discriminated union** — no `isLoading`
