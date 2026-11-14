@@ -1,6 +1,5 @@
-//! The search matcher and snippet builder (port of
-//! `packages/core/test/sessions/search-match.test.ts`). Inputs are copied
-//! verbatim; serde sorts object keys, which no case here depends on.
+//! The search matcher and snippet builder. Serde sorts object keys, which no
+//! case here depends on.
 
 use peektrace_core::export::home::HomeCollapser;
 use peektrace_core::search::{

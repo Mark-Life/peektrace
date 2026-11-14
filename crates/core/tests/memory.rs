@@ -1,5 +1,4 @@
-//! Claude memory read model and writes over a real on-disk vault (port of
-//! `packages/core/test/memory/memory.test.ts`).
+//! Claude memory read model and writes over a real on-disk vault.
 
 mod common;
 

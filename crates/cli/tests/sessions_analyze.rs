@@ -1,6 +1,6 @@
 //! `peektrace sessions analyze --latest / --cwd` over a throwaway home: two
 //! Claude sessions (different cwds), a newer subagent transcript and one
-//! newer Codex session. Ported from `apps/cli/test/sessions-analyze`.
+//! newer Codex session.
 
 mod common;
 

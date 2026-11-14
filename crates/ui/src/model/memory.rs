@@ -1,7 +1,6 @@
 //! The memory explorer's rules: the write gate, project options, filters,
 //! sort, body links and the text the views show. Copies of the inspector's
-//! `routes/memory` and `lib/memory-support` helpers; the parity `ui` stage
-//! keeps them equal.
+//! `routes/memory` and `lib/memory-support` helpers: change both together.
 
 mod support;
 mod text;

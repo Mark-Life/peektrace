@@ -1,6 +1,6 @@
-//! Listing, analysis and export against the TS test fixtures in
-//! `tests/fixtures`. Expected values come from the TS CLI
-//! (`sessions ls --json`, `sessions analyze --json`).
+//! Listing, analysis and export against the fixtures in `tests/fixtures`.
+//! Expected values were checked against the TS CLI (`sessions ls --json`,
+//! `sessions analyze --json`).
 
 use std::path::PathBuf;
 

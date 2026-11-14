@@ -1,4 +1,4 @@
-//! `/api` routes on the core fixtures (`packages/rpc/test/rpc.test.ts`).
+//! `/api` routes on the core fixtures.
 
 mod common;
 

@@ -1,5 +1,5 @@
 //! Session search over a throwaway corpus of synthetic sessions from every
-//! agent (port of `packages/core/test/sessions/search.test.ts`).
+//! agent.
 
 mod common;
 

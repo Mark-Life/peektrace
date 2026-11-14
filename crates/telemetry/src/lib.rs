@@ -1,5 +1,5 @@
 //! Local wide-event telemetry: one JSON event per root span, kept in a
-//! SQLite file that the TS CLI shares (`packages/telemetry`). The layer
+//! SQLite file whose layout the TS CLI also used. The layer
 //! builds events in memory; a background thread writes them. Nothing here
 //! prints, and a broken store never fails a command.
 

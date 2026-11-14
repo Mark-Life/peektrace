@@ -1,4 +1,4 @@
-//! `packages/rpc/test/stats.test.ts` over `/api`, with the server clock
+//! Stats over `/api`, with the server clock
 //! pinned so two reports over one corpus compare byte for byte. The
 //! progress cases have no HTTP form, so they call the core over the same
 //! fixture.

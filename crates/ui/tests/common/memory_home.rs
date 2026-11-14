@@ -1,5 +1,5 @@
-//! Memory trees for the app's tests and goldens: a port of the parity
-//! harness's `buildMemHome` (every vault state) and a small set of vaults
+//! Memory trees for the app's tests and goldens: one home with every vault
+//! state and a small set of vaults
 //! for the headless scenes. Mtimes are pinned, so dates and sort ties hold.
 
 #![allow(dead_code, reason = "each test binary uses part of it")]

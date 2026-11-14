@@ -1,6 +1,6 @@
-//! Codex and Pi parsing, listing and lookup against the TS test fixtures in
-//! `tests/fixtures`. Expected values come from the TS tests and
-//! the TS CLI on the same files.
+//! Codex and Pi parsing, listing and lookup against the fixtures in
+//! `tests/fixtures`. Expected values were checked against the TS CLI on the
+//! same files.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -313,7 +313,7 @@ fn temp_dir(name: &str) -> PathBuf {
 }
 
 /// Claude golden root, the Codex fixtures and the Pi fixtures under one
-/// slug, as the parity `agents-fixtures` suite sets them.
+/// slug.
 fn agent_roots(pi_root: &Path) -> AgentRoots {
     let slug = pi_root.join("--tmp-pi--");
     fs::create_dir_all(&slug).expect("mkdir");
