@@ -7,11 +7,12 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               serve-open statusline mcp upgrade tui telemetry ci app web web-paging stats-screen
+#                                               serve-open statusline mcp upgrade tui telemetry ci app web web-paging stats-screen settings
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
 #   BENCH_SUITES="app web" ...                  the Rune app suites; web also needs agent-browser and brotli.
 #                                               BENCH_DESKTOP_APP=<Peektrace.app> adds the TS desktop bundle to the size rows
+#   BENCH_SUITES=settings ...                   Settings and Capabilities: native app vs TS inspector (agent-browser)
 #   BENCH_SUITES="serve-open web-paging" ...    open a big session: TS RPC vs Rust paged routes over HTTP, and the
 #                                               base branch's inspector vs this one in headless Chromium. web-paging needs
 #                                               agent-browser and BENCH_BASE_REF=<git ref> (or BENCH_BASE_INSPECTOR=<dist>)
@@ -84,7 +85,7 @@ if [[ "${BENCH_SKIP_BUILD:-0}" != 1 && "$REPORT_ONLY" != 1 ]]; then
   # so the Rust binary embeds the same inspector build.
   (cd "$ROOT/apps/cli" && bun run build:binary)
   (cd "$ROOT" && cargo build --release)
-  if [[ " $BENCH_SUITES " == *" app "* || " $BENCH_SUITES " == *" stats-screen "* ]]; then
+  if [[ " $BENCH_SUITES " == *" app "* || " $BENCH_SUITES " == *" stats-screen "* || " $BENCH_SUITES " == *" settings "* ]]; then
     (cd "$ROOT" && cargo build --release -p peektrace-app)
   fi
   if [[ " $BENCH_SUITES " == *" web "* ]]; then "$ROOT/scripts/rust/build-rune-web.sh"; fi
@@ -342,7 +343,7 @@ trap 'stop_live; stop_fake_release; stop_web' EXIT
 for suite in $BENCH_SUITES; do
   case "$suite" in
     startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | serve-open | \
-      statusline | mcp | upgrade | tui | telemetry | ci | app | web | web-paging | stats-screen) "suite_${suite//-/_}" ;;
+      statusline | mcp | upgrade | tui | telemetry | ci | app | web | web-paging | stats-screen | settings) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done

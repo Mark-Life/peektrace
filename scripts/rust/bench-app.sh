@@ -5,6 +5,8 @@
 #        app that can be timed this way, so Bun cells say n/a.
 #   web: `serve --ui rune` against the TS inspector (Vite build), both on the
 #        Rust server, in headless Chromium through agent-browser.
+#   settings: the Settings and Capabilities screens, native app (`--scene`) vs
+#        the TS inspector on the Rust server in headless Chromium.
 # shellcheck shell=bash
 
 APP_BIN="${APP_BIN:-$ROOT/target/release/peektrace-app}"
@@ -152,8 +154,9 @@ WEB_PROBE='(() => {
   const text = () => (document.querySelector("[data-rune-a11y]") ?? document.body)?.textContent ?? "";
   const listed = () => document.querySelector("[data-session-id]") || /[1-9][\d,]* sessions/.test(text());
   const opened = () => text().includes("Context growth timeline");
-  const statsShown = () => document.querySelector("[data-testid=stats-corpus]");
-  const want = location.hash.startsWith("#/stats") ? "stats" : location.hash.includes("id=") ? "detail" : "list";
+  const has = (sel) => document.querySelector(sel) != null;
+  const h = location.hash;
+  const want = h.startsWith("#/stats") ? "stats" : h.includes("id=") ? "detail" : h.startsWith("#/settings") ? "settings" : h.startsWith("#/capabilities") ? "caps" : "list";
   // When each API reply finished arriving (responseEnd), so slow client work shows apart.
   const replies = () => {
     for (const e of performance.getEntriesByType("paint")) {
@@ -168,6 +171,8 @@ WEB_PROBE='(() => {
       if (path === "/api/sessions") b.listReply ??= e.responseEnd;
       if (/^\/api\/sessions\/[^/]+\/analysis$/.test(path)) b.openReply ??= e.responseEnd;
       if (path === "/api/stats/report") b.statsReply ??= e.responseEnd;
+      if (path === "/api/settings") b.settingsReply ??= e.responseEnd;
+      if (path === "/api/capabilities") b.capsReply ??= e.responseEnd;
     }
   };
   let last = 0;
@@ -177,7 +182,9 @@ WEB_PROBE='(() => {
     last = now();
     if (b.list == null && listed()) b.list = now();
     if (b.detail == null && opened()) b.detail = now();
-    if (b.stats == null && statsShown()) b.stats = now();
+    if (b.stats == null && has("[data-testid=stats-corpus]")) b.stats = now();
+    if (b.settings == null && has("[data-testid=settings-editor]")) b.settings = now();
+    if (b.caps == null && has("[data-testid=capability-matrix]")) b.caps = now();
     // Paint entries can land after the target frame: wait up to 2 s more for one.
     const painted = b.fcp != null || b.firstFrame != null;
     if ((b[want] != null && (painted || now() > b[want] + 2000)) || now() > 60000) {
@@ -267,6 +274,70 @@ sizes_measure() {
       for k in raw gzip br; do echo "page-$k $(dir_bytes "$INSPECTOR_DIST" "$k") $(dir_bytes "$RUNE_DIST" "$k")"; done
     } >"$OUT/web-size.txt"
   fi
+}
+
+# --- settings: Settings and Capabilities, native app vs the TS inspector -----------
+# Cases: ST_NAME / ST_LABEL / ST_SCENE (Rune scene, empty = list) / ST_HASH / ST_MARK (probe field) / ST_API.
+ST_NAME=() ST_LABEL=() ST_SCENE=() ST_HASH=() ST_MARK=() ST_API=()
+st_case() { ST_NAME+=("$1") ST_LABEL+=("$2") ST_SCENE+=("$3") ST_HASH+=("$4") ST_MARK+=("$5") ST_API+=("$6"); }
+
+suite_settings() {
+  [[ -x "$APP_BIN" ]] || { echo "missing app binary: $APP_BIN" >&2; exit 1; }
+  command -v agent-browser >/dev/null || { echo "missing tool: agent-browser" >&2; exit 1; }
+  app_homes
+  local c scene
+  st_case list "session list (default screen)" "" "" list sessions
+  st_case settings "Settings" settings "#/settings" settings settings
+  st_case caps "Capabilities" capabilities "#/capabilities" caps capabilities
+  for ((c = 0; c < ${#ST_NAME[@]}; c++)); do
+    scene=""; [[ -n "${ST_SCENE[c]}" ]] && scene="--scene ${ST_SCENE[c]} "
+    add_rust "app-st-${ST_NAME[c]}" 2 10 rss "app: start to first frame, ${ST_LABEL[c]} (synthetic HOME)" \
+      "$(app_cmd syn "$scene--first-pixels --frames 1")"
+  done
+  ENV_EXTRA+=("agent-browser: $(agent-browser --version)")
+  METHOD_EXTRA+=("Settings app: \`peektrace-app --scene settings|capabilities --first-pixels --frames 1\` on the synthetic HOME; the scene loads its data before frame 0, so the time is process start to the screen drawn and read back. hyperfine times the whole process.")
+  METHOD_EXTRA+=("Settings inspector: one Rust \`serve\` with the embedded TS inspector on the same HOME; each run is a fresh headless Chromium (\`agent-browser --webgpu --args $WEB_ARGS\`, empty HTTP cache), viewport 1440×900 at 2×, one navigation to \`#/settings\` or \`#/capabilities\`. Shown = \`[data-testid=settings-editor]\` or \`[data-testid=capability-matrix]\` in the DOM, stamped from navigation start, so browser start is not in it. $WEB_WARMUP warmup and $WEB_RUNS runs, cases interleaved, median (min–max).")
+  MEASURE_HOOKS+=(st_measure)
+  REPORT_HOOKS+=(st_summary)
+}
+
+# st_measure -> raw JSON lines in $OUT/st-<case>.jsonl
+st_measure() {
+  local i c port line
+  printf '%s\n' "$WEB_PROBE" >"$OUT/web-probe.js"
+  rm -f "${OUT:?}"/st-*.jsonl
+  port="$(free_port 47990)"
+  web_server syn st "$port"
+  for ((i = 1; i <= WEB_WARMUP + WEB_RUNS; i++)); do
+    for ((c = 0; c < ${#ST_NAME[@]}; c++)); do
+      line="$(web_run "http://127.0.0.1:$port/${ST_HASH[c]}")"
+      ((i > WEB_WARMUP)) || continue
+      echo "$line" >>"$OUT/st-${ST_NAME[c]}.jsonl"
+      echo "settings run $((i - WEB_WARMUP)) ${ST_NAME[c]}: $line"
+    done
+  done
+  stop_web
+}
+
+st_summary() {
+  local c n f r rss
+  echo "## Settings and Capabilities: TS inspector vs native app (synthetic HOME)"
+  echo
+  echo "| metric | TS inspector (Chromium, Rust \`serve\`) | Rust \`peektrace-app\` | Δ (app vs inspector) |"
+  echo "|---|---|---|---|"
+  for ((c = 0; c < ${#ST_NAME[@]}; c++)); do
+    n="${ST_NAME[c]}" f="$OUT/st-${ST_NAME[c]}.jsonl"
+    r="$(hf "app-st-$n" rust)"
+    rss=n/a; [[ -s "$OUT/rss-app-st-$n-rust.txt" ]] && rss="$(stats "$OUT/rss-app-st-$n-rust.txt")"
+    echo "| **${ST_LABEL[c]}** | | | |"
+    printf '| shown (inspector: from navigation; app: from process start) | %s | %s | %s |\n' \
+      "$(web_cell "$f" "${ST_MARK[c]}" | tr -d '\n')" "$(fmt_ms <<<"$r")" "$(delta "$(web_median "$f" "${ST_MARK[c]}")" "${r%% *}" faster)"
+    printf '| first contentful paint | %s | n/a | |\n' "$(web_cell "$f" fcp | tr -d '\n')"
+    printf '| `/api/%s` reply received | %s | n/a | |\n' "${ST_API[c]}" "$(web_cell "$f" "${ST_MARK[c]}Reply" | tr -d '\n')"
+    printf '| bytes received by then (page, assets, API) | %s | n/a | |\n' "$(web_median "$f" transfer | fmt_bytes)"
+    printf '| peak RSS | n/a | %s | |\n' "$(fmt_mib <<<"$rss")"
+  done
+  echo
 }
 
 # --- summary -----------------------------------------------------------------------
