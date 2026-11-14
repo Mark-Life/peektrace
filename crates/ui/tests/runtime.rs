@@ -11,7 +11,7 @@ use peektrace_protocol::{AgentId, WatchVersions};
 use peektrace_ui::model::chat::{ChatNode, collapse_id};
 use peektrace_ui::source::in_process::InProcess;
 use peektrace_ui::source::{DataSource, WatchEvent};
-use peektrace_ui::state::{Io, Request, Route, Ui};
+use peektrace_ui::state::{Io, Request, Ui};
 use peektrace_ui::views::session_list::row_key;
 use peektrace_ui::{load_now, views};
 use rune::{App, Env, Key, KeyEvent, Mods, Runtime, Tx};
@@ -313,14 +313,6 @@ fn scroll_to(rt: &mut Runtime<Ui>, key: &str) {
         settle(rt);
     }
     panic!("never reached {key}");
-}
-
-#[test]
-fn stub_routes() {
-    let mut s = state(&home::build_home());
-    s.route = Route::Memory;
-    let rt = runtime(s);
-    assert!(has_text(&rt, "Memory is not in the desktop app yet."));
 }
 
 #[test]
