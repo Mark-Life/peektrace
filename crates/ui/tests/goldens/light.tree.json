@@ -154,12 +154,12 @@
     },
     {
       "key": "search",
-      "rect": [272, 60, 219, 28],
+      "rect": [272, 60, 182, 28],
       "role": "textbox"
     },
     {
       "key": "value",
-      "rect": [272, 60, 183, 28],
+      "rect": [272, 60, 146, 28],
       "role": "group"
     },
     {
@@ -174,35 +174,43 @@
     {
       "key": "input",
       "label": "Search by title…",
-      "rect": [302, 66, 153, 16],
+      "rect": [302, 66, 116, 16],
       "role": "textbox",
       "text": ""
     },
     {
       "key": "action",
       "label": "Clear",
-      "rect": [463, 60, 28, 28],
+      "rect": [426, 60, 28, 28],
       "role": "button"
     },
     {
-      "rect": [469, 66, 16, 16],
+      "rect": [432, 66, 16, 16],
       "role": "icon"
     },
     {
       "key": "agent-facet-trigger",
       "label": "Agent",
-      "rect": [499, 62, 93, 24],
+      "rect": [462, 60, 130, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [507, 66, 61, 16],
+      "rect": [462, 66, 96, 16],
+      "role": "group"
+    },
+    {
+      "rect": [470, 66, 60, 16],
       "role": "text",
       "text": "All agents"
     },
     {
+      "rect": [566, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [572, 66, 16, 16],
+      "rect": [568, 66, 16, 16],
       "role": "icon"
     },
     {
@@ -704,11 +712,8 @@
       "text": "41% of 1,000,000"
     },
     {
+      "key": "tile-grid",
       "rect": [632, 213, 776, 168],
-      "role": "group"
-    },
-    {
-      "rect": [632, 213, 776, 51],
       "role": "group"
     },
     {
@@ -757,10 +762,6 @@
       "text": "16,293"
     },
     {
-      "rect": [632, 271, 776, 51],
-      "role": "group"
-    },
-    {
       "key": "tile-output",
       "rect": [632, 271, 253, 51],
       "role": "group"
@@ -807,31 +808,19 @@
       "text": "2/120"
     },
     {
-      "rect": [632, 330, 776, 51],
-      "role": "group"
-    },
-    {
       "key": "tile-cache",
-      "rect": [632, 330, 269, 51],
+      "rect": [632, 330, 253, 51],
       "role": "group"
     },
     {
-      "rect": [644, 338, 245, 15],
+      "rect": [644, 338, 229, 15],
       "role": "text",
       "text": "CACHE"
     },
     {
-      "rect": [644, 355, 245, 18],
+      "rect": [644, 355, 229, 18],
       "role": "text",
       "text": "100%"
-    },
-    {
-      "rect": [909, 330, 245, 51],
-      "role": "group"
-    },
-    {
-      "rect": [1163, 330, 245, 51],
-      "role": "group"
     },
     {
       "rect": [632, 392, 776, 24],

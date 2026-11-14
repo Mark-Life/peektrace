@@ -154,12 +154,12 @@
     },
     {
       "key": "search",
-      "rect": [272, 60, 219, 28],
+      "rect": [272, 60, 182, 28],
       "role": "textbox"
     },
     {
       "key": "value",
-      "rect": [272, 60, 183, 28],
+      "rect": [272, 60, 146, 28],
       "role": "group"
     },
     {
@@ -174,35 +174,43 @@
     {
       "key": "input",
       "label": "Search by title…",
-      "rect": [302, 66, 153, 16],
+      "rect": [302, 66, 116, 16],
       "role": "textbox",
       "text": "refactor"
     },
     {
       "key": "action",
       "label": "Clear",
-      "rect": [463, 60, 28, 28],
+      "rect": [426, 60, 28, 28],
       "role": "button"
     },
     {
-      "rect": [469, 66, 16, 16],
+      "rect": [432, 66, 16, 16],
       "role": "icon"
     },
     {
       "key": "agent-facet-trigger",
       "label": "Agent",
-      "rect": [499, 62, 93, 24],
+      "rect": [462, 60, 130, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [507, 66, 61, 16],
+      "rect": [462, 66, 96, 16],
+      "role": "group"
+    },
+    {
+      "rect": [470, 66, 60, 16],
       "role": "text",
       "text": "All agents"
     },
     {
+      "rect": [566, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [572, 66, 16, 16],
+      "rect": [568, 66, 16, 16],
       "role": "icon"
     },
     {

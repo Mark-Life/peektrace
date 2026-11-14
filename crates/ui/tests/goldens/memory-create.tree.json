@@ -181,39 +181,55 @@
     {
       "key": "mem-type-trigger",
       "label": "Type",
-      "rect": [604, 62, 86, 24],
+      "rect": [604, 60, 144, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [612, 66, 54, 16],
+      "rect": [604, 66, 110, 16],
+      "role": "group"
+    },
+    {
+      "rect": [612, 66, 52, 16],
       "role": "text",
       "text": "All types"
     },
     {
+      "rect": [722, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [670, 66, 16, 16],
+      "rect": [724, 66, 16, 16],
       "role": "icon"
     },
     {
       "key": "mem-scope-trigger",
       "label": "Project",
-      "rect": [702, 62, 101, 24],
+      "rect": [760, 60, 208, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [710, 66, 69, 16],
+      "rect": [760, 66, 174, 16],
+      "role": "group"
+    },
+    {
+      "rect": [768, 66, 67, 16],
       "role": "text",
       "text": "All projects"
     },
     {
+      "rect": [942, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [783, 66, 16, 16],
+      "rect": [944, 66, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [815, 74, 491, 0],
+      "rect": [980, 74, 325, 0],
       "role": "group"
     },
     {
@@ -1579,76 +1595,84 @@
     {
       "key": "mem-create-dialog",
       "label": "New memory",
-      "rect": [464, 187, 512, 527],
+      "rect": [464, 183, 512, 535],
       "role": "dialog"
     },
     {
       "key": "header",
-      "rect": [464, 187, 512, 76],
+      "rect": [464, 183, 512, 76],
       "role": "group"
     },
     {
-      "rect": [480, 203, 462, 44],
+      "rect": [480, 199, 462, 44],
       "role": "group"
     },
     {
-      "rect": [480, 203, 462, 20],
+      "rect": [480, 199, 462, 20],
       "role": "text",
       "text": "New memory"
     },
     {
-      "rect": [480, 227, 462, 20],
+      "rect": [480, 223, 462, 20],
       "role": "text",
       "text": "Adds <name>.md and a MEMORY.md index line in <project>."
     },
     {
       "key": "close",
       "label": "Close",
-      "rect": [942, 201, 20, 20],
+      "rect": [942, 197, 20, 20],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [944, 203, 16, 16],
+      "rect": [944, 199, 16, 16],
       "role": "icon"
     },
     {
       "key": "body",
-      "rect": [464, 263, 512, 451],
+      "rect": [464, 259, 512, 459],
       "role": "group"
     },
     {
-      "rect": [464, 263, 512, 451],
+      "rect": [464, 259, 512, 459],
       "role": "group"
     },
     {
-      "rect": [480, 263, 480, 48],
+      "rect": [480, 259, 480, 52],
       "role": "group"
     },
     {
-      "rect": [480, 263, 480, 48],
+      "rect": [480, 259, 480, 52],
       "role": "group"
     },
     {
-      "rect": [480, 263, 480, 18],
+      "rect": [480, 259, 480, 18],
       "role": "text",
       "text": "Project"
     },
     {
       "key": "mem-create-project",
       "label": "Project",
-      "rect": [480, 286, 480, 24],
+      "rect": [480, 282, 480, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [488, 290, 103, 16],
+      "rect": [480, 288, 446, 16],
+      "role": "group"
+    },
+    {
+      "rect": [488, 288, 101, 16],
       "role": "text",
       "text": "Choose a project"
     },
     {
+      "rect": [934, 286, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [595, 290, 16, 16],
+      "rect": [936, 288, 16, 16],
       "role": "icon"
     },
     {
@@ -1712,7 +1736,7 @@
       "text": ""
     },
     {
-      "rect": [480, 449, 480, 48],
+      "rect": [480, 449, 480, 52],
       "role": "group"
     },
     {
@@ -1723,66 +1747,74 @@
     {
       "key": "mem-create-type",
       "label": "Type",
-      "rect": [480, 473, 480, 24],
+      "rect": [480, 473, 480, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [488, 477, 43, 16],
+      "rect": [480, 479, 446, 16],
+      "role": "group"
+    },
+    {
+      "rect": [488, 479, 42, 16],
       "role": "text",
       "text": "project"
     },
     {
-      "key": "chevron",
-      "rect": [535, 477, 16, 16],
-      "role": "icon"
-    },
-    {
-      "rect": [480, 509, 480, 145],
+      "rect": [934, 477, 20, 20],
       "role": "group"
     },
     {
-      "rect": [480, 509, 480, 18],
+      "key": "chevron",
+      "rect": [936, 479, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [480, 513, 480, 145],
+      "role": "group"
+    },
+    {
+      "rect": [480, 513, 480, 18],
       "role": "text",
       "text": "Body (markdown)"
     },
     {
       "key": "mem-create-body",
-      "rect": [480, 532, 480, 121],
+      "rect": [480, 536, 480, 121],
       "role": "textbox"
     },
     {
       "key": "input",
       "label": "# Title\n\nUse [[other-memory]] to link.",
-      "rect": [488, 540, 464, 18],
+      "rect": [488, 544, 464, 18],
       "role": "textbox",
       "text": ""
     },
     {
-      "rect": [480, 665, 480, 32],
+      "rect": [480, 669, 480, 32],
       "role": "group"
     },
     {
       "key": "mem-create-cancel",
       "label": "Cancel",
-      "rect": [768, 673, 67, 24],
+      "rect": [768, 677, 67, 24],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [780, 675, 43, 20],
+      "rect": [780, 679, 43, 20],
       "role": "text",
       "text": "Cancel"
     },
     {
       "key": "mem-create-submit",
       "label": "Create memory",
-      "rect": [843, 673, 118, 24],
+      "rect": [843, 677, 118, 24],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [855, 675, 94, 20],
+      "rect": [855, 679, 94, 20],
       "role": "text",
       "text": "Create memory"
     }

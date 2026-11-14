@@ -181,39 +181,55 @@
     {
       "key": "mem-type-trigger",
       "label": "Type",
-      "rect": [604, 62, 59, 24],
+      "rect": [604, 60, 144, 28],
       "role": "combobox"
     },
     {
       "key": "value",
+      "rect": [604, 66, 110, 16],
+      "role": "group"
+    },
+    {
       "rect": [612, 66, 27, 16],
       "role": "text",
       "text": "user"
     },
     {
+      "rect": [722, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [643, 66, 16, 16],
+      "rect": [724, 66, 16, 16],
       "role": "icon"
     },
     {
       "key": "mem-scope-trigger",
       "label": "Project",
-      "rect": [675, 62, 101, 24],
+      "rect": [760, 60, 208, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [683, 66, 69, 16],
+      "rect": [760, 66, 174, 16],
+      "role": "group"
+    },
+    {
+      "rect": [768, 66, 67, 16],
       "role": "text",
       "text": "All projects"
     },
     {
+      "rect": [942, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [756, 66, 16, 16],
+      "rect": [944, 66, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [788, 74, 517, 0],
+      "rect": [980, 74, 325, 0],
       "role": "group"
     },
     {
