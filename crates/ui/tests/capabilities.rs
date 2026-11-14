@@ -133,3 +133,18 @@ fn the_matrix_loads_once() {
     s.go(Route::Capabilities);
     assert_eq!(s.pending, []);
 }
+
+/// An open popup owns the keys, as `[role=dialog]` does in the inspector.
+#[test]
+fn the_cell_dialog_owns_single_keys() {
+    let mut rt = runtime();
+    click(&mut rt, "cap-cell-memory.crud-claude");
+    assert!(rt.state.caps.selection.is_some());
+    let dark = rt.state.dark;
+    for k in ["d", "?"] {
+        press(&mut rt, Key::Text(k.into()));
+    }
+    assert_eq!(rt.state.dark, dark);
+    assert!(!rt.state.help_open);
+    assert_eq!(rt.state.route, Route::Capabilities);
+}

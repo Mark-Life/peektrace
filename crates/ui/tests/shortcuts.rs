@@ -203,3 +203,110 @@ fn search_is_only_a_sessions_key() {
             .any(|e| e.focused && e.path.contains("search"))
     );
 }
+
+fn click(rt: &mut Runtime<Ui>, key: &str) {
+    let (x, y) = rt.find(key).unwrap_or_else(|| panic!("no element {key}"));
+    rt.pointer_move(x, y);
+    rt.pointer_down(x, y);
+    rt.pointer_up(x, y);
+    settle(rt);
+}
+
+fn rail_ids(s: &Ui) -> Vec<String> {
+    s.rail
+        .rows
+        .iter()
+        .filter_map(|&i| s.rail.header(i))
+        .map(|h| h.id.clone())
+        .collect()
+}
+
+fn state_without_io() -> Ui {
+    let mut s = state();
+    s.io = None;
+    s
+}
+
+/// The DOM key names of the table as Rune's keys.
+fn rune_key(dom: &str) -> Key {
+    match dom {
+        "ArrowDown" => Key::Down,
+        "ArrowUp" => Key::Up,
+        "Home" => Key::Home,
+        "End" => Key::End,
+        "Enter" => Key::Enter,
+        t => Key::Text(t.into()),
+    }
+}
+
+/// Every `list` key of the table moves the rail cursor from the second row,
+/// and Enter opens the focused row: the native half of "every shortcut has
+/// a handler".
+#[test]
+fn each_list_key_moves_the_rail_cursor() {
+    let ids = rail_ids(&state_without_io());
+    assert!(ids.len() >= 3, "fixture rows: {}", ids.len());
+    let second = peektrace_ui::views::session_list::row_key(&ids[1]);
+    let expect = |id: &str| match id {
+        "listDown" => Some(ids[2].clone()),
+        "listUp" | "listFirst" => Some(ids[0].clone()),
+        "listLast" => ids.last().cloned(),
+        _ => None,
+    };
+    for sc in SHORTCUTS.iter().filter(|s| s.scope == Scope::List) {
+        for key in sc.keys {
+            let mut rt = runtime(state_without_io(), true);
+            click(&mut rt, &second);
+            assert_eq!(rt.state.cursor.as_deref(), Some(ids[1].as_str()));
+            press(&mut rt, rune_key(key));
+            assert_eq!(rt.state.cursor, expect(sc.id), "{} ({key})", sc.id);
+        }
+    }
+
+    let open = SHORTCUTS
+        .iter()
+        .find(|s| s.id == "listOpen")
+        .expect("listOpen");
+    let mut rt = runtime(state_without_io(), true);
+    click(&mut rt, &second);
+    press(&mut rt, rune_key(open.keys[0]));
+    press(&mut rt, Key::Down);
+    press(&mut rt, rune_key(open.keys[0]));
+    assert_eq!(
+        rt.state.selected.as_ref().map(|s| s.id.as_str()),
+        Some(ids[2].as_str())
+    );
+}
+
+/// The search field owns single keys, as an `<input>` does in the inspector.
+#[test]
+fn the_search_field_types_shortcut_keys() {
+    let mut rt = runtime(state(), true);
+    click(&mut rt, "search");
+    for k in ["d", "?", "j"] {
+        text_key(&mut rt, k);
+    }
+    assert_eq!(rt.state.query.text, "d?j");
+    assert_eq!(rt.state.dark, None);
+    assert!(!rt.state.help_open);
+    assert!(
+        rt.elements()
+            .iter()
+            .any(|e| e.focused && e.path.contains("search"))
+    );
+}
+
+/// Focus on a control that is not a text field (a session row, a button)
+/// leaves single keys to the window.
+#[test]
+fn a_focused_control_that_is_not_a_field_leaves_the_keys() {
+    let mut s = state_without_io();
+    let first = rail_ids(&s)[0].clone();
+    s.cursor = None;
+    let mut rt = runtime(s, true);
+    click(&mut rt, &peektrace_ui::views::session_list::row_key(&first));
+    text_key(&mut rt, "d");
+    assert_eq!(rt.state.dark, Some(false));
+    text_key(&mut rt, "?");
+    assert!(rt.state.help_open);
+}

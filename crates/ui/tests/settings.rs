@@ -543,3 +543,30 @@ fn a_reply_for_an_older_save_changes_nothing() {
     assert!(!s.apply_save(old, Err(LoadError::Decode(String::new())), 0.0));
     assert!(s.settings.busy);
 }
+
+#[test]
+fn retry_is_disabled_while_the_refetch_runs() {
+    let gone = LoadError::Api(ApiError::NotFoundError {
+        path: "/api/settings".into(),
+    });
+    let mut s = failing("settings-retry-busy", Some(gone), None, None);
+    s.io = None;
+    let mut rt = runtime(s);
+    click(&mut rt, "result-retry");
+    let rid = rt.state.settings.rid;
+    click(&mut rt, "result-retry");
+    assert_eq!(
+        rt.state.settings.rid, rid,
+        "a disabled Retry queues nothing"
+    );
+    assert_eq!(rt.state.pending.len(), 1);
+}
+
+#[test]
+fn a_loaded_page_has_no_error_and_no_retry() {
+    let rt = fixed_page(false);
+    assert!(has_key(&rt, "settings-editor"));
+    assert!(!has_key(&rt, "result-error"));
+    assert!(!has_key(&rt, "result-retry"));
+    assert!(!has_key(&rt, "result-pending"));
+}

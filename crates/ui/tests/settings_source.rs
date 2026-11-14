@@ -136,3 +136,51 @@ fn bad_entries_and_read_only_are_refused() {
             .is_some_and(|i| i.read_only)
     );
 }
+
+fn file_json(home: &Path) -> serde_json::Value {
+    let text = std::fs::read_to_string(settings_file(home)).unwrap_or_default();
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+/// The inspector service test's fixtures, one to one.
+#[test]
+fn the_service_fixtures_write_read_and_refuse_a_stale_write() {
+    let dir = home::temp_home("svc-ts");
+    let src = source(&dir);
+    let work =
+        serde_json::json!({"roots": {"claude": [{"path": "/work/.claude", "label": "work"}]}});
+    let written = src
+        .save_settings_now(update(work.clone(), None))
+        .and_then(Result::ok)
+        .expect("written");
+    assert!(written.mtime_ms > 0);
+    assert_eq!(file_json(&dir), work);
+    let reread = src.settings_now().and_then(Result::ok).expect("reread");
+    assert_eq!(serde_json::to_value(&reread.settings).ok(), Some(work));
+    assert_eq!(reread.mtime_ms, written.mtime_ms);
+
+    let a = serde_json::json!({"roots": {"codex": [{"path": "/a"}]}});
+    src.save_settings_now(update(a.clone(), None))
+        .and_then(Result::ok)
+        .expect("a");
+    let stale = src.save_settings_now(update(
+        serde_json::json!({"roots": {"codex": [{"path": "/b"}]}}),
+        Some(12_345.0),
+    ));
+    assert!(matches!(
+        stale,
+        Some(Err(LoadError::Api(ApiError::FileChangedError { .. })))
+    ));
+    assert_eq!(file_json(&dir), a, "the stale write left the file alone");
+}
+
+#[test]
+fn expected_zero_on_an_absent_file_creates_it() {
+    let dir = home::temp_home("svc-ts-zero");
+    let first = source(&dir)
+        .save_settings_now(update(serde_json::json!({}), Some(0.0)))
+        .and_then(Result::ok)
+        .expect("created");
+    assert!(first.path.ends_with("settings.json"));
+    assert!(Path::new(&first.path).exists());
+}

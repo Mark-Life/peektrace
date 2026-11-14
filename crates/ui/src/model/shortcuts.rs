@@ -301,6 +301,10 @@ mod tests {
     fn modifier_rules() {
         let none = Modifiers::default();
         assert!(shortcut_allowed(none, "j", false));
+        assert!(
+            shortcut_allowed(none, "?", false),
+            "Shift alone is no chord"
+        );
         let meta = Modifiers { meta: true, ..none };
         let ctrl = Modifiers { ctrl: true, ..none };
         let alt = Modifiers { alt: true, ..none };
