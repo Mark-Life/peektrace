@@ -2,7 +2,8 @@
 
 use std::path::Path;
 
-use peektrace_ui::state_memory::{CreateTarget, Dialog, ToastKind};
+use peektrace_ui::state::Request;
+use peektrace_ui::state_memory::{CreateTarget, Dialog, MemoryRequest, ToastKind};
 use peektrace_ui::views;
 use rune::TextEdit;
 
@@ -211,5 +212,78 @@ fn delete_reports_dangling_references_and_missing_files() {
     assert!(
         present(&rt, "mem-delete-dialog"),
         "a failed delete keeps the dialog"
+    );
+}
+
+/// Runs every pending write, in send order, after all were sent.
+fn land_writes(s: &mut peektrace_ui::state::Ui) -> Vec<(u64, bool)> {
+    let source = s.io.as_ref().map(|io| io.source.clone());
+    let writes: Vec<_> = std::mem::take(&mut s.pending)
+        .into_iter()
+        .filter_map(|r| match r {
+            Request::Memory(MemoryRequest::Write { id, op }) => Some((id, op)),
+            _ => None,
+        })
+        .collect();
+    writes
+        .into_iter()
+        .filter_map(|(id, op)| {
+            let res = source.as_ref()?.memory_write_now(&op)?;
+            Some((id, s.apply_memory_write(id, res, 0.0)))
+        })
+        .collect()
+}
+
+#[test]
+fn a_later_write_does_not_drop_an_earlier_answer() {
+    let home = mem_home();
+    let mut s = on_memory(&home);
+    let fixed = CreateTarget::Fixed(SEED.to_owned());
+    s.memory.dialog = Some(Dialog::Create(fixed.clone()));
+    s.memory.draft_mut(&fixed).name = TextEdit::new("probe-note");
+    s.submit_create(&fixed);
+    // Cancel while the create runs, then save an edit.
+    s.memory.close_create(&fixed);
+    let entry = s
+        .memory
+        .all()
+        .and_then(|a| a.vaults.iter().find(|v| v.slug == SEED))
+        .and_then(|v| v.entries.iter().find(|e| e.slug == "a"))
+        .cloned();
+    if let Some(e) = entry {
+        s.open_edit(SEED, &e);
+    }
+    s.submit_edit(true);
+    assert_eq!(land_writes(&mut s), vec![(1, true), (2, true)]);
+    assert!(seed_file(&home, "probe-note.md").exists());
+    assert!(!s.memory.draft(&fixed).busy);
+    let titles: Vec<_> = s.memory.toasts.iter().map(|t| t.title.as_str()).collect();
+    assert_eq!(titles, ["Created probe-note", "Saved a"]);
+    assert!(s.memory.dialog.is_none());
+}
+
+#[test]
+fn an_answer_leaves_a_dialog_it_did_not_send_alone() {
+    let mut s = on_memory(&mem_home());
+    let entry = |s: &peektrace_ui::state::Ui, slug: &str| {
+        s.memory
+            .all()
+            .and_then(|a| a.vaults.iter().find(|v| v.slug == SEED))
+            .and_then(|v| v.entries.iter().find(|e| e.slug == slug))
+            .cloned()
+    };
+    if let Some(e) = entry(&s, "a") {
+        s.open_edit(SEED, &e);
+    }
+    s.submit_edit(true);
+    // Cancel the running save and open a delete before its answer lands.
+    s.memory.dialog = None;
+    if let Some(e) = entry(&s, "b") {
+        s.open_delete(SEED, &e);
+    }
+    assert_eq!(land_writes(&mut s), vec![(1, true)]);
+    assert!(
+        matches!(&s.memory.dialog, Some(Dialog::Delete(f)) if !f.busy()),
+        "the delete dialog stays open and idle"
     );
 }

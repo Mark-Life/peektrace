@@ -128,6 +128,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--remote` for `stats*`, `sessions search`, `memory *` | works | refused with "--remote is not supported for ... in the Rust build yet." (exit 1) |
 | `statusline` deadline | `--timeout` covers stdin, lookup and remote calls, not the parse | covers the parse too: a worker thread reads and analyzes, and a run past the deadline prints `ctx --` |
 | `statusline` stdin over 1 MB | the chunk that crosses 1 MB is kept, so the cut depends on how the writer chunks the pipe | read in 64 KiB chunks. Real payloads are a few KB. |
+| Memory `Modified` column in the native app | the inspector runs in a browser, so the browser's locale | always `en-US` (`11/11/2026, 4:42:21 PM`) in the OS zone. The web build uses the browser's locale and zone, as the inspector does. |
 | `upgrade --version X --check` (`--version` first) | prints the CLI version: `@effect/cli` takes it as the root flag | pins `X` |
 | `upgrade` delta route (binpatch) | patches a compiled Bun binary when a patch chain exists | always a full download; the line says `downloaded <size>` |
 | `upgrade` failure causes | Bun text, e.g. `SyntaxError: JSON Parse error: ...`, `TypeError: ECONNREFUSED: ...`, `Error: ENOENT: ..., open '<tmp>'` | `ureq` or OS text. `Error: GitHub API responded <n>`, `Error: download responded <n>` and `Error: fetch responded <n>` match. |

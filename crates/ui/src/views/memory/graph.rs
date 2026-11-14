@@ -75,11 +75,10 @@ pub fn graph(s: &Ui, v: &VaultView, avail: f32, t: &Theme) -> El {
     let scale = w / f(SIZE);
     let r = ring(&v.graph);
     let muted = t.muted_fg;
-    let shape = picture(&r, muted);
     let pic = memo(
         format!("mem-graph-static:{}", v.slug),
         (s.memory.rev, w.round().to_bits(), t.dark),
-        move || canvas(shape).size(w, w),
+        || canvas(picture(&r, muted)).size(w, w),
     );
     let style = TextStyle::new(LABEL_PT * scale, 400.0);
     let labels = r.nodes.iter().map(|n| {

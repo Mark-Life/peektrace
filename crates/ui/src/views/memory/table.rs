@@ -4,7 +4,6 @@
 
 use std::collections::HashMap;
 
-use peektrace_js::time::LocalZone;
 use peektrace_protocol::view::memory::EntryView;
 use rune::{El, Span, Tx, col, icon, rich, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize, glyphs};
@@ -12,8 +11,7 @@ use rune_kit::{Button, ButtonVariant, ControlSize, glyphs};
 use super::paint::{emerald_400, sky_400};
 use super::row_key;
 use crate::model::memory::{
-    BodyPart, NO_MATCHES, Shown, SortKey, body_parts, capitalize, fmt_date, fmt_size, sort_entries,
-    title_of,
+    BodyPart, NO_MATCHES, Shown, SortKey, body_parts, capitalize, fmt_size, sort_entries, title_of,
 };
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
@@ -28,17 +26,18 @@ const INDEX_W: f32 = 72.0;
 const LINKS_W: f32 = 56.0;
 const DESC_MAX: f32 = 200.0;
 
-/// The zone the Modified column is shown in.
-fn zone() -> &'static dyn LocalZone {
+/// The Modified cell. The browser formats it in its own locale and zone;
+/// native prints `en-US` in the OS zone.
+fn modified(iso: &str) -> String {
     #[cfg(not(target_arch = "wasm32"))]
     {
         static ZONE: std::sync::LazyLock<peektrace_core::js::system_zone::SystemZone> =
             std::sync::LazyLock::new(Default::default);
-        &*ZONE
+        crate::model::memory::fmt_date(iso, &*ZONE)
     }
     #[cfg(target_arch = "wasm32")]
     {
-        &crate::web::BrowserZone
+        crate::web::locale_date(iso)
     }
 }
 
@@ -165,9 +164,7 @@ fn entry_row(vault: &str, e: &EntryView, open: bool, t: &Theme) -> El {
             Align::End,
         ))
         .child(cell(
-            text(fmt_date(&e.mtime, zone()))
-                .font(ty::XS)
-                .color(t.muted_fg),
+            text(modified(&e.mtime)).font(ty::XS).color(t.muted_fg),
             Some(DATE_W),
             Align::Start,
         ))

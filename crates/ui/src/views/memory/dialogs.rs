@@ -226,7 +226,7 @@ fn conflict(f: &EditForm, t: &Theme) -> El {
         .key("mem-cas-reload");
     let overwrite = Button::new("Overwrite")
         .variant(ButtonVariant::Danger)
-        .disabled(f.busy)
+        .disabled(f.busy())
         .on_press(|s: &mut Ui| s.submit_edit(false))
         .build(&t.kit)
         .key("mem-cas-overwrite");
@@ -309,8 +309,13 @@ fn edit(f: &EditForm, t: &Theme, layer: &mut Vec<El>) {
             .on_press(|s: &mut Ui| s.memory.dialog = None)
             .build(&t.kit)
             .key("mem-edit-cancel");
-        let submit = Button::new(if f.busy { "Saving…" } else { "Save changes" })
-            .disabled(f.busy)
+        let label = if f.busy() {
+            "Saving…"
+        } else {
+            "Save changes"
+        };
+        let submit = Button::new(label)
+            .disabled(f.busy())
             .on_press(|s: &mut Ui| s.submit_edit(true))
             .build(&t.kit)
             .key("mem-edit-submit");
@@ -338,9 +343,9 @@ fn delete(f: &DeleteForm, t: &Theme, layer: &mut Vec<El>) {
         .on_press(|s: &mut Ui| s.memory.dialog = None)
         .build(&t.kit)
         .key("mem-delete-cancel");
-    let confirm = Button::new(if f.busy { "Deleting…" } else { "Delete" })
+    let confirm = Button::new(if f.busy() { "Deleting…" } else { "Delete" })
         .variant(ButtonVariant::Danger)
-        .disabled(f.busy)
+        .disabled(f.busy())
         .on_press(|s: &mut Ui| s.submit_delete())
         .build(&t.kit)
         .key("mem-delete-confirm");

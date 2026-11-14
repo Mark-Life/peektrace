@@ -79,16 +79,30 @@ pub struct EditForm {
     pub kind: String,
     pub body: TextEdit,
     pub conflict: bool,
-    pub busy: bool,
+    /// The save in flight.
+    pub write: Option<u64>,
     pub error: Option<String>,
     pub kind_open: bool,
+}
+
+impl EditForm {
+    pub const fn busy(&self) -> bool {
+        self.write.is_some()
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct DeleteForm {
     pub project: String,
     pub entry: EntryView,
-    pub busy: bool,
+    /// The delete in flight.
+    pub write: Option<u64>,
+}
+
+impl DeleteForm {
+    pub const fn busy(&self) -> bool {
+        self.write.is_some()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -121,7 +135,7 @@ pub struct VaultUi {
     pub sort: Sort,
 }
 
-/// The write in flight and what it answers.
+/// A write in flight: what its answer lands on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Inflight {
     Create {
@@ -170,7 +184,8 @@ pub struct MemoryUi {
     pub toasts: Vec<Toast>,
     toast_id: u64,
     write_id: u64,
-    inflight: Option<(u64, Inflight)>,
+    /// Every write in flight by id, so each answer lands.
+    inflight: HashMap<u64, Inflight>,
     /// Takes keys meant for an edit field once its dialog has gone.
     spare: TextEdit,
 }
@@ -200,7 +215,7 @@ impl Default for MemoryUi {
             toasts: Vec::new(),
             toast_id: 0,
             write_id: 0,
-            inflight: None,
+            inflight: HashMap::new(),
             spare: TextEdit::new(""),
         }
     }

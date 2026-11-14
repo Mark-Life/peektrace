@@ -5,7 +5,6 @@
 #![allow(dead_code, reason = "each test binary uses part of it")]
 
 use std::fs::{self, File, FileTimes};
-use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -78,9 +77,7 @@ fn proj_a(a: &Path) {
     put(&a.join("notes.txt"), "stray\n");
     put(&a.join("zz.json"), "{}\n");
     fs::create_dir_all(a.join("subdir.md")).expect("mkdir");
-    put(&a.join("locked.md"), "---\nname: locked\n---\nsecret\n");
-    fs::set_permissions(a.join("locked.md"), fs::Permissions::from_mode(0o000)).expect("chmod");
-    std::os::unix::fs::symlink(a.join("flat.md"), a.join("link.md")).expect("symlink");
+    unreadable_and_link(a);
     put(
         &a.join("MEMORY.md"),
         [
@@ -105,6 +102,19 @@ fn proj_a(a: &Path) {
         .join("\n"),
     );
 }
+
+/// An unreadable file and a symlink. POSIX only: Windows builds these
+/// tests but never runs them.
+#[cfg(unix)]
+fn unreadable_and_link(a: &Path) {
+    use std::os::unix::fs::PermissionsExt as _;
+    put(&a.join("locked.md"), "---\nname: locked\n---\nsecret\n");
+    fs::set_permissions(a.join("locked.md"), fs::Permissions::from_mode(0o000)).expect("chmod");
+    std::os::unix::fs::symlink(a.join("flat.md"), a.join("link.md")).expect("symlink");
+}
+
+#[cfg(not(unix))]
+const fn unreadable_and_link(_: &Path) {}
 
 /// The vault of core's `memory.test.ts` plus both `fixtures/memory` files.
 fn seed_vault(dir: &Path) {

@@ -18,14 +18,15 @@ fn error_text(e: &LoadError, fallback: &str) -> String {
 }
 
 impl Ui {
-    fn write(&mut self, op: MemoryWrite, what: Inflight) {
-        let mem = &mut self.memory;
-        mem.write_id += 1;
-        mem.inflight = Some((mem.write_id, what));
-        self.pending.push(Request::Memory(MemoryRequest::Write {
-            id: mem.write_id,
-            op,
-        }));
+    const fn next_write(&mut self) -> u64 {
+        self.memory.write_id += 1;
+        self.memory.write_id
+    }
+
+    fn write(&mut self, id: u64, op: MemoryWrite, what: Inflight) {
+        self.memory.inflight.insert(id, what);
+        self.pending
+            .push(Request::Memory(MemoryRequest::Write { id, op }));
     }
 
     /// Send a create dialog; no client-side name check, the core error
@@ -53,7 +54,8 @@ impl Ui {
             project: project.clone(),
             name: body.name.clone(),
         };
-        self.write(MemoryWrite::Create { project, body }, what);
+        let id = self.next_write();
+        self.write(id, MemoryWrite::Create { project, body }, what);
     }
 
     pub fn open_edit(&mut self, project: &str, entry: &EntryView) {
@@ -64,7 +66,7 @@ impl Ui {
             kind: entry.kind.clone().unwrap_or_else(|| "project".to_owned()),
             body: TextEdit::new(&entry.body),
             conflict: false,
-            busy: false,
+            write: None,
             error: None,
             kind_open: false,
         })));
@@ -73,13 +75,14 @@ impl Ui {
     /// Save the edit; `guard` sends the snapshot's mtime. The patch always
     /// carries description and type, as the inspector's does.
     pub fn submit_edit(&mut self, guard: bool) {
+        if self.memory.edit_mut().is_none_or(|f| f.busy()) {
+            return;
+        }
+        let id = self.next_write();
         let Some(f) = self.memory.edit_mut() else {
             return;
         };
-        if f.busy {
-            return;
-        }
-        f.busy = true;
+        f.write = Some(id);
         f.error = None;
         let op = MemoryWrite::Update {
             project: f.project.clone(),
@@ -93,36 +96,38 @@ impl Ui {
             expected_mtime: guard.then(|| expected_mtime(f.entry.mtime_ms)),
         };
         let slug = f.entry.slug.clone();
-        self.write(op, Inflight::Edit { slug });
+        self.write(id, op, Inflight::Edit { slug });
     }
 
     pub fn open_delete(&mut self, project: &str, entry: &EntryView) {
         self.memory.dialog = Some(Dialog::Delete(Box::new(DeleteForm {
             project: project.to_owned(),
             entry: entry.clone(),
-            busy: false,
+            write: None,
         })));
     }
 
     pub fn submit_delete(&mut self) {
+        if !matches!(&self.memory.dialog, Some(Dialog::Delete(f)) if !f.busy()) {
+            return;
+        }
+        let id = self.next_write();
         let Some(Dialog::Delete(f)) = &mut self.memory.dialog else {
             return;
         };
-        if f.busy {
-            return;
-        }
-        f.busy = true;
+        f.write = Some(id);
         let op = MemoryWrite::Delete {
             project: f.project.clone(),
             name: f.entry.slug.clone(),
         };
         let slug = f.entry.slug.clone();
-        self.write(op, Inflight::Delete { slug });
+        self.write(id, op, Inflight::Delete { slug });
     }
 
     /// Land a write at `clock` seconds: toast, close and reload on success;
     /// the error inline (create, edit), as conflict mode (a changed file)
-    /// or as a toast (delete). True when a toast was added.
+    /// or as a toast (delete). An edit or delete dialog changes only while
+    /// it is the one that sent `id`. True when a toast was added.
     pub fn apply_memory_write(
         &mut self,
         id: u64,
@@ -130,10 +135,10 @@ impl Ui {
         clock: f64,
     ) -> bool {
         let mem = &mut self.memory;
-        let Some((_, what)) = mem.inflight.clone().filter(|(at, _)| *at == id) else {
+        let Some(what) = mem.inflight.remove(&id) else {
             return false;
         };
-        mem.inflight = None;
+        let sent = |w: Option<u64>| w == Some(id);
         match (what, result) {
             (
                 Inflight::Create {
@@ -170,15 +175,15 @@ impl Ui {
             }
             (Inflight::Edit { slug }, Ok(_)) => {
                 mem.toast(ToastKind::Success, format!("Saved {slug}"), None, clock);
-                if matches!(mem.dialog, Some(Dialog::Edit(_))) {
+                if matches!(&mem.dialog, Some(Dialog::Edit(f)) if sent(f.write)) {
                     mem.dialog = None;
                 }
                 self.reload_after_write(clock);
                 true
             }
             (Inflight::Edit { .. }, Err(e)) => {
-                if let Some(f) = mem.edit_mut() {
-                    f.busy = false;
+                if let Some(f) = mem.edit_mut().filter(|f| sent(f.write)) {
+                    f.write = None;
                     match &e {
                         LoadError::Api(ApiError::FileChangedError { .. }) => f.conflict = true,
                         _ => f.error = Some(error_text(&e, "Save failed.")),
@@ -197,15 +202,17 @@ impl Ui {
                     ToastKind::Success
                 };
                 mem.toast(kind, title, description, clock);
-                if matches!(mem.dialog, Some(Dialog::Delete(_))) {
+                if matches!(&mem.dialog, Some(Dialog::Delete(f)) if sent(f.write)) {
                     mem.dialog = None;
                 }
                 self.reload_after_write(clock);
                 true
             }
             (Inflight::Delete { .. }, Err(e)) => {
-                if let Some(Dialog::Delete(f)) = &mut mem.dialog {
-                    f.busy = false;
+                if let Some(Dialog::Delete(f)) = &mut mem.dialog
+                    && sent(f.write)
+                {
+                    f.write = None;
                 }
                 let text = error_text(&e, "Delete failed.");
                 mem.toast(ToastKind::Error, text, None, clock);
