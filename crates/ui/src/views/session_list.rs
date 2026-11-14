@@ -5,9 +5,9 @@ use std::borrow::Cow;
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::SessionHeader;
 use rune::{El, GrowthSpec, ScrollSpec, Tx, col, el, memo, row, spacer, text};
-use rune_kit::{Button, ButtonVariant, ControlSize, Select, TextInput, glyphs};
+use rune_kit::{Button, ButtonVariant, ControlSize, TextInput, glyphs};
 
-use super::widgets::{badge, dot};
+use super::widgets::{badge, dot, select};
 use crate::model::format::fmt_bytes;
 use crate::model::list::{self, agent_label};
 use crate::state::Ui;
@@ -137,7 +137,7 @@ fn agent_select(s: &Ui, t: &Theme, layer: &mut Vec<El>) -> El {
         .chain(agents.iter().map(|a| agent_label(*a)))
         .collect();
     let current = s.rail.filters.agent.map_or(ALL_AGENTS, agent_label);
-    Select::new("agent-facet", &options)
+    select("agent-facet", &options)
         .width(130.0)
         .current(Some(current))
         .label("Agent")

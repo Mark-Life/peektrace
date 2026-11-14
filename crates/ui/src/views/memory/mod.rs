@@ -10,9 +10,9 @@ mod vault;
 
 use peektrace_protocol::view::memory::AllVaultsView;
 use rune::{Cx, El, ScrollSpec, Tx, col, el, icon, row, spacer, text};
-use rune_kit::{Button, ControlSize, Select, TextInput, glyphs};
+use rune_kit::{Button, ControlSize, TextInput, glyphs};
 
-use super::widgets::{grid, notice, skeleton, status};
+use super::widgets::{grid, notice, select, skeleton, status};
 use crate::model::memory::{
     self as m, ALL, Blocked, capability_title, crud_cells, empty_description, overview_line,
     support_summary, type_filter_options, visible_vaults,
@@ -91,7 +91,7 @@ fn filters(s: &Ui, all: &AllVaultsView, can_write: bool, t: &Theme, layer: &mut 
     let types = type_filter_options();
     let type_labels: Vec<&str> = types.iter().map(|(_, l)| *l).collect();
     let current = types.iter().find(|(v, _)| *v == mem.ty).map(|(_, l)| *l);
-    let ty = Select::new("mem-type", &type_labels)
+    let ty = select("mem-type", &type_labels)
         .width(144.0)
         .current(current)
         .label("Type")
@@ -121,7 +121,7 @@ fn filters(s: &Ui, all: &AllVaultsView, can_write: bool, t: &Theme, layer: &mut 
         .iter()
         .find(|(v, _)| *v == mem.scope)
         .map(|(_, l)| l.as_str());
-    let scope = Select::new("mem-scope", &scope_labels)
+    let scope = select("mem-scope", &scope_labels)
         .width(208.0)
         .current(current)
         .label("Project")

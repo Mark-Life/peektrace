@@ -22,10 +22,15 @@ pub struct Theme {
     pub muted_fg: Color,
     pub primary: Color,
     pub border: Color,
+    /// Borders of buttons, selects and text fields.
+    pub input: Color,
     pub sidebar: Color,
     pub sidebar_accent: Color,
     pub destructive: Color,
 }
+
+/// Control borders: the primary at this alpha.
+const INPUT_ALPHA: f32 = 0.2;
 
 fn build(dark: bool) -> Theme {
     let (bg, fg, primary) = if dark {
@@ -49,6 +54,11 @@ fn build(dark: bool) -> Theme {
     let mono = TextStyle::new(12.0, 400.0).mono();
     kit.ty.mono = mono;
     let pick = |d: Color, l: Color| if dark { d } else { l };
+    // The inspector's `--input`: one visible 1 px edge for every control.
+    let input = primary.alpha(INPUT_ALPHA);
+    kit.c.border_muted = input;
+    kit.c.border_weak = input;
+    kit.c.border_base = input;
     Theme {
         kit,
         dark,
@@ -59,6 +69,7 @@ fn build(dark: bool) -> Theme {
         muted_fg: pick(oklch(0.708, 0.015, 210.0), oklch(0.49, 0.021, 213.5)),
         primary,
         border: primary.alpha(0.2),
+        input,
         sidebar: pick(oklch(0.218, 0.008, 223.9), oklch(0.987, 0.002, 197.1)),
         sidebar_accent: pick(oklch(0.275, 0.011, 216.9), oklch(0.963, 0.002, 197.1)),
         destructive: pick(oklch(0.704, 0.191, 22.216), oklch(0.577, 0.245, 27.325)),
@@ -134,4 +145,21 @@ pub mod ty {
     pub const CHART_10: TextStyle = TextStyle::new(10.0, 400.0);
     pub const CHART_11: TextStyle = TextStyle::new(11.0, 400.0);
     pub const TINY: TextStyle = TextStyle::new(10.0, 500.0);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::theme;
+
+    #[test]
+    fn controls_share_one_visible_border_in_both_themes() {
+        for dark in [true, false] {
+            let t = theme(dark);
+            let c = &t.kit.c;
+            assert_eq!(c.border_muted, t.input, "outline buttons, dark {dark}");
+            assert_eq!(c.border_weak, t.input, "text fields, dark {dark}");
+            assert_eq!(c.border_base, t.input, "field selects, dark {dark}");
+            assert!(t.input.a >= 0.2, "dark {dark}");
+        }
+    }
 }

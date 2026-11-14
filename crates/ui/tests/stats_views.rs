@@ -475,3 +475,15 @@ fn a_long_rule_badge_stays_in_its_cell_at_every_width() {
         }
     }
 }
+
+#[test]
+fn the_window_and_agent_selects_are_fields_at_the_inspectors_widths() {
+    let rt = runtime(ui(&three_causes()));
+    for (key, w) in [("stats-days", 128.0), ("stats-agent", 144.0)] {
+        let r = el(&rt, key).rect;
+        assert!(
+            (r[2] - w).abs() < 0.5 && (r[3] - 28.0).abs() < 0.5,
+            "{key}: {r:?}"
+        );
+    }
+}

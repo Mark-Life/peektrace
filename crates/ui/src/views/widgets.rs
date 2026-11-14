@@ -93,3 +93,8 @@ pub fn status(s: &str, t: &Theme) -> El {
         .role("status")
         .min_w(0.0)
 }
+
+/// A select drawn as a bordered field, so it reads as a control among text.
+pub fn select<S: AsRef<str>>(key: &str, options: &[S]) -> rune_kit::Select {
+    rune_kit::Select::new(key, options).appearance(rune_kit::SelectAppearance::Field)
+}

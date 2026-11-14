@@ -3,8 +3,7 @@
 
 use rune::{El, Tx, col, icon, row, text};
 use rune_kit::{
-    Button, ButtonVariant, Dialog as KitDialog, Select, TextArea, TextInput, Toast, ToastRegion,
-    glyphs,
+    Button, ButtonVariant, Dialog as KitDialog, TextArea, TextInput, Toast, ToastRegion, glyphs,
 };
 
 use super::paint::{amber_300, amber_400, emerald_400, red_400};
@@ -15,6 +14,7 @@ use crate::model::memory::{
 use crate::state::Ui;
 use crate::state_memory::{CreateTarget, DeleteForm, Dialog, EditForm, ToastKind};
 use crate::theme::{Theme, ty};
+use crate::views::widgets::select;
 
 const WIDTH: f32 = 512.0;
 
@@ -59,7 +59,7 @@ fn type_select(
 ) -> El {
     // An unknown type (the `42` file) matches no option and shows empty.
     let current = MEMORY_TYPES.iter().copied().find(|k| *k == current);
-    Select::new(key, &MEMORY_TYPES)
+    select(key, &MEMORY_TYPES)
         .current(current)
         .placeholder("")
         .label("Type")
@@ -91,7 +91,7 @@ fn project_picker(s: &Ui, picked: Option<&ProjectOption>, t: &Theme, layer: &mut
     let names: Vec<&str> = options.iter().map(|o| o.label.as_str()).collect();
     let open = s.memory.draft(&CreateTarget::Pick).project_open;
     let choices = options.clone();
-    let select = Select::new("mem-create-project", &names)
+    let select = select("mem-create-project", &names)
         .current(picked.map(|p| p.label.as_str()))
         .placeholder(placeholder)
         .label("Project")
