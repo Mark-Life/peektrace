@@ -126,7 +126,15 @@ const chips = (samples: readonly SampleRef[], titles: SessionTitles) => ({
   line: samples[0]?.line ?? null,
 });
 
-const rank = (rows: ReturnType<typeof shapeRows>, max: number) =>
+interface Ranked {
+  readonly key: string;
+  readonly label: string;
+  readonly secondary?: string;
+  readonly value: number;
+  readonly valueText?: string;
+}
+
+const rank = (rows: readonly Ranked[], max: number) =>
   rows.map((r) => ({
     key: r.key,
     label: r.label,
