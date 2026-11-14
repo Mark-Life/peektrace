@@ -29,7 +29,7 @@ const Figure = ({
   </div>
 );
 
-const shapeRows = (panel: WaitPanel): readonly RankRow[] =>
+export const shapeRows = (panel: WaitPanel): readonly RankRow[] =>
   panel.byShape.map((shape) => ({
     key: shape.key,
     label: shape.key,
@@ -60,7 +60,7 @@ export const Waiting = ({ panel }: { readonly panel: WaitPanel }) => (
   </section>
 );
 
-const clusterRows = (rows: readonly ClusterRow[]): readonly RankRow[] =>
+export const clusterRows = (rows: readonly ClusterRow[]): readonly RankRow[] =>
   rows.slice(0, CLUSTER_ROWS).map((row) => ({
     key: row.key,
     label: row.label,

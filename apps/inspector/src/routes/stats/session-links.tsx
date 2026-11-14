@@ -24,7 +24,7 @@ import {
 } from "../../lib/stats-format";
 
 /** The hover text: every sample behind the chip, then its project. */
-const titleOf = (samples: readonly SampleRef[]) =>
+export const titleOf = (samples: readonly SampleRef[]) =>
   samples
     .map((s) =>
       s.parent === null
