@@ -5,7 +5,7 @@ use rune::{El, col, row, text};
 
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
-use crate::views::widgets::skeleton;
+use crate::views::widgets::{skeleton, status};
 
 fn table_block(t: &Theme) -> El {
     col()
@@ -39,14 +39,10 @@ pub fn pending(s: &Ui, t: &Theme) -> El {
                         .w_full()
                         .gap(8.0)
                         .items_end()
-                        .child(
-                            text("Reading transcripts. The first pass parses every file and can take about 20 s; later passes read the cache.")
-                                .font(ty::SM)
-                                .color(t.muted_fg)
-                                .wrap()
-                                .role("status")
-                                .min_w(0.0),
-                        )
+                        .child(status(
+                            "Reading transcripts. The first pass parses every file and can take about 20 s; later passes read the cache.",
+                            t,
+                        ))
                         .child(
                             text(format!("{} s", peektrace_js::num::to_js_string(s.stats.elapsed())))
                                 .font(ty::MONO_XS)

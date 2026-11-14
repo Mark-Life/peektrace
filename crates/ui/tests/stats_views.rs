@@ -487,3 +487,14 @@ fn the_window_and_agent_selects_are_fields_at_the_inspectors_widths() {
         );
     }
 }
+
+#[test]
+fn the_header_controls_wrap_inside_a_narrow_window() {
+    for w in [700.0, 900.0, 1440.0] {
+        let rt = runtime_at(ui(&three_causes()), w);
+        for key in ["stats-days", "stats-agent", "stats-rescan", "stats-prompt"] {
+            let r = el(&rt, key).rect;
+            assert!(r[0] + r[2] <= w, "{w}: {key} {r:?}");
+        }
+    }
+}

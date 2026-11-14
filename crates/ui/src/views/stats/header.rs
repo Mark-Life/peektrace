@@ -77,7 +77,9 @@ fn controls(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
         v.text.map(|x| x.prompts.report.as_str()),
         t,
     );
+    // Shrinks to the window, so a narrow one wraps the buttons, not clips them.
     row()
+        .shrink()
         .flex_wrap()
         .gap(8.0)
         .center_y()
@@ -118,6 +120,7 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
                         .font(ty::MONO_SM)
                         .color(t.fg)
                         .wrap()
+                        .shrink()
                         .key("stats-corpus"),
                 )
                 .child(spacer())
@@ -126,13 +129,17 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
         .child(muted(window_line(r, v.generated), t).key("stats-window"))
         .child(
             row()
+                .w_full()
                 .gap(6.0)
                 .center_y()
                 .child(icon(&SHIELD_CHECK, 14.0).color(t.muted_fg))
-                .child(muted(
-                    "Command text, error signatures and cluster labels are redacted before they are stored or shown.",
-                    t,
-                )),
+                .child(
+                    muted(
+                        "Command text, error signatures and cluster labels are redacted before they are stored or shown.",
+                        t,
+                    )
+                    .shrink(),
+                ),
         )
         .child(caveats)
 }

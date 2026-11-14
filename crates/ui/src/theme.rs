@@ -33,7 +33,7 @@ pub struct Theme {
 const INPUT_ALPHA: f32 = 0.2;
 /// The backdrop behind every dialog and sheet.
 const SCRIM_DARK: f32 = 0.6;
-const SCRIM_LIGHT: f32 = 0.35;
+const SCRIM_LIGHT: f32 = 0.45;
 
 fn build(dark: bool) -> Theme {
     let (bg, fg, primary) = if dark {

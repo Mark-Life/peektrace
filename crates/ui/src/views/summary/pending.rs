@@ -1,7 +1,7 @@
 //! The session detail while its analysis loads: a skeleton shaped like the
 //! verdict card, the growth chart and the first history rows.
 
-use rune::{El, col, row, spacer};
+use rune::{El, col, row};
 
 use super::tile_columns;
 use crate::theme::Theme;
@@ -11,17 +11,21 @@ use crate::views::widgets::{card, grid, skeleton, status};
 const TILES: usize = 6;
 
 fn verdict(width: f32, t: &Theme) -> El {
+    // Blocks cap at their loaded size; a narrow column wraps the badges.
     let header = row()
         .w_full()
+        .flex_wrap()
         .gap(8.0)
         .items_start()
         .child(
             col()
+                .grow(1.0)
+                .shrink()
+                .min_w(120.0)
                 .gap(8.0)
-                .child(skeleton(Some(240.0), 24.0, t))
-                .child(skeleton(Some(360.0), 14.0, t)),
+                .child(skeleton(None, 24.0, t).max_w(240.0))
+                .child(skeleton(None, 14.0, t).max_w(360.0)),
         )
-        .child(spacer())
         .child(skeleton(Some(88.0), 18.0, t))
         .child(skeleton(Some(72.0), 18.0, t));
     let tiles = (0..TILES).map(|_| skeleton(None, 51.0, t));
@@ -31,6 +35,8 @@ fn verdict(width: f32, t: &Theme) -> El {
         .child(grid(tile_columns(width), 8.0, tiles))
         .child(
             row()
+                .w_full()
+                .flex_wrap()
                 .gap(6.0)
                 .children((0..3).map(|_| skeleton(Some(128.0), 24.0, t))),
         )
@@ -46,9 +52,9 @@ pub fn pending(width: f32, t: &Theme) -> El {
         .child(verdict(width, t))
         .child(
             card(t)
-                .child(skeleton(Some(192.0), 20.0, t))
+                .child(skeleton(None, 20.0, t).max_w(192.0))
                 .child(skeleton(None, 320.0, t)),
         )
-        .child(skeleton(Some(160.0), 20.0, t))
+        .child(skeleton(None, 20.0, t).max_w(160.0))
         .children((0..3).map(|_| skeleton(None, 56.0, t)))
 }
