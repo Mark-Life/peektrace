@@ -17,8 +17,9 @@ pub mod source;
 #[cfg(feature = "view")]
 pub mod state;
 #[cfg(feature = "view")]
-pub mod state_stats;
 pub mod state_memory;
+#[cfg(feature = "view")]
+pub mod state_stats;
 #[cfg(feature = "view")]
 pub mod theme;
 #[cfg(feature = "view")]

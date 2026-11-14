@@ -86,7 +86,8 @@ pub const SCENES: &[Scene] = &[
     ("shortcuts", |s| {
         s.help_open = true;
         s.mac = true;
-    }),    ("memory", state_memory::scene),
+    }),
+    ("memory", state_memory::scene),
     ("memory-filtered", state_memory::scene_filtered),
     ("memory-entry", state_memory::scene_entry),
     ("memory-create", state_memory::scene_create),

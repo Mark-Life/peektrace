@@ -14,7 +14,6 @@ use wasm_bindgen::prelude::Closure;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{EventSource, MessageEvent, Request, RequestCredentials, RequestInit, Response};
 
-
 use super::memory::{MemoryData, MemoryDone, MemoryWrite, update_body};
 use super::{
     DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode, decode_error,
