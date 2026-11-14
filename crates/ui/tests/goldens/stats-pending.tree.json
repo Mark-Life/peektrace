@@ -2,475 +2,230 @@
   "elements": [
     {
       "key": "kit-root",
-      "rect": [
-        0,
-        0,
-        1440,
-        900
-      ],
+      "rect": [0, 0, 1440, 900],
       "role": "group"
     },
     {
-      "rect": [
-        0,
-        0,
-        1440,
-        900
-      ],
+      "rect": [0, 0, 1440, 900],
       "role": "group"
     },
     {
       "key": "nav",
-      "rect": [
-        0,
-        0,
-        256,
-        900
-      ],
+      "rect": [0, 0, 256, 900],
       "role": "group"
     },
     {
       "key": "titlebar-band",
-      "rect": [
-        10,
-        10,
-        236,
-        32
-      ],
+      "rect": [10, 10, 236, 32],
       "role": "group"
     },
     {
-      "rect": [
-        10,
-        46,
-        236,
-        47
-      ],
+      "rect": [10, 46, 236, 47],
       "role": "group"
     },
     {
-      "rect": [
-        16,
-        46,
-        224,
-        18
-      ],
+      "rect": [16, 46, 224, 18],
       "role": "text",
       "text": "Peektrace"
     },
     {
-      "rect": [
-        16,
-        66,
-        224,
-        15
-      ],
+      "rect": [16, 66, 224, 15],
       "role": "text",
       "text": "Agent session inspector"
     },
     {
       "key": "nav-sessions",
       "label": "Sessions",
-      "rect": [
-        10,
-        97,
-        236,
-        32
-      ],
+      "rect": [10, 97, 236, 32],
       "role": "link"
     },
     {
-      "rect": [
-        20,
-        104,
-        60,
-        18
-      ],
+      "rect": [20, 104, 60, 18],
       "role": "text",
       "text": "Sessions"
     },
     {
       "key": "nav-stats",
       "label": "Stats",
-      "rect": [
-        10,
-        133,
-        236,
-        32
-      ],
+      "rect": [10, 133, 236, 32],
       "role": "link"
     },
     {
-      "rect": [
-        20,
-        140,
-        35,
-        18
-      ],
+      "rect": [20, 140, 35, 18],
       "role": "text",
       "text": "Stats"
     },
     {
       "key": "nav-memory",
       "label": "Memory",
-      "rect": [
-        10,
-        169,
-        236,
-        32
-      ],
+      "rect": [10, 169, 236, 32],
       "role": "link"
     },
     {
-      "rect": [
-        20,
-        176,
-        54,
-        18
-      ],
+      "rect": [20, 176, 54, 18],
       "role": "text",
       "text": "Memory"
     },
     {
       "key": "nav-settings",
       "label": "Settings",
-      "rect": [
-        10,
-        205,
-        236,
-        32
-      ],
+      "rect": [10, 205, 236, 32],
       "role": "link"
     },
     {
-      "rect": [
-        20,
-        212,
-        55,
-        18
-      ],
+      "rect": [20, 212, 55, 18],
       "role": "text",
       "text": "Settings"
     },
     {
-      "rect": [
-        10,
-        241,
-        236,
-        618
-      ],
+      "rect": [10, 241, 236, 618],
       "role": "group"
     },
     {
       "key": "theme-toggle",
       "label": "Toggle theme",
-      "rect": [
-        10,
-        862,
-        236,
-        28
-      ],
+      "rect": [10, 862, 236, 28],
       "role": "button"
     },
     {
-      "rect": [
-        18,
-        869,
-        28,
-        15
-      ],
+      "rect": [18, 869, 28, 15],
       "role": "text",
       "text": "Light"
     },
     {
-      "rect": [
-        256,
-        0,
-        1184,
-        900
-      ],
+      "rect": [256, 0, 1184, 900],
       "role": "group"
     },
     {
       "key": "header",
-      "rect": [
-        256,
-        0,
-        1184,
-        44
-      ],
+      "rect": [256, 0, 1184, 44],
       "role": "group"
     },
     {
-      "rect": [
-        272,
-        13,
-        35,
-        18
-      ],
+      "rect": [272, 13, 35, 18],
       "role": "text",
       "text": "Stats"
     },
     {
-      "rect": [
-        317,
-        15,
-        148,
-        15
-      ],
+      "rect": [317, 15, 148, 15],
       "role": "text",
       "text": "What fails, what costs time"
     },
     {
-      "rect": [
-        475,
-        22,
-        885,
-        0
-      ],
+      "rect": [475, 22, 885, 0],
       "role": "group"
     },
     {
       "key": "syncing",
-      "rect": [
-        1370,
-        15,
-        55,
-        15
-      ],
+      "rect": [1370, 15, 55, 15],
       "role": "group"
     },
     {
-      "rect": [
-        1370,
-        19,
-        6,
-        6
-      ],
+      "rect": [1370, 19, 6, 6],
       "role": "image"
     },
     {
-      "rect": [
-        1382,
-        15,
-        43,
-        15
-      ],
+      "rect": [1382, 15, 43, 15],
       "role": "text",
       "text": "syncing"
     },
     {
       "key": "stats-scroll",
-      "rect": [
-        256,
-        44,
-        1184,
-        856
-      ],
+      "rect": [256, 44, 1184, 856],
       "role": "group"
     },
     {
       "key": "stats-route",
-      "rect": [
-        256,
-        44,
-        1184,
-        798
-      ],
+      "rect": [256, 44, 1184, 798],
       "role": "group"
     },
     {
       "key": "stats-col",
-      "rect": [
-        280,
-        68,
-        1136,
-        750
-      ],
+      "rect": [280, 68, 1136, 750],
       "role": "group"
     },
     {
       "key": "stats-pending",
-      "rect": [
-        280,
-        68,
-        1136,
-        726
-      ],
+      "rect": [280, 68, 1136, 726],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        68,
-        1136,
-        54
-      ],
+      "rect": [280, 68, 1136, 54],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        68,
-        1136,
-        28
-      ],
+      "rect": [280, 68, 1136, 28],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        72,
-        448,
-        20
-      ],
+      "rect": [280, 72, 448, 20],
       "role": "group"
     },
     {
-      "rect": [
-        1128,
-        68,
-        288,
-        28
-      ],
+      "rect": [1128, 68, 288, 28],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        104,
-        1136,
-        18
-      ],
+      "rect": [280, 104, 1136, 18],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        104,
-        672,
-        18
-      ],
+      "rect": [280, 104, 672, 18],
       "role": "status",
       "text": "Reading transcripts. The first pass parses every file and can take about 20 s; later passes read the cache."
     },
     {
       "key": "stats-elapsed",
-      "rect": [
-        960,
-        107,
-        22,
-        15
-      ],
+      "rect": [960, 107, 22, 15],
       "role": "text",
       "text": "0 s"
     },
     {
-      "rect": [
-        280,
-        154,
-        1136,
-        112
-      ],
+      "rect": [280, 154, 1136, 112],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        154,
-        192,
-        20
-      ],
+      "rect": [280, 154, 192, 20],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        186,
-        1136,
-        80
-      ],
+      "rect": [280, 186, 1136, 80],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        298,
-        1136,
-        144
-      ],
+      "rect": [280, 298, 1136, 144],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        298,
-        160,
-        20
-      ],
+      "rect": [280, 298, 160, 20],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        330,
-        1136,
-        112
-      ],
+      "rect": [280, 330, 1136, 112],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        474,
-        1136,
-        144
-      ],
+      "rect": [280, 474, 1136, 144],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        474,
-        160,
-        20
-      ],
+      "rect": [280, 474, 160, 20],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        506,
-        1136,
-        112
-      ],
+      "rect": [280, 506, 1136, 112],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        650,
-        1136,
-        144
-      ],
+      "rect": [280, 650, 1136, 144],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        650,
-        160,
-        20
-      ],
+      "rect": [280, 650, 160, 20],
       "role": "group"
     },
     {
-      "rect": [
-        280,
-        682,
-        1136,
-        112
-      ],
+      "rect": [280, 682, 1136, 112],
       "role": "group"
     }
   ],

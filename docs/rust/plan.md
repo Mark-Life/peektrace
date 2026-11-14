@@ -30,7 +30,7 @@ The `tui` stage (`--tui-only`) compares the `tui --port` errors byte for byte, t
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
-The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions (turn numbers and the cross index against the frozen `parity-history-rules.ts` copy): list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). It also checks the static answers of `serve --ui rune` on a fake bundle. `serve --ui rune` is experimental (see Decisions).
+The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions (turn numbers and the cross index against the frozen `parity-history-rules.ts` copy): list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). For Stats it checks number, percent, duration and date text on a sweep, then reads each report and drill page the probe ran and compares findings, every prompt, rule lines, suggested rules, time notes, chips, row and cell text, rank bar widths and drill hit labels with the inspector's own functions. That runs on the stats fixture HOME (every agent, and each one alone) and on the real corpus. It also checks the static answers of `serve --ui rune` on a fake bundle. `serve --ui rune` is experimental (see Decisions).
 
 ## Target layout
 
@@ -165,7 +165,13 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app `Math.round(-0.5)` in `fmt` | `-0` | `0` |
 | Rune app tool bodies over 32 KiB | shown whole | the first 32 KiB to a line end, plus `Show full output (<size>)`; over 128 KiB the full body draws uncoloured |
 | Rune app JSON tool args nested deeper than 128 | parsed | read as not JSON, shown verbatim |
+| Rune app Stats error panel | `The request failed.` for `StatsScanError` and `StatsRowNotFoundError` | the same line, then the reason |
+| Rune app Stats copy buttons | a failed copy says so and shows the text to copy by hand | native copy cannot fail; no fallback |
+| Rune app Stats breakpoints (`md`, `lg`) | viewport width | width of the stats column |
+| Rune app Stats session links | open the transcript with the detector's marks drawn | open the session at the call; no detector marks yet |
+| Rune app Stats days or agent change with the drill sheet open | the drill key stays in the hash and reads against the new report | the sheet closes |
 | Experimental `serve --ui rune`: web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
+| Experimental `serve --ui rune`: Stats | findings, prompts, rule badges and time notes | none: core writes that text, so the web build hides it |
 | Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
 
 ## Decisions
@@ -230,3 +236,5 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 33. `virtual_rows` takes one row height estimate: ask Rune for per-row estimates, or live with the scroll thumb moving on long unvisited transcripts?
 34. Move the inspector off `@workspace/core` before cutover: types from Rust plus a `view-core` package, or server export?
 35. Keep or drop the Rune web build after the native app ships?
+36. Rune app Stats: draw the detector marks in the opened transcript (`DataSource::markers` exists), or leave the link at the call?
+37. Rune web build Stats: add a server route for the inspector-format findings and prompts, or keep them native only?

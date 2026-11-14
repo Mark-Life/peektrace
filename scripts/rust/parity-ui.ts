@@ -27,6 +27,7 @@ import { digest, PINNED, tsValueSync } from "./parity-oracle";
 import { exampleBin, pipe } from "./parity-tui";
 import { growthAnswer } from "./parity-ui-growth";
 import { runRuneServeChecks } from "./parity-ui-serve";
+import { runStats } from "./parity-ui-stats-run";
 import {
   analysisAnswer,
   type FilterCase,
@@ -406,8 +407,12 @@ export const runUiStage = async ({
     const files = analyses(set.env, set.headers, join(WORK, `ui-${set.label}`));
     checkAnalyses(bin, files, set.show, counts);
   }
+  const stats = runStats(
+    { bin, compare, digest, listHeaders, pipe, tsAnswer },
+    { fixtures, real }
+  );
   const statics = await runRuneServeChecks();
   console.log(
-    `ui stage: helpers ${counts.helpers} cases, analyses ${counts.analyses}, growth ${counts.growth} sessions (${counts.shifted} interleaved, known), serve --ui rune ${statics} checks`
+    `ui stage: helpers ${counts.helpers} cases, analyses ${counts.analyses}, growth ${counts.growth} sessions (${counts.shifted} interleaved, known), stats ${stats.reports} reports (${stats.prompts} prompts, ${stats.helpers} findings, ${stats.fmt} format cases), ${stats.drills} drill pages, serve --ui rune ${statics} checks`
   );
 };
