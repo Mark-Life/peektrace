@@ -382,6 +382,13 @@ struct Failing {
 }
 
 impl DataSource for Failing {
+    fn memory(&self, _: Reply<peektrace_ui::source::memory::MemoryData>) {}
+    fn memory_write(
+        &self,
+        _: peektrace_ui::source::memory::MemoryWrite,
+        _: Reply<peektrace_ui::source::memory::MemoryDone>,
+    ) {
+    }
     fn sessions(&self, reply: Reply<SessionListingView>) {
         self.inner.sessions(reply);
     }

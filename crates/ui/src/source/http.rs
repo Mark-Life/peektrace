@@ -13,6 +13,9 @@ use wasm_bindgen::prelude::Closure;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{EventSource, MessageEvent, Request, RequestCredentials, RequestInit, Response};
 
+use peektrace_protocol::view::memory::{AllVaultsView, DeleteView, EntryView};
+
+use super::memory::{MemoryData, MemoryDone, MemoryWrite};
 use super::{
     DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode, decode_error,
 };
@@ -112,6 +115,67 @@ async fn load_with<T: serde::de::DeserializeOwned>(
 /// The browser's offset east of UTC at `ms`, as `Date` reads it.
 fn local_offset(ms: f64) -> f64 {
     -js_sys::Date::new(&ms.into()).get_timezone_offset() * 60_000.0
+}
+
+async fn memory_data() -> Result<MemoryData, LoadError> {
+    let all: AllVaultsView = load("/api/memory", "/api/memory".into()).await?;
+    let caps: Vec<Capability> = load("/api/capabilities", "/api/capabilities".into()).await?;
+    let info: ServerInfo = load("/api/server", "/api/server".into()).await?;
+    Ok(MemoryData {
+        all,
+        caps,
+        read_only: info.read_only,
+    })
+}
+
+async fn memory_send(op: MemoryWrite) -> Result<MemoryDone, LoadError> {
+    match op {
+        MemoryWrite::Create { project, body } => {
+            let path = format!("/api/memory/projects/{}/entries", encode(&project));
+            load_with::<EntryView>(
+                "/api/memory/projects/{project}/entries",
+                "POST",
+                path,
+                serde_json::to_string(&body).ok(),
+            )
+            .await
+            .map(MemoryDone::Entry)
+        }
+        MemoryWrite::Update {
+            project,
+            name,
+            body,
+        } => {
+            let path = format!(
+                "/api/memory/projects/{}/entries/{}",
+                encode(&project),
+                encode(&name)
+            );
+            load_with::<EntryView>(
+                "/api/memory/projects/{project}/entries/{name}",
+                "PATCH",
+                path,
+                serde_json::to_string(&body).ok(),
+            )
+            .await
+            .map(MemoryDone::Entry)
+        }
+        MemoryWrite::Delete { project, name } => {
+            let path = format!(
+                "/api/memory/projects/{}/entries/{}",
+                encode(&project),
+                encode(&name)
+            );
+            load_with::<DeleteView>(
+                "/api/memory/projects/{project}/entries/{name}",
+                "DELETE",
+                path,
+                None,
+            )
+            .await
+            .map(MemoryDone::Deleted)
+        }
+    }
 }
 
 fn encode(s: &str) -> String {
@@ -222,6 +286,14 @@ impl DataSource for Http {
         spawn_local(async move {
             reply(load_with("/api/settings", "PUT", "/api/settings".into(), Some(body)).await);
         });
+    }
+
+    fn memory(&self, reply: Reply<MemoryData>) {
+        spawn_local(async move { reply(memory_data().await) });
+    }
+
+    fn memory_write(&self, op: MemoryWrite, reply: Reply<MemoryDone>) {
+        spawn_local(async move { reply(memory_send(op).await) });
     }
 
     fn watch(&self, on_versions: OnVersions) {
