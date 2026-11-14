@@ -9,6 +9,7 @@ pub mod format;
 pub mod labels;
 pub mod list;
 pub mod md;
+pub mod memory;
 pub mod notice;
 pub mod row;
 pub mod settings;
