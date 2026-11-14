@@ -15,7 +15,7 @@ use web_sys::{EventSource, MessageEvent, Request, RequestCredentials, RequestIni
 
 use peektrace_protocol::view::memory::{AllVaultsView, DeleteView, EntryView};
 
-use super::memory::{MemoryData, MemoryDone, MemoryWrite};
+use super::memory::{MemoryData, MemoryDone, MemoryWrite, update_body};
 use super::{
     DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode, decode_error,
 };
@@ -144,8 +144,11 @@ async fn memory_send(op: MemoryWrite) -> Result<MemoryDone, LoadError> {
         MemoryWrite::Update {
             project,
             name,
+            frontmatter,
             body,
+            expected_mtime,
         } => {
+            let body = update_body(frontmatter.as_ref(), body.as_deref(), expected_mtime);
             let path = format!(
                 "/api/memory/projects/{}/entries/{}",
                 encode(&project),

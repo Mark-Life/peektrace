@@ -3,7 +3,7 @@
 //! server runs, with its error mapping, so both sources answer alike.
 
 use peektrace_protocol::view::memory::{AllVaultsView, DeleteView, EntryView};
-use peektrace_protocol::{Capability, MemoryCreateBody, MemoryUpdateBody};
+use peektrace_protocol::{Capability, MemoryCreateBody, MemoryFrontmatterPatch, MemoryUpdateBody};
 
 /// What the explorer needs: every vault, the capability matrix and the
 /// server mode.
@@ -15,21 +15,47 @@ pub struct MemoryData {
 }
 
 /// A memory write, addressed as the server's routes are.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemoryWrite {
     Create {
         project: String,
         body: MemoryCreateBody,
     },
+    /// `expected_mtime`, in whole ms, turns on compare-and-swap.
     Update {
         project: String,
         name: String,
-        body: MemoryUpdateBody,
+        frontmatter: Option<MemoryFrontmatterPatch>,
+        body: Option<String>,
+        expected_mtime: Option<i64>,
     },
     Delete {
         project: String,
         name: String,
     },
+}
+
+/// The body `PATCH .../entries/{name}` takes for an update.
+#[expect(clippy::cast_precision_loss, reason = "file mtimes in ms fit f64")]
+pub fn update_body(
+    frontmatter: Option<&MemoryFrontmatterPatch>,
+    body: Option<&str>,
+    expected_mtime: Option<i64>,
+) -> MemoryUpdateBody {
+    MemoryUpdateBody {
+        frontmatter: frontmatter.cloned(),
+        body: body.map(str::to_owned),
+        expected_mtime: expected_mtime.map(|m| m as f64),
+    }
+}
+
+/// `expectedMtime` as the whole ms core compares; any other number can
+/// never match, so it maps to a value no file has.
+#[expect(clippy::cast_possible_truncation, reason = "checked to be in range")]
+pub fn expected_mtime(n: f64) -> i64 {
+    #[expect(clippy::cast_precision_loss, reason = "range bounds")]
+    let in_range = n.fract() == 0.0 && n >= i64::MIN as f64 && n < i64::MAX as f64;
+    if in_range { n as i64 } else { i64::MIN }
 }
 
 /// What a write answers.
@@ -58,6 +84,8 @@ mod native {
     };
     use tracing::{field, info_span};
 
+    #[cfg(test)]
+    use super::expected_mtime;
     use super::{MemoryData, MemoryDone, MemoryWrite};
     use crate::source::{LoadError, decode};
 
@@ -162,15 +190,6 @@ mod native {
         LoadError::Api(api)
     }
 
-    /// `expectedMtime` as the whole ms core compares; any other number can
-    /// never match, so it maps to a value no file has.
-    #[expect(clippy::cast_possible_truncation, reason = "checked to be in range")]
-    pub fn expected_mtime(n: f64) -> i64 {
-        #[expect(clippy::cast_precision_loss, reason = "range bounds")]
-        let in_range = n.fract() == 0.0 && n >= i64::MIN as f64 && n < i64::MAX as f64;
-        if in_range { n as i64 } else { i64::MIN }
-    }
-
     fn record_error<T>(span: &tracing::Span, out: &Result<T, LoadError>) {
         if let Err(e) = out {
             span.record("error", field::display(e));
@@ -223,23 +242,25 @@ mod native {
             MemoryWrite::Update {
                 project,
                 name,
+                frontmatter,
                 body,
+                expected_mtime,
             } => {
                 let span = memory_span!("app.memory.update");
                 span.record("memory.project", project.as_str());
                 span.record("memory.name", name.as_str());
-                span.record("memory.cas", body.expected_mtime.is_some());
+                span.record("memory.cas", expected_mtime.is_some());
                 let _entered = span.enter();
                 let u = MemoryUpdate {
                     project,
                     name,
-                    frontmatter: body.frontmatter.map(|f| FrontmatterPatch {
+                    frontmatter: frontmatter.map(|f| FrontmatterPatch {
                         name: f.name,
                         description: f.description,
                         kind: f.kind,
                     }),
-                    body: body.body,
-                    expected_mtime: body.expected_mtime.map(expected_mtime),
+                    body,
+                    expected_mtime,
                 };
                 let out = update(&ctx, Agent::Claude, &u)
                     .map_err(fail)

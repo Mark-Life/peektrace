@@ -10,13 +10,23 @@ use crate::scenes::SCENES;
 use crate::source::DataSource;
 use crate::state::settings::APP_ID;
 use crate::state::{Io, Request, Route, Ui};
-use crate::{state, views};
+use crate::{state, state_memory, views};
 
 /// Keycaps and modifier rules follow the Mac.
 pub const MAC: bool = cfg!(target_os = "macos");
 
 /// Focus keys of text fields, by prefix: single keys type there.
-pub const TEXT_FIELDS: &[&str] = &["search", "settings-path-", "settings-label-"];
+pub const TEXT_FIELDS: &[&str] = &[
+    "search",
+    "settings-path-",
+    "settings-label-",
+    "mem-search",
+    "mem-create-name",
+    "mem-create-description",
+    "mem-create-body",
+    "mem-edit-description",
+    "mem-edit-body",
+];
 
 /// Geist, plus a `DejaVu Sans` cut for the UI's own `∞ ⋯ ▴ ▾ ⌘`, on every target:
 /// the web has no system fonts, and native fallback picks a per-OS symbol font
@@ -149,6 +159,7 @@ pub fn dispatch(s: &mut Ui) {
                     });
                 }),
             ),
+            Request::Memory(r) => state_memory::dispatch(r, io),
         }
     }
 }
@@ -201,6 +212,7 @@ pub fn load_now(s: &mut Ui) {
                     s.apply_save(rid, r, 0.0);
                 }
             }
+            Request::Memory(r) => state_memory::load_now(s, source.as_ref(), r),
         }
     }
 }
