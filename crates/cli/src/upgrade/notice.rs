@@ -32,19 +32,21 @@ pub fn is_npm_install(exe: &str) -> bool {
     exe.split(['/', '\\']).any(|seg| seg == "node_modules")
 }
 
-/// A bun global install (`~/.bun/install/global/node_modules/...`).
-pub fn is_bun_global_install(exe: &str) -> bool {
-    exe.replace('\\', "/").contains(".bun/install/global")
-}
+const INSTALL_SH: &str =
+    "curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh";
+const INSTALL_PS1: &str =
+    "irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.ps1 | iex";
 
-fn hint_command(exe: &str) -> &'static str {
-    if is_bun_global_install(exe) {
-        "'bun add -g peektrace@latest'"
-    } else if is_npm_install(exe) {
-        "'npm i -g peektrace@latest' (or 'npx peektrace@latest')"
-    } else {
-        "'peektrace upgrade'"
+/// npm gets no new versions, so npm installs are pointed at the installer.
+fn hint_command(exe: &str) -> String {
+    if !is_npm_install(exe) {
+        return "'peektrace upgrade'".to_owned();
     }
+    let windows = Path::new(exe)
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"));
+    let install = if windows { INSTALL_PS1 } else { INSTALL_SH };
+    format!("'{install}' (npm gets no new versions)")
 }
 
 /// The upgrade hint for how this binary was installed.

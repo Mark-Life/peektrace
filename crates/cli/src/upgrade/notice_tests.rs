@@ -20,11 +20,8 @@ fn install_kinds() {
     ));
     assert!(!is_npm_install("/usr/local/bin/peektrace"));
     assert!(!is_npm_install("/x/my_node_modules/peektrace"));
-    assert!(is_bun_global_install(
+    assert!(is_npm_install(
         "/home/u/.bun/install/global/node_modules/peektrace/bin/peektrace"
-    ));
-    assert!(is_bun_global_install(
-        r"C:\Users\u\.bun\install\global\node_modules\peektrace\p.exe"
     ));
 }
 
@@ -36,14 +33,14 @@ fn hints() {
     );
     assert_eq!(
         update_hint("cli-v1.0.0", "/u/node_modules/peektrace/bin/peektrace"),
-        "A newer version (cli-v1.0.0) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')"
+        "A newer version (cli-v1.0.0) is available — run 'curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh' (npm gets no new versions)"
     );
     assert_eq!(
         update_hint(
             "cli-v1.0.0",
-            "/u/.bun/install/global/node_modules/peektrace/bin/peektrace"
+            r"C:\Users\u\node_modules\@peektrace\cli-win32-x64\bin\peektrace.exe"
         ),
-        "A newer version (cli-v1.0.0) is available — run 'bun add -g peektrace@latest'"
+        "A newer version (cli-v1.0.0) is available — run 'irm https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.ps1 | iex' (npm gets no new versions)"
     );
 }
 
@@ -196,28 +193,19 @@ fn update_hint_ts_fixtures() {
     assert!(!is_npm_install("/usr/local/bin/peektrace"));
     assert!(!is_npm_install("/opt/node_modules_backup/peektrace"));
 
-    assert!(is_bun_global_install(
-        "/home/u/.bun/install/global/node_modules/x/peektrace"
-    ));
-    assert!(is_bun_global_install(
-        r"C:\Users\u\.bun\install\global\node_modules\x\peektrace.exe"
-    ));
-    assert!(!is_bun_global_install("/opt/x/node_modules/y/peektrace"));
-
     assert_eq!(
         update_hint("cli-v1.0.0", "/usr/local/bin/peektrace"),
         "A newer version (cli-v1.0.0) is available — run 'peektrace upgrade'"
     );
     assert_eq!(
         update_hint("cli-v1.0.0", "/a/node_modules/b/peektrace"),
-        "A newer version (cli-v1.0.0) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')"
+        "A newer version (cli-v1.0.0) is available — run 'curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh' (npm gets no new versions)"
     );
     let bun = update_hint(
         "cli-v1.0.0",
         "/home/u/.bun/install/global/node_modules/@peektrace/cli-linux-x64/bin/peektrace",
     );
-    assert!(bun.contains("bun add -g peektrace@latest"));
-    assert!(!bun.contains("npm"));
+    assert!(bun.contains("scripts/install.sh | sh"));
 }
 
 /// A releases API that answers `[desktop-v3.0.0, cli-v9.9.9, cli-v0.0.1]`
@@ -382,12 +370,12 @@ fn startup_notice_skips_dev_builds() {
     assert!(!c.cache().exists());
 }
 
-/// TS `startupUpdateNotice`: npm installs get the npm command.
+/// npm installs are pointed at the installer, since npm gets no new versions.
 #[test]
-fn startup_notice_names_npm_for_npm_installs() {
+fn startup_notice_moves_npm_installs_to_the_installer() {
     let c = NoticeCase::new("npm");
     let out = c.run("0.0.1", NPM_PATH, false).unwrap_or_default();
-    assert!(out.contains("npm i -g peektrace@latest"));
+    assert!(out.contains("scripts/install.sh | sh"));
     assert!(!out.contains("peektrace upgrade"));
 }
 
@@ -433,7 +421,7 @@ fn notice_prints_the_hint_and_writes_the_cache() {
     assert!(!dir.exists());
     assert_eq!(
         notice_line(&env(&origin, "/u/node_modules/peektrace/bin/peektrace")),
-        Some("A newer version (cli-v9.9.9) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')".to_owned())
+        Some("A newer version (cli-v9.9.9) is available — run 'curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh' (npm gets no new versions)".to_owned())
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -463,7 +451,7 @@ fn hint_reads_through_a_symlink() {
     let resolved = real_path(link).to_string_lossy().into_owned();
     assert_eq!(
         update_hint("cli-v9.9.9", &resolved),
-        "A newer version (cli-v9.9.9) is available — run 'npm i -g peektrace@latest' (or 'npx peektrace@latest')"
+        "A newer version (cli-v9.9.9) is available — run 'curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh' (npm gets no new versions)"
     );
     let missing = dir.join("gone");
     assert_eq!(real_path(missing.clone()), missing);
