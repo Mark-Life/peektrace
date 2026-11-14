@@ -23,8 +23,27 @@ use crate::state_memory::{CreateTarget, Dialog};
 use crate::theme::{Theme, ty};
 
 const MAX_W: f32 = 1800.0;
+const PAD: f32 = 16.0;
 const SCROLL_KEY: &str = "mem-scroll";
 const COL_KEY: &str = "mem-col";
+
+/// The section's width: `outer` picks the breakpoints, as the inspector's
+/// media queries do; `content` is what a full-width child gets.
+#[derive(Debug, Clone, Copy)]
+pub struct Width {
+    pub outer: f32,
+    pub content: f32,
+}
+
+impl Width {
+    /// From the padded column's laid-out width.
+    pub fn of(col: f32) -> Self {
+        Self {
+            outer: col,
+            content: (col - 2.0 * PAD).min(MAX_W),
+        }
+    }
+}
 
 /// The key of a vault's collapsible trigger.
 pub fn vault_key(slug: &str) -> String {
@@ -196,17 +215,17 @@ fn empty_card(can_write: bool, t: &Theme) -> El {
     c
 }
 
-fn overview(all: &AllVaultsView, width: f32, t: &Theme) -> El {
-    let cols: usize = if width >= 1024.0 {
+fn overview(all: &AllVaultsView, width: Width, t: &Theme) -> El {
+    let cols: usize = if width.outer >= 1024.0 {
         4
-    } else if width >= 640.0 {
+    } else if width.outer >= 640.0 {
         2
     } else {
         1
     };
     let gap = 12.0;
     #[expect(clippy::cast_precision_loss, reason = "a few columns")]
-    let card_w = ((width - gap * (cols as f32 - 1.0)) / cols as f32).max(120.0);
+    let card_w = ((width.content - gap * (cols as f32 - 1.0)) / cols as f32).max(120.0);
     let cards = all.projects.iter().map(|p| {
         col()
             .key(format!("mem-card:{}", p.slug))
@@ -243,7 +262,7 @@ fn overview(all: &AllVaultsView, width: f32, t: &Theme) -> El {
         .children(cards)
 }
 
-fn explorer(s: &Ui, all: &AllVaultsView, width: f32, t: &Theme, layer: &mut Vec<El>) -> El {
+fn explorer(s: &Ui, all: &AllVaultsView, width: Width, t: &Theme, layer: &mut Vec<El>) -> El {
     let mem = &s.memory;
     let can_write = mem.can_write();
     let mut c = col().w_full().max_w(MAX_W).gap(20.0).pb(48.0);
@@ -293,9 +312,7 @@ fn explorer(s: &Ui, all: &AllVaultsView, width: f32, t: &Theme, layer: &mut Vec<
 }
 
 pub fn view(s: &Ui, cx: &mut Cx<Ui>, t: &Theme, layer: &mut Vec<El>) -> El {
-    let width = cx
-        .layout_size(COL_KEY)
-        .map_or(1100.0, |[w, _]| w.min(MAX_W));
+    let width = Width::of(cx.layout_size(COL_KEY).map_or(1100.0, |[w, _]| w));
     let body = match (&s.memory.data, &s.memory.error) {
         (Some(d), _) => explorer(s, &d.all, width, t, layer),
         (None, Some(e)) => {
@@ -316,7 +333,7 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>, t: &Theme, layer: &mut Vec<El>) -> El {
             col()
                 .key(COL_KEY)
                 .w_full()
-                .padding(16.0)
+                .padding(PAD)
                 .items_center()
                 .child(body),
         )

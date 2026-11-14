@@ -38,7 +38,7 @@ fn zone() -> &'static dyn LocalZone {
     }
     #[cfg(target_arch = "wasm32")]
     {
-        &peektrace_js::time::Utc
+        &crate::web::BrowserZone
     }
 }
 

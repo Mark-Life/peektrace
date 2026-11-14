@@ -396,6 +396,15 @@ pub struct MemoryUpdateBody {
     pub expected_mtime: Option<f64>,
 }
 
+/// `expectedMtime` as the whole ms core compares; any other number can
+/// never match, so it maps to a value no file has.
+#[expect(clippy::cast_possible_truncation, reason = "checked to be in range")]
+pub fn expected_mtime(n: f64) -> i64 {
+    #[expect(clippy::cast_precision_loss, reason = "range bounds")]
+    let in_range = n.fract() == 0.0 && n >= i64::MIN as f64 && n < i64::MAX as f64;
+    if in_range { n as i64 } else { i64::MIN }
+}
+
 /// Why a settings compare-and-swap failed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]

@@ -112,11 +112,11 @@
     },
     {
       "key": "mem-col",
-      "rect": [256, 44, 1184, 1652],
+      "rect": [256, 44, 1184, 1631],
       "role": "group"
     },
     {
-      "rect": [272, 60, 1152, 1620],
+      "rect": [272, 60, 1152, 1599],
       "role": "group"
     },
     {
@@ -213,52 +213,52 @@
     },
     {
       "key": "mem-card:-Users-demo-parser",
-      "rect": [272, 143, 287, 94],
+      "rect": [272, 143, 279, 94],
       "role": "group"
     },
     {
-      "rect": [288, 159, 255, 18],
+      "rect": [288, 159, 247, 18],
       "role": "text",
       "text": "parser"
     },
     {
-      "rect": [288, 181, 255, 15],
+      "rect": [288, 181, 247, 15],
       "role": "text",
       "text": "-Users-demo-parser"
     },
     {
-      "rect": [288, 200, 255, 21],
+      "rect": [288, 200, 247, 21],
       "role": "text",
       "text": "5 files · indexed"
     },
     {
       "key": "mem-card:-Users-demo-notes",
-      "rect": [571, 143, 287, 94],
+      "rect": [563, 143, 279, 94],
       "role": "group"
     },
     {
-      "rect": [587, 159, 255, 18],
+      "rect": [579, 159, 247, 18],
       "role": "text",
       "text": "notes"
     },
     {
-      "rect": [587, 181, 255, 15],
+      "rect": [579, 181, 247, 15],
       "role": "text",
       "text": "-Users-demo-notes"
     },
     {
-      "rect": [587, 200, 255, 21],
+      "rect": [579, 200, 247, 21],
       "role": "text",
       "text": "1 file · no MEMORY.md"
     },
     {
       "key": "mem-vaults",
-      "rect": [272, 257, 1152, 1375],
+      "rect": [272, 257, 1152, 1354],
       "role": "group"
     },
     {
       "key": "mem-section:-Users-demo-parser",
-      "rect": [272, 257, 1152, 688],
+      "rect": [272, 257, 1152, 677],
       "role": "group"
     },
     {
@@ -291,7 +291,7 @@
     },
     {
       "key": "mem-body:-Users-demo-parser",
-      "rect": [272, 309, 1152, 636],
+      "rect": [272, 309, 1152, 625],
       "role": "group"
     },
     {
@@ -548,7 +548,7 @@
     },
     {
       "key": "mem-lower:-Users-demo-parser",
-      "rect": [288, 524, 1120, 404],
+      "rect": [288, 524, 1120, 394],
       "role": "group"
     },
     {
@@ -1054,12 +1054,12 @@
       "text": "1"
     },
     {
-      "rect": [1040, 524, 368, 404],
+      "rect": [1040, 524, 368, 394],
       "role": "group"
     },
     {
       "key": "mem-panel-graph:-Users-demo-parser",
-      "rect": [1040, 524, 368, 404],
+      "rect": [1040, 524, 368, 394],
       "role": "group"
     },
     {
@@ -1070,472 +1070,472 @@
     {
       "key": "mem-graph:-Users-demo-parser",
       "label": "Memory link graph",
-      "rect": [1056, 568, 345, 345],
+      "rect": [1056, 568, 334, 334],
       "role": "group"
     },
     {
       "key": "mem-graph-static:-Users-demo-parser",
-      "rect": [1056, 568, 345, 345],
+      "rect": [1056, 568, 334, 334],
       "role": "image"
     },
     {
-      "rect": [1168, 591, 120, 11],
+      "rect": [1163, 590, 120, 10],
       "role": "text",
       "text": "a"
     },
     {
-      "rect": [1291, 680, 120, 11],
+      "rect": [1282, 677, 120, 10],
       "role": "text",
       "text": "b"
     },
     {
-      "rect": [1244, 820, 120, 11],
+      "rect": [1237, 813, 120, 10],
       "role": "text",
       "text": "fx-flat"
     },
     {
-      "rect": [1092, 819, 120, 11],
+      "rect": [1089, 811, 120, 10],
       "role": "text",
       "text": "fx-nested"
     },
     {
-      "rect": [1045, 680, 120, 11],
+      "rect": [1044, 677, 120, 10],
       "role": "text",
       "text": "orphan"
     },
     {
       "key": "mem-node:-Users-demo-parser:a",
       "label": "Open a",
-      "rect": [1219, 602, 18, 18],
+      "rect": [1214, 601, 17, 17],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:b",
       "label": "Open b",
-      "rect": [1342, 691, 18, 18],
+      "rect": [1334, 687, 17, 17],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:fx-flat",
       "label": "Open fx-flat",
-      "rect": [1291, 831, 26, 26],
+      "rect": [1284, 823, 26, 26],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:fx-nested",
       "label": "Open fx-nested",
-      "rect": [1137, 829, 30, 30],
+      "rect": [1135, 821, 29, 29],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:orphan",
       "label": "Open orphan",
-      "rect": [1096, 691, 18, 18],
+      "rect": [1095, 687, 17, 17],
       "role": "button"
     },
     {
       "key": "mem-section:-Users-demo-notes",
-      "rect": [272, 944, 1152, 688],
+      "rect": [272, 934, 1152, 677],
       "role": "group"
     },
     {
       "key": "mem-vault:-Users-demo-notes",
       "label": "notes",
-      "rect": [272, 944, 1152, 52],
+      "rect": [272, 934, 1152, 52],
       "role": "button"
     },
     {
-      "rect": [288, 961, 1096, 18],
+      "rect": [288, 951, 1096, 18],
       "role": "group"
     },
     {
-      "rect": [288, 961, 37, 18],
+      "rect": [288, 951, 37, 18],
       "role": "text",
       "text": "notes"
     },
     {
-      "rect": [333, 961, 17, 18],
+      "rect": [333, 951, 17, 18],
       "role": "group"
     },
     {
-      "rect": [339, 964, 5, 13],
+      "rect": [339, 953, 5, 13],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1392, 962, 16, 16],
+      "rect": [1392, 952, 16, 16],
       "role": "icon"
     },
     {
       "key": "mem-body:-Users-demo-notes",
-      "rect": [272, 996, 1152, 636],
+      "rect": [272, 986, 1152, 625],
       "role": "group"
     },
     {
       "key": "mem-cards:-Users-demo-notes",
-      "rect": [288, 996, 1120, 200],
+      "rect": [288, 986, 1120, 200],
       "role": "group"
     },
     {
-      "rect": [288, 996, 363, 77],
+      "rect": [288, 986, 363, 77],
       "role": "group"
     },
     {
       "key": "mem-panel-budget:-Users-demo-notes",
-      "rect": [288, 996, 363, 77],
+      "rect": [288, 986, 363, 77],
       "role": "group"
     },
     {
-      "rect": [304, 1012, 331, 18],
+      "rect": [304, 1002, 331, 18],
       "role": "text",
       "text": "Index budget"
     },
     {
       "key": "mem-budget:-Users-demo-notes",
-      "rect": [304, 1040, 331, 18],
+      "rect": [304, 1029, 331, 18],
       "role": "text",
       "text": "No MEMORY.md index in this vault."
     },
     {
-      "rect": [667, 996, 363, 200],
+      "rect": [667, 986, 363, 200],
       "role": "group"
     },
     {
       "key": "mem-panel-types:-Users-demo-notes",
-      "rect": [667, 996, 363, 200],
+      "rect": [667, 986, 363, 200],
       "role": "group"
     },
     {
-      "rect": [683, 1012, 331, 18],
+      "rect": [683, 1002, 331, 18],
       "role": "text",
       "text": "Types"
     },
     {
       "key": "mem-donut:-Users-demo-notes",
-      "rect": [683, 1040, 331, 140],
+      "rect": [683, 1029, 331, 140],
       "role": "group"
     },
     {
       "label": "Memory type distribution",
-      "rect": [683, 1040, 140, 140],
+      "rect": [683, 1029, 140, 140],
       "role": "img"
     },
     {
-      "rect": [839, 1102, 88, 15],
+      "rect": [839, 1092, 88, 15],
       "role": "group"
     },
     {
-      "rect": [839, 1102, 88, 15],
+      "rect": [839, 1092, 88, 15],
       "role": "group"
     },
     {
-      "rect": [839, 1105, 10, 10],
+      "rect": [839, 1094, 10, 10],
       "role": "group"
     },
     {
-      "rect": [857, 1102, 55, 15],
+      "rect": [857, 1092, 55, 15],
       "role": "text",
       "text": "Feedback"
     },
     {
-      "rect": [919, 1102, 8, 15],
+      "rect": [919, 1092, 8, 15],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1045, 996, 363, 96],
+      "rect": [1045, 986, 363, 96],
       "role": "group"
     },
     {
       "key": "mem-panel-diff:-Users-demo-notes",
-      "rect": [1045, 996, 363, 96],
+      "rect": [1045, 986, 363, 96],
       "role": "group"
     },
     {
-      "rect": [1061, 1012, 331, 18],
+      "rect": [1061, 1002, 331, 18],
       "role": "text",
       "text": "Index ↔ files"
     },
     {
       "key": "mem-diff:-Users-demo-notes",
-      "rect": [1061, 1040, 331, 37],
+      "rect": [1061, 1029, 331, 37],
       "role": "group"
     },
     {
-      "rect": [1061, 1040, 331, 37],
+      "rect": [1061, 1029, 331, 37],
       "role": "group"
     },
     {
-      "rect": [1061, 1040, 331, 18],
+      "rect": [1061, 1029, 331, 18],
       "role": "text",
       "text": "1 orphan file (not in index)"
     },
     {
-      "rect": [1061, 1061, 331, 15],
+      "rect": [1061, 1051, 331, 15],
       "role": "group"
     },
     {
-      "rect": [1073, 1067, 4, 4],
+      "rect": [1073, 1056, 4, 4],
       "role": "image"
     },
     {
-      "rect": [1085, 1061, 36, 15],
+      "rect": [1085, 1051, 36, 15],
       "role": "text",
       "text": "style"
     },
     {
       "key": "mem-lower:-Users-demo-notes",
-      "rect": [288, 1212, 1120, 404],
+      "rect": [288, 1201, 1120, 394],
       "role": "group"
     },
     {
-      "rect": [288, 1212, 736, 104],
+      "rect": [288, 1201, 736, 104],
       "role": "group"
     },
     {
-      "rect": [288, 1212, 736, 104],
+      "rect": [288, 1201, 736, 104],
       "role": "group"
     },
     {
-      "rect": [288, 1212, 736, 28],
+      "rect": [288, 1201, 736, 28],
       "role": "group"
     },
     {
       "key": "mem-heading:-Users-demo-notes",
-      "rect": [288, 1213, 100, 18],
+      "rect": [288, 1202, 100, 18],
       "role": "text",
       "text": "1 of 1 memories"
     },
     {
       "key": "mem-create:-Users-demo-notes",
       "label": "New memory",
-      "rect": [936, 1212, 88, 20],
+      "rect": [936, 1201, 88, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [946, 1216, 68, 12],
+      "rect": [946, 1205, 68, 12],
       "role": "text",
       "text": "New memory"
     },
     {
       "key": "mem-table:-Users-demo-notes",
-      "rect": [288, 1240, 736, 76],
+      "rect": [288, 1229, 736, 76],
       "role": "group"
     },
     {
-      "rect": [288, 1240, 736, 36],
+      "rect": [288, 1229, 736, 36],
       "role": "group"
     },
     {
-      "rect": [288, 1240, 132, 36],
+      "rect": [288, 1229, 132, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:title",
       "label": "Sort by Title",
-      "rect": [296, 1250, 29, 15],
+      "rect": [296, 1240, 29, 15],
       "role": "button"
     },
     {
-      "rect": [298, 1250, 25, 15],
+      "rect": [298, 1240, 25, 15],
       "role": "text",
       "text": "Title"
     },
     {
-      "rect": [420, 1240, 96, 36],
+      "rect": [420, 1229, 96, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:type",
       "label": "Sort by Type",
-      "rect": [428, 1250, 31, 15],
+      "rect": [428, 1240, 31, 15],
       "role": "button"
     },
     {
-      "rect": [430, 1250, 27, 15],
+      "rect": [430, 1240, 27, 15],
       "role": "text",
       "text": "Type"
     },
     {
-      "rect": [516, 1240, 132, 36],
+      "rect": [516, 1229, 132, 36],
       "role": "group"
     },
     {
-      "rect": [524, 1250, 65, 15],
+      "rect": [524, 1240, 65, 15],
       "role": "text",
       "text": "Description"
     },
     {
-      "rect": [648, 1240, 72, 36],
+      "rect": [648, 1229, 72, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:size",
       "label": "Sort by Size",
-      "rect": [684, 1250, 29, 15],
+      "rect": [684, 1240, 29, 15],
       "role": "button"
     },
     {
-      "rect": [686, 1250, 25, 15],
+      "rect": [686, 1240, 25, 15],
       "role": "text",
       "text": "Size"
     },
     {
-      "rect": [720, 1240, 176, 36],
+      "rect": [720, 1229, 176, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:mtime",
       "label": "Sort by Modified",
-      "rect": [728, 1250, 69, 15],
+      "rect": [728, 1240, 69, 15],
       "role": "button"
     },
     {
-      "rect": [730, 1250, 49, 15],
+      "rect": [730, 1240, 49, 15],
       "role": "text",
       "text": "Modified"
     },
     {
-      "rect": [783, 1252, 12, 12],
+      "rect": [783, 1241, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [896, 1240, 72, 36],
+      "rect": [896, 1229, 72, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:inIndex",
       "label": "Sort by In index",
-      "rect": [904, 1250, 49, 15],
+      "rect": [904, 1240, 49, 15],
       "role": "button"
     },
     {
-      "rect": [906, 1250, 45, 15],
+      "rect": [906, 1240, 45, 15],
       "role": "text",
       "text": "In index"
     },
     {
-      "rect": [968, 1240, 56, 36],
+      "rect": [968, 1229, 56, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:links",
       "label": "Sort by Links",
-      "rect": [982, 1250, 34, 15],
+      "rect": [982, 1240, 34, 15],
       "role": "button"
     },
     {
-      "rect": [984, 1250, 30, 15],
+      "rect": [984, 1240, 30, 15],
       "role": "text",
       "text": "Links"
     },
     {
       "key": "mem-row:-Users-demo-notes:style",
       "label": "style",
-      "rect": [288, 1276, 736, 40],
+      "rect": [288, 1265, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 1276, 132, 40],
+      "rect": [288, 1265, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 1287, 33, 18],
+      "rect": [296, 1276, 33, 18],
       "role": "text",
       "text": "style"
     },
     {
-      "rect": [420, 1276, 96, 40],
+      "rect": [420, 1265, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 1287, 59, 18],
+      "rect": [428, 1276, 59, 18],
       "role": "group"
     },
     {
-      "rect": [434, 1289, 47, 13],
+      "rect": [434, 1279, 47, 13],
       "role": "text",
       "text": "Feedback"
     },
     {
-      "rect": [516, 1276, 132, 40],
+      "rect": [516, 1265, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 1287, 76, 18],
+      "rect": [524, 1276, 76, 18],
       "role": "text",
       "text": "House style"
     },
     {
-      "rect": [648, 1276, 72, 40],
+      "rect": [648, 1265, 72, 40],
       "role": "group"
     },
     {
-      "rect": [683, 1288, 29, 15],
+      "rect": [683, 1278, 29, 15],
       "role": "text",
       "text": "91 B"
     },
     {
-      "rect": [720, 1276, 176, 40],
+      "rect": [720, 1265, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 1288, 125, 15],
+      "rect": [728, 1278, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 1276, 72, 40],
+      "rect": [896, 1265, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 1288, 16, 16],
+      "rect": [904, 1277, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 1276, 56, 40],
+      "rect": [968, 1265, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 1288, 8, 15],
+      "rect": [1009, 1278, 8, 15],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1040, 1212, 368, 404],
+      "rect": [1040, 1201, 368, 394],
       "role": "group"
     },
     {
       "key": "mem-panel-graph:-Users-demo-notes",
-      "rect": [1040, 1212, 368, 404],
+      "rect": [1040, 1201, 368, 394],
       "role": "group"
     },
     {
-      "rect": [1056, 1228, 336, 18],
+      "rect": [1056, 1217, 336, 18],
       "role": "text",
       "text": "Link graph"
     },
     {
       "key": "mem-graph:-Users-demo-notes",
       "label": "Memory link graph",
-      "rect": [1056, 1255, 345, 345],
+      "rect": [1056, 1245, 334, 334],
       "role": "group"
     },
     {
       "key": "mem-graph-static:-Users-demo-notes",
-      "rect": [1056, 1255, 345, 345],
+      "rect": [1056, 1245, 334, 334],
       "role": "image"
     },
     {
-      "rect": [1168, 1272, 120, 11],
+      "rect": [1163, 1261, 120, 10],
       "role": "text",
       "text": "style"
     },
     {
       "key": "mem-node:-Users-demo-notes:style",
       "label": "Open style",
-      "rect": [1213, 1283, 30, 30],
+      "rect": [1208, 1272, 29, 29],
       "role": "button"
     }
   ],

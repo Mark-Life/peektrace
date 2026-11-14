@@ -1,5 +1,6 @@
 //! The web build keeps the open session in `location.hash`, in the
-//! inspector's shape: `#/sessions?id=<id>&parent=<parent>`.
+//! inspector's shape: `#/sessions?id=<id>&parent=<parent>`, and shows
+//! times in the browser's zone.
 
 use crate::state::Selected;
 
@@ -101,5 +102,40 @@ mod tests {
         assert_eq!(parse_hash(&h), Some(sel));
         assert_eq!(parse_hash("#/stats"), None);
         assert_eq!(parse_hash("#/sessions?q=x"), None);
+    }
+}
+
+/// The browser's zone, as `Date` reads local fields.
+#[cfg(target_arch = "wasm32")]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BrowserZone;
+
+#[cfg(target_arch = "wasm32")]
+#[expect(
+    clippy::cast_precision_loss,
+    clippy::cast_possible_truncation,
+    reason = "Date time values are whole ms within ±8.64e15"
+)]
+impl peektrace_js::time::LocalZone for BrowserZone {
+    fn offset_at_utc_ms(&self, utc_ms: i64) -> i64 {
+        let minutes = js_sys::Date::new(&(utc_ms as f64).into()).get_timezone_offset();
+        -(minutes * 60_000.0) as i64
+    }
+
+    /// `new Date(y, m, d, h, mi, s, ms)` on the wall fields resolves skipped
+    /// and repeated times as `Date.parse` does.
+    fn offset_at_wall_ms(&self, wall_ms: i64) -> i64 {
+        let w = js_sys::Date::new(&(wall_ms as f64).into());
+        let i = |v: u32| i32::try_from(v).unwrap_or(0);
+        let local = js_sys::Date::new_with_year_month_day_hr_min_sec_milli(
+            w.get_utc_full_year(),
+            i(w.get_utc_month()),
+            i(w.get_utc_date()),
+            i(w.get_utc_hours()),
+            i(w.get_utc_minutes()),
+            i(w.get_utc_seconds()),
+            i(w.get_utc_milliseconds()),
+        );
+        wall_ms - local.get_time() as i64
     }
 }

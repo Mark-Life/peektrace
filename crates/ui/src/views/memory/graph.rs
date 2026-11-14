@@ -78,7 +78,7 @@ pub fn graph(s: &Ui, v: &VaultView, avail: f32, t: &Theme) -> El {
     let shape = picture(&r, muted);
     let pic = memo(
         format!("mem-graph-static:{}", v.slug),
-        (s.memory.rid, w.round().to_bits(), t.dark),
+        (s.memory.rev, w.round().to_bits(), t.dark),
         move || canvas(shape).size(w, w),
     );
     let style = TextStyle::new(LABEL_PT * scale, 400.0);

@@ -112,11 +112,11 @@
     },
     {
       "key": "mem-col",
-      "rect": [256, 44, 1184, 964],
+      "rect": [256, 44, 1184, 954],
       "role": "group"
     },
     {
-      "rect": [272, 60, 1152, 932],
+      "rect": [272, 60, 1152, 922],
       "role": "group"
     },
     {
@@ -213,52 +213,52 @@
     },
     {
       "key": "mem-card:-Users-demo-parser",
-      "rect": [272, 143, 287, 94],
+      "rect": [272, 143, 279, 94],
       "role": "group"
     },
     {
-      "rect": [288, 159, 255, 18],
+      "rect": [288, 159, 247, 18],
       "role": "text",
       "text": "parser"
     },
     {
-      "rect": [288, 181, 255, 15],
+      "rect": [288, 181, 247, 15],
       "role": "text",
       "text": "-Users-demo-parser"
     },
     {
-      "rect": [288, 200, 255, 21],
+      "rect": [288, 200, 247, 21],
       "role": "text",
       "text": "5 files · indexed"
     },
     {
       "key": "mem-card:-Users-demo-notes",
-      "rect": [571, 143, 287, 94],
+      "rect": [563, 143, 279, 94],
       "role": "group"
     },
     {
-      "rect": [587, 159, 255, 18],
+      "rect": [579, 159, 247, 18],
       "role": "text",
       "text": "notes"
     },
     {
-      "rect": [587, 181, 255, 15],
+      "rect": [579, 181, 247, 15],
       "role": "text",
       "text": "-Users-demo-notes"
     },
     {
-      "rect": [587, 200, 255, 21],
+      "rect": [579, 200, 247, 21],
       "role": "text",
       "text": "1 file · no MEMORY.md"
     },
     {
       "key": "mem-vaults",
-      "rect": [272, 257, 1152, 688],
+      "rect": [272, 257, 1152, 677],
       "role": "group"
     },
     {
       "key": "mem-section:-Users-demo-parser",
-      "rect": [272, 257, 1152, 688],
+      "rect": [272, 257, 1152, 677],
       "role": "group"
     },
     {
@@ -291,7 +291,7 @@
     },
     {
       "key": "mem-body:-Users-demo-parser",
-      "rect": [272, 309, 1152, 636],
+      "rect": [272, 309, 1152, 625],
       "role": "group"
     },
     {
@@ -548,7 +548,7 @@
     },
     {
       "key": "mem-lower:-Users-demo-parser",
-      "rect": [288, 524, 1120, 404],
+      "rect": [288, 524, 1120, 394],
       "role": "group"
     },
     {
@@ -838,12 +838,12 @@
       "text": "1"
     },
     {
-      "rect": [1040, 524, 368, 404],
+      "rect": [1040, 524, 368, 394],
       "role": "group"
     },
     {
       "key": "mem-panel-graph:-Users-demo-parser",
-      "rect": [1040, 524, 368, 404],
+      "rect": [1040, 524, 368, 394],
       "role": "group"
     },
     {
@@ -854,67 +854,67 @@
     {
       "key": "mem-graph:-Users-demo-parser",
       "label": "Memory link graph",
-      "rect": [1056, 568, 345, 345],
+      "rect": [1056, 568, 334, 334],
       "role": "group"
     },
     {
       "key": "mem-graph-static:-Users-demo-parser",
-      "rect": [1056, 568, 345, 345],
+      "rect": [1056, 568, 334, 334],
       "role": "image"
     },
     {
-      "rect": [1168, 591, 120, 11],
+      "rect": [1163, 590, 120, 10],
       "role": "text",
       "text": "a"
     },
     {
-      "rect": [1291, 680, 120, 11],
+      "rect": [1282, 677, 120, 10],
       "role": "text",
       "text": "b"
     },
     {
-      "rect": [1244, 820, 120, 11],
+      "rect": [1237, 813, 120, 10],
       "role": "text",
       "text": "fx-flat"
     },
     {
-      "rect": [1092, 819, 120, 11],
+      "rect": [1089, 811, 120, 10],
       "role": "text",
       "text": "fx-nested"
     },
     {
-      "rect": [1045, 680, 120, 11],
+      "rect": [1044, 677, 120, 10],
       "role": "text",
       "text": "orphan"
     },
     {
       "key": "mem-node:-Users-demo-parser:a",
       "label": "Open a",
-      "rect": [1219, 602, 18, 18],
+      "rect": [1214, 601, 17, 17],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:b",
       "label": "Open b",
-      "rect": [1342, 691, 18, 18],
+      "rect": [1334, 687, 17, 17],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:fx-flat",
       "label": "Open fx-flat",
-      "rect": [1291, 831, 26, 26],
+      "rect": [1284, 823, 26, 26],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:fx-nested",
       "label": "Open fx-nested",
-      "rect": [1137, 829, 30, 30],
+      "rect": [1135, 821, 29, 29],
       "role": "button"
     },
     {
       "key": "mem-node:-Users-demo-parser:orphan",
       "label": "Open orphan",
-      "rect": [1096, 691, 18, 18],
+      "rect": [1095, 687, 17, 17],
       "role": "button"
     }
   ],

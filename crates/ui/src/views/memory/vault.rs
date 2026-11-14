@@ -5,7 +5,7 @@ use rune::{El, canvas, col, el, icon, row, text};
 use rune_kit::{Button, ControlSize, glyphs};
 
 use super::paint::{MONO_XS_SEMI, amber_400, chart_color, red_400, tone_color};
-use super::{graph, hint, table, vault_key};
+use super::{Width, graph, hint, table, vault_key};
 use crate::chart::memory::{DONUT, budget_bars, donut, donut_radii, slice_polygon};
 use crate::model::memory::{
     Shown, below_fold_text, capitalize, dangling_heading, orphan_heading, table_heading,
@@ -278,7 +278,7 @@ fn trigger(s: &Ui, v: &Shown<'_>, open: bool, t: &Theme) -> El {
 }
 
 /// A vault's section; its body only while open.
-pub fn section(s: &Ui, v: &Shown<'_>, can_write: bool, width: f32, t: &Theme) -> El {
+pub fn section(s: &Ui, v: &Shown<'_>, can_write: bool, width: Width, t: &Theme) -> El {
     let open = !s.memory.closed.contains(&v.vault.slug);
     let mut c = col()
         .key(format!("mem-section:{}", v.vault.slug))
@@ -288,7 +288,7 @@ pub fn section(s: &Ui, v: &Shown<'_>, can_write: bool, width: f32, t: &Theme) ->
     if !open {
         return c;
     }
-    let wide = width >= WIDE;
+    let wide = width.outer >= WIDE;
     let slug = &v.vault.slug;
     let cards = grid(
         format!("mem-cards:{slug}"),
@@ -323,7 +323,7 @@ pub fn section(s: &Ui, v: &Shown<'_>, can_write: bool, width: f32, t: &Theme) ->
         ],
         wide,
     );
-    let inner = width - 32.0;
+    let inner = width.content - 32.0;
     let graph_w = if wide { (inner - 16.0) / 3.0 } else { inner } - 34.0;
     let table = col()
         .w_full()

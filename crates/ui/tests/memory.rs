@@ -339,3 +339,41 @@ fn a_failed_reload_keeps_the_vaults() {
     assert!(present(&rt, "mem-retry"));
     assert!(present(&rt, &views::memory::vault_key(SEED)));
 }
+
+#[test]
+fn drawn_caches_follow_landed_data_not_requests() {
+    let mut s = on_memory(&mem_home());
+    let rev = s.memory.rev;
+    let data = s.memory.data.clone().map_or_else(|| panic!("no data"), Ok);
+    s.request_memory();
+    assert_eq!(s.memory.rev, rev, "a request alone keeps the old picture");
+    let rid = s.memory.rid;
+    s.apply_memory(rid - 1, data.clone());
+    assert_eq!(s.memory.rev, rev, "a stale reply changes nothing");
+    s.apply_memory(rid, data);
+    assert_eq!(s.memory.rev, rev + 1, "landed data redraws the graph");
+}
+
+#[test]
+fn the_overview_fits_four_cards_a_row_at_desktop_width() {
+    let rt = mem_runtime(&mem_home());
+    let els = rt.elements();
+    let row = els
+        .iter()
+        .find(|e| e.key.as_deref() == Some("mem-overview"))
+        .map_or_else(|| panic!("no mem-overview"), |e| e.rect);
+    let cards: Vec<[f32; 4]> = els
+        .iter()
+        .filter(|e| e.key.as_deref().is_some_and(|k| k.starts_with("mem-card:")))
+        .map(|e| e.rect)
+        .collect();
+    assert!(cards.len() > 4, "the home has more projects than a row");
+    let first = cards.iter().filter(|r| (r[1] - cards[0][1]).abs() < 1.0);
+    assert_eq!(first.count(), 4);
+    for r in &cards {
+        assert!(
+            r[0] + r[2] <= row[0] + row[2] + 0.5,
+            "a card overflows the row"
+        );
+    }
+}

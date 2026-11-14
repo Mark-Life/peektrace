@@ -1,7 +1,8 @@
 //! Memory through a source: every vault with the write gate's inputs, and
 //! create, update and delete. Natively these run the core functions the
-//! server runs, with its error mapping, so both sources answer alike.
+//! server runs, with its error mapping from `peektrace_core::wire`.
 
+pub use peektrace_protocol::expected_mtime;
 use peektrace_protocol::view::memory::{AllVaultsView, DeleteView, EntryView};
 use peektrace_protocol::{Capability, MemoryCreateBody, MemoryFrontmatterPatch, MemoryUpdateBody};
 
@@ -49,15 +50,6 @@ pub fn update_body(
     }
 }
 
-/// `expectedMtime` as the whole ms core compares; any other number can
-/// never match, so it maps to a value no file has.
-#[expect(clippy::cast_possible_truncation, reason = "checked to be in range")]
-pub fn expected_mtime(n: f64) -> i64 {
-    #[expect(clippy::cast_precision_loss, reason = "range bounds")]
-    let in_range = n.fract() == 0.0 && n >= i64::MIN as f64 && n < i64::MAX as f64;
-    if in_range { n as i64 } else { i64::MIN }
-}
-
 /// What a write answers.
 #[derive(Debug, Clone, PartialEq)]
 pub enum MemoryDone {
@@ -70,22 +62,15 @@ pub use native::*;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use peektrace_core::capabilities::{self, MEMORY_CRUD, SupportLevel as CoreLevel};
-    use peektrace_core::memory::fs::{ChangeReason, WriteError};
     use peektrace_core::memory::json::{all_vaults_json, delete_json, entry_json};
     use peektrace_core::memory::write::{
         FrontmatterPatch, MemoryCtx, MemoryError, MemoryUpdate, NewMemory, create, delete, update,
     };
     use peektrace_core::memory::{AllVaults, all_vaults};
+    use peektrace_core::wire::{capability_rows, memory_api_error};
     use peektrace_core::{Agent, AgentRoots};
-    use peektrace_protocol::{
-        AgentId, ApiError, Capability, CapabilitySupport, FileChangeReason, PerAgentSupport,
-        SupportLevel,
-    };
     use tracing::{field, info_span};
 
-    #[cfg(test)]
-    use super::expected_mtime;
     use super::{MemoryData, MemoryDone, MemoryWrite};
     use crate::source::{LoadError, decode};
 
@@ -107,87 +92,16 @@ mod native {
         };
     }
 
-    const fn agent_id(a: Agent) -> AgentId {
-        match a {
-            Agent::Claude => AgentId::Claude,
-            Agent::Codex => AgentId::Codex,
-            Agent::Pi => AgentId::Pi,
-            Agent::Opencode => AgentId::Opencode,
-        }
-    }
-
-    const fn level(l: CoreLevel) -> SupportLevel {
-        match l {
-            CoreLevel::Supported => SupportLevel::Supported,
-            CoreLevel::Partial => SupportLevel::Partial,
-            CoreLevel::Planned => SupportLevel::Planned,
-            CoreLevel::Unsupported => SupportLevel::Unsupported,
-        }
-    }
-
-    /// The matrix as `GET /api/capabilities` sends it.
-    pub fn capability_rows() -> Vec<Capability> {
-        capabilities::list_capabilities()
-            .iter()
-            .map(|c| {
-                let [claude, codex, pi, opencode] = c.per_agent.map(|s| CapabilitySupport {
-                    level: level(s.level),
-                    note: s.note.map(str::to_owned),
-                });
-                Capability {
-                    id: c.id.to_owned(),
-                    group: c.group.to_owned(),
-                    title: c.title.to_owned(),
-                    description: c.description.to_owned(),
-                    per_agent: PerAgentSupport {
-                        claude,
-                        codex,
-                        pi,
-                        opencode,
-                    },
-                }
-            })
-            .collect()
-    }
-
     /// The server's mapping of a write failure; an IO failure, which the
     /// server sends as a 500 defect, is a transport error here.
-    pub fn memory_error(e: MemoryError, ctx: &MemoryCtx) -> LoadError {
-        let api = match e {
-            MemoryError::CapabilityUnsupported { agent } => ApiError::CapabilityUnsupportedError {
-                capability_id: MEMORY_CRUD.to_owned(),
-                agent_id: agent_id(agent),
+    fn memory_error(e: MemoryError, ctx: &MemoryCtx) -> LoadError {
+        memory_api_error(e, &ctx.allowed_roots).map_or_else(
+            |e| LoadError::Transport {
+                status: None,
+                message: e.to_string(),
             },
-            MemoryError::Validation { reason, name } => ApiError::MemoryValidationError {
-                reason,
-                name: Some(name),
-            },
-            MemoryError::NotFound { project, name } => {
-                ApiError::MemoryNotFoundError { project, name }
-            }
-            MemoryError::Write(WriteError::Changed { path, reason }) => {
-                ApiError::FileChangedError {
-                    path,
-                    reason: match reason {
-                        ChangeReason::Mtime => FileChangeReason::Mtime,
-                        ChangeReason::Missing => FileChangeReason::Missing,
-                    },
-                }
-            }
-            MemoryError::Write(WriteError::OutsideRoots { path }) => {
-                ApiError::PathOutsideRootError {
-                    path,
-                    roots: ctx.allowed_roots.clone(),
-                }
-            }
-            MemoryError::Write(e @ WriteError::Io { .. }) => {
-                return LoadError::Transport {
-                    status: None,
-                    message: e.to_string(),
-                };
-            }
-        };
-        LoadError::Api(api)
+            LoadError::Api,
+        )
     }
 
     fn record_error<T>(span: &tracing::Span, out: &Result<T, LoadError>) {
@@ -282,78 +196,6 @@ mod native {
                 record_error(&span, &out);
                 out
             }
-        }
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use peektrace_core::memory::fs::{ChangeReason, WriteError};
-
-        use super::*;
-
-        fn ctx() -> MemoryCtx {
-            MemoryCtx {
-                claude: Vec::new(),
-                allowed_roots: vec!["/r".to_owned()],
-            }
-        }
-
-        #[test]
-        fn errors_map_as_the_server_maps_them() {
-            let api = |e| match memory_error(e, &ctx()) {
-                LoadError::Api(a) => Some(a),
-                _ => None,
-            };
-            assert_eq!(
-                api(MemoryError::CapabilityUnsupported {
-                    agent: Agent::Codex
-                }),
-                Some(ApiError::CapabilityUnsupportedError {
-                    capability_id: MEMORY_CRUD.to_owned(),
-                    agent_id: AgentId::Codex,
-                })
-            );
-            assert_eq!(
-                api(MemoryError::Validation {
-                    reason: "r".into(),
-                    name: "n".into()
-                }),
-                Some(ApiError::MemoryValidationError {
-                    reason: "r".into(),
-                    name: Some("n".into())
-                })
-            );
-            assert_eq!(
-                api(MemoryError::NotFound {
-                    project: "p".into(),
-                    name: "n".into()
-                }),
-                Some(ApiError::MemoryNotFoundError {
-                    project: "p".into(),
-                    name: "n".into()
-                })
-            );
-            assert_eq!(
-                api(MemoryError::Write(WriteError::Changed {
-                    path: "/f".into(),
-                    reason: ChangeReason::Missing
-                })),
-                Some(ApiError::FileChangedError {
-                    path: "/f".into(),
-                    reason: FileChangeReason::Missing
-                })
-            );
-            assert_eq!(
-                api(MemoryError::Write(WriteError::OutsideRoots {
-                    path: "/x".into()
-                })),
-                Some(ApiError::PathOutsideRootError {
-                    path: "/x".into(),
-                    roots: vec!["/r".into()]
-                })
-            );
-            assert_eq!(expected_mtime(1_700_000_000_123.0), 1_700_000_000_123);
-            assert_eq!(expected_mtime(1.5), i64::MIN);
         }
     }
 }

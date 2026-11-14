@@ -140,6 +140,8 @@ pub struct MemoryUi {
     pub data: Option<MemoryData>,
     pub error: Option<LoadError>,
     pub rid: u64,
+    /// Bumped each time loaded data lands; what drawn caches key on.
+    pub rev: u64,
     pub loading: bool,
     /// The memory version last seen; `None` until the first event.
     pub seen: Option<u64>,
@@ -173,6 +175,7 @@ impl Default for MemoryUi {
             data: None,
             error: None,
             rid: 0,
+            rev: 0,
             loading: false,
             seen: None,
             stale: false,
@@ -386,6 +389,7 @@ impl Ui {
         match result {
             Ok(d) => {
                 mem.data = Some(d);
+                mem.rev += 1;
                 mem.error = None;
             }
             Err(e) => mem.error = Some(e),
