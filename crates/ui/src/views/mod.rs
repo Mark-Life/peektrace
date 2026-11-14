@@ -168,9 +168,14 @@ fn detail(s: &Ui, cx: &mut Cx<Ui>, t: &Theme) -> El {
         );
     };
     let mut c = col().w_full().max_w(DETAIL_MAX_W).gap(16.0).pb(48.0);
+    // The column is capped, `detail-col` is not; size the cards from the capped width.
+    let inner = cx
+        .layout_size("detail-col")
+        .map_or(1000.0, |[w, _]| w.min(DETAIL_MAX_W))
+        - 34.0;
     let Some(d) = s.detail.as_ref().filter(|d| d.id == sel.id) else {
         let body = s.detail_error.as_ref().map_or_else(
-            || notice("Loading session…", "", t),
+            || summary::pending(inner, t),
             |e| {
                 notice("Could not load this session", &e.to_string(), t).child(
                     rune_kit::Button::new("Retry")
@@ -194,11 +199,6 @@ fn detail(s: &Ui, cx: &mut Cx<Ui>, t: &Theme) -> El {
                 .key("detail-error"),
         );
     }
-    // The column is capped, `detail-col` is not; size the cards from the capped width.
-    let inner = cx
-        .layout_size("detail-col")
-        .map_or(1000.0, |[w, _]| w.min(DETAIL_MAX_W))
-        - 34.0;
     c = c
         .child(summary::verdict(d, inner, t).key(summary::SUMMARY_KEY))
         .child(crate::chart::view::growth_card(

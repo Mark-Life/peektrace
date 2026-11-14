@@ -12,7 +12,7 @@ use peektrace_protocol::view::memory::AllVaultsView;
 use rune::{Cx, El, ScrollSpec, Tx, col, el, icon, row, spacer, text};
 use rune_kit::{Button, ControlSize, Select, TextInput, glyphs};
 
-use super::widgets::notice;
+use super::widgets::{grid, notice, skeleton, status};
 use crate::model::memory::{
     self as m, ALL, Blocked, capability_title, crud_cells, empty_description, overview_line,
     support_summary, type_filter_options, visible_vaults,
@@ -215,14 +215,18 @@ fn empty_card(can_write: bool, t: &Theme) -> El {
     c
 }
 
-fn overview(all: &AllVaultsView, width: Width, t: &Theme) -> El {
-    let cols: usize = if width.outer >= 1024.0 {
+const fn overview_columns(width: Width) -> usize {
+    if width.outer >= 1024.0 {
         4
     } else if width.outer >= 640.0 {
         2
     } else {
         1
-    };
+    }
+}
+
+fn overview(all: &AllVaultsView, width: Width, t: &Theme) -> El {
+    let cols = overview_columns(width);
     let gap = 12.0;
     #[expect(clippy::cast_precision_loss, reason = "a few columns")]
     let card_w = ((width.content - gap * (cols as f32 - 1.0)) / cols as f32).max(120.0);
@@ -318,7 +322,7 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>, t: &Theme, layer: &mut Vec<El>) -> El {
         (None, Some(e)) => {
             notice("Could not load memory", &error_text(e), t).child(row().pt(8.0).child(retry(t)))
         }
-        (None, None) => notice("Loading memory…", "", t).key("mem-loading"),
+        (None, None) => pending(width, t),
     };
     dialogs::layer(s, t, layer);
     col()
@@ -337,6 +341,37 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>, t: &Theme, layer: &mut Vec<El>) -> El {
                 .items_center()
                 .child(body),
         )
+}
+
+/// The skeleton while the first load runs: filters, overview cards and
+/// two vault sections.
+fn pending(width: Width, t: &Theme) -> El {
+    let cols = overview_columns(width);
+    let section = || {
+        col()
+            .w_full()
+            .gap(12.0)
+            .child(skeleton(Some(240.0), 20.0, t))
+            .child(skeleton(None, 128.0, t))
+    };
+    col()
+        .key("mem-loading")
+        .w_full()
+        .max_w(MAX_W)
+        .gap(20.0)
+        .child(status("Loading memory…", t))
+        .child(
+            row()
+                .w_full()
+                .gap(12.0)
+                .flex_wrap()
+                .child(skeleton(Some(320.0), 32.0, t))
+                .child(skeleton(Some(144.0), 28.0, t))
+                .child(skeleton(Some(208.0), 28.0, t)),
+        )
+        .child(grid(cols, 12.0, (0..cols).map(|_| skeleton(None, 84.0, t))))
+        .child(section())
+        .child(section())
 }
 
 /// A centred placeholder the size of a small chart.

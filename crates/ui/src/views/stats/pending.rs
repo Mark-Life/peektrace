@@ -3,9 +3,9 @@
 
 use rune::{El, col, row, text};
 
-use super::skeleton;
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
+use crate::views::widgets::skeleton;
 
 fn table_block(t: &Theme) -> El {
     col()

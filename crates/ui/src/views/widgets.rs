@@ -1,6 +1,7 @@
-//! Small shared pieces: badges, dots, cards, chips and the notice panel.
+//! Small shared pieces: badges, dots, cards, chips, skeletons, the tile
+//! grid and the notice panel.
 
-use rune::{Color, El, Shape, canvas, col, row, text};
+use rune::{Color, El, Shape, canvas, col, el, row, text};
 
 use crate::theme::{Theme, ty};
 
@@ -67,4 +68,28 @@ pub fn notice(title: &str, body: &str, t: &Theme) -> El {
                 .align(rune::Align::Center)
                 .max_w(520.0),
         )
+}
+
+/// A muted filled block standing in for content that is loading.
+pub fn skeleton(w: Option<f32>, h: f32, t: &Theme) -> El {
+    let b = el().h(h).radius(6.0).fill(t.muted);
+    match w {
+        Some(w) => b.w(w).max_w(f32::MAX),
+        None => b.w_full(),
+    }
+}
+
+/// `items` in `cols` equal columns; a short last row keeps the same widths.
+pub fn grid(cols: usize, gap: f32, items: impl IntoIterator<Item = El>) -> El {
+    col().w_full().equal_columns(cols).gap(gap).children(items)
+}
+
+/// The muted line a loading pane reads out.
+pub fn status(s: &str, t: &Theme) -> El {
+    text(s.to_owned())
+        .font(ty::SM)
+        .color(t.muted_fg)
+        .wrap()
+        .role("status")
+        .min_w(0.0)
 }

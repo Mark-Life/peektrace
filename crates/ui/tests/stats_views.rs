@@ -14,6 +14,7 @@ use common::stats_report::{
     PARENT, cause_row, fail_row, firing, main_sample, report, sample, sample_at, three_causes,
     time_row,
 };
+use common::tree::blank_leaves_under;
 use peektrace_core::stats::accumulate::SampleRef;
 use peektrace_core::stats::schema::Job;
 use peektrace_core::stats::service::StatsReport;
@@ -199,28 +200,6 @@ fn a_success_renders_the_value_and_no_retry() {
     assert!(rt.find("result-error").is_none() && rt.find("result-retry").is_none());
 }
 
-/// Leaves under `key`'s element with no text: the skeleton blocks.
-fn blank_leaves_under(rt: &Runtime<Ui>, key: &str) -> usize {
-    let els = rt.elements();
-    let Some(root) = els.iter().position(|e| e.key.as_deref() == Some(key)) else {
-        return 0;
-    };
-    let under = |mut i: usize| {
-        while let Some(p) = els[i].parent {
-            if p == root {
-                return true;
-            }
-            i = p;
-        }
-        false
-    };
-    (0..els.len())
-        .filter(|&i| under(i))
-        .filter(|&i| !els.iter().any(|e| e.parent == Some(i)))
-        .filter(|&i| els[i].text.is_none())
-        .count()
-}
-
 // stats-pending.test.tsx:11
 #[test]
 fn pending_stats_show_a_status_note_a_counter_and_skeletons_but_no_progress_bar() {
@@ -231,7 +210,7 @@ fn pending_stats_show_a_status_note_a_counter_and_skeletons_but_no_progress_bar(
     assert_eq!(el(&rt, "stats-elapsed").text.as_deref(), Some("0 s"));
     assert!(rt.elements().iter().any(|e| e.role == "status"));
     assert!(!rt.elements().iter().any(|e| e.role == "progressbar"));
-    let blocks = blank_leaves_under(&rt, "stats-pending");
+    let blocks = blank_leaves_under(&rt.elements(), "stats-pending");
     assert!(blocks > 5, "{blocks} skeleton blocks");
 }
 

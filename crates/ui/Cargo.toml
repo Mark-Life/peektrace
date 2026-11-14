@@ -42,6 +42,10 @@ name = "drift"
 required-features = ["view"]
 
 [[test]]
+name = "loading"
+required-features = ["view"]
+
+[[test]]
 name = "memory"
 required-features = ["view"]
 

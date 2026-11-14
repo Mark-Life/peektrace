@@ -11,7 +11,7 @@ mod header;
 mod links;
 mod pending;
 
-use rune::{Color, Cx, El, Icon, ScrollSpec, col, el, row, text};
+use rune::{Color, Cx, El, Icon, ScrollSpec, col, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
 use peektrace_protocol::stats::{SampleRefView, StatsReportView};
@@ -121,15 +121,6 @@ pub fn small_button(label: impl Into<String>, ghost: bool, t: &Theme) -> Button 
             ButtonVariant::Outline
         })
         .control_size(ControlSize::Regular)
-}
-
-/// A muted filled block standing in for content that is loading.
-pub fn skeleton(w: Option<f32>, h: f32, t: &Theme) -> El {
-    let b = el().h(h).radius(6.0).fill(t.muted);
-    match w {
-        Some(w) => b.w(w).max_w(f32::MAX),
-        None => b.w_full(),
-    }
 }
 
 fn section(key: &str, title: &str, by: &str, body: Vec<El>, t: &Theme) -> El {

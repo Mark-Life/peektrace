@@ -2,9 +2,10 @@
 //! map to: the pending skeleton, the failure alert with Retry, alerts and
 //! text with inline code.
 
-use rune::{Color, El, Span, TextStyle, col, el, row, text};
+use rune::{Color, El, Span, TextStyle, col, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
+use super::widgets::skeleton;
 use crate::model::settings::{Seg, copy, wire_error_message};
 use crate::source::LoadError;
 use crate::state::Ui;
@@ -12,20 +13,13 @@ use crate::theme::{Theme, ty};
 
 /// The skeleton while a first load runs.
 pub fn pending(t: &Theme) -> El {
-    let block = |w: Option<f32>, h: f32| {
-        let b = el().h(h).radius(6.0).fill(t.muted);
-        match w {
-            Some(w) => b.w(w),
-            None => b.w_full(),
-        }
-    };
     col()
         .key("result-pending")
         .w_full()
         .gap(12.0)
-        .child(block(Some(192.0), 32.0))
-        .child(block(None, 128.0))
-        .child(block(None, 128.0))
+        .child(skeleton(Some(192.0), 32.0, t))
+        .child(skeleton(None, 128.0, t))
+        .child(skeleton(None, 128.0, t))
 }
 
 /// A failed load: the typed error's sentence, else the transport text, and

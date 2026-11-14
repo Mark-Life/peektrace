@@ -4,11 +4,15 @@ use peektrace_protocol::view::AnalyzedSession;
 use rune::{Align, El, Tx, col, el, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
-use super::widgets::{badge, card, chip};
+use super::widgets::{badge, card, chip, grid};
 use crate::model::format::{Zone, fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::labels::{analyzed_title, cost_summary, provider_label};
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty, zone_fill, zone_text};
+
+mod pending;
+
+pub use pending::pending;
 
 pub const HISTORY_KEY: &str = "history-heading";
 pub const SUMMARY_KEY: &str = "summary";
@@ -147,17 +151,7 @@ fn tiles(a: &AnalyzedSession, zone: Zone, cols: usize, t: &Theme) -> El {
         a.peak_cache_read_tokens / a.peak_context_tokens
     };
     items.push(tile("tile-cache", "Cache", value(fmt_pct(cache), t), t));
-    tile_grid(cols, items)
-}
-
-/// `items` in `cols` equal columns; a short last row keeps the same widths.
-pub fn tile_grid(cols: usize, items: impl IntoIterator<Item = El>) -> El {
-    col()
-        .key("tile-grid")
-        .w_full()
-        .equal_columns(cols)
-        .gap(8.0)
-        .children(items)
+    grid(cols, 8.0, items).key("tile-grid")
 }
 
 fn jump_chip(
