@@ -70,6 +70,10 @@ name = "settings"
 required-features = ["view"]
 
 [[test]]
+name = "settings_source"
+required-features = ["view"]
+
+[[test]]
 name = "capabilities"
 required-features = ["view"]
 

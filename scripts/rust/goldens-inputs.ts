@@ -41,10 +41,11 @@ const SHARED_SOURCE =
 /** The inspector and its UI packages: only `serve` returns them. */
 const SERVE_SOURCE =
   /^(apps\/inspector\/(?!dist\/|test\/)|packages\/(ui|viz)\/(src\/|package\.json$))/;
-/** The inspector helpers and chart the Rune app ports: `ui` answers with
- * them in process. */
+/** The inspector helpers, chart and pages the Rune app ports: `ui` answers
+ * with them in process, and reads the Settings, Capabilities and shortcut
+ * pages for their copy. */
 const UI_SOURCE =
-  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|package\.json$)|packages\/(ui|viz)\/(src\/|package\.json$))/;
+  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|src\/routes\/(settings|capabilities)-route\.tsx$|src\/components\/(shortcuts-dialog|read-only|root-row)\.tsx$|package\.json$)|packages\/(ui|viz)\/(src\/|package\.json$))/;
 /** Paths `git ls-files` lists for the patterns above. */
 const TREE = [
   "apps/cli/src",

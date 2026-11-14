@@ -45,6 +45,8 @@ describe("stageFiles", () => {
       "apps/inspector/src/lib/chat-lane.ts",
       "apps/inspector/src/routes/sessions/session-list-model.ts",
       "packages/viz/src/components/growth-timeline.tsx",
+      "apps/inspector/src/routes/settings-route.tsx",
+      "apps/inspector/src/components/shortcuts-dialog.tsx",
     ]) {
       expect(stagesWith(f)).toEqual(["serve", "ui"]);
     }
