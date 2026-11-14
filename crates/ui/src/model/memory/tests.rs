@@ -100,6 +100,10 @@ fn labels_of(o: &[ProjectOption]) -> Vec<&str> {
     o.iter().map(|o| o.label.as_str()).collect()
 }
 
+fn slugs_of(o: &[ProjectOption]) -> Vec<&str> {
+    o.iter().map(|o| o.slug.as_str()).collect()
+}
+
 #[test]
 fn project_options_match_the_inspector() {
     assert_eq!(project_options(&[], &[]), vec![]);
@@ -112,6 +116,10 @@ fn project_options_match_the_inspector() {
         ],
         &[label("alpha", "alpha"), label("beta", "beta")],
     );
+    assert_eq!(
+        slugs_of(&o),
+        [format!("{PREFIX}alpha"), format!("{PREFIX}beta")]
+    );
     assert_eq!(labels_of(&o), ["alpha", "beta"]);
     assert_eq!(o[0].last_active.as_deref(), Some("2026-03-01T00:00:00Z"));
     let o = project_options(
@@ -123,7 +131,7 @@ fn project_options_match_the_inspector() {
         ],
         &[],
     );
-    assert_eq!(o.len(), 1);
+    assert_eq!(slugs_of(&o), [format!("{PREFIX}alpha")]);
     let o = project_options(
         &[h("alpha", Some("2026-01-01T00:00:00Z"))],
         &[label("alpha", "Alpha App"), label("gamma", "gamma")],

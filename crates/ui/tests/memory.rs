@@ -14,7 +14,7 @@ use peektrace_ui::state_memory::{CreateTarget, Dialog, MemoryRequest};
 use peektrace_ui::views;
 use rt::{
     click, has, home, mem_home, mem_runtime, now_ms, on_memory, present, runtime, settle, show,
-    vault_slugs,
+    state, vault_slugs,
 };
 use rune::{Key, KeyEvent, Mods, Runtime, TextEdit, Tx};
 
@@ -26,7 +26,33 @@ fn empty_home_offers_the_first_memory() {
     assert!(present(&rt, "mem-create-anywhere"));
     assert!(!present(&rt, "mem-search"));
     assert!(!present(&rt, "mem-banner"));
-    assert!(has(&rt, "Memory editing: Claude."));
+    assert!(present(&rt, "mem-support"));
+    assert!(has(
+        &rt,
+        "Memory editing: Claude. Planned: Codex, Pi, OpenCode."
+    ));
+    assert!(!has(&rt, "Claude projects root"));
+    let agent_select = rt
+        .elements()
+        .into_iter()
+        .filter_map(|e| e.key)
+        .any(|k| k.contains("agent"));
+    assert!(!agent_select, "the section has no agent selector");
+}
+
+#[test]
+fn the_search_box_is_named_for_screen_readers() {
+    let rt = mem_runtime(&mem_home());
+    let els = rt.elements();
+    let field = els
+        .iter()
+        .find(|e| e.key.as_deref() == Some("mem-search"))
+        .map(|e| e.path.clone())
+        .unwrap_or_else(|| panic!("no mem-search"));
+    let named = els.iter().any(|e| {
+        e.path.starts_with(&field) && e.focusable && e.label.as_deref() == Some("Search memories")
+    });
+    assert!(named, "the search editor reads as Search memories");
 }
 
 #[test]
@@ -54,7 +80,9 @@ fn a_blocked_gate_hides_writes_and_says_why() {
         d.read_only = true;
     }
     let rt = runtime(s);
+    assert!(present(&rt, "mem-banner"));
     assert!(has(&rt, "Read-only server"));
+    assert!(has(&rt, "started with --read-only"));
     assert!(!has(&rt, "Memory editing is"));
     assert!(!present(&rt, "mem-create-anywhere"));
 }
@@ -203,6 +231,24 @@ fn bump(s: &mut Ui, memory: u64) {
 }
 
 #[test]
+fn entering_loads_once_and_a_memory_bump_reloads_once() {
+    let mut s = state(&mem_home());
+    s.pending.clear();
+    s.go(Route::Memory);
+    assert_eq!(loads(&s), 1, "entering the section loads the vaults");
+    peektrace_ui::load_now(&mut s);
+    assert!(s.memory.data.is_some());
+    assert_eq!(loads(&s), 0);
+    s.io = None;
+    bump(&mut s, 0);
+    assert_eq!(loads(&s), 0);
+    bump(&mut s, 1);
+    assert_eq!(loads(&s), 1);
+    bump(&mut s, 1);
+    assert_eq!(loads(&s), 1, "the same version does not reload again");
+}
+
+#[test]
 fn watch_bumps_reload_on_screen_mark_stale_off_it_and_wait_while_paused() {
     let mut s = on_memory(&mem_home());
     s.io = None;
@@ -229,6 +275,7 @@ fn watch_bumps_reload_on_screen_mark_stale_off_it_and_wait_while_paused() {
     bump(&mut s, 8);
     s.tick(1.0, now_ms(), &mut Tx::default());
     assert_eq!(loads(&s), 0);
+    assert!(s.memory.stale, "the held change waits");
     s.paused = false;
     s.tick(2.0, now_ms(), &mut Tx::default());
     assert_eq!(loads(&s), 1, "the held change applies on resume");
