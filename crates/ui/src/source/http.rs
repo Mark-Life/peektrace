@@ -4,15 +4,20 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use peektrace_protocol::WatchVersions;
+use peektrace_protocol::stats::{DrillView, MarkersView, RefreshView, UsageView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
+use peektrace_protocol::{AgentId, RefreshBody, UsageQuery, WatchVersions};
 use tracing::{field, info_span};
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::prelude::Closure;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{EventSource, MessageEvent, Request, RequestCredentials, RequestInit, Response};
 
-use super::{DataSource, LoadError, OnVersions, Reply, WatchEvent, decode, decode_error};
+use super::{
+    DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode, decode_error,
+};
+use crate::model::stats::rows::{DRILL_PAGE, table_name};
+use crate::model::stats::{DrillAsk, StatsScope};
 
 /// Stream errors without an open between them before polling takes over.
 const STREAM_TRIES: u32 = 3;
@@ -27,6 +32,11 @@ fn js_text(v: &wasm_bindgen::JsValue) -> String {
 
 /// GET `path` and return `(status, body)`.
 async fn get(path: &str) -> Result<(u16, String), LoadError> {
+    send("GET", path, None).await
+}
+
+/// `method` `path`, with an optional JSON body; returns `(status, body)`.
+async fn send(method: &str, path: &str, body: Option<&str>) -> Result<(u16, String), LoadError> {
     let transport = |e: wasm_bindgen::JsValue| LoadError::Transport {
         status: None,
         message: js_text(&e),
@@ -36,12 +46,20 @@ async fn get(path: &str) -> Result<(u16, String), LoadError> {
         message: "no window".into(),
     })?;
     let init = RequestInit::new();
-    init.set_method("GET");
+    init.set_method(method);
     init.set_credentials(RequestCredentials::SameOrigin);
+    if let Some(b) = body {
+        init.set_body(&wasm_bindgen::JsValue::from_str(b));
+    }
     let req = Request::new_with_str_and_init(path, &init).map_err(transport)?;
     req.headers()
         .set("accept", "application/json")
         .map_err(transport)?;
+    if body.is_some() {
+        req.headers()
+            .set("content-type", "application/json")
+            .map_err(transport)?;
+    }
     let resp: Response = JsFuture::from(window.fetch_with_request(&req))
         .await
         .map_err(transport)?
@@ -56,13 +74,22 @@ async fn load<T: serde::de::DeserializeOwned>(
     route: &'static str,
     path: String,
 ) -> Result<T, LoadError> {
+    load_with(route, "GET", path, None).await
+}
+
+async fn load_with<T: serde::de::DeserializeOwned>(
+    route: &'static str,
+    method: &'static str,
+    path: String,
+    body: Option<String>,
+) -> Result<T, LoadError> {
     let span = info_span!(
         "app.fetch",
         http.route = route,
         http.status = field::Empty,
         error = field::Empty
     );
-    let out = match get(&path).await {
+    let out = match send(method, &path, body.as_deref()).await {
         Ok((status, body)) => {
             span.record("http.status", status);
             if (200..300).contains(&status) {
@@ -83,6 +110,38 @@ fn encode(s: &str) -> String {
     js_sys::encode_uri_component(s)
         .as_string()
         .unwrap_or_default()
+}
+
+/// `days=<d>[&agent=<id>]`, the agent left out for every agent.
+fn scope_query(scope: StatsScope) -> String {
+    let agent = scope
+        .agent
+        .map(|a| format!("&agent={}", a.as_str()))
+        .unwrap_or_default();
+    format!("days={}{agent}", scope.days)
+}
+
+fn usage_query(q: &UsageQuery) -> String {
+    let by = match q.by {
+        peektrace_protocol::UsageBy::Day => "day",
+        peektrace_protocol::UsageBy::Month => "month",
+        peektrace_protocol::UsageBy::Block => "block",
+    };
+    let mut out = format!("by={by}");
+    let pairs = [
+        ("days", q.days.as_ref()),
+        ("tz", q.tz.as_ref()),
+        ("force", q.force.as_ref()),
+    ];
+    for (k, v) in pairs {
+        if let Some(v) = v {
+            out.push_str(&format!("&{k}={}", encode(v)));
+        }
+    }
+    for a in q.agent.iter().flatten() {
+        out.push_str(&format!("&agent={}", encode(a)));
+    }
+    out
 }
 
 /// Poll `/api/watch` every second. `recovering`: the first answer after a
@@ -129,6 +188,46 @@ impl DataSource for Http {
             .unwrap_or_default();
         let path = format!("/api/sessions/{}/analysis?redact=true{parent}", encode(&id));
         spawn_local(async move { reply(load("/api/sessions/{id}/analysis", path).await) });
+    }
+
+    fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>) {
+        let path = format!("/api/stats/report?{}", scope_query(scope));
+        spawn_local(async move {
+            let out = load("/api/stats/report", path).await;
+            reply(out.map(|report| StatsScreen { report, text: None }));
+        });
+    }
+
+    fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>) {
+        let path = format!(
+            "/api/stats/drill/{}/{}?{}&offset={}&pageSize={DRILL_PAGE}",
+            table_name(ask.table),
+            encode(&ask.key),
+            scope_query(scope),
+            ask.offset
+        );
+        spawn_local(async move { reply(load("/api/stats/drill/{table}/{key}", path).await) });
+    }
+
+    fn stats_usage(&self, query: UsageQuery, reply: Reply<UsageView>) {
+        let path = format!("/api/stats/usage?{}", usage_query(&query));
+        spawn_local(async move { reply(load("/api/stats/usage", path).await) });
+    }
+
+    fn stats_refresh(&self, body: RefreshBody, reply: Reply<RefreshView>) {
+        let json = serde_json::to_string(&body).unwrap_or_else(|_| "{}".into());
+        spawn_local(async move {
+            let path = "/api/stats/refresh".to_owned();
+            reply(load_with("/api/stats/refresh", "POST", path, Some(json)).await);
+        });
+    }
+
+    fn markers(&self, sid: String, agent: Option<AgentId>, reply: Reply<MarkersView>) {
+        let agent = agent
+            .map(|a| format!("?agent={}", a.as_str()))
+            .unwrap_or_default();
+        let path = format!("/api/sessions/{}/markers{agent}", encode(&sid));
+        spawn_local(async move { reply(load("/api/sessions/{id}/markers", path).await) });
     }
 
     fn watch(&self, on_versions: OnVersions) {

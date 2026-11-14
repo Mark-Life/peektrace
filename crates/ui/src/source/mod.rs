@@ -9,8 +9,19 @@ pub mod in_process;
 #[cfg(target_arch = "wasm32")]
 pub mod http;
 
+use peektrace_protocol::stats::{DrillView, MarkersView, RefreshView, StatsReportView, UsageView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView, mend_surrogates};
-use peektrace_protocol::{ApiError, ApiErrorBody, WatchVersions};
+use peektrace_protocol::{AgentId, ApiError, ApiErrorBody, RefreshBody, UsageQuery, WatchVersions};
+
+use crate::model::stats::{DrillAsk, StatsScope, StatsText};
+
+/// A stats report and the text core writes for it; `text` is `None` where
+/// core does not run (the web build).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StatsScreen {
+    pub report: StatsReportView,
+    pub text: Option<StatsText>,
+}
 
 /// Why a load failed.
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +44,10 @@ impl std::fmt::Display for LoadError {
             }
             Self::Api(ApiError::TranscriptParseError { path, reason }) => {
                 write!(f, "Could not read {path}: {reason}")
+            }
+            Self::Api(ApiError::StatsScanError { reason, .. }) => f.write_str(reason),
+            Self::Api(ApiError::StatsRowNotFoundError { table, key }) => {
+                write!(f, "No {table} row {key} in this window.")
             }
             Self::Api(e) => write!(f, "{e:?}"),
             Self::Transport {
@@ -77,6 +92,24 @@ pub trait DataSource: Send + Sync + 'static {
         _id: &str,
         _parent: Option<&str>,
     ) -> Option<Result<AnalyzedSession, LoadError>> {
+        None
+    }
+    /// One pass over the corpus for `scope`; passes run one at a time.
+    fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>);
+    /// One page of the calls behind a row.
+    fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>);
+    fn stats_usage(&self, query: UsageQuery, reply: Reply<UsageView>);
+    fn stats_refresh(&self, body: RefreshBody, reply: Reply<RefreshView>);
+    /// The detector marks of one session.
+    fn markers(&self, sid: String, agent: Option<AgentId>, reply: Reply<MarkersView>);
+    fn stats_report_now(&self, _scope: StatsScope) -> Option<Result<StatsScreen, LoadError>> {
+        None
+    }
+    fn stats_drill_now(
+        &self,
+        _scope: StatsScope,
+        _ask: &DrillAsk,
+    ) -> Option<Result<DrillView, LoadError>> {
         None
     }
 }
