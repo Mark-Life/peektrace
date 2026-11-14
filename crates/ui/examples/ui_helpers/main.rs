@@ -2,7 +2,7 @@
 //! line, one JSON answer per stdout line. `scripts/rust/parity-ui.ts`
 //! asks the TS inspector the same questions and diffs the answers.
 
-#[path = "ui_helpers_stats/mod.rs"]
+mod settings;
 mod stats;
 
 use std::io::{BufRead as _, Write as _};
@@ -325,6 +325,13 @@ fn answer(req: &Value) -> Value {
         "statsfmt" => stats::fmt_answer(req),
         "stats" => stats::stats_answer(req),
         "drill" => stats::drill_answer(req),
+        "settings" => settings::settings_answer(req),
+        "tilde" => settings::tilde_answer(req),
+        "wire" => settings::wire_answer(req),
+        "caps" => settings::caps_answer(req),
+        "theme" => settings::theme_answer(req),
+        "keys" => settings::keys_answer(req),
+        "copy" => settings::copy_answer(),
         other => json!({ "error": format!("unknown fn {other}") }),
     }
 }

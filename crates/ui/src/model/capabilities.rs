@@ -11,6 +11,10 @@ pub const AGENT_COLUMNS: [(AgentId, &str); 4] = [
     (AgentId::Opencode, "OpenCode"),
 ];
 
+pub const CAPABILITY_HEAD: &str = "Capability";
+pub const NOTE_HEAD: &str = "Note";
+pub const LEGEND_HEAD: &str = "Legend";
+
 /// Legend order (`LEVEL_STYLES` keys).
 pub const LEVELS: [SupportLevel; 4] = [
     SupportLevel::Supported,

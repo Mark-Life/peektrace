@@ -7,7 +7,8 @@ use rune_kit::{Badge, BadgeVariant, Dialog};
 
 use super::blocks::{failure, pending};
 use crate::model::capabilities::{
-    AGENT_COLUMNS, LEVELS, cell_note, group_by, level_gloss, level_label, support,
+    AGENT_COLUMNS, CAPABILITY_HEAD, LEGEND_HEAD, LEVELS, NOTE_HEAD, cell_note, group_by,
+    level_gloss, level_label, support,
 };
 use crate::state::Ui;
 use crate::theme::{Theme, hex_or_grey, ty};
@@ -90,7 +91,7 @@ fn matrix(caps: &[Capability], t: &Theme) -> El {
             row()
                 .w_full()
                 .border_sides(line, t.border)
-                .child(head_cell("Capability", FIRST_COL, t))
+                .child(head_cell(CAPABILITY_HEAD, FIRST_COL, t))
                 .children(
                     AGENT_COLUMNS
                         .iter()
@@ -170,7 +171,7 @@ fn cell_dialog(s: &Ui, caps: &[Capability], t: &Theme, layer: &mut Vec<El>) {
                 .child(pill(sup.level, t)),
         )
         .child(
-            col().w_full().gap(4.0).child(heading("Note")).child(
+            col().w_full().gap(4.0).child(heading(NOTE_HEAD)).child(
                 text(cell_note(sup).to_owned())
                     .key("cap-cell-note")
                     .font(ty::SM)
@@ -183,7 +184,7 @@ fn cell_dialog(s: &Ui, caps: &[Capability], t: &Theme, layer: &mut Vec<El>) {
             col()
                 .w_full()
                 .gap(8.0)
-                .child(heading("Legend"))
+                .child(heading(LEGEND_HEAD))
                 .child(legend(t)),
         );
     Dialog::new("cap-cell-sheet", cap.title.clone())
