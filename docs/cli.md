@@ -12,7 +12,7 @@ network calls.
 ## Run it
 
 ```sh
-# installed form (native installer or npm, see the root README)
+# installed form (native installer, see the root README)
 peektrace serve
 
 # from a checkout: build the UI once, then serve it
@@ -22,25 +22,10 @@ cargo run -p peektrace-cli -- serve # debug build, serves apps/inspector/dist fr
 
 ## Distribution
 
-Two channels, both driven by the `Publish CLI` workflow
-(`.github/workflows/publish-cli.yml`) on each `cli-v<semver>` tag. The native
-installers (`scripts/install.sh` / `scripts/install.ps1`) pull the per-platform
-binary from the GitHub Release. npm (`npx peektrace`) is the second channel,
-published after the Release.
-
-### npm
-
-CI publishes with npm trusted publishing (OIDC, no token), so each package
-carries a provenance attestation. The unscoped `peektrace` wrapper ships prebuilt
-binaries via `os`/`cpu`-filtered optional dependencies, one scoped package per
-platform: `@peektrace/cli-<platform>-<arch>` (`darwin-arm64`, `darwin-x64`,
-`linux-x64`, `linux-arm64`, `win32-x64`). Installing pulls only the host's
-binary; a tiny Node shim (`peektrace.js`) resolves it and forwards argv. CI
-publishes each `@peektrace/cli-*` variant first, then the `peektrace` wrapper, so
-its optionalDependencies resolve. `scripts/release/build-npm.ts` stages the
-packages from the release binaries. The wrapper README is generated from the
-root README (up to `# Develop`), with image lines dropped and relative links
-pinned to the release tag.
+The `Publish CLI` workflow (`.github/workflows/publish-cli.yml`) runs on each
+`cli-v<semver>` tag and uploads the per-platform binaries to the GitHub
+Release. The native installers (`scripts/install.sh` / `scripts/install.ps1`)
+and `peektrace upgrade` download them from there. npm gets no new versions.
 
 ### Running on a VPS / headless server
 

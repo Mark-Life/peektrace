@@ -14,9 +14,6 @@ It runs on `127.0.0.1`, reads your files, and sends nothing anywhere.
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Mark-Life/peektrace/main/scripts/install.sh | sh
 peektrace serve
-
-# or, if you have Node
-npx peektrace serve
 ```
 
 ---
@@ -50,31 +47,9 @@ Binaries cover macOS (arm64, x64), Linux (x64, arm64) and Windows (x64). The
 Linux builds need glibc 2.17 or newer (RHEL 7, Debian 8, Ubuntu 14.04 and later).
 On musl (Alpine) or anything else, build from source.
 
-## From npm
-
-With Node already installed, `npx` runs the same binary without installing
-anything:
-
-```sh
-npx peektrace serve
-```
-
-`npm install -g peektrace` puts it on your PATH instead. Either way you get the
-`peektrace` wrapper, which pulls only the prebuilt binary matching your platform
-and skips the other four.
-
-Update it with npm rather than `peektrace upgrade`. The upgrade command replaces
-the binary where it stands, which under npm means inside `node_modules`, and the
-next install undoes it.
-
-CI publishes these packages with npm trusted publishing, so each one carries a
-provenance attestation tying the tarball to the commit and workflow that built
-it. Check yours with `npm audit signatures`.
-
-If you see "could not locate a platform binary", your platform has no prebuilt
-binary: reinstall, or build from source. To run an explicit binary, set
-`PEEKTRACE_BIN_PATH=/path/to/peektrace` (on Windows,
-`$env:PEEKTRACE_BIN_PATH` pointing at `peektrace.exe`).
+The `peektrace` npm package gets no new versions. If you installed it from npm,
+run the installer above, then remove the npm copy with
+`npm uninstall -g peektrace`.
 
 There is no desktop download yet. Anything claiming otherwise under the name
 `peektrace` is not published by this project.
@@ -308,7 +283,7 @@ and the Vite dev server side by side; see
 | `packages/ui` | shadcn/ui component library |
 | `packages/viz` | shared chart primitives |
 | `packages/view-core` | browser helpers and the generated wire types |
-| `scripts/release` | npm staging and release notes for `publish-cli.yml` |
+| `scripts/release` | release notes for `publish-cli.yml` |
 | `tests/fixtures` | session and memory fixtures the Rust tests read |
 
 ## Commands
@@ -349,11 +324,6 @@ inspector once, then the release binary on a native runner per target, with
 the inspector embedded and the tag's version baked in. The binaries go to the
 GitHub Release (with `.gz` copies and `SHA256SUMS`), which feeds the installers
 in `scripts/` and `peektrace upgrade`.
-
-npm gets six packages per release: the `peektrace` wrapper plus one
-`@peektrace/cli-<platform>-<arch>` per binary, staged by
-`scripts/release/build-npm.ts` from the release binaries and published over
-OIDC with no stored token. See the header of the workflow.
 
 The GitHub Release body is the matching `## cli-vX.Y.Z` section of
 `CHANGELOG.md`. A tag with no section gets generated notes instead.
