@@ -21,7 +21,6 @@ import {
   causeNote,
   type FindingFormat,
   findingsOf,
-  noSuggestionReason,
   rateText,
   ruleLine,
   timeNote,
@@ -246,26 +245,6 @@ describe("cause findings", () => {
     });
     expect(causeNote(fresh)).toBe(
       "rule in ~/.claude/CLAUDE.md:100 · not measured yet (added 2026-08-01): if it keeps firing: setopt nonomatch"
-    );
-  });
-
-  test("no suggestion says why: nothing fired, or all of it is stated", () => {
-    expect(noSuggestionReason(report({}))).toBe(
-      "no rule cause fired in this window"
-    );
-    expect(noSuggestionReason(report({ causes: [causeRow({})] }))).toBeNull();
-    const stated = causeRow({
-      rule: {
-        matches: [],
-        sinceIso: null,
-        hitsSince: { main: 0, nested: 0 },
-        callsSince: { main: 0, nested: 0 },
-        per1kSince: { main: 0, nested: 0 },
-        advice: "",
-      },
-    });
-    expect(noSuggestionReason(report({ causes: [stated] }))).toBe(
-      "every rule cause that fired is already stated in a memory file"
     );
   });
 });

@@ -187,22 +187,6 @@ export const suggestedRuleOf = (row: CauseRow): string | null =>
 export const suggestedRules = (report: StatsReport): readonly string[] =>
   report.causes.flatMap((row) => suggestedRuleOf(row) ?? []);
 
-/**
- * Why there is no suggested rule, or null when there is one: no rule cause
- * fired, or every one that fired is already stated in a memory file.
- */
-export const noSuggestionReason = (report: StatsReport): string | null => {
-  if (suggestedRules(report).length > 0) {
-    return null;
-  }
-  const fired = report.causes.some(
-    (row) => row.kind === "rule" && row.fix !== null && row.hits > 0
-  );
-  return fired
-    ? "every rule cause that fired is already stated in a memory file"
-    : "no rule cause fired in this window";
-};
-
 const causeFinding = (row: CauseRow, f: FindingFormat): Finding | null => {
   const note = causeNote(row);
   return note === null || row.hits === 0
