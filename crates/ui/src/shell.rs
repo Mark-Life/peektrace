@@ -82,9 +82,12 @@ pub fn dispatch(s: &mut Ui) {
             Request::StatsReport { rid, scope } => io.source.stats_report(
                 scope,
                 Box::new(move |res| {
-                    h.update(move |s, _tx| {
+                    h.update(move |s, tx| {
                         s.syncing = s.syncing.saturating_sub(1);
                         s.apply_stats(rid, scope, res);
+                        if !s.pending.is_empty() {
+                            tx.wake_after(Duration::ZERO);
+                        }
                     });
                 }),
             ),
@@ -94,9 +97,12 @@ pub fn dispatch(s: &mut Ui) {
                     scope,
                     ask,
                     Box::new(move |res| {
-                        h.update(move |s, _tx| {
+                        h.update(move |s, tx| {
                             s.syncing = s.syncing.saturating_sub(1);
                             s.apply_drill(rid, scope, landed, res);
+                            if !s.pending.is_empty() {
+                                tx.wake_after(Duration::ZERO);
+                            }
                         });
                     }),
                 );

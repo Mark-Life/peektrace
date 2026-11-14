@@ -116,7 +116,7 @@ fn prompts(p: &Prompts) -> Value {
     json!({"report": p.report, "cause": map(&p.cause), "fail": map(&p.fail), "time": map(&p.time)})
 }
 
-fn text_json(t: &StatsText, generated: String) -> Value {
+fn text_json(t: &StatsText, generated: &str) -> Value {
     json!({
         "findings": t.findings.iter().map(|f| json!({
             "detector": f.detector, "impact": f.impact, "key": f.key, "note": f.note,
@@ -213,7 +213,7 @@ pub fn stats_answer(req: &Value) -> Value {
     let text = text_of(&r, s.agent);
     json!({
         "report": serde_json::from_str::<Value>(&body).unwrap_or(Value::Null),
-        "text": text_json(&text, at(r.generated_at, 0.0)),
+        "text": text_json(&text, &at(r.generated_at, 0.0)),
         "view": view_json(&view, &titles),
         "showMore": rows::show_more(text.findings.len()),
         "retryWindow": peektrace_ui::model::stats::RETRY_WINDOW,

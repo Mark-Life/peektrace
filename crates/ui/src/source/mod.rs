@@ -36,6 +36,8 @@ pub enum LoadError {
     },
     /// The body did not match the view types.
     Decode(String),
+    /// A newer ask for another scope came first; the pass never ran.
+    Superseded,
 }
 
 impl std::fmt::Display for LoadError {
@@ -61,6 +63,7 @@ impl std::fmt::Display for LoadError {
                 message,
             } => f.write_str(message),
             Self::Decode(m) => write!(f, "Unexpected response: {m}"),
+            Self::Superseded => f.write_str("A newer request replaced this one."),
         }
     }
 }
@@ -96,7 +99,8 @@ pub trait DataSource: Send + Sync + 'static {
     ) -> Option<Result<AnalyzedSession, LoadError>> {
         None
     }
-    /// One pass over the corpus for `scope`; passes run one at a time.
+    /// One pass over the corpus for `scope`; passes run one at a time, and
+    /// a source may skip a queued one once another scope was asked.
     fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>);
     /// One page of the calls behind a row.
     fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>);

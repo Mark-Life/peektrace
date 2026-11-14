@@ -1,5 +1,7 @@
 //! The stats entry points: report, drill and refresh.
 
+use std::collections::HashSet;
+
 use thiserror::Error;
 use tracing::info_span;
 
@@ -290,29 +292,58 @@ impl DrillPage {
     }
 }
 
-/// `hits.slice(offset, offset + page)` with JS index clamping.
+/// `[start, end)` of `hits.slice(offset, offset + page)`, with JS index clamping.
 #[expect(
     clippy::cast_possible_truncation,
     clippy::cast_sign_loss,
     reason = "both bounds are non-negative; `as` saturates"
 )]
-fn page_of(hits: Vec<DrillHit>, offset: f64, page: f64) -> Vec<DrillHit> {
-    let start = offset as usize;
-    let end = (offset + page) as usize;
-    hits.into_iter()
-        .skip(start)
-        .take(end.saturating_sub(start))
-        .collect()
+fn page_range(len: usize, offset: f64, page: f64) -> std::ops::Range<usize> {
+    let start = (offset as usize).min(len);
+    let end = ((offset + page) as usize).clamp(start, len);
+    start..end
 }
 
-/// The calls behind one row, one page of them.
-pub fn drill(
+/// Every call behind one row, and the redacted transcript path of each
+/// session among them, sorted by session id.
+#[derive(Debug, Clone)]
+pub struct DrillHits {
+    pub table: DrillTable,
+    pub key: String,
+    pub hits: Vec<DrillHit>,
+    pub paths: Vec<(String, String)>,
+}
+
+impl DrillHits {
+    /// One page; paths keep only the page's sessions.
+    pub fn page(&self, page: DrillPage) -> DrillResult {
+        let (offset, size) = page.resolve();
+        let shown = self.hits[page_range(self.hits.len(), offset, size)].to_vec();
+        let sids: HashSet<&str> = shown.iter().map(|h| h.sample.sid.as_str()).collect();
+        let paths = self
+            .paths
+            .iter()
+            .filter(|(sid, _)| sids.contains(sid.as_str()))
+            .cloned()
+            .collect();
+        DrillResult {
+            table: self.table,
+            key: self.key.clone(),
+            total: self.hits.len(),
+            offset,
+            hits: shown,
+            paths,
+        }
+    }
+}
+
+/// Every call behind one row, from one pass.
+pub fn drill_hits(
     env: &StatsEnv<'_>,
     req: &ReportRequest,
     table: DrillTable,
     raw_key: &str,
-    page: DrillPage,
-) -> Result<DrillResult, StatsError> {
+) -> Result<DrillHits, StatsError> {
     let key = drill_key_of(table, raw_key);
     let _span = info_span!("Stats.drill", table = table.as_str()).entered();
     let target = DrillTarget {
@@ -344,22 +375,28 @@ pub fn drill(
             key,
         });
     }
-    let total = hits.len();
-    let (offset, size) = page.resolve();
-    let shown = page_of(hits, offset, size);
     let paths = paths_of(
         &p.result.paths,
         &redact,
-        shown.iter().map(|h| h.sample.sid.as_str()),
+        hits.iter().map(|h| h.sample.sid.as_str()),
     );
-    Ok(DrillResult {
+    Ok(DrillHits {
         table,
         key,
-        total,
-        offset,
-        hits: shown,
+        hits,
         paths,
     })
+}
+
+/// The calls behind one row, one page of them.
+pub fn drill(
+    env: &StatsEnv<'_>,
+    req: &ReportRequest,
+    table: DrillTable,
+    raw_key: &str,
+    page: DrillPage,
+) -> Result<DrillResult, StatsError> {
+    Ok(drill_hits(env, req, table, raw_key)?.page(page))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

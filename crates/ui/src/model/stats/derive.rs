@@ -13,7 +13,7 @@ use peektrace_core::stats::prompts::{PromptTarget, stats_prompt_with};
 use peektrace_core::stats::service::StatsReport;
 use peektrace_protocol::{AgentId, DrillTable};
 
-use super::format::{at, hms, n, pct};
+use super::format::{hms, n, pct};
 use super::{FindingView, Prompts, StatsText};
 use crate::model::format::fmt_k;
 

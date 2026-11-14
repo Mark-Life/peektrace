@@ -2,6 +2,8 @@
 //! and the screen's own toggles. Reports never follow the watch; Rescan
 //! asks again. Replies land through [`Ui::apply_stats`] and
 //! [`Ui::apply_drill`] and change nothing once a newer ask replaced them.
+//! A pass the source skipped for another scope asks again when its scope
+//! is on screen, else on the next visit.
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -192,7 +194,17 @@ impl Ui {
     ) -> bool {
         match self.stats.reports.get_mut(&scope) {
             Some(slot) if slot.rid == rid => {
-                slot.land(result);
+                if !matches!(result, Err(LoadError::Superseded)) {
+                    slot.land(result);
+                } else if scope == self.stats.scope {
+                    self.stats_ask(self.stats.clock);
+                } else if slot.pending() {
+                    // A later visit asks again and counts from then.
+                    self.stats.reports.remove(&scope);
+                    self.stats.first_pass.remove(&scope);
+                } else {
+                    slot.loading = false;
+                }
                 true
             }
             _ => false,
@@ -257,9 +269,19 @@ impl Ui {
         ask: DrillAsk,
         result: Result<DrillView, LoadError>,
     ) -> bool {
-        match self.stats.drills.get_mut(&(scope, ask)) {
+        let shown = scope == self.stats.scope && self.stats.drill_ask().as_ref() == Some(&ask);
+        let key = (scope, ask);
+        match self.stats.drills.get_mut(&key) {
             Some(slot) if slot.rid == rid => {
-                slot.land(result);
+                if !matches!(result, Err(LoadError::Superseded)) {
+                    slot.land(result);
+                } else if shown {
+                    self.drill_ask(key.0, key.1);
+                } else if slot.pending() {
+                    self.stats.drills.remove(&key);
+                } else {
+                    slot.loading = false;
+                }
                 true
             }
             _ => false,

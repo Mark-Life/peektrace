@@ -13,13 +13,13 @@ use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::{analyzed_json_with, listing_json};
 use peektrace_core::stats::cache::{StatsCache, cache_root};
 use peektrace_core::stats::service::{
-    DrillPage, ReportRequest, StatsEnv, StatsError, drill, report,
+    DrillHits, DrillPage, ReportRequest, StatsEnv, StatsError, drill_hits, report,
 };
 use peektrace_core::watch::{WatchProblem, Watcher};
 use peektrace_core::{AgentRoots, ListFilter, list_sessions_cached};
 use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
-use peektrace_protocol::{AgentId, ApiError, WatchVersions};
+use peektrace_protocol::{AgentId, ApiError, DrillTable, WatchVersions};
 use tracing::{Span, field, info_span};
 
 use super::{DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode};
@@ -34,8 +34,30 @@ struct Inner {
     stats_cache: String,
     /// One corpus pass at a time, so a second one reads the first one's cache.
     stats_lock: Mutex<()>,
+    /// The scope of the last ask; a queued pass for another scope is skipped.
+    wanted: Mutex<Option<StatsScope>>,
+    /// Every hit of the last drilled row, so a page turn is a slice.
+    drilled: Mutex<Option<Drilled>>,
     /// A fixed clock for headless runs and tests.
     now: Option<f64>,
+}
+
+struct Drilled {
+    scope: StatsScope,
+    table: DrillTable,
+    key: String,
+    hits: Arc<DrillHits>,
+}
+
+/// Whether a pass runs for any scope or only for the last one asked.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Gate {
+    Always,
+    Latest,
+}
+
+fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    m.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 pub struct InProcess {
@@ -125,6 +147,8 @@ impl InProcess {
                 zone: SystemZone::default(),
                 stats_cache,
                 stats_lock: Mutex::new(()),
+                wanted: Mutex::new(None),
+                drilled: Mutex::new(None),
                 now: crate::fixed_now(),
             }),
             watcher: Mutex::new(None),
@@ -161,23 +185,21 @@ impl InProcess {
         Self::new(AgentRoots::resolve(&env, &settings), cache_root(&env))
     }
 
-    /// Run `f` on a stats env; `locked` waits for earlier corpus passes.
+    /// Run `f` on a stats env after earlier corpus passes; under
+    /// [`Gate::Latest`], skip it once the UI asked about another scope.
     fn with_stats<T>(
         inner: &Inner,
         span: &Span,
-        locked: bool,
+        scope: StatsScope,
+        gate: Gate,
         f: impl FnOnce(&StatsEnv<'_>) -> Result<T, StatsError>,
     ) -> Result<T, LoadError> {
         let started = Instant::now();
-        let _guard = locked.then(|| {
-            inner
-                .stats_lock
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-        });
-        if locked {
-            let waited = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-            span.record("stats.waitMs", waited);
+        let _guard = locked(&inner.stats_lock);
+        let waited = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
+        span.record("stats.waitMs", waited);
+        if gate == Gate::Latest && *locked(&inner.wanted) != Some(scope) {
+            return Err(LoadError::Superseded);
         }
         let env = StatsEnv {
             roots: &inner.roots,
@@ -193,12 +215,22 @@ impl InProcess {
         out
     }
 
-    fn stats_screen(inner: &Inner, scope: StatsScope) -> Result<StatsScreen, LoadError> {
+    fn stats_screen(
+        inner: &Inner,
+        scope: StatsScope,
+        gate: Gate,
+    ) -> Result<StatsScreen, LoadError> {
         let span = stats_span!("app.stats.report");
         record_scope(&span, scope);
         let _entered = span.enter();
-        let r = Self::with_stats(inner, &span, true, |env| {
-            report(env, &report_request(scope))
+        let r = Self::with_stats(inner, &span, scope, gate, |env| {
+            let r = report(env, &report_request(scope));
+            // A new pass may see new calls; the next drill reads them.
+            let mut drilled = locked(&inner.drilled);
+            if drilled.as_ref().is_some_and(|d| d.scope == scope) {
+                *drilled = None;
+            }
+            r
         })?;
         let out = decode(&r.to_json(false)).map(|view| StatsScreen {
             report: view,
@@ -211,10 +243,45 @@ impl InProcess {
         out
     }
 
+    fn drilled(inner: &Inner, scope: StatsScope, ask: &DrillAsk) -> Option<Arc<DrillHits>> {
+        locked(&inner.drilled)
+            .as_ref()
+            .filter(|d| d.scope == scope && d.table == ask.table && d.key == ask.key)
+            .map(|d| Arc::clone(&d.hits))
+    }
+
+    /// Every hit of the row, from the last drill of it or from one pass.
+    fn hits(
+        inner: &Inner,
+        span: &Span,
+        scope: StatsScope,
+        ask: &DrillAsk,
+        gate: Gate,
+    ) -> Result<Arc<DrillHits>, LoadError> {
+        if let Some(hits) = Self::drilled(inner, scope, ask) {
+            return Ok(hits);
+        }
+        Self::with_stats(inner, span, scope, gate, |env| {
+            if let Some(hits) = Self::drilled(inner, scope, ask) {
+                return Ok(hits);
+            }
+            let req = report_request(scope);
+            let hits = Arc::new(drill_hits(env, &req, core_table(ask.table), &ask.key)?);
+            *locked(&inner.drilled) = Some(Drilled {
+                scope,
+                table: ask.table,
+                key: ask.key.clone(),
+                hits: Arc::clone(&hits),
+            });
+            Ok(hits)
+        })
+    }
+
     fn stats_page(
         inner: &Inner,
         scope: StatsScope,
         ask: &DrillAsk,
+        gate: Gate,
     ) -> Result<DrillView, LoadError> {
         let span = stats_span!("app.stats.drill");
         record_scope(&span, scope);
@@ -224,15 +291,17 @@ impl InProcess {
         );
         span.record("stats.offset", ask.offset);
         let _entered = span.enter();
-        let table = core_table(ask.table);
         let page = DrillPage {
             offset: Some(f64::from(ask.offset)),
             page_size: Some(crate::model::stats::rows::DRILL_PAGE),
         };
-        let body = Self::with_stats(inner, &span, true, |env| {
-            Ok(drill(env, &report_request(scope), table, &ask.key, page)?.to_json(false))
-        })?;
-        decode(&body)
+        let hits = Self::hits(inner, &span, scope, ask, gate)?;
+        decode(&hits.page(page).to_json(false))
+    }
+
+    /// Mark `scope` as the one the UI shows now.
+    fn want(&self, scope: StatsScope) {
+        *locked(&self.inner.wanted) = Some(scope);
     }
 
     fn list(inner: &Inner) -> Result<SessionListingView, LoadError> {
@@ -328,7 +397,7 @@ impl DataSource for InProcess {
             memory: now.memory,
             sessions: now.sessions,
         }));
-        *self.watcher.lock().unwrap_or_else(PoisonError::into_inner) = Some(watcher);
+        *locked(&self.watcher) = Some(watcher);
     }
 
     fn sessions_now(&self) -> Option<Result<SessionListingView, LoadError>> {
@@ -344,15 +413,23 @@ impl DataSource for InProcess {
     }
 
     fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>) {
-        self.spawn(move |inner| Self::stats_screen(inner, scope), reply);
+        self.want(scope);
+        self.spawn(
+            move |inner| Self::stats_screen(inner, scope, Gate::Latest),
+            reply,
+        );
     }
 
     fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>) {
-        self.spawn(move |inner| Self::stats_page(inner, scope, &ask), reply);
+        self.want(scope);
+        self.spawn(
+            move |inner| Self::stats_page(inner, scope, &ask, Gate::Latest),
+            reply,
+        );
     }
 
     fn stats_report_now(&self, scope: StatsScope) -> Option<Result<StatsScreen, LoadError>> {
-        Some(Self::stats_screen(&self.inner, scope))
+        Some(Self::stats_screen(&self.inner, scope, Gate::Always))
     }
 
     fn stats_drill_now(
@@ -360,13 +437,11 @@ impl DataSource for InProcess {
         scope: StatsScope,
         ask: &DrillAsk,
     ) -> Option<Result<DrillView, LoadError>> {
-        Some(Self::stats_page(&self.inner, scope, ask))
+        Some(Self::stats_page(&self.inner, scope, ask, Gate::Always))
     }
 }
 
-const fn core_table(
-    t: peektrace_protocol::DrillTable,
-) -> peektrace_core::stats::accumulate::DrillTable {
+const fn core_table(t: DrillTable) -> peektrace_core::stats::accumulate::DrillTable {
     use peektrace_core::stats::accumulate::DrillTable as Core;
     use peektrace_protocol::DrillTable as Wire;
     match t {
