@@ -11,10 +11,7 @@ const BIN: &str = env!("CARGO_BIN_EXE_peektrace");
 const TOKEN: &str = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 fn fixtures(sub: &str) -> String {
-    format!(
-        "{}/../../packages/core/test/fixtures/{sub}",
-        env!("CARGO_MANIFEST_DIR")
-    )
+    format!("{}/../../tests/fixtures/{sub}", env!("CARGO_MANIFEST_DIR"))
 }
 
 fn base_command(dir: &str) -> Command {

@@ -1,5 +1,5 @@
 //! Codex and Pi parsing, listing and lookup against the TS test fixtures in
-//! `packages/core/test/fixtures`. Expected values come from the TS tests and
+//! `tests/fixtures`. Expected values come from the TS tests and
 //! the TS CLI on the same files.
 
 use std::fs;
@@ -15,7 +15,7 @@ use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions
 
 fn fixture(rel: &str) -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/core/test/fixtures")
+        .join("../../tests/fixtures")
         .join(rel)
         .to_string_lossy()
         .into_owned()

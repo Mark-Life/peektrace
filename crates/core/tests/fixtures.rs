@@ -1,5 +1,5 @@
 //! Listing, analysis and export against the TS test fixtures in
-//! `packages/core/test/fixtures`. Expected values come from the TS CLI
+//! `tests/fixtures`. Expected values come from the TS CLI
 //! (`sessions ls --json`, `sessions analyze --json`).
 
 use std::path::PathBuf;
@@ -14,7 +14,7 @@ use peektrace_core::sessions::service::{
 use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 fn fixtures(sub: &str) -> String {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/test/fixtures");
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
     root.join(sub).to_string_lossy().into_owned()
 }
 

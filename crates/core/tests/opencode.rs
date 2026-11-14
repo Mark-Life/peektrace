@@ -1,6 +1,5 @@
 //! `OpenCode` sessions from throwaway SQLite stores and legacy trees, built
-//! with the DDL of `packages/core/test/fixtures/opencode-db.ts`. Expected
-//! values come from the TS reader and parser tests.
+//! with `OpenCode`'s DDL.
 
 mod common;
 

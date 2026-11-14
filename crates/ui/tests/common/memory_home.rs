@@ -30,7 +30,7 @@ pub fn put(path: &Path, body: impl AsRef<[u8]>) {
 }
 
 fn fixtures() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/test/fixtures/memory")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/memory")
 }
 
 /// `---\nname: \xff\xfe\n---\nbody\n`: invalid UTF-8 in a name.

@@ -14,7 +14,7 @@ pub const NOW_MS: f64 = 1_794_416_400_000.0;
 pub const LONG_ID: &str = "22222222-2222-4222-8222-222222222222";
 
 fn fixtures() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/test/fixtures")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
 
 fn copy_dir(from: &Path, to: &Path) {

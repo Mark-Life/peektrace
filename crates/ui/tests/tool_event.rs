@@ -46,7 +46,7 @@ fn session_from(text: &str, session_id: &str, redact: bool) -> AnalyzedSession {
 /// The shared Claude fixture: one `Read` call, one result carrying a secret.
 fn golden(redact: bool) -> AnalyzedSession {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!(
-        "../../packages/core/test/fixtures/sessions/projects/-Users-demo-proj/{FIXTURE_ID}.jsonl"
+        "../../tests/fixtures/sessions/projects/-Users-demo-proj/{FIXTURE_ID}.jsonl"
     ));
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{e}"));
     session_from(&text, FIXTURE_ID, redact)

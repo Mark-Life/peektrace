@@ -6,7 +6,7 @@ use peektrace_core::stats::detectors::similarity::{
     FOCUS_SEP, FocusMode, SimilarityInput, hybrid_similarity, norm_seg, ratio, segments,
 };
 
-const GOLDEN: &str = include_str!("../../../packages/core/test/fixtures/stats/difflib-golden.json");
+const GOLDEN: &str = include_str!("../../../tests/fixtures/stats/difflib-golden.json");
 
 fn hybrid(
     text: &str,
