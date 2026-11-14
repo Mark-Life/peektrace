@@ -147,16 +147,17 @@ fn tiles(a: &AnalyzedSession, zone: Zone, cols: usize, t: &Theme) -> El {
         a.peak_cache_read_tokens / a.peak_context_tokens
     };
     items.push(tile("tile-cache", "Cache", value(fmt_pct(cache), t), t));
-    let mut grid = col().w_full().gap(8.0);
-    let mut it = items.into_iter().peekable();
-    while it.peek().is_some() {
-        let mut r = row().w_full().gap(8.0).items_stretch();
-        for _ in 0..cols {
-            r = r.child(it.next().unwrap_or_else(el).grow(1.0).w(0.0));
-        }
-        grid = grid.child(r);
-    }
-    grid
+    tile_grid(cols, items)
+}
+
+/// `items` in `cols` equal columns; a short last row keeps the same widths.
+pub fn tile_grid(cols: usize, items: impl IntoIterator<Item = El>) -> El {
+    col()
+        .key("tile-grid")
+        .w_full()
+        .equal_columns(cols)
+        .gap(8.0)
+        .children(items)
 }
 
 fn jump_chip(
