@@ -107,7 +107,7 @@ fn nav(s: &Ui, inset: f32, t: &Theme) -> El {
         .label("Toggle theme")
         .focusable(true)
         .on_press(move |s: &mut Ui| s.dark = Some(!dark));
-    let band = (inset > 0.0).then(|| {
+    let drag_band = (inset > 0.0).then(|| {
         rune::el()
             .key("titlebar-band")
             .w_full()
@@ -121,7 +121,7 @@ fn nav(s: &Ui, inset: f32, t: &Theme) -> El {
         .fill(t.sidebar)
         .padding(10.0)
         .gap(4.0)
-        .children(band)
+        .children(drag_band)
         .child(brand.pb(12.0).px(6.0))
         .children(
             [
