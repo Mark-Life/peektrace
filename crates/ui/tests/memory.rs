@@ -9,6 +9,8 @@ mod writes;
 
 use common::memory_home::SEED;
 use peektrace_protocol::{SupportLevel, WatchVersions};
+use peektrace_ui::source::LoadError;
+use peektrace_ui::source::memory::MemoryDone;
 use peektrace_ui::state::{Request, Route, Ui};
 use peektrace_ui::state_memory::{CreateTarget, Dialog, MemoryRequest};
 use peektrace_ui::views;
@@ -287,6 +289,58 @@ fn watch_bumps_reload_on_screen_mark_stale_off_it_and_wait_while_paused() {
         1,
         "a restarted server counts from its own baseline"
     );
+}
+
+/// Save the first seeded entry unchanged and land the write at `clock`.
+fn save_first(s: &mut Ui, clock: f64) {
+    let entry = s
+        .memory
+        .all()
+        .and_then(|a| a.vaults.iter().find(|v| v.slug == SEED))
+        .and_then(|v| v.entries.first().cloned());
+    let Some(entry) = entry else {
+        panic!("no seeded entry")
+    };
+    s.open_edit(SEED, &entry);
+    s.submit_edit(false);
+    let id = s.pending.iter().find_map(|r| match r {
+        Request::Memory(MemoryRequest::Write { id, .. }) => Some(*id),
+        _ => None,
+    });
+    s.pending.clear();
+    let done = Ok(MemoryDone::Entry(entry));
+    s.apply_memory_write(id.unwrap_or_default(), done, clock);
+}
+
+#[test]
+fn a_write_under_a_live_watch_scans_the_vaults_once() {
+    let mut s = on_memory(&mem_home());
+    s.io = None;
+    s.pending.clear();
+    bump(&mut s, 1);
+    save_first(&mut s, 10.0);
+    assert_eq!(loads(&s), 0, "the write waits for its own watch bump");
+    bump(&mut s, 2);
+    assert_eq!(loads(&s), 1, "its bump reloads once");
+
+    bump(&mut s, 3);
+    assert_eq!(loads(&s), 1, "a bump during a load does not start another");
+    s.pending.clear();
+    let data = s
+        .memory
+        .data
+        .clone()
+        .ok_or_else(|| LoadError::Decode("no data".to_owned()));
+    s.apply_memory(s.memory.rid, data.clone());
+    assert_eq!(loads(&s), 1, "it reloads once that load lands");
+    s.pending.clear();
+    s.apply_memory(s.memory.rid, data);
+
+    save_first(&mut s, 20.0);
+    s.tick(20.5, now_ms(), &mut Tx::default());
+    assert_eq!(loads(&s), 0);
+    s.tick(21.0, now_ms(), &mut Tx::default());
+    assert_eq!(loads(&s), 1, "a bump that never comes still reloads");
 }
 
 #[test]

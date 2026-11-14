@@ -159,7 +159,7 @@ impl Ui {
                     }
                     mem.focus = Some(project);
                 }
-                self.request_memory();
+                self.reload_after_write(clock);
                 true
             }
             (Inflight::Create { target, .. }, Err(e)) => {
@@ -173,7 +173,7 @@ impl Ui {
                 if matches!(mem.dialog, Some(Dialog::Edit(_))) {
                     mem.dialog = None;
                 }
-                self.request_memory();
+                self.reload_after_write(clock);
                 true
             }
             (Inflight::Edit { .. }, Err(e)) => {
@@ -200,7 +200,7 @@ impl Ui {
                 if matches!(mem.dialog, Some(Dialog::Delete(_))) {
                     mem.dialog = None;
                 }
-                self.request_memory();
+                self.reload_after_write(clock);
                 true
             }
             (Inflight::Delete { .. }, Err(e)) => {

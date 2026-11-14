@@ -17,6 +17,9 @@ pub fn dispatch(req: MemoryRequest, io: &crate::state::Io) {
                 if let Some(key) = s.apply_memory(rid, res) {
                     tx.focus(key, true);
                 }
+                if !s.pending.is_empty() {
+                    tx.wake_after(std::time::Duration::ZERO);
+                }
             });
         })),
         MemoryRequest::Write { id, op } => io.source.memory_write(
@@ -25,8 +28,10 @@ pub fn dispatch(req: MemoryRequest, io: &crate::state::Io) {
                 h.update(move |s, tx| {
                     s.syncing = s.syncing.saturating_sub(1);
                     let clock = tx.clock();
-                    if s.apply_memory_write(id, res, clock) {
-                        tx.wake_at(clock + TOAST_S);
+                    let toast = s.apply_memory_write(id, res, clock);
+                    let dues = toast.then_some(clock + TOAST_S).into_iter();
+                    for due in dues.chain(s.memory.own_change) {
+                        tx.wake_at(due);
                     }
                     if !s.pending.is_empty() {
                         tx.wake_after(std::time::Duration::ZERO);

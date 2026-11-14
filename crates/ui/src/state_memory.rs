@@ -22,6 +22,9 @@ pub use run::*;
 /// How long a toast stays, in seconds.
 pub const TOAST_S: f64 = 4.0;
 
+/// How long a landed write waits for its watch bump before it loads anyway.
+pub const WRITE_WAIT_S: f64 = 1.0;
+
 /// A memory load or write the app layer runs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MemoryRequest {
@@ -145,8 +148,11 @@ pub struct MemoryUi {
     pub loading: bool,
     /// The memory version last seen; `None` until the first event.
     pub seen: Option<u64>,
-    /// A change landed while the section was off screen or paused.
+    /// A change landed while the section was off screen, paused or loading.
     pub stale: bool,
+    /// A landed write waits for its watch bump to reload; a load starts at
+    /// this clock second if none comes.
+    pub own_change: Option<f64>,
     pub query: TextEdit,
     pub ty: String,
     pub scope: String,
@@ -179,6 +185,7 @@ impl Default for MemoryUi {
             loading: false,
             seen: None,
             stale: false,
+            own_change: None,
             query: TextEdit::new(""),
             ty: ALL.to_owned(),
             scope: ALL.to_owned(),
@@ -270,13 +277,6 @@ impl MemoryUi {
         }
     }
 
-    pub fn close_dialog(&mut self) {
-        match self.dialog.clone() {
-            Some(Dialog::Create(t)) => self.close_create(&t),
-            _ => self.dialog = None,
-        }
-    }
-
     /// A row press: the same row closes, another opens.
     pub fn toggle_row(&mut self, vault: &str, entry: &str) {
         if self.expanded.get(vault).is_some_and(|e| e == entry) {
@@ -307,10 +307,6 @@ impl MemoryUi {
         self.toasts.retain(|t| t.due > clock);
         self.toasts.len() != before
     }
-
-    pub fn next_due(&self) -> Option<f64> {
-        self.toasts.iter().map(|t| t.due).reduce(f64::min)
-    }
 }
 
 impl Ui {
@@ -329,13 +325,32 @@ impl Ui {
         mem.rid += 1;
         mem.loading = true;
         mem.stale = false;
+        mem.own_change = None;
         self.pending
             .push(Request::Memory(MemoryRequest::Load { rid: mem.rid }));
     }
 
+    /// On screen, live and loaded: a change can reload now.
+    fn memory_live(&self) -> bool {
+        !self.paused && self.route == Route::Memory && self.memory.data.is_some()
+    }
+
+    /// Reload after a landed write at `clock` seconds. With a live watch the
+    /// write's own bump reloads, so the vaults are scanned once. A load in
+    /// flight may predate the write, so that case reloads at once.
+    pub(crate) fn reload_after_write(&mut self, clock: f64) {
+        let mem = &self.memory;
+        if mem.seen.is_some() && !mem.loading && self.memory_live() {
+            self.memory.own_change = Some(clock + WRITE_WAIT_S);
+        } else {
+            self.request_memory();
+        }
+    }
+
     /// A memory watch version. The first only sets the baseline, a lower
     /// one (a restarted server) resets it; a bump reloads at once on the
-    /// section, else marks it stale.
+    /// section, else marks it stale. A bump during a load reloads once
+    /// it lands, since that load may predate the change.
     pub fn on_memory_version(&mut self, v: u64) {
         let mem = &mut self.memory;
         let bumped = mem.seen.is_some_and(|s| v > s);
@@ -343,8 +358,9 @@ impl Ui {
         if !bumped {
             return;
         }
-        if self.paused || self.route != Route::Memory || mem.data.is_none() {
-            mem.stale = true;
+        let own = mem.own_change.take().is_some();
+        if mem.loading || !(own || self.memory_live()) {
+            self.memory.stale = true;
         } else {
             self.request_memory();
         }
@@ -359,15 +375,13 @@ impl Ui {
         }
     }
 
-    /// Timers: due toasts go; a change held while paused loads on resume.
+    /// Timers: due toasts go; a change held while paused loads on resume;
+    /// a write whose bump never came loads.
     pub fn memory_tick(&mut self, clock: f64) -> bool {
         let mut changed = self.memory.expire(clock);
-        let resume = self.memory.stale
-            && !self.paused
-            && self.route == Route::Memory
-            && self.memory.data.is_some()
-            && !self.memory.loading;
-        if resume {
+        let waited = self.memory.own_change.is_some_and(|due| clock >= due);
+        let resume = (self.memory.stale && self.memory_live()) || waited;
+        if resume && !self.memory.loading {
             self.request_memory();
             changed = true;
         }
@@ -394,6 +408,10 @@ impl Ui {
             }
             Err(e) => mem.error = Some(e),
         }
+        if mem.stale && self.memory_live() {
+            self.request_memory();
+        }
+        let mem = &mut self.memory;
         let slug = mem.focus.clone()?;
         let shown = mem.data.as_ref().is_some_and(|d| {
             m::visible_vaults(&d.all, &mem.scope, &mem.query.text, &mem.ty)
