@@ -2,6 +2,8 @@
 //! the core JSON writers print them. Only the fields the app reads are typed;
 //! the rest are skipped, so new fields pass.
 
+pub mod memory;
+
 use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Deserializer, Serialize};

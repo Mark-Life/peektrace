@@ -128,6 +128,13 @@ fn time_of_day(c: &mut Cursor<'_>) -> Option<i64> {
 /// moves forward, a repeated one takes the earlier instant.
 pub trait LocalZone {
     fn offset_at_wall_ms(&self, wall_ms: i64) -> i64;
+    /// The offset in force at the instant `utc_ms`, as `Date` reads local
+    /// fields off it. The default walks the wall-time lookup; zones that
+    /// know their transitions answer exactly.
+    fn offset_at_utc_ms(&self, utc_ms: i64) -> i64 {
+        let first = self.offset_at_wall_ms(utc_ms);
+        self.offset_at_wall_ms(utc_ms.saturating_add(first))
+    }
 }
 
 /// UTC as the local zone.
