@@ -217,7 +217,10 @@
     ],
     "finalContextTokens": 970,
     "gitBranch": "main",
-    "models": ["claude-opus-4", "claude-haiku"],
+    "models": [
+      "claude-opus-4",
+      "claude-haiku"
+    ],
     "onDiskContextFiles": [],
     "path": "/tmp/projects/-tmp-tool-event/11111111-1111-4111-8111-111111111111.jsonl",
     "peakCacheReadTokens": 1000,
@@ -303,7 +306,11 @@
         "cacheReadTokens": 0,
         "contextTokens": 300,
         "costUsd": 0.04275,
-        "eventIndexes": [3, 4, 5],
+        "eventIndexes": [
+          3,
+          4,
+          5
+        ],
         "inputTokens": 100,
         "model": "claude-opus-4",
         "outputTokens": 500,
@@ -315,7 +322,10 @@
         "cacheReadTokens": 1000,
         "contextTokens": 1150,
         "costUsd": 0.064125,
-        "eventIndexes": [7, 8],
+        "eventIndexes": [
+          7,
+          8
+        ],
         "inputTokens": 50,
         "model": "claude-opus-4",
         "outputTokens": 800,
@@ -327,7 +337,9 @@
         "cacheReadTokens": 900,
         "contextTokens": 970,
         "costUsd": 0.0100875,
-        "eventIndexes": [10],
+        "eventIndexes": [
+          10
+        ],
         "inputTokens": 20,
         "model": "claude-opus-4",
         "outputTokens": 100,
@@ -558,7 +570,10 @@
     ],
     "finalContextTokens": 970,
     "gitBranch": "main",
-    "models": ["claude-opus-4", "claude-haiku"],
+    "models": [
+      "claude-opus-4",
+      "claude-haiku"
+    ],
     "onDiskContextFiles": [],
     "path": "/tmp/projects/-tmp-tool-event/11111111-1111-4111-8111-111111111111.jsonl",
     "peakCacheReadTokens": 1000,
@@ -644,7 +659,11 @@
         "cacheReadTokens": 0,
         "contextTokens": 300,
         "costUsd": 0.04275,
-        "eventIndexes": [3, 4, 5],
+        "eventIndexes": [
+          3,
+          4,
+          5
+        ],
         "inputTokens": 100,
         "model": "claude-opus-4",
         "outputTokens": 500,
@@ -656,7 +675,10 @@
         "cacheReadTokens": 1000,
         "contextTokens": 1150,
         "costUsd": 0.064125,
-        "eventIndexes": [7, 8],
+        "eventIndexes": [
+          7,
+          8
+        ],
         "inputTokens": 50,
         "model": "claude-opus-4",
         "outputTokens": 800,
@@ -668,7 +690,9 @@
         "cacheReadTokens": 900,
         "contextTokens": 970,
         "costUsd": 0.0100875,
-        "eventIndexes": [10],
+        "eventIndexes": [
+          10
+        ],
         "inputTokens": 20,
         "model": "claude-opus-4",
         "outputTokens": 100,
@@ -789,7 +813,9 @@
       }
     ],
     "finalContextTokens": 10,
-    "models": ["claude-opus-4"],
+    "models": [
+      "claude-opus-4"
+    ],
     "onDiskContextFiles": [],
     "path": "/tmp/projects/-tmp-tool-event/outcomes.jsonl",
     "peakCacheReadTokens": 0,
@@ -829,7 +855,13 @@
         "cacheReadTokens": 0,
         "contextTokens": 10,
         "costUsd": 0.0009,
-        "eventIndexes": [0, 1, 2, 3, 4],
+        "eventIndexes": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
         "inputTokens": 10,
         "model": "claude-opus-4",
         "outputTokens": 10,
