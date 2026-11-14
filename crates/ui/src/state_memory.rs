@@ -5,16 +5,19 @@
 use std::collections::{HashMap, HashSet};
 
 use peektrace_protocol::view::memory::{AllVaultsView, EntryView};
-use peektrace_protocol::{ApiError, MemoryCreateBody, MemoryFrontmatterPatch};
 use rune::TextEdit;
 
 use crate::model::memory::{
-    self as m, ALL, ProjectOption, Sort, Verdict, crud_cells, crud_verdict, deleted_toast,
-    wire_error_message,
+    self as m, ALL, ProjectOption, Sort, Verdict, crud_cells, crud_verdict,
 };
 use crate::source::LoadError;
-use crate::source::memory::{MemoryData, MemoryDone, MemoryWrite, expected_mtime};
+use crate::source::memory::{MemoryData, MemoryWrite};
 use crate::state::{Request, Route, Ui};
+
+mod run;
+mod write;
+
+pub use run::*;
 
 /// How long a toast stays, in seconds.
 pub const TOAST_S: f64 = 4.0;
@@ -307,13 +310,6 @@ impl MemoryUi {
     }
 }
 
-fn error_text(e: &LoadError, fallback: &str) -> String {
-    match e {
-        LoadError::Api(a) => wire_error_message(a),
-        _ => fallback.to_owned(),
-    }
-}
-
 impl Ui {
     /// On Memory: load it when it has no data, the last load failed, or
     /// memory changed meanwhile.
@@ -406,295 +402,10 @@ impl Ui {
         })
     }
 
-    fn write(&mut self, op: MemoryWrite, what: Inflight) {
-        let mem = &mut self.memory;
-        mem.write_id += 1;
-        mem.inflight = Some((mem.write_id, what));
-        self.pending.push(Request::Memory(MemoryRequest::Write {
-            id: mem.write_id,
-            op,
-        }));
-    }
-
-    /// Send a create dialog; no client-side name check, the core error
-    /// shows inline.
-    pub fn submit_create(&mut self, t: &CreateTarget) {
-        let d = self.memory.draft(t);
-        let project = match t {
-            CreateTarget::Fixed(slug) => Some(slug.clone()),
-            CreateTarget::Pick => d.picked.as_ref().map(|p| p.slug.clone()),
-        };
-        let Some(project) = project.filter(|_| !d.busy && !d.name.text.is_empty()) else {
-            return;
-        };
-        let body = MemoryCreateBody {
-            name: d.name.text.clone(),
-            description: d.description.text.clone(),
-            kind: d.kind.clone(),
-            body: d.body.text.clone(),
-        };
-        let draft = self.memory.draft_mut(t);
-        draft.busy = true;
-        draft.error = None;
-        let what = Inflight::Create {
-            target: t.clone(),
-            project: project.clone(),
-            name: body.name.clone(),
-        };
-        self.write(MemoryWrite::Create { project, body }, what);
-    }
-
-    pub fn open_edit(&mut self, project: &str, entry: &EntryView) {
-        self.memory.dialog = Some(Dialog::Edit(Box::new(EditForm {
-            project: project.to_owned(),
-            entry: entry.clone(),
-            description: TextEdit::new(entry.description.as_deref().unwrap_or_default()),
-            kind: entry.kind.clone().unwrap_or_else(|| "project".to_owned()),
-            body: TextEdit::new(&entry.body),
-            conflict: false,
-            busy: false,
-            error: None,
-            kind_open: false,
-        })));
-    }
-
-    /// Save the edit; `guard` sends the snapshot's mtime. The patch always
-    /// carries description and type, as the inspector's does.
-    pub fn submit_edit(&mut self, guard: bool) {
-        let Some(f) = self.memory.edit_mut() else {
-            return;
-        };
-        if f.busy {
-            return;
-        }
-        f.busy = true;
-        f.error = None;
-        let op = MemoryWrite::Update {
-            project: f.project.clone(),
-            name: f.entry.slug.clone(),
-            frontmatter: Some(MemoryFrontmatterPatch {
-                name: None,
-                description: Some(f.description.text.clone()),
-                kind: Some(f.kind.clone()),
-            }),
-            body: Some(f.body.text.clone()),
-            expected_mtime: guard.then(|| expected_mtime(f.entry.mtime_ms)),
-        };
-        let slug = f.entry.slug.clone();
-        self.write(op, Inflight::Edit { slug });
-    }
-
-    pub fn open_delete(&mut self, project: &str, entry: &EntryView) {
-        self.memory.dialog = Some(Dialog::Delete(Box::new(DeleteForm {
-            project: project.to_owned(),
-            entry: entry.clone(),
-            busy: false,
-        })));
-    }
-
-    pub fn submit_delete(&mut self) {
-        let Some(Dialog::Delete(f)) = &mut self.memory.dialog else {
-            return;
-        };
-        if f.busy {
-            return;
-        }
-        f.busy = true;
-        let op = MemoryWrite::Delete {
-            project: f.project.clone(),
-            name: f.entry.slug.clone(),
-        };
-        let slug = f.entry.slug.clone();
-        self.write(op, Inflight::Delete { slug });
-    }
-
-    /// Land a write at `clock` seconds: toast, close and reload on success;
-    /// the error inline (create, edit), as conflict mode (a changed file)
-    /// or as a toast (delete). True when a toast was added.
-    pub fn apply_memory_write(
-        &mut self,
-        id: u64,
-        result: Result<MemoryDone, LoadError>,
-        clock: f64,
-    ) -> bool {
-        let mem = &mut self.memory;
-        let Some((_, what)) = mem.inflight.clone().filter(|(at, _)| *at == id) else {
-            return false;
-        };
-        mem.inflight = None;
-        match (what, result) {
-            (
-                Inflight::Create {
-                    target,
-                    project,
-                    name,
-                },
-                Ok(_),
-            ) => {
-                mem.toast(ToastKind::Success, format!("Created {name}"), None, clock);
-                mem.close_create(&target);
-                let d = mem.draft_mut(&target);
-                d.busy = false;
-                d.name = TextEdit::new("");
-                d.description = TextEdit::new("");
-                d.body = TextEdit::new("");
-                if target == CreateTarget::Pick {
-                    mem.query = TextEdit::new("");
-                    ALL.clone_into(&mut mem.ty);
-                    mem.closed.remove(&project);
-                    if mem.scope != ALL && mem.scope != project {
-                        mem.scope.clone_from(&project);
-                    }
-                    mem.focus = Some(project);
-                }
-                self.request_memory();
-                true
-            }
-            (Inflight::Create { target, .. }, Err(e)) => {
-                let d = mem.draft_mut(&target);
-                d.busy = false;
-                d.error = Some(error_text(&e, "Create failed."));
-                false
-            }
-            (Inflight::Edit { slug }, Ok(_)) => {
-                mem.toast(ToastKind::Success, format!("Saved {slug}"), None, clock);
-                if matches!(mem.dialog, Some(Dialog::Edit(_))) {
-                    mem.dialog = None;
-                }
-                self.request_memory();
-                true
-            }
-            (Inflight::Edit { .. }, Err(e)) => {
-                if let Some(f) = mem.edit_mut() {
-                    f.busy = false;
-                    match &e {
-                        LoadError::Api(ApiError::FileChangedError { .. }) => f.conflict = true,
-                        _ => f.error = Some(error_text(&e, "Save failed.")),
-                    }
-                }
-                false
-            }
-            (Inflight::Delete { slug }, Ok(done)) => {
-                let (title, description, warns) = match &done {
-                    MemoryDone::Deleted(d) => deleted_toast(&slug, d),
-                    MemoryDone::Entry(_) => (format!("Deleted {slug}"), None, false),
-                };
-                let kind = if warns {
-                    ToastKind::Warning
-                } else {
-                    ToastKind::Success
-                };
-                mem.toast(kind, title, description, clock);
-                if matches!(mem.dialog, Some(Dialog::Delete(_))) {
-                    mem.dialog = None;
-                }
-                self.request_memory();
-                true
-            }
-            (Inflight::Delete { .. }, Err(e)) => {
-                if let Some(Dialog::Delete(f)) = &mut mem.dialog {
-                    f.busy = false;
-                }
-                let text = error_text(&e, "Delete failed.");
-                mem.toast(ToastKind::Error, text, None, clock);
-                true
-            }
-        }
-    }
-
-    /// Reload after a conflict: the edits go, the dialog closes.
-    pub fn reload_from_disk(&mut self) {
-        self.memory.dialog = None;
-        self.request_memory();
-    }
-
     /// Open a memory from a link or a graph node.
     pub fn navigate_memory(&mut self, vault: &str, slug: &str) {
         self.memory
             .expanded
             .insert(vault.to_owned(), slug.to_owned());
     }
-}
-
-/// Hand a memory request to the source; replies land through the handle.
-pub fn dispatch(req: MemoryRequest, io: &crate::state::Io) {
-    let h = io.handle.clone();
-    match req {
-        MemoryRequest::Load { rid } => io.source.memory(Box::new(move |res| {
-            h.update(move |s, tx| {
-                s.syncing = s.syncing.saturating_sub(1);
-                if let Some(key) = s.apply_memory(rid, res) {
-                    tx.focus(key, true);
-                }
-            });
-        })),
-        MemoryRequest::Write { id, op } => io.source.memory_write(
-            op,
-            Box::new(move |res| {
-                h.update(move |s, tx| {
-                    s.syncing = s.syncing.saturating_sub(1);
-                    let clock = tx.clock();
-                    if s.apply_memory_write(id, res, clock) {
-                        tx.wake_at(clock + TOAST_S);
-                    }
-                    if !s.pending.is_empty() {
-                        tx.wake_after(std::time::Duration::ZERO);
-                    }
-                });
-            }),
-        ),
-    }
-}
-
-/// Run a memory request at once (headless runs, scenes and tests).
-pub fn load_now(s: &mut Ui, source: &dyn crate::source::DataSource, req: MemoryRequest) {
-    match req {
-        MemoryRequest::Load { rid } => {
-            if let Some(r) = source.memory_now() {
-                s.apply_memory(rid, r);
-            }
-        }
-        MemoryRequest::Write { id, op } => {
-            if let Some(r) = source.memory_write_now(&op) {
-                s.apply_memory_write(id, r, 0.0);
-            }
-        }
-    }
-}
-
-/// Scene: the Memory section, loaded.
-pub fn scene(s: &mut Ui) {
-    s.go(Route::Memory);
-    crate::load_now(s);
-}
-
-/// Scene: a query and a type that narrow the vaults.
-pub fn scene_filtered(s: &mut Ui) {
-    scene(s);
-    s.memory.query = TextEdit::new("note");
-    "user".clone_into(&mut s.memory.ty);
-}
-
-/// Scene: the first vault's first entry with links (else its first), open.
-pub fn scene_entry(s: &mut Ui) {
-    scene(s);
-    let pick = s.memory.all().and_then(|a| {
-        let v = a.vaults.iter().find(|v| !v.entries.is_empty())?;
-        let refs: Vec<&EntryView> = v.entries.iter().collect();
-        let sorted = m::sort_entries(&refs, Sort::default());
-        let e = sorted
-            .iter()
-            .find(|e| !e.links.is_empty())
-            .or_else(|| sorted.first())?;
-        Some((v.slug.clone(), e.slug.clone()))
-    });
-    if let Some((vault, slug)) = pick {
-        s.navigate_memory(&vault, &slug);
-    }
-}
-
-/// Scene: the "New memory in…" dialog.
-pub fn scene_create(s: &mut Ui) {
-    scene(s);
-    s.memory.dialog = Some(Dialog::Create(CreateTarget::Pick));
 }
