@@ -12,7 +12,8 @@ use peektrace_core::stats::detectors::retries::CauseRow;
 use peektrace_core::stats::detectors::rules::{RuleCheck, RuleMatch, Split};
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::waiting::{WaitPanel, WaitShapeRow};
-use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
+use peektrace_core::stats::findings::FindingFormat;
+use peektrace_core::stats::prompts::{PromptTarget, stats_prompt, stats_prompt_with};
 use peektrace_core::stats::schema::{CauseId, Job, Kind, WaitShape};
 use peektrace_core::stats::service::StatsReport;
 
@@ -497,4 +498,53 @@ fn the_waiting_row_carries_the_waiting_shapes() {
     assert_eq!(text, golden("time"));
     assert!(text.contains("- note: 8 of 643 runs returned at a harness ceiling"));
     assert!(text.contains("peektrace stats drill --days 30 --time wait/poll --json"));
+}
+
+fn targets() -> Vec<PromptTarget> {
+    vec![
+        PromptTarget::Report,
+        cause("cause:zsh-glob-path"),
+        cause("zsh-glob-path"),
+        cause("cause:output-too-large"),
+        PromptTarget::Fail("scan:tsc".into()),
+        PromptTarget::Fail("flag:Bash".into()),
+        PromptTarget::Time("wait/poll".into()),
+        PromptTarget::Time("git".into()),
+    ]
+}
+
+#[test]
+fn the_cli_format_is_the_default_prompt() {
+    let r = full();
+    for t in targets() {
+        assert_eq!(
+            stats_prompt_with(&r, Some(Agent::Claude), &t, &FindingFormat::CLI),
+            stats_prompt(&r, Some(Agent::Claude), &t),
+            "{t:?}"
+        );
+    }
+}
+
+#[test]
+fn a_surface_format_spells_every_number() {
+    const MARKED: FindingFormat = FindingFormat {
+        count: |v| format!("<n{v}>"),
+        hms: |v| format!("<h{v}>"),
+        pct: |v| format!("<p{v}>"),
+        tokens: |v| format!("<t{v}>"),
+    };
+    let r = full();
+    let report = stats_prompt_with(&r, None, &PromptTarget::Report, &MARKED).unwrap_or_default();
+    for want in ["<n", "<h", "<p", "<t"] {
+        assert!(report.contains(want), "{want}");
+    }
+    let cli = prompt(&r, &PromptTarget::Report);
+    assert_eq!(
+        cli.split('\n').count(),
+        report.split('\n').count(),
+        "same lines, other spelling"
+    );
+    let time = stats_prompt_with(&r, None, &PromptTarget::Time("wait/poll".into()), &MARKED)
+        .unwrap_or_default();
+    assert!(time.contains("- job: wait/poll · <h"), "{time}");
 }

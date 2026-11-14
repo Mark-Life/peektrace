@@ -8,9 +8,9 @@ use super::detectors::failures::FailRow;
 use super::detectors::retries::{CauseRow, PairSample};
 use super::detectors::timing::TimeRow;
 use super::findings::{
-    RuleState, cause_impact, cause_spread, rule_line, rule_state, time_note, time_spread,
+    FindingFormat, RuleState, cause_impact_with, cause_spread_with, rule_line, rule_state,
+    time_note_with, time_spread_with,
 };
-use super::format::{count, hms, percent, tokens};
 use super::rank::DEFAULT_DRILL_PAGE;
 use super::service::StatsReport;
 use crate::js::num::to_js_string;
@@ -51,6 +51,7 @@ const fn kind_where(k: CauseKind) -> &'static str {
 struct Ctx<'a> {
     report: &'a StatsReport,
     agent: Option<Agent>,
+    f: &'a FindingFormat,
 }
 
 impl Ctx<'_> {
@@ -174,17 +175,17 @@ fn cause_prompt(c: &Ctx<'_>, row: &CauseRow) -> Vec<String> {
     out.push(format!("- cause: {}{where_}", cause_id(row)));
     out.push(format!(
         "- {} sessions · {}",
-        count(row.sessions),
-        cause_spread(row)
+        (c.f.count)(row.sessions),
+        cause_spread_with(row, c.f)
     ));
     if row.pairs > 0.0 {
-        out.push(format!("- wasted: {}", cause_impact(row)));
+        out.push(format!("- wasted: {}", cause_impact_with(row, c.f)));
     }
     if !row.details.is_empty() {
         let items: Vec<String> = row
             .details
             .iter()
-            .map(|(v, n)| format!("{v} ×{}", count(*n)))
+            .map(|(v, n)| format!("{v} ×{}", (c.f.count)(*n)))
             .collect();
         out.push(format!("- culprits: {}", items.join(" · ")));
     }
@@ -192,7 +193,7 @@ fn cause_prompt(c: &Ctx<'_>, row: &CauseRow) -> Vec<String> {
         let items: Vec<String> = row
             .diffs
             .iter()
-            .map(|(f, t, n)| format!("{f} → {t} ×{}", count(*n)))
+            .map(|(f, t, n)| format!("{f} → {t} ×{}", (c.f.count)(*n)))
             .collect();
         out.push(format!("- retries changed: {}", items.join(" · ")));
     }
@@ -215,10 +216,10 @@ fn fail_prompt(c: &Ctx<'_>, row: &FailRow) -> Vec<String> {
         format!("- key: {}{det}", row.key),
         format!(
             "- calls: {} ({} set the error flag) in {} sessions, {} projects",
-            count(row.rows),
-            count(row.flagged),
-            count(row.sessions),
-            count(row.projects)
+            (c.f.count)(row.rows),
+            (c.f.count)(row.flagged),
+            (c.f.count)(row.sessions),
+            (c.f.count)(row.projects)
         ),
     ];
     if let Some(n) = &row.note {
@@ -229,8 +230,8 @@ fn fail_prompt(c: &Ctx<'_>, row: &FailRow) -> Vec<String> {
     out
 }
 
-fn wait_lines(r: &StatsReport) -> Vec<String> {
-    let w = &r.waiting;
+fn wait_lines(c: &Ctx<'_>) -> Vec<String> {
+    let w = &c.report.waiting;
     if w.calls == 0.0 {
         return vec![];
     }
@@ -242,16 +243,16 @@ fn wait_lines(r: &StatsReport) -> Vec<String> {
             format!(
                 "{} {} calls {}",
                 s.key.as_str(),
-                count(s.calls),
-                hms(s.total_sec)
+                (c.f.count)(s.calls),
+                (c.f.hms)(s.total_sec)
             )
         })
         .collect();
     vec![format!(
         "- shapes: {}; {} backgrounded, declaring {} of sleep",
         shapes.join(" · "),
-        count(w.bg_runs),
-        hms(w.bg_declared_sec)
+        (c.f.count)(w.bg_runs),
+        (c.f.hms)(w.bg_declared_sec)
     )]
 }
 
@@ -261,16 +262,16 @@ fn time_prompt(c: &Ctx<'_>, row: &TimeRow) -> Vec<String> {
         format!(
             "- job: {} · {} · {} · median {}, p95 {}",
             row.key.as_str(),
-            hms(row.total_sec),
-            time_spread(row, c.report.corpus.bash_sec),
-            hms(row.median_sec),
-            hms(row.p95_sec)
+            (c.f.hms)(row.total_sec),
+            time_spread_with(row, c.report.corpus.bash_sec, c.f),
+            (c.f.hms)(row.median_sec),
+            (c.f.hms)(row.p95_sec)
         ),
     ];
     if row.key == Job::WaitPoll {
-        out.extend(wait_lines(c.report));
+        out.extend(wait_lines(c));
     }
-    if let Some(n) = time_note(row) {
+    if let Some(n) = time_note_with(row, c.f) {
         out.push(format!("- note: {n}"));
     }
     out.extend(c.samples_block(&[], &row.samples));
@@ -324,7 +325,8 @@ fn rule_lines(causes: &[&CauseRow]) -> Vec<String> {
 }
 
 /// The causes and failures sections of the report prompt.
-fn table_sections(r: &StatsReport, causes: &[&CauseRow]) -> Vec<String> {
+fn table_sections(c: &Ctx<'_>, causes: &[&CauseRow]) -> Vec<String> {
+    let r = c.report;
     let mut out = Vec::new();
     out.extend(section(
         "- causes (--cause id):",
@@ -340,8 +342,8 @@ fn table_sections(r: &StatsReport, causes: &[&CauseRow]) -> Vec<String> {
                 format!(
                     "  - {}: {} hits · {}{rule}",
                     cause_id(x),
-                    count(x.hits),
-                    cause_impact(x)
+                    (c.f.count)(x.hits),
+                    cause_impact_with(x, c.f)
                 )
             })
             .collect(),
@@ -360,8 +362,8 @@ fn table_sections(r: &StatsReport, causes: &[&CauseRow]) -> Vec<String> {
                     "  - {} ({}): {} calls, {} sessions{note}",
                     x.key,
                     x.label,
-                    count(x.rows),
-                    count(x.sessions)
+                    (c.f.count)(x.rows),
+                    (c.f.count)(x.sessions)
                 )
             })
             .collect(),
@@ -389,8 +391,8 @@ fn report_body(c: &Ctx<'_>) -> Vec<String> {
             format!(
                 "{} {} ({})",
                 t.key.as_str(),
-                hms(t.total_sec),
-                percent(t.share)
+                (c.f.hms)(t.total_sec),
+                (c.f.pct)(t.share)
             )
         })
         .collect();
@@ -402,32 +404,32 @@ fn report_body(c: &Ctx<'_>) -> Vec<String> {
         ),
         format!(
             "- corpus: {} transcripts ({} main, {} subagent), {} projects, {} tool calls, {} shell time",
-            count(corp.transcripts),
-            count(main),
-            count(corp.transcripts - main),
-            count(corp.projects),
-            count(corp.tool_calls),
-            hms(corp.bash_sec)
+            (c.f.count)(corp.transcripts),
+            (c.f.count)(main),
+            (c.f.count)(corp.transcripts - main),
+            (c.f.count)(corp.projects),
+            (c.f.count)(corp.tool_calls),
+            (c.f.hms)(corp.bash_sec)
         ),
     ];
     if pairs > 0.0 {
         out.push(format!(
             "- avoidable retries: {} round trips, {}, {} ctx tokens re-read",
-            count(pairs),
-            hms(sec),
-            tokens(ctx)
+            (c.f.count)(pairs),
+            (c.f.hms)(sec),
+            (c.f.tokens)(ctx)
         ));
     }
-    out.extend(table_sections(r, &causes));
+    out.extend(table_sections(c, &causes));
     if !time.is_empty() {
         out.push(format!("- shell time (--time job): {}", time.join(" · ")));
     }
     if r.waiting.calls > 0.0 {
         out.push(format!(
             "- waiting: {} calls, {}, {} backgrounded",
-            count(r.waiting.calls),
-            hms(r.waiting.total_sec),
-            count(r.waiting.bg_runs)
+            (c.f.count)(r.waiting.calls),
+            (c.f.hms)(r.waiting.total_sec),
+            (c.f.count)(r.waiting.bg_runs)
         ));
     }
     out.extend(rule_lines(&causes));
@@ -450,7 +452,17 @@ pub fn stats_prompt(
     agent: Option<Agent>,
     target: &PromptTarget,
 ) -> Option<String> {
-    let c = Ctx { report, agent };
+    stats_prompt_with(report, agent, target, &FindingFormat::CLI)
+}
+
+/// [`stats_prompt`] with a surface's own number format.
+pub fn stats_prompt_with(
+    report: &StatsReport,
+    agent: Option<Agent>,
+    target: &PromptTarget,
+    f: &FindingFormat,
+) -> Option<String> {
+    let c = Ctx { report, agent, f };
     let where_ = format!(
         "last {} days, {}",
         to_js_string(report.window.days),

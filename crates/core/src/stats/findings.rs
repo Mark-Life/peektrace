@@ -40,6 +40,8 @@ pub struct Finding {
     pub note: String,
     pub spread: String,
     pub title: String,
+    /// The memory line a cause suggests ([`suggested_rule_of`]); `None` for other rows.
+    pub rule: Option<String>,
     /// The table the row came from: cause, fail or time.
     pub table: DrillTable,
     pub samples: Vec<SampleRef>,
@@ -275,6 +277,7 @@ pub fn findings_with(report: &StatsReport, f: &FindingFormat) -> Vec<Finding> {
             note,
             spread: cause_spread_with(row, f),
             title: row.label.clone(),
+            rule: suggested_rule_of(row).map(str::to_owned),
             table: DrillTable::Cause,
             samples: row.samples.clone(),
         })
@@ -290,6 +293,7 @@ pub fn findings_with(report: &StatsReport, f: &FindingFormat) -> Vec<Finding> {
                 note: row.note.clone()?,
                 spread: fail_spread_with(row, f),
                 title: row.label.clone(),
+                rule: None,
                 table: DrillTable::Fail,
                 samples: row.samples.clone(),
             })
@@ -303,6 +307,7 @@ pub fn findings_with(report: &StatsReport, f: &FindingFormat) -> Vec<Finding> {
             note: time_note_with(row, f)?,
             spread: time_spread_with(row, report.corpus.bash_sec, f),
             title: row.label.to_owned(),
+            rule: None,
             table: DrillTable::Time,
             samples: row.samples.clone(),
         })
