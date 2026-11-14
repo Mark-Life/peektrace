@@ -295,15 +295,13 @@ export const runSettingsChecks = (
     | { native: string[]; web: string[] }
     | undefined;
   const web = copy?.web ?? [];
-  const found = tsAnswer(`ui copy ${digest(web)}`, () => {
-    const hay = copyHaystack();
-    return web.map((s) => hay.includes(s));
-  }) as boolean[] | undefined;
-  found?.forEach((ok, i) => {
-    if (!ok) {
-      report(`ui copy: the inspector has no "${web[i]}"`);
+  // Keyed by TS inputs only, so a Rust copy edit needs no re-record.
+  const hay = tsAnswer("ui copy haystack", copyHaystack);
+  if (typeof hay === "string") {
+    for (const s of web.filter((w) => !hay.includes(w))) {
+      report(`ui copy: the inspector has no "${s}"`);
     }
-  });
+  }
   counts.settings += web.length;
   if (real) {
     realCase(bin, counts);

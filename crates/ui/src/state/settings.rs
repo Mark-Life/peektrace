@@ -112,16 +112,18 @@ pub fn slot(agent: AgentId) -> usize {
 }
 
 impl Ui {
-    /// Show `route`, queueing what it needs: Settings reloads the file and
-    /// the scanned roots each time; the static matrix loads once. Leaving
-    /// Stats closes its sheet and resets its toggles.
+    /// Show `route`, queueing what it needs: entering Settings reloads the
+    /// file and the scanned roots, staying on it keeps the edits; the static
+    /// matrix loads once. Leaving Stats closes its sheet and resets its
+    /// toggles.
     pub fn go(&mut self, route: Route) {
-        if self.route == Route::Stats && route != Route::Stats {
+        let entering = self.route != route;
+        if self.route == Route::Stats && entering {
             self.leave_stats();
         }
         self.route = route;
         match route {
-            Route::Settings => {
+            Route::Settings if entering => {
                 self.request_settings();
                 self.request_server_info();
             }

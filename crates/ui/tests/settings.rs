@@ -341,6 +341,24 @@ fn edits_survive_leaving_while_the_file_is_unchanged() {
 }
 
 #[test]
+fn clicking_settings_while_on_it_keeps_edits_and_saves_into_the_conflict() {
+    let dir = home::temp_home("settings-renav");
+    let file = settings_file(&dir);
+    home::write(&file, "{}\n");
+    let mut rt = runtime(state(&dir));
+    click(&mut rt, "settings-add-pi");
+    rt.update(|s, _| *s.settings.edit(2, 0, false) = TextEdit::new("~/mine"));
+    touch(&file, "{\"roots\":{\"claude\":[{\"path\":\"~/x\"}]}}\n", 60);
+    click(&mut rt, "nav-settings");
+    run_pending(&mut rt);
+    assert_eq!(rt.state.settings.rows[2].len(), 1, "edits kept");
+    assert_eq!(rt.state.settings.rows[2][0].path.text, "~/mine");
+    click(&mut rt, "settings-save");
+    run_pending(&mut rt);
+    assert!(has_key(&rt, "settings-cas-conflict"));
+}
+
+#[test]
 fn typing_shortcut_letters_in_a_field_types_them() {
     let dir = home::temp_home("settings-typing");
     let mut rt = runtime(state(&dir));
