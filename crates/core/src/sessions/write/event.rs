@@ -224,6 +224,28 @@ const fn event_keys(shape: EventShape) -> &'static [F] {
             Ts,
             F::ContextEdit,
         ],
+        EventShape::OcText => &[Index, Ts, RequestId, Kind, Title, Preview, Body, TokensEst],
+        EventShape::OcToolCall => &[
+            Index, Ts, RequestId, Kind, Title, Preview, Body, TokensEst, ToolName, ToolUseId,
+        ],
+        EventShape::OcToolResult => &[
+            Index, Ts, RequestId, Kind, Title, Preview, Body, TokensEst, IsError, ToolName,
+            ToolUseId,
+        ],
+        EventShape::OcAttachment => &[
+            Index,
+            Ts,
+            RequestId,
+            Kind,
+            Title,
+            AttachmentType,
+            Preview,
+            Body,
+            TokensEst,
+        ],
+        EventShape::OcSystem => &[
+            Index, Ts, RequestId, Kind, Title, Preview, Body, TokensEst, ToolName,
+        ],
     }
 }
 
@@ -384,6 +406,18 @@ const fn turn_keys(shape: TurnShape) -> &'static [T] {
             T::Late(TurnField::WebSearchRequests),
             T::Late(TurnField::WebFetchRequests),
             T::Effort,
+        ],
+        TurnShape::Opencode => &[
+            T::Model,
+            T::InputTokens,
+            T::CacheReadTokens,
+            T::CacheCreationTokens,
+            T::RequestId,
+            T::ContextTokens,
+            T::OutputTokens,
+            T::EventIndexes,
+            T::Ts,
+            T::Late(TurnField::CostUsd),
         ],
     }
 }

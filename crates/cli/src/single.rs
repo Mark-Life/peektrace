@@ -4,12 +4,12 @@
 use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::{self, LocalZone};
 use peektrace_core::js::{num, text};
-use peektrace_core::roots::{self, RootsEnv};
+use peektrace_core::roots;
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
 use peektrace_core::sessions::write::analyzed_json;
-use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
+use peektrace_core::{AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 use crate::args::{AnalyzeArgs, ExportArgs, TargetArgs};
 use crate::ls::{Context, Globals, UserError};
@@ -29,8 +29,6 @@ pub struct Output {
     pub warnings: Vec<String>,
     /// Sessions the `--latest` listing could not read.
     pub unreadable: Option<usize>,
-    /// Printed on stderr after everything else.
-    pub notes: Vec<String>,
 }
 
 /// The validated target: an explicit id, or the newest session.
@@ -81,32 +79,6 @@ fn agent_roots(ctx: &Context) -> (AgentRoots, Vec<String>) {
         .into_iter()
         .collect();
     (AgentRoots::resolve(&ctx.roots_env, &settings), warnings)
-}
-
-/// Agents this build cannot read whose sessions root holds something.
-fn unsearched_agents(env: &RootsEnv) -> Vec<Agent> {
-    roots::unread_roots(env)
-        .into_iter()
-        .filter(|(_, root)| std::fs::read_dir(root).is_ok_and(|mut d| d.next().is_some()))
-        .map(|(agent, _)| agent)
-        .collect()
-}
-
-/// The picked session came from an id prefix; a path never does.
-fn by_prefix(typed: &str, resolved: &str) -> bool {
-    let id = typed.strip_suffix(".jsonl").unwrap_or(typed);
-    !id.contains(['/', '\\']) && id != resolved
-}
-
-/// Note for a pick that other agents' sessions could have changed: the
-/// newest session, or a top-level id prefix.
-fn search_note(t: &TargetArgs, typed: &str, resolved: &str, unsearched: &[Agent]) -> Vec<String> {
-    let open_ended = t.id.is_none() || (t.parent.is_none() && by_prefix(typed, resolved));
-    open_ended
-        .then(|| render::skipped_note(unsearched, "searched"))
-        .flatten()
-        .into_iter()
-        .collect()
 }
 
 /// What a single-session command runs on.
@@ -305,18 +277,15 @@ pub fn run_analyze(
     ctx: &Context,
 ) -> Result<Output, UserError> {
     let (roots, warnings) = agent_roots(ctx);
-    let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
     let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
     let env = SessionEnv {
         roots: &roots,
-        unsearched: &unsearched,
         local: &zone,
     };
     let target = pick.target();
     let a = analyze_session(env, target, args.target.parent.as_deref(), true)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
-    let notes = search_note(&args.target, target.id(), &a.parsed.session_id, &unsearched);
     let stdout = if globals.json {
         analyzed_json(&a)
     } else {
@@ -327,7 +296,6 @@ pub fn run_analyze(
         write: None,
         warnings,
         unreadable,
-        notes,
     })
 }
 
@@ -369,19 +337,16 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
         })
         .transpose()?;
     let (roots, warnings) = agent_roots(ctx);
-    let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
     let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
     let env = SessionEnv {
         roots: &roots,
-        unsearched: &unsearched,
         local: &zone,
     };
     let redact = !args.no_redact;
     let target = pick.target();
     let session = get_session(env, target, args.target.parent.as_deref(), redact)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
-    let notes = search_note(&args.target, target.id(), &session.session_id, &unsearched);
     let out_path = args.out.as_deref().filter(|p| *p != "-");
     #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
     let exported_at = time::to_iso_string(ctx.now_ms as i64);
@@ -401,14 +366,12 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
             write: None,
             warnings,
             unreadable,
-            notes,
         },
         Some(path) => Output {
             stdout: None,
             write: Some((path.to_owned(), rendered)),
             warnings,
             unreadable,
-            notes,
         },
     })
 }

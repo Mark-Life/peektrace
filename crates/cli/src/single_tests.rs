@@ -32,42 +32,6 @@ fn plans() {
 }
 
 #[test]
-fn prefix_picks() {
-    assert!(by_prefix("abc", "abcdef"));
-    assert!(by_prefix("abc.jsonl", "abcdef"));
-    assert!(!by_prefix("abcdef", "abcdef"));
-    assert!(!by_prefix("abcdef.jsonl", "abcdef"));
-    assert!(!by_prefix("/p/abcdef.jsonl", "abcdef"));
-    assert!(!by_prefix("C:\\p\\abcdef.jsonl", "abcdef"));
-}
-
-#[test]
-fn search_notes() {
-    let target = |id: Option<&str>, parent: Option<&str>| TargetArgs {
-        id: id.map(str::to_owned),
-        parent: parent.map(str::to_owned),
-        ..TargetArgs::default()
-    };
-    let note = vec!["opencode sessions are not searched: not supported yet".to_owned()];
-    let codex = [Agent::Opencode];
-    let quiet: Vec<String> = Vec::new();
-    assert_eq!(search_note(&target(None, None), "s1", "s1", &codex), note);
-    assert_eq!(
-        search_note(&target(Some("s"), None), "s", "s1", &codex),
-        note
-    );
-    assert_eq!(
-        search_note(&target(Some("s1"), None), "s1", "s1", &codex),
-        quiet
-    );
-    assert_eq!(
-        search_note(&target(Some("a"), Some("s1")), "a", "a1", &codex),
-        quiet
-    );
-    assert_eq!(search_note(&target(None, None), "s1", "s1", &[]), quiet);
-}
-
-#[test]
 fn formats() {
     assert_eq!(pick_format(None, false, Some("x.HTM")), ExportFormat::Html);
     assert_eq!(pick_format(None, false, Some(".md")), ExportFormat::Md);

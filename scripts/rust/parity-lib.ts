@@ -81,6 +81,9 @@ export const pool = async <T, R>(
   return out;
 };
 
+/** A TS failure: an Effect error log on stdout. */
+export const DEFECT = /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#/;
+
 export const diffs: string[] = [];
 export const report = (line: string) => {
   diffs.push(line);
@@ -123,3 +126,44 @@ export const fixtureEnv = (
   BUN_RUNTIME_TRANSPILER_CACHE_PATH: "0",
   ...extra,
 });
+
+/** One stage's case counts and the known TS defects its fixtures must hit. */
+export interface Tally {
+  readonly known: ReadonlySet<string>;
+  readonly seen: Set<string>;
+  readonly stats: { cases: number; defects: number; live: number };
+}
+
+export const newTally = (known: readonly string[]): Tally => ({
+  known: new Set(known),
+  seen: new Set(),
+  stats: { cases: 0, defects: 0, live: 0 },
+});
+
+/** A known defect TS no longer hits should be compared instead. */
+export const reportUnseen = (t: Tally) => {
+  for (const name of t.known) {
+    if (!t.seen.has(name)) {
+      report(`known TS defect ${name} no longer fails: compare it`);
+    }
+  }
+};
+
+export const tallyLine = (stage: string, { stats }: Tally) =>
+  `${stage} stage: ${stats.cases} cases, ${stats.defects} skipped as TS defects, ${stats.live} skipped as live`;
+
+/** The first `newest` rows as listed (newest first) plus the `largest`
+ * biggest, one per path. */
+export const newestAndLargest = <R extends { path: string; sizeBytes: number }>(
+  rows: readonly R[],
+  newest: number,
+  largest: number,
+  extra: readonly R[] = []
+) => {
+  const picked = [
+    ...rows.slice(0, newest),
+    ...[...rows].sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, largest),
+    ...extra,
+  ];
+  return [...new Map(picked.map((r) => [r.path, r])).values()];
+};

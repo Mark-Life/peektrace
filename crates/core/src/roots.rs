@@ -64,16 +64,6 @@ impl RootsEnv {
     }
 }
 
-/// Where each agent this build cannot read keeps its sessions: the
-/// default root of each.
-pub fn unread_roots(env: &RootsEnv) -> Vec<(Agent, String)> {
-    Agent::ALL
-        .into_iter()
-        .filter(|a| !a.has_reader())
-        .map(|a| (a, default_source(a, env).projects_root))
-        .collect()
-}
-
 /// One extra root a user declares in `settings.json`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RootEntry {

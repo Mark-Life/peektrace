@@ -272,7 +272,7 @@ fn latest_reads_the_listed_file_without_a_second_lookup() {
         .lines()
         .filter(|l| l.starts_with("[otel] AgentRegistry.listSessionFiles "))
         .count();
-    assert_eq!(walks, 3, "{err}");
+    assert_eq!(walks, 4, "{err}");
     assert!(err.contains("[otel] Sessions.resolve "), "{err}");
 }
 

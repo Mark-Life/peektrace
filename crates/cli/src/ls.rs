@@ -57,8 +57,7 @@ fn parse_limit(raw: &str) -> Result<f64, UserError> {
     Ok(n)
 }
 
-/// `--agent`: absent or `all` means every agent. A known agent with no
-/// reader fails rather than list nothing.
+/// `--agent`: absent or `all` means every agent.
 fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError> {
     let value = raw.unwrap_or("all");
     if value == "all" {
@@ -70,17 +69,6 @@ fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError> {
             "Unknown agent \"{value}\". Known: {known}, all."
         )));
     };
-    if !agent.has_reader() {
-        let supported = Agent::ALL
-            .into_iter()
-            .filter(|a| a.has_reader())
-            .map(Agent::as_str)
-            .collect::<Vec<_>>()
-            .join(", ");
-        return Err(UserError::Invalid(format!(
-            "Agent \"{value}\" is not supported yet. Supported: {supported}."
-        )));
-    }
     Ok(Some(agent))
 }
 
@@ -158,10 +146,7 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     } else {
         render::session_table(&picked.rows, globals.pretty)
     };
-    let notes = render::list_notes(unreadable, table_notes, picked.hidden)
-        .into_iter()
-        .chain(render::skipped_note(&listing.skipped, "listed"))
-        .collect();
+    let notes = render::list_notes(unreadable, table_notes, picked.hidden);
     Ok(Output {
         stdout,
         warnings,
@@ -192,12 +177,7 @@ mod tests {
         assert_eq!(parse_agent(None), Ok(None));
         assert_eq!(parse_agent(Some("claude")), Ok(Some(Agent::Claude)));
         assert_eq!(parse_agent(Some("pi")), Ok(Some(Agent::Pi)));
-        assert_eq!(
-            parse_agent(Some("opencode")),
-            Err(UserError::Invalid(
-                "Agent \"opencode\" is not supported yet. Supported: claude, codex, pi.".to_owned()
-            ))
-        );
+        assert_eq!(parse_agent(Some("opencode")), Ok(Some(Agent::Opencode)));
         assert_eq!(
             parse_agent(Some("bogus")),
             Err(UserError::Invalid(
