@@ -1,6 +1,6 @@
 name: Publish CLI
 
-run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
+run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}${{ inputs.dry_run && ' (dry run)' || '' }}"
 
 # Releases the `peektrace` CLI, the Rust binary built from crates/cli. A push of
 # a `cli-v<semver>` tag drives an automatic release; workflow_dispatch stays
