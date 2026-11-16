@@ -163,7 +163,7 @@ fn renders_exports_with_the_home() {
         unknown_record_types: None,
         unknown_system_subtypes: None,
         sidechain_cost: None,
-        native_cost_usd: None,
+        native_cost: None,
     };
     let out = render_json(
         &session,

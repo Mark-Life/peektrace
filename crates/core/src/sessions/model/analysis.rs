@@ -134,12 +134,22 @@ pub struct OnDiskContextFile {
 /// Session cost: the agent's own figure or an estimate.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct SessionCost {
-    /// True when the agent recorded it; else a list-price estimate.
+    /// True when the agent recorded `total_usd`; else a list-price estimate.
     pub from_agent: bool,
     pub total_usd: Option<f64>,
+    /// Estimated subagent cost, also when the total is recorded.
     pub subagents_usd: Option<f64>,
     pub unpriced_models: Option<Vec<String>>,
     pub unreadable_subagents: Option<usize>,
+    /// The agent's own figure, also when it covers only part of the session.
+    pub recorded_usd: Option<f64>,
+    /// Our token estimate over what `recorded_usd` covers.
+    pub estimate_usd: Option<f64>,
+    /// True when `recorded_usd` misses part of the session.
+    pub record_partial: bool,
+    /// `(estimate - recorded) / recorded` when the record is the total and
+    /// the two differ by more than `ESTIMATE_GAP_LIMIT`.
+    pub estimate_gap: Option<f64>,
 }
 
 /// A parsed session plus its context forensics. `parsed.turns` holds the

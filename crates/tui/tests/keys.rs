@@ -509,7 +509,7 @@ fn every_screen_mounts_on_an_empty_home() {
 fn the_card_shows_the_estimated_cost_and_attachment_badges() {
     let mut h = sessions();
     let t = h.text();
-    assert!(t.contains("Est. cost      ~$"), "{t}");
+    assert!(t.contains("Cost           ~$"), "{t}");
     assert!(t.contains("[t0] [deferred tools delta]"));
 }
 

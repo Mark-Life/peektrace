@@ -90,7 +90,7 @@ fn session() -> ParsedSession {
         unknown_record_types: None,
         unknown_system_subtypes: None,
         sidechain_cost: None,
-        native_cost_usd: None,
+        native_cost: None,
     }
 }
 

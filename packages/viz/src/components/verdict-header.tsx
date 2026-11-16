@@ -62,8 +62,9 @@ const Meta = ({
 );
 
 /**
- * Cost cell value as visible text: total (or `—` when nothing is priced), who
- * reported it, and the notes that qualify it.
+ * Cost cell value as visible text: total (or `—` when nothing is priced), its
+ * source, the notes that qualify it, and a warning when the agent's record
+ * and our estimate disagree.
  */
 const CostValue = ({
   cost,
@@ -72,21 +73,34 @@ const CostValue = ({
   readonly cost: NonNullable<AnalyzedSession["cost"]>;
   readonly provider: string;
 }) => {
-  const { total, notes } = costSummary(
+  const { total, notes, warning } = costSummary(
     cost,
     PROVIDER_LABEL.get(provider) ?? provider
   );
 
   return (
-    <span
-      data-testid="session-cost"
-      title={cost.source === "estimate" ? "Estimate at list price" : undefined}
-    >
-      {total}
-      {notes.length > 0 ? (
-        <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
-      ) : null}
-    </span>
+    <>
+      <span
+        data-testid="session-cost"
+        title={
+          cost.source === "estimate" ? "Estimate at list price" : undefined
+        }
+      >
+        {total}
+        {notes.length > 0 ? (
+          <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
+        ) : null}
+      </span>
+      {warning === undefined ? null : (
+        <span
+          className="block text-amber-700 dark:text-amber-400"
+          data-testid="session-cost-warning"
+          title="A model may lack a price card, or the transcript misses calls"
+        >
+          {warning}
+        </span>
+      )}
+    </>
   );
 };
 
@@ -229,7 +243,7 @@ export const VerdictHeader = ({
         <Meta k="System + tools tax">{fmt(a.systemOverheadTokens)}</Meta>
         <Meta k="Output">{fmt(a.totalOutputTokens)}</Meta>
         {a.cost ? (
-          <Meta k="Est. cost">
+          <Meta k="Cost">
             <CostValue cost={a.cost} provider={a.provider} />
           </Meta>
         ) : null}

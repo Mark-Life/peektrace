@@ -8,6 +8,7 @@ use peektrace_core::js::value::JsValue;
 use peektrace_core::js::{num, text};
 use peektrace_core::roots;
 use peektrace_core::select::{self, SelectOptions};
+use peektrace_core::sessions::cost::{estimate_warning, fmt_recorded_usd};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::read::{cost_from_json, listing_from_json, parsed_from_json};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
@@ -204,23 +205,46 @@ fn row(k: &str, v: String) -> Vec<String> {
 
 /// Summary rows for a session's cost; `-` when nothing is priced.
 fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
-    let total = render::usd_cell(cost.and_then(|c| c.total_usd));
     let from_agent = cost.is_some_and(|c| c.from_agent && c.total_usd.is_some());
+    let total = match cost.and_then(|c| c.total_usd) {
+        Some(t) if from_agent => fmt_recorded_usd(t),
+        t => render::usd_cell(t),
+    };
     let subagents = cost.and_then(|c| c.subagents_usd).unwrap_or(0.0);
     let unpriced = cost
         .and_then(|c| c.unpriced_models.as_deref())
         .unwrap_or_default();
     let unreadable = cost.and_then(|c| c.unreadable_subagents).unwrap_or(0);
+    let source = if from_agent {
+        format!("recorded by {provider}")
+    } else {
+        "estimated from tokens".to_owned()
+    };
+    let priced = cost.is_some_and(|c| c.total_usd.is_some());
     let mut rows = vec![row(
-        "est. cost",
-        if from_agent {
-            format!("{total} ({provider})")
+        "cost",
+        if priced {
+            format!("{total} ({source})")
         } else {
             total
         },
     )];
     if subagents > 0.0 {
-        rows.push(row("  subagents", render::usd_cell(Some(subagents))));
+        rows.push(row("  subagents (est.)", render::usd_cell(Some(subagents))));
+    }
+    if let Some(c) = cost.filter(|c| c.record_partial)
+        && let Some(r) = c.recorded_usd
+    {
+        rows.push(row(
+            "partial record",
+            format!(
+                "{} ({provider} recorded part of the session)",
+                fmt_recorded_usd(r)
+            ),
+        ));
+    }
+    if let Some((gap, e)) = cost.and_then(|c| c.estimate_gap.zip(c.estimate_usd)) {
+        rows.push(row("warning", estimate_warning(gap, e)));
     }
     if !unpriced.is_empty() {
         rows.push(row("unpriced models", unpriced.join(", ")));
@@ -228,7 +252,7 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
     if unreadable > 0 {
         rows.push(row(
             "unreadable subagents",
-            format!("{unreadable} (not in est. cost)"),
+            format!("{unreadable} (not in cost)"),
         ));
     }
     rows

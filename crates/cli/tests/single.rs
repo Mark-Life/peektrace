@@ -21,8 +21,8 @@ fn analyze_table() {
          final context\t7\n\
          turns\t2\n\
          tool calls\t0\n\
-         est. cost\t~$0.03\n  \
-         subagents\t<$0.01\n\
+         cost\t~$0.03 (estimated from tokens)\n  \
+         subagents (est.)\t<$0.01\n\
          unpriced models\tmystery-model\n\
          dumb-zone cross turn\tnever\n\
          \n\

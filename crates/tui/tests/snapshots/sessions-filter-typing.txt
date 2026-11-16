@@ -10,7 +10,7 @@
  │ ╰───────────────────────────────────────╯  │ │ │                                                                                                         │ │
  │                                            │ │ │ Turns          150 · 150 tools · 18,000 out                                                             │ │
  │                                            │ │ │ System + tools 5,710                                                                                    │ │
- │                                            │ │ │ Est. cost      ~$3.31                                                                                   │ │
+ │                                            │ │ │ Cost           ~$3.31 · estimated from tokens                                                           │ │
  │                                            │ │ │ Cache / window 100% · 1.0M (assumed)                                                                    │ │
  │                                            │ │ │                                                                                                         │ │
  │                                            │ │ │ Budget at peak                                                                                          │ │

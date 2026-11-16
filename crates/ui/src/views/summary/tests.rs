@@ -47,6 +47,10 @@ fn cost(source: CostSource) -> SessionCost {
         subagents_usd: None,
         unpriced_models: None,
         unreadable_subagents: None,
+        recorded_usd: None,
+        estimate_usd: None,
+        record_partial: false,
+        estimate_gap: None,
     }
 }
 
@@ -67,7 +71,7 @@ fn estimate_cost_renders_as_text_with_the_unpriced_models_named() {
     }));
     let els = rt.elements();
     let all = texts(&els);
-    assert!(all.contains("EST. COST"), "{all}");
+    assert!(all.contains("COST"), "{all}");
     assert!(all.contains("~$1.23"));
     assert!(all.contains("unpriced: mystery-model"));
     assert_eq!(
@@ -88,8 +92,9 @@ fn agent_reported_opencode_cost_is_labelled_as_the_agents_figure() {
     });
     let els = rt.elements();
     let all = texts(&els);
-    assert!(all.contains("~$0.50"), "{all}");
-    assert!(all.contains("reported by OpenCode"));
+    assert!(all.contains("$0.50"), "{all}");
+    assert!(!all.contains("~$0.50"), "a recorded figure is exact: {all}");
+    assert!(all.contains("recorded by OpenCode"));
     assert!(
         !els.iter()
             .any(|e| e.help.as_deref().is_some_and(|h| h.contains("list price")))
@@ -112,8 +117,25 @@ fn subagents_share_and_unreadable_subagents_show_as_notes() {
 }
 
 #[test]
+fn a_record_far_from_the_estimate_shows_a_warning() {
+    let rt = render(with_cost(SessionCost {
+        total_usd: Some(464.02),
+        recorded_usd: Some(464.02),
+        estimate_usd: Some(34.37),
+        estimate_gap: Some(-0.926),
+        ..cost(CostSource::Agent)
+    }));
+    let els = rt.elements();
+    assert!(texts(&els).contains("recorded by Claude Code"));
+    assert_eq!(
+        by_key(&els, "session-cost-warning").and_then(|e| e.text.as_deref()),
+        Some("estimate from tokens ~$34.37 (93% lower)")
+    );
+}
+
+#[test]
 fn no_cost_means_no_cost_cell() {
-    assert!(!texts(&render(analysis()).elements()).contains("EST. COST"));
+    assert!(!texts(&render(analysis()).elements()).contains("COST"));
 }
 
 #[test]
@@ -125,7 +147,7 @@ fn a_fully_unpriced_session_shows_a_dash_never_zero() {
         }))
         .elements(),
     );
-    assert!(all.contains("EST. COST"), "{all}");
+    assert!(all.contains("COST"), "{all}");
     assert!(all.contains('—'));
     assert!(!all.contains("$0.00"));
 }

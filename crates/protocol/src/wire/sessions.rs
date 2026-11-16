@@ -231,9 +231,16 @@ pub struct ParsedMeta {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(test, ts(optional, type = "Record<string, number>"))]
     pub unknown_system_subtypes: Option<BTreeMap<String, f64>>,
-    /// USD the agent itself recorded (`OpenCode`); set only above 0.
+    /// USD the agent itself recorded (Claude Code, Pi, `OpenCode`); set only
+    /// above 0.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub native_cost_usd: Option<f64>,
+    /// True when `nativeCostUsd` already counts subagents.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_cost_includes_subagents: Option<bool>,
+    /// True when `nativeCostUsd` misses part of the session.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native_cost_partial: Option<bool>,
     /// Cost of inline sidechain turns, which `turns` leaves out.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidechain_cost: Option<TurnsCost>,
@@ -266,14 +273,30 @@ pub struct SessionCost {
     /// Main transcript plus every subagent; absent when nothing is priced.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub total_usd: Option<f64>,
-    /// The subagents' share of `totalUsd`; set only above 0.
+    /// Estimated subagent cost, also when `totalUsd` is recorded; set only
+    /// above 0.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subagents_usd: Option<f64>,
+    /// Where `totalUsd` comes from: the agent's own record or our estimate.
     pub source: CostSource,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unpriced_models: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unreadable_subagents: Option<f64>,
+    /// The agent's own figure, also when it covers only part of the session.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recorded_usd: Option<f64>,
+    /// Our token estimate over what `recordedUsd` covers.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimate_usd: Option<f64>,
+    /// True when `recordedUsd` misses part of the session, so the total is
+    /// the estimate.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub record_partial: Option<bool>,
+    /// `(estimateUsd - recordedUsd) / recordedUsd`, set only past 5% when the
+    /// record is the total: a model may lack a price card.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimate_gap: Option<f64>,
 }
 
 /// The analysis without its events, turns and snapshots.

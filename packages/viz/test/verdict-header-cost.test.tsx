@@ -22,7 +22,7 @@ test("estimate cost renders as text with the unpriced models named", () => {
     },
   });
 
-  expect(html).toContain("Est. cost");
+  expect(html).toContain("Cost");
   expect(html).toContain("~$1.23");
   expect(html).toContain("unpriced: mystery-model");
   expect(html).toContain('title="Estimate at list price"');
@@ -35,8 +35,9 @@ test("agent-reported OpenCode cost is labelled as the agent's figure", () => {
     provider: "opencode",
   });
 
-  expect(html).toContain("~$0.50");
-  expect(html).toContain("reported by OpenCode");
+  expect(html).toContain("$0.50");
+  expect(html).not.toContain("~$0.50");
+  expect(html).toContain("recorded by OpenCode");
   expect(html).not.toContain("list price");
 });
 
@@ -55,8 +56,25 @@ test("subagents share and unreadable subagents show as notes", () => {
   expect(html).toContain("1 subagent(s) unreadable");
 });
 
+test("a record far from the estimate shows a warning", () => {
+  const html = render({
+    ...base,
+    cost: {
+      estimateGap: -0.926,
+      estimateUsd: 34.37,
+      recordedUsd: 464.02,
+      source: "agent",
+      totalUsd: 464.02,
+    },
+  });
+
+  expect(html).toContain("recorded by Claude Code");
+  expect(html).toContain('data-testid="session-cost-warning"');
+  expect(html).toContain("estimate from tokens ~$34.37 (93% lower)");
+});
+
 test("no cost means no cost cell", () => {
-  expect(render(base)).not.toContain("Est. cost");
+  expect(render(base)).not.toContain("Cost");
 });
 
 test("a fully unpriced session shows a dash, never $0.00", () => {
@@ -65,7 +83,7 @@ test("a fully unpriced session shows a dash, never $0.00", () => {
     cost: { source: "estimate", unpricedModels: ["mystery-model"] },
   });
 
-  expect(html).toContain("Est. cost");
+  expect(html).toContain("Cost");
   expect(html).toContain("—");
   expect(html).not.toContain("$0.00");
 });
