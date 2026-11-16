@@ -40,7 +40,7 @@ pub fn show(path: &Path) -> Vec<String> {
     let info = table_info();
     let local = match read_local_table(path) {
         LocalTable::Missing => "none (`peektrace pricing update` downloads one)".to_owned(),
-        LocalTable::Invalid(e) => format!("unreadable, not used: {e}"),
+        LocalTable::Invalid(e) => format!("rejected, not used: {e}"),
         LocalTable::NotNewer(t) => {
             format!("fetched {}, not newer than built-in, not used", t.fetched)
         }
