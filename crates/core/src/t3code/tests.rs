@@ -68,7 +68,7 @@ fn v2_threads_map_native_ids_to_titles() {
               ('p6', 't4', '1', '{{\"nativeThreadRef\":{{\"driver\":\"claudeAgent\",\"nativeId\":\"c-4\"}}}}');"
         ),
     );
-    let index = read_index(&path);
+    let index = read_index(&path).expect("read");
     assert_eq!(index.0.len(), 4);
     assert_eq!(
         index.get(Agent::Claude, "c-4").map(|t| &t.title),
@@ -104,7 +104,7 @@ fn legacy_cursors_take_current_titles_when_both_tables_exist() {
               ('t1', 'New name', '{{\"branch\":\"main\"}}', NULL, NULL);"
         ),
     );
-    let index = read_index(&path);
+    let index = read_index(&path).expect("read");
     assert_eq!(
         index
             .get(Agent::Claude, "c-1")
@@ -130,7 +130,7 @@ fn legacy_db_maps_claude_resume_and_codex_thread_ids() {
               ('t2', 'codex', '{{\"threadId\":\"x-2\"}}');"
         ),
     );
-    let index = read_index(&path);
+    let index = read_index(&path).expect("read");
     assert_eq!(
         index.get(Agent::Claude, "c-1"),
         Some(&thread("Claude run", Some("main"), Some("/w/a")))
@@ -145,12 +145,8 @@ fn legacy_db_maps_claude_resume_and_codex_thread_ids() {
 fn unknown_schema_or_missing_file_reads_nothing() {
     let dir = temp_dir("odd");
     let path = db(&dir, "statev2.sqlite", "CREATE TABLE other (x TEXT);");
-    assert!(read_index(&path).0.is_empty());
-    assert!(
-        read_index(&dir.join("absent.sqlite").to_string_lossy())
-            .0
-            .is_empty()
-    );
+    assert!(read_index(&path).expect("read").0.is_empty());
+    assert!(read_index(&dir.join("absent.sqlite").to_string_lossy()).is_none());
     assert!(
         load(Some(&dir.join("absent").to_string_lossy()))
             .0
@@ -221,4 +217,33 @@ fn reading_leaves_the_db_unchanged() {
     let before = std::fs::read(&path).expect("read");
     let _ = read_index(&path);
     assert_eq!(std::fs::read(&path).expect("read"), before);
+}
+
+#[test]
+fn a_locked_db_keeps_the_last_good_index() {
+    let dir = temp_dir("locked");
+    let dir_s = dir.to_string_lossy().into_owned();
+    let path = db(
+        &dir,
+        "statev2.sqlite",
+        &format!(
+            "{V2_DDL}
+            INSERT INTO orchestration_v2_projection_threads VALUES ('t1', 'Named', '{{}}', NULL, NULL);
+            INSERT INTO orchestration_v2_projection_provider_threads VALUES
+              ('p1', 't1', '1', '{{\"nativeThreadRef\":{{\"driver\":\"claudeAgent\",\"nativeId\":\"c-1\"}}}}');"
+        ),
+    );
+    let title = || {
+        load(Some(&dir_s))
+            .get(Agent::Claude, "c-1")
+            .and_then(|t| t.title.clone())
+    };
+    assert_eq!(title().as_deref(), Some("Named"));
+    let writer = Connection::open(&path).expect("open");
+    writer
+        .execute_batch("BEGIN EXCLUSIVE; UPDATE orchestration_v2_projection_threads SET title = 'Held, not committed';")
+        .expect("lock");
+    assert!(read_index(&path).is_none());
+    assert_eq!(title().as_deref(), Some("Named"));
+    writer.execute_batch("ROLLBACK;").expect("unlock");
 }

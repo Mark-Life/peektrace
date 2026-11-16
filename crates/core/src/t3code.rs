@@ -5,11 +5,11 @@
 //! opened read-only and queried once per change; any error leaves sessions
 //! as they are.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, SystemTime};
 
-use rusqlite::{Connection, OpenFlags};
+use rusqlite::{Connection, ErrorCode, OpenFlags};
 use tracing::{debug, info};
 
 use crate::js::text;
@@ -116,8 +116,17 @@ fn run(conn: &Connection, sql: &str, index: &mut Index) -> rusqlite::Result<()> 
     Ok(())
 }
 
-/// Every thread in the database at `path`; empty when it cannot be read.
-fn read_index(path: &str) -> Index {
+/// Whether an error means t3code holds the lock, so a later read may work.
+fn busy(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked)
+    )
+}
+
+/// Every thread in the database at `path`. `None` when it is locked or
+/// cannot be opened; a query the schema lacks is skipped.
+fn read_index(path: &str) -> Option<Index> {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let opened = Connection::open_with_flags(path, flags).and_then(|conn| {
         conn.busy_timeout(BUSY_TIMEOUT)?;
@@ -128,16 +137,21 @@ fn read_index(path: &str) -> Index {
         Ok(conn) => conn,
         Err(e) => {
             debug!(db = %path, reason = %e, "t3code db skipped");
-            return Index::default();
+            return None;
         }
     };
     let mut index = Index::default();
-    let skipped = |e: rusqlite::Error| debug!(db = %path, reason = %e, "t3code query skipped");
-    run(&conn, LEGACY_CURRENT, &mut index)
-        .or_else(|_| run(&conn, LEGACY, &mut index))
-        .unwrap_or_else(skipped);
-    run(&conn, CURRENT, &mut index).unwrap_or_else(skipped);
-    index
+    let results = [
+        run(&conn, LEGACY_CURRENT, &mut index).or_else(|_| run(&conn, LEGACY, &mut index)),
+        run(&conn, CURRENT, &mut index),
+    ];
+    for e in results.iter().filter_map(|r| r.as_ref().err()) {
+        debug!(db = %path, reason = %e, "t3code query skipped");
+        if busy(e) {
+            return None;
+        }
+    }
+    Some(index)
 }
 
 /// The newer stamp of a database file and its write-ahead log.
@@ -160,31 +174,41 @@ fn current_db(dir: &str) -> Option<String> {
         .map(|(_, path)| path)
 }
 
-/// What the cached index was read from.
-type Key = (String, Stamp, Stamp);
+/// The stamps of a database file and its log when its index was read.
+type Stamps = (Stamp, Stamp);
 
-static CACHE: Mutex<Option<(Key, Arc<Index>)>> = Mutex::new(None);
+/// The last good index per database path.
+static CACHE: Mutex<BTreeMap<String, (Stamps, Arc<Index>)>> = Mutex::new(BTreeMap::new());
 
 /// The index for t3code's state dir, read again only when the database or
-/// its log changed since the last call.
+/// its log changed since the last call. While t3code holds the lock, the
+/// last good index stands.
 fn load(dir: Option<&str>) -> Arc<Index> {
     let Some(path) = dir.and_then(current_db) else {
         return Arc::default();
     };
-    let key = (path.clone(), stamp(&path), stamp(&format!("{path}-wal")));
-    let first = {
-        let cache = CACHE.lock().unwrap_or_else(PoisonError::into_inner);
-        match cache.as_ref() {
-            Some((k, index)) if *k == key => return Arc::clone(index),
-            other => other.is_none_or(|(k, _)| k.0 != path),
-        }
-    };
+    let stamps = (stamp(&path), stamp(&format!("{path}-wal")));
+    let cached = CACHE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&path)
+        .cloned();
+    if let Some((s, index)) = &cached
+        && *s == stamps
+    {
+        return Arc::clone(index);
+    }
     // Read outside the lock: a busy database must not stall other callers.
-    let index = Arc::new(read_index(&path));
-    if first {
+    let Some(index) = read_index(&path).map(Arc::new) else {
+        return cached.map(|(_, index)| index).unwrap_or_default();
+    };
+    if cached.is_none() {
         info!(db = %path, threads = index.0.len(), "t3code db read");
     }
-    *CACHE.lock().unwrap_or_else(PoisonError::into_inner) = Some((key, Arc::clone(&index)));
+    CACHE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(path, (stamps, Arc::clone(&index)));
     index
 }
 
