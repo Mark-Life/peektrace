@@ -13,10 +13,10 @@ use super::{ModelPrice, PriceCard};
 const BUILT_IN: &str = include_str!("models_dev.json");
 
 /// The downloaded table's name in peektrace's data dir.
-pub const LOCAL_FILE: &str = "prices.json";
+const LOCAL_FILE: &str = "prices.json";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Origin {
+pub enum TableOrigin {
     BuiltIn,
     Downloaded,
 }
@@ -26,7 +26,7 @@ pub enum Origin {
 pub struct TableInfo {
     pub source: String,
     pub fetched: String,
-    pub origin: Origin,
+    pub origin: TableOrigin,
     /// Models from the table, then hand-written overrides.
     pub models: usize,
     pub overrides: usize,
@@ -76,7 +76,7 @@ fn key_of(provider: Provider, id: &str) -> String {
 /// Cards keyed overrides first, then each table in turn: the first source
 /// with a key wins, so a downloaded table that dropped a model still leaves
 /// the built-in price. A dated-only id is also keyed without its date.
-pub(super) fn resolve(tables: &[&Table], origin: Origin) -> Active {
+pub(super) fn resolve(tables: &[&Table], origin: TableOrigin) -> Active {
     let mut cards: Vec<(String, PriceCard)> = OVERRIDES
         .iter()
         .map(|&(p, key, r)| (key.to_owned(), card(p, r, None)))
@@ -122,7 +122,7 @@ fn built_in_or_empty() -> Table {
 }
 
 pub(super) fn active() -> &'static Active {
-    ACTIVE.get_or_init(|| resolve(&[&built_in_or_empty()], Origin::BuiltIn))
+    ACTIVE.get_or_init(|| resolve(&[&built_in_or_empty()], TableOrigin::BuiltIn))
 }
 
 /// The table prices are read from.
@@ -177,7 +177,10 @@ pub fn use_local_table(path: &Path) -> bool {
         return false;
     };
     let set = ACTIVE
-        .set(resolve(&[&table, &built_in_or_empty()], Origin::Downloaded))
+        .set(resolve(
+            &[&table, &built_in_or_empty()],
+            TableOrigin::Downloaded,
+        ))
         .is_ok();
     debug_assert!(set, "a price lookup ran before the local table was set");
     set

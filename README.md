@@ -265,7 +265,9 @@ yet**. Run it from source with `cargo run --release -p peektrace-app`.
 - **Prices ship with the binary.** Cost estimates use a price table generated
   from [models.dev](https://models.dev) and built in. `peektrace pricing update`
   downloads a newer one only when you run it; nothing fetches prices on its
-  own. These two are the only network calls peektrace makes.
+  own. The update check is the only call peektrace makes on its own;
+  `upgrade`, `pricing update` and `--remote` reach the network only when you
+  run them.
 
 ---
 

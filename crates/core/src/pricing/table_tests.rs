@@ -148,7 +148,7 @@ fn the_built_in_table_parses_and_is_written_as_generated() {
     let table = built_in_table().expect("built-in table parses");
     assert!(table.models.len() > 40);
     assert_eq!(table_json(&table), BUILT_IN);
-    assert_eq!(table_info().origin, Origin::BuiltIn);
+    assert_eq!(table_info().origin, TableOrigin::BuiltIn);
     assert_eq!(table_info().fetched, table.fetched);
 }
 
@@ -227,7 +227,7 @@ fn overrides_win_then_the_download_then_the_built_in_table() {
         ],
     };
     let built_in = built_in_table().expect("parses");
-    let active = resolve(&[&download, &built_in], Origin::Downloaded);
+    let active = resolve(&[&download, &built_in], TableOrigin::Downloaded);
     assert_eq!(input_of(&active.cards, "opus-5-5"), Some(99.0));
     assert_eq!(input_of(&active.cards, "opus-4-1"), Some(15.0), "override");
     assert_eq!(input_of(&active.cards, "sonnet-5-5"), Some(2.0), "built-in");

@@ -1,6 +1,6 @@
 //! API list prices per model (USD per million tokens) and the per-turn cost
 //! they give. Rates come from a table generated from models.dev
-//! (`models_dev.json`, rebuilt by `scripts/pricing-update.sh`), plus
+//! (`models_dev.json`, rebuilt by `scripts/pricing/update.sh`), plus
 //! hand-written overrides for what it does not list.
 
 mod active;
@@ -15,7 +15,7 @@ use matching::{alias_family, key_matches};
 use table::Provider;
 
 pub use active::{
-    LOCAL_FILE, LocalTable, Origin, TableInfo, built_in_table, local_table_path, read_local_table,
+    LocalTable, TableInfo, TableOrigin, built_in_table, local_table_path, read_local_table,
     table_info, use_local_table,
 };
 pub use table::{MODELS_DEV_URL, Table, from_models_dev, parse_table, table_json};
@@ -128,8 +128,8 @@ pub fn table_label(info: &TableInfo) -> String {
         info.source.as_str()
     };
     let origin = match info.origin {
-        Origin::BuiltIn => "built-in",
-        Origin::Downloaded => "downloaded",
+        TableOrigin::BuiltIn => "built-in",
+        TableOrigin::Downloaded => "downloaded",
     };
     format!("{source} {}, {origin}", info.fetched)
 }

@@ -478,8 +478,9 @@ Privacy posture (`PEEKTRACE_NO_UPDATE_CHECK=1` disables it).
 Our estimate prices each model call from a table generated from
 [models.dev](https://models.dev) and built into the binary, plus hand-written
 overrides for what models.dev does not list (older ids, Codex aliases) or
-carry (the 1-hour cache write rate). An id with no entry stays unpriced; its
-price is never guessed from the model family.
+carry (the 1-hour cache write rate). An id with no entry stays unpriced; an
+unknown version is never priced from its family. Only a bare family alias
+such as `claude-opus` prices as that family's newest generation.
 
 `peektrace pricing` prints the table in use, its date, and the state of a
 downloaded table. `peektrace pricing update` is the only way to fetch prices:
@@ -554,9 +555,10 @@ PEEKTRACE_CLAUDE_PROJECTS=/tmp/seed-projects \
 The local run log is **on by default** and fully local. Every invocation
 persists one wide event (command, timing, span attributes) to a SQLite file at
 `~/.peektrace/telemetry.db` (or `PEEKTRACE_DIR`). **The local run log makes no
-network calls**. The only network calls peektrace makes are the `serve` update
-check and `peektrace pricing update`, which you run yourself. The log exists only to power `peektrace doctor` when you need to file
-a report. Disable it per-invocation with `--no-telemetry`, or globally with
+network calls** and exists only to power `peektrace doctor` when you need to file
+a report. The only call peektrace makes on its own is the `serve` update check;
+`upgrade`, `pricing update` and `--remote` reach the network only when you run
+them. Disable it per-invocation with `--no-telemetry`, or globally with
 `PEEKTRACE_NO_TELEMETRY=1`. When it is off, `--otel` still drives the stderr
 span echo below.
 

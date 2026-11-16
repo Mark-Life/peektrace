@@ -11,7 +11,7 @@ use peektrace_core::pricing::{
 
 use crate::args::PricingUpdateArgs;
 use crate::ls::UserError;
-use crate::upgrade::release::{self, tls_missing};
+use crate::upgrade::release::{self, FetchError, get_bytes_capped};
 
 /// models.dev's `api.json` is a few MB; this bounds a bad response.
 const MAX_DOWNLOAD: u64 = 64 << 20;
@@ -60,20 +60,11 @@ pub fn show(path: &Path) -> Vec<String> {
 }
 
 fn download(url: &str) -> Result<Vec<u8>, String> {
-    if let Some(m) = tls_missing(url) {
-        return Err(m);
-    }
     let agent = release::agent(Some(TIMEOUT));
-    let mut res = agent.get(url).call().map_err(|e| e.to_string())?;
-    let status = res.status().as_u16();
-    if !(200..300).contains(&status) {
-        return Err(format!("responded {status}"));
-    }
-    res.body_mut()
-        .with_config()
-        .limit(MAX_DOWNLOAD)
-        .read_to_vec()
-        .map_err(|e| e.to_string())
+    get_bytes_capped(&agent, url, &[], MAX_DOWNLOAD).map_err(|e| match e {
+        FetchError::Status(n) => format!("responded {n}"),
+        FetchError::Other(m) => m,
+    })
 }
 
 fn today() -> String {

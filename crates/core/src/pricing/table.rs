@@ -9,7 +9,7 @@ pub const MODELS_DEV_URL: &str = "https://models.dev/api.json";
 
 /// Bumped when the conversion rules change, so a table written by another
 /// version is not read.
-pub const TABLE_FORMAT: f64 = 1.0;
+const TABLE_FORMAT: f64 = 1.0;
 
 /// models.dev providers the table keeps: the agents we estimate for bill
 /// through these.
