@@ -19,7 +19,7 @@ fn shows_the_built_in_table_when_nothing_was_downloaded() {
     assert_eq!(r.code, 0, "{}", r.err);
     assert!(r.out.starts_with("Prices: models.dev 20"), "{}", r.out);
     assert!(r.out.contains(", built-in\n"), "{}", r.out);
-    assert!(r.out.contains("prices.json (none"), "{}", r.out);
+    assert!(r.out.contains("prices.json: none"), "{}", r.out);
 }
 
 #[test]
