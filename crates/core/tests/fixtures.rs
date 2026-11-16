@@ -34,7 +34,7 @@ fn claude_only(project: Option<&str>) -> ListFilter {
     ListFilter {
         agent: Some(Agent::Claude),
         project: project.map(str::to_owned),
-        ..ListFilter::default()
+        with_subagent_costs: true,
     }
 }
 
