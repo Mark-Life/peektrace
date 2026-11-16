@@ -11,6 +11,7 @@ pub mod auth;
 pub mod bind;
 mod events;
 pub mod guard;
+pub mod pages;
 pub mod rune_assets;
 
 use std::sync::Arc;
@@ -56,6 +57,8 @@ pub struct AppState {
     pub now: Clock,
     /// Held across each corpus-wide stats pass, so they run one at a time.
     pub stats_lock: Arc<tokio::sync::Mutex<()>>,
+    /// Recent session analyses the paged session routes read.
+    pub pages: pages::PagesCache,
 }
 
 pub type Clock = Arc<dyn Fn() -> f64 + Send + Sync>;
@@ -174,6 +177,17 @@ fn api_router() -> Router<Arc<AppState>> {
         .route("/api/sessions/{id}", route(get(api::session)))
         .route("/api/sessions/{id}/analysis", route(get(api::analysis)))
         .route("/api/sessions/{id}/markers", route(get(api::markers)))
+        .route("/api/sessions/{id}/summary", route(get(api::summary)))
+        .route("/api/sessions/{id}/growth", route(get(api::growth)))
+        .route("/api/sessions/{id}/history", route(get(api::history)))
+        .route(
+            "/api/sessions/{id}/history/index",
+            route(get(api::history_index)),
+        )
+        .route(
+            "/api/sessions/{id}/history/search",
+            route(get(api::history_search)),
+        )
         .route(
             "/api/sessions/{id}/images/{line}/{block}",
             route(get(api::image)),

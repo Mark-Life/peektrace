@@ -8,10 +8,7 @@
  */
 import type { LineDiff } from "@workspace/core/diff";
 import { diffLines } from "@workspace/core/diff";
-import type {
-  AnalyzedSession,
-  TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
+import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
 import { FILE_TITLE_PREFIXES } from "./chat-lane";
@@ -318,14 +315,22 @@ export const resultPane = (e: TimelineEvent): ResultPane => {
 
 /** Every tool call and result in the session, indexed by `toolUseId`. */
 export interface ToolIndex {
-  readonly calls: ReadonlyMap<string, TimelineEvent>;
-  readonly results: ReadonlyMap<string, TimelineEvent>;
+  readonly calls: ReadonlyMap<string, ToolFields>;
+  readonly results: ReadonlyMap<string, ToolFields>;
 }
 
+/** The event fields tool pairing reads; index rows carry them too. */
+type ToolFields = Pick<
+  TimelineEvent,
+  "isError" | "kind" | "toolName" | "toolUseId"
+>;
+
 /** Pair calls with results so either half can name its tool and its outcome. */
-export const indexTools = (a: AnalyzedSession): ToolIndex => {
-  const calls = new Map<string, TimelineEvent>();
-  const results = new Map<string, TimelineEvent>();
+export const indexTools = (a: {
+  readonly events: readonly ToolFields[];
+}): ToolIndex => {
+  const calls = new Map<string, ToolFields>();
+  const results = new Map<string, ToolFields>();
   for (const e of a.events) {
     if (!e.toolUseId) {
       continue;
@@ -340,7 +345,7 @@ export const indexTools = (a: AnalyzedSession): ToolIndex => {
 };
 
 /** A call is `unanswered` when the transcript ends (or is cut) before its result. */
-export const toolState = (e: TimelineEvent, tools: ToolIndex): ToolState => {
+export const toolState = (e: ToolFields, tools: ToolIndex): ToolState => {
   if (e.kind === "tool-result") {
     return e.isError ? "error" : "completed";
   }
@@ -352,13 +357,13 @@ export const toolState = (e: TimelineEvent, tools: ToolIndex): ToolState => {
 };
 
 /** Results carry no tool name of their own; borrow it from the paired call. */
-export const toolNameOf = (e: TimelineEvent, tools: ToolIndex): string =>
+export const toolNameOf = (e: ToolFields, tools: ToolIndex): string =>
   e.toolName ??
   (e.toolUseId ? tools.calls.get(e.toolUseId)?.toolName : undefined) ??
   "tool";
 
 /** Whether an event kind gets the AI Elements tool treatment. */
-export const isToolEvent = (e: TimelineEvent): boolean =>
+export const isToolEvent = (e: Pick<TimelineEvent, "kind">): boolean =>
   e.kind === "tool-call" || e.kind === "tool-result";
 
 /** How a non-tool event body renders: a file's content as source in its own

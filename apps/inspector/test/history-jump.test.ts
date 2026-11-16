@@ -15,6 +15,7 @@ import {
   seedRequest,
   toHistoryJump,
 } from "../src/lib/history-jump";
+import { indexRowsOf } from "./history-rows";
 
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
   body: "",
@@ -279,5 +280,21 @@ describe("isHiddenJump", () => {
       })
     ).toBe(false);
     expect(isHiddenJump({ ...base, jump: null })).toBe(false);
+  });
+});
+
+describe("resolveJump on index rows", () => {
+  test("rows without text resolve every target the events do", () => {
+    const rowsSession = { ...SESSION, events: indexRowsOf(EVENTS, TURNS) };
+    const reqs = [
+      { kind: "turn", turn: 2 },
+      { id: "spawn", kind: "call" },
+      { id: "gone", kind: "call" },
+      { kind: "compaction" },
+      { kind: "subagent" },
+    ] as const;
+    for (const req of reqs) {
+      expect(resolveJump(rowsSession, req)).toEqual(resolveJump(SESSION, req));
+    }
   });
 });

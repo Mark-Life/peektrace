@@ -5,6 +5,9 @@
  * table instead, where the Tokens column sorts every event by size.
  */
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+
+type Artifacts = Pick<AnalyzedSession, "onDiskContextFiles">;
+
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
@@ -20,7 +23,7 @@ import { fmt, fmtBytes } from "@workspace/viz/lib/session-format";
 const TRIM_HINT_TOKENS = 5000;
 
 /** On-disk instruction files attributed inside the system+tools floor. */
-const OnDiskTable = ({ a }: { readonly a: AnalyzedSession }) => {
+const OnDiskTable = ({ a }: { readonly a: Artifacts }) => {
   const total = a.onDiskContextFiles.reduce((s, f) => s + f.tokensEst, 0);
   return (
     <div className="flex flex-col gap-2">
@@ -69,7 +72,7 @@ const OnDiskTable = ({ a }: { readonly a: AnalyzedSession }) => {
 };
 
 /** Loaded artifacts section. */
-export const LoadedArtifacts = ({ a }: { readonly a: AnalyzedSession }) => (
+export const LoadedArtifacts = ({ a }: { readonly a: Artifacts }) => (
   <section
     className="flex flex-col gap-5 rounded-lg border border-border p-3 md:p-4"
     data-testid="loaded-artifacts"

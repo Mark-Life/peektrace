@@ -12,6 +12,7 @@ import {
   rpc,
   sameJson,
 } from "./parity-serve-lib";
+import { pageCases } from "./parity-serve-pages";
 
 export type { Pair } from "./parity-serve-lib";
 
@@ -157,12 +158,35 @@ export const sessionCases = async (pair: Pair, c: Counts) => {
       await idCases(c, ts, s.id, h.id);
     }
   }
+  const nope = await rpc(ts, "sessions.analyze", { id: "nope" });
   await compareExit(
     c,
     "sessions.analyze nope",
-    await rpc(ts, "sessions.analyze", { id: "nope" }),
+    nope,
     "/api/sessions/nope/analysis"
   );
+  await pages(c, "pages nope", nope, "/api/sessions/nope", "");
+};
+
+/** The paged routes of one analysis; differences are reported. */
+const pages = async (
+  c: Counts,
+  label: string,
+  exit: RpcExit,
+  path: string,
+  q: string
+) => {
+  const port = rustPort().port;
+  for (const line of await pageCases({
+    c,
+    exit,
+    label,
+    path,
+    port,
+    query: q,
+  })) {
+    report(line);
+  }
 };
 
 /** get and analyze of one id, with the redact and override variants. */
@@ -191,67 +215,15 @@ const idCases = async (
     [" dumbZone=0.5", { dumbZone: 0.5 }],
   ];
   for (const [name, extra] of analyses) {
+    const exit = await rpc(ts, "sessions.analyze", { id, ...base, ...extra });
+    const q = query({ ...base, ...extra });
     await compareExit(
       c,
       `sessions.analyze ${id}${name}`,
-      await rpc(ts, "sessions.analyze", { id, ...base, ...extra }),
-      `/api/sessions/${seg(id)}/analysis${query({ ...base, ...extra })}`
+      exit,
+      `/api/sessions/${seg(id)}/analysis${q}`
     );
-  }
-};
-
-/** Image hit, miss and tool-result item on the generated transcript. */
-export const imageCases = async (pair: Pair, c: Counts, id: string) => {
-  const refs: [number, number, number | undefined][] = [
-    [0, 1, undefined],
-    [0, 0, undefined],
-    [2, 0, 0],
-    [2, 0, 5],
-    [1, 0, undefined],
-  ];
-  for (const [line, block, item] of refs) {
-    c.cases += 1;
-    await imageCase(pair, id, line, block, item);
-  }
-};
-
-const imageCase = async (
-  pair: Pair,
-  id: string,
-  line: number,
-  block: number,
-  item: number | undefined
-) => {
-  const label = `sessions.image ${line}/${block}/${item ?? "-"}`;
-  const exit = await rpc(pair.ts.port, "sessions.image", {
-    id,
-    line,
-    block,
-    ...(item === undefined ? {} : { item }),
-  });
-  const tail = item === undefined ? "" : `/${item}`;
-  const r = await api(
-    pair.rust.port,
-    `/api/sessions/${seg(id)}/images/${line}/${block}${tail}`
-  );
-  if (exit.kind !== "ok") {
-    report(`serve ${label}: ts ${exit.kind}`);
-    return;
-  }
-  const value = exit.value as { data: string; mediaType: string } | null;
-  if (value === null) {
-    const tag = (r.json as { error?: { _tag?: string } } | undefined)?.error
-      ?._tag;
-    if (r.status !== 404 || tag !== "ImageNotFoundError") {
-      report(`serve ${label}: ts null, rust ${r.status} ${tag}`);
-    }
-    return;
-  }
-  const data = Buffer.from(r.body).toString("base64");
-  if (r.status !== 200 || data !== value.data || r.type !== value.mediaType) {
-    report(
-      `serve ${label}: ts ${value.mediaType} vs rust ${r.status} ${r.type}`
-    );
+    await pages(c, `pages ${id}${name}`, exit, `/api/sessions/${seg(id)}`, q);
   }
 };
 
@@ -483,5 +455,20 @@ export const realCases = async (
       tsAn,
       `/api/sessions/${seg(id)}/analysis`
     );
+    const port = pair.rust.port;
+    const path = `/api/sessions/${seg(id)}`;
+    const found = await pageCases({
+      c,
+      exit: tsAn,
+      label: `real pages ${id}`,
+      path,
+      port,
+      query: "",
+    });
+    if (stampOf(row.path) === stamp) {
+      found.forEach(report);
+    } else {
+      c.live += 1;
+    }
   }
 };

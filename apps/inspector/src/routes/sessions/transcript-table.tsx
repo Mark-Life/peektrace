@@ -34,12 +34,16 @@ import {
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
-import type { TranscriptRowRef } from "../../lib/chat-lane";
+import type {
+  EventRow as AnyEvent,
+  TranscriptRowRef,
+} from "../../lib/chat-lane";
 import {
   alignOf,
   type HistoryJump,
   type JumpLanding,
 } from "../../lib/history-jump";
+import { type HydrateCache, hydrator } from "../../lib/history-pages";
 import {
   type HistorySort,
   type HistorySortKey,
@@ -66,6 +70,7 @@ import type { VirtualListHandle } from "../../lib/virtual-range";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
 import { EventBody } from "./event-body";
 import { EventImages } from "./event-images";
+import { PendingRow } from "./pending-row";
 import { ToolPaneView, ToolResultView } from "./tool-panes";
 import { SortHeader } from "./transcript-sort-header";
 import { VirtualList } from "./virtual-list";
@@ -257,8 +262,14 @@ const EventRowBody = ({
 /** One transcript row, re-rendered only when its own content or state changes. */
 const EventRow = memo(EventRowBody, sameRow);
 
+/** What the table reads besides the rows: the window and the dumb zone. */
+export type TableSession = Pick<
+  AnalyzedSession,
+  "contextWindow" | "dumbZoneCrossTurn" | "dumbZoneFraction"
+>;
+
 /** The dumb-zone notice, drawn above the row where the session crossed it. */
-const DumbZoneDivider = ({ a }: { readonly a: AnalyzedSession }) => (
+const DumbZoneDivider = ({ a }: { readonly a: TableSession }) => (
   <div
     className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
     data-testid="dumbzone-divider"
@@ -281,7 +292,7 @@ const TableRowViewBody = ({
   tools,
   turn,
 }: {
-  readonly a: AnalyzedSession;
+  readonly a: TableSession;
   readonly divider: boolean;
   readonly isOpen: (id: string) => boolean;
   readonly onToggle: (id: string, open: boolean) => void;
@@ -328,10 +339,12 @@ export const TranscriptTable = ({
   a,
   bulkKey,
   crossEvtIdx,
+  eventAt,
   isOpen,
   jump,
   jumpIndex,
   landing,
+  onDrawn,
   onSort,
   onToggle,
   revealHit,
@@ -341,10 +354,13 @@ export const TranscriptTable = ({
   tools,
   turns,
 }: {
-  readonly a: AnalyzedSession;
+  readonly a: TableSession;
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
   readonly crossEvtIdx: number;
+  /** The whole event at a position, when rows are index rows; null while
+   *  its page loads. */
+  readonly eventAt?: (pos: number) => TimelineEvent | null;
   readonly isOpen: (id: string) => boolean;
   /** Where a link or the summary asked to go, if anywhere. */
   readonly jump: HistoryJump | null;
@@ -352,12 +368,14 @@ export const TranscriptTable = ({
   readonly jumpIndex: number;
   /** How far the jump got, shared by both layouts. */
   readonly landing: JumpLanding;
+  /** Event positions of the drawn rows, after each change. */
+  readonly onDrawn?: (positions: readonly number[]) => void;
   readonly onSort: (next: HistorySort) => void;
   readonly onToggle: (id: string, open: boolean) => void;
   /** Filled here so search can step to a hit that is not drawn. */
   readonly revealHit: RefObject<RevealHit | null>;
   /** Rows already in `sort` order. */
-  readonly rows: readonly TranscriptRowRef[];
+  readonly rows: readonly TranscriptRowRef<AnyEvent>[];
   readonly sort: HistorySort;
   /** Height of the sticky toolbar a jump must land below. */
   readonly stickyHeight: number;
@@ -369,7 +387,7 @@ export const TranscriptTable = ({
   const showShare = sort.key === "tokens";
   // The divider marks a point in time, so it only reads right in forward order.
   const showDivider = isForwardOrder(sort);
-  const shareOf = (e: TimelineEvent) =>
+  const shareOf = (e: AnyEvent) =>
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
       : undefined;
@@ -397,6 +415,18 @@ export const TranscriptTable = ({
     [rows, sort, turns]
   );
   useTurnNav({ list, stops });
+  const cache = useRef<HydrateCache>(new WeakMap());
+  const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
+  const onRange = useCallback(
+    (first: number, last: number) =>
+      onDrawn?.(rows.slice(first, last + 1).map(({ pos }) => pos)),
+    [rows, onDrawn]
+  );
+  const estimate = ({ pos }: TranscriptRowRef<AnyEvent>) =>
+    estimateTableRow({
+      divider: dividerAt(pos),
+      open: isOpen(eventCollapseId(pos)),
+    });
 
   return (
     <div className="rounded-md border border-border">
@@ -405,28 +435,29 @@ export const TranscriptTable = ({
         sort={sort}
       />
       <VirtualList
-        estimate={({ pos }) =>
-          estimateTableRow({
-            divider: dividerAt(pos),
-            open: isOpen(eventCollapseId(pos)),
-          })
-        }
+        estimate={estimate}
         items={rows}
         keys={keys}
         measureKey={bulkKey}
+        onRange={onRange}
         ref={list}
-        render={(row) => (
-          <TableRowView
-            a={a}
-            divider={dividerAt(row.pos)}
-            isOpen={isOpen}
-            onToggle={onToggle}
-            row={row}
-            share={shareOf(row.e)}
-            tools={tools}
-            turn={turns[row.pos] ?? 0}
-          />
-        )}
+        render={(row) => {
+          const full = hydrate.row(row);
+          return full === null ? (
+            <PendingRow height={estimate(row)} />
+          ) : (
+            <TableRowView
+              a={a}
+              divider={dividerAt(row.pos)}
+              isOpen={isOpen}
+              onToggle={onToggle}
+              row={full}
+              share={shareOf(row.e)}
+              tools={tools}
+              turn={turns[row.pos] ?? 0}
+            />
+          );
+        }}
         scrollPaddingStart={stickyHeight}
         testId="table-transcript"
       />

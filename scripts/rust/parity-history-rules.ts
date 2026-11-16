@@ -1,7 +1,12 @@
-/** Which turn each event belongs to, and where the dumb zone was crossed. */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+/** The inspector's former in-browser history rules, kept as the TS answer
+ * the Rust `/history/index` and `/history/search` routes are checked
+ * against. */
+import type {
+  AnalyzedSession,
+  TimelineEvent,
+} from "../../packages/core/src/services/sessions/schema";
 
-/** Map every event to the 1-based turn it belongs to (for grouping). */
+/** Map every event to the 1-based turn it belongs to, 0 before the first. */
 export const turnNumbers = (a: AnalyzedSession): number[] => {
   const reqToTurn = new Map(
     a.turns.map((t, i) => [t.requestId, i + 1] as const)
@@ -24,3 +29,7 @@ export const crossEvtIdx = (a: AnalyzedSession) =>
         (e) => e.requestId === a.turns[a.dumbZoneCrossTurn]?.requestId
       )
     : -1;
+
+/** Lowercased searchable text per event, aligned with `events` by position. */
+export const searchIndexOf = (events: readonly TimelineEvent[]) =>
+  events.map((e) => `${e.title}\n${e.preview}\n${e.body}`.toLowerCase());

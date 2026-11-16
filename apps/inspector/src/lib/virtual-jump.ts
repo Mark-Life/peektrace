@@ -7,8 +7,17 @@
 import { type RefObject, useEffect } from "react";
 import type { VirtualListHandle } from "./virtual-range";
 
-/** Frames to wait for the target to be drawn after the first scroll. */
-const MAX_FRAMES = 60;
+/** How long to wait for the target to be drawn after the first scroll; its
+ *  event page may still be on the network. */
+const MAX_WAIT_MS = 3000;
+
+/** The drawn item at `index` once its content is in, else null. */
+const drawnAt = (list: RefObject<VirtualListHandle | null>, index: number) => {
+  const item = list.current?.elementAt(index) ?? null;
+  return item === null || item.querySelector("[data-pending]") !== null
+    ? null
+    : item;
+};
 
 /** Frames to hold the landed card in place while the blocks around it are
  *  measured for the first time and change height. */
@@ -91,16 +100,15 @@ export const landAt = ({
   readonly onLand?: () => void;
 }) => {
   list.current?.scrollToIndex(index, align);
-  let frames = 0;
+  const start = performance.now();
   let raf = 0;
   let unsettle = () => {
     // nothing to hold yet
   };
   const land = () => {
-    const item = list.current?.elementAt(index);
+    const item = drawnAt(list, index);
     if (!item) {
-      frames += 1;
-      if (frames < MAX_FRAMES) {
+      if (performance.now() - start < MAX_WAIT_MS) {
         raf = requestAnimationFrame(land);
       }
       return;
@@ -137,16 +145,15 @@ export const revealAt = ({
   readonly onDrawn: (item: HTMLElement) => void;
 }) => {
   list.current?.scrollToIndex(index, "center");
-  let frames = 0;
+  const start = performance.now();
   let raf = 0;
   const tick = () => {
-    const item = list.current?.elementAt(index);
+    const item = drawnAt(list, index);
     if (item) {
       onDrawn(item);
       return;
     }
-    frames += 1;
-    if (frames < MAX_FRAMES) {
+    if (performance.now() - start < MAX_WAIT_MS) {
       raf = requestAnimationFrame(tick);
     }
   };

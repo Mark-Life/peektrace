@@ -3097,6 +3097,7 @@ dependencies = [
  "peektrace-telemetry",
  "percent-encoding",
  "rust-embed",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
  "socket2",
@@ -3104,6 +3105,7 @@ dependencies = [
  "tokio",
  "tower-http",
  "tracing",
+ "tracing-subscriber",
  "ureq",
  "url",
 ]

@@ -4,13 +4,16 @@
  * dumb-zone danger band + boundary line, the 200K-model ghost ceiling,
  * compaction cliffs, the peak marker, and the first dumb-zone crossing marker.
  */
-import type {
-  AnalyzedSession,
-  TurnSnapshot,
-} from "@workspace/core/services/sessions/schema";
+import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { cn } from "@workspace/ui/lib/utils";
 import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
-import { markerProps, TimelineHitLayer } from "./growth-timeline-hit";
+import {
+  type GrowthSnapshot,
+  markerProps,
+  TimelineHitLayer,
+} from "./growth-timeline-hit";
+
+export type { GrowthSnapshot } from "./growth-timeline-hit";
 
 const GEOM = { W: 1000, H: 440, L: 76, R: 18, T: 22, B: 46 } as const;
 const HATCHED = new Set(["system_tools", "unattributed"]);
@@ -63,7 +66,7 @@ const buildAreas = ({
   x,
   y,
 }: {
-  readonly snaps: readonly TurnSnapshot[];
+  readonly snaps: readonly GrowthSnapshot[];
   readonly x: (i: number) => number;
   readonly y: (tok: number) => number;
 }) => {
@@ -90,7 +93,10 @@ const buildAreas = ({
 };
 
 interface GrowthTimelineProps {
-  readonly a: AnalyzedSession;
+  /** The analysis; only its snapshots of all the per-turn arrays are read. */
+  readonly a: Omit<AnalyzedSession, "events" | "snapshots" | "turns"> & {
+    readonly snapshots: readonly GrowthSnapshot[];
+  };
   /**
    * Optional cap on the rendered SVG width, in CSS px. Left unset the SVG fills
    * its container, which scales the 10–11px labels and hairline strokes up past
@@ -113,6 +119,67 @@ interface GrowthTimelineProps {
   readonly onTurn?: (turn: number) => void;
 }
 
+const GrowthEmpty = () => (
+  <p className="text-muted-foreground text-sm">
+    No turns with usage metadata to plot.
+  </p>
+);
+
+const GrowthLegend = ({
+  budget,
+}: {
+  readonly budget: AnalyzedSession["budget"];
+}) => (
+  <div className="flex flex-wrap gap-3 text-xs">
+    {STACK_ORDER.filter((k) => budget.some((b) => b.key === k)).map((k) => (
+      <span className="inline-flex items-center gap-1.5" key={k}>
+        <span
+          className="inline-block size-2.5 rounded-sm"
+          style={{ background: CAT_META[k].color }}
+        />
+        {CAT_META[k].label}
+      </span>
+    ))}
+  </div>
+);
+
+/**
+ * Holds `GrowthTimeline`'s place while its snapshots load: the same frame,
+ * title, plot box and legend, so nothing below moves when the chart lands.
+ * A session without turns gets the chart's empty line instead.
+ */
+export const GrowthTimelinePending = ({
+  a,
+  maxWidth,
+  minWidth,
+}: Pick<GrowthTimelineProps, "maxWidth" | "minWidth"> & {
+  readonly a: Pick<AnalyzedSession, "budget" | "turnCount">;
+}) =>
+  a.turnCount === 0 ? (
+    <GrowthEmpty />
+  ) : (
+    <section
+      aria-busy="true"
+      className="flex flex-col gap-2 rounded-lg border border-border p-3 md:p-4"
+      data-testid="growth-timeline-pending"
+    >
+      <div>
+        <h2 className="font-semibold text-base">Context growth timeline</h2>
+      </div>
+      <div className="overflow-x-auto">
+        <div
+          className={cn("w-full", maxWidth !== undefined && "mx-auto")}
+          style={{
+            aspectRatio: `${GEOM.W} / ${GEOM.H}`,
+            maxWidth: maxWidth === undefined ? undefined : `${maxWidth}px`,
+            minWidth: minWidth === undefined ? undefined : `${minWidth}px`,
+          }}
+        />
+      </div>
+      <GrowthLegend budget={a.budget} />
+    </section>
+  );
+
 /** The inline-SVG stacked-area context-growth timeline. */
 export const GrowthTimeline = ({
   a,
@@ -128,11 +195,7 @@ export const GrowthTimeline = ({
   const win = a.contextWindow;
 
   if (n === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">
-        No turns with usage metadata to plot.
-      </p>
-    );
+    return <GrowthEmpty />;
   }
 
   const x = (i: number) => (n <= 1 ? L + plotW / 2 : L + (i / (n - 1)) * plotW);
@@ -417,19 +480,7 @@ export const GrowthTimeline = ({
         </svg>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs">
-        {STACK_ORDER.filter((k) => a.budget.some((b) => b.key === k)).map(
-          (k) => (
-            <span className="inline-flex items-center gap-1.5" key={k}>
-              <span
-                className="inline-block size-2.5 rounded-sm"
-                style={{ background: CAT_META[k].color }}
-              />
-              {CAT_META[k].label}
-            </span>
-          )
-        )}
-      </div>
+      <GrowthLegend budget={a.budget} />
     </section>
   );
 };

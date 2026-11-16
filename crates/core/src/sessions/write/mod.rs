@@ -4,7 +4,7 @@ mod event;
 mod header;
 
 use event::usize_json;
-pub use event::{write_event, write_turn};
+pub use event::{write_event, write_event_fields, write_turn};
 pub use header::{headers_json, listing_json, write_header};
 
 use crate::js::json_out::Writer;
@@ -65,8 +65,9 @@ fn write_counts(w: &mut Writer, key: &str, counts: Option<&Vec<(String, f64)>>) 
     }
 }
 
-/// The parsed-session keys, without the enclosing braces.
-fn write_parsed_fields(w: &mut Writer, p: &ParsedSession) {
+/// The parsed-session keys, without the enclosing braces; `arrays` false
+/// leaves out `events` and `turns`.
+fn write_parsed_fields(w: &mut Writer, p: &ParsedSession, arrays: bool) {
     let opt = |w: &mut Writer, key: &str, v: Option<&String>| {
         if let Some(v) = v {
             w.key(key).text(v);
@@ -76,12 +77,14 @@ fn write_parsed_fields(w: &mut Writer, p: &ParsedSession) {
     w.key("sessionId").text(&p.session_id);
     w.key("path").text(&p.path);
     w.key("models").texts(p.models.iter().map(String::as_str));
-    w.key("events").begin_arr();
-    p.events.iter().for_each(|e| write_event(w.elem(), e));
-    w.end_arr();
-    w.key("turns").begin_arr();
-    p.turns.iter().for_each(|t| write_turn(w.elem(), t));
-    w.end_arr();
+    if arrays {
+        w.key("events").begin_arr();
+        p.events.iter().for_each(|e| write_event(w.elem(), e));
+        w.end_arr();
+        w.key("turns").begin_arr();
+        p.turns.iter().for_each(|t| write_turn(w.elem(), t));
+        w.end_arr();
+    }
     w.key("compactionIndexes").begin_arr();
     p.compaction_indexes
         .iter()
@@ -168,7 +171,7 @@ fn write_cost(w: &mut Writer, c: &SessionCost) {
 pub fn parsed_json(p: &ParsedSession, pretty: bool) -> String {
     let mut w = Writer::new(pretty);
     w.begin_obj();
-    write_parsed_fields(&mut w, p);
+    write_parsed_fields(&mut w, p, true);
     w.end_obj();
     w.finish()
 }
@@ -182,7 +185,15 @@ pub fn analyzed_json(a: &AnalyzedSession) -> String {
 pub fn analyzed_json_with(a: &AnalyzedSession, pretty: bool) -> String {
     let mut w = Writer::new(pretty);
     w.begin_obj();
-    write_parsed_fields(&mut w, &a.parsed);
+    write_analysis_fields(&mut w, a, true);
+    w.end_obj();
+    w.finish()
+}
+
+/// The analysis keys, no braces; `arrays` false leaves out `events`,
+/// `turns` and `snapshots` (the session summary).
+pub fn write_analysis_fields(w: &mut Writer, a: &AnalyzedSession, arrays: bool) {
+    write_parsed_fields(w, &a.parsed, arrays);
     w.key("contextWindow").num(a.context_window);
     w.key("contextWindowInferred")
         .bool(a.context_window_inferred);
@@ -206,21 +217,23 @@ pub fn analyzed_json_with(a: &AnalyzedSession, pretty: bool) -> String {
         w.end_obj();
     }
     w.end_arr();
-    w.key("snapshots").begin_arr();
-    for s in &a.snapshots {
-        w.elem().begin_obj();
-        w.key("turnIndex").int(usize_json(s.turn_index));
-        w.key("model").text(&s.model);
-        w.key("ctx").num(s.ctx);
-        w.key("outputTokens").num(s.output_tokens);
-        w.key("cacheReadTokens").num(s.cache_read_tokens);
-        write_slices(w.key("slices"), &s.slices);
-        if let Some(ts) = &s.ts {
-            w.key("ts").text(ts);
+    if arrays {
+        w.key("snapshots").begin_arr();
+        for s in &a.snapshots {
+            w.elem().begin_obj();
+            w.key("turnIndex").int(usize_json(s.turn_index));
+            w.key("model").text(&s.model);
+            w.key("ctx").num(s.ctx);
+            w.key("outputTokens").num(s.output_tokens);
+            w.key("cacheReadTokens").num(s.cache_read_tokens);
+            write_slices(w.key("slices"), &s.slices);
+            if let Some(ts) = &s.ts {
+                w.key("ts").text(ts);
+            }
+            w.end_obj();
         }
-        w.end_obj();
+        w.end_arr();
     }
-    w.end_arr();
     w.key("onDiskContextFiles").begin_arr();
     a.on_disk_context_files
         .iter()
@@ -247,6 +260,4 @@ pub fn analyzed_json_with(a: &AnalyzedSession, pretty: bool) -> String {
     if let Some(c) = &a.cost {
         write_cost(w.key("cost"), c);
     }
-    w.end_obj();
-    w.finish()
 }

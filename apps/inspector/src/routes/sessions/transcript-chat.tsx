@@ -8,7 +8,10 @@
  * here rather than inside a card, so a memoized card compares two strings
  * instead of the whole tool index, which is rebuilt on every re-analysis.
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import type {
+  AnalyzedSession,
+  TimelineEvent,
+} from "@workspace/core/services/sessions/schema";
 import { tokenLabel } from "@workspace/core/services/sessions/tokens";
 import type { SessionMarker } from "@workspace/core/services/stats/schema";
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
@@ -16,11 +19,13 @@ import { cn } from "@workspace/ui/lib/utils";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import type { GrowthTurn } from "../../lib/api-types.gen";
 import {
   buildChatPlan,
   type ChatNode,
   chatCollapseIdOf,
   chatNodeKeys,
+  type EventRow,
   laneOf,
   type TranscriptRowRef,
 } from "../../lib/chat-lane";
@@ -30,6 +35,11 @@ import {
   type JumpLanding,
   planIndexOfTarget,
 } from "../../lib/history-jump";
+import {
+  type HydrateCache,
+  hydrator,
+  positionsOf,
+} from "../../lib/history-pages";
 import type { ToolMarks } from "../../lib/session-markers";
 import {
   chatCollapseId,
@@ -39,6 +49,7 @@ import {
 import type { ToolIndex } from "../../lib/tool-event";
 import { toolNameOf, toolState } from "../../lib/tool-event";
 import {
+  CHAT_GAP,
   CHAT_ITEM_CLASS,
   estimateChatNode,
 } from "../../lib/transcript-estimate";
@@ -57,7 +68,15 @@ import {
 } from "./chat-message";
 import { ChatNotice } from "./chat-notice";
 import { ChatToolCard } from "./chat-tool-card";
+import { PendingRow } from "./pending-row";
 import { VirtualList } from "./virtual-list";
+
+/** What the chat reads besides the rows: the dumb zone, and per-turn usage
+ *  for the turn rules (`turns[n - 1]` is turn `n`). */
+export type ChatSession = Pick<
+  AnalyzedSession,
+  "contextWindow" | "dumbZoneCrossTurn" | "dumbZoneFraction"
+> & { readonly turns: readonly GrowthTurn[] };
 
 /** What a band says about its event: compaction and summary are fixed notices,
  *  a system prompt reads its own title (first prompt vs. a later update). */
@@ -153,7 +172,7 @@ const ChatNodeViewBody = ({
   queryActive,
   tools,
 }: {
-  readonly a: AnalyzedSession;
+  readonly a: ChatSession;
   readonly activeMark: string | null;
   readonly allOpen: boolean;
   readonly isOpen: (id: string) => boolean;
@@ -281,10 +300,12 @@ export const TranscriptChat = ({
   allOpen,
   bulkKey,
   crossEvtIdx,
+  eventAt,
   isOpen,
   jump,
   landing,
   marks,
+  onDrawn,
   onToggle,
   queryActive,
   revealHit,
@@ -293,13 +314,16 @@ export const TranscriptChat = ({
   tools,
   turns,
 }: {
-  readonly a: AnalyzedSession;
+  readonly a: ChatSession;
   /** The detector id the reader arrived with, highlighted where it applies. */
   readonly activeMark: string | null;
   readonly allOpen: boolean;
   /** Bumped by expand or collapse all, when every height changes at once. */
   readonly bulkKey: number;
   readonly crossEvtIdx: number;
+  /** The whole event at a position, when rows are index rows; null while
+   *  its page loads. */
+  readonly eventAt?: (pos: number) => TimelineEvent | null;
   readonly isOpen: (id: string) => boolean;
   /** Where a link or the summary asked to go, if anywhere. */
   readonly jump: HistoryJump | null;
@@ -307,17 +331,21 @@ export const TranscriptChat = ({
   readonly landing: JumpLanding;
   /** Stats marks for this session, keyed by tool-use id. */
   readonly marks: ToolMarks;
+  /** Event positions of the drawn blocks, after each change. */
+  readonly onDrawn?: (positions: readonly number[]) => void;
   readonly onToggle: (id: string, open: boolean) => void;
   /** A search is running: chip clusters must not fold a match out of sight. */
   readonly queryActive: boolean;
   /** Filled here so search can step to a hit that is not drawn. */
   readonly revealHit: RefObject<RevealHit | null>;
-  readonly rows: readonly TranscriptRowRef[];
+  readonly rows: readonly TranscriptRowRef<EventRow>[];
   /** Height of the sticky toolbar a jump must land below. */
   readonly stickyHeight: number;
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
+  const cache = useRef<HydrateCache>(new WeakMap());
+  const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
   const plan = useMemo(
     () => buildChatPlan({ crossEvtIdx, rows, turns }),
     [crossEvtIdx, rows, turns]
@@ -344,6 +372,13 @@ export const TranscriptChat = ({
   useRevealHit({ indexOf: indexOfHit, list, reveal: revealHit });
   const stops = useMemo(() => chatTurnStops(plan), [plan]);
   useTurnNav({ list, stops });
+  const onRange = useCallback(
+    (first: number, last: number) =>
+      onDrawn?.(plan.slice(first, last + 1).flatMap(positionsOf)),
+    [plan, onDrawn]
+  );
+  const estimate = (n: ChatNode<EventRow>) =>
+    estimateChatNode({ allOpen, isOpen, n });
 
   if (rows.length === 0) {
     return (
@@ -356,25 +391,31 @@ export const TranscriptChat = ({
   return (
     <VirtualList
       className="mx-auto w-full max-w-3xl"
-      estimate={(n) => estimateChatNode({ allOpen, isOpen, n })}
+      estimate={estimate}
       itemClassName={CHAT_ITEM_CLASS}
       items={plan}
       keys={keys}
       measureKey={bulkKey}
+      onRange={onRange}
       ref={list}
-      render={(n) => (
-        <ChatNodeView
-          a={a}
-          activeMark={activeMark}
-          allOpen={allOpen}
-          isOpen={isOpen}
-          marks={marks}
-          n={n}
-          onToggle={onToggle}
-          queryActive={queryActive}
-          tools={tools}
-        />
-      )}
+      render={(n) => {
+        const full = hydrate.node(n);
+        return full === null ? (
+          <PendingRow height={estimate(n) - CHAT_GAP} />
+        ) : (
+          <ChatNodeView
+            a={a}
+            activeMark={activeMark}
+            allOpen={allOpen}
+            isOpen={isOpen}
+            marks={marks}
+            n={full}
+            onToggle={onToggle}
+            queryActive={queryActive}
+            tools={tools}
+          />
+        );
+      }}
       scrollPaddingStart={stickyHeight}
       testId="chat-transcript"
     />

@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Effect, Either } from "effect";
 import { apiGet, apiPath, apiUrl } from "../src/lib/api";
+import type { HistoryPage, SessionSummary } from "../src/lib/api-types.gen";
 
 const realFetch = globalThis.fetch;
 
@@ -69,5 +70,39 @@ describe("urls", () => {
     expect(apiUrl("/api/x", { parent: undefined, redact: "false" })).toBe(
       "/api/x?redact=false"
     );
+  });
+});
+
+describe("paged session routes", () => {
+  test("a summary and a page decode with their hashes", async () => {
+    answer(
+      '{"provider":"claude","sessionId":"s","history":{"rev":"r","total":101,"pageSize":100,"pages":["a","b"],"index":"i","growth":"g"}}',
+      200,
+      "application/json"
+    );
+    const summary = await Effect.runPromise(
+      apiGet<SessionSummary>(apiPath("sessions", "s", "summary"))
+    );
+    expect(summary.history.pages).toEqual(["a", "b"]);
+    expect(summary.history.total).toBe(101);
+    answer(
+      '{"rev":"r","offset":100,"total":101,"hash":"b","events":[{"index":7,"kind":"assistant-text","title":"","preview":"","body":"x","tokensEst":1}]}',
+      200,
+      "application/json"
+    );
+    const page = await Effect.runPromise(
+      apiGet<HistoryPage>(apiPath("sessions", "s", "history"), {
+        limit: 100,
+        offset: 100,
+      })
+    );
+    expect(page.hash).toBe(summary.history.pages[1] ?? "");
+    expect(page.events.map((e) => e.body)).toEqual(["x"]);
+  });
+
+  test("page params land in the query string", () => {
+    expect(
+      apiUrl(apiPath("sessions", "s", "history"), { limit: 100, offset: 200 })
+    ).toBe("/api/sessions/s/history?limit=100&offset=200");
   });
 });
