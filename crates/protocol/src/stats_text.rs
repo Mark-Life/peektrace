@@ -88,7 +88,7 @@ pub struct Section {
 
 pub const FINDINGS_SECTION: Section = Section {
     title: "Flagged findings",
-    ranked_by: "largest share of the spend, then hits since the last fix",
+    ranked_by: "largest share of the spend, then hits a fix would still save",
     note: None,
 };
 

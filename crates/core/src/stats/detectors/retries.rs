@@ -50,8 +50,24 @@ pub struct CauseTable<'a> {
     local: &'a dyn LocalZone,
 }
 
+/// `name` opens an unescaped backtick span: `` `name` `` or `` `name args` ``.
+fn in_backticks(cmd: &str, name: &str) -> bool {
+    let open = format!("`{name}");
+    cmd.match_indices(&open).any(|(i, _)| {
+        let escaped = cmd[..i].ends_with('\\');
+        let next = cmd[i + open.len()..].chars().next();
+        !escaped && matches!(next, Some('`' | ' '))
+    })
+}
+
 /// The fix when every missing name ran only inside backticks.
-const BACKTICK_FIX: &str = "these names ran inside backticks in double-quoted text, so the shell ran them as commands: use single quotes, or escape the backticks";
+fn backtick_fix(names: &[(String, f64)]) -> String {
+    let names: Vec<&str> = names.iter().take(4).map(|(n, _)| n.as_str()).collect();
+    format!(
+        "{} ran inside backticks in double-quoted text, so the shell ran them as commands. Use single quotes, or escape the backticks",
+        names.join(", ")
+    )
+}
 
 impl<'a> CauseTable<'a> {
     pub fn new(drill: Option<&DrillTarget>, local: &'a dyn LocalZone) -> Self {
@@ -161,7 +177,7 @@ impl<'a> CauseTable<'a> {
             let name = bin_name(d);
             Self::latest(&mut self.last_miss, name, f, local);
             let cmd = f.bash.as_ref().map_or("", |b| b.cmd.as_str());
-            if !cmd.contains(&format!("`{name}")) {
+            if !in_backticks(cmd, name) {
                 self.bare_miss.insert(name.to_owned());
             }
         }
@@ -267,7 +283,7 @@ impl<'a> CauseTable<'a> {
                     .cloned()
                     .collect();
                 if bins.is_empty() && !agg.details.is_empty() {
-                    return Some(BACKTICK_FIX.to_owned());
+                    return Some(backtick_fix(&top_counts(&agg.details, 4)));
                 }
                 if !bins.is_empty() && missing.is_empty() {
                     return None;
@@ -374,7 +390,7 @@ impl<'a> CauseTable<'a> {
         let ranked = rank(rows, compare_cause_rows, ctx.limit);
         if ranked.dropped > 0 {
             ctx.caveat(format!(
-                "The retries table shows the top {} of {} causes",
+                "\"Avoidable retries\" shows the top {} of {} causes",
                 ranked.rows.len(),
                 ranked.total
             ));

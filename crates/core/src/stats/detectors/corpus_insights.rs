@@ -79,7 +79,8 @@ impl CorpusPanelSink {
             .iter()
             .take(ctx.sample_cap)
             .map(|(sid, (agents, usd, agent, project))| {
-                let line = format!("{} agents, {}", to_js_string(*agents), dollars(*usd));
+                let unit = if *agents == 1.0 { "agent" } else { "agents" };
+                let line = format!("{} {unit}, {}", to_js_string(*agents), dollars(*usd));
                 main_ref(ctx, sid, *agent, project, line)
             })
             .collect();
@@ -152,7 +153,7 @@ impl CorpusPanelSink {
                 .take(ctx.sample_cap)
                 .map(|s| {
                     let line = format!(
-                        "{} cache-read tokens",
+                        "{} tokens re-read from cache",
                         crate::stats::format::tokens(s.tokens.cache_read)
                     );
                     main_ref(ctx, &s.sid, s.agent, &s.project, line)

@@ -300,13 +300,13 @@ impl TimeTable {
         );
         if ranked.dropped > 0 {
             ctx.caveat(format!(
-                "The time table shows the top {} of {} jobs",
+                "\"What costs time\" shows the top {} of {} jobs",
                 ranked.rows.len(),
                 ranked.total
             ));
         }
         if any_capped {
-            ctx.caveat("A command that hit the harness time limit counts the limit, not its real run time, so those jobs' seconds are a floor".to_owned());
+            ctx.caveat("A command that hit the agent's tool time limit counts the limit, not its real run time, so those jobs' seconds are a floor".to_owned());
         }
         ranked.rows
     }

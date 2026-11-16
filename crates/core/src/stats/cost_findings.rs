@@ -12,9 +12,8 @@ const LEAD_SHARE: f64 = 0.1;
 const MIN_USD: f64 = 1.0;
 
 /// `1 session`, `2 sessions`.
-fn counted(n: f64, word: &str, f: &FindingFormat) -> String {
-    let s = if n == 1.0 { "" } else { "s" };
-    format!("{} {word}{s}", (f.count)(n))
+fn counted(n: f64, one: &str, many: &str, f: &FindingFormat) -> String {
+    format!("{} {}", (f.count)(n), if n == 1.0 { one } else { many })
 }
 
 fn dollars(usd: f64, f: &FindingFormat) -> String {
@@ -59,8 +58,8 @@ fn fanout(i: &FanoutInsight, total: f64, f: &FindingFormat) -> Finding {
             format!("Spawn fewer agents per task, or give each a shorter prompt{prefix}."),
             format!(
                 "{} from {}",
-                counted(i.agents, "agent transcript", f),
-                counted(i.parents, "session", f)
+                counted(i.agents, "agent transcript", "agent transcripts", f),
+                counted(i.parents, "session", "sessions", f)
             ),
         )
     }
@@ -79,14 +78,14 @@ fn context(i: &ContextInsight, f: &FindingFormat) -> Finding {
             format!(
                 "{} of cache reads in {}",
                 dollars(i.usd, f),
-                counted(i.head, "session", f)
+                counted(i.head, "session", "sessions", f)
             ),
             "Start a new session per task, or compact a long one, so each turn re-reads less."
                 .to_owned(),
             format!(
                 "{} of {} hold {} of their cache reads ({} of {} tokens)",
                 (f.count)(i.head),
-                counted(i.mains, "main session", f),
+                counted(i.mains, "main session", "main sessions", f),
                 (f.pct)(safe_div(i.head_read, i.total_read)),
                 (f.tokens)(i.head_read),
                 (f.tokens)(i.total_read)
@@ -97,9 +96,15 @@ fn context(i: &ContextInsight, f: &FindingFormat) -> Finding {
 
 fn web(i: &WebInsight, f: &FindingFormat) -> Finding {
     let impact = if i.in_run > 0.0 {
-        format!("{} inside one run", counted(i.in_run, "repeat fetch", f))
+        format!(
+            "{} inside one run",
+            counted(i.in_run, "repeat fetch", "repeat fetches", f)
+        )
     } else {
-        format!("{} fetched more than once", counted(i.repeated, "url", f))
+        format!(
+            "{} fetched more than once",
+            counted(i.repeated, "URL", "URLs", f)
+        )
     };
     Finding {
         samples: i.samples.clone(),
@@ -109,11 +114,15 @@ fn web(i: &WebInsight, f: &FindingFormat) -> Finding {
             impact,
             "Keep fetched pages for the run, or pass the first result to the agents that need it."
                 .to_owned(),
-            format!(
-                "{} fetched more than once · {}",
-                counted(i.repeated, "url or query", f),
-                counted(i.calls, "web call", f)
-            ),
+            if i.in_run > 0.0 {
+                format!(
+                    "{} fetched more than once · {}",
+                    counted(i.repeated, "URL or query", "URLs or queries", f),
+                    counted(i.calls, "web call", "web calls", f)
+                )
+            } else {
+                counted(i.calls, "web call", "web calls", f)
+            },
         )
     }
 }

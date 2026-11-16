@@ -501,7 +501,7 @@ fn the_waiting_row_carries_the_waiting_shapes() {
     );
     let text = prompt(&r, &PromptTarget::Time("wait/poll".into()));
     assert_eq!(text, golden("time"));
-    assert!(text.contains("- note: 8 of 643 runs hit the harness time limit (48m00s of 3h39m), so this time is a floor"));
+    assert!(text.contains("- note: 8 of 643 runs hit the agent's tool time limit (48m00s of 3h39m), so this time is a floor"));
     assert!(text.contains("peektrace stats drill --days 30 --time wait/poll --json"));
 }
 

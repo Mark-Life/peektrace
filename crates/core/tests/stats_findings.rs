@@ -282,7 +282,7 @@ fn hits_with_no_date_stay_live_and_keep_a_cause_out_of_working() {
     });
     let r = report(100.0, vec![a], vec![], vec![]);
     assert_eq!(keys(&r), ["cause:a"]);
-    assert!(working_of(&r).is_empty());
+    assert_eq!(working_of(&r).len(), 0);
     let spread = &findings_of(&r)[0].spread;
     assert!(
         spread.starts_with("40 hits up to the rule (Aug 1), 0 since, 10 with no date"),
@@ -443,7 +443,7 @@ fn a_ceiling_is_stated_as_a_floor() {
     let note = time_note(&time_row(capped)).unwrap_or_default();
     assert_eq!(
         note,
-        "3 of 10 runs hit the harness time limit (1m00s of 1h00m), so this time is a floor"
+        "3 of 10 runs hit the agent's tool time limit (1m00s of 1h00m), so this time is a floor"
     );
     let both = time_note(&time_row(|r| {
         capped(r);

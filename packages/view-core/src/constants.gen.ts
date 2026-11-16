@@ -219,7 +219,7 @@ export const NO_RULE = "no rule to suggest" as const;
 export const STATS_SECTIONS = {
   "findings": {
     title: "Flagged findings",
-    rankedBy: "largest share of the spend, then hits since the last fix",
+    rankedBy: "largest share of the spend, then hits a fix would still save",
     note: null
   },
   "causes": {

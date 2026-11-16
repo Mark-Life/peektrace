@@ -324,9 +324,9 @@
       "text": "Flagged findings"
     },
     {
-      "rect": [416, 261, 348, 15],
+      "rect": [416, 261, 368, 15],
       "role": "text",
-      "text": "ranked by largest share of the spend, then hits since the last fix"
+      "text": "ranked by largest share of the spend, then hits a fix would still save"
     },
     {
       "rect": [280, 288, 1136, 18],

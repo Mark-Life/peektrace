@@ -387,14 +387,14 @@ impl<'a> UsageSink<'a> {
         )];
         if !unpriced.is_empty() {
             out.push(format!(
-                "{} model ids have no price, so their calls are left out of the cost: {}",
+                "{} models have no price, so their calls are left out of the cost: {}",
                 unpriced.len(),
                 unpriced.join(", ")
             ));
         }
         if s.duplicates > 0.0 {
             out.push(format!(
-                "{} model calls repeat a request id already seen and count once",
+                "{} model calls repeat an earlier request and count once",
                 s.duplicates
             ));
         }

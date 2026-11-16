@@ -71,7 +71,10 @@ fn a_time_row_says_only_what_its_own_columns_measured() {
     );
     let notes = text(&r).time_notes;
     assert_eq!(notes.get("typecheck"), None);
-    assert!(notes["test"].contains("harness time limit"), "{notes:?}");
+    assert!(
+        notes["test"].contains("agent's tool time limit"),
+        "{notes:?}"
+    );
     assert!(notes["test"].contains("background"), "{notes:?}");
     assert!(notes["wait/poll"].contains("background"), "{notes:?}");
 }

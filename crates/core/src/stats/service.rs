@@ -99,7 +99,7 @@ fn window_ms(w: &StatsWindow, local: &dyn LocalZone) -> (f64, f64) {
 }
 
 const BASE_CAVEATS: [&str; 7] = [
-    "A call's time is the gap between the call and its result, so it includes harness overhead and time spent waiting for your approval",
+    "A call's time is the gap between the call and its result, so it includes the agent's own overhead and time spent waiting for your approval",
     "Failure counts are a floor: a detector sees only the output the transcript kept",
     "A command sent to the background is charged only the seconds it ran, not the wait it started",
     "Retry causes cover Claude, OpenCode and Pi shell calls. Codex shell output is not read for causes",
@@ -238,7 +238,7 @@ pub fn report(env: &StatsEnv<'_>, req: &ReportRequest) -> Result<StatsReport, St
     let costed: f64 = causes.iter().map(|r| r.tokens_measured).sum();
     if pairs > costed {
         ctx.caveat(format!(
-            "{} of {} retries have no token count: sidechain calls and calls with no recorded model usage carry none",
+            "{} of {} retries have no token count: calls inside a side task, and calls with no recorded model usage, carry none",
             to_js_string(pairs - costed),
             to_js_string(pairs)
         ));

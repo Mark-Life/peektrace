@@ -9,9 +9,9 @@ use indexmap::IndexMap;
 
 use crate::js::num::{js_round, to_fixed};
 use crate::model::Agent;
-use crate::pricing::{CardCache, CostTokens, card_for, pricing_echo, turn_cost};
+use crate::pricing::{CardCache, CostTokens, base_cost, card_for, pricing_echo, turn_cost};
 use crate::stats::accumulate::FinishCtx;
-use crate::stats::rank::{cmp_str, desc, rank, round, top_key, uniq_sorted};
+use crate::stats::rank::{cmp_str, desc, rank, round, safe_div, top_key, uniq_sorted};
 use crate::stats::schema::{Fact, Kind, SessionFact, UsageFact};
 
 use super::usage::dedup_key_of;
@@ -208,27 +208,28 @@ impl CorpusPanelSink {
             return;
         }
         let card = self.cards.get(&u.model);
-        let usd = turn_cost(
-            card.as_ref(),
-            &CostTokens {
-                input: t.input,
-                output: t.output,
-                cache_read: t.cache_read,
-                cache_creation: t.cache_creation,
-                cache_creation_1h: None,
-            },
-        )
-        .unwrap_or(0.0);
-        *self.usd_by_sid.entry(u.sid.clone()).or_default() += usd;
-        let read = CostTokens {
-            input: 0.0,
-            output: 0.0,
+        let full = CostTokens {
+            input: t.input,
+            output: t.output,
             cache_read: t.cache_read,
-            cache_creation: 0.0,
+            cache_creation: t.cache_creation,
             cache_creation_1h: None,
         };
-        *self.read_usd_by_sid.entry(u.sid.clone()).or_default() +=
-            turn_cost(card.as_ref(), &read).unwrap_or(0.0);
+        let usd = turn_cost(card.as_ref(), &full).unwrap_or(0.0);
+        *self.usd_by_sid.entry(u.sid.clone()).or_default() += usd;
+        // The cache reads' share of the call at base rates, applied to the
+        // call's own price, so a long prompt keeps its long-context tier.
+        let reads = CostTokens {
+            input: 0.0,
+            output: 0.0,
+            cache_creation: 0.0,
+            ..full
+        };
+        let read_share = safe_div(
+            base_cost(card.as_ref(), &reads),
+            base_cost(card.as_ref(), &full),
+        );
+        *self.read_usd_by_sid.entry(u.sid.clone()).or_default() += usd * read_share;
         let model = if u.model.is_empty() {
             UNKNOWN_MODEL
         } else {
@@ -428,7 +429,7 @@ impl CorpusPanelSink {
         ));
         if !unpriced.is_empty() {
             ctx.caveat(format!(
-                "{} model ids have no price, so their calls are left out of the cost: {}",
+                "{} models have no price, so their calls are left out of the cost: {}",
                 unpriced.len(),
                 uniq_sorted(unpriced).join(", ")
             ));

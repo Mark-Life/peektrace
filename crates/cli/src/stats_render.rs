@@ -78,26 +78,18 @@ fn n(x: f64) -> String {
     to_js_string(x)
 }
 
-/// `WORKING  2 causes with no hit since their memory rule: a, b`.
+/// `WORKING  2 (causes with no hit since their memory rule): a, b`.
 fn working_line(r: &StatsReport) -> Option<String> {
     let working = working_of(r);
     (!working.is_empty()).then(|| {
         let titles: Vec<&str> = working.iter().map(|f| f.title.as_str()).collect();
         format!(
             "WORKING  {} ({}): {}",
-            plural(working.len(), "cause"),
+            working.len(),
             peektrace_protocol::stats_text::WORKING_NOTE,
             titles.join(", ")
         )
     })
-}
-
-fn plural(n: usize, word: &str) -> String {
-    if n == 1 {
-        format!("1 {word}")
-    } else {
-        format!("{n} {word}s")
-    }
 }
 
 fn findings_block(r: &StatsReport) -> String {
@@ -106,8 +98,9 @@ fn findings_block(r: &StatsReport) -> String {
         let none = "FIX FIRST  no row names a change in this window".to_owned();
         return working_line(r).map_or_else(|| none.clone(), |w| format!("{none}\n{w}"));
     }
-    let mut lines =
-        vec!["FIX FIRST  (largest share of the spend, then hits since the last fix)".to_owned()];
+    let mut lines = vec![
+        "FIX FIRST  (largest share of the spend, then hits a fix would still save)".to_owned(),
+    ];
     for (i, f) in found.iter().take(FINDINGS_SHOWN).enumerate() {
         lines.push(format!("{}. {}  [{}]", i + 1, f.title, f.impact));
         lines.push(format!("   {}", f.note));

@@ -149,8 +149,8 @@ fn every_ranking_is_capped_and_every_truncation_is_stated() {
     assert_eq!(r["fails"].as_array().map(Vec::len), Some(1));
     let caveats = r["caveats"].as_array().cloned().unwrap_or_default();
     for note in [
-        "The retries table shows the top 1 of 2 causes",
-        "The time table shows the top 1 of 3 jobs",
+        "\"Avoidable retries\" shows the top 1 of 2 causes",
+        "\"What costs time\" shows the top 1 of 3 jobs",
         "Error clusters show the top 1 of 3",
     ] {
         assert!(

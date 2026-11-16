@@ -351,7 +351,7 @@ impl FailTable {
         );
         if ranked.dropped > 0 {
             ctx.caveat(format!(
-                "The fails table shows the top {} of {} rows",
+                "\"What fails\" shows the top {} of {} rows",
                 ranked.rows.len(),
                 ranked.total
             ));

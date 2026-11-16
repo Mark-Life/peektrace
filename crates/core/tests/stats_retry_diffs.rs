@@ -338,3 +338,18 @@ fn a_name_that_ran_only_inside_backticks_is_not_a_missing_binary() {
     .unwrap_or_default();
     assert_eq!(both, "install rsync. Misses: rsync 1");
 }
+
+#[test]
+fn an_escaped_backtick_does_not_hide_a_real_missing_binary() {
+    let fix = row(
+        &rows_of(facts![err(cnf(
+            "gh pr create --body \"needs \\`jq\\`\" && jq . f.json",
+            "jq",
+            Some(". f.json")
+        ))]),
+        CNF,
+    )
+    .and_then(|r| r.fix.clone())
+    .unwrap_or_default();
+    assert_eq!(fix, "install jq. Misses: jq 1");
+}

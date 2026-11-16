@@ -319,7 +319,7 @@ pub fn time_note(row: &TimeRow) -> Option<String> {
 pub fn time_note_with(row: &TimeRow, f: &FindingFormat) -> Option<String> {
     let capped = (row.capped_runs > 0.0).then(|| {
         format!(
-            "{} of {} runs hit the harness time limit ({} of {}), so this time is a floor",
+            "{} of {} runs hit the agent's tool time limit ({} of {}), so this time is a floor",
             (f.count)(row.capped_runs),
             (f.count)(row.runs),
             (f.hms)(row.capped_sec),

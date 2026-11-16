@@ -175,7 +175,7 @@ fn a_capped_run_is_split_out_of_its_job_total() {
     assert!(
         r.caveats
             .iter()
-            .any(|c| c.contains("hit the harness time limit"))
+            .any(|c| c.contains("hit the agent's tool time limit"))
     );
 }
 

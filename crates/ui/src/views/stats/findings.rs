@@ -19,7 +19,7 @@ use super::{
 use crate::model::stats::Finding;
 use crate::model::stats::rows::{VISIBLE_FINDINGS, show_more, table_name};
 use crate::state::Ui;
-use crate::theme::ty;
+use crate::theme::{Theme, ty};
 
 const fn source_label(t: Option<DrillTable>) -> &'static str {
     match t {
@@ -31,7 +31,7 @@ const fn source_label(t: Option<DrillTable>) -> &'static str {
 }
 
 /// A finding's sessions in the shape the link chips read.
-pub fn sample_views(samples: &[SampleRef]) -> Vec<SampleRefView> {
+fn sample_views(samples: &[SampleRef]) -> Vec<SampleRefView> {
     samples
         .iter()
         .map(|s| SampleRefView {
@@ -58,6 +58,15 @@ pub fn sample_views(samples: &[SampleRef]) -> Vec<SampleRefView> {
 enum Look {
     Live,
     Fixed,
+}
+
+/// Border and fill: green for a stopped cause, amber for a named detector.
+fn colors(look: Look, detector: bool, t: &Theme) -> (rune::Color, rune::Color) {
+    match look {
+        Look::Fixed => (emerald().alpha(0.4), emerald().alpha(0.05)),
+        Look::Live if detector => (amber().alpha(0.4), amber().alpha(0.05)),
+        Look::Live => (t.border, rune::Color::TRANSPARENT),
+    }
 }
 
 fn card(v: &V<'_>, f: &Finding, look: Look, layer: &mut Vec<El>) -> El {
@@ -130,14 +139,7 @@ fn card(v: &V<'_>, f: &Finding, look: Look, layer: &mut Vec<El>) -> El {
                 .key("finding-drill"),
         );
     }
-    let flagged = f.detector.is_some() && look == Look::Live;
-    let edge = if look == Look::Fixed {
-        emerald().alpha(0.4)
-    } else if flagged {
-        amber().alpha(0.4)
-    } else {
-        t.border
-    };
+    let (edge, fill) = colors(look, f.detector.is_some(), t);
     col()
         .key(format!("stats-finding:{id}"))
         .w_full()
@@ -146,11 +148,7 @@ fn card(v: &V<'_>, f: &Finding, look: Look, layer: &mut Vec<El>) -> El {
         .padding(12.0)
         .radius(8.0)
         .border(1.0, edge)
-        .fill(if flagged {
-            amber().alpha(0.05)
-        } else {
-            rune::Color::TRANSPARENT
-        })
+        .fill(fill)
         .child(head)
         .child(muted(f.note.clone(), t))
         .child(
