@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). For Claude sessions it also covers every `stats` command (report, drill, prompt, usage, refresh), on the fixtures and on the real corpus. `stats` does not scan Codex, Pi or OpenCode yet (see known differences).
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus.
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
@@ -75,8 +75,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Two Claude, Codex or Pi roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once. OpenCode roots follow TS. |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |
 | `stats` fact cache | `$PEEKTRACE_DIR/stats/` | `$PEEKTRACE_DIR/stats-rs/`, same layout and extractor version 13. Both read and write the one `rule-lines.json` beside it. |
-| `stats` without `--agent`, or `--agent codex`, `pi`, `opencode` | every agent | Claude only. `--agent codex`, `pi` or `opencode` exits 1 with `not supported yet`. Without `--agent`, stderr says `<agents> sessions are not scanned: not supported yet` when those agents have sessions. |
-| `stats` on a transcript with a `null` line | the whole command fails: `Could not scan the corpus: TypeError: ...` | the line is skipped |
+| `stats` on a Claude, Codex or Pi transcript with a `null` line | the whole command fails: `Could not scan the corpus: TypeError: ...` | the line is skipped |
 | `stats --days` so large the window start is not a valid date | Effect `ERROR (#n)` dump on stdout | `--days N reaches past the earliest date` on stderr, exit 1 |
 | `stats` with `--otel` | also prints `RpcServer.stats.*` and `RpcClient.stats.*` spans | no RPC spans |
 | `stats usage --tz` | ICU `Intl` names and aliases | jiff names (any case) and fixed offsets `±HH`, `±HHMM`, `±HH:MM`. Rare ICU-only aliases may be rejected. |

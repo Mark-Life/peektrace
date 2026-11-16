@@ -326,3 +326,36 @@ pub fn extract_facts(input: &ExtractInput<'_>) -> Vec<Fact> {
         .chain(usage)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{arg_of, as_object, command_of};
+
+    fn command(input: &str) -> String {
+        command_of(as_object(input).as_ref())
+    }
+
+    #[test]
+    fn an_argv_command_runs_its_script_or_joins_its_words() {
+        let cases = [
+            (r#"{"command":["bash","-lc","ls x"]}"#, "ls x"),
+            (r#"{"command":["zsh","-c","ls"]}"#, "ls"),
+            (r#"{"command":["bash","-l","-c","ls"]}"#, "ls"),
+            (r#"{"command":["ls","-la"]}"#, "ls -la"),
+            (r#"{"command":["bash","-lc"]}"#, "-lc"),
+            (r#"{"command":[1,"bash","-lc","x"]}"#, "x"),
+            (r#"{"cmd":"ls"}"#, ""),
+        ];
+        for (input, want) in cases {
+            assert_eq!(command(input), want, "{input}");
+        }
+    }
+
+    #[test]
+    fn arg_falls_back_to_cmd() {
+        let input = as_object(r#"{"cmd":"jq . x.json"}"#);
+        assert_eq!(arg_of(input.as_ref()), Some("jq . x.json"));
+        let argv = as_object(r#"{"command":["ls"],"cmd":""}"#);
+        assert_eq!(arg_of(argv.as_ref()), None);
+    }
+}

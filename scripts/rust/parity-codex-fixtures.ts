@@ -160,6 +160,9 @@ const codexItems = doc(
   row(40, "compacted", { message: "x" })
 );
 
+/** A rollout with a `null` line: TS fails the whole `stats` scan on it. */
+export const CODEX_NULLROW = "2026/01/02/rollout-nullrow.jsonl";
+
 export const codexFiles: Record<string, string | Uint8Array> = {
   [`2026/01/02/rollout-2026-01-02T10-00-00-${uuid(1)}.jsonl`]: codexTokens,
   [`2026/01/02/rollout-2026-01-02T10-00-01-${uuid(2)}.jsonl`]: codexItems,
@@ -204,7 +207,7 @@ export const codexFiles: Record<string, string | Uint8Array> = {
     ctx(3, { model: "" })
   ),
   "2026/01/02/rollout-prims.jsonl": `5\n"x"\n[1]\ntrue\n${L(row(1, "mystery", {}))}\n${L({ type: 5, payload: [] })}\nnot json\n${L(msg(2, "user", "ok"))}\n{"cut`,
-  "2026/01/02/rollout-nullrow.jsonl": doc(
+  [CODEX_NULLROW]: doc(
     meta(0, { id: "", cwd: "/tmp/demo" }),
     "null",
     msg(1, "user", "after null")

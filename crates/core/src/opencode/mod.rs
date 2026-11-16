@@ -93,35 +93,78 @@ pub fn load_session(path: &str, id: &str, default_root: &str) -> Option<Session>
     load_with(&db::open_dbs(data_dir), data_dir, id, None)
 }
 
+/// Tree indexes of the data dirs some session paths name, built once so
+/// loading many sessions does not rescan every project dir per session.
+pub struct Store<'a> {
+    default_root: &'a str,
+    indexes: HashMap<&'a str, tree::TreeIndex>,
+}
+
+impl<'a> Store<'a> {
+    pub fn new(paths: impl IntoIterator<Item = &'a str>, default_root: &'a str) -> Self {
+        let data_dirs: HashSet<&str> = paths
+            .into_iter()
+            .map(|p| locate(p, "", default_root).0)
+            .collect();
+        let indexes = data_dirs
+            .into_par_iter()
+            .map(|dir| (dir, tree::TreeIndex::build(dir)))
+            .collect();
+        Self {
+            default_root,
+            indexes,
+        }
+    }
+
+    /// A loader for one worker.
+    pub fn reader(&self) -> Reader<'_> {
+        Reader {
+            store: self,
+            open: None,
+        }
+    }
+}
+
+/// Loads sessions of a [`Store`], keeping the DBs of the last data dir open.
+pub struct Reader<'s> {
+    store: &'s Store<'s>,
+    open: Option<(String, Vec<db::Db>)>,
+}
+
+impl Reader<'_> {
+    /// Same as [`load_session`], without reopening the DBs per session.
+    pub fn load(&mut self, path: &str, id: &str) -> Option<Session> {
+        let (data_dir, id) = locate(path, id, self.store.default_root);
+        if self.open.as_ref().is_none_or(|(dir, _)| dir != data_dir) {
+            self.open = Some((data_dir.to_owned(), db::open_dbs(data_dir)));
+        }
+        let dbs = self
+            .open
+            .as_ref()
+            .map_or(&[][..], |(_, dbs)| dbs.as_slice());
+        load_with(dbs, data_dir, id, self.store.indexes.get(data_dir))
+    }
+}
+
 /// One outcome per ref, in `refs` order. A ref that no store can load (bad
 /// message JSON, a tree file named apart from its id) is skipped.
 pub fn load_headers(refs: &[SessionFileRef], default_root: &str, parent: &Span) -> Vec<Outcome> {
-    let data_dirs: HashSet<&str> = refs
-        .iter()
-        .map(|r| locate(&r.path, r.id.as_str(), default_root).0)
-        .collect();
-    let indexes: HashMap<&str, tree::TreeIndex> = data_dirs
-        .into_par_iter()
-        .map(|dir| (dir, tree::TreeIndex::build(dir)))
-        .collect();
+    let store = Store::new(refs.iter().map(|r| r.path.as_str()), default_root);
     refs.par_iter()
         .map_init(
-            || None::<(String, Vec<db::Db>)>,
-            |open, r| {
+            || store.reader(),
+            |reader, r| {
                 let _span = info_span!(
                     parent: parent,
                     "AgentRegistry.loadTranscript",
                     agent = Agent::Opencode.as_str()
                 )
                 .entered();
-                let (data_dir, id) = locate(&r.path, r.id.as_str(), default_root);
-                if open.as_ref().is_none_or(|(dir, _)| dir != data_dir) {
-                    *open = Some((data_dir.to_owned(), db::open_dbs(data_dir)));
-                }
-                let dbs = open.as_ref().map_or(&[][..], |(_, dbs)| dbs.as_slice());
-                load_with(dbs, data_dir, id, indexes.get(data_dir)).map_or(Outcome::Skip, |s| {
-                    Outcome::Header(Box::new(header::build_header(&s, r)))
-                })
+                reader
+                    .load(&r.path, r.id.as_str())
+                    .map_or(Outcome::Skip, |s| {
+                        Outcome::Header(Box::new(header::build_header(&s, r)))
+                    })
             },
         )
         .collect()

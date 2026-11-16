@@ -24,7 +24,8 @@
  * - `sessions analyze` and `sessions export` run after the `ls` suites; see
  *   `parity-analyze.ts` for their cases and normalisation.
  * - `stats` runs last; see `parity-stats.ts`. Its real suite snapshots
- *   `~/.claude/projects` into WORK and deletes it after. On macOS that is a
+ *   every agent's sessions (`~/.claude/projects`, Codex and Pi sessions, the
+ *   OpenCode DBs) into WORK and deletes them after. On macOS that is a
  *   cheap APFS clone, so the suite runs by default; elsewhere it is a full
  *   copy and needs `--real-stats`.
  */
