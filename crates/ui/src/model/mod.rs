@@ -1,5 +1,6 @@
 //! Pure rules behind the views: data in, data out, no Rune types.
 
+pub mod capabilities;
 pub mod chat;
 pub mod diff;
 #[cfg(test)]
@@ -10,8 +11,11 @@ pub mod list;
 pub mod md;
 pub mod notice;
 pub mod row;
+pub mod settings;
 pub mod settle;
+pub mod shortcuts;
 pub mod stats;
+pub mod theme_mode;
 pub mod tools;
 pub mod turns;
 pub mod utf16;

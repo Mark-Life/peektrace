@@ -27,34 +27,16 @@ import { cn } from "@workspace/ui/lib/utils";
 import { Fragment, useState } from "react";
 import type { Capability } from "../lib/api-types.gen";
 import { capabilitiesAtom } from "../lib/atoms";
+import {
+  AGENT_COLUMNS,
+  cellNote,
+  groupBy,
+  LEVEL_GLOSS,
+  LEVEL_STYLES,
+  LEVELS,
+  type Support,
+} from "../lib/capability-matrix";
 import { ResultView } from "../lib/result-view";
-
-/** A per-agent support cell, narrowed from the contract `Capability`. */
-type Support = Capability["perAgent"][keyof Capability["perAgent"]];
-
-/** Column order for the matrix (also the agent-id set). */
-const AGENT_COLUMNS = [
-  { id: "claude", label: "Claude" },
-  { id: "codex", label: "Codex" },
-  { id: "pi", label: "Pi" },
-  { id: "opencode", label: "OpenCode" },
-] as const;
-
-/** Tailwind classes per support level. */
-const LEVEL_STYLES: Record<Support["level"], string> = {
-  supported: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  partial: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  planned: "bg-sky-500/15 text-sky-400 border-sky-500/30",
-  unsupported: "bg-muted text-muted-foreground border-border",
-};
-
-/** Plain-language gloss per support level (shown in the legend + drawer). */
-const LEVEL_GLOSS: Record<Support["level"], string> = {
-  supported: "Built and working today.",
-  partial: "Partially built — some paths work.",
-  planned: "On the roadmap, not yet built.",
-  unsupported: "Not applicable / no plan.",
-};
 
 /** The selected cell carried into the detail sheet. */
 interface Selection {
@@ -75,17 +57,6 @@ const Pill = ({ level }: { readonly level: Support["level"] }) => (
     {level}
   </span>
 );
-
-/** Group capabilities by their `group` field, preserving first-seen order. */
-const groupBy = (caps: readonly Capability[]) => {
-  const groups = new Map<string, Capability[]>();
-  for (const cap of caps) {
-    const bucket = groups.get(cap.group) ?? [];
-    bucket.push(cap);
-    groups.set(cap.group, bucket);
-  }
-  return [...groups.entries()];
-};
 
 /** The matrix table; clicking a cell calls `onSelect`. */
 const Matrix = ({
@@ -158,7 +129,7 @@ const Matrix = ({
 /** Legend mapping each level to its swatch + gloss. */
 const Legend = () => (
   <div className="mt-4 flex flex-wrap gap-4 text-xs" data-testid="cap-legend">
-    {(Object.keys(LEVEL_STYLES) as Support["level"][]).map((level) => (
+    {LEVELS.map((level) => (
       <span className="inline-flex items-center gap-1.5" key={level}>
         <Pill level={level} />
         <span className="text-muted-foreground">{LEVEL_GLOSS[level]}</span>
@@ -197,7 +168,7 @@ const CellSheet = ({
                 className="mt-1 text-muted-foreground text-sm"
                 data-testid="cap-cell-note"
               >
-                {selection.support.note ?? LEVEL_GLOSS[selection.support.level]}
+                {cellNote(selection.support)}
               </p>
             </div>
             <div>

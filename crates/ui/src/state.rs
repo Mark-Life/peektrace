@@ -4,6 +4,13 @@
 //! a newer request superseded them. A watch refresh reloads the listing,
 //! then the open session only when its file changed.
 
+mod detail;
+mod route;
+pub mod settings;
+
+pub use detail::{Detail, Rail, Selected};
+pub use route::{Request, Route};
+
 use std::cell::Cell;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -12,15 +19,9 @@ use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
 use peektrace_protocol::{AgentId, WatchVersions};
 use rune::{AppHandle, TextEdit, Tx};
 
-use crate::chart::geom::{Growth, growth};
-use crate::model::chat::{
-    ChatNode, build_chat_plan, chat_ids_of, chat_node_keys, plan_index_of_turn, visible_rows,
-};
+use crate::model::chat::plan_index_of_turn;
 use crate::model::list::{self, Filters};
 use crate::model::settle::{Settle, SettleEffect, SettleEvent, step};
-use crate::model::stats::{DrillAsk, StatsScope};
-use crate::model::tools::{ToolIndex, index_tools};
-use crate::model::turns::{cross_event_index, turn_numbers};
 use crate::source::{DataSource, LoadError, WatchEvent};
 use crate::state_stats::StatsState;
 
@@ -28,131 +29,6 @@ use crate::state_stats::StatsState;
 pub const SEARCH_WRITE_S: f64 = 0.25;
 /// Live dots re-check this often.
 pub const NOW_TICK_S: f64 = 30.0;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Route {
-    Sessions,
-    Stats,
-    Memory,
-    Settings,
-    Capabilities,
-}
-
-impl Route {
-    pub const fn title(self) -> &'static str {
-        match self {
-            Self::Sessions => "Sessions",
-            Self::Stats => "Stats",
-            Self::Memory => "Memory",
-            Self::Settings => "Settings",
-            Self::Capabilities => "Capabilities",
-        }
-    }
-}
-
-/// A load the app layer runs; `rid` names the request in its slot.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Request {
-    Sessions {
-        rid: u64,
-    },
-    Analysis {
-        rid: u64,
-        id: String,
-        parent: Option<String>,
-    },
-    StatsReport {
-        rid: u64,
-        scope: StatsScope,
-    },
-    StatsDrill {
-        rid: u64,
-        scope: StatsScope,
-        ask: DrillAsk,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Selected {
-    pub id: String,
-    pub parent: Option<String>,
-}
-
-/// An analysis and everything the detail view derives from it.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Detail {
-    pub id: String,
-    pub a: AnalyzedSession,
-    pub turns: Vec<usize>,
-    pub cross: Option<usize>,
-    /// Event positions the history shows, in order.
-    pub rows: Vec<usize>,
-    pub plan: Vec<ChatNode>,
-    pub keys: Vec<String>,
-    pub ids: Vec<String>,
-    pub tools: ToolIndex,
-    pub growth: Option<Growth>,
-    /// Bumps on every load, so memoised rows rebuild.
-    pub rev: u64,
-}
-
-impl Detail {
-    pub fn new(id: String, a: AnalyzedSession, rev: u64) -> Self {
-        let turns = turn_numbers(&a);
-        let cross = cross_event_index(&a);
-        let rows = visible_rows(&a.events);
-        let plan = build_chat_plan(&a.events, &rows, &turns, cross);
-        let keys = chat_node_keys(&plan);
-        let ids = chat_ids_of(&a.events, &rows);
-        let tools = index_tools(&a.events);
-        let growth = growth(&a);
-        Self {
-            id,
-            a,
-            turns,
-            cross,
-            rows,
-            plan,
-            keys,
-            ids,
-            tools,
-            growth,
-            rev,
-        }
-    }
-}
-
-/// The session rail: the listing, its order and what the filters keep.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct Rail {
-    pub listing: Option<SessionListingView>,
-    /// Header indexes, newest first.
-    pub order: Vec<usize>,
-    /// Header indexes the filters keep, in order.
-    pub rows: Vec<usize>,
-    pub filters: Filters,
-    pub rev: u64,
-}
-
-impl Rail {
-    pub fn refilter(&mut self) {
-        let headers = self.listing.as_ref().map_or(&[][..], |l| &l.headers);
-        self.rows = list::visible_rows(headers, &self.order, &self.filters);
-        self.rev += 1;
-    }
-
-    pub fn header(&self, i: usize) -> Option<&peektrace_protocol::view::SessionHeader> {
-        self.listing.as_ref()?.headers.get(i)
-    }
-
-    pub fn find(&self, id: &str) -> Option<usize> {
-        self.listing
-            .as_ref()?
-            .headers
-            .iter()
-            .position(|h| h.id == id)
-    }
-}
 
 /// How the app reaches its data, absent in unit tests.
 pub struct Io {
@@ -204,6 +80,15 @@ pub struct Ui {
     pub stats: StatsState,
     /// A stats link's call, scrolled to once its session loads.
     pub pending_call: Option<String>,
+    pub settings: settings::SettingsState,
+    pub caps: settings::CapsState,
+    pub info: settings::InfoState,
+    pub help_open: bool,
+    /// Keycaps read `⌘` rather than `Ctrl+`; scenes pin it.
+    pub mac: bool,
+    pub toast: Option<settings::Toast>,
+    /// Where the theme pick persists.
+    pub prefs: rune::prefs::Prefs,
     pub io: Option<Io>,
 }
 
@@ -242,6 +127,13 @@ impl Ui {
             analysis_rid: 0,
             stats: StatsState::default(),
             pending_call: None,
+            settings: settings::SettingsState::default(),
+            caps: settings::CapsState::default(),
+            info: settings::InfoState::default(),
+            help_open: false,
+            mac: crate::shell::MAC,
+            toast: None,
+            prefs: rune::prefs::Prefs::memory(),
             io,
         }
     }
@@ -494,6 +386,10 @@ impl Ui {
             }
             SettleEffect::WakeAt(t) => tx.wake_at(t / 1000.0),
             SettleEffect::None => {}
+        }
+        if self.toast.as_ref().is_some_and(|t| clock >= t.until) {
+            self.toast = None;
+            changed = true;
         }
         if !self.now_fixed && now_ms - self.now_ms >= NOW_TICK_S * 1000.0 {
             self.now_ms = now_ms;

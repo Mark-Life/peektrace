@@ -1,0 +1,530 @@
+{
+  "elements": [
+    {
+      "key": "kit-root",
+      "rect": [0, 0, 1440, 900],
+      "role": "group"
+    },
+    {
+      "rect": [0, 0, 1440, 900],
+      "role": "group"
+    },
+    {
+      "key": "nav",
+      "rect": [0, 0, 256, 900],
+      "role": "group"
+    },
+    {
+      "key": "titlebar-band",
+      "rect": [10, 10, 236, 32],
+      "role": "group"
+    },
+    {
+      "rect": [10, 46, 236, 47],
+      "role": "group"
+    },
+    {
+      "rect": [16, 46, 224, 18],
+      "role": "text",
+      "text": "Peektrace"
+    },
+    {
+      "rect": [16, 66, 224, 15],
+      "role": "text",
+      "text": "Agent session inspector"
+    },
+    {
+      "key": "nav-sessions",
+      "label": "Sessions",
+      "rect": [10, 97, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 104, 60, 18],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "key": "nav-stats",
+      "label": "Stats",
+      "rect": [10, 133, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 140, 35, 18],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "key": "nav-memory",
+      "label": "Memory",
+      "rect": [10, 169, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 176, 54, 18],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "key": "nav-settings",
+      "label": "Settings",
+      "rect": [10, 205, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 212, 55, 18],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [10, 241, 236, 618],
+      "role": "group"
+    },
+    {
+      "rect": [10, 862, 236, 28],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Switch to light theme",
+      "rect": [10, 862, 44, 28],
+      "role": "button"
+    },
+    {
+      "rect": [18, 869, 28, 15],
+      "role": "text",
+      "text": "Light"
+    },
+    {
+      "key": "shortcuts-button",
+      "label": "Keyboard shortcuts",
+      "rect": [62, 862, 92, 28],
+      "role": "button"
+    },
+    {
+      "rect": [70, 868, 76, 16],
+      "role": "group"
+    },
+    {
+      "rect": [70, 868, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [92, 869, 54, 15],
+      "role": "text",
+      "text": "Shortcuts"
+    },
+    {
+      "rect": [256, 0, 1184, 900],
+      "role": "group"
+    },
+    {
+      "key": "header",
+      "rect": [256, 0, 1184, 44],
+      "role": "group"
+    },
+    {
+      "rect": [272, 13, 55, 18],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [337, 15, 64, 15],
+      "role": "text",
+      "text": "Agent roots"
+    },
+    {
+      "rect": [411, 22, 1013, 0],
+      "role": "group"
+    },
+    {
+      "key": "settings-scroll",
+      "rect": [256, 44, 1184, 856],
+      "role": "group"
+    },
+    {
+      "rect": [256, 44, 1184, 1283],
+      "role": "group"
+    },
+    {
+      "key": "settings",
+      "rect": [464, 68, 768, 1235],
+      "role": "group"
+    },
+    {
+      "rect": [480, 84, 736, 42],
+      "role": "group"
+    },
+    {
+      "rect": [480, 84, 736, 23],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [480, 109, 736, 18],
+      "role": "text",
+      "text": "Point peektrace at extra agent config dirs — e.g. a separate work account — to scan them in parallel."
+    },
+    {
+      "key": "settings-editor",
+      "rect": [480, 142, 736, 1014],
+      "role": "group"
+    },
+    {
+      "rect": [480, 142, 736, 81],
+      "role": "group"
+    },
+    {
+      "rect": [496, 154, 704, 18],
+      "role": "group"
+    },
+    {
+      "rect": [496, 154, 192, 18],
+      "role": "text",
+      "text": "Changes apply after a restart"
+    },
+    {
+      "rect": [496, 176, 704, 35],
+      "role": "text",
+      "text": "Saved to ~/.peektrace/settings.json. Peektrace scans the roots it read at launch, so restart Peektrace for new roots to appear in the session list."
+    },
+    {
+      "key": "settings-form",
+      "rect": [480, 239, 736, 917],
+      "role": "group"
+    },
+    {
+      "key": "settings-cas-conflict",
+      "rect": [480, 239, 736, 133],
+      "role": "group"
+    },
+    {
+      "rect": [496, 255, 704, 18],
+      "role": "text",
+      "text": "settings.json changed on disk"
+    },
+    {
+      "rect": [496, 284, 704, 35],
+      "role": "text",
+      "text": "The file was modified after you loaded it. Reload to pull the latest (your edits are discarded) or overwrite to force-save what you have."
+    },
+    {
+      "rect": [496, 331, 704, 24],
+      "role": "group"
+    },
+    {
+      "rect": [496, 331, 477, 24],
+      "role": "group"
+    },
+    {
+      "key": "settings-cas-reload",
+      "label": "Reload from disk",
+      "rect": [981, 331, 128, 24],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [993, 333, 104, 20],
+      "role": "text",
+      "text": "Reload from disk"
+    },
+    {
+      "key": "settings-cas-overwrite",
+      "label": "Overwrite",
+      "rect": [1117, 331, 84, 24],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [1129, 333, 60, 20],
+      "role": "text",
+      "text": "Overwrite"
+    },
+    {
+      "key": "settings-agent-claude",
+      "rect": [480, 387, 736, 170],
+      "role": "group"
+    },
+    {
+      "rect": [496, 403, 704, 18],
+      "role": "text",
+      "text": "Claude"
+    },
+    {
+      "rect": [496, 433, 704, 18],
+      "role": "text",
+      "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
+    },
+    {
+      "key": "settings-default-root",
+      "rect": [496, 462, 704, 18],
+      "role": "group"
+    },
+    {
+      "rect": [496, 462, 48, 18],
+      "role": "text",
+      "text": "Default"
+    },
+    {
+      "rect": [552, 463, 65, 15],
+      "role": "text",
+      "text": "~/.claude"
+    },
+    {
+      "rect": [625, 463, 165, 15],
+      "role": "text",
+      "text": "scans ~/.claude/projects"
+    },
+    {
+      "rect": [496, 492, 704, 18],
+      "role": "text",
+      "text": "No extra roots."
+    },
+    {
+      "rect": [496, 521, 704, 20],
+      "role": "group"
+    },
+    {
+      "key": "settings-add-claude",
+      "label": "Add root",
+      "rect": [496, 521, 65, 20],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [506, 525, 45, 12],
+      "role": "text",
+      "text": "Add root"
+    },
+    {
+      "key": "settings-agent-codex",
+      "rect": [480, 573, 736, 170],
+      "role": "group"
+    },
+    {
+      "rect": [496, 589, 704, 18],
+      "role": "text",
+      "text": "Codex"
+    },
+    {
+      "rect": [496, 619, 704, 18],
+      "role": "text",
+      "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
+    },
+    {
+      "key": "settings-default-root",
+      "rect": [496, 648, 704, 18],
+      "role": "group"
+    },
+    {
+      "rect": [496, 648, 48, 18],
+      "role": "text",
+      "text": "Default"
+    },
+    {
+      "rect": [552, 649, 58, 15],
+      "role": "text",
+      "text": "~/.codex"
+    },
+    {
+      "rect": [618, 649, 158, 15],
+      "role": "text",
+      "text": "scans ~/.codex/sessions"
+    },
+    {
+      "rect": [496, 678, 704, 18],
+      "role": "text",
+      "text": "No extra roots."
+    },
+    {
+      "rect": [496, 707, 704, 20],
+      "role": "group"
+    },
+    {
+      "key": "settings-add-codex",
+      "label": "Add root",
+      "rect": [496, 707, 65, 20],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [506, 711, 45, 12],
+      "role": "text",
+      "text": "Add root"
+    },
+    {
+      "key": "settings-agent-pi",
+      "rect": [480, 759, 736, 170],
+      "role": "group"
+    },
+    {
+      "rect": [496, 775, 704, 18],
+      "role": "text",
+      "text": "Pi"
+    },
+    {
+      "rect": [496, 805, 704, 18],
+      "role": "text",
+      "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
+    },
+    {
+      "key": "settings-default-root",
+      "rect": [496, 834, 704, 18],
+      "role": "group"
+    },
+    {
+      "rect": [496, 834, 48, 18],
+      "role": "text",
+      "text": "Default"
+    },
+    {
+      "rect": [552, 835, 36, 15],
+      "role": "text",
+      "text": "~/.pi"
+    },
+    {
+      "rect": [596, 835, 180, 15],
+      "role": "text",
+      "text": "scans ~/.pi/agent/sessions"
+    },
+    {
+      "rect": [496, 864, 704, 18],
+      "role": "text",
+      "text": "No extra roots."
+    },
+    {
+      "rect": [496, 893, 704, 20],
+      "role": "group"
+    },
+    {
+      "key": "settings-add-pi",
+      "label": "Add root",
+      "rect": [496, 893, 65, 20],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [506, 897, 45, 12],
+      "role": "text",
+      "text": "Add root"
+    },
+    {
+      "key": "settings-agent-opencode",
+      "rect": [480, 945, 736, 171],
+      "role": "group"
+    },
+    {
+      "rect": [496, 961, 704, 18],
+      "role": "text",
+      "text": "OpenCode"
+    },
+    {
+      "rect": [496, 991, 704, 18],
+      "role": "text",
+      "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
+    },
+    {
+      "key": "settings-default-root",
+      "rect": [496, 1020, 704, 18],
+      "role": "group"
+    },
+    {
+      "rect": [496, 1020, 48, 18],
+      "role": "text",
+      "text": "Default"
+    },
+    {
+      "rect": [552, 1022, 166, 15],
+      "role": "text",
+      "text": "~/.local/share/opencode"
+    },
+    {
+      "rect": [726, 1022, 201, 15],
+      "role": "text",
+      "text": "scans ~/.local/share/opencode"
+    },
+    {
+      "key": "root-missing",
+      "rect": [935, 1020, 58, 18],
+      "role": "group"
+    },
+    {
+      "rect": [941, 1023, 46, 13],
+      "role": "text",
+      "text": "not found"
+    },
+    {
+      "rect": [496, 1050, 704, 18],
+      "role": "text",
+      "text": "No extra roots."
+    },
+    {
+      "rect": [496, 1080, 704, 20],
+      "role": "group"
+    },
+    {
+      "key": "settings-add-opencode",
+      "label": "Add root",
+      "rect": [496, 1080, 65, 20],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [506, 1084, 45, 12],
+      "role": "text",
+      "text": "Add root"
+    },
+    {
+      "rect": [480, 1132, 736, 24],
+      "role": "group"
+    },
+    {
+      "rect": [480, 1132, 630, 24],
+      "role": "group"
+    },
+    {
+      "key": "settings-save",
+      "label": "Save settings",
+      "rect": [1110, 1132, 107, 24],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [1122, 1134, 83, 20],
+      "role": "text",
+      "text": "Save settings"
+    },
+    {
+      "rect": [480, 1172, 736, 115],
+      "role": "group"
+    },
+    {
+      "rect": [496, 1188, 704, 18],
+      "role": "text",
+      "text": "Capabilities"
+    },
+    {
+      "rect": [496, 1217, 704, 18],
+      "role": "text",
+      "text": "What each agent supports"
+    },
+    {
+      "rect": [496, 1247, 704, 24],
+      "role": "group"
+    },
+    {
+      "key": "settings-capabilities",
+      "label": "Open",
+      "rect": [496, 1247, 57, 24],
+      "role": "button"
+    },
+    {
+      "key": "label",
+      "rect": [508, 1249, 33, 20],
+      "role": "text",
+      "text": "Open"
+    }
+  ],
+  "title": "Peektrace"
+}

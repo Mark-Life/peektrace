@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 peektrace-js.workspace = true
+peektrace-protocol.workspace = true
 fancy-regex.workspace = true
 icu_collator.workspace = true
 indexmap.workspace = true

@@ -4,9 +4,9 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use peektrace_protocol::WatchVersions;
 use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
+use peektrace_protocol::{Capability, ServerInfo, SettingsResult, SettingsUpdate, WatchVersions};
 use tracing::{field, info_span};
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen::prelude::Closure;
@@ -33,6 +33,11 @@ fn js_text(v: &wasm_bindgen::JsValue) -> String {
 
 /// GET `path` and return `(status, body)`.
 async fn get(path: &str) -> Result<(u16, String), LoadError> {
+    send("GET", path, None).await
+}
+
+/// Send `method` to `path` with an optional JSON `body`; `(status, body)`.
+async fn send(method: &str, path: &str, body: Option<String>) -> Result<(u16, String), LoadError> {
     let transport = |e: wasm_bindgen::JsValue| LoadError::Transport {
         status: None,
         message: js_text(&e),
@@ -42,12 +47,21 @@ async fn get(path: &str) -> Result<(u16, String), LoadError> {
         message: "no window".into(),
     })?;
     let init = RequestInit::new();
-    init.set_method("GET");
+    init.set_method(method);
     init.set_credentials(RequestCredentials::SameOrigin);
+    let has_body = body.is_some();
+    if let Some(b) = body {
+        init.set_body(&wasm_bindgen::JsValue::from_str(&b));
+    }
     let req = Request::new_with_str_and_init(path, &init).map_err(transport)?;
     req.headers()
         .set("accept", "application/json")
         .map_err(transport)?;
+    if has_body {
+        req.headers()
+            .set("content-type", "application/json")
+            .map_err(transport)?;
+    }
     let resp: Response = JsFuture::from(window.fetch_with_request(&req))
         .await
         .map_err(transport)?
@@ -62,13 +76,23 @@ async fn load<T: serde::de::DeserializeOwned>(
     route: &'static str,
     path: String,
 ) -> Result<T, LoadError> {
+    load_with(route, "GET", path, None).await
+}
+
+async fn load_with<T: serde::de::DeserializeOwned>(
+    route: &'static str,
+    method: &'static str,
+    path: String,
+    body: Option<String>,
+) -> Result<T, LoadError> {
     let span = info_span!(
         "app.fetch",
+        http.method = method,
         http.route = route,
         http.status = field::Empty,
         error = field::Empty
     );
-    let out = match get(&path).await {
+    let out = match send(method, &path, body).await {
         Ok((status, body)) => {
             span.record("http.status", status);
             if (200..300).contains(&status) {
@@ -177,6 +201,27 @@ impl DataSource for Http {
             ask.offset
         );
         spawn_local(async move { reply(load("/api/stats/drill/{table}/{key}", path).await) });
+    }
+
+    fn capabilities(&self, reply: Reply<Vec<Capability>>) {
+        spawn_local(
+            async move { reply(load("/api/capabilities", "/api/capabilities".into()).await) },
+        );
+    }
+
+    fn server_info(&self, reply: Reply<ServerInfo>) {
+        spawn_local(async move { reply(load("/api/server", "/api/server".into()).await) });
+    }
+
+    fn settings(&self, reply: Reply<SettingsResult>) {
+        spawn_local(async move { reply(load("/api/settings", "/api/settings".into()).await) });
+    }
+
+    fn save_settings(&self, update: SettingsUpdate, reply: Reply<SettingsResult>) {
+        let body = serde_json::to_string(&update).unwrap_or_default();
+        spawn_local(async move {
+            reply(load_with("/api/settings", "PUT", "/api/settings".into(), Some(body)).await);
+        });
     }
 
     fn watch(&self, on_versions: OnVersions) {

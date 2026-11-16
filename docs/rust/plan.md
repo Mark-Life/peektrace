@@ -30,7 +30,7 @@ The `tui` stage (`--tui-only`) compares the `tui --port` errors byte for byte, t
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
-The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions (turn numbers and the cross index against the frozen `parity-history-rules.ts` copy): list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). For Stats it checks number, percent, duration and date text on a sweep, then reads each report and drill page the probe ran and compares findings, every prompt, rule lines, suggested rules, time notes, chips, row and cell text, rank bar widths and drill hit labels with the inspector's own functions. That runs on the stats fixture HOME (every agent, and each one alone) and on the real corpus. It also checks the static answers of `serve --ui rune` on a fake bundle. `serve --ui rune` is experimental (see Decisions).
+The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions (turn numbers and the cross index against the frozen `parity-history-rules.ts` copy): list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). For Stats it checks number, percent, duration and date text on a sweep, then reads each report and drill page the probe ran and compares findings, every prompt, rule lines, suggested rules, time notes, chips, row and cell text, rank bar widths and drill hit labels with the inspector's own functions. That runs on the stats fixture HOME (every agent, and each one alone) and on the real corpus. For Settings and Capabilities it checks the form rows and their assembly (JS trim), default roots, `~` paths, every wire error sentence, the capability groups, levels, glosses and notes, the theme toggle rule, the shortcut table, keycap labels, layout-aware key reading and the modifier rule, on fixture cases and the real `~/.peektrace/settings.json` (read only, never printed). Every copy string the app draws must appear in the inspector's rendered markup or route sources. It also checks the static answers of `serve --ui rune` on a fake bundle. `serve --ui rune` is experimental (see Decisions).
 
 ## Target layout
 
@@ -170,9 +170,17 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app Stats breakpoints (`md`, `lg`) | viewport width | width of the stats column |
 | Rune app Stats session links | open the transcript with the detector's marks drawn | open the session at the call; no detector marks yet |
 | Rune app Stats days or agent change with the drill sheet open | the drill key stays in the hash and reads against the new report | the sheet closes |
+| Rune app Settings restart notice and save toast | "restart `peektrace serve`" | "restart Peektrace": the app reads its roots at launch. The experimental web build keeps the serve text |
+| Rune app capability cell detail | right side sheet | centred dialog (no sheet in rune-kit at the pinned rev) |
+| Rune app load failure without a typed error | `Cause.pretty(cause)` | the load error text (`HTTP 500: ...`, `Unexpected response: ...`) |
+| Rune app: leaving Settings and coming back | the form remounts and unsaved edits are lost | edits stay while the file's mtime is unchanged; a changed file re-seeds the form |
+| Rune app icons on Settings, the theme toggle and toasts (trash, plus, save, info, warning, sun, moon) | lucide icons | text labels; rune-kit glyphs only for close, lock, keyboard and the error toast |
+| Rune app theme pick | `localStorage["theme"]` | `prefs.json` key `theme` in the OS config dir (`com.mark-life.peektrace`), same values `system`, `light`, `dark`; headless runs keep it in memory |
+| Rune app `[` and `]` (previous, next turn) | bound | not bound yet; the shortcuts dialog leaves them (and the empty Transcript group) out |
+| Rune app Escape on Capabilities | browser Back returns to Settings | Escape returns to Settings (no rail entry, no Back) |
 | Experimental `serve --ui rune`: web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
 | Experimental `serve --ui rune`: Stats | findings, prompts, rule badges and time notes | none: core writes that text, so the web build hides it |
-| Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
+| Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾ ⌘`; CJK and emoji show as boxes |
 
 ## Decisions
 
@@ -238,3 +246,6 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 35. Keep or drop the Rune web build after the native app ships?
 36. Rune app Stats: draw the detector marks in the opened transcript, or leave the link at the call?
 37. Rune web build Stats: add a server route for the inspector-format findings and prompts, or keep them native only?
+38. Rune app Settings: re-resolve the roots and restart the watcher after a save, so new roots show without a restart?
+39. Rune app: bind `[` / `]` turn steps (needs the turn under the scroll top)?
+40. Rune app: migrate the theme the Electrobun app kept in its webview `localStorage`? Today the first launch follows the OS.

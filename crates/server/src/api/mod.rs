@@ -6,13 +6,8 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::{HeaderValue, Method, Response, StatusCode, Uri, header};
-use peektrace_core::Agent;
-use peektrace_core::capabilities::{self, SupportLevel as CoreLevel};
-use peektrace_core::sessions::resolve;
-use peektrace_protocol::{
-    AgentId, AgentScan, ApiError, ApiErrorBody, Capability, CapabilitySupport, PerAgentSupport,
-    ScannedRoot, ServerInfo, SupportLevel,
-};
+use peektrace_core::wire;
+use peektrace_protocol::{ApiError, ApiErrorBody};
 use tracing::{Instrument as _, Span};
 
 use crate::AppState;
@@ -149,76 +144,16 @@ pub(crate) fn finish(result: Result<Res, Failure>) -> Res {
 pub async fn server_info(State(state): Shared, method: Method) -> Res {
     let span = rpc_span!("server.info", method, "/api/server");
     async move {
-        let agents = Agent::ALL
-            .into_iter()
-            .map(|agent| AgentScan {
-                agent: agent_id(agent),
-                roots: state
-                    .roots
-                    .of(agent)
-                    .iter()
-                    .enumerate()
-                    .map(|(i, s)| ScannedRoot {
-                        is_default: i == 0,
-                        home: s.home.clone(),
-                        path: s.projects_root.clone(),
-                        exists: resolve::exists(&s.projects_root),
-                    })
-                    .collect(),
-            })
-            .collect();
-        let info = ServerInfo {
-            read_only: state.read_only,
-            user_home: state.user_home.clone(),
-            agents,
-        };
+        let info = wire::server_info(&state.roots, state.read_only, &state.user_home);
         finish(Ok(json(serde_json::to_string(&info).unwrap_or_default())))
     }
     .instrument(span)
     .await
 }
 
-pub(crate) const fn agent_id(a: Agent) -> AgentId {
-    match a {
-        Agent::Claude => AgentId::Claude,
-        Agent::Codex => AgentId::Codex,
-        Agent::Pi => AgentId::Pi,
-        Agent::Opencode => AgentId::Opencode,
-    }
-}
-
-const fn level(l: CoreLevel) -> SupportLevel {
-    match l {
-        CoreLevel::Supported => SupportLevel::Supported,
-        CoreLevel::Partial => SupportLevel::Partial,
-        CoreLevel::Planned => SupportLevel::Planned,
-        CoreLevel::Unsupported => SupportLevel::Unsupported,
-    }
-}
-
 pub async fn capabilities(method: Method) -> Res {
     let _span = rpc_span!("capabilities.list", method, "/api/capabilities").entered();
-    let rows: Vec<Capability> = capabilities::list_capabilities()
-        .iter()
-        .map(|c| {
-            let [claude, codex, pi, opencode] = c.per_agent.map(|s| CapabilitySupport {
-                level: level(s.level),
-                note: s.note.map(str::to_owned),
-            });
-            Capability {
-                id: c.id.to_owned(),
-                group: c.group.to_owned(),
-                title: c.title.to_owned(),
-                description: c.description.to_owned(),
-                per_agent: PerAgentSupport {
-                    claude,
-                    codex,
-                    pi,
-                    opencode,
-                },
-            }
-        })
-        .collect();
+    let rows = wire::capability_rows();
     finish(Ok(json(serde_json::to_string(&rows).unwrap_or_default())))
 }
 

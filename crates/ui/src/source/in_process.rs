@@ -1,30 +1,30 @@
 //! The native source: core runs on a worker thread per call, never on the
 //! UI thread, under a root `app.<method>` span.
 
-use std::sync::{Arc, Mutex, PoisonError};
-use std::time::Instant;
+mod stats;
 
-use peektrace_core::PathStyle;
+use std::sync::{Arc, Mutex, PoisonError};
+
 use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::system_zone::SystemZone;
+use peektrace_core::js::value::JsValue;
 use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::sessions::resolve::SessionError;
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::{analyzed_json_with, listing_json};
-use peektrace_core::stats::cache::{StatsCache, cache_root};
-use peektrace_core::stats::service::{
-    DrillHits, DrillPage, ReportRequest, StatsEnv, StatsError, drill_hits, report,
-};
+use peektrace_core::settings_doc;
+use peektrace_core::stats::cache::cache_root;
 use peektrace_core::watch::{WatchProblem, Watcher};
-use peektrace_core::{AgentRoots, ListFilter, list_sessions_cached};
+use peektrace_core::{AgentRoots, ListFilter, PathStyle, list_sessions_cached, wire};
 use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
-use peektrace_protocol::{AgentId, ApiError, DrillTable, WatchVersions};
-use tracing::{Span, field, info_span};
+use peektrace_protocol::{
+    ApiError, Capability, ServerInfo, SettingsResult, SettingsUpdate, WatchVersions,
+};
+use tracing::{field, info_span};
 
+use self::stats::{Drilled, Gate};
 use super::{DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode};
-use crate::model::stats::derive::{core_agent, offset_at, text_of};
-use crate::model::stats::format::at;
 use crate::model::stats::{DrillAsk, StatsScope};
 
 struct Inner {
@@ -40,20 +40,8 @@ struct Inner {
     drilled: Mutex<Option<Drilled>>,
     /// A fixed clock for headless runs and tests.
     now: Option<f64>,
-}
-
-struct Drilled {
-    scope: StatsScope,
-    table: DrillTable,
-    key: String,
-    hits: Arc<DrillHits>,
-}
-
-/// Whether a pass runs for any scope or only for the last one asked.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Gate {
-    Always,
-    Latest,
+    settings_path: String,
+    user_home: String,
 }
 
 fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
@@ -62,6 +50,7 @@ fn locked<T>(m: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 pub struct InProcess {
     inner: Arc<Inner>,
+    read_only: bool,
     watcher: Mutex<Option<Watcher>>,
 }
 
@@ -81,52 +70,6 @@ macro_rules! root_span {
     };
 }
 
-macro_rules! stats_span {
-    ($name:literal) => {
-        info_span!(
-            parent: None,
-            $name,
-            peektrace.root = true,
-            peektrace.kind = "app",
-            stats.days = field::Empty,
-            stats.agent = field::Empty,
-            stats.table = field::Empty,
-            stats.offset = field::Empty,
-            stats.waitMs = field::Empty,
-            session.id = field::Empty,
-            error = field::Empty
-        )
-    };
-}
-
-fn stats_error(e: StatsError) -> LoadError {
-    LoadError::Api(match e {
-        StatsError::Scan(reason) => ApiError::StatsScanError { reason, path: None },
-        StatsError::RowNotFound { table, key } => ApiError::StatsRowNotFoundError {
-            key,
-            table: table.to_owned(),
-        },
-    })
-}
-
-fn agents_of(agent: Option<AgentId>) -> Option<Vec<peektrace_core::Agent>> {
-    agent.map(|a| vec![core_agent(a)])
-}
-
-fn record_scope(span: &Span, scope: StatsScope) {
-    span.record("stats.days", scope.days);
-    span.record("stats.agent", scope.agent.map_or("", AgentId::as_str));
-}
-
-fn report_request(scope: StatsScope) -> ReportRequest {
-    ReportRequest {
-        agents: agents_of(scope.agent),
-        days: Some(f64::from(scope.days)),
-        force: false,
-        limit: None,
-    }
-}
-
 fn session_error(e: SessionError) -> LoadError {
     LoadError::Api(match e {
         SessionError::NotFound { id, searched } => ApiError::SessionNotFoundError {
@@ -137,9 +80,24 @@ fn session_error(e: SessionError) -> LoadError {
     })
 }
 
+fn bad_request(reason: impl Into<String>) -> LoadError {
+    LoadError::Api(ApiError::BadRequestError {
+        reason: reason.into(),
+    })
+}
+
 impl InProcess {
     /// Sessions under `roots`; the stats fact cache in `stats_cache`.
     pub fn new(roots: AgentRoots, stats_cache: String) -> Self {
+        Self::with_env(roots, stats_cache, String::new(), String::new())
+    }
+
+    fn with_env(
+        roots: AgentRoots,
+        stats_cache: String,
+        settings_path: String,
+        user_home: String,
+    ) -> Self {
         Self {
             inner: Arc::new(Inner {
                 roots,
@@ -150,7 +108,10 @@ impl InProcess {
                 wanted: Mutex::new(None),
                 drilled: Mutex::new(None),
                 now: crate::fixed_now(),
+                settings_path,
+                user_home,
             }),
+            read_only: false,
             watcher: Mutex::new(None),
         }
     }
@@ -161,6 +122,13 @@ impl InProcess {
         if let Some(inner) = Arc::get_mut(&mut self.inner) {
             inner.now = Some(now_ms);
         }
+        self
+    }
+
+    /// Refuse settings writes, as a `--read-only` server does.
+    #[must_use]
+    pub const fn with_read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
         self
     }
 
@@ -178,130 +146,58 @@ impl InProcess {
     /// Roots under `home`, with env vars read through `var`.
     pub fn for_home(home: String, var: impl Fn(&str) -> Option<String>) -> Self {
         let env = RootsEnv::from_vars(home, PathStyle::NATIVE, var);
-        let settings = std::fs::read(env.settings_path())
+        let settings_path = env.settings_path();
+        let settings = std::fs::read(&settings_path)
             .ok()
             .map(|b| roots::parse_settings(&String::from_utf8_lossy(&b)))
             .unwrap_or_default();
-        Self::new(AgentRoots::resolve(&env, &settings), cache_root(&env))
+        let roots = AgentRoots::resolve(&env, &settings);
+        Self::with_env(roots, cache_root(&env), settings_path, env.home)
     }
 
-    /// Run `f` on a stats env after earlier corpus passes; under
-    /// [`Gate::Latest`], skip it once the UI asked about another scope.
-    fn with_stats<T>(
-        inner: &Inner,
-        span: &Span,
-        scope: StatsScope,
-        gate: Gate,
-        f: impl FnOnce(&StatsEnv<'_>) -> Result<T, StatsError>,
-    ) -> Result<T, LoadError> {
-        let started = Instant::now();
-        let _guard = locked(&inner.stats_lock);
-        let waited = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        span.record("stats.waitMs", waited);
-        if gate == Gate::Latest && *locked(&inner.wanted) != Some(scope) {
-            return Err(LoadError::Superseded);
-        }
-        let env = StatsEnv {
-            roots: &inner.roots,
-            cache: StatsCache::new(inner.stats_cache.clone()),
-            local: &inner.zone,
-            now_ms: inner.now.unwrap_or_else(crate::wall_ms),
-            progress: None,
-        };
-        let out = f(&env).map_err(stats_error);
+    fn capabilities_list() -> Vec<Capability> {
+        let _span = root_span!("app.capabilities.list").entered();
+        wire::capability_rows()
+    }
+
+    fn info(inner: &Inner, read_only: bool) -> ServerInfo {
+        let _span = root_span!("app.server.info").entered();
+        wire::server_info(&inner.roots, read_only, &inner.user_home)
+    }
+
+    fn read_settings(inner: &Inner) -> Result<SettingsResult, LoadError> {
+        let span = root_span!("app.settings.get");
+        let _entered = span.enter();
+        let out = decode(&wire::settings_body(&settings_doc::read_stored(
+            &inner.settings_path,
+        )));
         if let Err(e) = &out {
             span.record("error", field::display(e));
         }
         out
     }
 
-    fn stats_screen(
+    fn write_settings(
         inner: &Inner,
-        scope: StatsScope,
-        gate: Gate,
-    ) -> Result<StatsScreen, LoadError> {
-        let span = stats_span!("app.stats.report");
-        record_scope(&span, scope);
+        read_only: bool,
+        update: &SettingsUpdate,
+    ) -> Result<SettingsResult, LoadError> {
+        let span = root_span!("app.settings.update");
         let _entered = span.enter();
-        let r = Self::with_stats(inner, &span, scope, gate, |env| {
-            let r = report(env, &report_request(scope));
-            // A new pass may see new calls; the next drill reads them.
-            let mut drilled = locked(&inner.drilled);
-            if drilled.as_ref().is_some_and(|d| d.scope == scope) {
-                *drilled = None;
-            }
-            r
-        })?;
-        let out = decode(&r.to_json(false)).map(|view| StatsScreen {
-            report: view,
-            text: Some(text_of(&r, scope.agent)),
-            generated: at(r.generated_at, offset_at(&inner.zone, r.generated_at)),
-        });
+        let out = (|| {
+            wire::check_settings_writable(read_only).map_err(LoadError::Api)?;
+            let text =
+                serde_json::to_string(&update.settings).map_err(|e| bad_request(e.to_string()))?;
+            let value = JsValue::parse(&text).ok_or_else(|| bad_request("body is not JSON"))?;
+            let doc = wire::validated_settings(&value).map_err(LoadError::Api)?;
+            let stored = wire::store_settings(&inner.settings_path, doc, update.expected_mtime)
+                .map_err(LoadError::Api)?;
+            decode(&wire::settings_body(&stored))
+        })();
         if let Err(e) = &out {
             span.record("error", field::display(e));
         }
         out
-    }
-
-    fn drilled(inner: &Inner, scope: StatsScope, ask: &DrillAsk) -> Option<Arc<DrillHits>> {
-        locked(&inner.drilled)
-            .as_ref()
-            .filter(|d| d.scope == scope && d.table == ask.table && d.key == ask.key)
-            .map(|d| Arc::clone(&d.hits))
-    }
-
-    /// Every hit of the row, from the last drill of it or from one pass.
-    fn hits(
-        inner: &Inner,
-        span: &Span,
-        scope: StatsScope,
-        ask: &DrillAsk,
-        gate: Gate,
-    ) -> Result<Arc<DrillHits>, LoadError> {
-        if let Some(hits) = Self::drilled(inner, scope, ask) {
-            return Ok(hits);
-        }
-        Self::with_stats(inner, span, scope, gate, |env| {
-            if let Some(hits) = Self::drilled(inner, scope, ask) {
-                return Ok(hits);
-            }
-            let req = report_request(scope);
-            let hits = Arc::new(drill_hits(env, &req, core_table(ask.table), &ask.key)?);
-            *locked(&inner.drilled) = Some(Drilled {
-                scope,
-                table: ask.table,
-                key: ask.key.clone(),
-                hits: Arc::clone(&hits),
-            });
-            Ok(hits)
-        })
-    }
-
-    fn stats_page(
-        inner: &Inner,
-        scope: StatsScope,
-        ask: &DrillAsk,
-        gate: Gate,
-    ) -> Result<DrillView, LoadError> {
-        let span = stats_span!("app.stats.drill");
-        record_scope(&span, scope);
-        span.record(
-            "stats.table",
-            crate::model::stats::rows::table_name(ask.table),
-        );
-        span.record("stats.offset", ask.offset);
-        let _entered = span.enter();
-        let page = DrillPage {
-            offset: Some(f64::from(ask.offset)),
-            page_size: Some(crate::model::stats::rows::DRILL_PAGE),
-        };
-        let hits = Self::hits(inner, &span, scope, ask, gate)?;
-        decode(&hits.page(page).to_json(false))
-    }
-
-    /// Mark `scope` as the one the UI shows now.
-    fn want(&self, scope: StatsScope) {
-        *locked(&self.inner.wanted) = Some(scope);
     }
 
     fn list(inner: &Inner) -> Result<SessionListingView, LoadError> {
@@ -368,6 +264,27 @@ impl DataSource for InProcess {
         );
     }
 
+    fn capabilities(&self, reply: Reply<Vec<Capability>>) {
+        self.spawn(|_| Ok(Self::capabilities_list()), reply);
+    }
+
+    fn server_info(&self, reply: Reply<ServerInfo>) {
+        let read_only = self.read_only;
+        self.spawn(move |inner| Ok(Self::info(inner, read_only)), reply);
+    }
+
+    fn settings(&self, reply: Reply<SettingsResult>) {
+        self.spawn(Self::read_settings, reply);
+    }
+
+    fn save_settings(&self, update: SettingsUpdate, reply: Reply<SettingsResult>) {
+        let read_only = self.read_only;
+        self.spawn(
+            move |inner| Self::write_settings(inner, read_only, &update),
+            reply,
+        );
+    }
+
     fn watch(&self, on_versions: OnVersions) {
         let span = root_span!("app.watch.events");
         let on_versions: Arc<dyn Fn(WatchEvent) + Send + Sync> = Arc::from(on_versions);
@@ -412,6 +329,25 @@ impl DataSource for InProcess {
         Some(Self::analyze(&self.inner, id, parent))
     }
 
+    fn capabilities_now(&self) -> Option<Result<Vec<Capability>, LoadError>> {
+        Some(Ok(Self::capabilities_list()))
+    }
+
+    fn server_info_now(&self) -> Option<Result<ServerInfo, LoadError>> {
+        Some(Ok(Self::info(&self.inner, self.read_only)))
+    }
+
+    fn settings_now(&self) -> Option<Result<SettingsResult, LoadError>> {
+        Some(Self::read_settings(&self.inner))
+    }
+
+    fn save_settings_now(
+        &self,
+        update: SettingsUpdate,
+    ) -> Option<Result<SettingsResult, LoadError>> {
+        Some(Self::write_settings(&self.inner, self.read_only, &update))
+    }
+
     fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>) {
         self.want(scope);
         self.spawn(
@@ -438,17 +374,5 @@ impl DataSource for InProcess {
         ask: &DrillAsk,
     ) -> Option<Result<DrillView, LoadError>> {
         Some(Self::stats_page(&self.inner, scope, ask, Gate::Always))
-    }
-}
-
-const fn core_table(t: DrillTable) -> peektrace_core::stats::accumulate::DrillTable {
-    use peektrace_core::stats::accumulate::DrillTable as Core;
-    use peektrace_protocol::DrillTable as Wire;
-    match t {
-        Wire::Cause => Core::Cause,
-        Wire::Fail => Core::Fail,
-        Wire::Time => Core::Time,
-        Wire::Cluster => Core::Cluster,
-        Wire::Wait => Core::Wait,
     }
 }

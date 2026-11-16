@@ -21,10 +21,18 @@ fn capabilities_and_server_info() {
         ..Options::default()
     });
     let caps = s.get("/api/capabilities").json();
+    assert_eq!(
+        caps,
+        serde_json::to_value(peektrace_core::wire::capability_rows()).unwrap_or_default(),
+        "the in-process app source answers through the same wire functions"
+    );
     assert_eq!(caps.as_array().map(Vec::len), Some(7));
     assert_eq!(caps[0]["id"], "session.view");
     assert_eq!(caps[1]["perAgent"]["codex"]["level"], "partial");
     let info = s.get("/api/server").json();
+    let wire_info =
+        peektrace_core::wire::server_info(&common::fixture_roots(), false, "/home/test");
+    assert_eq!(info, serde_json::to_value(wire_info).unwrap_or_default());
     assert_eq!(info["readOnly"], false);
     assert_eq!(info["userHome"], "/home/test");
     let agents: Vec<_> = info["agents"]
@@ -159,6 +167,13 @@ fn read_only_refuses_writes() {
     });
     let a = s.call("PUT", "/api/settings", &[], Some(r#"{"settings":{}}"#));
     assert_eq!(a.status, 403);
+    let refusal = peektrace_core::wire::check_settings_writable(true).err();
+    assert_eq!(
+        refusal
+            .map(peektrace_protocol::ApiErrorBody::json)
+            .as_deref(),
+        Some(a.body.as_str())
+    );
     assert_eq!(
         a.body,
         r#"{"error":{"_tag":"SettingsWriteError","path":"settings.json","reason":"read-only mode is enabled; refusing to write"}}"#
