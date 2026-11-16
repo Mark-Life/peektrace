@@ -80,11 +80,9 @@ fn subagent_dir(transcript: &str) -> Option<PathBuf> {
 /// One subagent file's cost: cached at this stamp, else read. `None` when
 /// the file cannot be read.
 fn file_cost(path: &Path, stamp: FileStamp, cache: Option<&SubagentCosts>) -> Option<TurnsCost> {
-    // A chmod keeps size and mtime, so a hit counts only while the file
-    // still opens.
-    if let Some(c) = cache.and_then(|c| c.get(path, stamp))
-        && fs::File::open(path).is_ok()
-    {
+    // No open check on a hit: one per file per list costs more than a
+    // chmod that keeps size and mtime is worth.
+    if let Some(c) = cache.and_then(|c| c.get(path, stamp)) {
         return Some(c);
     }
     match subagent_cost(path) {

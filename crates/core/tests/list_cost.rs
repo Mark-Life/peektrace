@@ -312,28 +312,6 @@ fn the_same_id_in_two_projects_keeps_its_own_subagents() {
     assert_ne!(a.cost.usd, b.cost.usd, "only one has subagent files");
 }
 
-#[cfg(unix)]
-#[test]
-fn a_cached_subagent_that_stops_opening_counts_as_unreadable() {
-    use std::os::unix::fs::PermissionsExt;
-    let projects = temp_dir("list-cost-chmod");
-    claude_session(&projects.join("-p"), "s", &[]);
-    let file = projects.join("-p/s/subagents/agent-a0.jsonl");
-    fs::rename(projects.join("-p/s/subagents/agent-a1.jsonl"), &file).expect("mv");
-    let roots = claude_roots(&projects);
-    let cache = HeaderCache::default();
-    let before = list_sessions_cached(&roots, &claude_only(), &cache).headers;
-    fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod");
-    if fs::File::open(&file).is_ok() {
-        return; // running as root: the file still opens
-    }
-    let after = list_sessions_cached(&roots, &claude_only(), &cache).headers;
-    let uncached = list_sessions(&roots, &claude_only()).headers;
-    fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("chmod back");
-    assert_eq!(after[0].cost, uncached[0].cost);
-    assert_ne!(after[0].cost, before[0].cost);
-}
-
 #[test]
 fn a_list_that_skips_subagents_leaves_their_cost_unknown() {
     let projects = temp_dir("list-cost-skip");
