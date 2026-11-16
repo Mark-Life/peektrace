@@ -114,3 +114,21 @@ fn no_t3code_dir_leaves_sessions_alone() {
     let listing = list_sessions(&roots, &ListFilter::default());
     assert!(listing.headers.iter().all(|h| h.launcher.is_none()));
 }
+
+#[test]
+fn mark_sees_a_rename_and_a_delete() {
+    let dir = TempDir::new("t3code-mark");
+    let roots = setup(&dir);
+    let mark = parse_full(common::session_env(&roots), Target::Lookup("s-live"), None)
+        .expect("parsed")
+        .t3code
+        .expect("mark");
+    assert!(mark.unchanged());
+    let db = Connection::open(dir.join("t3/userdata/statev2.sqlite")).expect("db");
+    db.execute(
+        "UPDATE orchestration_v2_projection_threads SET title = 'Renamed thread' WHERE thread_id = 't1'",
+        [],
+    )
+    .expect("rename");
+    assert!(!mark.unchanged());
+}

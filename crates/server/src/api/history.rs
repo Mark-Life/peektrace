@@ -48,7 +48,7 @@ async fn load(state: Arc<AppState>, key: PagesKey) -> Result<Arc<Built>, Failure
                         dumb_zone: k.dumb_zone,
                     },
                 )
-                .map(|t| Built::new(SessionPages::new(t.analysis), version, t.inputs))
+                .map(|t| Built::new(SessionPages::new(t.analysis), version, t.inputs, t.t3code))
                 .map_err(session_error)
             })
         })

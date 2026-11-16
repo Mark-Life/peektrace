@@ -18,9 +18,6 @@ use crate::paths::PathStyle;
 use crate::sessions::inputs::{Stamp, stamp};
 use crate::sessions::model::ParsedSession;
 
-/// The launcher name sessions get.
-pub const LAUNCHER: &str = "t3code";
-
 /// Database files, newest schema first.
 const DB_NAMES: [&str; 2] = ["statev2.sqlite", "state.sqlite"];
 
@@ -64,37 +61,19 @@ const CURRENT: &str = "SELECT json_extract(p.payload_json, '$.nativeThreadRef.dr
 /// One t3code thread as the session it started sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Thread {
-    /// `None` once the thread is deleted: the session keeps its own title.
+    /// `None` when the thread is deleted, blank or not named yet: the
+    /// session keeps its own title.
     pub title: Option<String>,
-    pub branch: Option<String>,
-    pub worktree_path: Option<String>,
-}
-
-impl Thread {
-    fn launcher(&self) -> Launcher {
-        Launcher {
-            name: LAUNCHER.to_owned(),
-            branch: self.branch.clone(),
-            worktree_path: self.worktree_path.clone(),
-        }
-    }
+    pub launcher: Launcher,
 }
 
 /// Threads by the agent and native session id they ran.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Index(HashMap<(Agent, String), Thread>);
+struct Index(HashMap<(Agent, String), Thread>);
 
 impl Index {
-    pub fn get(&self, agent: Agent, id: &str) -> Option<&Thread> {
+    fn get(&self, agent: Agent, id: &str) -> Option<&Thread> {
         self.0.get(&(agent, id.to_owned()))
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
     }
 }
 
@@ -126,8 +105,11 @@ fn run(conn: &Connection, sql: &str, index: &mut Index) -> rusqlite::Result<()> 
         let deleted: bool = row.get(5)?;
         let thread = Thread {
             title: text_of(row.get(2)?).filter(|t| !deleted && t != PLACEHOLDER_TITLE),
-            branch: text_of(row.get(3)?),
-            worktree_path: text_of(row.get(4)?),
+            launcher: Launcher {
+                name: "t3code".to_owned(),
+                branch: text_of(row.get(3)?),
+                worktree_path: text_of(row.get(4)?),
+            },
         };
         index.0.insert((agent, id), thread);
     }
@@ -135,7 +117,7 @@ fn run(conn: &Connection, sql: &str, index: &mut Index) -> rusqlite::Result<()> 
 }
 
 /// Every thread in the database at `path`; empty when it cannot be read.
-pub fn read_index(path: &str) -> Index {
+fn read_index(path: &str) -> Index {
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let opened = Connection::open_with_flags(path, flags).and_then(|conn| {
         conn.busy_timeout(BUSY_TIMEOUT)?;
@@ -169,7 +151,7 @@ fn newest(path: &str) -> Option<SystemTime> {
 
 /// The database t3code writes now: of the files in `dir`, the one changed
 /// last (its log counted), the newer schema on a tie.
-pub fn current_db(dir: &str) -> Option<String> {
+fn current_db(dir: &str) -> Option<String> {
     DB_NAMES
         .iter()
         .map(|name| PathStyle::NATIVE.join(&[dir, name]))
@@ -185,59 +167,87 @@ static CACHE: Mutex<Option<(Key, Arc<Index>)>> = Mutex::new(None);
 
 /// The index for t3code's state dir, read again only when the database or
 /// its log changed since the last call.
-pub fn load(dir: Option<&str>) -> Arc<Index> {
+fn load(dir: Option<&str>) -> Arc<Index> {
     let Some(path) = dir.and_then(current_db) else {
         return Arc::default();
     };
     let key = (path.clone(), stamp(&path), stamp(&format!("{path}-wal")));
-    let mut cache = CACHE.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some((k, index)) = cache.as_ref()
-        && *k == key
-    {
-        return Arc::clone(index);
-    }
-    let first = cache.as_ref().is_none_or(|(k, _)| k.0 != path);
+    let first = {
+        let cache = CACHE.lock().unwrap_or_else(PoisonError::into_inner);
+        match cache.as_ref() {
+            Some((k, index)) if *k == key => return Arc::clone(index),
+            other => other.is_none_or(|(k, _)| k.0 != path),
+        }
+    };
+    // Read outside the lock: a busy database must not stall other callers.
     let index = Arc::new(read_index(&path));
     if first {
-        info!(db = %path, threads = index.len(), "t3code db read");
+        info!(db = %path, threads = index.0.len(), "t3code db read");
     }
-    *cache = Some((key, Arc::clone(&index)));
+    *CACHE.lock().unwrap_or_else(PoisonError::into_inner) = Some((key, Arc::clone(&index)));
     index
 }
 
-fn agent_tag(agent: Agent) -> bool {
+/// Agents t3code runs.
+const fn t3code_runs(agent: Agent) -> bool {
     matches!(agent, Agent::Claude | Agent::Codex)
 }
 
 /// Name and tag every header t3code started.
 pub fn apply_headers(headers: &mut [SessionHeader], dir: Option<&str>) {
-    if !headers.iter().any(|h| agent_tag(h.agent)) {
+    if !headers.iter().any(|h| t3code_runs(h.agent)) {
         return;
     }
     let index = load(dir);
-    if index.is_empty() {
-        return;
-    }
     for h in headers.iter_mut() {
         if let Some(t) = index.get(h.agent, h.id.as_str()) {
             if let Some(title) = &t.title {
                 h.title = Some(title.clone());
             }
-            h.launcher = Some(t.launcher());
+            h.launcher = Some(t.launcher.clone());
         }
     }
 }
 
-/// Name and tag one parsed session t3code started.
-pub fn apply_parsed(agent: Agent, id: &str, parsed: &mut ParsedSession, dir: Option<&str>) {
-    if !agent_tag(agent) {
-        return;
+fn lookup(dir: Option<&str>, agent: Agent, id: &str) -> Option<Thread> {
+    if !t3code_runs(agent) {
+        return None;
     }
-    if let Some(t) = load(dir).get(agent, id) {
+    load(dir).get(agent, id).cloned()
+}
+
+/// The thread one parsed session was named from, so a cached analysis can
+/// tell when t3code renamed or deleted it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Mark {
+    dir: Option<String>,
+    agent: Agent,
+    id: String,
+    seen: Option<Thread>,
+}
+
+impl Mark {
+    /// Whether t3code still holds the thread this mark saw.
+    pub fn unchanged(&self) -> bool {
+        lookup(self.dir.as_deref(), self.agent, &self.id) == self.seen
+    }
+}
+
+/// Name and tag one parsed session t3code started; the mark records what
+/// was applied.
+pub fn apply_parsed(agent: Agent, parsed: &mut ParsedSession, dir: Option<&str>) -> Mark {
+    let seen = lookup(dir, agent, &parsed.session_id);
+    if let Some(t) = &seen {
         if let Some(title) = &t.title {
             parsed.title = Some(title.clone());
         }
-        parsed.launcher = Some(t.launcher());
+        parsed.launcher = Some(t.launcher.clone());
+    }
+    Mark {
+        dir: dir.map(str::to_owned),
+        agent,
+        id: parsed.session_id.clone(),
+        seen,
     }
 }
 

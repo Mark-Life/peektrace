@@ -123,7 +123,7 @@ fn write_parsed_fields(w: &mut Writer, p: &ParsedSession, arrays: bool) {
 }
 
 /// `"launcher": {name, branch?, worktreePath?}` at the writer's position.
-pub(crate) fn write_launcher(w: &mut Writer, l: &Launcher) {
+pub(super) fn write_launcher(w: &mut Writer, l: &Launcher) {
     w.key("launcher").begin_obj();
     w.key("name").text(&l.name);
     if let Some(b) = &l.branch {

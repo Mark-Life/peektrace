@@ -190,7 +190,7 @@ fn opencode_data(env: &RootsEnv) -> String {
 }
 
 /// Where t3code keeps its state databases: `<T3CODE_HOME or ~/.t3>/userdata`.
-pub fn t3code_state_dir(env: &RootsEnv) -> String {
+pub(crate) fn t3code_state_dir(env: &RootsEnv) -> String {
     let base = env
         .t3code_home
         .clone()

@@ -35,11 +35,14 @@ fn db(dir: &std::path::Path, name: &str, sql: &str) -> String {
     path
 }
 
-fn thread(title: &str) -> Thread {
+fn thread(title: &str, branch: Option<&str>, worktree: Option<&str>) -> Thread {
     Thread {
         title: Some(title.to_owned()),
-        branch: None,
-        worktree_path: None,
+        launcher: Launcher {
+            name: "t3code".into(),
+            branch: branch.map(Into::into),
+            worktree_path: worktree.map(Into::into),
+        },
     }
 }
 
@@ -66,24 +69,23 @@ fn v2_threads_map_native_ids_to_titles() {
         ),
     );
     let index = read_index(&path);
-    assert_eq!(index.len(), 4);
+    assert_eq!(index.0.len(), 4);
     assert_eq!(
         index.get(Agent::Claude, "c-4").map(|t| &t.title),
         Some(&None)
     );
     assert_eq!(
         index.get(Agent::Claude, "c-1"),
-        Some(&Thread {
-            title: Some("Fix the parser".into()),
-            branch: Some("feat/x".into()),
-            worktree_path: Some("/w/x".into()),
-        })
+        Some(&thread("Fix the parser", Some("feat/x"), Some("/w/x")))
     );
     assert_eq!(
         index.get(Agent::Claude, "c-2").map(|t| &t.title),
         Some(&None)
     );
-    assert_eq!(index.get(Agent::Codex, "x-3"), Some(&thread("Kept")));
+    assert_eq!(
+        index.get(Agent::Codex, "x-3"),
+        Some(&thread("Kept", None, None))
+    );
     assert_eq!(index.get(Agent::Claude, "x-3"), None);
 }
 
@@ -131,11 +133,7 @@ fn legacy_db_maps_claude_resume_and_codex_thread_ids() {
     let index = read_index(&path);
     assert_eq!(
         index.get(Agent::Claude, "c-1"),
-        Some(&Thread {
-            title: Some("Claude run".into()),
-            branch: Some("main".into()),
-            worktree_path: Some("/w/a".into()),
-        })
+        Some(&thread("Claude run", Some("main"), Some("/w/a")))
     );
     assert_eq!(
         index.get(Agent::Codex, "x-2").map(|t| &t.title),
@@ -147,10 +145,18 @@ fn legacy_db_maps_claude_resume_and_codex_thread_ids() {
 fn unknown_schema_or_missing_file_reads_nothing() {
     let dir = temp_dir("odd");
     let path = db(&dir, "statev2.sqlite", "CREATE TABLE other (x TEXT);");
-    assert!(read_index(&path).is_empty());
-    assert!(read_index(&dir.join("absent.sqlite").to_string_lossy()).is_empty());
-    assert!(load(Some(&dir.join("absent").to_string_lossy())).is_empty());
-    assert!(load(None).is_empty());
+    assert!(read_index(&path).0.is_empty());
+    assert!(
+        read_index(&dir.join("absent.sqlite").to_string_lossy())
+            .0
+            .is_empty()
+    );
+    assert!(
+        load(Some(&dir.join("absent").to_string_lossy()))
+            .0
+            .is_empty()
+    );
+    assert!(load(None).0.is_empty());
 }
 
 #[test]
