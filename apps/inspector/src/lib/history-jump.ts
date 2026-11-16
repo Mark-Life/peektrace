@@ -12,7 +12,8 @@ import type {
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
-import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
+import type { RefObject } from "react";
 
 import type { ChatNode, EventRow, TranscriptRowRef } from "./chat-lane";
 import { planIndexOfCall } from "./chat-lane";
@@ -53,28 +54,36 @@ export const resolveJump = (
       ? { kind: "turn", turn: req.turn }
       : null;
   }
+
   if (req.kind === "call") {
     return a.events.some((e) => e.toolUseId === req.id)
-      ? { kind: "call", id: req.id }
+      ? { id: req.id, kind: "call" }
       : null;
   }
+
   if (req.kind === "compaction") {
     if (a.events.some((e) => e.kind === "compaction")) {
       return { kind: "compaction" };
     }
+
     const ti = a.compactionTurns[0];
+
     return ti === undefined ? null : { kind: "turn", turn: ti + 1 };
   }
+
   if (a.subagents.length === 0) {
     return null;
   }
+
   const ids = new Set(a.subagents.map((s) => s.toolUseId));
+
   const spawn = a.events.find(
     (e) => e.toolUseId !== undefined && ids.has(e.toolUseId)
   );
+
   return spawn?.toolUseId === undefined
     ? { kind: "subagents" }
-    : { kind: "call", id: spawn.toolUseId };
+    : { id: spawn.toolUseId, kind: "call" };
 };
 
 /** The resolved jump for request number `seq`, or null when the session has
@@ -85,6 +94,7 @@ export const toHistoryJump = (
   seq: number
 ): HistoryJump | null => {
   const target = req === null ? null : resolveJump(a, req);
+
   return target === null ? null : { key: String(seq), target };
 };
 
@@ -94,10 +104,12 @@ export const toHistoryJump = (
  *  after `n` is shown. */
 const planIndexOfTurn = (plan: readonly ChatNode<EventRow>[], n: number) => {
   const exact = plan.findIndex((x) => x.type === "turn" && x.turn === n);
+
   const at =
-    exact >= 0
+    exact !== -1
       ? exact
       : plan.findIndex((x) => x.type === "turn" && x.turn >= n);
+
   return at > 0 && plan[at - 1]?.type === "dumbzone" ? at - 1 : at;
 };
 
@@ -119,9 +131,11 @@ const rowIndexOfTurn = ({
   readonly turns: readonly number[];
 }) => {
   const exact = rows.findIndex(({ pos }) => turns[pos] === n);
-  if (exact >= 0 || !ordered) {
+
+  if (exact !== -1 || !ordered) {
     return exact;
   }
+
   return rows.findIndex(({ pos }) => (turns[pos] ?? 0) >= n);
 };
 
@@ -137,9 +151,11 @@ export const planIndexOfTarget = (
   if (target.kind === "turn") {
     return planIndexOfTurn(plan, target.turn);
   }
+
   if (target.kind === "compaction") {
     return planIndexOfCompaction(plan);
   }
+
   return target.kind === "call" ? planIndexOfCall(plan, target.id) : -1;
 };
 
@@ -158,9 +174,11 @@ export const rowIndexOfTarget = ({
   if (target.kind === "turn") {
     return rowIndexOfTurn({ n: target.turn, ordered, rows, turns });
   }
+
   if (target.kind === "compaction") {
     return rowIndexOfCompaction(rows);
   }
+
   return target.kind === "call" ? rowIndexOfCall(rows, target.id) : -1;
 };
 
@@ -194,6 +212,7 @@ export const alignOf = (target: JumpTarget) =>
 /** A positive integer from the `turn` URL param, or null. */
 const parseTurnParam = (raw: string | null) => {
   const n = raw === null ? Number.NaN : Number(raw);
+
   return Number.isInteger(n) && n >= 1 ? n : null;
 };
 
@@ -207,10 +226,12 @@ export const seedRequest = ({
   readonly turn: string | null;
 }): JumpRequest | null => {
   const n = parseTurnParam(turn);
+
   if (n !== null) {
     return { kind: "turn", turn: n };
   }
-  return call === null ? null : { kind: "call", id: call };
+
+  return call === null ? null : { id: call, kind: "call" };
 };
 
 /** How far a jump got. Held above the history, so a remount (a layout switch,
@@ -225,19 +246,22 @@ export interface JumpLanding {
  *  link that changes `call=` asks again; `request` asks for a summary place. */
 export const useHistoryJump = () => {
   const call = useHashParam("call");
+
   const [state, setState] = useState(() => ({
     call,
     req: seedRequest({ call, turn: readHashParam("turn") }),
     seq: 0,
   }));
+
   if (call !== state.call) {
     // Cleared by `request` below, or a new link into this session.
     setState(
       call === null
         ? { ...state, call }
-        : { call, req: { kind: "call", id: call }, seq: state.seq + 1 }
+        : { call, req: { id: call, kind: "call" }, seq: state.seq + 1 }
     );
   }
+
   const request = useCallback((req: SessionJump) => {
     setHashParams({
       call: null,
@@ -245,7 +269,9 @@ export const useHistoryJump = () => {
     });
     setState((prev) => ({ ...prev, req, seq: prev.seq + 1 }));
   }, []);
+
   const done = useRef<string | null>(null);
   const landing = useMemo((): JumpLanding => ({ done }), []);
+
   return { landing, req: state.req, request, seq: state.seq };
 };

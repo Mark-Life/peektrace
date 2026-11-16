@@ -16,8 +16,10 @@ const readStored = <T>(
   if (typeof window === "undefined") {
     return fallback;
   }
+
   try {
     const raw = window.localStorage.getItem(key);
+
     return raw === null ? fallback : normalize(JSON.parse(raw));
   } catch {
     return fallback;
@@ -29,6 +31,7 @@ const writeStored = <T>(key: string, value: T) => {
   if (typeof window === "undefined") {
     return;
   }
+
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch {
@@ -57,7 +60,9 @@ export const useLocalStorage = <T>(
       setValue((prev) => {
         const resolved =
           typeof next === "function" ? (next as (prev: T) => T)(prev) : next;
+
         writeStored(key, resolved);
+
         return resolved;
       });
     },

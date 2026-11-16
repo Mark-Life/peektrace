@@ -8,39 +8,43 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 
 import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
-import {
-  type GrowthSnapshot,
-  markerProps,
-  TimelineHitLayer,
-} from "./growth-timeline-hit";
+import { markerProps, TimelineHitLayer } from "./growth-timeline-hit";
+import type { GrowthSnapshot } from "./growth-timeline-hit";
 
 export type { GrowthSnapshot } from "./growth-timeline-hit";
 
-const GEOM = { W: 1000, H: 440, L: 76, R: 18, T: 22, B: 46 } as const;
+const GEOM = { B: 46, H: 440, L: 76, R: 18, T: 22, W: 1000 } as const;
 const HATCHED = new Set(["system_tools", "unattributed"]);
+
 /** Ghost ceiling line drawn for 200K-window models when the window is larger. */
 const CEIL_200K = 200_000;
+
 /** Y-axis gridlines, evenly spaced as fractions of the context window. */
 const GRID_INTERVALS = 4;
+
 const GRID_FRACTIONS = Array.from(
   { length: GRID_INTERVALS + 1 },
   (_, i) => i / GRID_INTERVALS
 );
+
 /** Fill opacity for flat vs hatched stacked areas. */
 const AREA_OPACITY = { flat: 0.82, hatch: 0.85 } as const;
+
 /** Per-turn dot sizing: radius caps at `maxR`, growing with output tokens. */
-const DOT = { maxR: 4, baseR: 1, tokensPerPx: 6000 } as const;
+const DOT = { baseR: 1, maxR: 4, tokensPerPx: 6000 } as const;
+
 /** Small SVG label/marker offsets, in viewBox px. */
 const OFF = {
-  label: 6,
-  ceilLabel: 5,
   axisLabelX: 8,
   axisLabelY: 4,
+  ceilLabel: 5,
   cross: 5,
+  label: 6,
   peak: 6,
   peakLabel: 10,
   xTick: 18,
 } as const;
+
 /** Cap the number of x-axis ticks so they never crowd. */
 const MAX_X_TICKS = 10;
 
@@ -74,22 +78,26 @@ const buildAreas = ({
   const n = snaps.length;
   let running = new Array<number>(n).fill(0);
   const areas: { key: string; d: string; color: string; hatch: boolean }[] = [];
+
   for (const key of STACK_ORDER) {
-    const lower = running.slice();
+    const lower = [...running];
     const upper = running.map((lo, i) => lo + (snaps[i]?.slices[key] ?? 0));
     const top = upper.map((v, i) => `${x(i).toFixed(1)} ${y(v).toFixed(1)}`);
     let d = `M ${top.join(" L ")}`;
+
     for (let i = n - 1; i >= 0; i--) {
       d += ` L ${x(i).toFixed(1)} ${y(lower[i] ?? 0).toFixed(1)}`;
     }
+
     areas.push({
-      key,
-      d: `${d} Z`,
       color: CAT_META[key].color,
+      d: `${d} Z`,
       hatch: HATCHED.has(key),
+      key,
     });
     running = upper;
   }
+
   return areas;
 };
 
@@ -200,18 +208,22 @@ export const GrowthTimeline = ({
   }
 
   const x = (i: number) => (n <= 1 ? L + plotW / 2 : L + (i / (n - 1)) * plotW);
+
   const y = (tok: number) =>
     T + plotH - (Math.min(Math.max(tok, 0), win) / win) * plotH;
 
   const areas = buildAreas({ snaps, x, y });
+
   const silhouette = `M ${snaps
     .map((s, i) => `${x(i).toFixed(1)} ${y(s.ctx).toFixed(1)}`)
     .join(" L ")}`;
+
   const dzY = y(a.dumbZoneFraction * win);
   const grid = GRID_FRACTIONS;
   const peakX = x(a.peakTurnIndex);
   const peakY = y(a.peakContextTokens);
   const crossX = a.dumbZoneCrossTurn >= 0 ? x(a.dumbZoneCrossTurn) : 0;
+
   const marker = (turn: number, label: string) =>
     onTurn
       ? markerProps({ label: `${label}: jump to it in history`, onTurn, turn })
@@ -275,6 +287,7 @@ export const GrowthTimeline = ({
         {/* gridlines + y labels */}
         {grid.map((f) => {
           const yy = y(f * win);
+
           return (
             <g key={f}>
               <line

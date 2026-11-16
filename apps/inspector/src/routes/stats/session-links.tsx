@@ -17,12 +17,8 @@ import { ArrowUpRightIcon } from "lucide-react";
 
 import { markedSessionHash } from "../../lib/routes";
 import { sessionTitlesAtom } from "../../lib/session-titles";
-import {
-  chipLabelOf,
-  type SessionChipGroup,
-  type SessionTitles,
-  sessionChips,
-} from "../../lib/stats-format";
+import { chipLabelOf, sessionChips } from "../../lib/stats-format";
+import type { SessionChipGroup, SessionTitles } from "../../lib/stats-format";
 
 /** The hover text: every sample behind the chip, then its project. */
 export const titleOf = (samples: readonly SampleRef[]) =>
@@ -38,10 +34,10 @@ export const titleOf = (samples: readonly SampleRef[]) =>
  *  number. */
 const sampleHash = (detector: string | null, sample: SampleRef) =>
   markedSessionHash({
-    id: sample.sid,
-    parent: sample.parent,
-    mark: detector ?? "",
     call: sample.toolUseId,
+    id: sample.sid,
+    mark: detector ?? "",
+    parent: sample.parent,
   });
 
 /** One link per sample of a folded chip, so each transcript stays reachable. */
@@ -94,6 +90,7 @@ const SessionLink = ({
   const { first: sample, samples } = group;
   const chip = chipLabelOf(sample, titles);
   const subagent = samples.some((s) => s.parent !== null);
+
   return (
     <span className="flex max-w-full min-w-0 items-center gap-0.5">
       <Button
@@ -162,6 +159,7 @@ export const SessionLinksView = ({
   if (samples.length === 0) {
     return null;
   }
+
   return (
     <div
       className="flex max-w-full min-w-0 flex-col gap-1"

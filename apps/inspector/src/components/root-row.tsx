@@ -33,7 +33,7 @@ export const RootRow = ({
   >
     <span className="shrink-0 font-medium">{label}</span>
     <code className="text-muted-foreground min-w-0 break-all">
-      {tildePath({ path, home })}
+      {tildePath({ home, path })}
     </code>
     {children}
     {exists ? null : (

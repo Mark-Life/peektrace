@@ -20,9 +20,11 @@ export const eventBadgeLabel = (e: TimelineEvent): string => {
   if (e.toolName !== undefined) {
     return e.toolName;
   }
+
   if (e.kind === "system-prompt") {
     return "system prompt";
   }
+
   if (
     e.kind === "user-prompt" &&
     e.promptOrigin !== undefined &&
@@ -31,38 +33,49 @@ export const eventBadgeLabel = (e: TimelineEvent): string => {
   ) {
     return e.promptOrigin.replaceAll("-", " ");
   }
+
   const type = e.attachmentType?.trim() ?? "";
+
   return type === "" ? e.kind : type.replaceAll("_", " ");
 };
 
 /** Short tag for an event a later context edit changed, else undefined. */
 export const contextEditTag = (e: TimelineEvent) => {
   switch (e.contextEdit?.status) {
-    case "removed":
+    case "removed": {
       return "removed";
-    case "replaced":
+    }
+    case "replaced": {
       return "edited";
-    default:
+    }
+    default: {
       return;
+    }
   }
 };
 
 /** One-paragraph explanation of a context edit, with the original text when kept. */
 export const contextEditNote = (e: TimelineEvent) => {
   const edit = e.contextEdit;
+
   if (!edit) {
     return;
   }
+
   const lines = [...(edit.steps ?? []), edit].map((s) => s.atIndex + 1);
   const first = lines[0];
+
   const earlier =
     lines.length > 1
       ? ` Earlier edit${lines.length > 2 ? "s" : ""} at line${lines.length > 2 ? "s" : ""} ${lines.slice(0, -1).join(", ")}.`
       : "";
+
   if (edit.status === "removed") {
     return `Dropped from model context by the edit at line ${edit.atIndex + 1}.${earlier} Later turns do not see it.`;
   }
+
   const head = `Edited in model context at line ${edit.atIndex + 1}.${earlier} Turns before line ${first} saw the original`;
+
   return edit.original === undefined
     ? `${head}.`
     : `${head} (~${edit.originalTokensEst} tok):\n\n${edit.original}`;
@@ -75,7 +88,9 @@ export const fmtThinkingMs = (ms: number) => {
   if (ms < MS_PER_SECOND) {
     return `${Math.round(ms)}ms`;
   }
+
   const s = ms / MS_PER_SECOND;
+
   return s < 10 ? `${s.toFixed(1)}s` : `${Math.round(s)}s`;
 };
 

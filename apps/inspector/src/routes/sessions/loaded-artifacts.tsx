@@ -25,6 +25,7 @@ const TRIM_HINT_TOKENS = 5000;
 /** On-disk instruction files attributed inside the system+tools floor. */
 const OnDiskTable = ({ a }: { readonly a: Artifacts }) => {
   const total = a.onDiskContextFiles.reduce((s, f) => s + f.tokensEst, 0);
+
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-muted-foreground text-sm font-medium">

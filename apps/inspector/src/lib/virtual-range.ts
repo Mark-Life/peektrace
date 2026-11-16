@@ -18,6 +18,7 @@ export const keepIndex = ({
   if (keep === null || keep < 0 || keep >= count || indexes.includes(keep)) {
     return [...indexes];
   }
+
   return [...indexes, keep].sort((a, b) => a - b);
 };
 
@@ -28,14 +29,18 @@ export const splitPinned = <T extends { readonly index: number }>(
 ) => {
   const first = items[0];
   const second = items[1];
+
   if (first && second && second.index !== first.index + 1) {
     return { flow: items.slice(1), pinned: [first] };
   }
+
   const last = items.at(-1);
   const beforeLast = items.at(-2);
+
   if (last && beforeLast && last.index !== beforeLast.index + 1) {
     return { flow: items.slice(0, -1), pinned: [last] };
   }
+
   return { flow: [...items], pinned: [] };
 };
 

@@ -79,11 +79,13 @@ const FindingCard = ({
       <PromptButton
         subject={finding.title}
         testId="finding-prompt"
-        text={prompt({ table: finding.table, key: finding.key })}
+        text={prompt({ key: finding.key, table: finding.table })}
       />
       <Button
         className="ml-auto h-6 shrink-0 gap-1 px-2 text-xs"
-        onClick={() => onDrill(finding.table, finding.key)}
+        onClick={() => {
+          onDrill(finding.table, finding.key);
+        }}
         size="sm"
         variant="ghost"
       >
@@ -149,7 +151,9 @@ export const Findings = ({
       </p>
     );
   }
+
   const shown = showAll ? findings : findings.slice(0, VISIBLE);
+
   return (
     <div className="flex flex-col gap-3" data-testid="stats-findings">
       <div className="grid gap-3 lg:grid-cols-2">

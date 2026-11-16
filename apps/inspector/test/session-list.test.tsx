@@ -13,29 +13,33 @@ const FLEX_WRAP = /\bflex-wrap\b/;
 const header = (i: number): SessionHeader => {
   const cwd = `/home/dev/code/app-${i % 4}`;
   const start = Date.parse("2026-10-01T08:00:00.000Z") + i * 3_600_000;
+
   // session 0 started first but is still being written to
   const updated =
     i === 0 ? Date.parse("2026-11-07T22:00:00.000Z") : start + 60_000;
+
   return {
-    id: `id-${String(i).padStart(4, "0")}`,
-    path: `${cwd}/id-${i}.jsonl`,
-    agent: "claude" as SessionHeader["agent"],
+    agent: "claude",
     cwd,
-    project: cwd.replaceAll("/", "-"),
     gitBranch: i % 2 === 0 ? "HEAD" : "main",
-    model: "claude-opus-4",
-    title: `Synthetic task ${i}`,
-    startedAt: new Date(start).toISOString(),
-    updatedAt: new Date(updated).toISOString(),
+    id: `id-${String(i).padStart(4, "0")}`,
     messageCount: 4,
+    model: "claude-opus-4",
+    path: `${cwd}/id-${i}.jsonl`,
+    project: cwd.replaceAll("/", "-"),
     sizeBytes: 1024,
+    startedAt: new Date(start).toISOString(),
+    title: `Synthetic task ${i}`,
+    updatedAt: new Date(updated).toISOString(),
   };
 };
 
 const headers = Array.from({ length: COUNT }, (_, i) => header(i));
+
 const html = renderToStaticMarkup(
   <SessionList headers={headers} selectedId={null} />
 );
+
 const rowTags = html.match(/<a[^>]*data-testid="session-row"[^>]*>/g) ?? [];
 const rowCount = rowTags.length;
 
@@ -86,19 +90,23 @@ describe("SessionList over 500 sessions", () => {
 describe("SessionList live marker", () => {
   test("marks only a session written to in the last few minutes", () => {
     const now = Date.now();
+
     const live = {
       ...header(1),
       id: "live",
       updatedAt: new Date(now - 30_000).toISOString(),
     };
+
     const idle = {
       ...header(2),
       id: "idle",
       updatedAt: new Date(now - 3_600_000).toISOString(),
     };
+
     const markup = renderToStaticMarkup(
       <SessionList headers={[idle, live]} selectedId={null} />
     );
+
     expect(markup.split('data-testid="session-live"').length - 1).toBe(1);
     expect(
       markup.includes('title="Live: wrote a line in the last 5 min"')

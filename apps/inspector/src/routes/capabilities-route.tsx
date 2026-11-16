@@ -35,8 +35,8 @@ import {
   LEVEL_GLOSS,
   LEVEL_STYLES,
   LEVELS,
-  type Support,
 } from "../lib/capability-matrix";
+import type { Support } from "../lib/capability-matrix";
 import { ResultView } from "../lib/result-view";
 
 /** The selected cell carried into the detail sheet. */
@@ -104,14 +104,14 @@ const Matrix = ({
                     <button
                       className="focus:ring-ring cursor-pointer rounded-sm focus:ring-2 focus:outline-none"
                       data-testid={`cap-cell-${cap.id}-${agent.id}`}
-                      onClick={() =>
+                      onClick={() => {
                         onSelect({
-                          cap,
                           agentId: agent.id,
                           agentLabel: agent.label,
+                          cap,
                           support: cap.perAgent[agent.id],
-                        })
-                      }
+                        });
+                      }}
                       type="button"
                     >
                       <Pill level={cap.perAgent[agent.id].level} />
@@ -188,6 +188,7 @@ export const CapabilitiesRoute = () => {
   const result = useAtomValue(capabilitiesAtom);
   const retry = useAtomRefresh(capabilitiesAtom);
   const [selection, setSelection] = useState<Selection | null>(null);
+
   return (
     <div>
       <ResultView onRetry={retry} result={result}>
@@ -196,7 +197,9 @@ export const CapabilitiesRoute = () => {
             <Matrix caps={caps} onSelect={setSelection} />
             <Legend />
             <CellSheet
-              onClose={() => setSelection(null)}
+              onClose={() => {
+                setSelection(null);
+              }}
               selection={selection}
             />
           </>

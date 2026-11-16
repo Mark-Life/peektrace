@@ -23,9 +23,9 @@ const costNotes = (cost: SessionCost) => [
  * notes that qualify it, led by who reported it when the agent did.
  */
 export const costSummary = (cost: SessionCost, agentLabel: string) => ({
-  total: cost.totalUsd === undefined ? "—" : fmtUsd(cost.totalUsd),
   notes: [
     ...(cost.source === "agent" ? [`reported by ${agentLabel}`] : []),
     ...costNotes(cost),
   ],
+  total: cost.totalUsd === undefined ? "—" : fmtUsd(cost.totalUsd),
 });

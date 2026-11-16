@@ -21,8 +21,8 @@ export const seedRows = (settings: PeektraceSettings): RowsByAgent =>
     AGENT_IDS.map((agent) => [
       agent,
       (settings.roots?.[agent] ?? []).map((entry) => ({
-        path: entry.path,
         label: entry.label ?? "",
+        path: entry.path,
       })),
     ])
   ) as RowsByAgent;
@@ -31,18 +31,22 @@ export const seedRows = (settings: PeektraceSettings): RowsByAgent =>
 export const assemble = (rows: RowsByAgent): PeektraceSettings => {
   const roots: Partial<Record<AgentId, { path: string; label?: string }[]>> =
     {};
+
   for (const agent of AGENT_IDS) {
     const cleaned = rows[agent]
       .map((r) => {
         const path = r.path.trim();
         const label = r.label.trim();
-        return label ? { path, label } : { path };
+
+        return label ? { label, path } : { path };
       })
       .filter((r) => r.path !== "");
+
     if (cleaned.length > 0) {
       roots[agent] = cleaned;
     }
   }
+
   return Object.keys(roots).length > 0 ? { roots } : {};
 };
 
@@ -51,6 +55,7 @@ export const defaultRoots = (info: ServerInfo) =>
   new Map(
     info.agents.flatMap(({ agent, roots }) => {
       const root = roots.find((r) => r.isDefault);
+
       return root ? [[agent, root] as const] : [];
     })
   );

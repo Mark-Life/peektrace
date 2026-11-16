@@ -41,10 +41,12 @@ export const DeleteDialog = ({
 
   const confirm = async () => {
     setBusy(true);
-    const exit = await del({ payload: { project, name: entry.slug } });
+    const exit = await del({ payload: { name: entry.slug, project } });
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
-      const dangling = exit.value.dangling;
+      const { dangling } = exit.value;
+
       if (dangling.length > 0) {
         toast.warning(
           `Deleted ${entry.slug} — ${dangling.length} reference${
@@ -59,10 +61,13 @@ export const DeleteDialog = ({
       } else {
         toast.success(`Deleted ${entry.slug}`);
       }
+
       onDone();
       onOpenChange(false);
+
       return;
     }
+
     const err = wireErrorOf(exit);
     toast.error(err ? wireErrorMessage(err) : "Delete failed.");
   };

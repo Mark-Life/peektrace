@@ -113,18 +113,21 @@ const textFromBlocks = (v: unknown): string | null => {
   if (!Array.isArray(v)) {
     return null;
   }
+
   const texts = v
     .filter(
       (b): b is { text: string } =>
         isRecord(b) && b.type === "text" && typeof b.text === "string"
     )
     .map((b) => b.text);
+
   return texts.length > 0 ? texts.join("\n\n") : null;
 };
 
 /** Collapse a payload to a single capped line for the collapsed header. */
 export const oneLine = (s: string): string => {
-  const flat = s.replace(WHITESPACE, " ").trim();
+  const flat = s.replaceAll(WHITESPACE, " ").trim();
+
   return flat.length > SUMMARY_CAP ? `${flat.slice(0, SUMMARY_CAP)}…` : flat;
 };
 
@@ -154,14 +157,16 @@ const languageOf = (
   input: Record<string, unknown>
 ): CodeBlockLanguage => {
   const named = PRIMARY_ARGS.find(([k]) => k === key);
+
   if (named) {
     return named[1];
   }
+
   return languageOfPath(filePathOf(input));
 };
 
 /** The args an edit tool carries its replacement in — `Edit` and its batch form. */
-const EDIT_KEYS = ["old_string", "new_string", "edits"];
+const EDIT_KEYS = new Set(["old_string", "new_string", "edits"]);
 
 const replacementIn = (v: unknown) =>
   isRecord(v) &&
@@ -234,9 +239,11 @@ export const callView = (e: TimelineEvent): ToolCallView => {
   }
   const diffs = editPanes(input);
   const args = Object.entries(input).filter(
-    ([key]) => !(diffs.length > 0 && EDIT_KEYS.includes(key))
+    ([key]) => !(diffs.length > 0 && EDIT_KEYS.has(key))
   );
+
   const payloads = args.filter(isPayload);
+
   if (diffs.length === 0 && payloads.length === 0) {
     return {
       panes: [
@@ -250,6 +257,7 @@ export const callView = (e: TimelineEvent): ToolCallView => {
       summary: e.preview,
     };
   }
+
   const panes: ToolPane[] = [
     ...diffs,
     ...payloads.map(([key, value]): ToolPane =>
@@ -263,7 +271,9 @@ export const callView = (e: TimelineEvent): ToolCallView => {
           }
     ),
   ];
+
   const rest = args.filter((entry) => !isPayload(entry));
+
   if (rest.length > 0) {
     panes.push({
       code: JSON.stringify(Object.fromEntries(rest), null, 2),
@@ -272,7 +282,9 @@ export const callView = (e: TimelineEvent): ToolCallView => {
       type: "code",
     });
   }
+
   const first = panes[0];
+
   return {
     panes,
     summary:
@@ -299,17 +311,22 @@ export const resultPane = (e: TimelineEvent): ResultPane => {
   if (e.serverTool === true && e.body.trim() !== "") {
     return { text: e.body, type: "prose" };
   }
+
   const parsed = parseJson(e.body);
   const text = parsed === undefined ? null : textFromBlocks(parsed);
+
   if (text !== null) {
     const inner = parseJson(text);
+
     return typeof inner === "object" && inner !== null
       ? jsonPane(inner)
       : { text, type: "prose" };
   }
+
   if (parsed !== undefined) {
     return jsonPane(parsed);
   }
+
   return { code: e.body || EMPTY_BODY, language: "text", type: "code" };
 };
 
@@ -331,16 +348,19 @@ export const indexTools = (a: {
 }): ToolIndex => {
   const calls = new Map<string, ToolFields>();
   const results = new Map<string, ToolFields>();
+
   for (const e of a.events) {
     if (!e.toolUseId) {
       continue;
     }
+
     if (e.kind === "tool-call") {
       calls.set(e.toolUseId, e);
     } else if (e.kind === "tool-result") {
       results.set(e.toolUseId, e);
     }
   }
+
   return { calls, results };
 };
 
@@ -349,10 +369,13 @@ export const toolState = (e: ToolFields, tools: ToolIndex): ToolState => {
   if (e.kind === "tool-result") {
     return e.isError ? "error" : "completed";
   }
+
   const result = e.toolUseId ? tools.results.get(e.toolUseId) : undefined;
+
   if (!result) {
     return "unanswered";
   }
+
   return result.isError ? "error" : "completed";
 };
 
@@ -372,9 +395,11 @@ export const bodyView = (
   e: TimelineEvent
 ): Omit<CodePane, "code" | "label"> | { readonly type: "prose" } => {
   const prefix = FILE_TITLE_PREFIXES.find((p) => e.title.startsWith(p));
+
   const language = prefix
     ? languageOfPath(e.title.slice(prefix.length))
     : "markdown";
+
   return language === "markdown"
     ? { type: "prose" }
     : { language, type: "code" };

@@ -1,12 +1,8 @@
 /** The shared tokenizer behind inspector code blocks and TUI bodies. */
 import { describe, expect, test } from "bun:test";
 
-import {
-  type CodeLine,
-  isHighlightable,
-  plainLines,
-  tokenizeLines,
-} from "../src/highlight";
+import { isHighlightable, plainLines, tokenizeLines } from "../src/highlight";
+import type { CodeLine } from "../src/highlight";
 
 const shape = (lines: CodeLine[]) =>
   lines.map((line) =>
@@ -49,6 +45,7 @@ describe("tokenizeLines", () => {
   test("tokenizes bash, json and markdown", () => {
     const flat = (code: string, lang: Parameters<typeof tokenizeLines>[1]) =>
       shape(tokenizeLines(code, lang)).flat();
+
     expect(flat('echo "hi"', "bash")).toContain('string:"hi"');
     expect(flat('{"a": 1}', "json")).toContain("number:1");
     expect(flat("# Title", "markdown")).toContain("heading:# Title");

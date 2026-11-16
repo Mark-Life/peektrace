@@ -37,7 +37,7 @@ const NODES: readonly ChatNode[] = [
     type: "tool",
   },
   {
-    row: { e: evt({ kind: "compaction", body: "y".repeat(5000) }), pos: 2 },
+    row: { e: evt({ body: "y".repeat(5000), kind: "compaction" }), pos: 2 },
     type: "band",
   },
   { items: [{ e: evt({ kind: "attachment" }), pos: 3 }], type: "run" },
@@ -76,16 +76,19 @@ describe("estimateChatNode", () => {
 
   test("a chip cluster opens only with everything else", () => {
     const run = NODES[5] as ChatNode;
+
     const closed = estimateChatNode({
       allOpen: false,
       isOpen: () => true,
       n: run,
     });
+
     const open = estimateChatNode({
       allOpen: true,
       isOpen: () => false,
       n: run,
     });
+
     expect(open).toBeGreaterThan(closed);
   });
 });
@@ -106,10 +109,13 @@ describe("index rows", () => {
   test("a row's body length sizes it like the body would", () => {
     const body = "x".repeat(2000);
     const [row] = indexRowsOf([evt({ body })], [0]);
+
     if (!row) {
       throw new Error("no row");
     }
+
     const fromRow = { row: { e: row, pos: 0 }, type: "message" } as const;
+
     for (const open of [false, true]) {
       expect(
         estimateChatNode({ allOpen: open, isOpen: () => open, n: fromRow })

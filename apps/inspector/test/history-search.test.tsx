@@ -54,6 +54,7 @@ const EVENTS = [
   }),
   evt({ body: "done", index: 4, preview: "done", title: "done" }),
 ];
+
 /** What `/history/search` answers for "zephyr" (matching and case folding
  *  are tested on the Rust side): the system event too. */
 const ZEPHYR = new Set([0, 2, 3]);
@@ -174,12 +175,14 @@ test("ranges across nodes keep DOM order and stop at the cap", () => {
 
 test("ranges read lazily: nodes past the cap are never visited", () => {
   const seen: number[] = [];
+
   function* nodes() {
     for (let i = 0; i < 5; i += 1) {
       seen.push(i);
       yield { nodeValue: "zephyr" };
     }
   }
+
   expect(rangesIn({ max: 2, needle: "zephyr", nodes: nodes() })).toHaveLength(
     2
   );
@@ -194,9 +197,9 @@ const bar = (over: {
 }) =>
   renderToStaticMarkup(
     <HistorySearch
-      onClear={() => undefined}
-      onQuery={() => undefined}
-      onStep={() => undefined}
+      onClear={() => {}}
+      onQuery={() => {}}
+      onStep={() => {}}
       pending={false}
       {...over}
     />
@@ -206,7 +209,7 @@ const EMPTY_COUNT = /data-testid="history-match-count"[^>]*><\/span>/;
 
 /** The opening tag of the element with `testid`. */
 const tagOf = (html: string, testid: string) =>
-  html.match(new RegExp(`<[^>]*data-testid="${testid}"[^>]*>`))?.[0] ?? "";
+  new RegExp(`<[^>]*data-testid="${testid}"[^>]*>`).exec(html)?.[0] ?? "";
 
 test("an active query announces its position in a polite live region", () => {
   const html = bar({ count: 3, current: 1, query: "line" });
@@ -301,16 +304,19 @@ test("the query clears when another session opens, and stays for the same one", 
 test("a history view renders unfiltered with an empty search box", () => {
   const view = {
     isExpanded: () => false,
-    setExpanded: () => undefined,
-    setRedacted: () => undefined,
+    setExpanded: () => {},
+    setRedacted: () => {},
     state: DEFAULT_SESSION_VIEW,
-    toggleExpanded: () => undefined,
+    toggleExpanded: () => {},
   };
+
   const a = session([
     evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
     evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
   ]);
+
   const { events, snapshots: _s, turns: _t, ...rest } = a;
+
   // Whole events stand in for index rows: a row that carries its body draws
   // without waiting for a page.
   const rows = events.map((e, pos) => ({
@@ -319,6 +325,7 @@ test("a history view renders unfiltered with an empty search box", () => {
     bodyLen: e.body.length,
     turn: 0,
   }));
+
   const history = {
     growth: "g",
     index: "i",
@@ -327,14 +334,15 @@ test("a history view renders unfiltered with an empty search box", () => {
     rev: "r",
     total: rows.length,
   };
+
   const html = renderToStaticMarkup(
     <SessionHistory
       growth={null}
       index={{ crossEvent: -1, hash: "i", rev: "r", rows, total: rows.length }}
       k={{ id: "s-fresh", parent: null, redact: true }}
       landing={{ done: { current: null } }}
-      onStale={() => undefined}
-      onSummary={() => undefined}
+      onStale={() => {}}
+      onSummary={() => {}}
       req={null}
       s={{ ...rest, history }}
       sectionRef={{ current: null }}
@@ -343,6 +351,7 @@ test("a history view renders unfiltered with an empty search box", () => {
       view={view}
     />
   );
+
   expect(html).toContain("alpha");
   expect(html).toContain("beta");
   expect(html).toContain('value=""');

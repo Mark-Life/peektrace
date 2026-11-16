@@ -33,6 +33,7 @@ export const widthOf = (value: number, max: number) => {
   if (max <= 0) {
     return 0;
   }
+
   return Math.max(MIN_VISIBLE_PCT, (value / max) * FULL_PCT);
 };
 
@@ -72,6 +73,7 @@ const Row = ({
       ) : null}
     </>
   );
+
   if (!onSelect) {
     return (
       <div className="flex flex-col gap-1" data-testid="rank-row">
@@ -79,6 +81,7 @@ const Row = ({
       </div>
     );
   }
+
   return (
     <button
       className={cn(
@@ -86,7 +89,9 @@ const Row = ({
         selected && "bg-muted/60"
       )}
       data-testid="rank-row"
-      onClick={() => onSelect(row.key)}
+      onClick={() => {
+        onSelect(row.key);
+      }}
       type="button"
     >
       {body}
@@ -114,6 +119,7 @@ export const RankBar = ({
       </p>
     );
   }
+
   return (
     <div className="flex flex-col gap-2" data-testid="rank-bar">
       {rows.map((row) => (

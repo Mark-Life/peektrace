@@ -37,26 +37,28 @@ import {
   DESCRIPTION,
   KEYWORDS,
   TARGETS,
-  type Target,
   targetKey,
   variantName,
 } from "./npm-meta";
+import type { Target } from "./npm-meta";
 import { npmReadme } from "./npm-readme";
 
 const NPM_SRC = join(import.meta.dir, "npm");
 const ROOT = resolve(import.meta.dir, "../..");
 const ROOT_README = join(ROOT, "README.md");
 const REPO_URL = "https://github.com/Mark-Life/peektrace";
+
 /** rwxr-xr-x, so `npx` and global installs can exec the bin on unix. */
 const EXECUTABLE_MODE = 0o755;
+
 const SEMVER =
   /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
 
 const commonMeta = {
-  homepage: `${REPO_URL}#readme`,
   bugs: { url: `${REPO_URL}/issues` },
-  repository: { type: "git", url: `git+${REPO_URL}.git` },
+  homepage: `${REPO_URL}#readme`,
   license: "MIT",
+  repository: { type: "git", url: `git+${REPO_URL}.git` },
 } as const;
 
 export interface StageOptions {
@@ -67,28 +69,32 @@ export interface StageOptions {
   readonly version: string;
 }
 
-const writeJson = (path: string, value: unknown) =>
+const writeJson = (path: string, value: unknown) => {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+};
 
 const stageVariant = (t: Target, { assets, out, version }: StageOptions) => {
   const source = join(assets, t.asset);
+
   if (!existsSync(source)) {
     throw new Error(`Missing release binary ${source}`);
   }
+
   const pkgDir = join(out, variantName(t));
   mkdirSync(join(pkgDir, "bin"), { recursive: true });
   const dest = join(pkgDir, "bin", binaryName(t));
   cpSync(source, dest);
   chmodSync(dest, EXECUTABLE_MODE);
   writeJson(join(pkgDir, "package.json"), {
-    name: variantName(t),
-    version,
-    description: `${DESCRIPTION} (${targetKey(t)} binary)`,
-    os: [t.platform],
     cpu: [t.arch],
+    description: `${DESCRIPTION} (${targetKey(t)} binary)`,
     files: ["bin"],
+    name: variantName(t),
+    os: [t.platform],
+    version,
     ...commonMeta,
   });
+
   return pkgDir;
 };
 
@@ -118,6 +124,7 @@ const stageWrapper = ({ out, readme, version }: StageOptions) => {
     join(pkgDir, "README.md"),
     npmReadme(readme, `cli-v${version}`)
   );
+
   return pkgDir;
 };
 
@@ -126,9 +133,11 @@ export const stage = (options: StageOptions) => {
   if (!SEMVER.test(options.version)) {
     throw new Error(`Not a semver version: ${options.version}`);
   }
-  rmSync(options.out, { recursive: true, force: true });
+
+  rmSync(options.out, { force: true, recursive: true });
   mkdirSync(options.out, { recursive: true });
   const variants = options.targets.map((t) => stageVariant(t, options));
+
   return { variants, wrapper: stageWrapper(options) };
 };
 
@@ -137,12 +146,15 @@ export const pickTargets = (list: string | undefined) => {
   if (!list) {
     return TARGETS;
   }
+
   return list.split(",").map((key) => {
     const found = TARGETS.find((t) => targetKey(t) === key.trim());
+
     if (!found) {
       const known = TARGETS.map(targetKey).join(", ");
       throw new Error(`Unknown target ${key} (known: ${known})`);
     }
+
     return found;
   });
 };
@@ -150,25 +162,28 @@ export const pickTargets = (list: string | undefined) => {
 const main = () => {
   const { values } = parseArgs({
     options: {
-      version: { type: "string" },
       assets: { type: "string" },
-      out: { type: "string", default: join(ROOT, "dist-npm") },
+      out: { default: join(ROOT, "dist-npm"), type: "string" },
       targets: { type: "string" },
+      version: { type: "string" },
     },
   });
+
   if (!(values.version && values.assets)) {
     console.error(
       "usage: build-npm.ts --version <semver> --assets <dir> [--out <dir>] [--targets a,b]"
     );
     process.exit(1);
   }
+
   const staged = stage({
-    version: values.version,
     assets: resolve(values.assets),
     out: resolve(values.out),
-    targets: pickTargets(values.targets),
     readme: readFileSync(ROOT_README, "utf8"),
+    targets: pickTargets(values.targets),
+    version: values.version,
   });
+
   for (const dir of [...staged.variants, staged.wrapper]) {
     console.log(`Staged ${dir}`);
   }

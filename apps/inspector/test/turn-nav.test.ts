@@ -8,23 +8,24 @@ import { buildChatPlan } from "../src/lib/chat-lane";
 import { chatTurnStops, stepStop, tableTurnStops } from "../src/lib/turn-nav";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
+  body: "",
   index: 0,
   kind: "assistant-text",
-  title: "",
   preview: "",
-  body: "",
+  title: "",
   tokensEst: 0,
   ...over,
 });
 
 const events = [
-  evt({ kind: "user-prompt", index: 0 }),
+  evt({ index: 0, kind: "user-prompt" }),
   evt({ index: 1 }),
-  evt({ kind: "user-prompt", index: 2 }),
+  evt({ index: 2, kind: "user-prompt" }),
   evt({ index: 3 }),
   evt({ index: 4 }),
-  evt({ kind: "user-prompt", index: 5 }),
+  evt({ index: 5, kind: "user-prompt" }),
 ];
+
 const rows = events.map((e, pos) => ({ e, pos }));
 const turns = [1, 1, 2, 2, 2, 3];
 
@@ -33,6 +34,7 @@ describe("chatTurnStops", () => {
     const plan = buildChatPlan({ crossEvtIdx: -1, rows, turns });
     const stops = chatTurnStops(plan);
     expect(stops).toHaveLength(3);
+
     for (const i of stops) {
       expect(plan[i]?.type).toBe("turn");
     }
@@ -42,20 +44,20 @@ describe("chatTurnStops", () => {
 describe("tableTurnStops", () => {
   test("the first row of each turn in transcript order", () => {
     expect(
-      tableTurnStops({ rows, sort: { key: "order", dir: "asc" }, turns })
+      tableTurnStops({ rows, sort: { dir: "asc", key: "order" }, turns })
     ).toEqual([0, 2, 5]);
   });
 
   test("descending order still has a stop per run", () => {
     const desc = [...rows].reverse();
     expect(
-      tableTurnStops({ rows: desc, sort: { key: "order", dir: "desc" }, turns })
+      tableTurnStops({ rows: desc, sort: { dir: "desc", key: "order" }, turns })
     ).toEqual([0, 1, 4]);
   });
 
   test("other sorts scatter turns, so there are no stops", () => {
     expect(
-      tableTurnStops({ rows, sort: { key: "tokens", dir: "desc" }, turns })
+      tableTurnStops({ rows, sort: { dir: "desc", key: "tokens" }, turns })
     ).toEqual([]);
   });
 });

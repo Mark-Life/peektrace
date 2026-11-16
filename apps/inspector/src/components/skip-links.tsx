@@ -12,7 +12,8 @@ const SKIP_CLASS =
 /** Focus the first of `targets` on the page. The session detail only exists
  *  once the list has loaded, so its link falls back to the main content. */
 const focusFirst = (targets: readonly string[]) => {
-  const found = targets.find((id) => document.getElementById(id) !== null);
+  const found = targets.find((id) => document.querySelector(`#${id}`) !== null);
+
   if (found !== undefined) {
     focusLandmark(found);
   }
@@ -28,7 +29,9 @@ const SkipLink = ({
   <button
     className={SKIP_CLASS}
     data-testid="skip-link"
-    onClick={() => focusFirst(targets)}
+    onClick={() => {
+      focusFirst(targets);
+    }}
     type="button"
   >
     {label}

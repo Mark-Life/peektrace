@@ -21,13 +21,8 @@ import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
 
 import { rateText, suggestedRuleOf } from "../../lib/stats-findings";
-import {
-  hms,
-  NO_RULE,
-  n,
-  type PromptFor,
-  ruleLine,
-} from "../../lib/stats-format";
+import { hms, NO_RULE, n, ruleLine } from "../../lib/stats-format";
+import type { PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
@@ -99,6 +94,7 @@ const DetailRow = ({
   readonly row: CauseRow;
 }) => {
   const rule = suggestedRuleOf(row);
+
   return (
     <TableRow
       className="bg-muted/30 hover:bg-muted/30"
@@ -117,7 +113,7 @@ const DetailRow = ({
             <PromptButton
               subject={row.label}
               testId="cause-prompt"
-              text={prompt({ table: "cause", key: row.key })}
+              text={prompt({ key: row.key, table: "cause" })}
             />
             <Button
               className="h-6 shrink-0 px-2 text-xs"
@@ -197,8 +193,11 @@ export const CauseTable = ({
   readonly selectedKey: string | null;
 }) => {
   const [openKey, setOpenKey] = useState<string | null>(selectedKey);
-  const toggle = (key: string) =>
+
+  const toggle = (key: string) => {
     setOpenKey((open) => (open === key ? null : key));
+  };
+
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="cause-empty">
@@ -206,6 +205,7 @@ export const CauseTable = ({
       </p>
     );
   }
+
   return (
     <div className="border-border rounded-lg border" data-testid="cause-table">
       <Table>
@@ -234,7 +234,9 @@ export const CauseTable = ({
                     "bg-muted/40"
                 )}
                 data-testid="cause-row"
-                onClick={() => toggle(row.key)}
+                onClick={() => {
+                  toggle(row.key);
+                }}
               >
                 <TableCell className="align-top whitespace-normal md:max-w-[42ch] md:whitespace-nowrap">
                   {/* The row is clickable for a mouse; this button is the
@@ -293,7 +295,9 @@ export const CauseTable = ({
               </TableRow>
               {openKey === row.key ? (
                 <DetailRow
-                  onDrill={() => onSelect(row.key)}
+                  onDrill={() => {
+                    onSelect(row.key);
+                  }}
                   prompt={prompt}
                   row={row}
                 />

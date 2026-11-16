@@ -18,7 +18,8 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { FailRow } from "@workspace/view-core/api-types.gen";
 import { Fragment } from "react";
 
-import { n, type PromptFor } from "../../lib/stats-format";
+import { n } from "../../lib/stats-format";
+import type { PromptFor } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
@@ -41,7 +42,7 @@ const DetailRow = ({
           <PromptButton
             subject={row.label}
             testId="fail-prompt"
-            text={prompt({ table: "fail", key: row.key })}
+            text={prompt({ key: row.key, table: "fail" })}
           />
         </div>
         <SessionLinks detector={row.detector} samples={row.samples} />
@@ -69,6 +70,7 @@ export const FailTable = ({
       </p>
     );
   }
+
   return (
     <div className="border-border rounded-lg border" data-testid="fail-table">
       <Table>
@@ -93,7 +95,9 @@ export const FailTable = ({
                   selectedKey === row.key && "bg-muted/40"
                 )}
                 data-testid="fail-row"
-                onClick={() => onSelect(row.key)}
+                onClick={() => {
+                  onSelect(row.key);
+                }}
               >
                 <TableCell className="max-w-[42ch] align-top">
                   <div className="truncate text-sm font-medium">

@@ -24,5 +24,6 @@ test("the counter counts from the pass start, not from mount", () => {
   const html = renderToStaticMarkup(
     <StatsPending since={Date.now() - 15_000} />
   );
+
   expect(html).toMatch(COUNTER_15);
 });

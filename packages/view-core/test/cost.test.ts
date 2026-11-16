@@ -17,8 +17,8 @@ describe("cost formatting", () => {
       costSummary(
         {
           source: "agent",
-          totalUsd: 1,
           subagentsUsd: 0.25,
+          totalUsd: 1,
           unpricedModels: ["mystery-a", "mystery-b"],
           unreadableSubagents: 2,
         },
@@ -35,9 +35,9 @@ describe("cost formatting", () => {
   test("costSummary dashes an unpriced total and names an agent's own figure", () => {
     expect(
       costSummary({ source: "estimate", unpricedModels: ["mystery-a"] }, "X")
-    ).toEqual({ total: "—", notes: ["unpriced: mystery-a"] });
+    ).toEqual({ notes: ["unpriced: mystery-a"], total: "—" });
     expect(costSummary({ source: "agent", totalUsd: 0.5 }, "OpenCode")).toEqual(
-      { total: "~$0.50", notes: ["reported by OpenCode"] }
+      { notes: ["reported by OpenCode"], total: "~$0.50" }
     );
   });
 });

@@ -18,29 +18,21 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
-import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
+import type { RefObject } from "react";
 
 import {
   buildChatPlan,
-  type ChatNode,
   chatCollapseIdOf,
   chatNodeKeys,
-  type EventRow,
   laneOf,
-  type TranscriptRowRef,
 } from "../../lib/chat-lane";
+import type { ChatNode, EventRow, TranscriptRowRef } from "../../lib/chat-lane";
 import { tokenLabel } from "../../lib/event-tokens";
-import {
-  alignOf,
-  type HistoryJump,
-  type JumpLanding,
-  planIndexOfTarget,
-} from "../../lib/history-jump";
-import {
-  type HydrateCache,
-  hydrator,
-  positionsOf,
-} from "../../lib/history-pages";
+import { alignOf, planIndexOfTarget } from "../../lib/history-jump";
+import type { HistoryJump, JumpLanding } from "../../lib/history-jump";
+import { hydrator, positionsOf } from "../../lib/history-pages";
+import type { HydrateCache } from "../../lib/history-pages";
 import type { ToolMarks } from "../../lib/session-markers";
 import {
   chatCollapseId,
@@ -55,7 +47,8 @@ import {
   estimateChatNode,
 } from "../../lib/transcript-estimate";
 import { chatTurnStops } from "../../lib/turn-nav";
-import { type RevealHit, useRevealHit } from "../../lib/use-history-search";
+import { useRevealHit } from "../../lib/use-history-search";
+import type { RevealHit } from "../../lib/use-history-search";
 import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
@@ -85,6 +78,7 @@ const bandLabel = (e: TranscriptRowRef["e"]) => {
   if (e.kind === "compaction") {
     return "context compacted — everything above was replaced by this summary";
   }
+
   return e.kind === "summary" ? "rolling summary" : e.title.toLowerCase();
 };
 
@@ -113,10 +107,12 @@ const Band = ({
   const { e, pos } = row;
   const id = chatCollapseId(pos);
   const compaction = e.kind === "compaction";
+
   const Icon =
     e.kind === "compaction" || e.kind === "system-prompt"
       ? BAND_ICON[e.kind]
       : FileTextIcon;
+
   return (
     <ChatBand tone={compaction ? "warn" : "muted"}>
       <div
@@ -129,7 +125,9 @@ const Band = ({
         <button
           className="flex w-full items-center justify-center gap-1.5"
           {...disclosureProps(chatPanelId(id), open)}
-          onClick={() => onToggle(id, !open)}
+          onClick={() => {
+            onToggle(id, !open);
+          }}
           type="button"
         >
           <Icon className="size-3.5 shrink-0" />
@@ -194,11 +192,14 @@ const ChatNodeViewBody = ({
       </ChatBand>
     );
   }
+
   if (n.type === "turn") {
     const turn = a.turns[n.turn - 1];
+
     if (!turn) {
       return null;
     }
+
     return (
       <ChatTurnRule
         ctxFrac={a.contextWindow > 0 ? turn.contextTokens / a.contextWindow : 0}
@@ -214,6 +215,7 @@ const ChatNodeViewBody = ({
       />
     );
   }
+
   if (n.type === "run") {
     return (
       <ChatContextRun
@@ -225,6 +227,7 @@ const ChatNodeViewBody = ({
       />
     );
   }
+
   if (n.type === "band") {
     return (
       <Band
@@ -234,8 +237,10 @@ const ChatNodeViewBody = ({
       />
     );
   }
+
   if (n.type === "notice") {
     const id = chatCollapseId(n.row.pos);
+
     return (
       <ChatNotice
         collapseId={id}
@@ -245,13 +250,17 @@ const ChatNodeViewBody = ({
       />
     );
   }
+
   if (n.type === "tool") {
     const anchor = n.call ?? n.result;
+
     if (!anchor) {
       return null;
     }
+
     const id = chatCollapseId(anchor.pos);
-    const toolUseId = anchor.e.toolUseId;
+    const { toolUseId } = anchor.e;
+
     return (
       <ChatToolCard
         activeMark={activeMark}
@@ -266,9 +275,11 @@ const ChatNodeViewBody = ({
       />
     );
   }
+
   const { e, pos } = n.row;
   const id = chatCollapseId(pos);
   const lane = laneOf(e) === "user" ? "user" : "agent";
+
   if (e.kind === "assistant-thinking") {
     return (
       <ChatThinking
@@ -280,6 +291,7 @@ const ChatNodeViewBody = ({
       />
     );
   }
+
   return (
     <ChatBubble
       collapseId={id}
@@ -347,10 +359,12 @@ export const TranscriptChat = ({
 }) => {
   const cache = useRef<HydrateCache>(new WeakMap());
   const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
+
   const plan = useMemo(
     () => buildChatPlan({ crossEvtIdx, rows, turns }),
     [crossEvtIdx, rows, turns]
   );
+
   const keys = useMemo(() => chatNodeKeys(plan), [plan]);
   const list = useRef<VirtualListHandle>(null);
   useVirtualJump({
@@ -360,6 +374,7 @@ export const TranscriptChat = ({
     list,
     target: jump?.key ?? null,
   });
+
   const indexOfHit = useCallback(
     (id: string) =>
       plan.findIndex(
@@ -370,14 +385,17 @@ export const TranscriptChat = ({
       ),
     [plan]
   );
+
   useRevealHit({ indexOf: indexOfHit, list, reveal: revealHit });
   const stops = useMemo(() => chatTurnStops(plan), [plan]);
   useTurnNav({ list, stops });
+
   const onRange = useCallback(
     (first: number, last: number) =>
       onDrawn?.(plan.slice(first, last + 1).flatMap(positionsOf)),
     [plan, onDrawn]
   );
+
   const estimate = (n: ChatNode<EventRow>) =>
     estimateChatNode({ allOpen, isOpen, n });
 
@@ -401,6 +419,7 @@ export const TranscriptChat = ({
       ref={list}
       render={(n) => {
         const full = hydrate.node(n);
+
         return full === null ? (
           <PendingRow height={estimate(n) - CHAT_GAP} />
         ) : (

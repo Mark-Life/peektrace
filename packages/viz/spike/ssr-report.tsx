@@ -46,12 +46,16 @@ const run = (name: string, node: ReactElement) => {
 };
 
 run("growth-timeline (hand-rolled SVG)", <GrowthTimeline a={MOCK_SESSION} />);
+
 run(
   "growth-timeline (TanStack Charts)",
   <GrowthTimelineTanstack a={MOCK_SESSION} />
 );
+
 run("link-graph (hand-rolled SVG)", <LinkGraph graph={MOCK_GRAPH} />);
+
 run("link-graph (TanStack Charts)", <LinkGraphTanstack graph={MOCK_GRAPH} />);
+
 run(
   "type-donut (TanStack Charts)",
   <TypeDonut typeCounts={MOCK_TYPE_COUNTS} />

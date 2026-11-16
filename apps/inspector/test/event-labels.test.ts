@@ -12,11 +12,11 @@ import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 import { eventBadgeLabel, isUserAuthored } from "../src/lib/event-labels";
 
 const attachment = (attachmentType?: string): TimelineEvent => ({
+  body: "…",
   index: 3,
   kind: "attachment",
-  title: "attachment",
   preview: "…",
-  body: "…",
+  title: "attachment",
   tokensEst: 12,
   ...(attachmentType === undefined ? {} : { attachmentType }),
 });
@@ -43,25 +43,26 @@ describe("eventBadgeLabel", () => {
 
   test("a tool call still badges as its tool", () => {
     const call: TimelineEvent = {
+      body: "{}",
       index: 0,
       kind: "tool-call",
-      title: "Bash",
       preview: "ls",
-      body: "{}",
+      title: "Bash",
       tokensEst: 4,
       toolName: "Bash",
     };
+
     expect(eventBadgeLabel(call)).toBe("Bash");
   });
 
   test("an event carrying neither badges as its kind", () => {
     expect(
       eventBadgeLabel({
+        body: "hi",
         index: 1,
         kind: "assistant-text",
-        title: "Assistant",
         preview: "hi",
-        body: "hi",
+        title: "Assistant",
         tokensEst: 1,
       })
     ).toBe("assistant-text");
@@ -75,6 +76,7 @@ describe("isUserAuthored", () => {
         kind: "user-prompt",
         ...(promptOrigin === undefined ? {} : { promptOrigin }),
       });
+
     expect((["human", "sdk", "command"] as const).every((o) => prompt(o))).toBe(
       true
     );

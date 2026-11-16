@@ -29,7 +29,7 @@ describe("aligning a before/after pair", () => {
   });
 
   test("numbers each side against its own text", () => {
-    const rows = diffLines("a\nb", "a\nx\nb").rows;
+    const { rows } = diffLines("a\nb", "a\nx\nb");
     expect(rows.map((r) => [r.kind, r.oldNo, r.newNo])).toEqual([
       ["ctx", 1, 1],
       ["add", undefined, 2],
@@ -57,7 +57,7 @@ describe("keeping a long diff readable", () => {
   test("unchanged stretches collapse to one counted gap", () => {
     const before = long(20);
     const after = before.replace("line 10", "line 10 changed");
-    const rows = diffLines(before, after).rows;
+    const { rows } = diffLines(before, after);
     expect(rows.filter((r) => r.kind === "gap")).toEqual([
       { count: 7, kind: "gap", text: "" },
       { count: 6, kind: "gap", text: "" },

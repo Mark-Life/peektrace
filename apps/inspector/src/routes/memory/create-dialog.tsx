@@ -72,6 +72,7 @@ export const CreateDialog = ({
       setPicked(undefined);
       setError(undefined);
     }
+
     onOpenChange(next);
   };
 
@@ -79,12 +80,16 @@ export const CreateDialog = ({
     if (project === undefined) {
       return;
     }
+
     setBusy(true);
     setError(undefined);
+
     const exit = await create({
-      payload: { project, name, description, type, body },
+      payload: { body, description, name, project, type },
     });
+
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
       toast.success(`Created ${name}`);
       created.current = target.kind === "pick";
@@ -93,8 +98,10 @@ export const CreateDialog = ({
       setName("");
       setDescription("");
       setBody("");
+
       return;
     }
+
     const err = wireErrorOf(exit);
     setError(err ? wireErrorMessage(err) : "Create failed.");
   };
@@ -131,7 +138,9 @@ export const CreateDialog = ({
             <Input
               data-testid="create-name"
               id="mem-name"
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
               placeholder="api-conventions"
               value={name}
             />
@@ -141,7 +150,9 @@ export const CreateDialog = ({
             <Input
               data-testid="create-description"
               id="mem-desc"
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                setDescription(e.target.value);
+              }}
               placeholder="One-line hook for the index"
               value={description}
             />
@@ -167,7 +178,9 @@ export const CreateDialog = ({
               className="min-h-32 font-mono text-xs"
               data-testid="create-body"
               id="mem-body"
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setBody(e.target.value);
+              }}
               placeholder="# Title&#10;&#10;Use [[other-memory]] to link."
               value={body}
             />
@@ -179,7 +192,13 @@ export const CreateDialog = ({
           ) : null}
         </div>
         <DialogFooter>
-          <Button onClick={() => close(false)} type="button" variant="ghost">
+          <Button
+            onClick={() => {
+              close(false);
+            }}
+            type="button"
+            variant="ghost"
+          >
             Cancel
           </Button>
           <Button

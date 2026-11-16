@@ -19,17 +19,19 @@ import { useMemo } from "react";
 
 /** Stable colour per memory type; core emits `unknown` for untyped entries. */
 const TYPE_COLORS: Record<string, string> = {
-  user: "var(--chart-1)",
   feedback: "var(--chart-2)",
   project: "var(--chart-3)",
   reference: "var(--chart-4)",
   unknown: "var(--chart-5)",
+  user: "var(--chart-1)",
 };
 
 /** Rendered size of the donut square, in pixels. */
 const SIZE = 140;
+
 /** Inner radius as a fraction of the outer, giving the 40/70 ring. */
 const INNER_RATIO = 0.57;
+
 /** Radians of empty space between slices. The `--chart-N` tokens are five
  * lightness steps of one hue, so adjacent slices need a seam to read apart. */
 const GAP_ANGLE = 0.03;
@@ -52,9 +54,9 @@ export const TypeDonut = ({
       Object.entries(typeCounts)
         .filter(([, n]) => n > 0)
         .map(([type, count]) => ({
-          type,
           count,
           fill: TYPE_COLORS[type] ?? "var(--chart-5)",
+          type,
         })),
     [typeCounts]
   );
@@ -62,6 +64,10 @@ export const TypeDonut = ({
   const definition = useMemo(
     () =>
       defineChart({
+        color: {
+          domain: data.map((d) => d.type),
+          range: data.map((d) => d.fill),
+        },
         marks: [
           polar({
             radiusRatio: 1,
@@ -74,13 +80,9 @@ export const TypeDonut = ({
             ],
           }),
         ],
-        color: {
-          domain: data.map((d) => d.type),
-          range: data.map((d) => d.fill),
-        },
         tooltip: {
-          use: tooltip,
           format: (point) => `${point.datum.type}: ${point.datum.count}`,
+          use: tooltip,
         },
       }),
     [data]

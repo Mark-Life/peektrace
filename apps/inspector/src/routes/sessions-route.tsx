@@ -20,7 +20,8 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import { cn } from "@workspace/ui/lib/utils";
 import { MousePointerClickIcon } from "lucide-react";
-import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
+import type { RefObject } from "react";
 
 import { sessionHeadersAtom, sessionsListAtom } from "../lib/atoms";
 import { SESSION_DETAIL_ID } from "../lib/landmarks";
@@ -37,7 +38,7 @@ import { SessionList } from "./sessions/session-list";
  *  heaviest leaves on this route — the forensic charts and the `@tanstack/highlight`
  *  tokenizer behind the transcript's code blocks. Splitting it keeps the rail,
  *  which is what an empty hash actually paints, off both. */
-const SessionDetail = lazy(() =>
+const SessionDetail = lazy(async () =>
   import("./sessions/session-detail").then((m) => ({
     default: m.SessionDetail,
   }))
@@ -97,15 +98,20 @@ const useNarrowFocusHandoff = ({
   useEffect(() => {
     const was = prev.current;
     prev.current = selected;
+
     if (was === selected || !window.matchMedia(NARROW).matches) {
       return;
     }
+
     const active = document.activeElement;
     const lost = active === null || active === document.body;
+
     if (selected !== null && (lost || list.current?.contains(active))) {
       detail.current?.focus();
+
       return;
     }
+
     if (selected === null && (lost || detail.current?.contains(active))) {
       list.current
         ?.querySelector<HTMLElement>('[data-session-id][tabindex="0"]')

@@ -6,7 +6,8 @@
  * seconds of a backgrounded wait print beside the charged ones, never summed in.
  */
 import type { ClusterRow, WaitPanel } from "@workspace/view-core/api-types.gen";
-import { RankBar, type RankRow } from "@workspace/viz/components/rank-bar";
+import { RankBar } from "@workspace/viz/components/rank-bar";
+import type { RankRow } from "@workspace/viz/components/rank-bar";
 
 import { hms, n, pct } from "../../lib/stats-format";
 
@@ -31,9 +32,9 @@ export const shapeRows = (panel: WaitPanel): readonly RankRow[] =>
   panel.byShape.map((shape) => ({
     key: shape.key,
     label: shape.key,
+    secondary: `${n(shape.calls)} calls · ${pct(shape.share)}`,
     value: shape.totalSec,
     valueText: hms(shape.totalSec),
-    secondary: `${n(shape.calls)} calls · ${pct(shape.share)}`,
   }));
 
 /** Where the parked seconds went, by the shape that parked them. */
@@ -62,9 +63,9 @@ export const clusterRows = (rows: readonly ClusterRow[]): readonly RankRow[] =>
   rows.slice(0, CLUSTER_ROWS).map((row) => ({
     key: row.key,
     label: row.label,
+    secondary: `${n(row.sessions)} sessions · ${row.tool}`,
     value: row.rows,
     valueText: `${n(row.rows)} rows`,
-    secondary: `${n(row.sessions)} sessions · ${row.tool}`,
   }));
 
 /** Error signatures that repeat across sessions, ranked by rows then sessions. */

@@ -20,11 +20,14 @@ export const tableTurnStops = ({
   if (sort.key !== "order") {
     return [];
   }
+
   let last: number | null = null;
+
   return rows.flatMap((row, i) => {
     const turn = turns[row.pos] ?? 0;
     const starts = turn !== last;
     last = turn;
+
     return starts ? [i] : [];
   });
 };
@@ -43,6 +46,8 @@ export const stepStop = ({
   if (dir === "next") {
     return stops.find((s) => s > anchor) ?? null;
   }
+
   const before = stops.filter((s) => s < anchor);
+
   return before.at(-1) ?? null;
 };

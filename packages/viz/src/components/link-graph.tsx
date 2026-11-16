@@ -14,9 +14,11 @@ import type { GraphData } from "@workspace/view-core/api-types.gen";
 const SIZE = 320;
 const RADIUS = 120;
 const CENTER = SIZE / 2;
+
 /** Node radius scales from this minimum across this range by byte size. */
 const NODE_MIN_R = 5;
 const NODE_R_RANGE = 9;
+
 /** Vertical offset of a node label above its circle. */
 const LABEL_OFFSET = 2;
 
@@ -26,6 +28,7 @@ export const nodeRadius = (bytes: number, maxBytes: number) =>
 
 /** Rendered width (px) the ring geometry was drawn for. */
 const DEFAULT_MAX_WIDTH = 360;
+
 /** Hard ceiling on rendered width: past this the 8px labels and 1px strokes
  * are scaled far enough past their drawn size that the graph reads as soft. */
 const MAX_WIDTH_CEILING = 480;
@@ -41,6 +44,7 @@ export const layout = (slugs: readonly string[]) => {
       y: CENTER + RADIUS * Math.sin(angle),
     });
   });
+
   return positions;
 };
 
@@ -64,8 +68,10 @@ export const LinkGraph = ({
       </p>
     );
   }
+
   const pos = layout(graph.nodes.map((node) => node.slug));
   const maxBytes = Math.max(1, ...graph.nodes.map((node) => node.bytes));
+
   return (
     <svg
       aria-label="Memory link graph"
@@ -79,9 +85,11 @@ export const LinkGraph = ({
       {graph.edges.map((edge) => {
         const from = pos.get(edge.from);
         const to = pos.get(edge.resolvedTo ?? edge.to);
+
         if (!(from && to)) {
           return null;
         }
+
         return (
           <line
             className={cn(
@@ -99,11 +107,18 @@ export const LinkGraph = ({
       })}
       {graph.nodes.map((node) => {
         const p = pos.get(node.slug);
+
         if (!p) {
           return null;
         }
+
         const r = nodeRadius(node.bytes, maxBytes);
-        const select = onSelect ? () => onSelect(node.slug) : undefined;
+        const select = onSelect
+          ? () => {
+              onSelect(node.slug);
+            }
+          : undefined;
+
         return (
           // biome-ignore lint/a11y/noStaticElementInteractions: SVG group exposes role=button + keyboard handler for node selection
           <g

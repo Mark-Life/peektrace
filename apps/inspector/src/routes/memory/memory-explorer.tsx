@@ -122,7 +122,9 @@ const Filters = ({
       aria-label="Search memories"
       className="max-w-xs"
       data-testid="memory-search"
-      onChange={(e) => onQuery(e.target.value)}
+      onChange={(e) => {
+        onQuery(e.target.value);
+      }}
       placeholder="Search all memories…"
       value={query}
     />
@@ -182,12 +184,13 @@ export const Explorer = ({
   const isEmpty = all.projects.length === 0;
 
   const vaults = useMemo(
-    () => visibleVaults({ all, scope, query, type }),
+    () => visibleVaults({ all, query, scope, type }),
     [all, scope, query, type]
   );
+
   const visible = vaults.map(({ vault }) => vault.slug);
 
-  const onOpenChange = (open: readonly string[]) =>
+  const onOpenChange = (open: readonly string[]) => {
     setClosed(
       (prev) =>
         new Set([
@@ -195,15 +198,18 @@ export const Explorer = ({
           ...visible.filter((slug) => !open.includes(slug)),
         ])
     );
+  };
 
   const onCreated = (slug: string) => {
     refresh();
     setQuery("");
     setType("all");
     setClosed((prev) => new Set([...prev].filter((s) => s !== slug)));
+
     if (scope !== "all" && scope !== slug) {
       setScope(slug);
     }
+
     setFocusSlug(slug);
   };
 
@@ -216,9 +222,11 @@ export const Explorer = ({
     ) {
       return;
     }
+
     const trigger = rootRef.current?.querySelector<HTMLElement>(
       `[data-vault="${CSS.escape(focusSlug)}"]`
     );
+
     if (trigger) {
       trigger.focus();
       setFocusSlug(undefined);
@@ -244,7 +252,11 @@ export const Explorer = ({
           />
           {canWrite ? (
             <div className="ml-auto">
-              <CreateAnywhereButton onClick={() => setCreating(true)} />
+              <CreateAnywhereButton
+                onClick={() => {
+                  setCreating(true);
+                }}
+              />
             </div>
           ) : null}
         </div>
@@ -266,7 +278,12 @@ export const Explorer = ({
       )}
 
       {isEmpty ? (
-        <EmptyState canWrite={canWrite} onCreate={() => setCreating(true)} />
+        <EmptyState
+          canWrite={canWrite}
+          onCreate={() => {
+            setCreating(true);
+          }}
+        />
       ) : (
         <>
           <Overview all={all} />
@@ -330,6 +347,7 @@ export const MemoryExplorer = () => {
   const retryAll = useAtomRefresh(allVaultsAtom);
   const retryCaps = useAtomRefresh(capabilitiesAtom);
   const retryInfo = useAtomRefresh(serverInfoAtom);
+
   return (
     <ResultView onRetry={retryAll} result={allResult}>
       {(all) => (

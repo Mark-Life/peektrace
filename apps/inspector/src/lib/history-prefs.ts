@@ -13,19 +13,15 @@
  */
 import { useCallback, useSyncExternalStore } from "react";
 
-import {
-  DEFAULT_HISTORY_SORT,
-  type HistorySort,
-  historySortOf,
-  sameSort,
-} from "./history-sort";
+import { DEFAULT_HISTORY_SORT, historySortOf, sameSort } from "./history-sort";
+import type { HistorySort } from "./history-sort";
 import { setHashParam, useHashParam } from "./routes";
 import {
   DEFAULT_TRANSCRIPT_MODE,
   resolveTranscriptMode,
-  type TranscriptMode,
   transcriptModeOf,
 } from "./transcript-mode";
+import type { TranscriptMode } from "./transcript-mode";
 
 /** Persisted history prefs, shared across sessions. */
 export interface HistoryPrefs {
@@ -39,9 +35,9 @@ export interface HistoryPrefs {
 
 /** Fresh prefs: chat layout, no filters, transcript order. */
 export const DEFAULT_HISTORY_PREFS: HistoryPrefs = {
+  kind: "all",
   mode: DEFAULT_TRANSCRIPT_MODE,
   sort: DEFAULT_HISTORY_SORT,
-  kind: "all",
 };
 
 /** `localStorage` key for the shared history prefs. */
@@ -52,11 +48,13 @@ export const normalizeHistoryPrefs = (parsed: unknown): HistoryPrefs => {
   if (typeof parsed !== "object" || parsed === null) {
     return DEFAULT_HISTORY_PREFS;
   }
+
   const raw = parsed as Partial<Record<keyof HistoryPrefs, unknown>>;
+
   return {
+    kind: typeof raw.kind === "string" ? raw.kind : DEFAULT_HISTORY_PREFS.kind,
     mode: transcriptModeOf(raw.mode) ?? DEFAULT_HISTORY_PREFS.mode,
     sort: historySortOf(raw.sort),
-    kind: typeof raw.kind === "string" ? raw.kind : DEFAULT_HISTORY_PREFS.kind,
   };
 };
 
@@ -69,8 +67,10 @@ const readPrefs = () => {
   if (!hasStorage()) {
     return DEFAULT_HISTORY_PREFS;
   }
+
   try {
     const raw = window.localStorage.getItem(HISTORY_PREFS_KEY);
+
     return raw === null
       ? DEFAULT_HISTORY_PREFS
       : normalizeHistoryPrefs(JSON.parse(raw));
@@ -98,6 +98,7 @@ const onStorage = (e: StorageEvent) => {
 /** Current prefs; stable identity until the next write. */
 export const getHistoryPrefs = () => {
   current ??= readPrefs();
+
   return current;
 };
 
@@ -105,6 +106,7 @@ export const getHistoryPrefs = () => {
 export const updateHistoryPrefs = (patch: Partial<HistoryPrefs>) => {
   const prev = getHistoryPrefs();
   const next = { ...prev, ...patch };
+
   if (
     (Object.keys(next) as (keyof HistoryPrefs)[]).every((k) =>
       k === "sort" ? sameSort(next.sort, prev.sort) : next[k] === prev[k]
@@ -112,7 +114,9 @@ export const updateHistoryPrefs = (patch: Partial<HistoryPrefs>) => {
   ) {
     return;
   }
+
   current = next;
+
   if (hasStorage()) {
     try {
       window.localStorage.setItem(HISTORY_PREFS_KEY, JSON.stringify(next));
@@ -120,6 +124,7 @@ export const updateHistoryPrefs = (patch: Partial<HistoryPrefs>) => {
       // Private mode / quota: keep the in-memory value, unpersisted.
     }
   }
+
   notify();
 };
 
@@ -128,9 +133,12 @@ export const subscribeHistoryPrefs = (listener: () => void) => {
   if (listeners.size === 0 && hasStorage()) {
     window.addEventListener("storage", onStorage);
   }
+
   listeners.add(listener);
+
   return () => {
     listeners.delete(listener);
+
     if (listeners.size === 0 && hasStorage()) {
       window.removeEventListener("storage", onStorage);
     }
@@ -144,24 +152,25 @@ export const useHistoryPrefs = () => {
     getHistoryPrefs,
     () => DEFAULT_HISTORY_PREFS
   );
+
   const mode = resolveTranscriptMode({
     hash: useHashParam("view"),
     stored: prefs.mode,
   });
 
-  const setKind = useCallback(
-    (kind: string) => updateHistoryPrefs({ kind }),
-    []
-  );
-  const setSort = useCallback(
-    (sort: HistorySort) => updateHistoryPrefs({ sort }),
-    []
-  );
+  const setKind = useCallback((kind: string) => {
+    updateHistoryPrefs({ kind });
+  }, []);
+
+  const setSort = useCallback((sort: HistorySort) => {
+    updateHistoryPrefs({ sort });
+  }, []);
+
   // The hash mirrors the choice so the URL stays a faithful, shareable link.
   const setMode = useCallback((next: TranscriptMode) => {
     updateHistoryPrefs({ mode: next });
     setHashParam("view", next);
   }, []);
 
-  return { ...prefs, mode, setKind, setSort, setMode };
+  return { ...prefs, mode, setKind, setMode, setSort };
 };

@@ -27,10 +27,12 @@ const frameOf = (html: string) =>
 test("pending box has the chart's frame and legend", () => {
   expect(MOCK_SESSION.snapshots.length).toBeGreaterThan(0);
   const chart = renderToStaticMarkup(<GrowthTimeline a={MOCK_SESSION} />);
+
   const pending = renderToStaticMarkup(
     <GrowthTimelinePending a={MOCK_SESSION} />
   );
-  expect(pending.match(LEGEND)?.[0]).toBe(chart.match(LEGEND)?.[0]);
+
+  expect(LEGEND.exec(pending)?.[0]).toBe(LEGEND.exec(chart)?.[0]);
   expect(pending).toContain("aspect-ratio:1000 / 440");
   expect(frameOf(pending)).toBe(frameOf(chart));
 });

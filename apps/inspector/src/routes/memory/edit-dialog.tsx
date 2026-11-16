@@ -61,27 +61,35 @@ export const EditDialog = ({
   const send = async (guard: boolean) => {
     setBusy(true);
     setError(undefined);
+
     const exit = await update({
       payload: {
-        project,
-        name: entry.slug,
-        frontmatter: { description, type },
         body,
+        frontmatter: { description, type },
+        name: entry.slug,
+        project,
         ...(guard ? { expectedMtime: entry.mtimeMs } : {}),
       },
     });
+
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
       toast.success(`Saved ${entry.slug}`);
       onDone();
       onOpenChange(false);
+
       return;
     }
+
     const err = wireErrorOf(exit);
+
     if (err?._tag === "FileChangedError") {
       setConflict(true);
+
       return;
     }
+
     setError(err ? wireErrorMessage(err) : "Save failed.");
   };
 
@@ -121,7 +129,7 @@ export const EditDialog = ({
               <Button
                 data-testid="cas-overwrite"
                 disabled={busy}
-                onClick={() => send(false)}
+                onClick={async () => send(false)}
                 variant="destructive"
               >
                 Overwrite
@@ -135,7 +143,9 @@ export const EditDialog = ({
               <Input
                 data-testid="edit-description"
                 id="edit-desc"
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                }}
                 value={description}
               />
             </div>
@@ -160,7 +170,9 @@ export const EditDialog = ({
                 className="min-h-40 font-mono text-xs"
                 data-testid="edit-body"
                 id="edit-body"
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                }}
                 value={body}
               />
             </div>
@@ -174,7 +186,9 @@ export const EditDialog = ({
         {conflict ? null : (
           <DialogFooter>
             <Button
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false);
+              }}
               type="button"
               variant="ghost"
             >
@@ -183,7 +197,7 @@ export const EditDialog = ({
             <Button
               data-testid="edit-submit"
               disabled={busy}
-              onClick={() => send(true)}
+              onClick={async () => send(true)}
               type="button"
             >
               {busy ? "Saving…" : "Save changes"}

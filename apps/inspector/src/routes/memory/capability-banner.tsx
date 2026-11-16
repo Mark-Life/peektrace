@@ -15,10 +15,10 @@ import { ReadOnlyReason } from "../../components/read-only";
 
 /** Map a support level to a short verdict phrase. */
 const VERDICT: Record<string, string> = {
-  planned: "planned",
   partial: "partial",
-  unsupported: "not supported",
+  planned: "planned",
   supported: "supported",
+  unsupported: "not supported",
 };
 
 /** Render the blocked verdict. */

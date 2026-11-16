@@ -22,9 +22,11 @@ export const ToolPaneView = ({ pane }: { readonly pane: ToolPane }) => {
       />
     );
   }
+
   if (pane.type === "prose") {
     return <ToolProse label={pane.label} text={pane.text} />;
   }
+
   return (
     <ToolInput code={pane.code} label={pane.label} language={pane.language} />
   );

@@ -45,11 +45,11 @@ export interface Filters {
 
 /** No facet selected, no query: the state the reset action restores. */
 export const NO_FILTERS: Filters = {
-  query: "",
   agent: ANY,
-  project: ANY,
   branch: ANY,
   model: ANY,
+  project: ANY,
+  query: "",
   range: undefined,
   source: ANY,
 };
@@ -63,7 +63,9 @@ const dayParam = (value: string | null) => {
   if (value === null || !DAY_KEY.test(value)) {
     return;
   }
+
   const day = fromDayKey(value);
+
   return day && toDayKey(day) === value ? day : undefined;
 };
 
@@ -71,20 +73,23 @@ const dayParam = (value: string | null) => {
  * missing `to` reads as a one-day range, and a reversed pair is swapped. */
 const rangeFromParams = (params: URLSearchParams): DateRange | undefined => {
   const from = dayParam(params.get("from"));
+
   if (!from) {
     return;
   }
+
   const to = dayParam(params.get("to")) ?? from;
+
   return to < from ? { from: to, to: from } : { from, to };
 };
 
 /** The string filters and the hash key each one is stored under. */
 const FILTER_KEY = {
-  query: "q",
   agent: "agent",
-  project: "project",
   branch: "branch",
   model: "model",
+  project: "project",
+  query: "q",
   source: "source",
 } as const satisfies Record<Exclude<keyof Filters, "range">, ListKey>;
 
@@ -111,6 +116,7 @@ const orNull = (value: string, fallback: string) =>
 const rangeToParams = (range: DateRange | undefined) => {
   const from = range?.from ? toDayKey(range.from) : null;
   const to = from && range?.to ? toDayKey(range.to) : null;
+
   return { from, to: to !== null && from !== null && to > from ? to : null };
 };
 
@@ -121,6 +127,7 @@ export const filtersToParams = (
   ...Object.fromEntries(
     STRING_FILTERS.flatMap((name) => {
       const value = f[name];
+
       return value === undefined
         ? []
         : [[FILTER_KEY[name], orNull(value, NO_FILTERS[name])]];
@@ -153,6 +160,7 @@ export const distinct = (
  * real calendar day. */
 const dayOf = (iso: string | undefined) => {
   const day = iso?.slice(0, 10) ?? "";
+
   return DAY_KEY.test(day) && !Number.isNaN(Date.parse(day)) ? day : "";
 };
 
@@ -164,9 +172,11 @@ const ISO_STAMP = /^\d{4}-(\d{2})-(\d{2})T(\d{2}:\d{2})/;
 export const fmtStamp = (iso: string | undefined) => {
   const parts = iso?.match(ISO_STAMP);
   const month = parts ? MONTHS[Number(parts[1]) - 1] : undefined;
+
   if (!(parts && month)) {
     return "—";
   }
+
   return `${month} ${Number(parts[2])}, ${parts[3]}`;
 };
 
@@ -176,13 +186,16 @@ export const stampTitle = (
   h: Pick<SessionHeader, "startedAt" | "updatedAt">
 ) => {
   const last = h.updatedAt ?? h.startedAt;
+
   if (!last) {
     return "unknown time";
   }
+
   const started =
     h.startedAt && h.startedAt !== last
       ? ` · started ${fmtStamp(h.startedAt)}`
       : "";
+
   return `Last activity ${fmtStamp(last)}${started}`;
 };
 
@@ -210,9 +223,11 @@ export const projectKey = (h: Pick<SessionHeader, "cwd" | "project">) =>
 const collisions = (labels: readonly string[]) => {
   const seen = new Set<string>();
   const dup = new Set<string>();
+
   for (const l of labels) {
     (seen.has(l) ? dup : seen).add(l);
   }
+
   return dup;
 };
 
@@ -223,23 +238,30 @@ export const projectOptions = (
   headers: readonly Pick<SessionHeader, "cwd" | "project">[]
 ): readonly FilterOption[] => {
   const byKey = new Map<string, Pick<SessionHeader, "cwd" | "project">>();
+
   for (const h of headers) {
     const key = projectKey(h);
+
     if (key && !byKey.has(key)) {
       byKey.set(key, h);
     }
   }
+
   const entries = [...byKey];
   const short = collisions(entries.map(([, h]) => projectLabel(h)));
+
   const first = entries.map(([value, h]) => {
     const label = projectLabel(h);
+
     return {
-      value,
       label:
         short.has(label) && h.cwd ? segments(h.cwd).slice(-2).join("/") : label,
+      value,
     };
   });
+
   const long = collisions(first.map((o) => o.label));
+
   return first
     .map((o) => (long.has(o.label) ? { ...o, label: o.value } : o))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -252,6 +274,7 @@ export const visibleBranch = (branch: string | undefined) =>
 /** Epoch ms of an ISO stamp; 0 if missing or unparseable. */
 const msOf = (iso: string | undefined) => {
   const ms = Date.parse(iso ?? "");
+
   return Number.isNaN(ms) ? 0 : ms;
 };
 
@@ -283,6 +306,7 @@ export const isLive = (
   now: number
 ) => {
   const key = recentKey(h, now);
+
   return key > 0 && now - key < LIVE_MS;
 };
 
@@ -292,10 +316,13 @@ const activeSpan = (h: Pick<SessionHeader, "startedAt" | "updatedAt">) => {
   const start = dayOf(h.startedAt);
   const end = dayOf(h.updatedAt);
   const from = start || end;
+
   if (!from) {
     return;
   }
+
   const to = end || start;
+
   return { from, to: to < from ? from : to };
 };
 
@@ -313,15 +340,19 @@ export const activeDays = (
   h: Pick<SessionHeader, "startedAt" | "updatedAt">
 ): readonly string[] => {
   const span = activeSpan(h);
+
   if (!span) {
     return [];
   }
+
   const days = [span.from];
   let day = span.from;
+
   while (day < span.to && days.length < MAX_SPAN_DAYS) {
     day = nextDay(day);
     days.push(day);
   }
+
   return days;
 };
 
@@ -331,12 +362,16 @@ const inRange = (h: SessionHeader, range: DateRange) => {
   if (!range.from) {
     return true;
   }
+
   const span = activeSpan(h);
+
   if (!span) {
     return false;
   }
+
   const from = toDayKey(range.from);
   const to = range.to ? toDayKey(range.to) : from;
+
   return span.from <= to && span.to >= from;
 };
 
@@ -345,25 +380,33 @@ export const matches = (h: SessionHeader, f: Filters) => {
   if (f.agent !== ANY && h.agent !== f.agent) {
     return false;
   }
+
   if (f.project !== ANY && projectKey(h) !== f.project) {
     return false;
   }
+
   if (f.branch !== ANY && h.gitBranch !== f.branch) {
     return false;
   }
+
   if (f.model !== ANY && h.model !== f.model) {
     return false;
   }
+
   if (f.source !== ANY && (h.sourceLabel ?? "") !== f.source) {
     return false;
   }
+
   if (f.range && !inRange(h, f.range)) {
     return false;
   }
+
   if (f.query.length > 0) {
     const hay = `${titleOf(h)} ${h.id}`.toLowerCase();
+
     return hay.includes(f.query.toLowerCase());
   }
+
   return true;
 };
 
@@ -371,6 +414,7 @@ export const matches = (h: SessionHeader, f: Filters) => {
  * passes. Every filter is checked on its own, so the rest stay as they are. */
 export const hidingFilters = (h: SessionHeader, f: Filters) => {
   const names = [...STRING_FILTERS, "range"] as const;
+
   return Object.fromEntries(
     names
       .filter((name) => !matches(h, { ...NO_FILTERS, [name]: f[name] }))

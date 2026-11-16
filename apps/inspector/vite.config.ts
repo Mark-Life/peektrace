@@ -20,25 +20,6 @@ const EFFECT_RE = /node_modules\/(effect|@effect|@effect-atom)\//;
 const REACT_RE = /node_modules\/(react|react-dom|scheduler)\//;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    // Workspace packages carry their own `react` dependency, so a version drift
-    // between them and this app resolves to two React copies. The second one
-    // has a null dispatcher and every hook call throws at render time.
-    dedupe: ["react", "react-dom"],
-  },
-  server: {
-    proxy: {
-      "/api": {
-        target: API_TARGET,
-        changeOrigin: true,
-        // The server only accepts its own origin; the dev origin differs.
-        configure: (proxy) => {
-          proxy.on("proxyReq", (req) => req.removeHeader("origin"));
-        },
-      },
-    },
-  },
   build: {
     rollupOptions: {
       output: {
@@ -68,6 +49,27 @@ export default defineConfig({
             return "vendor-icons";
           }
           return;
+        },
+      },
+    },
+  },
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    // Workspace packages carry their own `react` dependency, so a version drift
+    // between them and this app resolves to two React copies. The second one
+    // has a null dispatcher and every hook call throws at render time.
+    dedupe: ["react", "react-dom"],
+  },
+  server: {
+    proxy: {
+      "/api": {
+        target: API_TARGET,
+        changeOrigin: true,
+        // The server only accepts its own origin; the dev origin differs.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (req) => {
+            req.removeHeader("origin");
+          });
         },
       },
     },

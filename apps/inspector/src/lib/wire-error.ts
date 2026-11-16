@@ -6,7 +6,8 @@
  * `_tag` (e.g. show the CAS-conflict choice) instead of stringly-matching.
  */
 import type { ApiError } from "@workspace/view-core/api-types.gen";
-import { Cause, type Exit, Option } from "effect";
+import { Cause, Option } from "effect";
+import type { Exit } from "effect";
 
 /** Every typed error an `/api` route answers with. */
 export type WireError = ApiError;
@@ -39,6 +40,7 @@ export const asWireError = (value: unknown): WireError | undefined => {
   ) {
     return value as WireError;
   }
+
   return;
 };
 
@@ -59,31 +61,44 @@ export const wireErrorOfCause = (
 /** A human message for any wire error, with a CAS-conflict callout. */
 export const wireErrorMessage = (error: WireError): string => {
   switch (error._tag) {
-    case "FileChangedError":
+    case "FileChangedError": {
       return `The file changed on disk (${error.reason}) since you loaded it.`;
-    case "MemoryValidationError":
+    }
+    case "MemoryValidationError": {
       return error.reason;
-    case "MemoryNotFoundError":
+    }
+    case "MemoryNotFoundError": {
       return `Memory "${error.name}" not found in ${error.project}.`;
-    case "CapabilityUnsupportedError":
+    }
+    case "CapabilityUnsupportedError": {
       return `${error.agentId} does not support ${error.capabilityId}.`;
-    case "PathOutsideRootError":
+    }
+    case "PathOutsideRootError": {
       return `Refused: ${error.path} is outside the agent roots.`;
-    case "SessionNotFoundError":
+    }
+    case "SessionNotFoundError": {
       return `Session "${error.id}" was not found.`;
-    case "TranscriptParseError":
+    }
+    case "TranscriptParseError": {
       return `That transcript could not be read (${error.reason}). The file may be locked or malformed.`;
-    case "SettingsWriteError":
+    }
+    case "SettingsWriteError": {
       return `Settings could not be saved (${error.reason}).`;
-    case "BadRequestError":
+    }
+    case "BadRequestError": {
       return `The server refused the request (${error.reason}).`;
-    case "ImageNotFoundError":
+    }
+    case "ImageNotFoundError": {
       return "That image is not in the transcript.";
-    case "NotFoundError":
+    }
+    case "NotFoundError": {
       return `No such API route: ${error.path}.`;
-    case "MethodNotAllowedError":
+    }
+    case "MethodNotAllowedError": {
       return `The server does not accept ${error.method} here.`;
-    default:
+    }
+    default: {
       return "The request failed.";
+    }
   }
 };

@@ -9,8 +9,8 @@ import {
   Tool,
   ToolContent,
   ToolHeader,
-  type ToolState,
 } from "@workspace/ui/components/ai-elements/tool";
+import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type {
@@ -47,10 +47,10 @@ interface ChatToolCardProps {
 
 /** What a cause marker says: where its fix lives. */
 const CAUSE_MARK: Record<CauseKind, string> = {
-  rule: "rule",
   env: "env",
-  workflow: "workflow",
   none: "error",
+  rule: "rule",
+  workflow: "workflow",
 };
 
 /** Short glyph text per detector. The badge says what was printed, never that
@@ -60,11 +60,11 @@ const MARK_TEXT: Record<string, string> = {
   ...Object.fromEntries(
     Object.entries(CAUSES).map(([id, spec]) => [id, CAUSE_MARK[spec.kind]])
   ),
-  retry: "retry",
-  "piped-exit-code": "silent fail",
-  "silent-fail": "silent fail",
   capped: "capped",
+  "piped-exit-code": "silent fail",
   repeat: "repeat",
+  retry: "retry",
+  "silent-fail": "silent fail",
 };
 
 /** One stats marker, tinted amber and never red: a marked call is not an error
@@ -127,6 +127,7 @@ const ChatToolCardBody = ({
   const out = result ? resultPane(result) : null;
   const anchor = call ?? result;
   const cost = costPair(call, result);
+
   return (
     <ChatRow lane="agent" sidechain={anchor?.isSidechain === true}>
       <Tool
@@ -141,7 +142,9 @@ const ChatToolCardBody = ({
         data-testid="history-event"
         data-tool-use-id={anchor?.toolUseId ?? undefined}
         id={collapseId}
-        onOpenChange={(next: boolean) => onToggle(collapseId, next)}
+        onOpenChange={(next: boolean) => {
+          onToggle(collapseId, next);
+        }}
         open={open}
       >
         <ToolHeader

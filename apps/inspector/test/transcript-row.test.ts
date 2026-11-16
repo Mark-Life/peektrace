@@ -17,17 +17,17 @@ import {
 } from "../src/lib/transcript-row";
 
 const event: TimelineEvent = {
-  index: 7,
-  kind: "tool-call",
-  ts: "2026-08-08T15:00:00.000Z",
-  requestId: "req_1",
-  isSidechain: false,
-  title: "Bash",
-  preview: "ls -la /workspace",
   body: '{"command":"ls -la /workspace"}',
+  index: 7,
+  isSidechain: false,
+  kind: "tool-call",
+  preview: "ls -la /workspace",
+  requestId: "req_1",
+  title: "Bash",
   tokensEst: 42,
   toolName: "Bash",
   toolUseId: "toolu_1",
+  ts: "2026-08-08T15:00:00.000Z",
 };
 
 describe("sameEvent", () => {
@@ -56,18 +56,19 @@ describe("sameEvent", () => {
     const edited: TimelineEvent = {
       ...event,
       contextEdit: {
-        status: "replaced",
         atIndex: 9,
-        originalTokensEst: 10,
         original: "old",
+        originalTokensEst: 10,
+        status: "replaced",
       },
     };
+
     expect(sameEvent(edited, structuredClone(edited))).toBe(true);
     expect(sameEvent(event, edited)).toBe(false);
     expect(
       sameChatEvent(edited, {
         ...edited,
-        contextEdit: { status: "removed", atIndex: 9 },
+        contextEdit: { atIndex: 9, status: "removed" },
       })
     ).toBe(false);
   });
@@ -75,10 +76,11 @@ describe("sameEvent", () => {
   test("an attachment that changes type re-renders its badge", () => {
     const listing: TimelineEvent = {
       ...event,
+      attachmentType: "skill_listing",
       kind: "attachment",
       toolName: undefined,
-      attachmentType: "skill_listing",
     };
+
     expect(sameEvent(listing, { ...listing, attachmentType: "todo" })).toBe(
       false
     );

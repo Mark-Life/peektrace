@@ -11,6 +11,7 @@ import { EyeOffIcon } from "lucide-react";
 
 /** Full-scale percentage. */
 const FULL_PCT = 100;
+
 /** Fill ratio (%) above which the bar warns amber. */
 const WARN_PCT = 80;
 
@@ -25,6 +26,7 @@ const barColor = ({
   if (over) {
     return "bg-red-500";
   }
+
   return pct > WARN_PCT ? "bg-amber-500" : "bg-emerald-500";
 };
 
@@ -42,6 +44,7 @@ const Bar = ({
 }) => {
   const pct = Math.min(FULL_PCT, Math.round((value / max) * FULL_PCT));
   const over = value > max;
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-baseline justify-between text-xs">
@@ -72,6 +75,7 @@ export const BudgetGauge = ({ budget }: { readonly budget: IndexBudget }) => {
       </p>
     );
   }
+
   return (
     <div className="flex flex-col gap-3" data-testid="budget-gauge">
       <Bar

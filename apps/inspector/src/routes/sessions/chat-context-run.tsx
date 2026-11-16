@@ -22,13 +22,11 @@ import {
   SparklesIcon,
   WrenchIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 
-import {
-  chipLabel,
-  type RunItem,
-  type TranscriptRowRef,
-} from "../../lib/chat-lane";
+import { chipLabel } from "../../lib/chat-lane";
+import type { RunItem, TranscriptRowRef } from "../../lib/chat-lane";
 import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import { chatCollapseId } from "../../lib/session-view";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
@@ -75,6 +73,7 @@ const ContextChip = ({
 }) => {
   const id = chatCollapseId(pos);
   const Icon = itemIcon(e);
+
   return (
     <Badge asChild variant="outline">
       <button
@@ -86,7 +85,9 @@ const ContextChip = ({
         data-state="closed"
         data-testid="chat-chip"
         id={id}
-        onClick={() => onToggle(id, true)}
+        onClick={() => {
+          onToggle(id, true);
+        }}
         title={e.attachmentType ?? e.kind}
         type="button"
       >
@@ -116,6 +117,7 @@ const ContextCard = ({
 }) => {
   const id = chatCollapseId(pos);
   const Icon = itemIcon(e);
+
   return (
     <section
       className="border-primary/40 bg-background w-full overflow-hidden rounded-md border"
@@ -130,7 +132,9 @@ const ContextCard = ({
         data-state="open"
         data-testid="chat-chip"
         id={id}
-        onClick={() => onToggle(id, false)}
+        onClick={() => {
+          onToggle(id, false);
+        }}
         title="Collapse"
         type="button"
       >
@@ -166,16 +170,19 @@ export const segmentsOf = (
   open: (item: TranscriptRowRef) => boolean
 ): Segment[] => {
   const out: Segment[] = [];
+
   for (const item of items) {
     const last = out.at(-1);
+
     if (open(item)) {
-      out.push({ type: "card", item });
+      out.push({ item, type: "card" });
     } else if (last?.type === "chips") {
       last.items.push(item);
     } else {
-      out.push({ type: "chips", items: [item] });
+      out.push({ items: [item], type: "chips" });
     }
   }
+
   return out;
 };
 
@@ -200,7 +207,9 @@ export const foldRepeats = ({
     allOpen ||
     forceExpand ||
     items.some((item) => item.repeat && opened(item));
+
   const visible = reveal ? items : items.filter((item) => !item.repeat);
+
   return { folded: items.length - visible.length, visible };
 };
 
@@ -213,13 +222,17 @@ export const chipWindow = ({
   readonly showAll: boolean;
 }) => {
   const { folded, visible } = foldRepeats({ ...args, showRepeats: showAll });
+
   const lastOpened = visible.reduce(
     (last, item, i) => (args.opened(item) ? i : last),
     -1
   );
+
   const expanded =
     showAll || args.allOpen || args.forceExpand || lastOpened >= CHIP_LIMIT;
+
   const shown = expanded ? visible : visible.slice(0, CHIP_LIMIT);
+
   return { folded, hidden: visible.length - shown.length, shown };
 };
 
@@ -248,6 +261,7 @@ export const ChatContextRun = ({
 }) => {
   const [showAll, setShowAll] = useState(false);
   const opened = (item: TranscriptRowRef) => isOpen(chatCollapseId(item.pos));
+
   const { folded, hidden, shown } = chipWindow({
     allOpen,
     forceExpand,
@@ -255,8 +269,10 @@ export const ChatContextRun = ({
     opened,
     showAll,
   });
+
   const tokens = items.reduce((n, { e }) => n + eventTokens(e).tokens, 0);
   const segments = segmentsOf(shown, opened);
+
   const extras =
     folded > 0 || hidden > 0 ? (
       <>
@@ -265,7 +281,9 @@ export const ChatContextRun = ({
             <button
               className={`${CHIP} text-muted-foreground`}
               data-testid="chat-chip-unchanged"
-              onClick={() => setShowAll(true)}
+              onClick={() => {
+                setShowAll(true);
+              }}
               title="Same as earlier in this session"
               type="button"
             >
@@ -277,7 +295,9 @@ export const ChatContextRun = ({
           <Badge asChild variant="outline">
             <button
               className={CHIP}
-              onClick={() => setShowAll(true)}
+              onClick={() => {
+                setShowAll(true);
+              }}
               type="button"
             >
               +{hidden} more

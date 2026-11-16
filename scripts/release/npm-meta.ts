@@ -7,10 +7,12 @@ const DESCRIPTION_RE = /pub const DESCRIPTION: &str = "([^"]+)";/;
 
 /** The one-line description the CLI prints in `--help`. */
 const readDescription = () => {
-  const found = DESCRIPTION_RE.exec(readFileSync(HELP_RS, "utf8"))?.[1];
+  const found = DESCRIPTION_RE.exec(readFileSync(HELP_RS, "utf-8"))?.[1];
+
   if (!found) {
     throw new Error(`No DESCRIPTION const in ${HELP_RS}`);
   }
+
   return found;
 };
 
@@ -40,11 +42,11 @@ export interface Target {
 
 /** The platforms shipped as `@peektrace/cli-<platform>-<arch>` packages. */
 export const TARGETS = [
-  { platform: "darwin", arch: "arm64", asset: "peektrace-darwin-arm64" },
-  { platform: "darwin", arch: "x64", asset: "peektrace-darwin-x64" },
-  { platform: "linux", arch: "x64", asset: "peektrace-linux-x64" },
-  { platform: "linux", arch: "arm64", asset: "peektrace-linux-arm64" },
-  { platform: "win32", arch: "x64", asset: "peektrace-windows-x64.exe" },
+  { arch: "arm64", asset: "peektrace-darwin-arm64", platform: "darwin" },
+  { arch: "x64", asset: "peektrace-darwin-x64", platform: "darwin" },
+  { arch: "x64", asset: "peektrace-linux-x64", platform: "linux" },
+  { arch: "arm64", asset: "peektrace-linux-arm64", platform: "linux" },
+  { arch: "x64", asset: "peektrace-windows-x64.exe", platform: "win32" },
 ] as const satisfies readonly Target[];
 
 /** `<platform>-<arch>`, the key `--targets` takes. */

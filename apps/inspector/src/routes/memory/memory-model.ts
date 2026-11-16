@@ -23,8 +23,10 @@ export const matchesQuery = (entry: MemoryEntry, q: string) => {
   if (q.length === 0) {
     return true;
   }
+
   const hay =
     `${entry.slug} ${entry.name ?? ""} ${entry.description ?? ""} ${entry.body}`.toLowerCase();
+
   return hay.includes(q.toLowerCase());
 };
 
@@ -60,8 +62,8 @@ export const visibleVaults = ({
   all.vaults
     .filter((v) => scope === "all" || v.slug === scope)
     .map((vault) => ({
-      vault,
       entries: filterEntries({ vault, query, type }),
+      vault,
     }))
     .filter(({ entries }) =>
       query.length === 0 && type === "all" ? true : entries.length > 0
@@ -82,18 +84,24 @@ export const titleOf = (e: MemoryEntry) => e.name ?? e.slug;
 /** Compare two entries by the active sort key. */
 export const compareBy = (key: SortKey) => (a: MemoryEntry, b: MemoryEntry) => {
   switch (key) {
-    case "title":
+    case "title": {
       return titleOf(a).localeCompare(titleOf(b));
-    case "type":
+    }
+    case "type": {
       return (a.type ?? "").localeCompare(b.type ?? "");
-    case "size":
+    }
+    case "size": {
       return a.size - b.size;
-    case "mtime":
+    }
+    case "mtime": {
       return a.mtimeMs - b.mtimeMs;
-    case "inIndex":
+    }
+    case "inIndex": {
       return Number(a.inIndex) - Number(b.inIndex);
-    default:
+    }
+    default: {
       return a.links.length - b.links.length;
+    }
   }
 };
 
@@ -104,6 +112,7 @@ export const sortEntries = (
   asc: boolean
 ) => {
   const arr = [...entries].sort(compareBy(sort));
+
   return asc ? arr : arr.reverse();
 };
 
@@ -116,12 +125,16 @@ export type BodyPart =
  * entry's links, else its lower-cased text. */
 export const bodyParts = (entry: MemoryEntry): BodyPart[] => {
   const targets = new Map(entry.links.map((l) => [l.rawTarget, l.targetSlug]));
+
   return entry.body.split(WIKILINK_SPLIT).map((part) => {
-    const m = part.match(WIKILINK_TOKEN);
+    const m = WIKILINK_TOKEN.exec(part);
+
     if (m?.[1]) {
       const raw = m[1];
+
       return { link: part, slug: targets.get(raw) ?? raw.toLowerCase() };
     }
+
     return { text: part };
   });
 };

@@ -87,6 +87,7 @@ const windowOf = (flags: string, showAll: boolean) => {
     opened: () => false,
     showAll,
   });
+
   return { folded, hidden, shown: shown.map((r) => r.pos) };
 };
 

@@ -24,6 +24,7 @@ export type GrowthSnapshot = Pick<
 
 /** Gap between the guide line and its label, in viewBox px. */
 const LABEL_GAP = 6;
+
 /** Label baseline below the plot top, in viewBox px. */
 const LABEL_DROP = 12;
 
@@ -80,17 +81,22 @@ export const TimelineHitLayer = ({
   const touch = useRef(false);
   // The snapshot the last tap showed; a second tap on it jumps.
   const armed = useRef(-1);
+
   // The snapshot count is read on every event, so a live session growing
   // under a still pointer maps to the current list. -1 outside the plot.
   const indexAt = (ev: MouseEvent) => {
     const box = area.current?.getBoundingClientRect();
+
     if (!box || box.width <= 0) {
       return -1;
     }
+
     const frac = (ev.clientX - box.left) / box.width;
+
     if (frac < 0 || frac > 1) {
       return -1;
     }
+
     return snapIndexAtX({
       left,
       n: snaps.length,
@@ -98,9 +104,11 @@ export const TimelineHitLayer = ({
       px: left + frac * plotW,
     });
   };
+
   const snap = hover >= 0 ? snaps[hover] : undefined;
   const hx = snap ? x(hover) : 0;
   const rightHalf = hx > left + plotW / 2;
+
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only shortcut; the dumb-zone and peak markers are the keyboard path
     <g
@@ -108,17 +116,21 @@ export const TimelineHitLayer = ({
       onClick={(ev) => {
         const i = indexAt(ev);
         const s = snaps[i];
+
         if (!s) {
           return;
         }
+
         if (
           clickAction({ armed: armed.current, i, touch: touch.current }) ===
           "show"
         ) {
           armed.current = i;
           setHover(i);
+
           return;
         }
+
         armed.current = -1;
         onTurn(s.turnIndex + 1);
       }}

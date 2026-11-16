@@ -72,6 +72,7 @@ const FailureView = ({
   readonly retrying: boolean;
 }) => {
   const wire = wireErrorOfCause(cause);
+
   return (
     <Alert data-testid="result-error" variant="destructive">
       <AlertTitle>
@@ -123,6 +124,7 @@ export const ResultView = <A, E>({
       />
     );
   }
+
   if (Result.isSuccess(result)) {
     // A refetch over data already on screen renders that data and nothing else:
     // no wrapper, no pulse, no remount. `result.waiting` is reported by the
@@ -130,5 +132,6 @@ export const ResultView = <A, E>({
     // once per agent write is what made it unreadable.
     return <>{children(result.value)}</>;
   }
+
   return <>{pending ?? <DefaultPending />}</>;
 };

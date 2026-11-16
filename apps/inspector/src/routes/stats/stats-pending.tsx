@@ -10,9 +10,15 @@ const TICK_MS = 1000;
 const useElapsedSeconds = (since: number) => {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, TICK_MS);
+
+    return () => {
+      clearInterval(id);
+    };
   }, []);
+
   return Math.max(0, Math.floor((now - since) / TICK_MS));
 };
 
@@ -20,7 +26,10 @@ const useElapsedSeconds = (since: number) => {
  * announces text added after it exists, so the note is filled in late. */
 const useMounted = () => {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return mounted;
 };
 
@@ -35,6 +44,7 @@ const TableBlock = () => (
 export const StatsPending = ({ since }: { readonly since: number }) => {
   const seconds = useElapsedSeconds(since);
   const announce = useMounted();
+
   return (
     <div className="flex flex-col gap-8" data-testid="stats-pending">
       <div className="flex flex-col gap-2">

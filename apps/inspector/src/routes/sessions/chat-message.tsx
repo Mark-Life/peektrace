@@ -24,9 +24,11 @@ import {
   zoneOf,
 } from "@workspace/viz/lib/session-format";
 import { BrainIcon, ChevronRightIcon } from "lucide-react";
-import { memo, type ReactNode, useState } from "react";
+import { memo, useState } from "react";
+import type { ReactNode } from "react";
 
-import { type ChatLane, needsClamp } from "../../lib/chat-lane";
+import { needsClamp } from "../../lib/chat-lane";
+import type { ChatLane } from "../../lib/chat-lane";
 import { fmtThinkingMs, thinkingNote } from "../../lib/event-labels";
 import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import { chatPanelId, disclosureProps } from "../../lib/session-view";
@@ -72,6 +74,7 @@ const clampClass = ({
   if (!clamps) {
     return "";
   }
+
   return open ? OPENED : CLAMPED;
 };
 
@@ -133,10 +136,16 @@ const RawButton = ({
  *  Only for surfaces that mount it when already open — see `RawButton`. */
 export const RawToggle = ({ body }: { readonly body: string }) => {
   const [raw, setRaw] = useState(false);
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex">
-        <RawButton onClick={() => setRaw(!raw)} raw={raw} />
+        <RawButton
+          onClick={() => {
+            setRaw(!raw);
+          }}
+          raw={raw}
+        />
       </div>
       {raw ? (
         <CodeBlock
@@ -174,6 +183,7 @@ const ChatBubbleBody = ({
   const hasBody = e.body.trim().length > 0;
   const clamps = needsClamp(e);
   const [raw, setRaw] = useState(false);
+
   return (
     <ChatRow lane={lane} sidechain={e.isSidechain === true}>
       <div
@@ -208,14 +218,21 @@ const ChatBubbleBody = ({
               aria-expanded={open}
               className={META_BUTTON}
               data-testid="chat-show-all"
-              onClick={() => onToggle(collapseId, !open)}
+              onClick={() => {
+                onToggle(collapseId, !open);
+              }}
               size="xs"
               variant="ghost"
             >
               {open ? "Show less" : "Show all"}
             </Button>
           ) : null}
-          <RawButton onClick={() => setRaw(!raw)} raw={raw} />
+          <RawButton
+            onClick={() => {
+              setRaw(!raw);
+            }}
+            raw={raw}
+          />
         </div>
         <ContextEditNote e={e} />
         {raw ? (
@@ -272,7 +289,9 @@ const ChatThinkingBody = ({
         className="border-border text-muted-foreground hover:bg-muted/30 flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-dashed px-3 py-1.5 text-xs italic"
         data-state={open ? "open" : "closed"}
         {...disclosureProps(chatPanelId(collapseId), open)}
-        onClick={() => onToggle(collapseId, !open)}
+        onClick={() => {
+          onToggle(collapseId, !open);
+        }}
         type="button"
       >
         <ChevronRightIcon

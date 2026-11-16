@@ -5,17 +5,10 @@
  * below a spacer, which keeps each layout's own width and centring; heights
  * come from `estimate` until an item is drawn and measured.
  */
-import {
-  defaultRangeExtractor,
-  type Range,
-  useVirtualizer,
-  type VirtualItem,
-} from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
+import type { Range, VirtualItem } from "@tanstack/react-virtual";
 import { cn } from "@workspace/ui/lib/utils";
 import {
-  type CSSProperties,
-  type ReactNode,
-  type Ref,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -23,13 +16,11 @@ import {
   useRef,
   useState,
 } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 
 import { useScrollRoot } from "../../lib/scroll-root";
-import {
-  keepIndex,
-  splitPinned,
-  type VirtualListHandle,
-} from "../../lib/virtual-range";
+import { keepIndex, splitPinned } from "../../lib/virtual-range";
+import type { VirtualListHandle } from "../../lib/virtual-range";
 
 /** Items drawn past each edge of the screen: enough that a fast scroll or a
  *  Tab press rarely reaches an unmounted block. */
@@ -56,19 +47,23 @@ const watchAbove = (
   update: () => void
 ) => {
   const resize = new ResizeObserver(update);
+
   const wire = () => {
     resize.disconnect();
     resize.observe(root);
+
     for (let n: Element | null = list; n && n !== root; n = n.parentElement) {
       for (let s = n.previousElementSibling; s; s = s.previousElementSibling) {
         resize.observe(s);
       }
     }
   };
+
   const mutate = new MutationObserver(() => {
     wire();
     update();
   });
+
   for (
     let p: HTMLElement | null = list.parentElement;
     p;
@@ -76,7 +71,9 @@ const watchAbove = (
   ) {
     mutate.observe(p, { childList: true });
   }
+
   wire();
+
   return () => {
     resize.disconnect();
     mutate.disconnect();
@@ -94,17 +91,22 @@ const useScrollMargin = (
     if (!(root && list)) {
       return;
     }
+
     const update = () => {
       const next = Math.round(
         list.getBoundingClientRect().top -
           root.getBoundingClientRect().top +
           root.scrollTop
       );
+
       setMargin((prev) => (prev === next ? prev : next));
     };
+
     update();
+
     return watchAbove(root, list, update);
   }, [root, list]);
+
   return margin;
 };
 
@@ -116,13 +118,16 @@ const useFocusedKey = (list: HTMLElement | null) => {
     if (!list) {
       return;
     }
+
     const onIn = (ev: FocusEvent) => {
       const item =
         ev.target instanceof Element
           ? ev.target.closest<HTMLElement>("[data-key]")
           : null;
+
       setFocused(item?.dataset.key ?? null);
     };
+
     const onOut = (ev: FocusEvent) => {
       if (
         !(ev.relatedTarget instanceof Node && list.contains(ev.relatedTarget))
@@ -130,13 +135,16 @@ const useFocusedKey = (list: HTMLElement | null) => {
         setFocused(null);
       }
     };
+
     list.addEventListener("focusin", onIn);
     list.addEventListener("focusout", onOut);
+
     return () => {
       list.removeEventListener("focusin", onIn);
       list.removeEventListener("focusout", onOut);
     };
   }, [list]);
+
   return focused;
 };
 
@@ -147,14 +155,18 @@ const TOP_SLACK = 2;
 /** The index of the drawn item holding focus, when it is on screen. */
 const focusedOnScreen = (list: HTMLElement, root: HTMLElement) => {
   let item = document.activeElement;
+
   while (item && item.parentElement !== list) {
     item = item.parentElement;
   }
+
   if (!(item instanceof HTMLElement)) {
     return null;
   }
+
   const pane = root.getBoundingClientRect();
   const box = item.getBoundingClientRect();
+
   return box.bottom > pane.top && box.top < pane.bottom
     ? Number(item.dataset.index)
     : null;
@@ -163,9 +175,11 @@ const focusedOnScreen = (list: HTMLElement, root: HTMLElement) => {
 /** The first item in plain flow that reaches below the pane's top edge. */
 const firstOnScreen = (list: HTMLElement, root: HTMLElement) => {
   const top = root.getBoundingClientRect().top + TOP_SLACK;
+
   if (list.getBoundingClientRect().top >= top) {
     return -1;
   }
+
   for (const el of list.querySelectorAll<HTMLElement>(
     ":scope > [data-index]"
   )) {
@@ -173,6 +187,7 @@ const firstOnScreen = (list: HTMLElement, root: HTMLElement) => {
       return Number(el.dataset.index);
     }
   }
+
   return -1;
 };
 
@@ -219,6 +234,7 @@ export const VirtualList = <T,>({
   const focused = focusedKey === null ? null : keys.indexOf(focusedKey);
 
   const getItemKey = useCallback((i: number) => keys[i] ?? i, [keys]);
+
   const rangeExtractor = useCallback(
     (range: Range) =>
       keepIndex({
@@ -234,6 +250,7 @@ export const VirtualList = <T,>({
     enabled: virtual,
     estimateSize: (i) => {
       const it = items[i];
+
       return it === undefined ? 0 : estimate(it);
     },
     getItemKey,
@@ -252,6 +269,7 @@ export const VirtualList = <T,>({
       null,
     [list]
   );
+
   useImperativeHandle(
     ref,
     () => ({
@@ -259,22 +277,29 @@ export const VirtualList = <T,>({
       scrollToIndex: (index, align) => {
         if (virtual) {
           v.scrollToIndex(index, { align });
+
           return;
         }
+
         elementAt(index)?.scrollIntoView({ block: align });
       },
       topIndex: () => {
         if (!(list && root)) {
           return -1;
         }
+
         const focusedIndex = focusedOnScreen(list, root);
+
         if (focusedIndex !== null) {
           return focusedIndex;
         }
+
         if (!virtual) {
           return firstOnScreen(list, root);
         }
+
         const offset = (v.scrollOffset ?? 0) + TOP_SLACK;
+
         return offset < scrollMargin
           ? -1
           : (v.getVirtualItemForOffset(offset)?.index ?? -1);
@@ -288,23 +313,30 @@ export const VirtualList = <T,>({
     if (lastMeasureKey.current === measureKey || !list) {
       return;
     }
+
     lastMeasureKey.current = measureKey;
+
     if (!virtual) {
       return;
     }
+
     // Only re-anchor when the reader is inside the list; above it, the page
     // is already where they left it.
     const offset = v.scrollOffset ?? 0;
+
     const anchor =
       offset > scrollMargin
         ? v.getVirtualItemForOffset(offset + scrollPaddingStart)
         : undefined;
+
     v.measure();
+
     for (const el of list.querySelectorAll<HTMLLIElement>(
       ":scope > [data-index]"
     )) {
       v.measureElement(el);
     }
+
     if (anchor) {
       v.scrollToIndex(anchor.index, { align: "start" });
     }
@@ -314,6 +346,7 @@ export const VirtualList = <T,>({
   const drawn: readonly Pick<VirtualItem, "index" | "start">[] = virtual
     ? v.getVirtualItems()
     : items.map((_, index) => ({ index, start: 0 }));
+
   const { flow, pinned } = splitPinned(drawn);
   const top = virtual ? (flow[0]?.start ?? scrollMargin) - scrollMargin : 0;
   const first = flow[0]?.index ?? -1;
@@ -330,6 +363,7 @@ export const VirtualList = <T,>({
   const item = (it: Pick<VirtualItem, "index" | "start">) => {
     const value = items[it.index];
     const key = keys[it.index] ?? String(it.index);
+
     const style: CSSProperties | undefined = pinned.includes(it)
       ? {
           left: 0,
@@ -338,6 +372,7 @@ export const VirtualList = <T,>({
           top: it.start - scrollMargin,
         }
       : undefined;
+
     return value === undefined ? null : (
       <li
         aria-posinset={it.index + 1}

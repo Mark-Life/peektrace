@@ -15,15 +15,17 @@ const RELATIVE_LINK = /\]\((?!https?:|#|mailto:)([^)\s]+)\)/g;
 export const npmReadme = (rootMd: string, ref: string) => {
   const cut = rootMd.search(CUT_HEADING);
   const head = cut === -1 ? rootMd : rootMd.slice(0, cut);
+
   const body = head
-    .replace(IMAGE_LINE, "")
-    .replace(
+    .replaceAll(IMAGE_LINE, "")
+    .replaceAll(
       RELATIVE_LINK,
       (_m, path: string) =>
         `](https://github.com/${REPO}/blob/${ref}/${path.replace(LEADING_DOT_SLASH, "")})`
     )
-    .replace(/\n{3,}/g, "\n\n")
+    .replaceAll(/\n{3,}/g, "\n\n")
     .trimEnd()
     .replace(TRAILING_RULE, "");
+
   return `${body}\n\n---\n\nSource: https://github.com/${REPO}\n\nLicense: MIT\n`;
 };

@@ -19,6 +19,7 @@ describe("npmReadme (synthetic input)", () => {
     "dev only",
     "",
   ].join("\n");
+
   const out = npmReadme(input, REF);
 
   test("cuts at Develop", () => {
@@ -45,6 +46,7 @@ describe("npmReadme (root README)", async () => {
   const root = await Bun.file(
     join(import.meta.dirname, "../../README.md")
   ).text();
+
   const out = npmReadme(root, REF);
 
   test("has no repo-relative links or images", () => {

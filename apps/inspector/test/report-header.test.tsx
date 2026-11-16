@@ -15,14 +15,15 @@ test("a rescan in flight disables the button and says so", () => {
       <ReportHeader
         agent={null}
         days={30}
-        onAgent={() => undefined}
-        onDays={() => undefined}
-        onRescan={() => undefined}
+        onAgent={() => {}}
+        onDays={() => {}}
+        onRescan={() => {}}
         prompt={null}
         report={report({ fails: [], time: [] })}
         rescanning={rescanning}
       />
     );
+
   expect(header(false)).toContain("Rescan</button>");
   expect(header(false)).not.toMatch(RESCAN_BUSY);
   expect(header(true)).toContain("Rescanning…");

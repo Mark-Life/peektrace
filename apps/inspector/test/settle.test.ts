@@ -19,10 +19,12 @@ test("settleDelay waits for quiet after the last bump", () => {
 
 test("settleDelay is capped by maxWait under continuous bumps", () => {
   const t = { maxWait: 4000, wait: 1500 };
+
   // A bump every second: the trailing deadline keeps moving, maxWait does not.
   const delays = [1000, 2000, 3000].map((now) =>
     settleDelay({ firstPendingAt: 0, lastBumpAt: now, now }, t)
   );
+
   expect(delays).toEqual([1500, 1500, 1000]);
   expect(
     settleDelay({ firstPendingAt: 0, lastBumpAt: 5000, now: 5000 }, t)
@@ -36,10 +38,11 @@ const setup = () => {
   const registry = Registry.make();
   const seen: number[] = [];
   registry.subscribe(settled, (v) => seen.push(v), { immediate: true });
+
   return { paused, registry, seen, source };
 };
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const wait = async (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 test("a burst of bumps emits once, with the latest value", async () => {
   const { registry, seen, source } = setup();
@@ -53,10 +56,12 @@ test("a burst of bumps emits once, with the latest value", async () => {
 
 test("continuous bumps still emit by maxWait", async () => {
   const { registry, seen, source } = setup();
+
   for (let v = 1; v <= 10; v++) {
     registry.set(source, v);
     await wait(10);
   }
+
   // 100 ms of bumps every 10 ms: a trailing-only debounce would not have fired.
   expect(seen.length).toBeGreaterThan(1);
   expect(seen[1]).toBeLessThan(10);

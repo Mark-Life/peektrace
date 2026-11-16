@@ -1,7 +1,8 @@
 /** `[` and `]` in an open transcript: scroll to the previous or next turn and
  * move focus there, so a screen reader announces it and the item stays
  * mounted while the reader moves on. */
-import { type RefObject, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import type { RefObject } from "react";
 
 import { useShortcut } from "./shortcuts";
 import { stepStop } from "./turn-nav";
@@ -16,18 +17,27 @@ export const useTurnNav = ({
   readonly list: RefObject<VirtualListHandle | null>;
   readonly stops: readonly number[];
 }) => {
-  const cancel = useRef<() => void>(() => undefined);
-  useEffect(() => () => cancel.current(), []);
+  const cancel = useRef<() => void>(() => {});
+  useEffect(
+    () => () => {
+      cancel.current();
+    },
+    []
+  );
 
   const go = (dir: "next" | "prev") => {
     const handle = list.current;
+
     if (!handle) {
       return;
     }
+
     const index = stepStop({ anchor: handle.topIndex(), dir, stops });
+
     if (index === null) {
       return;
     }
+
     cancel.current();
     cancel.current = landAt({
       align: "start",
@@ -37,6 +47,10 @@ export const useTurnNav = ({
     });
   };
 
-  useShortcut("prevTurn", () => go("prev"));
-  useShortcut("nextTurn", () => go("next"));
+  useShortcut("prevTurn", () => {
+    go("prev");
+  });
+  useShortcut("nextTurn", () => {
+    go("next");
+  });
 };

@@ -35,8 +35,8 @@ const ID_PREFIX = 8;
 const PROVIDER_LABEL: Record<string, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
-  pi: "Pi",
   opencode: "OpenCode",
+  pi: "Pi",
 };
 
 /** The session's display name: its title, else the harness that produced it. */
@@ -74,6 +74,7 @@ const CostValue = ({
     cost,
     PROVIDER_LABEL[provider] ?? provider
   );
+
   return (
     <span
       data-testid="session-cost"
@@ -117,7 +118,9 @@ const JumpChip = ({
     >
       <button
         data-testid={testId}
-        onClick={() => onJump(jump)}
+        onClick={() => {
+          onJump(jump);
+        }}
         title={hint}
         type="button"
       >
@@ -134,7 +137,8 @@ const JumpChip = ({
 /** The peak gauge track: fill width = peak fraction, dumb-zone tick overlaid. */
 const PeakGauge = ({ a }: { readonly a: SessionOverview }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
-  const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
+  const zone = zoneOf({ dumbZone: a.dumbZoneFraction, frac });
+
   return (
     <div className="flex flex-col gap-1" data-testid="peak-gauge">
       <div className="bg-muted relative h-4 overflow-hidden rounded-full">
@@ -169,10 +173,12 @@ export const VerdictHeader = ({
   readonly onJump?: (j: SessionJump) => void;
 }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
-  const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
+  const zone = zoneOf({ dumbZone: a.dumbZoneFraction, frac });
+
   const cacheFrac = a.peakContextTokens
     ? a.peakCacheReadTokens / a.peakContextTokens
     : 0;
+
   return (
     <section
       className="border-border @container flex flex-col gap-4 rounded-lg border p-3 md:p-4"

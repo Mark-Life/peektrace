@@ -6,7 +6,8 @@
  * its outline: React never renders that attribute, so setting it by hand is
  * safe.
  */
-import { type RefObject, useEffect } from "react";
+import { useEffect } from "react";
+import type { RefObject } from "react";
 
 import { rangesIn, textRanges } from "./history-search";
 
@@ -35,9 +36,11 @@ export const cardOf = ({
   readonly id: string;
 }) => {
   const sel = CSS.escape(id);
+
   const el = container.querySelector<HTMLElement>(
     `[id="${sel}"], [data-collapse-id="${sel}"]`
   );
+
   return (
     el?.closest<HTMLElement>('[data-testid="chat-chip-card"]') ?? el ?? null
   );
@@ -54,11 +57,13 @@ export const firstHitIn = ({
   readonly needle: string;
 }) => {
   const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
     if (textRanges(node.nodeValue ?? "", needle).length > 0) {
       return node.parentElement ?? card;
     }
   }
+
   return card;
 };
 
@@ -73,12 +78,14 @@ function* textNodes(root: HTMLElement, skip: HTMLElement | null = null) {
         if (node === skip) {
           return NodeFilter.FILTER_REJECT;
         }
+
         return node.nodeType === Node.TEXT_NODE
           ? NodeFilter.FILTER_ACCEPT
           : NodeFilter.FILTER_SKIP;
       },
     }
   );
+
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
     yield node;
   }
@@ -92,12 +99,14 @@ const toHighlight = (
   }[]
 ) => {
   const out = new Highlight();
+
   for (const { end, node, start } of ranges) {
     const range = new Range();
     range.setStart(node, start);
     range.setEnd(node, end);
     out.add(range);
   }
+
   return out;
 };
 
@@ -134,28 +143,34 @@ export const useSearchHighlight = ({
   useEffect(() => {
     const container = containerRef.current;
     const needle = query.toLowerCase();
+
     if (container === null || needle.length === 0) {
       return;
     }
+
     const reg = registry();
     let marked: HTMLElement | null = null;
     let frame = 0;
 
     const run = () => {
       frame = 0;
+
       const current =
         currentId === null ? null : cardOf({ container, id: currentId });
+
       if (marked !== current) {
         marked?.removeAttribute(CURRENT_ATTR);
         current?.setAttribute(CURRENT_ATTR, "");
         marked = current;
       }
+
       if (reg) {
         const { hits, inCurrent } = paint({ container, current, needle });
         reg.set(HIT_HIGHLIGHT, hits);
         reg.set(CURRENT_HIGHLIGHT, inCurrent);
       }
     };
+
     const schedule = () => {
       if (frame === 0) {
         frame = requestAnimationFrame(run);
@@ -169,11 +184,14 @@ export const useSearchHighlight = ({
       childList: true,
       subtree: true,
     });
+
     return () => {
       observer.disconnect();
+
       if (frame !== 0) {
         cancelAnimationFrame(frame);
       }
+
       marked?.removeAttribute(CURRENT_ATTR);
       reg?.delete(HIT_HIGHLIGHT);
       reg?.delete(CURRENT_HIGHLIGHT);

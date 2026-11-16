@@ -15,9 +15,11 @@ export const ContextEditBadge = ({
   readonly className?: string;
 }) => {
   const tag = e ? contextEditTag(e) : undefined;
+
   if (!(e && tag)) {
     return null;
   }
+
   return (
     <Badge
       className={cn(
@@ -40,9 +42,11 @@ export const ContextEditNote = ({
   readonly e: TimelineEvent | null | undefined;
 }) => {
   const note = e ? contextEditNote(e) : undefined;
+
   if (note === undefined) {
     return null;
   }
+
   return (
     <pre
       className="text-muted-foreground max-h-64 overflow-auto border-l-2 border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs wrap-break-word whitespace-pre-wrap"

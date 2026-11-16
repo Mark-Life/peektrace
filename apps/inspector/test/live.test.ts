@@ -4,7 +4,8 @@ import { describe, expect, test } from "bun:test";
 
 import type { WatchVersions } from "@workspace/view-core/api-types.gen";
 
-import { type LiveChannel, type LiveShare, startLive } from "../src/lib/live";
+import { startLive } from "../src/lib/live";
+import type { LiveChannel, LiveShare } from "../src/lib/live";
 
 type Listener = (event: { data?: string }) => void;
 
@@ -36,27 +37,30 @@ class FakeSource {
 const track = () => {
   const seen: WatchVersions[] = [];
   let reconnects = 0;
+
   return {
-    seen,
-    reconnects: () => reconnects,
     handlers: {
-      onVersions: (v: WatchVersions) => seen.push(v),
       onReconnect: () => {
         reconnects += 1;
       },
+      onVersions: (v: WatchVersions) => seen.push(v),
     },
+    reconnects: () => reconnects,
+    seen,
   };
 };
 
-const never = () => new Promise<WatchVersions>(() => undefined);
+const never = async () => new Promise<WatchVersions>(() => {});
 
 describe("startLive", () => {
   test("the snapshot sets versions", () => {
     const t = track();
+
     const stop = startLive(t.handlers, {
       EventSource: FakeSource as unknown as typeof EventSource,
       poll: never,
     });
+
     FakeSource.last?.emit("open");
     FakeSource.last?.emit("versions", '{"memory":0,"sessions":3}');
     expect(FakeSource.last?.url).toBe("/api/events");
@@ -68,10 +72,12 @@ describe("startLive", () => {
 
   test("a reconnect after an error refreshes once", () => {
     const t = track();
+
     const stop = startLive(t.handlers, {
       EventSource: FakeSource as unknown as typeof EventSource,
       poll: never,
     });
+
     const es = FakeSource.last;
     es?.emit("versions", '{"memory":0,"sessions":5}');
     es?.emit("error");
@@ -86,13 +92,16 @@ describe("startLive", () => {
   test("three failed opens fall back to polling", async () => {
     const t = track();
     let polls = 0;
+
     const stop = startLive(t.handlers, {
       EventSource: FakeSource as unknown as typeof EventSource,
-      poll: () => {
+      poll: async () => {
         polls += 1;
+
         return Promise.resolve({ memory: 2, sessions: 4 });
       },
     });
+
     const es = FakeSource.last;
     es?.emit("error");
     es?.emit("error");
@@ -109,20 +118,25 @@ describe("startLive", () => {
   test("an HTTP error that closes the stream polls at once and refreshes", async () => {
     const t = track();
     let polls = 0;
+
     const stop = startLive(t.handlers, {
       EventSource: FakeSource as unknown as typeof EventSource,
-      poll: () => {
+      poll: async () => {
         polls += 1;
+
         return Promise.resolve({ memory: 0, sessions: 7 });
       },
     });
+
     const es = FakeSource.last;
     es?.emit("versions", '{"memory":0,"sessions":5}');
     es?.emit("error");
     expect(polls).toBe(0);
+
     if (es !== undefined) {
       es.readyState = 2;
     }
+
     es?.emit("error");
     expect(es?.closed).toBe(true);
     await Promise.resolve();
@@ -134,9 +148,11 @@ describe("startLive", () => {
 
   test("no EventSource polls at once", async () => {
     const t = track();
+
     const stop = startLive(t.handlers, {
-      poll: () => Promise.resolve({ memory: 1, sessions: 1 }),
+      poll: async () => Promise.resolve({ memory: 1, sessions: 1 }),
     });
+
     await Promise.resolve();
     expect(t.seen).toEqual([{ memory: 1, sessions: 1 }]);
     expect(t.reconnects()).toBe(0);
@@ -145,11 +161,13 @@ describe("startLive", () => {
 
   test("tabs share one stream through the lock holder", async () => {
     const share = fakeShare();
+
     const deps = {
       EventSource: FakeSource as unknown as typeof EventSource,
-      poll: () => Promise.resolve({ memory: 0, sessions: 1 }),
+      poll: async () => Promise.resolve({ memory: 0, sessions: 1 }),
       share,
     };
+
     FakeSource.last = undefined;
     const a = track();
     const stopA = startLive(a.handlers, deps);
@@ -178,22 +196,25 @@ describe("startLive", () => {
   });
 });
 
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+const flush = async () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** One exclusive lock and one broadcast hub, as the tabs of an origin see. */
 const fakeShare = (): LiveShare => {
   const members = new Set<(message: unknown) => void>();
   const queue: (() => void)[] = [];
   let held = false;
+
   const next = () => {
     const grant = queue.shift();
+
     if (grant === undefined) {
       held = false;
     } else {
       grant();
     }
   };
-  const request = (
+
+  const request = async (
     _name: string,
     options: { signal?: AbortSignal },
     callback: () => Promise<void>
@@ -206,23 +227,28 @@ const fakeShare = (): LiveShare => {
           next();
         });
       };
+
       options.signal?.addEventListener("abort", () => {
         const i = queue.indexOf(grant);
-        if (i >= 0) {
+
+        if (i !== -1) {
           queue.splice(i, 1);
           reject(new Error("aborted"));
         }
       });
+
       if (held) {
         queue.push(grant);
       } else {
         grant();
       }
     });
+
   const channel = (): LiveChannel => {
     let fn: ((event: MessageEvent) => void) | undefined;
     const deliver = (data: unknown) => fn?.({ data } as MessageEvent);
     members.add(deliver);
+
     return {
       addEventListener: (_type, listener) => {
         fn = listener as (event: MessageEvent) => void;
@@ -237,6 +263,7 @@ const fakeShare = (): LiveShare => {
       },
     };
   };
+
   return {
     channel,
     locks: { request } as unknown as LiveShare["locks"],

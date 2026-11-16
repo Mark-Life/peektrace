@@ -20,6 +20,7 @@ export const useFreshServerInfo = () => {
       refresh();
     }
   }, [refresh]);
+
   return { info, refresh };
 };
 
@@ -28,6 +29,7 @@ export const useFreshServerInfo = () => {
 export const useLiveServerInfo = () => {
   const fresh = useFreshServerInfo();
   useOnVersionBump(useAtomValue(settledSessionsVersionAtom), fresh.refresh);
+
   return fresh;
 };
 

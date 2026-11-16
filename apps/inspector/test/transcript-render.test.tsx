@@ -172,6 +172,7 @@ const TURNS = EVENTS.map((e) => {
   if (e.requestId === "r1") {
     return 1;
   }
+
   return e.requestId === "r2" ? 2 : 0;
 });
 
@@ -197,6 +198,7 @@ const chatHtml = ({
 }) => {
   const plan = buildChatPlan({ crossEvtIdx: 9, rows: ROWS, turns: TURNS });
   const keys = chatNodeKeys(plan);
+
   return renderToStaticMarkup(
     <div>
       {plan.map((n, i) => (
@@ -288,11 +290,13 @@ const controlled = (html: string) =>
 test("collapsed chat toggles say closed and point at no missing panel", () => {
   const html = renderChat(false);
   expect(html).not.toContain('aria-expanded="true"');
+
   const toggles = (
     html.match(/<button [^>]*aria-expanded="false"[^>]*>/g) ?? []
   )
     .filter((tag) => !tag.includes('data-slot="collapsible-trigger"'))
     .filter((tag) => !tag.includes('data-testid="chat-chip"'));
+
   // three bands, the thinking strip, the notice, Show all
   expect(toggles).toHaveLength(6);
   // only Show all keeps its target mounted while closed
@@ -307,6 +311,7 @@ test("expanded chat toggles say open and each controls a rendered panel", () => 
   expect(ids.toSorted()).toEqual(
     [2, 9, 10, 13, 14, 15].map((pos) => `chat:${pos}:body`).toSorted()
   );
+
   for (const id of ids) {
     expect(countOf(html, `id="${id}"`)).toBe(1);
   }
@@ -316,6 +321,7 @@ test("expanded chat code blocks wrap instead of scrolling sideways", () => {
   const html = chatHtml({ open: true });
   const pres = html.match(/<pre class="[^"]*"/g) ?? [];
   expect(pres.length).toBeGreaterThan(0);
+
   for (const pre of pres) {
     expect(pre).toContain("whitespace-pre-wrap");
     expect(pre).toContain("min-w-fit");
@@ -354,9 +360,11 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       turns={TURNS}
     />
   );
+
   expect(chat).toContain('data-testid="chat-transcript"');
   expect(chat).toContain('aria-posinset="1"');
   expect(chat).toContain('data-testid="history-event"');
+
   const table = renderToStaticMarkup(
     <TranscriptTable
       a={SESSION}
@@ -375,6 +383,7 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       turns={TURNS}
     />
   );
+
   expect(table).toContain('data-testid="table-transcript"');
   expect(table).toContain(`aria-setsize="${ROWS.length}"`);
   // A short transcript mounts every row, so find-in-page reaches all of it.
@@ -398,12 +407,13 @@ test("token sort shows window share, hides the divider, marks the header", () =>
       onSort={noop}
       onToggle={noop}
       rows={ROWS}
-      sort={{ key: "tokens", dir: "desc" }}
+      sort={{ dir: "desc", key: "tokens" }}
       stickyHeight={0}
       tools={indexTools(SESSION)}
       turns={TURNS}
     />
   );
+
   expect(html).not.toContain('data-testid="dumbzone-divider"');
   expect(html).toContain("%");
   expect(html).toContain('aria-label="Sort by tokens, descending"');
@@ -424,6 +434,7 @@ test("empty filters read the same in both layouts", () => {
     tools: indexTools(SESSION),
     turns: TURNS,
   };
+
   const chat = renderToStaticMarkup(
     <TranscriptChat
       {...props}
@@ -433,9 +444,11 @@ test("empty filters read the same in both layouts", () => {
       queryActive={false}
     />
   );
+
   const table = renderToStaticMarkup(
     <TranscriptTable {...props} onSort={noop} sort={DEFAULT_HISTORY_SORT} />
   );
+
   expect(chat).toContain("No events match the filters.");
   expect(table).toContain("No events match the filters.");
 });
@@ -454,6 +467,7 @@ test("a stats marker lands on the card its detector counted", () => {
       ],
     ],
   ]);
+
   const html = chatHtml({ activeMark: "piped-exit-code", marks, open: false });
   expect(countOf(html, 'data-testid="stats-marker"')).toBe(1);
   expect(html).toContain('data-detector="piped-exit-code"');
@@ -480,10 +494,13 @@ test("summary chips are jump buttons only when the host can jump", () => {
   const live = renderToStaticMarkup(
     <VerdictHeader a={SUMMARY} onJump={noop} />
   );
+
   expect(countOf(live, "<button")).toBe(3);
+
   for (const id of ["chip-dumbzone", "chip-compaction", "chip-subagents"]) {
     expect(live).toContain(`data-testid="${id}"`);
   }
+
   // The visible text is the name; the jump hint follows for screen readers.
   expect(live).not.toContain("aria-label=");
   expect(live).toContain("1 compaction(s)");
@@ -497,6 +514,7 @@ test("the timeline takes clicks and focus only when the host can jump", () => {
   const live = renderToStaticMarkup(
     <GrowthTimeline a={SUMMARY} onTurn={noop} />
   );
+
   expect(live).toContain('data-testid="timeline-hit-area"');
   expect(countOf(live, 'role="button"')).toBe(2);
   expect(countOf(live, 'tabindex="0"')).toBe(2);
@@ -515,11 +533,14 @@ test("the hidden note says which kind of jump the filters hide", () => {
   const call = renderToStaticMarkup(
     <HiddenNote hidden="call" onClear={noop} />
   );
+
   expect(call).toContain('data-testid="history-call-hidden"');
   expect(call).toContain("The call this link points to");
+
   const jump = renderToStaticMarkup(
     <HiddenNote hidden="jump" onClear={noop} />
   );
+
   expect(jump).toContain('data-testid="history-jump-hidden"');
   expect(jump).toContain("The place you jumped to");
   expect(
@@ -532,9 +553,12 @@ test("a failed tool card keeps its badges out of the preview row", () => {
     if (e.index === 3) {
       return { ...e, preview: "read b.ts" };
     }
+
     return e.index === 4 ? { ...e, isError: true } : e;
   });
+
   const a = { ...SESSION, events };
+
   const marks: ToolMarks = new Map([
     [
       "t1",
@@ -548,6 +572,7 @@ test("a failed tool card keeps its badges out of the preview row", () => {
       ],
     ],
   ]);
+
   const html = renderToStaticMarkup(
     <TranscriptChat
       a={a}
@@ -569,6 +594,7 @@ test("a failed tool card keeps its badges out of the preview row", () => {
       turns={TURNS}
     />
   );
+
   const start = html.indexOf('data-tool-use-id="t1"');
   const end = html.indexOf("data-kind=", start);
   const card = html.slice(start, end === -1 ? undefined : end);
@@ -585,12 +611,15 @@ test("a failed tool card keeps its badges out of the preview row", () => {
 
 test("rows whose page has not arrived draw as placeholders under the same keys", () => {
   const index = indexRowsOf(EVENTS, TURNS);
+
   const indexRows = ROWS.map(({ pos }) => ({
     e: index[pos] ?? ROWS[0]?.e,
     pos,
   }));
+
   const keysOf = (html: string) =>
     [...html.matchAll(/data-key="([^"]+)"/g)].map(([, k]) => k);
+
   const props = {
     a: SESSION,
     bulkKey: 0,
@@ -603,6 +632,7 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
     tools: indexTools(SESSION),
     turns: TURNS,
   };
+
   const chat = (
     rows: typeof indexRows,
     eventAt?: (pos: number) => TimelineEvent | null
@@ -618,6 +648,7 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
         rows={rows}
       />
     );
+
   const whole = chat(ROWS);
   const pending = chat(indexRows, () => null);
   expect(keysOf(pending)).toEqual(keysOf(whole));
@@ -627,6 +658,7 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
   expect(pending).not.toContain('data-testid="history-event"');
   const loaded = chat(indexRows, (pos) => EVENTS[pos] ?? null);
   expect(loaded).toBe(whole);
+
   const table = (
     rows: typeof indexRows,
     eventAt?: (pos: number) => TimelineEvent | null
@@ -640,6 +672,7 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
         sort={DEFAULT_HISTORY_SORT}
       />
     );
+
   const tableWhole = table(ROWS);
   const tablePending = table(indexRows, () => null);
   expect(keysOf(tablePending)).toEqual(keysOf(tableWhole));

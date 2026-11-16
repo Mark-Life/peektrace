@@ -7,7 +7,8 @@
 import { Atom, Result } from "@effect-atom/atom-react";
 
 import { sessionsListAtom } from "./atoms";
-import { type SessionTitles, titleKey } from "./stats-format";
+import { titleKey } from "./stats-format";
+import type { SessionTitles } from "./stats-format";
 
 const NO_TITLES: SessionTitles = new Map();
 
@@ -18,6 +19,7 @@ export const sessionTitlesAtom = Atom.map(
     if (!Result.isSuccess(result)) {
       return NO_TITLES;
     }
+
     return new Map(
       result.value.flatMap((h) =>
         h.title ? [[titleKey(h.agent, h.id), h.title] as const] : []

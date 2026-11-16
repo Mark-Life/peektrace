@@ -8,11 +8,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { apiBlob } from "../../lib/api";
-import {
-  type ExportFormat,
-  exportName,
-  exportRequest,
-} from "../../lib/export-file";
+import { exportName, exportRequest } from "../../lib/export-file";
+import type { ExportFormat } from "../../lib/export-file";
 import type { SessionKey } from "../../lib/session-data";
 import { wireErrorMessage } from "../../lib/wire-error";
 
@@ -27,11 +24,13 @@ const download = (blob: Blob, name: string) => {
 
 const exportOf = (k: SessionKey, format: ExportFormat) => {
   const { path, query } = exportRequest(k, format);
+
   return apiBlob(path, query);
 };
 
 export const ExportButtons = ({ k }: { readonly k: SessionKey }) => {
   const [busy, setBusy] = useState<ExportFormat | null>(null);
+
   const run = (format: ExportFormat) => {
     setBusy(format);
     Effect.runPromise(Effect.either(exportOf(k, format)))
@@ -40,13 +39,18 @@ export const ExportButtons = ({ k }: { readonly k: SessionKey }) => {
           download(r.right, exportName(k.id, format));
         } else {
           const e = r.left;
+
           const why =
             e._tag === "TransportError" ? e.message : wireErrorMessage(e);
+
           toast.error(`Export failed: ${why}`);
         }
       })
-      .finally(() => setBusy(null));
+      .finally(() => {
+        setBusy(null);
+      });
   };
+
   return (
     <fieldset
       aria-busy={busy !== null}
@@ -63,7 +67,9 @@ export const ExportButtons = ({ k }: { readonly k: SessionKey }) => {
           aria-label={`Export as ${format}`}
           disabled={busy !== null}
           key={format}
-          onClick={() => run(format)}
+          onClick={() => {
+            run(format);
+          }}
           size="sm"
           variant="ghost"
         >

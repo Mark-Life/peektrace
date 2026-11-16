@@ -17,9 +17,9 @@ import {
   BellIcon,
   ChevronRightIcon,
   CogIcon,
-  type LucideIcon,
   TerminalIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { memo } from "react";
 
 import { tokenLabel } from "../../lib/event-tokens";
@@ -51,9 +51,11 @@ export const notificationFields = (body: string) =>
 const NoticeBody = ({ e }: { readonly e: TimelineEvent }) => {
   const fields =
     e.promptOrigin === "task-notification" ? notificationFields(e.body) : [];
+
   if (fields.length === 0) {
     return <EventBody className="max-h-[28rem] overflow-auto" e={e} />;
   }
+
   return (
     <dl className="bg-background grid max-h-[28rem] grid-cols-[max-content_1fr] gap-x-3 gap-y-1 overflow-auto rounded-md border px-3 py-2 font-mono text-[11px]">
       {fields.map(({ at, tag, value }) => (
@@ -78,6 +80,7 @@ const ChatNoticeBody = ({
   readonly open: boolean;
 }) => {
   const Icon = ORIGIN_ICON[e.promptOrigin ?? "harness"];
+
   return (
     <div className="flex w-full justify-center">
       <div
@@ -93,7 +96,9 @@ const ChatNoticeBody = ({
           className="flex w-full min-w-0 items-center gap-1.5 text-left"
           data-state={open ? "open" : "closed"}
           {...disclosureProps(chatPanelId(collapseId), open)}
-          onClick={() => onToggle(collapseId, !open)}
+          onClick={() => {
+            onToggle(collapseId, !open);
+          }}
           type="button"
         >
           <ChevronRightIcon

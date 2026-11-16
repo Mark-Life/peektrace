@@ -41,6 +41,7 @@ export const BudgetBar = ({
 }) => {
   const total = a.budget.reduce((s, b) => s + b.tokens, 0) || 1;
   const free = Math.max(0, a.contextWindow - a.peakContextTokens);
+
   return (
     <section
       className="border-border flex flex-col gap-3 rounded-lg border p-3 md:p-4"
@@ -53,13 +54,14 @@ export const BudgetBar = ({
       <div className="border-border flex h-7 w-full overflow-hidden rounded-md border">
         {a.budget.map((s) => {
           const pct = (PERCENT * s.tokens) / total;
+
           return (
             <div
               className="flex items-center justify-center"
               key={s.key}
               style={{
-                flex: s.tokens,
                 background: sliceBg(s.key, s.color),
+                flex: s.tokens,
               }}
               title={`${s.label}: ${fmt(s.tokens)} (${pct.toFixed(1)}%)`}
             >
@@ -91,9 +93,11 @@ export const BudgetBar = ({
         <TableBody>
           {a.budget.map((s) => {
             const pctWin = (PERCENT * s.tokens) / a.contextWindow;
+
             const pctCtx = a.peakContextTokens
               ? (PERCENT * s.tokens) / a.peakContextTokens
               : 0;
+
             return (
               <TableRow data-testid={`budget-row-${s.key}`} key={s.key}>
                 <TableCell>

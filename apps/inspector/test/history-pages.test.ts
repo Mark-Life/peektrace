@@ -7,18 +7,13 @@ import type {
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
 
+import { buildChatPlan } from "../src/lib/chat-lane";
+import type { ChatNode, EventRow } from "../src/lib/chat-lane";
 import {
-  buildChatPlan,
-  type ChatNode,
-  type EventRow,
-} from "../src/lib/chat-lane";
-import {
-  type BodyCache,
   EMPTY_BODIES,
   hydrator,
   mergeRow,
   missingFetches,
-  type Needed,
   neededBodies,
   pageOf,
   pagesFor,
@@ -27,6 +22,7 @@ import {
   storeBodies,
   trimBodies,
 } from "../src/lib/history-pages";
+import type { BodyCache, Needed } from "../src/lib/history-pages";
 import { indexRowsOf } from "./history-rows";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
@@ -81,6 +77,7 @@ describe("positionsOf", () => {
     rows: ROWS.map((e, pos) => ({ e, pos })),
     turns: ROWS.map((r) => r.turn),
   });
+
   const byType = (type: ChatNode["type"]) =>
     plan.filter((n) => n.type === type).map(positionsOf);
 
@@ -102,6 +99,7 @@ describe("positionsOf", () => {
       result: { e: EVENTS[3] as TimelineEvent, pos: 3 },
       type: "tool",
     };
+
     expect(positionsOf(n)).toEqual([3]);
   });
 });
@@ -171,10 +169,12 @@ describe("missingFetches", () => {
 
   test("pages not held at the summary's hash", () => {
     const cache = pages(3, [0, 1]);
+
     const held = {
       ...cache,
       pages: new Map(cache.pages).set(1, { events: [], hash: "old" }),
     };
+
     expect(plan({ pages: [0, 1, 2], rows: [] }, { cache: held })).toEqual([
       { hash: "h1", kind: "page", page: 1 },
       { hash: "h2", kind: "page", page: 2 },
@@ -205,6 +205,7 @@ describe("missingFetches", () => {
         [6, { event: EVENTS[6] as TimelineEvent, rev: "r1" }],
       ]),
     };
+
     expect(
       plan({ pages: [], rows: [0, 4, 6, 7] }, { cache, skip: (p) => p === 7 })
     ).toEqual([{ kind: "run", limit: 1, offset: 6, rev: "r2" }]);
@@ -225,27 +226,32 @@ describe("storeBodies and trimBodies", () => {
       answer(EVENTS.slice(4, 6)),
       3
     );
+
     expect(mergeRow(4, run, 3)).toBe(EVENTS[4] ?? null);
     expect(mergeRow(5, run, 3)).toBe(EVENTS[5] ?? null);
     expect(mergeRow(3, run, 3)).toBeNull();
+
     const page = storeBodies(
       run,
       { hash: "h", kind: "page", page: 1 },
       answer(EVENTS.slice(3, 6)),
       3
     );
+
     expect([...page.rows.keys()]).toEqual([]);
     expect(mergeRow(3, page, 3)).toBe(EVENTS[3] ?? null);
   });
 
   test("a row fetched after its page wins", () => {
     const newer = evt({ body: "newer" });
+
     const both = storeBodies(
       pages(3, [0]),
       { kind: "run", limit: 1, offset: 1, rev: "r" },
       answer([newer]),
       3
     );
+
     expect(mergeRow(1, both, 3)).toBe(newer);
     expect(mergeRow(0, both, 3)).toBe(EVENTS[0] ?? null);
   });
@@ -257,6 +263,7 @@ describe("storeBodies and trimBodies", () => {
       answer([evt()]),
       3
     );
+
     const trimmed = trimBodies(cache, 2, 3);
     expect([...trimmed.pages.keys()]).toEqual([0, 1]);
     expect([...trimmed.rows.keys()]).toEqual([]);
@@ -278,10 +285,13 @@ describe("mergeRow and hydrator", () => {
       rows: ROWS.map((e, pos) => ({ e, pos })),
       turns: ROWS.map(() => 0),
     });
+
     const tool = plan.find((n) => n.type === "tool");
+
     if (!tool) {
       throw new Error("no tool node");
     }
+
     const half = pages(3, [0]);
     const partial = hydrator((pos) => mergeRow(pos, half, 3));
     expect(partial.node(tool)).toBeNull();

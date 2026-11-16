@@ -8,7 +8,8 @@ import type {
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
 
-import { buildChatPlan, type TranscriptRowRef } from "../src/lib/chat-lane";
+import { buildChatPlan } from "../src/lib/chat-lane";
+import type { TranscriptRowRef } from "../src/lib/chat-lane";
 import {
   isHiddenJump,
   planIndexOfTarget,
@@ -58,13 +59,18 @@ const EVENTS: readonly TimelineEvent[] = [
     toolUseId: "late",
   }),
 ];
+
 const TURNS = [1, 1, 2, 2, 2, 3, 3];
 const ROWS: readonly TranscriptRowRef[] = EVENTS.map((e, pos) => ({ e, pos }));
+
 const planOf = (rows: readonly TranscriptRowRef[]) =>
   buildChatPlan({ crossEvtIdx: -1, rows, turns: TURNS });
+
 const withoutTurn = (n: number) => ROWS.filter(({ pos }) => TURNS[pos] !== n);
+
 const planOfTurn = (plan: ReturnType<typeof planOf>, turn: number) =>
   planIndexOfTarget(plan, { kind: "turn", turn });
+
 const rowOfTurn = ({
   n,
   ordered,
@@ -110,10 +116,12 @@ describe("resolveJump", () => {
     expect(resolveJump(SESSION, { kind: "compaction" })).toEqual({
       kind: "compaction",
     });
+
     const noEvent = {
       ...SESSION,
       events: EVENTS.filter((e) => e.kind !== "compaction"),
     };
+
     expect(resolveJump(noEvent, { kind: "compaction" })).toEqual({
       kind: "turn",
       turn: 2,
@@ -179,9 +187,11 @@ test("a page load seeds from turn=, else call=", () => {
     id: "c1",
     kind: "call",
   });
+
   for (const turn of ["0", "1.5", "x"]) {
     expect(seedRequest({ call: null, turn })).toBeNull();
   }
+
   expect(seedRequest({ call: null, turn: null })).toBeNull();
 });
 
@@ -209,6 +219,7 @@ describe("chat plan", () => {
     const rows = [ROWS[0], ROWS[5], ROWS[1]].filter(
       (r): r is TranscriptRowRef => r !== undefined
     );
+
     const plan = planOf(rows);
     expect(plan.filter((n) => n.type === "turn" && n.turn === 1)).toHaveLength(
       2
@@ -288,6 +299,7 @@ describe("isHiddenJump", () => {
 describe("resolveJump on index rows", () => {
   test("rows without text resolve every target the events do", () => {
     const rowsSession = { ...SESSION, events: indexRowsOf(EVENTS, TURNS) };
+
     const reqs = [
       { kind: "turn", turn: 2 },
       { id: "spawn", kind: "call" },
@@ -295,6 +307,7 @@ describe("resolveJump on index rows", () => {
       { kind: "compaction" },
       { kind: "subagent" },
     ] as const;
+
     for (const req of reqs) {
       expect(resolveJump(rowsSession, req)).toEqual(resolveJump(SESSION, req));
     }

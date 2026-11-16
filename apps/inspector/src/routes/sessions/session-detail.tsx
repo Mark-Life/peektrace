@@ -26,25 +26,24 @@ import {
 } from "@workspace/viz/components/verdict-header";
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
-import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
+import type { RefObject } from "react";
 
 import { useTitleOverride } from "../../lib/document-title";
-import {
-  type JumpLanding,
-  type JumpRequest,
-  useHistoryJump,
-} from "../../lib/history-jump";
+import { useHistoryJump } from "../../lib/history-jump";
+import type { JumpLanding, JumpRequest } from "../../lib/history-jump";
 import { snapshotsOf } from "../../lib/history-pages";
 import { ResultView } from "../../lib/result-view";
 import { sessionHash, useListParams } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
 import {
-  type SessionKey,
   useGrowth,
   useHistoryIndex,
   useSessionSummary,
 } from "../../lib/session-data";
-import { type SessionView, useSessionView } from "../../lib/session-view";
+import type { SessionKey } from "../../lib/session-data";
+import { useSessionView } from "../../lib/session-view";
+import type { SessionView } from "../../lib/session-view";
 import { TranscriptSourceContext } from "../../lib/transcript-source";
 import { ExportButtons } from "./export-button";
 import { LoadedArtifacts } from "./loaded-artifacts";
@@ -53,6 +52,7 @@ import { SessionHistory } from "./session-history";
 /** Where a subagent transcript came from, with the way back to it. */
 const ParentNote = ({ parent }: { readonly parent: string }) => {
   const list = useListParams();
+
   return (
     <div
       className="border-border flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
@@ -110,11 +110,14 @@ const SessionBody = ({
   readonly view: SessionView;
 }) => {
   const growth = Result.isSuccess(growthResult) ? growthResult.value : null;
+
   const chart = useMemo(
     () => (growth === null ? null : { ...s, snapshots: snapshotsOf(growth) }),
     [growth, s]
   );
+
   const source = useMemo(() => ({ id: k.id, parent: k.parent }), [k]);
+
   return (
     <div className="flex flex-col gap-4">
       <VerdictHeader a={s} onJump={request} />
@@ -179,8 +182,11 @@ const SessionDetailView = ({
   const history = useRef<HTMLElement>(null);
   const jumpButton = useRef<HTMLButtonElement>(null);
   const { landing, req, seq, request } = useHistoryJump();
+
   const onTurn = useCallback(
-    (turn: number) => request({ kind: "turn", turn }),
+    (turn: number) => {
+      request({ kind: "turn", turn });
+    },
     [request]
   );
 
@@ -188,24 +194,30 @@ const SessionDetailView = ({
   // `scroll-padding-top`, kept for the toolbar, which is not stuck up here.
   const toHistory = () => {
     const section = history.current;
+
     if (!section) {
       return;
     }
+
     if (root) {
       const top =
         section.getBoundingClientRect().top -
         root.getBoundingClientRect().top +
         root.scrollTop;
+
       root.scrollTo({ top });
     } else {
       section.scrollIntoView({ block: "start" });
     }
+
     section.querySelector("h2")?.focus({ preventScroll: true });
   };
+
   const toSummary = useCallback(() => {
     root?.scrollTo({ top: 0 });
     jumpButton.current?.focus({ preventScroll: true });
   }, [root]);
+
   useTitleOverride(
     Result.isSuccess(result) ? analyzedTitle(result.value) : null
   );

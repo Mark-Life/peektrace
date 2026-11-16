@@ -4,7 +4,8 @@
  * the turn gutter and deep links survive a re-sort. Ties fall back to
  * transcript order, so equal keys read in the order they happened.
  */
-import { badgeOf, type EventRow, type TranscriptRowRef } from "./chat-lane";
+import { badgeOf } from "./chat-lane";
+import type { EventRow, TranscriptRowRef } from "./chat-lane";
 import { eventTokens } from "./event-tokens";
 
 type Row = TranscriptRowRef<EventRow>;
@@ -21,26 +22,33 @@ export interface HistorySort {
 }
 
 /** Transcript order, first event on top. */
-export const DEFAULT_HISTORY_SORT: HistorySort = { key: "order", dir: "asc" };
+export const DEFAULT_HISTORY_SORT: HistorySort = { dir: "asc", key: "order" };
 
-const SORT_KEYS: readonly HistorySortKey[] = ["order", "type", "tokens"];
+const SORT_KEYS: readonly HistorySortKey[] = new Set([
+  "order",
+  "type",
+  "tokens",
+]);
 
-const isSortKey = (v: unknown): v is HistorySortKey =>
-  SORT_KEYS.includes(v as HistorySortKey);
+const isSortKey = (v: unknown): v is HistorySortKey => SORT_KEYS.has(v);
 
 /** Coerce a stored sort; the old `"size"` value becomes tokens, biggest first. */
 export const historySortOf = (raw: unknown): HistorySort => {
   if (raw === "size") {
-    return { key: "tokens", dir: "desc" };
+    return { dir: "desc", key: "tokens" };
   }
+
   if (typeof raw !== "object" || raw === null) {
     return DEFAULT_HISTORY_SORT;
   }
+
   const { key, dir } = raw as Partial<Record<keyof HistorySort, unknown>>;
+
   if (!isSortKey(key)) {
     return DEFAULT_HISTORY_SORT;
   }
-  return { key, dir: dir === "desc" ? "desc" : "asc" };
+
+  return { dir: dir === "desc" ? "desc" : "asc", key };
 };
 
 export const sameSort = (x: HistorySort, y: HistorySort) =>
@@ -55,20 +63,24 @@ export const isForwardOrder = (sort: HistorySort) =>
  *  direction (tokens biggest first, the rest ascending). */
 export const nextSort = (current: HistorySort, key: HistorySortKey) => {
   if (current.key === key) {
-    return { key, dir: current.dir === "asc" ? "desc" : "asc" } as const;
+    return { dir: current.dir === "asc" ? "desc" : "asc", key } as const;
   }
-  return { key, dir: key === "tokens" ? "desc" : "asc" } as const;
+
+  return { dir: key === "tokens" ? "desc" : "asc", key } as const;
 };
 
 const compareKey = (key: HistorySortKey) => {
   switch (key) {
-    case "tokens":
+    case "tokens": {
       return (x: Row, y: Row) =>
         eventTokens(x.e).tokens - eventTokens(y.e).tokens;
-    case "type":
+    }
+    case "type": {
       return (x: Row, y: Row) => badgeOf(x.e).localeCompare(badgeOf(y.e));
-    default:
+    }
+    default: {
       return (x: Row, y: Row) => x.pos - y.pos;
+    }
   }
 };
 
@@ -80,7 +92,9 @@ export const sortRows = <R extends Row>(
   if (sameSort(sort, DEFAULT_HISTORY_SORT)) {
     return rows;
   }
+
   const cmp = compareKey(sort.key);
   const sign = sort.dir === "asc" ? 1 : -1;
+
   return [...rows].sort((x, y) => sign * cmp(x, y) || x.pos - y.pos);
 };

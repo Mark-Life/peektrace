@@ -62,7 +62,9 @@ const EventText = ({
       <p className={cn("text-muted-foreground italic", className)}>{empty}</p>
     );
   }
+
   const view = bodyView(e);
+
   return view.type === "prose" ? (
     <ProseBody className={className} text={e.body} />
   ) : (

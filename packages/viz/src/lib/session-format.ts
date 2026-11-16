@@ -27,6 +27,7 @@ export const STACK_ORDER: readonly BudgetKey[] = [
 export const MILLION = 1_000_000;
 export const THOUSAND = 1000;
 export const PERCENT = 100;
+
 /** Default warn/bad health boundary as a fraction of the window. */
 const WARN_THRESHOLD = 0.75;
 
@@ -35,9 +36,9 @@ export type Zone = "ok" | "warn" | "bad";
 
 /** Human verdict word per zone. */
 export const HEALTH_LABEL: Record<Zone, string> = {
+  bad: "Rotting",
   ok: "Healthy",
   warn: "Degrading",
-  bad: "Rotting",
 };
 
 /**
@@ -53,17 +54,19 @@ export const zoneOf = ({
   readonly dumbZone: number;
 }): Zone => {
   const warn = dumbZone < WARN_THRESHOLD ? WARN_THRESHOLD : (1 + dumbZone) / 2;
+
   if (frac < dumbZone) {
     return "ok";
   }
+
   return frac < warn ? "warn" : "bad";
 };
 
 /** Tailwind text/border/bg classes per health zone (matches the gauge fill). */
 export const ZONE_CLASSES: Record<Zone, { fill: string; text: string }> = {
+  bad: { fill: "bg-red-500", text: "text-red-400" },
   ok: { fill: "bg-emerald-500", text: "text-emerald-400" },
   warn: { fill: "bg-amber-500", text: "text-amber-400" },
-  bad: { fill: "bg-red-500", text: "text-red-400" },
 };
 
 /** Thousands-separated integer (rounds). */
@@ -74,16 +77,20 @@ export const fmtK = (n: number): string => {
   if (n >= MILLION) {
     return `${(n / MILLION).toFixed(n % MILLION === 0 ? 0 : 1)}M`;
   }
+
   if (n >= THOUSAND) {
     return `${(n / THOUSAND).toFixed(n % THOUSAND === 0 ? 0 : 1)}K`;
   }
+
   return String(Math.round(n));
 };
 
 /** Percent with one decimal under 10%, else integer. */
 const PCT_DECIMAL_CUTOFF = 10;
+
 export const fmtPct = (frac: number): string => {
   const pct = frac * PERCENT;
+
   return `${pct < PCT_DECIMAL_CUTOFF ? pct.toFixed(1) : Math.round(pct)}%`;
 };
 
@@ -92,9 +99,11 @@ export const fmtBytes = (n: number): string => {
   if (n >= MILLION) {
     return `${(n / MILLION).toFixed(1)} MB`;
   }
+
   if (n >= THOUSAND) {
     return `${(n / THOUSAND).toFixed(1)} KB`;
   }
+
   return `${n} B`;
 };
 
@@ -107,5 +116,6 @@ export const firstLine = ({
   readonly max?: number;
 }): string => {
   const line = text.split("\n", 1)[0] ?? "";
+
   return line.length > max ? `${line.slice(0, max)}…` : line;
 };

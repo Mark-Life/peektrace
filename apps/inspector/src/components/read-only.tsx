@@ -22,9 +22,11 @@ export const ReadOnlyReason = () => (
  * so touch and keyboard users can open the reason too. */
 export const ReadOnlyBadge = () => {
   const info = useAtomValue(serverInfoAtom);
+
   if (!(Result.isSuccess(info) && info.value.readOnly)) {
     return null;
   }
+
   return (
     <Popover>
       <PopoverTrigger asChild>

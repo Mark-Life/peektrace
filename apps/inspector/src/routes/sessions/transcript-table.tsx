@@ -11,8 +11,8 @@ import {
   Tool,
   ToolContent,
   ToolHeader,
-  type ToolState,
 } from "@workspace/ui/components/ai-elements/tool";
+import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Collapsible,
@@ -25,7 +25,8 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
+import type { RefObject } from "react";
 
 import type {
   EventRow as AnyEvent,
@@ -33,18 +34,12 @@ import type {
 } from "../../lib/chat-lane";
 import { eventBadgeLabel, thinkingNote } from "../../lib/event-labels";
 import { eventTokens, tokenLabel } from "../../lib/event-tokens";
-import {
-  alignOf,
-  type HistoryJump,
-  type JumpLanding,
-} from "../../lib/history-jump";
-import { type HydrateCache, hydrator } from "../../lib/history-pages";
-import {
-  type HistorySort,
-  type HistorySortKey,
-  isForwardOrder,
-  nextSort,
-} from "../../lib/history-sort";
+import { alignOf } from "../../lib/history-jump";
+import type { HistoryJump, JumpLanding } from "../../lib/history-jump";
+import { hydrator } from "../../lib/history-pages";
+import type { HydrateCache } from "../../lib/history-pages";
+import { isForwardOrder, nextSort } from "../../lib/history-sort";
+import type { HistorySort, HistorySortKey } from "../../lib/history-sort";
 import { eventCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import {
@@ -58,7 +53,8 @@ import {
 import { estimateTableRow } from "../../lib/transcript-estimate";
 import { sameEvent } from "../../lib/transcript-row";
 import { tableTurnStops } from "../../lib/turn-nav";
-import { type RevealHit, useRevealHit } from "../../lib/use-history-search";
+import { useRevealHit } from "../../lib/use-history-search";
+import type { RevealHit } from "../../lib/use-history-search";
 import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
@@ -89,6 +85,7 @@ const TokenCount = ({
   readonly share?: number | undefined;
 }) => {
   const { tokens, measured } = eventTokens(e);
+
   return (
     <span
       className="text-muted-foreground ml-auto shrink-0 font-mono text-xs"
@@ -148,9 +145,12 @@ const ToolEventRowBody = ({
   state,
   turn,
 }: ToolRowProps) => {
-  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
+  const onOpenChange = (next: boolean) => {
+    onToggle(collapseId, next);
+  };
   const view = e.kind === "tool-call" ? callView(e) : null;
   const result = view ? null : resultPane(e);
+
   return (
     <Tool
       className="rounded-none border-0 border-b"
@@ -212,9 +212,13 @@ const EventRowBody = ({
   onToggle,
   share,
 }: EventRowProps) => {
-  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
+  const onOpenChange = (next: boolean) => {
+    onToggle(collapseId, next);
+  };
+
   const emptyText =
     e.kind === "assistant-thinking" ? thinkingNote(e) : EMPTY_BODY;
+
   return (
     <Collapsible
       className="border-border border-b"
@@ -297,6 +301,7 @@ const TableRowViewBody = ({
   readonly turn: number;
 }) => {
   const id = eventCollapseId(pos);
+
   return (
     <>
       {divider ? <DumbZoneDivider a={a} /> : null}
@@ -382,21 +387,26 @@ export const TranscriptTable = ({
   const showShare = sort.key === "tokens";
   // The divider marks a point in time, so it only reads right in forward order.
   const showDivider = isForwardOrder(sort);
+
   const shareOf = (e: AnyEvent) =>
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
       : undefined;
+
   const dividerAt = (pos: number) => showDivider && pos === crossEvtIdx;
 
   const keys = useMemo(
     () => rows.map(({ e, pos }) => `${e.index}-${pos}`),
     [rows]
   );
+
   const list = useRef<VirtualListHandle>(null);
+
   const indexOfHit = useCallback(
     (id: string) => rows.findIndex(({ pos }) => eventCollapseId(pos) === id),
     [rows]
   );
+
   useRevealHit({ indexOf: indexOfHit, list, reveal: revealHit });
   useVirtualJump({
     align: jump ? alignOf(jump.target) : "start",
@@ -405,18 +415,22 @@ export const TranscriptTable = ({
     list,
     target: jump?.key ?? null,
   });
+
   const stops = useMemo(
     () => tableTurnStops({ rows, sort, turns }),
     [rows, sort, turns]
   );
+
   useTurnNav({ list, stops });
   const cache = useRef<HydrateCache>(new WeakMap());
   const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
+
   const onRange = useCallback(
     (first: number, last: number) =>
       onDrawn?.(rows.slice(first, last + 1).map(({ pos }) => pos)),
     [rows, onDrawn]
   );
+
   const estimate = ({ pos }: TranscriptRowRef<AnyEvent>) =>
     estimateTableRow({
       divider: dividerAt(pos),
@@ -426,7 +440,9 @@ export const TranscriptTable = ({
   return (
     <div className="border-border rounded-md border">
       <SortHeader
-        onSort={(key: HistorySortKey) => onSort(nextSort(sort, key))}
+        onSort={(key: HistorySortKey) => {
+          onSort(nextSort(sort, key));
+        }}
         sort={sort}
       />
       <VirtualList
@@ -438,6 +454,7 @@ export const TranscriptTable = ({
         ref={list}
         render={(row) => {
           const full = hydrate.row(row);
+
           return full === null ? (
             <PendingRow height={estimate(row)} />
           ) : (

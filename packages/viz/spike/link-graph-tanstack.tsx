@@ -28,20 +28,23 @@ import { useMemo } from "react";
 /** Node radius scales from this minimum across this range by byte size. */
 const NODE_MIN_R = 5;
 const NODE_R_RANGE = 9;
+
 /** Rendered size the graph is drawn for, in CSS px. */
 const DEFAULT_MAX_WIDTH = 360;
 const MAX_WIDTH_CEILING = 480;
 const HEIGHT = 320;
+
 /** Label offset above a node, in px. */
 const LABEL_DY = -14;
 const LABEL_FONT = 8;
+
 /** Force-simulation parameters. Fixed iterations keep the layout deterministic
  * across renders and between server and browser. */
 const FORCES = {
+  collide: 12,
   iterations: 300,
   linkDistance: 46,
   manyBody: -140,
-  collide: 12,
 } as const;
 
 /** A node row fed to the force layout. */
@@ -73,32 +76,36 @@ export const LinkGraphTanstack = ({
 }: LinkGraphTanstackProps) => {
   const definition = useMemo(() => {
     const known = new Set(graph.nodes.map((n) => n.slug));
+
     const nodes: NodeRow[] = graph.nodes.map((n) => ({
-      id: n.slug,
       bytes: n.bytes,
+      id: n.slug,
       inIndex: n.inIndex,
     }));
+
     // Only edges whose endpoints both exist can be laid out; the shipping
     // component drops the same ones by failing its position lookup.
     const edges: EdgeRow[] = graph.edges.flatMap((e) => {
       const target = e.resolvedTo ?? e.to;
+
       return known.has(e.from) && known.has(target)
-        ? [{ source: e.from, target, resolved: e.resolved }]
+        ? [{ resolved: e.resolved, source: e.from, target }]
         : [];
     });
+
     const maxBytes = Math.max(1, ...nodes.map((n) => n.bytes));
 
     const settled = forceLayout(nodes, edges, {
-      nodeKey: "id",
-      source: "source",
-      target: "target",
-      iterations: FORCES.iterations,
       forces: [
         { type: "link", distance: FORCES.linkDistance },
         { type: "manyBody", strength: FORCES.manyBody },
         { type: "center" },
         { type: "collide", radius: FORCES.collide },
       ],
+      iterations: FORCES.iterations,
+      nodeKey: "id",
+      source: "source",
+      target: "target",
     });
 
     // `link.strokeDasharray` and `dot.fill` are constants rather than visual
@@ -109,6 +116,14 @@ export const LinkGraphTanstack = ({
     const danglingEdges = settled.links.filter((e) => !e.resolved);
 
     return defineChart({
+      color: {
+        scale: scaleOrdinal(
+          ["indexed", "unindexed"],
+          ["rgb(16 185 129)", "rgb(245 158 11)"]
+        ),
+      },
+      guides: false,
+      margin: 0,
       marks: [
         link(resolvedEdges, {
           x1: "x1",
@@ -151,14 +166,6 @@ export const LinkGraphTanstack = ({
       ],
       x: { scale: scaleLinear().domain(settled.xDomain) },
       y: { scale: scaleLinear().domain(settled.yDomain) },
-      color: {
-        scale: scaleOrdinal(
-          ["indexed", "unindexed"],
-          ["rgb(16 185 129)", "rgb(245 158 11)"]
-        ),
-      },
-      guides: false,
-      margin: 0,
     });
   }, [graph]);
 
@@ -183,6 +190,7 @@ export const LinkGraphTanstack = ({
               // The focus datum is a union over every mark in the definition,
               // so a node click has to be narrowed out of the link rows.
               const datum = point?.datum;
+
               if (datum && "id" in datum && typeof datum.id === "string") {
                 onSelect(datum.id);
               }

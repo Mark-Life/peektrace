@@ -9,11 +9,11 @@ import {
 } from "../src/lib/memory-support";
 
 const crud = (perAgent: Capability["perAgent"]): Capability => ({
-  id: "memory.crud",
-  group: "memory",
-  title: "Memory CRUD",
   description: "",
+  group: "memory",
+  id: "memory.crud",
   perAgent,
+  title: "Memory CRUD",
 });
 
 describe("memorySupportSummary", () => {
@@ -23,8 +23,8 @@ describe("memorySupportSummary", () => {
         crud({
           claude: { level: "supported" },
           codex: { level: "planned" },
-          pi: { level: "planned" },
           opencode: { level: "unsupported" },
+          pi: { level: "planned" },
         }),
       ])
     ).toBe(
@@ -38,8 +38,8 @@ describe("memorySupportSummary", () => {
         crud({
           claude: { level: "supported" },
           codex: { level: "supported" },
-          pi: { level: "partial" },
           opencode: { level: "planned" },
+          pi: { level: "partial" },
         }),
       ])
     ).toBe("Memory editing: Claude, Codex. Partial: Pi. Planned: OpenCode.");
@@ -58,10 +58,11 @@ describe("memoryCrudVerdict", () => {
       crud({
         claude: { level: "supported" },
         codex: { level: "planned" },
-        pi: { level: "planned" },
         opencode: { level: "planned" },
+        pi: { level: "planned" },
       }),
     ];
+
     expect(memoryCrudVerdict({ caps, readOnly: false })).toMatchObject({
       blockedBy: null,
     });
@@ -72,14 +73,15 @@ describe("memoryCrudVerdict", () => {
       crud({
         claude: { level: "planned", note: "soon" },
         codex: { level: "supported" },
-        pi: { level: "planned" },
         opencode: { level: "planned" },
+        pi: { level: "planned" },
       }),
     ];
+
     expect(memoryCrudVerdict({ caps, readOnly: false })).toEqual({
+      blockedBy: "capability",
       level: "planned",
       note: "soon",
-      blockedBy: "capability",
     });
   });
 
@@ -94,10 +96,11 @@ describe("memoryCrudVerdict", () => {
       crud({
         claude: { level: "supported" },
         codex: { level: "planned" },
-        pi: { level: "planned" },
         opencode: { level: "planned" },
+        pi: { level: "planned" },
       }),
     ];
+
     expect(memoryCrudVerdict({ caps, readOnly: true })).toMatchObject({
       blockedBy: "read-only",
     });

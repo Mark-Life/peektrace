@@ -12,12 +12,15 @@ export const tildePath = ({
   readonly home: string;
 }) => {
   const base = home.replace(TRAILING_SEPARATORS, "");
+
   if (base === "") {
     return path;
   }
+
   if (path === base) {
     return "~";
   }
+
   return path.startsWith(base) && isSeparator(path[base.length])
     ? `~${path.slice(base.length)}`
     : path;

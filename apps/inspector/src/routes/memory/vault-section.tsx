@@ -21,7 +21,8 @@ import { BudgetGauge } from "@workspace/viz/components/budget-gauge";
 import { LinkGraph } from "@workspace/viz/components/link-graph";
 import { TypeDonut } from "@workspace/viz/components/type-donut";
 import { PlusIcon } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { BrowseTable } from "./browse-table";
 import { CreateDialog } from "./create-dialog";
@@ -84,7 +85,9 @@ export const VaultSection = ({
             {canWrite ? (
               <Button
                 data-testid="create-open"
-                onClick={() => setCreating(true)}
+                onClick={() => {
+                  setCreating(true);
+                }}
                 size="sm"
               >
                 <PlusIcon className="size-4" /> New memory
@@ -94,8 +97,8 @@ export const VaultSection = ({
           <BrowseTable
             actions={{
               canWrite,
-              onEdit: setEditing,
               onDelete: setDeleting,
+              onEdit: setEditing,
               onNavigate: setHighlight,
             }}
             entries={entries}

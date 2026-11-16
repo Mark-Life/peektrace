@@ -21,25 +21,25 @@ import { SessionList } from "../src/routes/sessions/session-list";
 import { SessionLinks } from "../src/routes/stats/session-links";
 
 const header: SessionHeader = {
-  id: "sess-aaaa-1111",
-  path: "/fixture/sess-aaaa-1111.jsonl",
   agent: "claude",
-  project: "demo-project",
-  title: "Synthetic session",
+  id: "sess-aaaa-1111",
   messageCount: 3,
+  path: "/fixture/sess-aaaa-1111.jsonl",
+  project: "demo-project",
   sizeBytes: 1024,
+  title: "Synthetic session",
 };
 
 const sample: SampleRef = {
-  sid: "sess-bbbb-2222",
   agent: "claude",
-  project: "demo-project",
   kind: "main",
+  line: "Bash: echo hi",
   parent: null,
+  project: "demo-project",
   seq: 1,
+  sid: "sess-bbbb-2222",
   toolUseId: "toolu_fixture_1",
   ts: null,
-  line: "Bash: echo hi",
 };
 
 const escapeAttr = (s: string) => s.replaceAll("&", "&amp;");
@@ -50,6 +50,7 @@ test("a session row is an <a href> to its session", () => {
       <SessionList headers={[header]} selectedId={null} />
     </TooltipProvider>
   );
+
   expect(html).toContain('href="#/sessions?id=sess-aaaa-1111"');
 });
 
@@ -57,12 +58,14 @@ test("a stats session chip is an <a href> built by markedSessionHash", () => {
   const html = renderToStaticMarkup(
     <SessionLinks detector="retry" samples={[sample]} />
   );
+
   const href = markedSessionHash({
-    id: sample.sid,
-    parent: null,
-    mark: "retry",
     call: sample.toolUseId,
+    id: sample.sid,
+    mark: "retry",
+    parent: null,
   });
+
   expect(html).toContain(`href="${escapeAttr(href)}"`);
 });
 
@@ -81,6 +84,7 @@ test("a session row marks the open session as the current page", () => {
       <SessionList headers={[header]} selectedId={header.id} />
     </TooltipProvider>
   );
+
   expect(html).toContain('aria-current="page"');
 });
 
@@ -95,6 +99,7 @@ test("the route label titles the tab until a page overrides it, in any order", (
     configurable: true,
     value: doc,
   });
+
   try {
     setTitleBase("Stats");
     expect(doc.title).toBe("Stats · Peektrace");
@@ -111,6 +116,7 @@ test("the route label titles the tab until a page overrides it, in any order", (
   } finally {
     setTitleOverride(null);
     setTitleBase(null);
+
     if (prev) {
       Object.defineProperty(globalThis, "document", prev);
     } else {

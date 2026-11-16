@@ -2,7 +2,8 @@
  *  which jumps and keyboard focus land below, and the subagents section, which
  *  sits outside the virtual list.
  */
-import { type RefObject, useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import type { RefObject } from "react";
 
 import type { HistoryJump } from "./history-jump";
 
@@ -19,24 +20,30 @@ export const useStickyHeight = (bar: HTMLElement | null) => {
     if (!bar) {
       return;
     }
+
     const media = window.matchMedia(STICKY_MEDIA);
     let box = bar.getBoundingClientRect().height;
+
     const update = () => {
       const next = media.matches ? Math.round(box) : 0;
       setHeight((prev) => (prev === next ? prev : next));
     };
+
     const resize = new ResizeObserver(([entry]) => {
       box = entry?.borderBoxSize[0]?.blockSize ?? box;
       update();
     });
+
     resize.observe(bar);
     media.addEventListener("change", update);
     update();
+
     return () => {
       resize.disconnect();
       media.removeEventListener("change", update);
     };
   }, [bar]);
+
   return height;
 };
 
@@ -48,7 +55,9 @@ export const useScrollPadding = (root: HTMLElement | null, px: number) => {
     if (!root) {
       return;
     }
+
     root.style.scrollPaddingTop = `${px}px`;
+
     return () => {
       root.style.scrollPaddingTop = "";
     };
@@ -70,12 +79,15 @@ export const useSubagentsJump = ({
     if (key === null || done.current === key) {
       return;
     }
+
     const box = section.current?.querySelector<HTMLElement>(
       '[data-testid="subagents"]'
     );
+
     if (!box) {
       return;
     }
+
     done.current = key;
     box.scrollIntoView({ block: "start" });
     const heading = box.querySelector<HTMLElement>("h3") ?? box;

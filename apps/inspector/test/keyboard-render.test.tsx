@@ -64,11 +64,13 @@ describe("session list", () => {
         new Date(Date.parse("2026-01-01T00:00:00Z") + i * 60_000).toISOString()
       )
     );
+
     const html = renderToStaticMarkup(
       <TooltipProvider>
         <SessionList headers={many} selectedId="m3" />
       </TooltipProvider>
     );
+
     expect((html.match(ROW) ?? []).length).toBeLessThan(many.length);
     const stops = html.match(TAB_STOP) ?? [];
     expect(stops).toHaveLength(1);
@@ -86,10 +88,12 @@ describe("session list", () => {
 describe("shortcuts sheet", () => {
   test("lists every entry of the table with its keys", () => {
     const html = renderToStaticMarkup(<ShortcutsList mac={false} />);
+
     for (const s of SHORTCUTS) {
       expect(html).toContain(`data-shortcut="${s.id}"`);
       expect(html).toContain(s.label);
     }
+
     expect(html).toContain("Ctrl+B");
     expect(renderToStaticMarkup(<ShortcutsList mac />)).toContain("⌘B");
   });

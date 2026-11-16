@@ -19,9 +19,9 @@ import {
   ariaKeys,
   isMacPlatform,
   SHORTCUTS,
-  type Shortcut,
   useShortcut,
 } from "../lib/shortcuts";
+import type { Shortcut } from "../lib/shortcuts";
 
 export const GROUPS: readonly Shortcut["group"][] = [
   "Sessions",
@@ -74,7 +74,10 @@ export const ShortcutsDialog = ({
   readonly onOpenChange: (open: boolean) => void;
   readonly open: boolean;
 }) => {
-  useShortcut("help", () => onOpenChange(true));
+  useShortcut("help", () => {
+    onOpenChange(true);
+  });
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">

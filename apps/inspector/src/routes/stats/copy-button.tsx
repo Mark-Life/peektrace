@@ -22,6 +22,7 @@ const legacyCopy = (text: string): boolean => {
   area.style.opacity = "0";
   document.body.append(area);
   area.select();
+
   try {
     // Deprecated, yet the only copy an insecure context still allows.
     return document.execCommand("copy");
@@ -29,13 +30,14 @@ const legacyCopy = (text: string): boolean => {
     return false;
   } finally {
     area.remove();
+
     if (before instanceof HTMLElement) {
       before.focus({ preventScroll: true });
     }
   }
 };
 
-const writeText = (text: string): Promise<boolean> =>
+const writeText = async (text: string): Promise<boolean> =>
   navigator.clipboard === undefined
     ? Promise.resolve(legacyCopy(text))
     : navigator.clipboard.writeText(text).then(
@@ -63,20 +65,27 @@ export const CopyButton = ({
       manual.current?.select();
     }
   }, [state]);
+
   const copy = () => {
     writeText(text).then((ok) => {
       setState(ok ? "copied" : "failed");
+
       if (ok) {
-        setTimeout(() => setState("idle"), COPIED_MS);
+        setTimeout(() => {
+          setState("idle");
+        }, COPIED_MS);
       }
     });
   };
+
   const icon = {
-    idle: <CopyIcon className="size-3" />,
     copied: <CheckIcon className="size-3" />,
     failed: <XIcon className="size-3" />,
+    idle: <CopyIcon className="size-3" />,
   }[state];
-  const shown = { idle: label, copied: "Copied", failed: "Copy failed" }[state];
+
+  const shown = { copied: "Copied", failed: "Copy failed", idle: label }[state];
+
   return (
     <span className="inline-flex shrink-0 flex-col gap-1">
       <Button

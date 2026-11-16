@@ -43,6 +43,7 @@ const liveMode = (paused: boolean, waiting: boolean) => {
   if (!paused) {
     return "live";
   }
+
   return waiting ? "waiting" : "paused";
 };
 
@@ -64,6 +65,7 @@ export const WatchStatusView = ({
   const paused = mode !== "live";
   const labelId = useId();
   const Icon = paused ? PlayIcon : PauseIcon;
+
   return (
     <div
       className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 text-xs"
@@ -131,15 +133,23 @@ export const WatchStatus = () => {
     if (bumps === 0) {
       return;
     }
+
     setSyncing(true);
-    const id = setTimeout(() => setSyncing(false), FLASH_MS);
-    return () => clearTimeout(id);
+    const id = setTimeout(() => {
+      setSyncing(false);
+    }, FLASH_MS);
+
+    return () => {
+      clearTimeout(id);
+    };
   }, [bumps]);
 
   return (
     <WatchStatusView
       mode={liveMode(paused, waiting)}
-      onToggle={() => setPaused((p) => !p)}
+      onToggle={() => {
+        setPaused((p) => !p);
+      }}
       syncing={syncing}
     />
   );

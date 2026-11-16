@@ -18,6 +18,7 @@ export interface TransportError {
 export type ApiFailure = ApiError | TransportError;
 
 type QueryValue = string | number | undefined;
+
 export type Query = Readonly<Record<string, QueryValue>>;
 
 const TRAILING_SLASH = /\/$/;
@@ -35,12 +36,15 @@ export const apiPath = (...segments: readonly (string | number)[]) =>
 /** Absolute request URL with the defined query params. */
 export const apiUrl = (path: string, query: Query = {}) => {
   const params = new URLSearchParams();
+
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined) {
       params.set(key, String(value));
     }
   }
+
   const search = params.toString();
+
   return `${BASE_URL}${path}${search === "" ? "" : `?${search}`}`;
 };
 
@@ -53,7 +57,7 @@ const isApiErrorBody = (u: unknown): u is { readonly error: ApiError } =>
   typeof u === "object" &&
   u !== null &&
   "error" in u &&
-  typeof (u as { error: unknown }).error === "object" &&
+  typeof u.error === "object" &&
   (u as { error: { _tag?: unknown } | null }).error !== null &&
   typeof (u as { error: { _tag?: unknown } }).error._tag === "string";
 
@@ -63,8 +67,8 @@ const isJson = (res: Response) =>
 /** Turn a non-2xx answer into its typed failure. */
 const failureOf = (res: Response) =>
   Effect.tryPromise({
-    try: () => (isJson(res) ? res.json() : res.text()),
     catch: () => transport(`HTTP ${res.status}`, res.status),
+    try: async () => (isJson(res) ? res.json() : res.text()),
   }).pipe(
     Effect.flatMap((body: unknown) =>
       Effect.fail<ApiFailure>(
@@ -82,15 +86,15 @@ const failureOf = (res: Response) =>
 
 const send = (url: string, init: RequestInit) =>
   Effect.tryPromise({
-    try: (signal) =>
-      fetch(url, { ...init, credentials: "same-origin", signal }),
     catch: (e) => transport(e instanceof Error ? e.message : String(e)),
+    try: async (signal) =>
+      fetch(url, { ...init, credentials: "same-origin", signal }),
   });
 
 const readJson = <A>(res: Response) =>
   Effect.tryPromise({
-    try: () => res.json() as Promise<A>,
     catch: () => transport("unexpected response", res.status),
+    try: async () => res.json() as Promise<A>,
   });
 
 /** `GET` a JSON route. */
@@ -109,8 +113,8 @@ export const apiSend = <A>(
   body?: unknown
 ): Effect.Effect<A, ApiFailure> =>
   send(apiUrl(path), {
-    method,
     headers: { accept: "application/json", "content-type": "application/json" },
+    method,
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   }).pipe(
     Effect.flatMap((res) => (res.ok ? readJson<A>(res) : failureOf(res)))
@@ -125,8 +129,8 @@ export const apiBlob = (
     Effect.flatMap((res) =>
       res.ok
         ? Effect.tryPromise({
-            try: () => res.blob(),
             catch: () => transport("unexpected response", res.status),
+            try: async () => res.blob(),
           })
         : failureOf(res)
     )

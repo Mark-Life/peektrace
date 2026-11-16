@@ -20,6 +20,7 @@ describe("raw HTML", () => {
     const out = html(
       '<script>alert(1)</script>\n\n<img src=x onerror="alert(1)">\n\nhi <b onclick="x">b</b>'
     );
+
     expect(out).not.toContain("<script");
     expect(out).not.toContain("<img");
     expect(out).not.toContain("<b ");
@@ -81,6 +82,7 @@ describe("blocks", () => {
     const doc = parseTranscriptMarkdown(
       "- step\n\n  ```bash\n  ls\n  ```\n\n> ```json\n> {}\n> ```"
     );
+
     expect(JSON.stringify(doc)).not.toContain('"type":"code"');
     expect(JSON.stringify(doc)).toContain('"tagName":"md-fence"');
   });

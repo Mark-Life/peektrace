@@ -33,9 +33,12 @@ export const nextThemePress = ({
   readonly systemTheme: string | undefined;
 }): ThemePress => {
   const system: Appearance = isAppearance(systemTheme) ? systemTheme : "light";
+
   if (!isAppearance(resolvedTheme)) {
-    return { store: "system", appearance: system };
+    return { appearance: system, store: "system" };
   }
+
   const target: Appearance = resolvedTheme === "dark" ? "light" : "dark";
-  return { store: target === system ? "system" : target, appearance: target };
+
+  return { appearance: target, store: target === system ? "system" : target };
 };

@@ -22,18 +22,17 @@ import type {
 import { Effect } from "effect";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { apiGet, apiPath, type Query } from "./api";
+import { apiGet, apiPath } from "./api";
+import type { Query } from "./api";
 import {
-  type BodyCache,
-  type BodyFetch,
   EMPTY_BODIES,
   missingFetches,
-  type Needed,
   PAGE_SIZE,
   runPositions,
   storeBodies,
   trimBodies,
 } from "./history-pages";
+import type { BodyCache, BodyFetch, Needed } from "./history-pages";
 import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
 
 /** One open session view: which transcript, and whether secrets are masked. */
@@ -46,6 +45,7 @@ export interface SessionKey {
 
 /** Body requests in flight at once. */
 const MAX_IN_FLIGHT = 4;
+
 /** Wait before a failed body or search request is asked again. */
 const RETRY_MS = 2000;
 
@@ -60,6 +60,7 @@ const route = (k: SessionKey, ...rest: readonly string[]) =>
 /** The summary atom, refreshed on every settled sessions bump. */
 export const useSessionSummary = (k: SessionKey) => {
   const { id, parent, redact } = k;
+
   const atom = useMemo(
     () =>
       Atom.make(
@@ -69,8 +70,10 @@ export const useSessionSummary = (k: SessionKey) => {
       ),
     [id, parent, redact]
   );
+
   const refresh = useAtomRefresh(atom);
   useOnVersionBump(useAtomValue(settledSessionsVersionAtom), refresh);
+
   return { refresh, result: useAtomValue(atom) };
 };
 
@@ -86,6 +89,7 @@ const usePart = <A extends { readonly hash: string }>(
 ) => {
   const { id, parent, redact } = k;
   const path = part.join("/");
+
   const atom = useMemo(
     () =>
       Atom.make(
@@ -95,6 +99,7 @@ const usePart = <A extends { readonly hash: string }>(
       ),
     [id, parent, redact, path]
   );
+
   const result = useAtomValue(atom);
   const refresh = useAtomRefresh(atom);
   const held = Result.isSuccess(result) ? result.value.hash : null;
@@ -105,19 +110,24 @@ const usePart = <A extends { readonly hash: string }>(
     if (s === null || want === null) {
       return;
     }
+
     if (failed) {
       if (retried.current !== s) {
         retried.current = s;
         refresh();
       }
+
       return;
     }
+
     if (held === null || held === want || asked.current === want) {
       return;
     }
+
     asked.current = want;
     refresh();
   }, [failed, held, s, want, refresh]);
+
   return { refresh, result };
 };
 
@@ -150,11 +160,13 @@ type InFlight = Map<
 const abortUnwanted = (inflight: InFlight, needed: Needed) => {
   const pages = new Set(needed.pages);
   const rows = new Set(needed.rows);
+
   for (const [fk, { c, f }] of inflight) {
     const wanted =
       f.kind === "page"
         ? pages.has(f.page)
         : runPositions(f.offset, f.limit).some((p) => rows.has(p));
+
     if (!wanted) {
       c.abort();
       inflight.delete(fk);
@@ -201,14 +213,18 @@ export const useBodyPages = ({
   readonly rev: string;
 }): BodyCache => {
   const key = keyText(k);
+
   const [state, setState] = useState<{
     readonly key: string;
     readonly cache: BodyCache;
   }>({ cache: EMPTY_BODIES, key });
+
   const cache = state.key === key ? state.cache : EMPTY_BODIES;
+
   if (state.key !== key) {
     setState({ cache, key });
   }
+
   const inflight = useRef<InFlight>(new Map());
   /** `unit:expected` keys whose answer did not match the summary. */
   const stale = useRef(new Set<string>());
@@ -225,10 +241,13 @@ export const useBodyPages = ({
       for (const { c } of inflight.current.values()) {
         c.abort();
       }
+
       inflight.current.clear();
+
       for (const t of timers.current) {
         clearTimeout(t);
       }
+
       timers.current.clear();
       failed.current.clear();
     },
@@ -239,22 +258,27 @@ export const useBodyPages = ({
     if (tick < 0) {
       return;
     }
+
     if (trimBodies(cache, hashes.length) !== cache) {
       setState((s) => ({
         cache: trimBodies(s.cache, hashes.length),
         key: s.key,
       }));
     }
+
     abortUnwanted(inflight.current, needed);
+
     const busy = new Set(
       [...inflight.current.values()].flatMap(({ f }) =>
         unitsOf(f).map((u) => u.key)
       )
     );
+
     const skip = (unit: string, expect: string | undefined) =>
       busy.has(unit) ||
       failed.current.has(unit) ||
       stale.current.has(`${unit}:${expect}`);
+
     const todo = missingFetches({
       bodyLen,
       cache,
@@ -264,30 +288,38 @@ export const useBodyPages = ({
       skipPage: (p) => skip(pageKey(p), hashes[p]),
       skipRow: (pos) => skip(rowKey(pos), rev),
     });
+
     for (const f of todo) {
       if (inflight.current.size >= MAX_IN_FLIGHT) {
         break;
       }
+
       const fk =
         f.kind === "page" ? pageKey(f.page) : `r${f.offset}+${f.limit}`;
+
       const c = new AbortController();
       inflight.current.set(fk, { c, f });
+
       const done = () => {
         if (inflight.current.get(fk)?.c === c) {
           inflight.current.delete(fk);
           setTick((t) => t + 1);
         }
       };
+
       const ask = apiGet<HistoryPage>(route(k, "history"), {
         ...queryOf(k),
         ...boundsOf(f),
       });
+
       Effect.runPromise(ask, { signal: c.signal }).then(
         (page) => {
           if (inflight.current.get(fk)?.c !== c) {
             return;
           }
+
           const now = latest.current;
+
           if (answersSummary(f, page, now)) {
             setState((s) =>
               s.key === key ? { cache: storeBodies(s.cache, f, page), key } : s
@@ -296,25 +328,33 @@ export const useBodyPages = ({
             for (const u of unitsOf(f)) {
               stale.current.add(`${u.key}:${u.expect}`);
             }
+
             now.onStale();
           }
+
           done();
         },
         () => {
           if (!c.signal.aborted) {
             const units = unitsOf(f).map((u) => u.key);
+
             for (const u of units) {
               failed.current.add(u);
             }
+
             const t = setTimeout(() => {
               timers.current.delete(t);
+
               for (const u of units) {
                 failed.current.delete(u);
               }
+
               setTick((n) => n + 1);
             }, RETRY_MS);
+
             timers.current.add(t);
           }
+
           done();
         }
       );
@@ -356,6 +396,7 @@ export const searchHitsOf = ({
   if (query === "") {
     return { hits: undefined, pending: false, query: "" };
   }
+
   return {
     hits: answer?.hits,
     pending: answer?.session !== session || answer.query !== query,
@@ -387,17 +428,23 @@ export const useHistorySearch = ({
     if (query === "" || attempt < 0) {
       return;
     }
+
     const held = cache.current.get(want);
+
     if (held) {
       setAnswer({ hits: held, query, session });
+
       return;
     }
+
     const c = new AbortController();
     let retry: ReturnType<typeof setTimeout> | undefined;
+
     const ask = apiGet<HistorySearchResult>(route(k, "history", "search"), {
       ...queryOf(k),
       q: query,
     });
+
     Effect.runPromise(ask, { signal: c.signal }).then(
       (r) => {
         const hits = new Set(r.positions);
@@ -407,14 +454,18 @@ export const useHistorySearch = ({
       () => {
         // The last answer stays meanwhile.
         if (!c.signal.aborted) {
-          retry = setTimeout(() => setAttempt((n) => n + 1), RETRY_MS);
+          retry = setTimeout(() => {
+            setAttempt((n) => n + 1);
+          }, RETRY_MS);
         }
       }
     );
+
     return () => {
       c.abort();
       clearTimeout(retry);
     };
   }, [k, query, session, want, attempt]);
+
   return searchHitsOf({ answer, query, session });
 };

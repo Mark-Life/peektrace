@@ -9,8 +9,6 @@ import { SettingsEditor } from "../src/routes/settings-route";
 const HOME = "/home/dev";
 
 const info = (readOnly: boolean): ServerInfo => ({
-  readOnly,
-  userHome: HOME,
   agents: [
     {
       agent: "claude",
@@ -41,6 +39,8 @@ const info = (readOnly: boolean): ServerInfo => ({
       ],
     },
   ],
+  readOnly,
+  userHome: HOME,
 });
 
 const render = (readOnly: boolean) =>

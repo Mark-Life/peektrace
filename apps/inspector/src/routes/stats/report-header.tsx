@@ -27,6 +27,7 @@ import { PromptButton } from "./prompt-button";
 
 const WEEK_DAYS = 7;
 const MONTH_DAYS = 30;
+
 /** The window the service uses when the caller names none. */
 const DEFAULT_DAYS = 60;
 const QUARTER_DAYS = 90;
@@ -45,6 +46,7 @@ const ALL_AGENTS = "all";
 /** Read the window out of a hash param, falling back to the service default. */
 export const daysOf = (raw: string | null): number => {
   const parsed = Number(raw);
+
   return DAY_OPTIONS.includes(parsed as (typeof DAY_OPTIONS)[number])
     ? parsed
     : DEFAULT_DAYS;
@@ -71,7 +73,12 @@ const Controls = ({
   readonly rescanning: boolean;
 }) => (
   <div className="flex flex-wrap items-center gap-2">
-    <Select onValueChange={(v) => onDays(Number(v))} value={String(days)}>
+    <Select
+      onValueChange={(v) => {
+        onDays(Number(v));
+      }}
+      value={String(days)}
+    >
       <SelectTrigger className="w-32" data-testid="stats-days">
         <SelectValue />
       </SelectTrigger>
@@ -84,7 +91,9 @@ const Controls = ({
       </SelectContent>
     </Select>
     <Select
-      onValueChange={(v) => onAgent(v === ALL_AGENTS ? null : (v as AgentId))}
+      onValueChange={(v) => {
+        onAgent(v === ALL_AGENTS ? null : (v as AgentId));
+      }}
       value={agent ?? ALL_AGENTS}
     >
       <SelectTrigger className="w-36" data-testid="stats-agent">
@@ -138,6 +147,7 @@ export const ReportHeader = ({
   readonly report: StatsReport;
 }) => {
   const { corpus } = report;
+
   return (
     <header className="flex flex-col gap-3" data-testid="stats-header">
       <div className="flex flex-wrap items-center justify-between gap-3">

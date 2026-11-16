@@ -20,6 +20,7 @@ import { apiGet, apiUrl } from "./api";
 
 const POLL_INTERVAL = 1000;
 const MAX_FAILED_OPENS = 3;
+
 /** `EventSource.CLOSED`: the browser will not retry this stream. */
 const SOURCE_CLOSED = 2;
 const LIVE_LOCK = "peektrace-live";
@@ -62,15 +63,17 @@ export interface LiveDeps {
 const defaultShare = (): LiveShare | undefined => {
   const locks = globalThis.navigator?.locks;
   const Channel = globalThis.BroadcastChannel;
+
   if (locks === undefined || Channel === undefined) {
     return;
   }
-  return { locks, channel: () => new Channel(LIVE_CHANNEL) };
+
+  return { channel: () => new Channel(LIVE_CHANNEL), locks };
 };
 
 const defaultDeps = (): LiveDeps => ({
   EventSource: globalThis.EventSource,
-  poll: () => Effect.runPromise(apiGet<WatchVersions>("/api/watch")),
+  poll: async () => Effect.runPromise(apiGet<WatchVersions>("/api/watch")),
   share: defaultShare(),
 });
 
@@ -81,23 +84,27 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
 
   const startPolling = (recovering: boolean) => {
     let pending = recovering;
+
     const tick = () => {
       deps.poll().then(
         (versions) => {
           handlers.onVersions(versions);
+
           if (pending) {
             pending = false;
             handlers.onReconnect();
           }
         },
-        () => undefined
+        () => {}
       );
     };
+
     tick();
     timer = setInterval(tick, POLL_INTERVAL);
   };
 
   const Source = deps.EventSource;
+
   if (Source === undefined) {
     startPolling(false);
   } else {
@@ -112,6 +119,7 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
       handlers.onVersions(
         JSON.parse((event as MessageEvent<string>).data) as WatchVersions
       );
+
       if (recovering) {
         recovering = false;
         handlers.onReconnect();
@@ -120,6 +128,7 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
     es.addEventListener("error", () => {
       failures += 1;
       recovering = true;
+
       if (failures >= MAX_FAILED_OPENS || es.readyState === SOURCE_CLOSED) {
         es.close();
         source = undefined;
@@ -130,6 +139,7 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
 
   return () => {
     source?.close();
+
     if (timer !== undefined) {
       clearInterval(timer);
     }
@@ -151,29 +161,31 @@ const shared = (handlers: LiveHandlers, deps: LiveDeps, share: LiveShare) => {
       handlers.onReconnect();
     }
   });
+
   const relay: LiveHandlers = {
-    onVersions: (versions) => {
-      handlers.onVersions(versions);
-      channel.postMessage({ _tag: "Versions", versions });
-    },
     onReconnect: () => {
       handlers.onReconnect();
       channel.postMessage({ _tag: "Reconnect" });
     },
+    onVersions: (versions) => {
+      handlers.onVersions(versions);
+      channel.postMessage({ _tag: "Versions", versions });
+    },
   };
+
   // The leader relays only changes, so a new follower reads the versions now.
-  deps.poll().then(handlers.onVersions, () => undefined);
+  deps.poll().then(handlers.onVersions, () => {});
   share.locks
     .request(
       LIVE_LOCK,
       { signal: abort.signal },
-      () =>
+      async () =>
         new Promise<void>((resolve) => {
           release = resolve;
           stopFollow = follow(relay, deps);
         })
     )
-    .catch(() => undefined);
+    .catch(() => {});
 
   return () => {
     abort.abort();

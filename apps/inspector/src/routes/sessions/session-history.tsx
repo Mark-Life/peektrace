@@ -36,23 +36,16 @@ import {
   ShieldAlertIcon,
   TableIcon,
 } from "lucide-react";
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { RefObject } from "react";
 
 import { chatIdsOf } from "../../lib/chat-lane";
 import {
   isHiddenJump,
-  type JumpLanding,
-  type JumpRequest,
   rowIndexOfTarget,
   toHistoryJump,
 } from "../../lib/history-jump";
+import type { JumpLanding, JumpRequest } from "../../lib/history-jump";
 import {
   useScrollPadding,
   useStickyHeight,
@@ -68,23 +61,14 @@ import { visibleRows } from "../../lib/history-search";
 import { DEFAULT_HISTORY_SORT, isForwardOrder } from "../../lib/history-sort";
 import { setHashParam, useHashParam } from "../../lib/routes";
 import { useScrollRoot } from "../../lib/scroll-root";
-import {
-  type SessionKey,
-  useBodyPages,
-  useHistorySearch,
-} from "../../lib/session-data";
+import { useBodyPages, useHistorySearch } from "../../lib/session-data";
+import type { SessionKey } from "../../lib/session-data";
 import { useToolMarks } from "../../lib/session-markers";
-import {
-  eventCollapseId,
-  type SessionView,
-  subagentCollapseId,
-} from "../../lib/session-view";
+import { eventCollapseId, subagentCollapseId } from "../../lib/session-view";
+import type { SessionView } from "../../lib/session-view";
 import { indexTools } from "../../lib/tool-event";
-import {
-  type RevealHit,
-  useSearchQuery,
-  useSearchStepper,
-} from "../../lib/use-history-search";
+import { useSearchQuery, useSearchStepper } from "../../lib/use-history-search";
+import type { RevealHit } from "../../lib/use-history-search";
 import { HiddenNote } from "./hidden-note";
 import { HistorySearch } from "./history-search";
 import { Subagents } from "./subagents";
@@ -93,14 +77,14 @@ import { TranscriptTable } from "./transcript-table";
 
 /** Event-kind options for the history type filter. */
 const KIND_OPTIONS = [
-  { value: "all", label: "All types" },
-  { value: "system-prompt", label: "System prompt" },
-  { value: "user-prompt", label: "User" },
-  { value: "assistant-text", label: "Assistant" },
-  { value: "tool-call", label: "Tool calls" },
-  { value: "tool-result", label: "Tool results" },
-  { value: "assistant-thinking", label: "Thinking" },
-  { value: "attachment", label: "Attachments" },
+  { label: "All types", value: "all" },
+  { label: "System prompt", value: "system-prompt" },
+  { label: "User", value: "user-prompt" },
+  { label: "Assistant", value: "assistant-text" },
+  { label: "Tool calls", value: "tool-call" },
+  { label: "Tool results", value: "tool-result" },
+  { label: "Thinking", value: "assistant-thinking" },
+  { label: "Attachments", value: "attachment" },
 ] as const;
 
 const NO_HITS: readonly string[] = [];
@@ -160,16 +144,19 @@ export const SessionHistory = ({
   const { kind, sort, mode } = prefs;
   const { query, deferredQuery, setQuery } = useSearchQuery(sid);
   const events = index.rows;
+
   const found = useHistorySearch({
     k,
     query: deferredQuery,
     rev: a.history.rev,
   });
+
   // The query the shown rows answer: it trails the typed one while the
   // server searches.
   const shownQuery = found.query;
   const searching = shownQuery.length > 0;
   const turns = useMemo(() => events.map((e) => e.turn), [events]);
+
   // Resolved once per index and request: the resolve walks every event,
   // and a fresh object would re-run the landing effects on each render.
   const jump = useMemo(
@@ -186,9 +173,11 @@ export const SessionHistory = ({
       ),
     [a.compactionTurns, a.subagents, a.turnCount, events, req, seq]
   );
+
   const tools = useMemo(() => indexTools({ events }), [events]);
   const [needed, setNeeded] = useState(NOTHING_NEEDED);
-  const total = a.history.total;
+  const { total } = a.history;
+
   const onDrawn = useCallback(
     (drawn: readonly number[]) => {
       const next = neededBodies({ drawn, total });
@@ -200,10 +189,12 @@ export const SessionHistory = ({
     },
     [total]
   );
+
   const bodyLen = useCallback(
     (pos: number) => events[pos]?.bodyLen ?? 0,
     [events]
   );
+
   const pages = useBodyPages({
     bodyLen,
     hashes: a.history.pages,
@@ -212,7 +203,9 @@ export const SessionHistory = ({
     onStale,
     rev: a.history.rev,
   });
+
   const eventAt = useCallback((pos: number) => mergeRow(pos, pages), [pages]);
+
   const chatSession = useMemo(
     () => ({
       contextWindow: a.contextWindow,
@@ -222,6 +215,7 @@ export const SessionHistory = ({
     }),
     [a.contextWindow, a.dumbZoneCrossTurn, a.dumbZoneFraction, growth]
   );
+
   // Stats marks are an annotation on the same calls the tables counted; a
   // failed or pending marker query leaves the transcript exactly as it was.
   const marks = useToolMarks(sid);
@@ -252,6 +246,7 @@ export const SessionHistory = ({
       }),
     [events, found.hits, kind, shownQuery, effectiveSort]
   );
+
   // The input follows every keystroke; the transcript follows once the
   // server has answered, so typing never waits on a search.
   const stale = query !== deferredQuery || found.pending;
@@ -270,12 +265,14 @@ export const SessionHistory = ({
           }),
     [jump, visible, effectiveSort, turns]
   );
+
   const jumpHidden = isHiddenJump({
     filtered: searching || kind !== "all",
     index: jumpIndex,
     jump,
     landed: landing.done.current,
   });
+
   const clearFilters = () => {
     setQuery("");
     prefs.setKind("all");
@@ -284,6 +281,7 @@ export const SessionHistory = ({
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
   // shareable link; individual rows persist in the per-session set instead.
   const expandAll = useHashParam("expand") === "all";
+
   const transcriptIds = useMemo(
     () =>
       mode === "chat"
@@ -291,6 +289,7 @@ export const SessionHistory = ({
         : visible.map(({ pos }) => eventCollapseId(pos)),
     [mode, visible]
   );
+
   const allIds = useMemo(
     () => [
       ...transcriptIds,
@@ -316,11 +315,14 @@ export const SessionHistory = ({
         if (open) {
           return;
         }
+
         // Collapsing one while all-open: materialize the rest, drop the flag.
         view.setExpanded(allIdsRef.current.filter((x) => x !== id));
         setHashParam("expand", null);
+
         return;
       }
+
       view.toggleExpanded(id, open);
     },
     [expandAll, view.setExpanded, view.toggleExpanded]
@@ -329,6 +331,7 @@ export const SessionHistory = ({
   // The search filters the list, so every drawn card is a hit. The mounted
   // layout fills `revealHit`, since only it knows where a hit's row sits.
   const revealHit = useRef<RevealHit>(null);
+
   const search = useSearchStepper({
     hits: searching ? transcriptIds : NO_HITS,
     isOpen,
@@ -341,12 +344,15 @@ export const SessionHistory = ({
   const allOpen =
     expandAll ||
     (allIds.length > 0 && allIds.every((id) => view.isExpanded(id)));
+
   const expandLabel = allOpen ? "Collapse all" : "Expand all";
   // Re-measures every block only on a bulk action, not when `allOpen` flips
   // because one block was opened by hand or the filter changed.
   const [bulkKey, setBulkKey] = useState(0);
+
   const toggleAll = () => {
     setBulkKey((k) => k + 1);
+
     if (allOpen) {
       setHashParam("expand", null);
       view.setExpanded([]);
@@ -379,7 +385,9 @@ export const SessionHistory = ({
             aria-labelledby="redact-toggle-label"
             checked={!redacted}
             data-testid="redact-toggle"
-            onCheckedChange={(checked) => view.setRedacted(!checked)}
+            onCheckedChange={(checked) => {
+              view.setRedacted(!checked);
+            }}
           />
         </div>
       </div>
@@ -416,7 +424,9 @@ export const SessionHistory = ({
         <HistorySearch
           count={search.count}
           current={search.current}
-          onClear={() => setQuery("")}
+          onClear={() => {
+            setQuery("");
+          }}
           onQuery={setQuery}
           onStep={search.onStep}
           pending={stale}
@@ -444,7 +454,9 @@ export const SessionHistory = ({
         >
           <Button
             data-testid="history-layout-chat"
-            onClick={() => prefs.setMode("chat")}
+            onClick={() => {
+              prefs.setMode("chat");
+            }}
             size="sm"
             variant={mode === "chat" ? "secondary" : "ghost"}
           >
@@ -453,7 +465,9 @@ export const SessionHistory = ({
           </Button>
           <Button
             data-testid="history-layout-table"
-            onClick={() => prefs.setMode("table")}
+            onClick={() => {
+              prefs.setMode("table");
+            }}
             size="sm"
             variant={mode === "table" ? "secondary" : "ghost"}
           >

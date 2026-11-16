@@ -11,16 +11,13 @@ import { WatchStatusView } from "../src/components/watch-status";
 const render = (mode: LiveMode, syncing = false) =>
   renderToStaticMarkup(
     <TooltipProvider>
-      <WatchStatusView
-        mode={mode}
-        onToggle={() => undefined}
-        syncing={syncing}
-      />
+      <WatchStatusView mode={mode} onToggle={() => {}} syncing={syncing} />
     </TooltipProvider>
   );
 
 const HIDDEN_SYNCING_LABEL =
   /aria-hidden="true"[^>]*><span[^>]*>syncing<\/span>/;
+
 const WAITING_LIVE_REGION =
   /aria-live="polite"[^>]*role="status"[^>]*>paused · updates waiting</;
 
@@ -28,10 +25,11 @@ const DESCRIBED_BY = /aria-describedby="([^"]+)"/;
 
 /** Text of the element the toggle's `aria-describedby` points at. */
 const describedBy = (html: string) => {
-  const id = html.match(DESCRIBED_BY)?.[1];
+  const id = DESCRIBED_BY.exec(html)?.[1];
+
   return id === undefined
     ? undefined
-    : html.match(new RegExp(`id="${id}"[^>]*>([^<]*)<`))?.[1];
+    : new RegExp(`id="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
 };
 
 test("live: the toggle is not pressed and the label is hidden", () => {

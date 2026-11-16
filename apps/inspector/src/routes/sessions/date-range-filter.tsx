@@ -21,7 +21,7 @@ import type { DateRange } from "react-day-picker";
  *  rail is the first thing the app paints. The popover only mounts its content
  *  when opened, so the chunk is fetched the first time someone filters by date;
  *  the type-only `DateRange` import above is erased and costs nothing. */
-const Calendar = lazy(() =>
+const Calendar = lazy(async () =>
   import("@workspace/ui/components/calendar").then((m) => ({
     default: m.Calendar,
   }))
@@ -44,21 +44,24 @@ export const toDayKey = (d: Date): string =>
 /** `YYYY-MM-DD` back to a local midnight `Date`, or `undefined` if unparseable. */
 export const fromDayKey = (key: string): Date | undefined => {
   const [y, m, d] = key.split("-").map(Number);
+
   return y && m && d ? new Date(y, m - 1, d) : undefined;
 };
 
 /** `Jul 9` in the user's locale. */
 const fmtDay = (d: Date): string =>
-  d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** The trigger's label: the picked span, one day, or the unconstrained default. */
 const rangeLabel = (range: DateRange | undefined): string => {
   if (!range?.from) {
     return "Date: all";
   }
+
   if (!range.to || toDayKey(range.to) === toDayKey(range.from)) {
     return fmtDay(range.from);
   }
+
   return `${fmtDay(range.from)} – ${fmtDay(range.to)}`;
 };
 
@@ -99,7 +102,9 @@ export const DateRangeFilter = ({
             aria-label="Clear date filter"
             className="text-muted-foreground absolute top-1/2 right-1 size-6 -translate-y-1/2"
             data-testid="session-filter-date-clear"
-            onClick={() => onChange(undefined)}
+            onClick={() => {
+              onChange(undefined);
+            }}
             size="icon"
             variant="ghost"
           >
@@ -114,7 +119,7 @@ export const DateRangeFilter = ({
             defaultMonth={range?.from ?? last}
             disabled={
               first && last
-                ? { before: first, after: last }
+                ? { after: last, before: first }
                 : { before: new Date(0) }
             }
             endMonth={last}

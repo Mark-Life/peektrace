@@ -3,22 +3,26 @@ import { afterAll, beforeEach, expect, test } from "bun:test";
 
 const loc = { hash: "" };
 let replaces = 0;
+
 const win = {
-  location: loc,
+  addEventListener: () => undefined,
+  dispatchEvent: () => true,
   history: {
     replaceState: (_: unknown, __: string, hash: string) => {
       replaces += 1;
       loc.hash = hash;
     },
   },
-  addEventListener: () => undefined,
+  location: loc,
   removeEventListener: () => undefined,
-  dispatchEvent: () => true,
 };
+
 // bun runs every test file in one process: put back what was there before.
 const hadWindow = "window" in globalThis;
 const prevWindow = Reflect.get(globalThis, "window");
+
 Object.assign(globalThis, { window: win });
+
 afterAll(() => {
   if (hadWindow) {
     Object.assign(globalThis, { window: prevWindow });
@@ -49,7 +53,9 @@ const follow = (hash: string) => {
 const open = (target: {
   readonly id: string;
   readonly parent: string | null;
-}) => follow(sessionHash(target, listParams(params())));
+}) => {
+  follow(sessionHash(target, listParams(params())));
+};
 
 beforeEach(() => {
   loc.hash = "#/sessions?q=alpha&agent=codex";
@@ -96,7 +102,7 @@ test("a subagent opens with the list filters kept", () => {
 
 test("a stats row link is the hash opening it from stats writes", () => {
   navigate("stats");
-  const target = { id: "id-0001", parent: null, mark: "retry", call: "c-1" };
+  const target = { call: "c-1", id: "id-0001", mark: "retry", parent: null };
   const hash = markedSessionHash(target);
   follow(markedSessionHash(target));
   expect(loc.hash).toBe(hash);
@@ -106,7 +112,7 @@ test("a stats row link is the hash opening it from stats writes", () => {
 });
 
 test("setHashParams writes every change in one replace", () => {
-  setHashParams({ q: null, agent: null, model: "m-1", from: "2026-01-02" });
+  setHashParams({ agent: null, from: "2026-01-02", model: "m-1", q: null });
   expect(replaces).toBe(1);
   expect(loc.hash).toBe("#/sessions?model=m-1&from=2026-01-02");
 });
@@ -119,7 +125,7 @@ test("an unchanged hash is not written again", () => {
 
 test("opening a session from stats keeps the remembered list filters", () => {
   navigate("stats");
-  follow(markedSessionHash({ id: "id-0001", parent: null, mark: "retry" }));
+  follow(markedSessionHash({ id: "id-0001", mark: "retry", parent: null }));
   expect(params().get("id")).toBe("id-0001");
   expect(params().get("mark")).toBe("retry");
   expect(params().get("q")).toBe("alpha");

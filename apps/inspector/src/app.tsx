@@ -13,24 +13,27 @@ import { AppShell } from "./components/app-shell";
 import { useRoute } from "./lib/routes";
 import { SessionsRoute } from "./routes/sessions-route";
 
-const CapabilitiesRoute = lazy(() =>
+const CapabilitiesRoute = lazy(async () =>
   import("./routes/capabilities-route").then((m) => ({
     default: m.CapabilitiesRoute,
   }))
 );
-const MemoryRoute = lazy(() =>
+
+const MemoryRoute = lazy(async () =>
   import("./routes/memory-route").then((m) => ({ default: m.MemoryRoute }))
 );
-const SettingsRoute = lazy(() =>
+
+const SettingsRoute = lazy(async () =>
   import("./routes/settings-route").then((m) => ({ default: m.SettingsRoute }))
 );
-const StatsRoute = lazy(() =>
+
+const StatsRoute = lazy(async () =>
   import("./routes/stats-route").then((m) => ({ default: m.StatsRoute }))
 );
 
 /** Toasts are a response to a mutation, never part of the first paint, and
  *  `sonner` is ~32 KB — so the host mounts itself once the entry has run. */
-const Toaster = lazy(() =>
+const Toaster = lazy(async () =>
   import("@workspace/ui/components/sonner").then((m) => ({
     default: m.Toaster,
   }))
@@ -46,18 +49,23 @@ const RouteFallback = () => (
 /** Resolve the active section to its screen. */
 const Screen = () => {
   const route = useRoute();
+
   if (route === "capabilities") {
     return <CapabilitiesRoute />;
   }
+
   if (route === "sessions") {
     return <SessionsRoute />;
   }
+
   if (route === "settings") {
     return <SettingsRoute />;
   }
+
   if (route === "stats") {
     return <StatsRoute />;
   }
+
   return <MemoryRoute />;
 };
 

@@ -32,10 +32,10 @@ import {
   bodyParts,
   fmtDate,
   fmtSize,
-  type SortKey,
   sortEntries,
   titleOf,
 } from "./memory-model";
+import type { SortKey } from "./memory-model";
 
 /** A click handler set shared by every row. */
 interface RowActions {
@@ -54,6 +54,7 @@ const LinkedBody = ({
   readonly onNavigate: (slug: string) => void;
 }) => {
   const parts = bodyParts(entry);
+
   return (
     <div className="font-mono text-xs leading-relaxed whitespace-pre-wrap">
       {parts.map((part, i) => {
@@ -63,13 +64,16 @@ const LinkedBody = ({
               className="text-sky-400 underline decoration-dotted hover:text-sky-300"
               // biome-ignore lint/suspicious/noArrayIndexKey: body is static per render
               key={i}
-              onClick={() => onNavigate(part.slug)}
+              onClick={() => {
+                onNavigate(part.slug);
+              }}
               type="button"
             >
               {part.link}
             </button>
           );
         }
+
         // biome-ignore lint/suspicious/noArrayIndexKey: body is static per render
         return <Fragment key={i}>{part.text}</Fragment>;
       })}
@@ -95,14 +99,18 @@ const DetailRow = ({
           {actions.canWrite ? (
             <div className="flex gap-2">
               <Button
-                onClick={() => actions.onEdit(entry)}
+                onClick={() => {
+                  actions.onEdit(entry);
+                }}
                 size="sm"
                 variant="outline"
               >
                 <PencilIcon className="size-3.5" /> Edit
               </Button>
               <Button
-                onClick={() => actions.onDelete(entry)}
+                onClick={() => {
+                  actions.onDelete(entry);
+                }}
                 size="sm"
                 variant="outline"
               >
@@ -118,7 +126,9 @@ const DetailRow = ({
               <button
                 className="border-border hover:bg-muted rounded border px-1.5 py-0.5 font-mono text-sky-400"
                 key={`${l.targetSlug}:${l.line}`}
-                onClick={() => actions.onNavigate(l.targetSlug)}
+                onClick={() => {
+                  actions.onNavigate(l.targetSlug);
+                }}
                 type="button"
               >
                 {l.rawTarget}
@@ -159,7 +169,9 @@ const SortHead = ({
   <TableHead className={className}>
     <button
       className="hover:text-foreground inline-flex items-center gap-1"
-      onClick={() => onSort(col)}
+      onClick={() => {
+        onSort(col);
+      }}
       type="button"
     >
       {label}
@@ -275,7 +287,9 @@ export const BrowseTable = ({
                   expanded === entry.slug && "bg-muted/40"
                 )}
                 data-testid="memory-row"
-                onClick={() => toggle(entry.slug)}
+                onClick={() => {
+                  toggle(entry.slug);
+                }}
               >
                 <TableCell className="font-medium">{titleOf(entry)}</TableCell>
                 <TableCell>

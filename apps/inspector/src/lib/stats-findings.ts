@@ -58,13 +58,16 @@ export const splitOf = (
 /** The spread line of a cause row: hits, how they split, and how far. */
 export const causeSpread = (row: CauseRow, f: FindingFormat): string => {
   const exit0 = row.hits - row.flagged;
+
   const hits =
     exit0 > 0
       ? `${f.count(row.hits)} hits (${f.count(exit0)} at exit 0)`
       : `${f.count(row.hits)} hits`;
+
   const retries = row.failing
     ? ` · ${f.count(row.retrySessions)} sessions with a retry`
     : "";
+
   return `${hits}${retries} · ${f.count(row.projects)} projects · hits ${splitOf(row.hitsBy, f)}`;
 };
 
@@ -76,19 +79,24 @@ export const causeImpact = (row: CauseRow, f: FindingFormat): string => {
   if (row.pairs === 0) {
     return `${f.count(row.sessions)} sessions`;
   }
+
   const what = row.failing ? "retries" : "read-backs";
+
   const tokens =
     row.tokensMeasured > 0
       ? ` · ${f.tokens(row.retryCtxTokens)} ctx tokens re-read`
       : "";
+
   // No pair with a measured gap is no time, not zero seconds.
   const sec = row.secMeasured === 0 ? "" : ` · ${f.hms(row.retrySec)}`;
+
   return `${f.count(row.pairs)} ${what} (${splitOf(row.pairsBy, f)})${sec}${tokens}`;
 };
 
 /** `~/.claude/CLAUDE.md:100`: where the first matching memory line sits. */
 const rulePlace = (rule: RuleCheck): string => {
   const where = rule.matches[0];
+
   return where === undefined ? "memory" : `${where.path}:${where.line}`;
 };
 
@@ -102,13 +110,16 @@ export const ruleState = (
   if (rule.callsSince.main + rule.callsSince.nested === 0) {
     return "unmeasured";
   }
+
   return rule.hitsSince.main + rule.hitsSince.nested === 0 ? "quiet" : "firing";
 };
 
 /** Rates at or above this print as whole numbers. */
 const RATE_WHOLE = 10;
+
 /** Significant digits of a smaller rate. */
 const RATE_DIGITS = 2;
+
 /** The smallest rate `round` keeps; a side with hits below it prints `<0.01`. */
 const RATE_FLOOR = 0.01;
 
@@ -120,6 +131,7 @@ export const rateText = (rate: number, hits: number): string => {
   if (hits > 0 && rate < RATE_FLOOR) {
     return `<${RATE_FLOOR}`;
   }
+
   return rate >= RATE_WHOLE
     ? Math.round(rate).toLocaleString("en-US")
     : String(Number(rate.toPrecision(RATE_DIGITS)));
@@ -134,14 +146,19 @@ export const ruleLine = (rule: RuleCheck): string => {
   const day = rule.sinceIso?.slice(0, 10) ?? null;
   const since = day === null ? "" : ` since ${day}`;
   const place = `rule in ${rulePlace(rule)}`;
+
   switch (ruleState(rule)) {
-    case "unmeasured":
+    case "unmeasured": {
       return `${place} · not measured yet${day === null ? "" : ` (added ${day})`}`;
-    case "quiet":
+    }
+    case "quiet": {
       return `${place} · quiet${since}`;
-    default:
+    }
+    default: {
       break;
+    }
   }
+
   const sides = [
     ["main", rule.callsSince.main, rule.hitsSince.main, rule.per1kSince.main],
     [
@@ -151,11 +168,13 @@ export const ruleLine = (rule: RuleCheck): string => {
       rule.per1kSince.nested,
     ],
   ] as const;
+
   const rates = sides
     .flatMap(([side, calls, hits, rate]) =>
       calls > 0 ? [`${side} ${rateText(rate, hits)}/1k`] : []
     )
     .join(", ");
+
   return `${place} · still firing ${rates}${since}`;
 };
 
@@ -168,6 +187,7 @@ export const causeNote = (row: CauseRow): string | null => {
   if (row.fix === null) {
     return null;
   }
+
   return row.rule === null || ruleState(row.rule) === "quiet"
     ? row.fix
     : `${ruleLine(row.rule)}: ${row.rule.advice}`;
@@ -189,6 +209,7 @@ export const suggestedRules = (report: StatsReport): readonly string[] =>
 
 const causeFinding = (row: CauseRow, f: FindingFormat): Finding | null => {
   const note = causeNote(row);
+
   return note === null || row.hits === 0
     ? null
     : {
@@ -230,9 +251,11 @@ export const timeNote = (row: TimeRow, f: FindingFormat): string | null => {
   if (row.cappedRuns > 0) {
     return `${f.count(row.cappedRuns)} of ${f.count(row.runs)} runs returned at a harness ceiling (${f.hms(row.cappedSec)} of ${f.hms(row.totalSec)}): these seconds are a floor`;
   }
+
   if (row.bgRuns > 0) {
     return `${f.count(row.bgRuns)} runs were backgrounded and charged only the seconds they took, which understates the wait they started`;
   }
+
   return null;
 };
 
@@ -257,6 +280,7 @@ const timeFinding = (
   f: FindingFormat
 ): Finding | null => {
   const note = timeNote(row, f);
+
   return note === null
     ? null
     : {
@@ -286,6 +310,7 @@ export const findingsOf = (
   f: FindingFormat
 ): readonly Finding[] => {
   const fails = report.fails.flatMap((row) => failFinding(row, f) ?? []);
+
   return [
     ...report.causes.flatMap((row) => causeFinding(row, f) ?? []),
     ...fails.filter((one) => one.detector !== null),

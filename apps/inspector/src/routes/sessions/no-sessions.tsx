@@ -84,5 +84,6 @@ export const NoSessions = ({
 
 export const NoSessionsFromServer = () => {
   const { info, refresh } = useLiveServerInfo();
+
   return <NoSessions info={withLastSuccess(info)} onRetry={refresh} />;
 };

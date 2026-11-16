@@ -19,14 +19,8 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { TimeRow } from "@workspace/view-core/api-types.gen";
 import { Fragment } from "react";
 
-import {
-  coPresentNote,
-  hms,
-  n,
-  type PromptFor,
-  pct,
-  timeNote,
-} from "../../lib/stats-format";
+import { coPresentNote, hms, n, pct, timeNote } from "../../lib/stats-format";
+import type { PromptFor } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
@@ -39,6 +33,7 @@ const DetailRow = ({
   readonly row: TimeRow;
 }) => {
   const note = timeNote(row);
+
   return (
     <TableRow className="bg-muted/30 hover:bg-muted/30">
       <TableCell className="whitespace-normal" colSpan={7}>
@@ -53,7 +48,7 @@ const DetailRow = ({
             <PromptButton
               subject={`${row.label} time`}
               testId="time-prompt"
-              text={prompt({ table: "time", key: row.key })}
+              text={prompt({ key: row.key, table: "time" })}
             />
           </div>
           {note ? <p className="text-xs">{note}</p> : null}
@@ -88,6 +83,7 @@ export const TimeTable = ({
       </p>
     );
   }
+
   return (
     <div className="border-border rounded-lg border" data-testid="time-table">
       <Table>
@@ -117,7 +113,9 @@ export const TimeTable = ({
                   selectedKey === row.key && "bg-muted/40"
                 )}
                 data-testid="time-row"
-                onClick={() => onSelect(row.key)}
+                onClick={() => {
+                  onSelect(row.key);
+                }}
               >
                 <TableCell className="align-top">
                   <span className="text-sm font-medium">{row.label}</span>

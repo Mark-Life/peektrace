@@ -55,6 +55,7 @@ const replaceAll = (before: string[], after: string[]): LineDiff => ({
 const lcsTable = (before: string[], after: string[]) => {
   const width = after.length + 1;
   const table = new Int32Array((before.length + 1) * width);
+
   for (let i = before.length - 1; i >= 0; i--) {
     for (let j = after.length - 1; j >= 0; j--) {
       const here = i * width + j;
@@ -64,6 +65,7 @@ const lcsTable = (before: string[], after: string[]) => {
           : Math.max(table[here + width] ?? 0, table[here + 1] ?? 0);
     }
   }
+
   return { table, width };
 };
 
@@ -73,11 +75,13 @@ const alignRows = (before: string[], after: string[]): DiffRow[] => {
   const rows: DiffRow[] = [];
   let i = 0;
   let j = 0;
+
   while (i < before.length && j < after.length) {
     const a = before[i] ?? "";
     const b = after[j] ?? "";
+
     if (a === b) {
-      rows.push({ kind: "ctx", oldNo: i + 1, newNo: j + 1, text: a });
+      rows.push({ kind: "ctx", newNo: j + 1, oldNo: i + 1, text: a });
       i++;
       j++;
     } else if (
@@ -90,12 +94,15 @@ const alignRows = (before: string[], after: string[]): DiffRow[] => {
       j++;
     }
   }
+
   for (; i < before.length; i++) {
     rows.push({ kind: "del", oldNo: i + 1, text: before[i] ?? "" });
   }
+
   for (; j < after.length; j++) {
     rows.push({ kind: "add", newNo: j + 1, text: after[j] ?? "" });
   }
+
   return rows;
 };
 
@@ -106,10 +113,12 @@ const nearAChange = (rows: readonly DiffRow[]) => {
     if (row.kind === "ctx") {
       return;
     }
+
     for (let k = i - CONTEXT; k <= i + CONTEXT; k++) {
       keep.add(k);
     }
   });
+
   return keep;
 };
 
@@ -124,14 +133,19 @@ const withGaps = (rows: readonly DiffRow[]): DiffRow[] => {
         out.push({ count: skipped, kind: "gap", text: "" });
         skipped = 0;
       }
+
       out.push(row);
+
       return;
     }
+
     skipped++;
   });
+
   if (skipped > 0) {
     out.push({ count: skipped, kind: "gap", text: "" });
   }
+
   return out;
 };
 
@@ -139,10 +153,12 @@ const withGaps = (rows: readonly DiffRow[]): DiffRow[] => {
 export const diffLines = (before: string, after: string): LineDiff => {
   const a = splitLines(before);
   const b = splitLines(after);
+
   const rows =
     (a.length + 1) * (b.length + 1) > MAX_CELLS
       ? replaceAll(a, b).rows
       : alignRows(a, b);
+
   return {
     added: rows.filter((r) => r.kind === "add").length,
     removed: rows.filter((r) => r.kind === "del").length,

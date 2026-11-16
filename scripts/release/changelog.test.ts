@@ -70,6 +70,7 @@ describe("changelogSection", () => {
     const body = changelogSection(FIXTURE, "cli-v0.2.0", {
       repoUrl: "https://github.com/acme/widget",
     });
+
     expect(body).toContain(
       "](https://github.com/acme/widget/blob/cli-v0.2.0/docs/guide.md)"
     );
@@ -82,11 +83,14 @@ describe("changelogSection edge cases", () => {
   test("mixed fence markers do not close each other", () => {
     const md =
       "## cli-v1.0.0 — 2026-01-01\n~~~md\n```\n## not\n~~~\n\nafter\n\n## cli-v0.9.0 — 2025-01-01\nold\n";
+
     expect(changelogSection(md, "cli-v1.0.0")).toBe(
       "~~~md\n```\n## not\n~~~\n\nafter"
     );
+
     const swallow =
       "## cli-v1.0.0 — 2026-01-01\n~~~md\n```\n~~~\n\n## cli-v0.9.0\nold\n";
+
     expect(changelogSection(swallow, "cli-v1.0.0")).toBe("~~~md\n```\n~~~");
   });
 
@@ -94,9 +98,9 @@ describe("changelogSection edge cases", () => {
     const md = "## cli-v1.0.0 — 2026-01-01 (hotfix)\nx\n";
     expect(changelogSection(md, "cli-v1.0.0")).toBe("x");
     expect(latestRelease("## cli-v1.0.0 (2026-01-01)\n")).toEqual({
+      date: undefined,
       tag: "cli-v1.0.0",
       version: "1.0.0",
-      date: undefined,
     });
     expect(latestRelease(md)?.date).toBe("2026-01-01");
   });
@@ -104,6 +108,7 @@ describe("changelogSection edge cases", () => {
   test("leaves code fences and inline code alone, images use raw", () => {
     const md =
       "## cli-v1.0.0\n```ts\nconst x = a[0](b)\n```\nuse `[x](y)` and ![img](shot.png) and [doc](d.md)\n";
+
     expect(
       changelogSection(md, "cli-v1.0.0", { repoUrl: "https://github.com/o/r" })
     ).toBe(
@@ -116,6 +121,7 @@ describe("link rewriting", () => {
   test("rewrites links whose text is inline code, skips code spans", () => {
     const md =
       "## cli-v1.0.0\nsee [`docs/a.md`](docs/a.md), [b](b.md) and `[x](y)`\n";
+
     expect(
       changelogSection(md, "cli-v1.0.0", { repoUrl: "https://github.com/o/r" })
     ).toBe(
@@ -127,9 +133,9 @@ describe("link rewriting", () => {
 describe("latestRelease", () => {
   test("skips Unreleased and returns tag, version and date", () => {
     expect(latestRelease(FIXTURE)).toEqual({
+      date: "2026-02-02",
       tag: "cli-v0.2.0",
       version: "0.2.0",
-      date: "2026-02-02",
     });
   });
 
@@ -146,6 +152,7 @@ describe("latestRelease", () => {
 
 const run = (args: string[], repo?: string) => {
   const { GITHUB_REPOSITORY: _repo, ...env } = process.env;
+
   return Bun.spawnSync([process.execPath, SCRIPT, ...args], {
     env: repo ? { ...env, GITHUB_REPOSITORY: repo } : env,
   });
@@ -153,14 +160,16 @@ const run = (args: string[], repo?: string) => {
 
 describe("release-notes script", () => {
   test("prints the section for the latest repo release", () => {
-    const markdown = readFileSync(REPO_CHANGELOG, "utf8");
+    const markdown = readFileSync(REPO_CHANGELOG, "utf-8");
     const latest = latestRelease(markdown);
     expect(latest).toBeDefined();
     const result = run([latest?.tag ?? ""]);
     expect(result.exitCode).toBe(0);
+
     const expected = changelogSection(markdown, latest?.tag ?? "", {
       repoUrl: "https://github.com/Mark-Life/peektrace",
     });
+
     expect(expected).toBeTruthy();
     expect(result.stdout.toString().trim()).toBe(expected ?? "");
   });
@@ -177,6 +186,7 @@ describe("release-notes script", () => {
 
   test("uses GITHUB_REPOSITORY for rewritten links", () => {
     const dir = mkdtempSync(join(tmpdir(), "release-notes-"));
+
     try {
       const file = join(dir, "CHANGELOG.md");
       writeFileSync(file, "## cli-v1.0.0\n[`a.md`](a.md)\n");
@@ -185,7 +195,7 @@ describe("release-notes script", () => {
         "[`a.md`](https://github.com/acme/widget/blob/cli-v1.0.0/a.md)"
       );
     } finally {
-      rmSync(dir, { recursive: true, force: true });
+      rmSync(dir, { force: true, recursive: true });
     }
   });
 });

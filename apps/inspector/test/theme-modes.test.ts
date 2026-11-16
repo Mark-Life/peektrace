@@ -9,29 +9,29 @@ const press = (resolvedTheme?: string, systemTheme?: string) =>
 describe("nextThemePress", () => {
   test("pins dark on a light OS", () => {
     expect(press("light", "light")).toEqual({
-      store: "dark",
       appearance: "dark",
+      store: "dark",
     });
   });
 
   test("drops the override when the flip lands on a light OS", () => {
     expect(press("dark", "light")).toEqual({
-      store: "system",
       appearance: "light",
+      store: "system",
     });
   });
 
   test("pins light on a dark OS", () => {
     expect(press("dark", "dark")).toEqual({
-      store: "light",
       appearance: "light",
+      store: "light",
     });
   });
 
   test("drops the override when the flip lands on a dark OS", () => {
     expect(press("light", "dark")).toEqual({
-      store: "system",
       appearance: "dark",
+      store: "system",
     });
   });
 
@@ -45,12 +45,12 @@ describe("nextThemePress", () => {
 
   test("unknown appearances fall back to system, announced as the OS look", () => {
     expect(press(undefined, "dark")).toEqual({
-      store: "system",
       appearance: "dark",
+      store: "system",
     });
     expect(press(undefined, undefined)).toEqual({
-      store: "system",
       appearance: "light",
+      store: "system",
     });
   });
 });

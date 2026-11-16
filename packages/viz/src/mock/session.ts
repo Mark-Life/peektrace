@@ -25,6 +25,7 @@ const DUMB_ZONE_FRACTION = 0.4;
 const MODEL = "claude-sonnet-4-5-20250929";
 const SESSION_ID = "a3f2c1d8-7b4e-4f19-9c2a-6d5e8b1f0a37";
 const CWD = "/Users/dev/code/acme/ingest";
+
 /** Wall-clock spacing between turns, and the epoch the session starts from. */
 const TURN_INTERVAL_MS = 90_000;
 const SESSION_START_MS = Date.parse("2026-03-11T09:02:14.000Z");
@@ -34,15 +35,15 @@ const SESSION_START_MS = Date.parse("2026-03-11T09:02:14.000Z");
  * headline: they sum to 612,140 tokens, the peak context.
  */
 const PEAK_SLICES: BudgetSlices = {
-  system_tools: 48_300,
+  assistant_text: 60_100,
+  files: 40_000,
   listings: 22_000,
   memory: 71_000,
-  files: 40_000,
-  prompts: 18_000,
-  tool_results: 96_200,
-  assistant_text: 60_100,
-  thinking: 210_400,
   other: 30_140,
+  prompts: 18_000,
+  system_tools: 48_300,
+  thinking: 210_400,
+  tool_results: 96_200,
   unattributed: 16_000,
 };
 
@@ -52,15 +53,15 @@ const PEAK_SLICES: BudgetSlices = {
  * and never move; everything else grows from here and is evicted by compaction.
  */
 const START_SLICES: BudgetSlices = {
-  system_tools: 48_300,
+  assistant_text: 400,
+  files: 0,
   listings: 22_000,
   memory: 71_000,
-  files: 0,
-  prompts: 1200,
-  tool_results: 0,
-  assistant_text: 400,
-  thinking: 800,
   other: 600,
+  prompts: 1200,
+  system_tools: 48_300,
+  thinking: 800,
+  tool_results: 0,
   unattributed: 2000,
 };
 
@@ -86,23 +87,23 @@ interface CtxAnchor {
  * to the peak and a mild decay. Context between anchors is interpolated.
  */
 const CTX_ANCHORS: readonly CtxAnchor[] = [
-  { turn: 0, ctx: START_TOTAL },
-  { turn: 6, ctx: 205_000 },
-  { turn: 14, ctx: 280_000 },
-  { turn: 20, ctx: 322_000 },
-  { turn: 24, ctx: 352_000 },
-  { turn: 25, ctx: 168_000, cliff: true },
-  { turn: 30, ctx: 330_000 },
-  { turn: 32, ctx: 392_000 },
-  { turn: 33, ctx: 404_000 },
-  { turn: 40, ctx: 505_000 },
-  { turn: 46, ctx: 596_000 },
-  { turn: 47, ctx: 385_000, cliff: true },
-  { turn: 48, ctx: 421_000 },
-  { turn: 55, ctx: 498_000 },
-  { turn: 62, ctx: 560_000 },
-  { turn: PEAK_TURN_INDEX, ctx: PEAK_TOTAL },
-  { turn: 74, ctx: 571_000 },
+  { ctx: START_TOTAL, turn: 0 },
+  { ctx: 205_000, turn: 6 },
+  { ctx: 280_000, turn: 14 },
+  { ctx: 322_000, turn: 20 },
+  { ctx: 352_000, turn: 24 },
+  { cliff: true, ctx: 168_000, turn: 25 },
+  { ctx: 330_000, turn: 30 },
+  { ctx: 392_000, turn: 32 },
+  { ctx: 404_000, turn: 33 },
+  { ctx: 505_000, turn: 40 },
+  { ctx: 596_000, turn: 46 },
+  { cliff: true, ctx: 385_000, turn: 47 },
+  { ctx: 421_000, turn: 48 },
+  { ctx: 498_000, turn: 55 },
+  { ctx: 560_000, turn: 62 },
+  { ctx: PEAK_TOTAL, turn: PEAK_TURN_INDEX },
+  { ctx: 571_000, turn: 74 },
 ];
 
 /** Turn indexes whose snapshot shows a compaction drop (turns 26 and 48). */
@@ -110,18 +111,23 @@ const COMPACTION_TURNS = CTX_ANCHORS.filter((a) => a.cliff).map((a) => a.turn);
 
 /** Context tokens at a turn, linearly interpolated between the control points. */
 const ctxTargetAt = (turnIndex: number) => {
-  const last = CTX_ANCHORS.at(-1) ?? { turn: 0, ctx: START_TOTAL };
+  const last = CTX_ANCHORS.at(-1) ?? { ctx: START_TOTAL, turn: 0 };
+
   for (let i = 0; i < CTX_ANCHORS.length - 1; i++) {
     const from = CTX_ANCHORS[i] ?? last;
     const to = CTX_ANCHORS[i + 1] ?? last;
+
     if (turnIndex >= from.turn && turnIndex <= to.turn) {
       const span = to.turn - from.turn;
+
       if (span === 0) {
         return from.ctx;
       }
+
       return from.ctx + ((to.ctx - from.ctx) * (turnIndex - from.turn)) / span;
     }
   }
+
   return last.ctx;
 };
 
@@ -141,20 +147,21 @@ const sliceAt = (key: BudgetKey, growth: number) =>
 
 /** Category attribution for a turn at a given growth fraction. */
 const slicesAt = (growth: number): BudgetSlices => ({
-  system_tools: sliceAt("system_tools", growth),
+  assistant_text: sliceAt("assistant_text", growth),
+  files: sliceAt("files", growth),
   listings: sliceAt("listings", growth),
   memory: sliceAt("memory", growth),
-  files: sliceAt("files", growth),
-  prompts: sliceAt("prompts", growth),
-  tool_results: sliceAt("tool_results", growth),
-  assistant_text: sliceAt("assistant_text", growth),
-  thinking: sliceAt("thinking", growth),
   other: sliceAt("other", growth),
+  prompts: sliceAt("prompts", growth),
+  system_tools: sliceAt("system_tools", growth),
+  thinking: sliceAt("thinking", growth),
+  tool_results: sliceAt("tool_results", growth),
   unattributed: sliceAt("unattributed", growth),
 });
 
 const TURN_INDEXES = Array.from({ length: TURN_COUNT }, (_, i) => i);
 const SLICES_BY_TURN = TURN_INDEXES.map((i) => slicesAt(growthAt(i)));
+
 /** Context per turn: always the exact sum of that turn's category slices. */
 const CTX_BY_TURN = SLICES_BY_TURN.map(sumSlices);
 
@@ -174,13 +181,13 @@ const requestIdAt = (turnIndex: number) =>
  * number, on every render and on every machine.
  */
 const SIZES = {
-  output: { base: 900, step: 91, span: 47, mult: 977 },
-  input: { base: 1200, step: 260, span: 5, mult: 1 },
-  prompt: { base: 320, step: 90, span: 7, mult: 1 },
-  thinking: { base: 1600, step: 120, span: 31, mult: 53 },
-  toolCall: { base: 180, step: 60, span: 4, mult: 1 },
-  toolResult: { base: 2400, step: 700, span: 29, mult: 37 },
-  text: { base: 700, step: 130, span: 23, mult: 17 },
+  input: { base: 1200, mult: 1, span: 5, step: 260 },
+  output: { base: 900, mult: 977, span: 47, step: 91 },
+  prompt: { base: 320, mult: 1, span: 7, step: 90 },
+  text: { base: 700, mult: 17, span: 23, step: 130 },
+  thinking: { base: 1600, mult: 53, span: 31, step: 120 },
+  toolCall: { base: 180, mult: 1, span: 4, step: 60 },
+  toolResult: { base: 2400, mult: 37, span: 29, step: 700 },
 } as const;
 
 /** Resolve one entry of {@link SIZES} for a given seed. */
@@ -194,18 +201,20 @@ const vary = ({
 
 /** Model output for a turn — varied but deterministic, driving the timeline dots. */
 const outputAt = (turnIndex: number) =>
-  vary({ size: SIZES.output, seed: turnIndex });
+  vary({ seed: turnIndex, size: SIZES.output });
 
 /** Fresh (uncached) input tokens billed for a turn. */
 const inputAt = (turnIndex: number) =>
-  vary({ size: SIZES.input, seed: turnIndex });
+  vary({ seed: turnIndex, size: SIZES.input });
 
 /** Newly cached tokens: the context a turn added over its predecessor. */
 const cacheCreationAt = (turnIndex: number) => {
   const ctx = CTX_BY_TURN[turnIndex] ?? 0;
+
   if (turnIndex === 0) {
     return Math.max(0, ctx - inputAt(0));
   }
+
   return Math.max(0, ctx - (CTX_BY_TURN[turnIndex - 1] ?? 0));
 };
 
@@ -219,6 +228,7 @@ const cacheReadAt = (turnIndex: number) =>
   );
 
 const TOOLS = ["Read", "Grep", "Edit", "Bash", "Task"] as const;
+
 const PATHS = [
   "src/ingest/normalize.ts",
   "src/ingest/dedupe.ts",
@@ -227,6 +237,7 @@ const PATHS = [
   "src/db/migrate.ts",
   "test/ingest.test.ts",
 ] as const;
+
 const PROMPTS = [
   "Backfill the last 90 days without double-writing rows",
   "The dedupe key collides on re-imported batches — fix it",
@@ -241,17 +252,17 @@ const pick = <T>(pool: readonly [T, ...T[]], turnIndex: number) =>
 
 /** Cadences that shape the event stream, all keyed off the turn index. */
 const CADENCE = {
-  /** Tool slots per turn, so a turn's two tool calls get distinct seeds. */
-  toolSlots: 3,
-  /** Every nth turn opens with a fresh user prompt. */
-  promptEvery: 3,
-  /** Every nth turn runs a second tool call. */
-  extraToolEvery: 2,
   /** Every nth tool result comes back as an error, offset off the boundary. */
   errorEvery: 11,
   errorOffset: 7,
+  /** Every nth turn runs a second tool call. */
+  extraToolEvery: 2,
   /** Match counts quoted in a tool result's preview. */
   matchSpan: 9,
+  /** Every nth turn opens with a fresh user prompt. */
+  promptEvery: 3,
+  /** Tool slots per turn, so a turn's two tool calls get distinct seeds. */
+  toolSlots: 3,
 } as const;
 
 /** One tool call + its result, sized deterministically from the turn index. */
@@ -267,29 +278,30 @@ const toolPair = (args: {
   const requestId = requestIdAt(turnIndex);
   const ts = tsAt(turnIndex);
   const matches = (seed % CADENCE.matchSpan) + 1;
+
   return [
     {
-      kind: "tool-call",
-      requestId,
-      ts,
-      title: `${tool} ${path}`,
-      preview: `${tool}(${path})`,
       body: `${tool}(${path})`,
+      kind: "tool-call",
+      preview: `${tool}(${path})`,
+      requestId,
+      title: `${tool} ${path}`,
       tokensEst: vary({ size: SIZES.toolCall, seed }),
       toolName: tool,
       toolUseId,
+      ts,
     },
     {
-      kind: "tool-result",
-      requestId,
-      ts,
-      title: `Result: ${tool}`,
-      preview: `${path} — ${matches} matches`,
       body: `${path} — ${matches} matches`,
+      isError: seed % CADENCE.errorEvery === CADENCE.errorOffset,
+      kind: "tool-result",
+      preview: `${path} — ${matches} matches`,
+      requestId,
+      title: `Result: ${tool}`,
       tokensEst: vary({ size: SIZES.toolResult, seed }),
       toolName: tool,
       toolUseId,
-      isError: seed % CADENCE.errorEvery === CADENCE.errorOffset,
+      ts,
     },
   ];
 };
@@ -305,39 +317,40 @@ const turnEvents = (
   const runsExtraTool = turnIndex % CADENCE.extraToolEvery === 0;
   const summary = `Patched ${pick(PATHS, turnIndex)} and re-ran the suite.`;
   const rationale = "Weighing the upsert against a staging table…";
+
   return [
     ...(isPromptTurn
       ? ([
           {
-            kind: "user-prompt",
-            requestId,
-            ts,
-            title: "User",
-            preview: prompt,
             body: prompt,
+            kind: "user-prompt",
+            preview: prompt,
+            requestId,
+            title: "User",
             tokensEst: vary({ size: SIZES.prompt, seed: turnIndex }),
+            ts,
           },
         ] as const)
       : []),
     {
-      kind: "assistant-thinking",
-      requestId,
-      ts,
-      title: "Thinking",
-      preview: rationale,
       body: rationale,
-      tokensEst: vary({ size: SIZES.thinking, seed: turnIndex }),
-    },
-    ...toolPair({ turnIndex, slot: 0 }),
-    ...(runsExtraTool ? toolPair({ turnIndex, slot: 1 }) : []),
-    {
-      kind: "assistant-text",
+      kind: "assistant-thinking",
+      preview: rationale,
       requestId,
+      title: "Thinking",
+      tokensEst: vary({ size: SIZES.thinking, seed: turnIndex }),
       ts,
-      title: "Assistant",
-      preview: summary,
+    },
+    ...toolPair({ slot: 0, turnIndex }),
+    ...(runsExtraTool ? toolPair({ slot: 1, turnIndex }) : []),
+    {
       body: summary,
+      kind: "assistant-text",
+      preview: summary,
+      requestId,
+      title: "Assistant",
       tokensEst: vary({ size: SIZES.text, seed: turnIndex }),
+      ts,
     },
   ];
 };
@@ -345,55 +358,55 @@ const turnEvents = (
 /** The always-loaded preamble: skills, agents, tool defs, and CLAUDE.md. */
 const PREAMBLE: readonly Omit<TimelineEvent, "index">[] = [
   {
-    kind: "attachment",
-    ts: tsAt(0),
-    title: "CLAUDE.md",
-    preview: "Project + global instructions",
-    body: "Project + global instructions",
-    tokensEst: 71_000,
     attachmentType: "claude_md",
+    body: "Project + global instructions",
+    kind: "attachment",
     loadedCategory: "claude-md",
+    preview: "Project + global instructions",
+    title: "CLAUDE.md",
+    tokensEst: 71_000,
+    ts: tsAt(0),
   },
   {
-    kind: "attachment",
-    ts: tsAt(0),
-    title: "Skill listing",
-    preview: "14 skills available",
-    body: "14 skills available",
-    tokensEst: 9400,
     attachmentType: "skills",
+    body: "14 skills available",
+    kind: "attachment",
     loadedCategory: "skills",
+    preview: "14 skills available",
+    title: "Skill listing",
+    tokensEst: 9400,
+    ts: tsAt(0),
   },
   {
-    kind: "attachment",
-    ts: tsAt(0),
-    title: "Agent listing",
-    preview: "6 subagent types available",
-    body: "6 subagent types available",
-    tokensEst: 5100,
     attachmentType: "agents",
+    body: "6 subagent types available",
+    kind: "attachment",
     loadedCategory: "agents",
+    preview: "6 subagent types available",
+    title: "Agent listing",
+    tokensEst: 5100,
+    ts: tsAt(0),
   },
   {
-    kind: "attachment",
-    ts: tsAt(0),
-    title: "Tool definitions",
-    preview: "MCP + built-in tool schemas",
-    body: "MCP + built-in tool schemas",
-    tokensEst: 7500,
     attachmentType: "tools",
+    body: "MCP + built-in tool schemas",
+    kind: "attachment",
     loadedCategory: "tools",
+    preview: "MCP + built-in tool schemas",
+    title: "Tool definitions",
+    tokensEst: 7500,
+    ts: tsAt(0),
   },
 ];
 
 /** A compaction: history is summarized away and growable context is evicted. */
 const compactionEvent = (turnIndex: number): Omit<TimelineEvent, "index"> => ({
-  kind: "compaction",
-  ts: tsAt(turnIndex),
-  title: "Conversation compacted",
-  preview: "Prior turns summarized; tool results and files evicted",
   body: "Prior turns summarized; tool results and files evicted",
+  kind: "compaction",
+  preview: "Prior turns summarized; tool results and files evicted",
+  title: "Conversation compacted",
   tokensEst: 3400,
+  ts: tsAt(turnIndex),
 });
 
 /** Lay every event out in order and stamp it with its position. */
@@ -402,6 +415,7 @@ const buildEvents = (): readonly TimelineEvent[] => {
     ...(COMPACTION_TURNS.includes(i) ? [compactionEvent(i)] : []),
     ...turnEvents(i),
   ]);
+
   return [...PREAMBLE, ...ordered].map((e, index) => ({ ...e, index }));
 };
 
@@ -413,25 +427,25 @@ const eventIndexesFor = (turnIndex: number) =>
   );
 
 const TURNS: readonly Turn[] = TURN_INDEXES.map((i) => ({
+  cacheCreationTokens: cacheCreationAt(i),
+  cacheReadTokens: cacheReadAt(i),
+  contextTokens: CTX_BY_TURN[i] ?? 0,
+  eventIndexes: eventIndexesFor(i),
+  inputTokens: inputAt(i),
+  model: MODEL,
+  outputTokens: outputAt(i),
   requestId: requestIdAt(i),
   ts: tsAt(i),
-  model: MODEL,
-  contextTokens: CTX_BY_TURN[i] ?? 0,
-  inputTokens: inputAt(i),
-  cacheReadTokens: cacheReadAt(i),
-  cacheCreationTokens: cacheCreationAt(i),
-  outputTokens: outputAt(i),
-  eventIndexes: eventIndexesFor(i),
 }));
 
 const SNAPSHOTS: readonly TurnSnapshot[] = TURN_INDEXES.map((i) => ({
-  turnIndex: i,
-  ts: tsAt(i),
-  model: MODEL,
-  ctx: CTX_BY_TURN[i] ?? 0,
-  outputTokens: outputAt(i),
   cacheReadTokens: cacheReadAt(i),
+  ctx: CTX_BY_TURN[i] ?? 0,
+  model: MODEL,
+  outputTokens: outputAt(i),
   slices: SLICES_BY_TURN[i] ?? START_SLICES,
+  ts: tsAt(i),
+  turnIndex: i,
 }));
 
 /** The peak-turn budget: every category, with core's own labels and colors. */
@@ -443,9 +457,11 @@ const BUDGET = BUDGET_KEYS.map((key) => ({
 
 /** First turn at or above the dumb-zone line, and how long the session stays there. */
 const DUMB_ZONE_TOKENS = DUMB_ZONE_FRACTION * CONTEXT_WINDOW;
+
 const DUMB_ZONE_CROSS_TURN = CTX_BY_TURN.findIndex(
   (ctx) => ctx >= DUMB_ZONE_TOKENS
 );
+
 const DUMB_ZONE_TURNS = CTX_BY_TURN.filter(
   (ctx) => ctx >= DUMB_ZONE_TOKENS
 ).length;
@@ -457,60 +473,23 @@ const DUMB_ZONE_TURNS = CTX_BY_TURN.filter(
  * would have hidden.
  */
 export const MOCK_SESSION: AnalyzedSession = {
-  provider: "claude-code",
-  sessionId: SESSION_ID,
-  path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}.jsonl`,
-  cwd: CWD,
-  gitBranch: "feat/import-pipeline",
-  title: "Import pipeline: dedupe keys and a 90-day backfill",
-  version: "2.1.4",
-  models: [MODEL],
-  startedAt: tsAt(0),
-  endedAt: tsAt(TURN_COUNT - 1),
-  events: EVENTS,
-  turns: TURNS,
+  budget: BUDGET,
   compactionIndexes: EVENTS.filter((e) => e.kind === "compaction").map(
     (e) => e.index
   ),
-  subagents: [
-    {
-      id: "sub_01",
-      agentType: "code-reviewer",
-      description: "Review the dedupe key change",
-      toolUseId: "toolu_042",
-      path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-01.jsonl`,
-      turns: 9,
-      peakContextTokens: 86_400,
-    },
-    {
-      id: "sub_02",
-      agentType: "test-writer",
-      description: "Cover the partial-batch failure path",
-      toolUseId: "toolu_078",
-      path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-02.jsonl`,
-      turns: 14,
-      peakContextTokens: 132_900,
-    },
-    {
-      id: "sub_03",
-      agentType: "explorer",
-      description: "Trace the migration lock",
-      toolUseId: "toolu_121",
-      path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-03.jsonl`,
-      turns: 6,
-      peakContextTokens: 61_200,
-    },
-  ],
+  compactionTurns: COMPACTION_TURNS,
   contextWindow: CONTEXT_WINDOW,
   contextWindowInferred: true,
-  peakContextTokens: PEAK_TOTAL,
-  peakTurnIndex: PEAK_TURN_INDEX,
-  finalContextTokens: CTX_BY_TURN.at(-1) ?? 0,
-  totalOutputTokens: TURN_INDEXES.reduce((sum, i) => sum + outputAt(i), 0),
-  systemOverheadTokens: PEAK_SLICES.system_tools,
+  cwd: CWD,
+  dumbZoneCrossTurn: DUMB_ZONE_CROSS_TURN,
+  dumbZoneFraction: DUMB_ZONE_FRACTION,
+  dumbZoneTurns: DUMB_ZONE_TURNS,
   durationMs: (TURN_COUNT - 1) * TURN_INTERVAL_MS,
-  budget: BUDGET,
-  snapshots: SNAPSHOTS,
+  endedAt: tsAt(TURN_COUNT - 1),
+  events: EVENTS,
+  finalContextTokens: CTX_BY_TURN.at(-1) ?? 0,
+  gitBranch: "feat/import-pipeline",
+  models: [MODEL],
   onDiskContextFiles: [
     {
       label: "CLAUDE.md",
@@ -541,14 +520,51 @@ export const MOCK_SESSION: AnalyzedSession = {
       scope: "memory",
     },
   ],
-  dumbZoneCrossTurn: DUMB_ZONE_CROSS_TURN,
-  dumbZoneFraction: DUMB_ZONE_FRACTION,
-  dumbZoneTurns: DUMB_ZONE_TURNS,
-  compactionTurns: COMPACTION_TURNS,
-  turnCount: TURN_COUNT,
-  userMessageCount: EVENTS.filter((e) => e.kind === "user-prompt").length,
-  toolCallCount: EVENTS.filter((e) => e.kind === "tool-call").length,
+  path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}.jsonl`,
   peakCacheReadTokens: cacheReadAt(PEAK_TURN_INDEX),
-  webSearchRequests: 0,
+  peakContextTokens: PEAK_TOTAL,
+  peakTurnIndex: PEAK_TURN_INDEX,
+  provider: "claude-code",
+  sessionId: SESSION_ID,
+  snapshots: SNAPSHOTS,
+  startedAt: tsAt(0),
+  subagents: [
+    {
+      id: "sub_01",
+      agentType: "code-reviewer",
+      description: "Review the dedupe key change",
+      toolUseId: "toolu_042",
+      path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-01.jsonl`,
+      turns: 9,
+      peakContextTokens: 86_400,
+    },
+    {
+      id: "sub_02",
+      agentType: "test-writer",
+      description: "Cover the partial-batch failure path",
+      toolUseId: "toolu_078",
+      path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-02.jsonl`,
+      turns: 14,
+      peakContextTokens: 132_900,
+    },
+    {
+      id: "sub_03",
+      agentType: "explorer",
+      description: "Trace the migration lock",
+      toolUseId: "toolu_121",
+      path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-03.jsonl`,
+      turns: 6,
+      peakContextTokens: 61_200,
+    },
+  ],
+  systemOverheadTokens: PEAK_SLICES.system_tools,
+  title: "Import pipeline: dedupe keys and a 90-day backfill",
+  toolCallCount: EVENTS.filter((e) => e.kind === "tool-call").length,
+  totalOutputTokens: TURN_INDEXES.reduce((sum, i) => sum + outputAt(i), 0),
+  turnCount: TURN_COUNT,
+  turns: TURNS,
+  userMessageCount: EVENTS.filter((e) => e.kind === "user-prompt").length,
+  version: "2.1.4",
   webFetchRequests: 0,
+  webSearchRequests: 0,
 };

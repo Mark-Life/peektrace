@@ -105,11 +105,11 @@ export const useWatchRefresh = () => {
   useEffect(
     () =>
       startLive({
-        onVersions: setVersions,
         onReconnect: () => {
           refreshSessions();
           refreshVaults();
         },
+        onVersions: setVersions,
       }),
     [setVersions, refreshSessions, refreshVaults]
   );

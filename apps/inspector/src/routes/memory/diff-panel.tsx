@@ -10,6 +10,7 @@ import { FileWarningIcon, LinkIcon } from "lucide-react";
 /** Render the orphans / dangling lists for one vault. */
 export const DiffPanel = ({ diff }: { readonly diff: VaultDiff }) => {
   const clean = diff.orphans.length === 0 && diff.dangling.length === 0;
+
   if (clean) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="diff-clean">
@@ -17,6 +18,7 @@ export const DiffPanel = ({ diff }: { readonly diff: VaultDiff }) => {
       </p>
     );
   }
+
   return (
     <div className="flex flex-col gap-3 text-sm" data-testid="diff-panel">
       {diff.orphans.length > 0 ? (

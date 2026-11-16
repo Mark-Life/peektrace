@@ -53,12 +53,15 @@ export type ListKey = (typeof LIST_KEYS)[number];
 /** Only the list filter keys of `params`, in `LIST_KEYS` order. */
 export const listParams = (params: URLSearchParams) => {
   const out = new URLSearchParams();
+
   for (const key of LIST_KEYS) {
     const value = params.get(key);
+
     if (value !== null) {
       out.set(key, value);
     }
   }
+
   return out;
 };
 
@@ -72,34 +75,45 @@ let lastList = new URLSearchParams();
  */
 const parseHash = (): HashLocation => {
   const raw = window.location.hash;
+
   if (cache && cache.raw === raw) {
     return cache.loc;
   }
+
   const body = raw.replace(HASH_PREFIX, "");
   const [head, tail] = body.split("?", 2) as [string, string | undefined];
+
   const section = (ROUTES as readonly string[]).includes(head)
     ? (head as RouteId)
     : DEFAULT_ROUTE;
+
   const loc: HashLocation = {
-    section,
     params: new URLSearchParams(tail ?? ""),
+    section,
   };
-  cache = { raw, loc };
+
+  cache = { loc, raw };
+
   if (section === "sessions") {
     lastList = listParams(loc.params);
   }
+
   return loc;
 };
 
 /** Subscribe to `hashchange` for `useSyncExternalStore`. */
 const subscribe = (onChange: () => void) => {
   window.addEventListener("hashchange", onChange);
-  return () => window.removeEventListener("hashchange", onChange);
+
+  return () => {
+    window.removeEventListener("hashchange", onChange);
+  };
 };
 
 /** Build a hash string from a section (+optional params); omits empty query. */
 const buildHash = (section: RouteId, params?: URLSearchParams) => {
   const query = params?.toString() ?? "";
+
   return query.length > 0 ? `#/${section}?${query}` : `#/${section}`;
 };
 
@@ -107,10 +121,12 @@ const buildHash = (section: RouteId, params?: URLSearchParams) => {
  *  `replaceState` fires no `hashchange`, so dispatch one manually. */
 const replaceHash = (hash: string) => {
   window.history.replaceState(null, "", hash);
+
   const event =
     typeof HashChangeEvent === "function"
       ? new HashChangeEvent("hashchange")
       : new Event("hashchange");
+
   window.dispatchEvent(event);
 };
 
@@ -127,9 +143,11 @@ export const navigate = (section: RouteId) => {
 /** `base` with every key of `extra` set over it. */
 const merged = (base: URLSearchParams, extra: URLSearchParams) => {
   const params = new URLSearchParams(base);
+
   for (const [key, value] of extra) {
     params.set(key, value);
   }
+
   return params;
 };
 
@@ -154,10 +172,13 @@ type MarkedTarget = SessionTarget & {
 const markedParams = (target: MarkedTarget) => {
   const params = targetParams(target);
   params.set("mark", target.mark);
+
   if (target.call !== undefined && target.call !== null) {
     params.set("call", target.call);
   }
+
   params.set("view", "chat");
+
   return params;
 };
 
@@ -226,6 +247,7 @@ export const useListQuery = () =>
  *  links that keep the rail as it is (`sessionHash(target, list)`). */
 export const useListParams = () => {
   const query = useListQuery();
+
   return useMemo(() => new URLSearchParams(query), [query]);
 };
 
@@ -236,6 +258,7 @@ export const setHashParams = (
 ) => {
   const loc = parseHash();
   const params = new URLSearchParams(loc.params);
+
   for (const [key, value] of Object.entries(updates)) {
     if (value === null) {
       params.delete(key);
@@ -243,7 +266,9 @@ export const setHashParams = (
       params.set(key, value);
     }
   }
+
   const hash = buildHash(loc.section, params);
+
   if (hash !== window.location.hash) {
     replaceHash(hash);
   }
@@ -251,5 +276,6 @@ export const setHashParams = (
 
 /** Set (or, when `value` is null, clear) one query param on the current hash,
  *  preserving the other params, without adding a history entry. */
-export const setHashParam = (key: string, value: string | null) =>
+export const setHashParam = (key: string, value: string | null) => {
   setHashParams({ [key]: value });
+};

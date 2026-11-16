@@ -72,9 +72,11 @@ test("added, removed and reordered headers", () => {
 
 test("the shared atom notifies nobody on an equal refresh", () => {
   const first = [header("a"), header("b")];
+
   const source = Atom.make<Result.Result<readonly SessionHeader[]>>(
     Result.success(first)
   );
+
   const shared = sharedHeadersAtom(source);
   const registry = Registry.make();
   const seen: Result.Result<readonly SessionHeader[]>[] = [];
@@ -90,9 +92,11 @@ test("the shared atom notifies nobody on an equal refresh", () => {
   registry.set(source, Result.success(grown));
   expect(seen).toHaveLength(2);
   const last = seen[1];
+
   if (!(last && Result.isSuccess(last))) {
     throw new Error("expected a success");
   }
+
   expect(last.value[0]).toBe(grown[0]);
   expect(last.value[1]).toBe(first[1]);
 });

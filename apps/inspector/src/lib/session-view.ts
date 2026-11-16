@@ -56,7 +56,9 @@ export const normalizeView = (parsed: unknown): SessionViewState => {
   if (typeof parsed !== "object" || parsed === null) {
     return DEFAULT_SESSION_VIEW;
   }
+
   const raw = parsed as Partial<Record<keyof SessionViewState, unknown>>;
+
   return {
     expanded: Array.isArray(raw.expanded)
       ? raw.expanded.filter((x): x is string => typeof x === "string")
@@ -86,42 +88,51 @@ export const useSessionView = (id: string): SessionView => {
   );
 
   const setRedacted = useCallback(
-    (redacted: boolean) => setState((prev) => ({ ...prev, redacted })),
+    (redacted: boolean) => {
+      setState((prev) => ({ ...prev, redacted }));
+    },
     [setState]
   );
 
   const expandedSet = useMemo(() => new Set(state.expanded), [state.expanded]);
+
   const isExpanded = useCallback(
     (collapseId: string) => expandedSet.has(collapseId),
     [expandedSet]
   );
+
   const setExpanded = useCallback(
-    (ids: readonly string[]) =>
-      setState((prev) => ({ ...prev, expanded: [...ids] })),
+    (ids: readonly string[]) => {
+      setState((prev) => ({ ...prev, expanded: [...ids] }));
+    },
     [setState]
   );
+
   const toggleExpanded = useCallback(
-    (collapseId: string, open: boolean) =>
+    (collapseId: string, open: boolean) => {
       setState((prev) => {
         const has = prev.expanded.includes(collapseId);
+
         if (open === has) {
           return prev;
         }
+
         return {
           ...prev,
           expanded: open
             ? [...prev.expanded, collapseId]
             : prev.expanded.filter((x) => x !== collapseId),
         };
-      }),
+      });
+    },
     [setState]
   );
 
   return {
-    state,
-    setRedacted,
     isExpanded,
     setExpanded,
+    setRedacted,
+    state,
     toggleExpanded,
   };
 };

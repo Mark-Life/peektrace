@@ -24,13 +24,16 @@ const useNaturalSize = (src: string) => {
   const [size, setSize] = useState<{ h: number; w: number } | null>(null);
   useEffect(() => {
     const probe = new Image();
-    probe.onload = () =>
+    probe.onload = () => {
       setSize({ h: probe.naturalHeight, w: probe.naturalWidth });
+    };
     probe.src = src;
+
     return () => {
       probe.onload = null;
     };
   }, [src]);
+
   return size;
 };
 
@@ -45,9 +48,11 @@ const Picture = ({
   readonly src: string;
 }) => {
   const size = useNaturalSize(src);
+
   if (!size) {
     return <span className={NOTE}>Decoding image…</span>;
   }
+
   return (
     <img
       alt={alt}
@@ -68,12 +73,18 @@ const useObjectUrl = (blob: Blob | null) => {
   useEffect(() => {
     if (blob === null) {
       setUrl(null);
+
       return;
     }
+
     const made = URL.createObjectURL(blob);
     setUrl(made);
-    return () => URL.revokeObjectURL(made);
+
+    return () => {
+      URL.revokeObjectURL(made);
+    };
   }, [blob]);
+
   return url;
 };
 
@@ -86,6 +97,7 @@ const EventImage = ({
 }) => {
   const source = useTranscriptSource();
   const [full, setFull] = useState(false);
+
   const atom = useMemo(() => {
     const segments = [
       "sessions",
@@ -95,6 +107,7 @@ const EventImage = ({
       imageRef.block,
       ...(imageRef.item === undefined ? [] : [imageRef.item]),
     ];
+
     // A missing image reads as `null`: the ref names no showable image.
     return Atom.make(
       apiBlob(apiPath(...segments), {
@@ -107,9 +120,11 @@ const EventImage = ({
       )
     );
   }, [source, line, imageRef]);
+
   const result = useAtomValue(atom);
   const blob = Result.isSuccess(result) ? result.value : null;
   const src = useObjectUrl(blob);
+
   if (!Result.isSuccess(result)) {
     return (
       <div className={cn(FRAME, NOTE)} data-testid="event-image-pending">
@@ -119,6 +134,7 @@ const EventImage = ({
       </div>
     );
   }
+
   if (result.value === null) {
     return (
       <div className={cn(FRAME, NOTE)}>
@@ -126,9 +142,11 @@ const EventImage = ({
       </div>
     );
   }
+
   if (src === null) {
     return <span className={NOTE}>Decoding image…</span>;
   }
+
   return (
     <button
       className={cn(
@@ -136,7 +154,9 @@ const EventImage = ({
         "w-fit max-w-full cursor-zoom-in overflow-hidden p-1"
       )}
       data-testid="event-image"
-      onClick={() => setFull(!full)}
+      onClick={() => {
+        setFull(!full);
+      }}
       title={full ? "Shrink" : "Show full size"}
       type="button"
     >
@@ -152,9 +172,11 @@ const EventImage = ({
 /** Every image on `e`'s line, or nothing when it has none or no source. */
 export const EventImages = ({ e }: { readonly e: TimelineEvent }) => {
   const source = useTranscriptSource();
+
   if (!(source && e.images && e.images.length > 0)) {
     return null;
   }
+
   return (
     <div className="flex flex-wrap gap-2" data-testid="event-images">
       {e.images.map((ref) => (

@@ -25,9 +25,11 @@ if (!tag) {
 
 try {
   const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO;
-  const section = changelogSection(readFileSync(file, "utf8"), tag, {
+
+  const section = changelogSection(readFileSync(file, "utf-8"), tag, {
     repoUrl: `https://github.com/${repo}`,
   });
+
   if (section) {
     process.stdout.write(`${section}\n`);
   }

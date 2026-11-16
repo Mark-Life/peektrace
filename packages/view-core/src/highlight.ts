@@ -66,6 +66,7 @@ const lineKey = (index: number) => `line-${index}`;
 export const plainLines = (code: string): CodeLine[] =>
   code.split("\n").map((line, index) => {
     const key = lineKey(index);
+
     return {
       key,
       tokens: line === "" ? [] : [{ key: `${key}-0`, value: line }],
@@ -86,14 +87,17 @@ export const tokenizeLines = (
 
   for (const token of tokens) {
     const parts = token.value.split("\n");
+
     for (const [partIndex, part] of parts.entries()) {
       if (partIndex > 0) {
         line = { key: lineKey(lines.length), tokens: [] };
         lines.push(line);
       }
+
       if (part === "") {
         continue;
       }
+
       line.tokens.push({
         className: token.className,
         key: `${line.key}-${line.tokens.length}`,

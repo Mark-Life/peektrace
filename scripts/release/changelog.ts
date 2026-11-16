@@ -10,6 +10,7 @@ const STARTS_WITH_DIGIT = /^\d/;
 const HEADING_PREFIX = "## ";
 const FENCE = /^\s*(`{3,}|~{3,})/;
 const INLINE_CODE = /`[^`]*`/g;
+
 const RELATIVE_LINK =
   /(!?)\[([^\]]*)\]\((?!https?:|#|mailto:|\/\/)([^)\s]+)\)/g;
 
@@ -27,14 +28,19 @@ interface Fence {
 /** Next fence state after `text`: opens on a marker, closes on a matching one. */
 const nextFence = (text: string, fence: Fence | undefined) => {
   const marker = FENCE.exec(text)?.[1];
+
   if (!marker) {
     return fence;
   }
+
   const next = { char: marker[0] ?? "", size: marker.length };
+
   if (!fence) {
     return next;
   }
+
   const closes = next.char === fence.char && next.size >= fence.size;
+
   return closes ? undefined : fence;
 };
 
@@ -45,19 +51,23 @@ const headings = (lines: readonly string[]): readonly Heading[] => {
   lines.forEach((text, line) => {
     const wasFenced = fence !== undefined;
     fence = nextFence(text, fence);
+
     if (wasFenced || fence !== undefined) {
       return;
     }
+
     if (!text.startsWith(HEADING_PREFIX)) {
       return;
     }
+
     const match = HEADING.exec(text);
     found.push({
+      date: match?.[2],
       line,
       tag: match?.[1] ?? text.slice(HEADING_PREFIX.length).trim(),
-      date: match?.[2],
     });
   });
+
   return found;
 };
 
@@ -70,7 +80,8 @@ const absolutizeLine = (line: string, { repoUrl, tag }: ChangelogLinks) => {
   const spans = [...line.matchAll(INLINE_CODE)].map(
     (match) => [match.index, match.index + match[0].length] as const
   );
-  return line.replace(
+
+  return line.replaceAll(
     RELATIVE_LINK,
     (whole, bang: string, text: string, path: string, offset: number) =>
       spans.some(([from, to]) => offset >= from && offset < to)
@@ -82,11 +93,13 @@ const absolutizeLine = (line: string, { repoUrl, tag }: ChangelogLinks) => {
 /** Rewrites relative links outside code fences and inline code spans. */
 const absolutizeLinks = (body: string, links: ChangelogLinks) => {
   let fence: Fence | undefined;
+
   return body
     .split(NEWLINE)
     .map((line) => {
       const wasFenced = fence !== undefined;
       fence = nextFence(line, fence);
+
       return wasFenced || fence !== undefined
         ? line
         : absolutizeLine(line, links);
@@ -107,14 +120,18 @@ export const changelogSection = (
   const all = headings(lines);
   const index = all.findIndex((heading) => heading.tag === tag);
   const start = all[index];
+
   if (!start) {
     return;
   }
+
   const end = all[index + 1]?.line ?? lines.length;
+
   const body = lines
     .slice(start.line + 1, end)
     .join("\n")
     .trim();
+
   return links ? absolutizeLinks(body, { ...links, tag }) : body;
 };
 
@@ -125,7 +142,7 @@ export const latestRelease = (markdown: string, prefix = "cli-v") => {
       tag.startsWith(prefix) &&
       STARTS_WITH_DIGIT.test(tag.slice(prefix.length))
     ) {
-      return { tag, version: tag.slice(prefix.length), date };
+      return { date, tag, version: tag.slice(prefix.length) };
     }
   }
 };

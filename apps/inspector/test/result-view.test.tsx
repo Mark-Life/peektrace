@@ -21,12 +21,12 @@ const render = (args: {
     </ResultView>
   );
 
-const noop = () => undefined;
+const noop = () => {};
 const DISABLED = /<button[^>]*\sdisabled=""/;
 
 describe("ResultView retry", () => {
   test("a failure with onRetry shows an enabled Retry button", () => {
-    const html = render({ result: failed(), onRetry: noop });
+    const html = render({ onRetry: noop, result: failed() });
     expect(html).toContain('data-testid="result-error"');
     expect(html).toContain('data-testid="result-retry"');
     expect(html).toContain("Retry");
@@ -40,13 +40,13 @@ describe("ResultView retry", () => {
   });
 
   test("a failure being refetched disables the button", () => {
-    const html = render({ result: failed(true), onRetry: noop });
+    const html = render({ onRetry: noop, result: failed(true) });
     expect(html).toMatch(DISABLED);
     expect(html).toContain("Retrying…");
   });
 
   test("a success renders the value and no Retry", () => {
-    const html = render({ result: Result.success("ok"), onRetry: noop });
+    const html = render({ onRetry: noop, result: Result.success("ok") });
     expect(html).toBe("<p>ok</p>");
   });
 });
@@ -56,13 +56,14 @@ describe("withLastSuccess", () => {
     const refetchFailed = Result.failure<string, string>(Cause.fail("boom"), {
       previousSuccess: Option.some(Result.success("ok")),
     });
+
     expect(render({ result: withLastSuccess(refetchFailed) })).toBe(
       "<p>ok</p>"
     );
   });
 
   test("a failure with no earlier success still shows the error", () => {
-    const html = render({ result: withLastSuccess(failed()), onRetry: noop });
+    const html = render({ onRetry: noop, result: withLastSuccess(failed()) });
     expect(html).toContain('data-testid="result-error"');
   });
 });

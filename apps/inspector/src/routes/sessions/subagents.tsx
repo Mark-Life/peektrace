@@ -32,9 +32,11 @@ export const Subagents = ({
   readonly parent: string;
 }) => {
   const list = useListParams();
+
   if (a.subagents.length === 0) {
     return null;
   }
+
   return (
     <div className="flex flex-col gap-2" data-testid="subagents">
       <h3 className="text-sm font-medium">Subagents ({a.subagents.length})</h3>
@@ -47,7 +49,9 @@ export const Subagents = ({
           className="border-border rounded-md border"
           data-testid="subagent-card"
           key={s.id}
-          onOpenChange={(o) => onToggle(subagentCollapseId(s.id), o)}
+          onOpenChange={(o) => {
+            onToggle(subagentCollapseId(s.id), o);
+          }}
           open={isOpen(subagentCollapseId(s.id))}
         >
           <CollapsibleTrigger className="hover:bg-muted/40 flex w-full items-center gap-2 px-3 py-2 text-left text-sm [&[data-state=open]>svg]:rotate-90">

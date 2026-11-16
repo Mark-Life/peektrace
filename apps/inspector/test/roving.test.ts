@@ -8,17 +8,17 @@ describe("rovingStop", () => {
   const ids = ["a", "b", "c"];
 
   test("the focused row wins while it is listed", () => {
-    expect(rovingStop({ ids, focusedId: "c", selectedId: "b" })).toBe("c");
+    expect(rovingStop({ focusedId: "c", ids, selectedId: "b" })).toBe("c");
   });
 
   test("then the open session, then the first row", () => {
-    expect(rovingStop({ ids, focusedId: "gone", selectedId: "b" })).toBe("b");
-    expect(rovingStop({ ids, focusedId: null, selectedId: "gone" })).toBe("a");
-    expect(rovingStop({ ids, focusedId: null, selectedId: null })).toBe("a");
+    expect(rovingStop({ focusedId: "gone", ids, selectedId: "b" })).toBe("b");
+    expect(rovingStop({ focusedId: null, ids, selectedId: "gone" })).toBe("a");
+    expect(rovingStop({ focusedId: null, ids, selectedId: null })).toBe("a");
   });
 
   test("an empty list has no stop", () => {
-    expect(rovingStop({ ids: [], focusedId: "a", selectedId: "a" })).toBeNull();
+    expect(rovingStop({ focusedId: "a", ids: [], selectedId: "a" })).toBeNull();
   });
 });
 
@@ -27,12 +27,12 @@ describe("focusAfterSelect", () => {
 
   test("closing a session keeps it as the stop, not the first row", () => {
     const focusedId = focusAfterSelect({ previous: "s200", selected: null });
-    expect(rovingStop({ ids, focusedId, selectedId: null })).toBe("s200");
+    expect(rovingStop({ focusedId, ids, selectedId: null })).toBe("s200");
   });
 
   test("opening a session hands the stop to it", () => {
     const focusedId = focusAfterSelect({ previous: "s200", selected: "s3" });
-    expect(rovingStop({ ids, focusedId, selectedId: "s3" })).toBe("s3");
+    expect(rovingStop({ focusedId, ids, selectedId: "s3" })).toBe("s3");
   });
 });
 
