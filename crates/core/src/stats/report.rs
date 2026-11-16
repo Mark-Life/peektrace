@@ -16,7 +16,7 @@ use super::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
 use crate::js::json_out::Writer;
 
 /// The versioned report.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct StatsReport {
     pub generated_at: f64,
     pub window: StatsWindow,

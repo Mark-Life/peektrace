@@ -1,0 +1,48 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
+ / search (press /) type:all
+ ╭─Memory (7)────────────────────────────────────────────────────────────────────────────────────────────╮ ╭─Vault────────────────────────────────────────────╮
+ │                                                                                                       │ │                                                  │
+ │ ▸ proj (3)                                                                                            │ │ proj                                             │
+ │     Build [project]                                                                         63 B ✓ ↗0 │ │ -Users-demo-proj                                 │
+ │     notes —                                                                                 33 B ✗ ↗0 │ │                                                  │
+ │     Style [feedback]                                                                       212 B ✓ ↗2 │ │ Index budget    4/200 lines                      │
+ │   other (2) [over budget]                                                                             │ │ ████████████████████████████████████████████     │
+ │     User prefs [user]                                                                       51 B ✓ ↗0 │ │ Bytes           116 B / 25.0 KB                  │
+ │     Docs link [reference]                                                                   66 B ✓ ↗0 │ │                                                  │
+ │                                                                                                       │ │ Types                                            │
+ │                                                                                                       │ │ project 1  unknown 1  feedback 1                 │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │ Index ↔ files                                    │
+ │                                                                                                       │ │   orphans 1                                      │
+ │                                                                                                       │ │     notes                                        │
+ │                                                                                                       │ │   dangling 1                                     │
+ │                                                                                                       │ │     gone.md :3                                   │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────╯
+ editing available in the web app (peektrace serve) · memory.crud: supported
+ ↑↓/jk move  / search  t type  tab body  q quit
+ web ▸ http://127.0.0.1:4321                                                                                                                1-5 section  q quit

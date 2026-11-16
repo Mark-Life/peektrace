@@ -154,7 +154,7 @@ pub struct WaitShapeRow {
     pub share: f64,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct WaitPanel {
     pub calls: f64,
     pub total_sec: f64,

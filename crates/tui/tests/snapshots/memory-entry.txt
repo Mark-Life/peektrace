@@ -1,0 +1,48 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
+ / search (press /) type:all
+ ╭─Memory (7)────────────────────────────────────────────────────────────────────────────────────────────╮ ╭─Entry────────────────────────────────────────────╮
+ │                                                                                                       │ │                                                  │
+ │   proj (3)                                                                                            │ │ Style                                            │
+ │     Build [project]                                                                         63 B ✓ ↗0 │ │ [feedback] in index ✓                            │
+ │     notes —                                                                                 33 B ✗ ↗0 │ │ How code in this repo is written: pure           │
+ │   › Style [feedback]                                                                       212 B ✓ ↗2 │ │ functions, small modules, and tests beside each  │
+ │   other (2) [over budget]                                                                             │ │ module.                                          │
+ │     User prefs [user]                                                                       51 B ✓ ↗0 │ │                                                  │
+ │     Docs link [reference]                                                                   66 B ✓ ↗0 │ │ Size            212 B · 9 lines                  │
+ │                                                                                                       │ │ Modified        Nov 11, 16:42                    │
+ │                                                                                                       │ │ Frontmatter     flat                             │
+ │                                                                                                       │ │ File            style.md                         │
+ │                                                                                                       │ │ Links (2)                                        │
+ │                                                                                                       │ │   ↗ build.md                                     │
+ │                                                                                                       │ │   ↗ tests.md                                     │
+ │                                                                                                       │ │ Body                                             │
+ │                                                                                                       │ │ Prefer pure functions.                           │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │ See [build](build.md) and [tests](tests.md).     │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ │                                                                                                       │ │                                                  │
+ ╰───────────────────────────────────────────────────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────╯
+ editing available in the web app (peektrace serve) · memory.crud: supported
+ ↑↓/jk move  / search  t type  tab body  q quit
+ web ▸ http://127.0.0.1:4321                                                                                                                1-5 section  q quit

@@ -15,6 +15,7 @@ path = "src/main.rs"
 peektrace-core.workspace = true
 peektrace-protocol.workspace = true
 peektrace-server.workspace = true
+peektrace-tui.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 jiff.workspace = true

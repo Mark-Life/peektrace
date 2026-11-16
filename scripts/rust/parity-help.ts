@@ -1,6 +1,6 @@
 /** Owned help pages and the bare-command banner, byte for byte. The Rust
- * pages leave out `tui` and `doctor` until those commands exist, so their
- * TS rows are dropped before the comparison. */
+ * root page leaves out `doctor` until it exists, so its TS row is dropped
+ * before the comparison. */
 import {
   compareRun,
   fixtureEnv,
@@ -11,8 +11,7 @@ import {
   WORK,
 } from "./parity-lib";
 
-const MISSING_ROWS = /^ {2}(tui|doctor) {2,}.*\n/gm;
-const BANNER_TUI = " tui |";
+const MISSING_ROWS = /^ {2}doctor {2,}.*\n/gm;
 
 const CASES: readonly (readonly string[])[] = [
   [],
@@ -30,7 +29,7 @@ const CASES: readonly (readonly string[])[] = [
 
 const dropMissing = (r: Run): Run => ({
   ...r,
-  stdout: r.stdout.replace(MISSING_ROWS, "").replace(BANNER_TUI, ""),
+  stdout: r.stdout.replace(MISSING_ROWS, ""),
 });
 
 export const runHelpStage = () => {

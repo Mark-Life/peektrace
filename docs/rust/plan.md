@@ -26,6 +26,8 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 
 Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs. The `cli` stage (`--cli-only`) covers `statusline` (stdin payloads, flags, `--otel` span names, the real corpus, and `--remote` against the serve pair), `mcp` (one process per side, replies matched by id and compared byte for byte, the real corpus), `upgrade` (a local fake release server: `--check` runs, and installs on temp targets through `PEEKTRACE_UPGRADE_TARGET`) and the owned help pages. It never calls GitHub and never runs TS `upgrade` without `--check`.
 
+The `tui` stage (`--tui-only`) compares the `tui --port` errors byte for byte, the syntax tokenizer token by token on edge snippets and on every tool body of the 25 newest real Claude sessions (about 2,700 bodies), and the TUI's number, text and layout helpers. TUI screens have no TS diff, since the Rust TUI fixes the TS layout bugs; `crates/tui/tests/snapshots` holds each screen on a synthetic HOME.
+
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
 ## Target layout
@@ -47,8 +49,8 @@ The TUI and the native app call `core` directly, with no HTTP in between. Only t
 0. **Spike.** Port the Claude JSONL parser and `sessions.list`. Compare binary size, startup, RSS and latency with the Bun build, and go or no-go on the numbers.
 1. **Core + parity harness.** Port `packages/core` one agent parser at a time, then analyze, stats, memory, search and pricing. The harness runs TS and Rust on the same fixtures and real sessions and diffs the JSON. It runs in CI on every change.
 2. **Protocol + server.** Design a new API. It does not have to match the Effect RPC wire format, so make it cleaner and lighter where possible (streaming, paging, smaller payloads). Generate TS types from Rust (`ts-rs` or `specta`) and move the TS inspector onto them, so `serve` works before Rune is ready. Embed the assets with `rust-embed`.
-3. **CLI.** Port the commands: sessions, stats, memory, statusline, upgrade, export, search. Port the MCP stdio server. Use `notify` for file watching and `syntect` or tree-sitter for highlighting.
-4. **TUI.** Use `ratatui`. The current OpenTUI screens are the spec.
+3. **CLI.** Port the commands: sessions, stats, memory, statusline, upgrade, export, search. Port the MCP stdio server. Use `notify` for file watching. Highlighting is a port of the five `@tanstack/highlight` languages TS uses (`core::highlight`), so terminal and web share one token stream.
+4. **TUI.** Use `ratatui`. The current OpenTUI screens are the spec. `crates/tui` calls core in process; `tui` still runs the web server beside it.
 5. **Distribution.** Use `cargo-dist` for GitHub Releases and the shell/PowerShell installers. Add musl static Linux builds (x64, arm64), which fixes the Alpine gap. `peektrace upgrade` stays. Choose the channels (npm, Homebrew, both) once everything is built, because `cargo-dist` makes that a config change. Cut over: merge `rust` into `main` and delete the TS cli, core, rpc and desktop packages.
 6. **Rune app.** One Rust UI with a native window (macOS, Windows, Linux) and a web build that `serve` hosts. It replaces `apps/inspector`, `packages/ui`, `packages/viz` and `apps/desktop`. Pin a Rune `dev` rev.
 7. **Telemetry sinks.** Port the SQLite wide-event store (`rusqlite`) and `peektrace doctor`, both as `tracing-subscriber` layers. Optionally add OTLP export. No module code changes, because the spans already exist.
@@ -99,7 +101,7 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Session image | `{data, mediaType}` base64, or `null` | raw bytes, or 404 `ImageNotFoundError` |
 | `serve` startup lines | `RPC: <url>/rpc`, `via watch.poll` | `API: <url>/api`, `via /api/events` |
 | `serve --port` near 65535, bind error text | Node messages | `No free port in range ...`, OS message |
-| `serve --port abc` | `@effect/cli` integer error | clap's message. Exit code 1 in both. |
+| `serve --port abc`, `tui --port abc` | `@effect/cli` integer error | clap's message. Exit code 1 in both. |
 | `--remote` lenient URLs (`localhost:4630`, `http:/host`) | Bun `fetch` accepts some | parsed with WHATWG rules; no scheme gives the "Include the scheme" error |
 | `--remote` with a base path (`http://h/base`) | `failed (HTTP 404)` | `failed (unexpected response)`: the server answers `index.html` for `/base/api/...` |
 | `--remote --json` key order | Schema order (`provider` first) | local CLI order |
@@ -131,8 +133,18 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--wizard` | `@effect/cli` interactive builder | not ported |
 | Leaf `--help` pages (`sessions ls --help`, `stats --help`, ...) | `@effect/cli` pages with ANSI | clap pages |
 | Bare `sessions` / `memory` | the `@effect/cli` group page | the owned group page `sessions --help` prints |
-| Root `--help` rows and the bare-command banner | list `tui` and `doctor` | leave them out until those commands exist |
+| Root `--help` rows and the bare-command banner | list `doctor` | omit only `doctor`, until it exists |
 | `-v`, `--version` | `0.0.0-dev` and a blank line | `0.0.0-dev` |
+| `tui` off a terminal (stdin or stdout piped) | draws escape codes into the pipe until killed | `peektrace tui needs a terminal` on stderr, exit 1 |
+| `tui` footer URL for an IPv6 host | `http://::1:4321` | `http://[::1]:4321`, as `serve` prints it |
+| `tui` colours | always 24-bit; `NO_COLOR` ignored | `NO_COLOR` drops colour and marks selection with reverse video and focus with bold; 24-bit only when `COLORTERM` is `truecolor` or `24bit`, else the nearest xterm-256 colour |
+| `tui` section switch | unmounts the screen: selection, filter, history rows and Settings edits reset, queries run again | each screen keeps its state; Sessions and Memory refetch on return only when files changed meanwhile |
+| `tui` session analysis | loaded once per selection | re-runs when the selected session's size or update time changes, or when it has subagents; open rows, sort and selection stay |
+| `tui` live refresh | `watch.poll` every 1 s, Claude roots only | watcher push, every agent root; the Stats stale mark compares with the version when the report was asked for |
+| `tui` with `--otel` | span lines print over the alternate screen; `RpcServer.*`, `RpcClient.*` and a `watch.poll` span every second | lines are held (last 10,000) and printed after the terminal is restored; one root `tui.<method>` span per call (`peektrace.kind` `tui`), no RPC or poll spans |
+| `tui` text width | clips by UTF-16 units, so CJK and emoji overflow | clips by display columns |
+| `tui` layout | hint row overlaps the footer; long badges wrap history rows; Memory and Capabilities rows wrap at 100 cols; the summary card starves the history at 100x30; `turn1` axis label; finding titles run into wide impacts; the Settings conflict banner never shows (raw JSON error); a reopened filter shows empty; history rows stay open across sessions; toolbar buttons wrap at 120 cols; no loading mark when the analysis changes | each fixed: fixed rows, clipped spans, a one-line summary when the card does not fit, `turn 1`, a gap before the impact, the typed conflict, the query shown again, history state reset per session, short or hidden toolbar text, `Analysis ↻` while a new analysis loads |
+| `tui` and SIGHUP | Bun's default | restores the terminal and stops the server |
 
 ## Risks
 
@@ -168,3 +180,6 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 17. Windows `upgrade`: keep the "re-run the installer" message, or rename the running `.exe` aside and replace it?
 18. Release builds need `PEEKTRACE_VERSION` at compile time, and `PEEKTRACE_RELEASE_BASE_URL`, `PEEKTRACE_RELEASE_API`, `PEEKTRACE_RELEASE_TAG_PREFIX` and `PEEKTRACE_RELEASE_ASSET_PREFIX` to point `upgrade` at Rust releases. Without all four release vars, `upgrade` refuses and the update notice stays off, unless `PEEKTRACE_BASE_URL` and `PEEKTRACE_GITHUB_API` are set at run time. Pick the tag prefix and asset names with `cargo-dist`.
 19. `PEEKTRACE_DIR=""` puts `update-check.json` in the working dir, as TS does. Treat empty as unset in both?
+20. `tui` notes still say `peektrace serve` (Memory editing note, Settings restart note), as TS does, though `tui` serves the web app itself. Say "the web app at <url>" instead?
+21. `tui` does not draw a scrollbar on the session rail or history. Add one?
+22. Terminal restore on panic is covered by the panic hook only; no pty test yet (needs `expectrl` or `portable-pty`). Add one?

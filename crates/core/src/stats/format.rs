@@ -89,6 +89,11 @@ pub fn rate_text(rate: f64, hits: f64) -> String {
     }
 }
 
+/// First segment of a UUID-like id, for narrow columns.
+pub fn short_id(id: &str) -> &str {
+    id.split('-').next().unwrap_or(id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

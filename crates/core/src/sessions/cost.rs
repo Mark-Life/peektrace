@@ -99,3 +99,44 @@ pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionC
         unreadable_subagents: (unreadable > 0).then_some(unreadable),
     })
 }
+
+const CENT: f64 = 0.005;
+
+/// An estimated USD figure: `~$1.23`, or `<$0.01` below half a cent.
+pub fn fmt_usd(n: f64) -> String {
+    if n > 0.0 && n < CENT {
+        "<$0.01".to_owned()
+    } else {
+        format!("~${}", crate::js::num::to_fixed(n, 2))
+    }
+}
+
+/// A session cost as display text.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CostSummary {
+    /// `—` when nothing is priced.
+    pub total: String,
+    pub notes: Vec<String>,
+}
+
+/// The total and the notes that qualify it, led by who reported it when the
+/// agent did.
+pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
+    let mut notes = Vec::new();
+    if cost.from_agent {
+        notes.push(format!("reported by {agent_label}"));
+    }
+    if let Some(s) = cost.subagents_usd.filter(|s| *s != 0.0 && !s.is_nan()) {
+        notes.push(format!("subagents {}", fmt_usd(s)));
+    }
+    if let Some(models) = cost.unpriced_models.as_ref().filter(|m| !m.is_empty()) {
+        notes.push(format!("unpriced: {}", models.join(", ")));
+    }
+    if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
+        notes.push(format!("{n} subagent(s) unreadable"));
+    }
+    CostSummary {
+        total: cost.total_usd.map_or_else(|| "—".to_owned(), fmt_usd),
+        notes,
+    }
+}

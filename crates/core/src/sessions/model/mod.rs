@@ -7,8 +7,9 @@
 //! shapes; the structs stay the same.
 
 /// Which agent wrote the transcript, as the JSON `provider` field names it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Provider {
+    #[default]
     ClaudeCode,
     Codex,
     Pi,
@@ -502,7 +503,7 @@ pub struct SubagentRef {
 
 /// One parsed transcript. Optional fields print only when set; `""` counts
 /// as set.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ParsedSession {
     pub provider: Provider,
     pub session_id: String,
