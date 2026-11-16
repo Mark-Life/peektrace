@@ -4,11 +4,15 @@ use peektrace_protocol::view::AnalyzedSession;
 use rune::{Align, El, Tx, col, el, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
-use super::widgets::{badge, card, chip};
+use super::widgets::{badge, card, chip, grid};
 use crate::model::format::{Zone, fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::labels::{analyzed_title, cost_summary, provider_label};
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty, zone_fill, zone_text};
+
+mod pending;
+
+pub use pending::pending;
 
 pub const HISTORY_KEY: &str = "history-heading";
 pub const SUMMARY_KEY: &str = "summary";
@@ -147,16 +151,7 @@ fn tiles(a: &AnalyzedSession, zone: Zone, cols: usize, t: &Theme) -> El {
         a.peak_cache_read_tokens / a.peak_context_tokens
     };
     items.push(tile("tile-cache", "Cache", value(fmt_pct(cache), t), t));
-    let mut grid = col().w_full().gap(8.0);
-    let mut it = items.into_iter().peekable();
-    while it.peek().is_some() {
-        let mut r = row().w_full().gap(8.0).items_stretch();
-        for _ in 0..cols {
-            r = r.child(it.next().unwrap_or_else(el).grow(1.0).w(0.0));
-        }
-        grid = grid.child(r);
-    }
-    grid
+    grid(cols, 8.0, items).key("tile-grid")
 }
 
 fn jump_chip(
@@ -320,7 +315,7 @@ pub fn verdict(d: &Detail, width: f32, t: &Theme) -> El {
 pub fn jump_to_history(t: &Theme) -> El {
     Button::new("Jump to history ↓")
         .variant(ButtonVariant::Ghost)
-        .control_size(ControlSize::Small)
+        .control_size(ControlSize::Large)
         .on_press_tx(|_s: &mut Ui, tx: &mut Tx| tx.scroll_into_view(HISTORY_KEY))
         .build(&t.kit)
         .key("jump-history")
@@ -341,7 +336,7 @@ pub fn parent_note(parent: &str, t: &Theme) -> El {
         .child(
             Button::new("Open parent session")
                 .variant(ButtonVariant::Ghost)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press_tx(move |s: &mut Ui, tx: &mut Tx| {
                     s.select(&id, None);
                     tx.set_title(s.title());

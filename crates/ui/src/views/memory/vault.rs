@@ -219,7 +219,7 @@ fn heading(slug: &str, shown: usize, total: usize, can_write: bool, t: &Theme) -
         let target = CreateTarget::Fixed(slug.to_owned());
         r = r.child(
             Button::new("New memory")
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press(move |s: &mut Ui| {
                     s.memory.dialog = Some(Dialog::Create(target.clone()));
                 })

@@ -181,50 +181,66 @@
     {
       "key": "mem-type-trigger",
       "label": "Type",
-      "rect": [604, 62, 86, 24],
+      "rect": [604, 60, 144, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [612, 66, 54, 16],
+      "rect": [604, 66, 110, 16],
+      "role": "group"
+    },
+    {
+      "rect": [612, 66, 52, 16],
       "role": "text",
       "text": "All types"
     },
     {
+      "rect": [722, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [670, 66, 16, 16],
+      "rect": [724, 66, 16, 16],
       "role": "icon"
     },
     {
       "key": "mem-scope-trigger",
       "label": "Project",
-      "rect": [702, 62, 101, 24],
+      "rect": [760, 60, 208, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [710, 66, 69, 16],
+      "rect": [760, 66, 174, 16],
+      "role": "group"
+    },
+    {
+      "rect": [768, 66, 67, 16],
       "role": "text",
       "text": "All projects"
     },
     {
+      "rect": [942, 64, 20, 20],
+      "role": "group"
+    },
+    {
       "key": "chevron",
-      "rect": [783, 66, 16, 16],
+      "rect": [944, 66, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [815, 74, 491, 0],
+      "rect": [980, 74, 302, 0],
       "role": "group"
     },
     {
       "key": "mem-create-anywhere",
       "label": "New memory in…",
-      "rect": [1317, 64, 107, 20],
+      "rect": [1294, 60, 131, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [1327, 68, 87, 12],
+      "rect": [1308, 64, 103, 20],
       "role": "text",
       "text": "New memory in…"
     },
@@ -580,504 +596,504 @@
       "role": "group"
     },
     {
-      "rect": [288, 524, 736, 264],
+      "rect": [288, 524, 736, 272],
       "role": "group"
     },
     {
-      "rect": [288, 524, 736, 264],
+      "rect": [288, 524, 736, 272],
       "role": "group"
     },
     {
-      "rect": [288, 524, 736, 28],
+      "rect": [288, 524, 736, 36],
       "role": "group"
     },
     {
       "key": "mem-heading:-Users-demo-parser",
-      "rect": [288, 525, 107, 18],
+      "rect": [288, 529, 107, 18],
       "role": "text",
       "text": "5 of 5 memories"
     },
     {
       "key": "mem-create:-Users-demo-parser",
       "label": "New memory",
-      "rect": [936, 524, 88, 20],
+      "rect": [916, 524, 109, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [946, 528, 68, 12],
+      "rect": [930, 528, 81, 20],
       "role": "text",
       "text": "New memory"
     },
     {
       "key": "mem-table:-Users-demo-parser",
-      "rect": [288, 552, 736, 236],
+      "rect": [288, 560, 736, 236],
       "role": "group"
     },
     {
-      "rect": [288, 552, 736, 36],
+      "rect": [288, 560, 736, 36],
       "role": "group"
     },
     {
-      "rect": [288, 552, 132, 36],
+      "rect": [288, 560, 132, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-parser:title",
       "label": "Sort by Title",
-      "rect": [296, 563, 29, 15],
+      "rect": [296, 571, 29, 15],
       "role": "button"
     },
     {
-      "rect": [298, 563, 25, 15],
+      "rect": [298, 571, 25, 15],
       "role": "text",
       "text": "Title"
     },
     {
-      "rect": [420, 552, 96, 36],
+      "rect": [420, 560, 96, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-parser:type",
       "label": "Sort by Type",
-      "rect": [428, 563, 31, 15],
+      "rect": [428, 571, 31, 15],
       "role": "button"
     },
     {
-      "rect": [430, 563, 27, 15],
+      "rect": [430, 571, 27, 15],
       "role": "text",
       "text": "Type"
     },
     {
-      "rect": [516, 552, 132, 36],
+      "rect": [516, 560, 132, 36],
       "role": "group"
     },
     {
-      "rect": [524, 563, 65, 15],
+      "rect": [524, 571, 65, 15],
       "role": "text",
       "text": "Description"
     },
     {
-      "rect": [648, 552, 72, 36],
+      "rect": [648, 560, 72, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-parser:size",
       "label": "Sort by Size",
-      "rect": [684, 563, 29, 15],
+      "rect": [684, 571, 29, 15],
       "role": "button"
     },
     {
-      "rect": [686, 563, 25, 15],
+      "rect": [686, 571, 25, 15],
       "role": "text",
       "text": "Size"
     },
     {
-      "rect": [720, 552, 176, 36],
+      "rect": [720, 560, 176, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-parser:mtime",
       "label": "Sort by Modified",
-      "rect": [728, 563, 69, 15],
+      "rect": [728, 571, 69, 15],
       "role": "button"
     },
     {
-      "rect": [730, 563, 49, 15],
+      "rect": [730, 571, 49, 15],
       "role": "text",
       "text": "Modified"
     },
     {
-      "rect": [783, 564, 12, 12],
+      "rect": [783, 572, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [896, 552, 72, 36],
+      "rect": [896, 560, 72, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-parser:inIndex",
       "label": "Sort by In index",
-      "rect": [904, 563, 49, 15],
+      "rect": [904, 571, 49, 15],
       "role": "button"
     },
     {
-      "rect": [906, 563, 45, 15],
+      "rect": [906, 571, 45, 15],
       "role": "text",
       "text": "In index"
     },
     {
-      "rect": [968, 552, 56, 36],
+      "rect": [968, 560, 56, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-parser:links",
       "label": "Sort by Links",
-      "rect": [982, 563, 34, 15],
+      "rect": [982, 571, 34, 15],
       "role": "button"
     },
     {
-      "rect": [984, 563, 30, 15],
+      "rect": [984, 571, 30, 15],
       "role": "text",
       "text": "Links"
     },
     {
       "key": "mem-row:-Users-demo-parser:orphan",
       "label": "orphan",
-      "rect": [288, 588, 736, 40],
+      "rect": [288, 596, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 588, 132, 40],
+      "rect": [288, 596, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 599, 46, 18],
+      "rect": [296, 607, 46, 18],
       "role": "text",
       "text": "orphan"
     },
     {
-      "rect": [420, 588, 96, 40],
+      "rect": [420, 596, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 599, 60, 18],
+      "rect": [428, 607, 60, 18],
       "role": "group"
     },
     {
-      "rect": [434, 602, 48, 13],
+      "rect": [434, 610, 48, 13],
       "role": "text",
       "text": "Reference"
     },
     {
-      "rect": [516, 588, 132, 40],
+      "rect": [516, 596, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 599, 101, 18],
+      "rect": [524, 607, 101, 18],
       "role": "text",
       "text": "Unindexed note"
     },
     {
-      "rect": [648, 588, 72, 40],
+      "rect": [648, 596, 72, 40],
       "role": "group"
     },
     {
-      "rect": [683, 601, 29, 15],
+      "rect": [683, 609, 29, 15],
       "role": "text",
       "text": "72 B"
     },
     {
-      "rect": [720, 588, 176, 40],
+      "rect": [720, 596, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 601, 125, 15],
+      "rect": [728, 609, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 588, 72, 40],
+      "rect": [896, 596, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 600, 16, 16],
+      "rect": [904, 608, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 588, 56, 40],
+      "rect": [968, 596, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 601, 8, 15],
+      "rect": [1009, 609, 8, 15],
       "role": "text",
       "text": "0"
     },
     {
       "key": "mem-row:-Users-demo-parser:fx-nested",
       "label": "alpha-note",
-      "rect": [288, 628, 736, 40],
+      "rect": [288, 636, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 628, 132, 40],
+      "rect": [288, 636, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 639, 72, 18],
+      "rect": [296, 647, 72, 18],
       "role": "text",
       "text": "alpha-note"
     },
     {
-      "rect": [420, 628, 96, 40],
+      "rect": [420, 636, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 639, 34, 18],
+      "rect": [428, 647, 34, 18],
       "role": "group"
     },
     {
-      "rect": [434, 642, 22, 13],
+      "rect": [434, 650, 22, 13],
       "role": "text",
       "text": "User"
     },
     {
-      "rect": [516, 628, 132, 40],
+      "rect": [516, 636, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 639, 116, 18],
+      "rect": [524, 647, 116, 18],
       "role": "text",
       "text": "A note with nested metadata"
     },
     {
-      "rect": [648, 628, 72, 40],
+      "rect": [648, 636, 72, 40],
       "role": "group"
     },
     {
-      "rect": [676, 641, 36, 15],
+      "rect": [676, 649, 36, 15],
       "role": "text",
       "text": "196 B"
     },
     {
-      "rect": [720, 628, 176, 40],
+      "rect": [720, 636, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 641, 125, 15],
+      "rect": [728, 649, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 628, 72, 40],
+      "rect": [896, 636, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 640, 16, 16],
+      "rect": [904, 648, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 628, 56, 40],
+      "rect": [968, 636, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 641, 8, 15],
+      "rect": [1009, 649, 8, 15],
       "role": "text",
       "text": "1"
     },
     {
       "key": "mem-row:-Users-demo-parser:fx-flat",
       "label": "gamma-note",
-      "rect": [288, 668, 736, 40],
+      "rect": [288, 676, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 668, 132, 40],
+      "rect": [288, 676, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 679, 85, 18],
+      "rect": [296, 687, 85, 18],
       "role": "text",
       "text": "gamma-note"
     },
     {
-      "rect": [420, 668, 96, 40],
+      "rect": [420, 676, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 679, 60, 18],
+      "rect": [428, 687, 60, 18],
       "role": "group"
     },
     {
-      "rect": [434, 682, 48, 13],
+      "rect": [434, 690, 48, 13],
       "role": "text",
       "text": "Reference"
     },
     {
-      "rect": [516, 668, 132, 40],
+      "rect": [516, 676, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 679, 116, 18],
+      "rect": [524, 687, 116, 18],
       "role": "text",
       "text": "A quoted legacy description"
     },
     {
-      "rect": [648, 668, 72, 40],
+      "rect": [648, 676, 72, 40],
       "role": "group"
     },
     {
-      "rect": [676, 681, 36, 15],
+      "rect": [676, 689, 36, 15],
       "role": "text",
       "text": "158 B"
     },
     {
-      "rect": [720, 668, 176, 40],
+      "rect": [720, 676, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 681, 125, 15],
+      "rect": [728, 689, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 668, 72, 40],
+      "rect": [896, 676, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 680, 16, 16],
+      "rect": [904, 688, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 668, 56, 40],
+      "rect": [968, 676, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 681, 8, 15],
+      "rect": [1009, 689, 8, 15],
       "role": "text",
       "text": "1"
     },
     {
       "key": "mem-row:-Users-demo-parser:b",
       "label": "b",
-      "rect": [288, 708, 736, 40],
+      "rect": [288, 716, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 708, 132, 40],
+      "rect": [288, 716, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 719, 9, 18],
+      "rect": [296, 727, 9, 18],
       "role": "text",
       "text": "b"
     },
     {
-      "rect": [420, 708, 96, 40],
+      "rect": [420, 716, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 719, 46, 18],
+      "rect": [428, 727, 46, 18],
       "role": "group"
     },
     {
-      "rect": [434, 722, 34, 13],
+      "rect": [434, 730, 34, 13],
       "role": "text",
       "text": "Project"
     },
     {
-      "rect": [516, 708, 132, 40],
+      "rect": [516, 716, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 719, 81, 18],
+      "rect": [524, 727, 81, 18],
       "role": "text",
       "text": "Second note"
     },
     {
-      "rect": [648, 708, 72, 40],
+      "rect": [648, 716, 72, 40],
       "role": "group"
     },
     {
-      "rect": [683, 721, 29, 15],
+      "rect": [683, 729, 29, 15],
       "role": "text",
       "text": "70 B"
     },
     {
-      "rect": [720, 708, 176, 40],
+      "rect": [720, 716, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 721, 125, 15],
+      "rect": [728, 729, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 708, 72, 40],
+      "rect": [896, 716, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 720, 16, 16],
+      "rect": [904, 728, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 708, 56, 40],
+      "rect": [968, 716, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 721, 8, 15],
+      "rect": [1009, 729, 8, 15],
       "role": "text",
       "text": "0"
     },
     {
       "key": "mem-row:-Users-demo-parser:a",
       "label": "a",
-      "rect": [288, 748, 736, 40],
+      "rect": [288, 756, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 748, 132, 40],
+      "rect": [288, 756, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 759, 8, 18],
+      "rect": [296, 767, 8, 18],
       "role": "text",
       "text": "a"
     },
     {
-      "rect": [420, 748, 96, 40],
+      "rect": [420, 756, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 759, 34, 18],
+      "rect": [428, 767, 34, 18],
       "role": "group"
     },
     {
-      "rect": [434, 762, 22, 13],
+      "rect": [434, 770, 22, 13],
       "role": "text",
       "text": "User"
     },
     {
-      "rect": [516, 748, 132, 40],
+      "rect": [516, 756, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 759, 61, 18],
+      "rect": [524, 767, 61, 18],
       "role": "text",
       "text": "First note"
     },
     {
-      "rect": [648, 748, 72, 40],
+      "rect": [648, 756, 72, 40],
       "role": "group"
     },
     {
-      "rect": [683, 761, 29, 15],
+      "rect": [683, 769, 29, 15],
       "role": "text",
       "text": "72 B"
     },
     {
-      "rect": [720, 748, 176, 40],
+      "rect": [720, 756, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 761, 125, 15],
+      "rect": [728, 769, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 748, 72, 40],
+      "rect": [896, 756, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 760, 16, 16],
+      "rect": [904, 768, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 748, 56, 40],
+      "rect": [968, 756, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 761, 8, 15],
+      "rect": [1009, 769, 8, 15],
       "role": "text",
       "text": "1"
     },
@@ -1317,216 +1333,216 @@
       "role": "group"
     },
     {
-      "rect": [288, 1201, 736, 104],
+      "rect": [288, 1201, 736, 112],
       "role": "group"
     },
     {
-      "rect": [288, 1201, 736, 104],
+      "rect": [288, 1201, 736, 112],
       "role": "group"
     },
     {
-      "rect": [288, 1201, 736, 28],
+      "rect": [288, 1201, 736, 36],
       "role": "group"
     },
     {
       "key": "mem-heading:-Users-demo-notes",
-      "rect": [288, 1202, 100, 18],
+      "rect": [288, 1206, 100, 18],
       "role": "text",
       "text": "1 of 1 memories"
     },
     {
       "key": "mem-create:-Users-demo-notes",
       "label": "New memory",
-      "rect": [936, 1201, 88, 20],
+      "rect": [916, 1201, 109, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [946, 1205, 68, 12],
+      "rect": [930, 1205, 81, 20],
       "role": "text",
       "text": "New memory"
     },
     {
       "key": "mem-table:-Users-demo-notes",
-      "rect": [288, 1229, 736, 76],
+      "rect": [288, 1237, 736, 76],
       "role": "group"
     },
     {
-      "rect": [288, 1229, 736, 36],
+      "rect": [288, 1237, 736, 36],
       "role": "group"
     },
     {
-      "rect": [288, 1229, 132, 36],
+      "rect": [288, 1237, 132, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:title",
       "label": "Sort by Title",
-      "rect": [296, 1240, 29, 15],
+      "rect": [296, 1248, 29, 15],
       "role": "button"
     },
     {
-      "rect": [298, 1240, 25, 15],
+      "rect": [298, 1248, 25, 15],
       "role": "text",
       "text": "Title"
     },
     {
-      "rect": [420, 1229, 96, 36],
+      "rect": [420, 1237, 96, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:type",
       "label": "Sort by Type",
-      "rect": [428, 1240, 31, 15],
+      "rect": [428, 1248, 31, 15],
       "role": "button"
     },
     {
-      "rect": [430, 1240, 27, 15],
+      "rect": [430, 1248, 27, 15],
       "role": "text",
       "text": "Type"
     },
     {
-      "rect": [516, 1229, 132, 36],
+      "rect": [516, 1237, 132, 36],
       "role": "group"
     },
     {
-      "rect": [524, 1240, 65, 15],
+      "rect": [524, 1248, 65, 15],
       "role": "text",
       "text": "Description"
     },
     {
-      "rect": [648, 1229, 72, 36],
+      "rect": [648, 1237, 72, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:size",
       "label": "Sort by Size",
-      "rect": [684, 1240, 29, 15],
+      "rect": [684, 1248, 29, 15],
       "role": "button"
     },
     {
-      "rect": [686, 1240, 25, 15],
+      "rect": [686, 1248, 25, 15],
       "role": "text",
       "text": "Size"
     },
     {
-      "rect": [720, 1229, 176, 36],
+      "rect": [720, 1237, 176, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:mtime",
       "label": "Sort by Modified",
-      "rect": [728, 1240, 69, 15],
+      "rect": [728, 1248, 69, 15],
       "role": "button"
     },
     {
-      "rect": [730, 1240, 49, 15],
+      "rect": [730, 1248, 49, 15],
       "role": "text",
       "text": "Modified"
     },
     {
-      "rect": [783, 1241, 12, 12],
+      "rect": [783, 1249, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [896, 1229, 72, 36],
+      "rect": [896, 1237, 72, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:inIndex",
       "label": "Sort by In index",
-      "rect": [904, 1240, 49, 15],
+      "rect": [904, 1248, 49, 15],
       "role": "button"
     },
     {
-      "rect": [906, 1240, 45, 15],
+      "rect": [906, 1248, 45, 15],
       "role": "text",
       "text": "In index"
     },
     {
-      "rect": [968, 1229, 56, 36],
+      "rect": [968, 1237, 56, 36],
       "role": "group"
     },
     {
       "key": "mem-sort:-Users-demo-notes:links",
       "label": "Sort by Links",
-      "rect": [982, 1240, 34, 15],
+      "rect": [982, 1248, 34, 15],
       "role": "button"
     },
     {
-      "rect": [984, 1240, 30, 15],
+      "rect": [984, 1248, 30, 15],
       "role": "text",
       "text": "Links"
     },
     {
       "key": "mem-row:-Users-demo-notes:style",
       "label": "style",
-      "rect": [288, 1265, 736, 40],
+      "rect": [288, 1273, 736, 40],
       "role": "button"
     },
     {
-      "rect": [288, 1265, 132, 40],
+      "rect": [288, 1273, 132, 40],
       "role": "group"
     },
     {
-      "rect": [296, 1276, 33, 18],
+      "rect": [296, 1284, 33, 18],
       "role": "text",
       "text": "style"
     },
     {
-      "rect": [420, 1265, 96, 40],
+      "rect": [420, 1273, 96, 40],
       "role": "group"
     },
     {
-      "rect": [428, 1276, 59, 18],
+      "rect": [428, 1284, 59, 18],
       "role": "group"
     },
     {
-      "rect": [434, 1279, 47, 13],
+      "rect": [434, 1287, 47, 13],
       "role": "text",
       "text": "Feedback"
     },
     {
-      "rect": [516, 1265, 132, 40],
+      "rect": [516, 1273, 132, 40],
       "role": "group"
     },
     {
-      "rect": [524, 1276, 76, 18],
+      "rect": [524, 1284, 76, 18],
       "role": "text",
       "text": "House style"
     },
     {
-      "rect": [648, 1265, 72, 40],
+      "rect": [648, 1273, 72, 40],
       "role": "group"
     },
     {
-      "rect": [683, 1278, 29, 15],
+      "rect": [683, 1286, 29, 15],
       "role": "text",
       "text": "91 B"
     },
     {
-      "rect": [720, 1265, 176, 40],
+      "rect": [720, 1273, 176, 40],
       "role": "group"
     },
     {
-      "rect": [728, 1278, 125, 15],
+      "rect": [728, 1286, 125, 15],
       "role": "text",
       "text": "11/11/2026, 4:42:21 PM"
     },
     {
-      "rect": [896, 1265, 72, 40],
+      "rect": [896, 1273, 72, 40],
       "role": "group"
     },
     {
-      "rect": [904, 1277, 16, 16],
+      "rect": [904, 1285, 16, 16],
       "role": "icon"
     },
     {
-      "rect": [968, 1265, 56, 40],
+      "rect": [968, 1273, 56, 40],
       "role": "group"
     },
     {
-      "rect": [1009, 1278, 8, 15],
+      "rect": [1009, 1286, 8, 15],
       "role": "text",
       "text": "1"
     },
@@ -1579,210 +1595,226 @@
     {
       "key": "mem-create-dialog",
       "label": "New memory",
-      "rect": [464, 187, 512, 527],
+      "rect": [464, 181, 512, 539],
       "role": "dialog"
     },
     {
       "key": "header",
-      "rect": [464, 187, 512, 76],
+      "rect": [464, 181, 512, 76],
       "role": "group"
     },
     {
-      "rect": [480, 203, 462, 44],
+      "rect": [480, 197, 462, 44],
       "role": "group"
     },
     {
-      "rect": [480, 203, 462, 20],
+      "rect": [480, 197, 462, 20],
       "role": "text",
       "text": "New memory"
     },
     {
-      "rect": [480, 227, 462, 20],
+      "rect": [480, 221, 462, 20],
       "role": "text",
       "text": "Adds <name>.md and a MEMORY.md index line in <project>."
     },
     {
       "key": "close",
       "label": "Close",
-      "rect": [942, 201, 20, 20],
+      "rect": [942, 195, 20, 20],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [944, 203, 16, 16],
+      "rect": [944, 197, 16, 16],
       "role": "icon"
     },
     {
       "key": "body",
-      "rect": [464, 263, 512, 451],
+      "rect": [464, 257, 512, 463],
       "role": "group"
     },
     {
-      "rect": [464, 263, 512, 451],
+      "rect": [464, 257, 512, 463],
       "role": "group"
     },
     {
-      "rect": [480, 263, 480, 48],
+      "rect": [480, 257, 480, 52],
       "role": "group"
     },
     {
-      "rect": [480, 263, 480, 48],
+      "rect": [480, 257, 480, 52],
       "role": "group"
     },
     {
-      "rect": [480, 263, 480, 18],
+      "rect": [480, 257, 480, 18],
       "role": "text",
       "text": "Project"
     },
     {
       "key": "mem-create-project",
       "label": "Project",
-      "rect": [480, 286, 480, 24],
+      "rect": [480, 280, 480, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [488, 290, 103, 16],
+      "rect": [480, 286, 446, 16],
+      "role": "group"
+    },
+    {
+      "rect": [488, 286, 101, 16],
       "role": "text",
       "text": "Choose a project"
     },
     {
-      "key": "chevron",
-      "rect": [595, 290, 16, 16],
-      "role": "icon"
-    },
-    {
-      "rect": [480, 322, 480, 52],
+      "rect": [934, 284, 20, 20],
       "role": "group"
     },
     {
-      "rect": [480, 322, 480, 18],
+      "key": "chevron",
+      "rect": [936, 286, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [480, 320, 480, 52],
+      "role": "group"
+    },
+    {
+      "rect": [480, 320, 480, 18],
       "role": "text",
       "text": "Name (kebab-case)"
     },
     {
       "key": "mem-create-name",
-      "rect": [480, 346, 480, 28],
+      "rect": [480, 344, 480, 28],
       "role": "textbox"
     },
     {
       "key": "value",
-      "rect": [480, 346, 472, 28],
+      "rect": [480, 344, 472, 28],
       "role": "group"
     },
     {
-      "rect": [480, 360, 2, 0],
+      "rect": [480, 358, 2, 0],
       "role": "group"
     },
     {
       "key": "input",
       "label": "api-conventions",
-      "rect": [488, 352, 464, 16],
+      "rect": [488, 350, 464, 16],
       "role": "textbox",
       "text": ""
     },
     {
-      "rect": [480, 386, 480, 52],
+      "rect": [480, 384, 480, 52],
       "role": "group"
     },
     {
-      "rect": [480, 386, 480, 18],
+      "rect": [480, 384, 480, 18],
       "role": "text",
       "text": "Description"
     },
     {
       "key": "mem-create-description",
-      "rect": [480, 409, 480, 28],
+      "rect": [480, 407, 480, 28],
       "role": "textbox"
     },
     {
       "key": "value",
-      "rect": [480, 409, 472, 28],
+      "rect": [480, 407, 472, 28],
       "role": "group"
     },
     {
-      "rect": [480, 423, 2, 0],
+      "rect": [480, 421, 2, 0],
       "role": "group"
     },
     {
       "key": "input",
       "label": "One-line hook for the index",
-      "rect": [488, 415, 464, 16],
+      "rect": [488, 413, 464, 16],
       "role": "textbox",
       "text": ""
     },
     {
-      "rect": [480, 449, 480, 48],
+      "rect": [480, 447, 480, 52],
       "role": "group"
     },
     {
-      "rect": [480, 449, 480, 18],
+      "rect": [480, 447, 480, 18],
       "role": "text",
       "text": "Type"
     },
     {
       "key": "mem-create-type",
       "label": "Type",
-      "rect": [480, 473, 480, 24],
+      "rect": [480, 471, 480, 28],
       "role": "combobox"
     },
     {
       "key": "value",
-      "rect": [488, 477, 43, 16],
+      "rect": [480, 477, 446, 16],
+      "role": "group"
+    },
+    {
+      "rect": [488, 477, 42, 16],
       "role": "text",
       "text": "project"
     },
     {
-      "key": "chevron",
-      "rect": [535, 477, 16, 16],
-      "role": "icon"
-    },
-    {
-      "rect": [480, 509, 480, 145],
+      "rect": [934, 475, 20, 20],
       "role": "group"
     },
     {
-      "rect": [480, 509, 480, 18],
+      "key": "chevron",
+      "rect": [936, 477, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [480, 511, 480, 145],
+      "role": "group"
+    },
+    {
+      "rect": [480, 511, 480, 18],
       "role": "text",
       "text": "Body (markdown)"
     },
     {
       "key": "mem-create-body",
-      "rect": [480, 532, 480, 121],
+      "rect": [480, 534, 480, 121],
       "role": "textbox"
     },
     {
       "key": "input",
       "label": "# Title\n\nUse [[other-memory]] to link.",
-      "rect": [488, 540, 464, 18],
+      "rect": [488, 542, 464, 18],
       "role": "textbox",
       "text": ""
     },
     {
-      "rect": [480, 665, 480, 32],
+      "rect": [480, 667, 480, 36],
       "role": "group"
     },
     {
       "key": "mem-create-cancel",
       "label": "Cancel",
-      "rect": [768, 673, 67, 24],
+      "rect": [760, 675, 71, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [780, 675, 43, 20],
+      "rect": [774, 679, 43, 20],
       "role": "text",
       "text": "Cancel"
     },
     {
       "key": "mem-create-submit",
       "label": "Create memory",
-      "rect": [843, 673, 118, 24],
+      "rect": [839, 675, 122, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [855, 675, 94, 20],
+      "rect": [853, 679, 94, 20],
       "role": "text",
       "text": "Create memory"
     }

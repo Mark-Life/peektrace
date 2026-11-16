@@ -140,11 +140,11 @@
     },
     {
       "key": "mem-col",
-      "rect": [256, 44, 1184, 237],
+      "rect": [256, 44, 1184, 245],
       "role": "group"
     },
     {
-      "rect": [272, 60, 1152, 205],
+      "rect": [272, 60, 1152, 213],
       "role": "group"
     },
     {
@@ -155,7 +155,7 @@
     },
     {
       "key": "mem-empty",
-      "rect": [272, 95, 1152, 122],
+      "rect": [272, 95, 1152, 130],
       "role": "group"
     },
     {
@@ -169,18 +169,18 @@
       "text": "No project has a memory folder with files yet. Create the first memory in a Claude project, or let Claude save one."
     },
     {
-      "rect": [292, 169, 1112, 28],
+      "rect": [292, 169, 1112, 36],
       "role": "group"
     },
     {
       "key": "mem-create-anywhere",
       "label": "New memory in…",
-      "rect": [292, 177, 107, 20],
+      "rect": [292, 177, 131, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [302, 181, 87, 12],
+      "rect": [306, 181, 103, 20],
       "role": "text",
       "text": "New memory in…"
     }

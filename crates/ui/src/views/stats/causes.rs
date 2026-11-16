@@ -113,19 +113,26 @@ pub fn cell(c: &Column, lines: Vec<(String, Color)>, sub: Option<String>, t: &Th
     e.children(sub.map(|s| muted(s, t).align(align)))
 }
 
-fn rule_badge(line: &str) -> El {
-    row()
+/// The rule that should have prevented the cause, cut to one line; the
+/// full line is its tooltip and heads the open row's rule check.
+fn rule_badge(key: &str, line: &str) -> El {
+    let badge = row()
+        .key(format!("cause-rule:{key}"))
+        .shrink()
         .px(8.0)
         .py(2.0)
         .radius(6.0)
         .border(1.0, amber().alpha(0.4))
         .fill(amber().alpha(0.1))
+        .help(line.to_owned())
         .child(
             text(line.to_owned())
                 .font(ty::XS_MEDIUM)
                 .color(amber_text())
-                .wrap(),
-        )
+                .truncate()
+                .min_w(0.0),
+        );
+    row().w_full().min_w(0.0).child(badge)
 }
 
 fn rule_line<'a>(v: &V<'a>, row: &CauseRowView) -> Option<&'a str> {
@@ -147,6 +154,7 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
         )
         .child(
             row()
+                .w_full()
                 .gap(4.0)
                 .child(outline_badge(cause_badge(&r.key), true, t))
                 .child(secondary_badge(r.kind.clone(), t)),
@@ -154,10 +162,11 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
     if !v.bp.md {
         let mut narrow = col()
             .key(format!("cause-narrow:{}", r.key))
+            .w_full()
             .gap(4.0)
             .child(mono(cause_narrow(r), t));
         if let Some(l) = rule_line(v, r) {
-            narrow = narrow.child(rule_badge(l));
+            narrow = narrow.child(rule_badge(&r.key, l));
         }
         c = c.child(narrow);
     }
@@ -189,8 +198,10 @@ fn cause_row(v: &V<'_>, r: &CauseRowView, open: bool, selected: bool) -> El {
         }
     }
     if shown(&COLUMNS[5], v) {
-        let rule =
-            rule_line(v, r).map_or_else(|| text("—").font(ty::XS).color(t.muted_fg), rule_badge);
+        let rule = rule_line(v, r).map_or_else(
+            || text("—").font(ty::XS).color(t.muted_fg),
+            |l| rule_badge(&r.key, l),
+        );
         line = line.child(col().w(COLUMNS[5].w).child(rule));
     }
     let key = r.key.clone();

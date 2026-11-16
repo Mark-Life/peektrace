@@ -3,8 +3,8 @@
 
 use rune::{El, Tx, col, icon, row, text};
 use rune_kit::{
-    Button, ButtonVariant, Dialog as KitDialog, Select, TextArea, TextInput, Toast, ToastRegion,
-    glyphs,
+    Button, ButtonVariant, ControlSize, Dialog as KitDialog, TextArea, TextInput, Toast,
+    ToastRegion, glyphs,
 };
 
 use super::paint::{amber_300, amber_400, emerald_400, red_400};
@@ -15,6 +15,7 @@ use crate::model::memory::{
 use crate::state::Ui;
 use crate::state_memory::{CreateTarget, DeleteForm, Dialog, EditForm, ToastKind};
 use crate::theme::{Theme, ty};
+use crate::views::widgets::select;
 
 const WIDTH: f32 = 512.0;
 
@@ -59,7 +60,7 @@ fn type_select(
 ) -> El {
     // An unknown type (the `42` file) matches no option and shows empty.
     let current = MEMORY_TYPES.iter().copied().find(|k| *k == current);
-    Select::new(key, &MEMORY_TYPES)
+    select(key, &MEMORY_TYPES)
         .current(current)
         .placeholder("")
         .label("Type")
@@ -91,7 +92,7 @@ fn project_picker(s: &Ui, picked: Option<&ProjectOption>, t: &Theme, layer: &mut
     let names: Vec<&str> = options.iter().map(|o| o.label.as_str()).collect();
     let open = s.memory.draft(&CreateTarget::Pick).project_open;
     let choices = options.clone();
-    let select = Select::new("mem-create-project", &names)
+    let select = select("mem-create-project", &names)
         .current(picked.map(|p| p.label.as_str()))
         .placeholder(placeholder)
         .label("Project")
@@ -189,6 +190,7 @@ fn create(s: &Ui, target: &CreateTarget, t: &Theme, layer: &mut Vec<El>) {
     } else {
         "Create memory"
     })
+    .control_size(ControlSize::Large)
     .disabled(blocked)
     .on_press(move |s: &mut Ui| s.submit_create(&tg))
     .build(&t.kit)
@@ -196,6 +198,7 @@ fn create(s: &Ui, target: &CreateTarget, t: &Theme, layer: &mut Vec<El>) {
     let tg = target.clone();
     let cancel = Button::new("Cancel")
         .variant(ButtonVariant::Ghost)
+        .control_size(ControlSize::Large)
         .on_press(move |s: &mut Ui| s.memory.close_create(&tg))
         .build(&t.kit)
         .key("mem-create-cancel");
@@ -221,11 +224,13 @@ fn create(s: &Ui, target: &CreateTarget, t: &Theme, layer: &mut Vec<El>) {
 fn conflict(f: &EditForm, t: &Theme) -> El {
     let reload = Button::new("Reload from disk")
         .variant(ButtonVariant::Outline)
+        .control_size(ControlSize::Large)
         .on_press(|s: &mut Ui| s.reload_from_disk())
         .build(&t.kit)
         .key("mem-cas-reload");
     let overwrite = Button::new("Overwrite")
         .variant(ButtonVariant::Danger)
+        .control_size(ControlSize::Large)
         .disabled(f.busy())
         .on_press(|s: &mut Ui| s.submit_edit(false))
         .build(&t.kit)
@@ -306,6 +311,7 @@ fn edit(f: &EditForm, t: &Theme, layer: &mut Vec<El>) {
             .w_full();
         let cancel = Button::new("Cancel")
             .variant(ButtonVariant::Ghost)
+            .control_size(ControlSize::Large)
             .on_press(|s: &mut Ui| s.memory.dialog = None)
             .build(&t.kit)
             .key("mem-edit-cancel");
@@ -315,6 +321,7 @@ fn edit(f: &EditForm, t: &Theme, layer: &mut Vec<El>) {
             "Save changes"
         };
         let submit = Button::new(label)
+            .control_size(ControlSize::Large)
             .disabled(f.busy())
             .on_press(|s: &mut Ui| s.submit_edit(true))
             .build(&t.kit)
@@ -340,11 +347,13 @@ fn edit(f: &EditForm, t: &Theme, layer: &mut Vec<El>) {
 fn delete(f: &DeleteForm, t: &Theme, layer: &mut Vec<El>) {
     let cancel = Button::new("Cancel")
         .variant(ButtonVariant::Outline)
+        .control_size(ControlSize::Large)
         .on_press(|s: &mut Ui| s.memory.dialog = None)
         .build(&t.kit)
         .key("mem-delete-cancel");
     let confirm = Button::new(if f.busy() { "Deleting…" } else { "Delete" })
         .variant(ButtonVariant::Danger)
+        .control_size(ControlSize::Large)
         .disabled(f.busy())
         .on_press(|s: &mut Ui| s.submit_delete())
         .build(&t.kit)

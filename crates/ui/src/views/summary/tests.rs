@@ -11,6 +11,10 @@ use crate::model::fixtures::{analysis, kind, turn};
 use crate::state::{Detail, Route, Selected, Ui};
 
 fn render(a: AnalyzedSession) -> Runtime<Ui> {
+    render_at(a, (1440.0, 900.0))
+}
+
+fn render_at(a: AnalyzedSession, size: (f32, f32)) -> Runtime<Ui> {
     let mut s = Ui::new(None, 0.0, true);
     s.route = Route::Sessions;
     s.selected = Some(Selected {
@@ -18,7 +22,7 @@ fn render(a: AnalyzedSession) -> Runtime<Ui> {
         parent: None,
     });
     s.detail = Some(Detail::new(a.session_id.clone(), a, 1));
-    let mut rt = Runtime::new(s, crate::views::view, (1440.0, 900.0), Env::new(true, 1.0));
+    let mut rt = Runtime::new(s, crate::views::view, size, Env::new(true, 1.0));
     for _ in 0..6 {
         rt.frame(1.0 / 60.0);
     }
@@ -214,4 +218,44 @@ fn the_timeline_takes_clicks_and_focus_on_its_two_markers() {
             .any(|l| l.starts_with("Entered dumb zone at turn 2: jump"))
     );
     assert!(labels.iter().any(|l| l.starts_with("Peak ")));
+}
+
+#[test]
+fn every_tile_is_one_column_wide_with_a_short_last_row() {
+    let mut columns = Vec::new();
+    for width in [2200.0, 1440.0, 1000.0] {
+        // With a cost cell there are seven tiles: a short last row at 6, 3 and 2 columns.
+        let rt = render_at(
+            with_cost(SessionCost {
+                total_usd: Some(1.0),
+                ..cost(CostSource::Estimate)
+            }),
+            (width, 900.0),
+        );
+        let els = rt.elements();
+        let tiles: Vec<[f32; 4]> = els
+            .iter()
+            .filter(|e| {
+                e.key.as_deref().is_some_and(|k| k.starts_with("tile-"))
+                    && e.key.as_deref() != Some("tile-grid")
+            })
+            .map(|e| e.rect)
+            .collect();
+        assert_eq!(tiles.len(), 7, "{width}");
+        let w = tiles[0][2];
+        for r in &tiles {
+            assert!((r[2] - w).abs() < 0.5, "{width}: {tiles:?}");
+        }
+        let first_row = tiles
+            .iter()
+            .filter(|r| (r[1] - tiles[0][1]).abs() < 0.5)
+            .count();
+        let grid = by_key(&els, "tile-grid")
+            .map(|e| e.rect)
+            .unwrap_or_default();
+        let last = tiles[6];
+        assert!(last[0] + last[2] <= grid[0] + grid[2] + 0.5, "{width}");
+        columns.push(first_row);
+    }
+    assert_eq!(columns, [6, 3, 2]);
 }
