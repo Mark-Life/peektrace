@@ -2,9 +2,11 @@
  * "Copy link" work, and each page names its tab. Synthetic fixtures only. */
 
 import { expect, test } from "bun:test";
-import type { SessionHeader } from "@workspace/core/services/sessions/schema";
-import type { SampleRef } from "@workspace/core/services/stats/schema";
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
+import type {
+  SampleRef,
+  SessionHeader,
+} from "@workspace/view-core/api-types.gen";
 import { analyzedTitle } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
 import {

@@ -1,8 +1,11 @@
 /** The settings editor's pure rules: rows from the loaded settings and back,
  * and the scanned default folder per agent. */
-import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
-import type { PeektraceSettings } from "@workspace/core/services/settings";
-import type { ServerInfo } from "./api-types.gen";
+import type {
+  AgentId,
+  PeektraceSettings,
+  ServerInfo,
+} from "@workspace/view-core/api-types.gen";
+import { AGENT_IDS } from "@workspace/view-core/constants.gen";
 
 /** One editable extra-root row. */
 export interface Row {

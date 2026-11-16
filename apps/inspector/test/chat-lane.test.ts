@@ -7,8 +7,8 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import { EventKind } from "@workspace/core/services/sessions/schema";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+import { EVENT_KINDS } from "@workspace/view-core/constants.gen";
 import {
   bodyKey,
   bodyLength,
@@ -52,7 +52,7 @@ describe("laneOf", () => {
       summary: "center",
       meta: "center",
     };
-    for (const kind of EventKind.literals) {
+    for (const kind of EVENT_KINDS) {
       expect(laneOf(evt({ kind }))).toBe(expected[kind] ?? "missing");
     }
   });

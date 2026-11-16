@@ -6,7 +6,6 @@
  * memory). Edit/delete affordances render only when `canWrite` (supported
  * capability, writable server).
  */
-import type { MemoryEntry } from "@workspace/core/services/memory/types";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -18,6 +17,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
+import type { MemoryEntry } from "@workspace/view-core/api-types.gen";
 import {
   ArrowDownIcon,
   ArrowUpIcon,

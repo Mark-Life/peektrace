@@ -1,13 +1,14 @@
 //! Request and response shapes of the peektrace HTTP API under `/api`.
 //!
-//! Session headers, parsed sessions and analyses are written by the core
-//! JSON writers, so only their names appear here.
+//! Session headers, parsed sessions, analyses, memory and stats are written
+//! by the core JSON writers; [`wire`] describes their exact shapes.
 
 mod history;
 pub mod stats;
 #[cfg(test)]
 mod ts_gen;
 pub mod view;
+pub mod wire;
 
 pub use history::{
     GrowthSeries, GrowthSlices, GrowthSnapshots, GrowthTurn, HistoryIndexMeta, HistoryPageMeta,
@@ -179,7 +180,7 @@ pub struct UnreadableSession {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct SessionListing {
-    #[cfg_attr(test, ts(type = "SessionHeader[]"))]
+    #[cfg_attr(test, ts(type = "readonly SessionHeader[]"))]
     pub headers: Vec<serde_json::Value>,
     pub unreadable: Vec<UnreadableSession>,
 }

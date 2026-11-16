@@ -1,8 +1,12 @@
 /** Memory editing support from the live matrix: the Claude write gate and a
  * one-line summary across agents. */
-import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
+import type {
+  AgentId,
+  Capability,
+  SupportLevel,
+} from "@workspace/view-core/api-types.gen";
+import { AGENT_IDS } from "@workspace/view-core/constants.gen";
 import { AGENT_LABEL } from "./agent-label";
-import type { Capability, SupportLevel } from "./api-types.gen";
 
 /** The capability id that gates all memory writes. */
 const MEMORY_CRUD = "memory.crud";

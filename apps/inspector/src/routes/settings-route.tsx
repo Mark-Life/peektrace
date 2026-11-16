@@ -12,8 +12,6 @@ import {
   useAtomSet,
   useAtomValue,
 } from "@effect-atom/atom-react";
-import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
-import type { PeektraceSettings } from "@workspace/core/services/settings";
 import {
   Alert,
   AlertDescription,
@@ -29,6 +27,13 @@ import {
 } from "@workspace/ui/components/card";
 import { Input } from "@workspace/ui/components/input";
 import { Label } from "@workspace/ui/components/label";
+import type {
+  AgentId,
+  PeektraceSettings,
+  ScannedRoot,
+  ServerInfo,
+} from "@workspace/view-core/api-types.gen";
+import { AGENT_IDS } from "@workspace/view-core/constants.gen";
 import { Exit } from "effect";
 import {
   AlertTriangleIcon,
@@ -43,7 +48,6 @@ import { toast } from "sonner";
 import { ReadOnlyReason } from "../components/read-only";
 import { RootRow } from "../components/root-row";
 import { AGENT_LABEL } from "../lib/agent-label";
-import type { ScannedRoot, ServerInfo } from "../lib/api-types.gen";
 import { settingsAtom } from "../lib/atoms";
 import { tildePath } from "../lib/paths";
 import { ResultView } from "../lib/result-view";

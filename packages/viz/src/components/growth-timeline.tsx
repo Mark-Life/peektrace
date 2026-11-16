@@ -4,8 +4,8 @@
  * dumb-zone danger band + boundary line, the 200K-model ghost ceiling,
  * compaction cliffs, the peak marker, and the first dumb-zone crossing marker.
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { cn } from "@workspace/ui/lib/utils";
+import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
 import {
   type GrowthSnapshot,

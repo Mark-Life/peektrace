@@ -38,11 +38,11 @@ import {
 } from "@tanstack/charts";
 import { scaleLinear } from "@tanstack/charts-scales/linear";
 import { Chart } from "@tanstack/react-charts";
+import { cn } from "@workspace/ui/lib/utils";
 import type {
   AnalyzedSession,
   BudgetKey,
-} from "@workspace/core/services/sessions/schema";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/view-core/api-types.gen";
 import { useId, useMemo } from "react";
 import {
   CAT_META,

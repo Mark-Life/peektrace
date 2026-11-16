@@ -6,7 +6,6 @@
  * Capped and backgrounded runs are annotations on the row, never their own total.
  * The column is "time", never "time wasted".
  */
-import type { TimeRow } from "@workspace/core/services/stats/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
@@ -17,6 +16,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
+import type { TimeRow } from "@workspace/view-core/api-types.gen";
 import { Fragment } from "react";
 import {
   coPresentNote,

@@ -1,0 +1,15 @@
+{
+  "extends": "@workspace/typescript-config/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "exactOptionalPropertyTypes": true,
+    "strictNullChecks": true,
+    "types": ["bun"]
+  },
+  "include": ["src", "test"],
+  "exclude": ["node_modules"]
+}

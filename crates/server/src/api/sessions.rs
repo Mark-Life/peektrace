@@ -4,6 +4,8 @@ use axum::body::Body;
 use axum::extract::{Path, RawQuery, State};
 use axum::http::{HeaderValue, Method, Response, header};
 use base64::Engine as _;
+use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
+use peektrace_core::js::{text, time};
 use peektrace_core::sessions::resolve::SessionError;
 use peektrace_core::sessions::service::{
     AnalyzeOverrides, SessionEnv, Target, analyze_session_with, get_session, session_image,
@@ -123,6 +125,74 @@ pub async fn analysis(
             })
             .await?;
             Ok(json(body))
+        }
+        .await;
+        finish(result)
+    }
+    .instrument(span)
+    .await
+}
+
+fn export_format(raw: Option<&str>) -> Result<ExportFormat, ApiError> {
+    raw.and_then(ExportFormat::parse).ok_or_else(|| {
+        bad_request(format!(
+            "format must be one of html, md, json, got {}",
+            raw.map_or_else(|| "nothing".to_owned(), |f| format!("{f:?}"))
+        ))
+    })
+}
+
+const fn export_mime(f: ExportFormat) -> &'static str {
+    match f {
+        ExportFormat::Html => "text/html;charset=utf-8",
+        ExportFormat::Md => "text/markdown;charset=utf-8",
+        ExportFormat::Json => "application/json;charset=utf-8",
+    }
+}
+
+/// `GET /api/sessions/{id}/export?format=html|md|json`: the session as a
+/// download, with the same redaction as `sessions export`.
+pub async fn export(
+    State(state): Shared,
+    method: Method,
+    Path(id): Path<String>,
+    RawQuery(raw): RawQuery,
+) -> Res {
+    let span = rpc_span!("sessions.export", method, "/api/sessions/{id}/export");
+    async move {
+        let q = query_pairs(raw.as_deref());
+        let result = async {
+            let format = export_format(param(&q, "format"))?;
+            let redact = redact_param(&q)?;
+            let parent = param(&q, "parent").map(str::to_owned);
+            let current = Span::current();
+            let (name, body) = blocking(move || {
+                let _entered = current.enter();
+                let session =
+                    get_session(env(&state), Target::Lookup(&id), parent.as_deref(), redact)
+                        .map_err(session_error)?;
+                #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
+                let exported_at = time::to_iso_string((state.now)() as i64);
+                let opts = ExportOptions {
+                    exported_at,
+                    home: Some(state.user_home.clone()),
+                    redacted: redact,
+                };
+                let text = text::to_display(&render_export(format, &session, &opts)).into_owned();
+                let short: String = session.session_id.chars().take(8).collect();
+                Ok::<_, ApiError>((format!("session-{short}.{}", format.as_str()), text))
+            })
+            .await?;
+            let mut res = Response::new(Body::from(body));
+            let headers = res.headers_mut();
+            headers.insert(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static(export_mime(format)),
+            );
+            if let Ok(v) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
+                headers.insert(header::CONTENT_DISPOSITION, v);
+            }
+            Ok(res)
         }
         .await;
         finish(result)

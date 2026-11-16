@@ -1,25 +1,27 @@
-/** Tool-row shaping, driven by real transcripts through the real parser.
+/** Tool-row shaping, driven by real transcripts through the Rust server's analysis.
  *
  * These are the parts of the AI Elements tool rows that carry meaning rather
  * than styling: which tool a row belongs to, what the transcript says happened,
  * and which bytes end up on screen. The last one is why redaction gets a test
  * here too — the rows render tool arguments, and a shaping bug that reached
- * around `redactSession` would leak secrets behind a banner promising it didn't.
+ * around the server's redaction would leak secrets behind a banner promising it
+ * didn't.
+ *
+ * `fixtures/tool-event/analyses.json` holds the analyses: the shared Claude
+ * fixture redacted (`golden`) and raw (`goldenRaw`), and `outcomes.jsonl`.
+ * `crates/server/tests/inspector_fixture.rs` fails when they go stale;
+ * regenerate with
+ * `UPDATE_TS_TYPES=1 cargo test -p peektrace-server --test inspector_fixture`.
  *
  * The component itself is not rendered: `@workspace/ui` resolves a different
  * copy of React than `inspector` does, so hooks blow up outside Vite (which
  * dedupes via `@vitejs/plugin-react`). Typecheck and the Vite build cover the JSX.
  */
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { analyze } from "@workspace/core/services/sessions/analyze";
-import { parseClaudeSession } from "@workspace/core/services/sessions/parse";
-import { redactSession } from "@workspace/core/services/sessions/redact";
 import type {
   AnalyzedSession,
   TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
+} from "@workspace/view-core/api-types.gen";
 import {
   bodyView,
   callView,
@@ -30,103 +32,18 @@ import {
   toolNameOf,
   toolState,
 } from "../src/lib/tool-event";
+import analyses from "./fixtures/tool-event/analyses.json";
 
-const FIXTURE = join(
-  import.meta.dir,
-  "../../../packages/core/test/fixtures/sessions/projects/-Users-demo-proj/11111111-1111-4111-8111-111111111111.jsonl"
-);
-
-const sessionFrom = (text: string, sessionId: string): AnalyzedSession =>
-  analyze(
-    parseClaudeSession({ text, path: `/tmp/${sessionId}.jsonl`, sessionId })
-  );
+const fixture = analyses as unknown as Record<
+  "golden" | "goldenRaw" | "outcomes",
+  AnalyzedSession
+>;
 
 /** The shared Claude fixture: one `Read` call, one result carrying a secret. */
-const golden = () =>
-  sessionFrom(
-    readFileSync(FIXTURE, "utf8"),
-    "11111111-1111-4111-8111-111111111111"
-  );
+const golden = () => fixture.golden;
 
 /** A transcript built to hit the outcomes the golden fixture has no example of. */
-const OUTCOMES = [
-  {
-    type: "assistant",
-    requestId: "req-1",
-    message: {
-      model: "claude-opus-4",
-      usage: {
-        input_tokens: 10,
-        cache_read_input_tokens: 0,
-        cache_creation_input_tokens: 0,
-        output_tokens: 10,
-      },
-      content: [
-        {
-          type: "tool_use",
-          id: "call-ok",
-          name: "Bash",
-          input: {
-            command: "bun test\necho done",
-            description: "Run the suite",
-            timeout: 120_000,
-          },
-        },
-        {
-          type: "tool_use",
-          id: "call-bad",
-          name: "Grep",
-          input: { pattern: "TODO" },
-        },
-        {
-          type: "tool_use",
-          id: "call-open",
-          name: "Write",
-          input: { file_path: "/a.ts" },
-        },
-        {
-          type: "tool_use",
-          id: "call-edit",
-          name: "Edit",
-          input: {
-            file_path: "/src/a.ts",
-            old_string: "const a = 1;\nconst b = 2;",
-            new_string: "const a = 1;\nconst b = 3;",
-            replace_all: false,
-          },
-        },
-        {
-          type: "tool_use",
-          id: "call-multi",
-          name: "MultiEdit",
-          input: {
-            file_path: "/docs/b.md",
-            edits: [
-              { old_string: "# One", new_string: "# Uno" },
-              { old_string: "# Two", new_string: "# Dos" },
-            ],
-          },
-        },
-      ],
-    },
-  },
-  {
-    type: "user",
-    message: {
-      content: [
-        { type: "tool_result", tool_use_id: "call-ok", content: "ok" },
-        {
-          type: "tool_result",
-          tool_use_id: "call-bad",
-          is_error: true,
-          content: "boom",
-        },
-      ],
-    },
-  },
-]
-  .map((o) => JSON.stringify(o))
-  .join("\n");
+const outcomes = () => fixture.outcomes;
 
 const eventAt = (a: AnalyzedSession, useId: string, kind: string) =>
   a.events.find(
@@ -143,7 +60,7 @@ describe("pairing calls with results", () => {
   });
 
   test("an unpaired event still names something renderable", () => {
-    const a = sessionFrom(OUTCOMES, "outcomes");
+    const a = outcomes();
     const tools = indexTools(a);
     const orphan: TimelineEvent = {
       index: 0,
@@ -158,7 +75,7 @@ describe("pairing calls with results", () => {
   });
 
   test("outcome follows the result, not the call", () => {
-    const a = sessionFrom(OUTCOMES, "outcomes");
+    const a = outcomes();
     const tools = indexTools(a);
     expect(toolState(eventAt(a, "call-ok", "tool-call"), tools)).toBe(
       "completed"
@@ -170,7 +87,7 @@ describe("pairing calls with results", () => {
   });
 
   test("a call whose result never arrived reads as unanswered", () => {
-    const a = sessionFrom(OUTCOMES, "outcomes");
+    const a = outcomes();
     expect(toolState(eventAt(a, "call-open", "tool-call"), indexTools(a))).toBe(
       "unanswered"
     );
@@ -178,8 +95,7 @@ describe("pairing calls with results", () => {
 });
 
 describe("shaping a call's arguments", () => {
-  const bashCall = () =>
-    eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-ok", "tool-call");
+  const bashCall = () => eventAt(outcomes(), "call-ok", "tool-call");
 
   /** The first pane's code, for the panes a test expects to be a code pane. */
   const codeAt = (panes: readonly ToolPane[], i: number) => {
@@ -211,8 +127,7 @@ describe("shaping a call's arguments", () => {
     expect(callView(bashCall()).summary).toBe("bun test echo done");
   });
 
-  const editCall = () =>
-    eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-edit", "tool-call");
+  const editCall = () => eventAt(outcomes(), "call-edit", "tool-call");
 
   test("an edit becomes a diff, not two blocks to compare by eye", () => {
     const { panes } = callView(editCall());
@@ -290,7 +205,7 @@ describe("shaping a call's arguments", () => {
 
   test("a batch of edits gets a numbered diff each", () => {
     const { panes, summary } = callView(
-      eventAt(sessionFrom(OUTCOMES, "outcomes"), "call-multi", "tool-call")
+      eventAt(outcomes(), "call-multi", "tool-call")
     );
     expect(panes.map((p) => p.label)).toEqual([
       "Edit 1",
@@ -301,7 +216,7 @@ describe("shaping a call's arguments", () => {
   });
 
   test("a call with no payload arg falls back to the whole argument object", () => {
-    const a = sessionFrom(OUTCOMES, "outcomes");
+    const a = outcomes();
     const { panes, summary } = callView(eventAt(a, "call-bad", "tool-call"));
     expect(panes).toHaveLength(1);
     expect(panes[0]?.label).toBe("Parameters");
@@ -414,11 +329,11 @@ describe("redaction reaches every pane", () => {
       .join("\n");
 
   test("nothing rendered from a redacted session contains the secret", () => {
-    expect(rendered(redactSession(golden()))).not.toContain(SECRET);
+    expect(rendered(golden())).not.toContain(SECRET);
   });
 
   test("and the raw session is what still does — so the test can tell", () => {
-    expect(rendered(golden())).toContain(SECRET);
+    expect(rendered(fixture.goldenRaw)).toContain(SECRET);
   });
 });
 

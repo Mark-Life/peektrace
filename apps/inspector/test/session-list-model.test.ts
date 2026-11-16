@@ -1,7 +1,7 @@
 /** Session rail helpers: labels, ordering and the live window. */
 
 import { describe, expect, test } from "bun:test";
-import type { SessionHeader } from "@workspace/core/services/sessions/schema";
+import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import { addToRange } from "react-day-picker";
 import {
   activeDays,

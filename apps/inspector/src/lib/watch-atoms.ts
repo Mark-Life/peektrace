@@ -18,8 +18,8 @@ import {
   useAtomSet,
   useAtomValue,
 } from "@effect-atom/atom-react";
+import type { WatchVersions } from "@workspace/view-core/api-types.gen";
 import { useEffect, useRef } from "react";
-import type { WatchVersions } from "./api-types.gen";
 import { allVaultsAtom, sessionsListAtom } from "./atoms";
 import { startLive } from "./live";
 import { MEMORY_SETTLE, SESSIONS_SETTLE, settledAtom } from "./settle";

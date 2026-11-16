@@ -26,14 +26,15 @@ pub struct AnalyzeOptions<'a> {
     pub local: &'a dyn LocalZone,
 }
 
-struct CatMeta {
-    label: &'static str,
-    short: &'static str,
-    color: &'static str,
-    note: Option<&'static str>,
+/// How a budget category is drawn and named.
+pub struct CatMeta {
+    pub label: &'static str,
+    pub short: &'static str,
+    pub color: &'static str,
+    pub note: Option<&'static str>,
 }
 
-const fn cat_meta(key: BudgetKey) -> CatMeta {
+pub const fn cat_meta(key: BudgetKey) -> CatMeta {
     let (label, short, color, note) = match key {
         BudgetKey::SystemTools => (
             "System + tool definitions",

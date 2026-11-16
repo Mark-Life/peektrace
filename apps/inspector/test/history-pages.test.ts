@@ -1,8 +1,10 @@
 /** Paging the history: which bodies drawn rows need, how they are fetched
  *  and stored, and index rows turned back into whole events. */
 import { describe, expect, test } from "bun:test";
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
-import type { GrowthSeries } from "../src/lib/api-types.gen";
+import type {
+  GrowthSeries,
+  TimelineEvent,
+} from "@workspace/view-core/api-types.gen";
 import {
   buildChatPlan,
   type ChatNode,

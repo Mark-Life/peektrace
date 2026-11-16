@@ -14,10 +14,6 @@ import {
   GROUPS,
   ShortcutsList,
 } from "../../apps/inspector/src/components/shortcuts-dialog";
-import type {
-  Capability,
-  ServerInfo,
-} from "../../apps/inspector/src/lib/api-types.gen";
 import {
   AGENT_COLUMNS,
   cellNote,
@@ -46,6 +42,10 @@ import {
   type PeektraceSettings,
   parseSettings,
 } from "../../packages/core/src/services/settings";
+import type {
+  Capability,
+  ServerInfo,
+} from "../../packages/view-core/src/api-types.gen";
 import { report } from "./parity-lib";
 import { digest } from "./parity-oracle";
 import { pipe } from "./parity-tui";

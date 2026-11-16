@@ -7,8 +7,6 @@
  * re-sends without the CAS guard.
  */
 import { useAtomSet } from "@effect-atom/atom-react";
-import type { MemoryEntry } from "@workspace/core/services/memory/types";
-import { MEMORY_TYPES } from "@workspace/core/services/memory/types";
 import { Button } from "@workspace/ui/components/button";
 import {
   Dialog,
@@ -28,6 +26,8 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { Textarea } from "@workspace/ui/components/textarea";
+import type { MemoryEntry } from "@workspace/view-core/api-types.gen";
+import { MEMORY_TYPES } from "@workspace/view-core/constants.gen";
 import { Exit } from "effect";
 import { AlertTriangleIcon } from "lucide-react";
 import { useState } from "react";

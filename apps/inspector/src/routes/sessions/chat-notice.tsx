@@ -5,13 +5,12 @@
  * the system talking: a quiet centred card that names what wrote it, folded to
  * its one-line summary until opened.
  */
+import { Badge } from "@workspace/ui/components/badge";
+import { cn } from "@workspace/ui/lib/utils";
 import type {
   PromptOrigin,
   TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
-import { tokenLabel } from "@workspace/core/services/sessions/tokens";
-import { Badge } from "@workspace/ui/components/badge";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/view-core/api-types.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import {
   AlarmClockIcon,
@@ -22,6 +21,7 @@ import {
   TerminalIcon,
 } from "lucide-react";
 import { memo } from "react";
+import { tokenLabel } from "../../lib/event-tokens";
 import { chatPanelId, disclosureProps } from "../../lib/session-view";
 import { sameChatRow } from "../../lib/transcript-row";
 import { RawToggle } from "./chat-message";

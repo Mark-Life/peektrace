@@ -3,7 +3,7 @@ import { expect, test } from "bun:test";
 import type {
   AnalyzedSession,
   TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
+} from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   matchLabel,

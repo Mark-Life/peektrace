@@ -13,7 +13,7 @@ import type {
   AnalyzedSession,
   TimelineEvent,
   Turn,
-} from "@workspace/core/services/sessions/schema";
+} from "@workspace/view-core/api-types.gen";
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
