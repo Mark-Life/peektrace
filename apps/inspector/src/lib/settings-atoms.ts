@@ -1,12 +1,13 @@
-/** Settings mutation atom.
+/** Settings write: `PUT /api/settings` with optional mtime compare-and-swap.
  *
- * The `settings.get` query lives in `atoms.ts`; this adds the write path via
- * `PeektraceClient.mutation("settings.update")` (an `AtomResultFn` — call it with
- * a payload and read back a `Result`). Drive it with
- * `useAtomSet(atom, { mode: "promiseExit" })` so a `FileChangedError` CAS
- * conflict can be handled; refresh `settingsAtom` after a successful write.
+ * Call it with `{ payload }` through `useAtomSet(…, { mode: "promiseExit" })`;
+ * a stale `expectedMtime` fails with `FileChangedError`.
  */
-import { PeektraceClient } from "./client";
+import { Atom } from "@effect-atom/atom-react";
+import { apiSend } from "./api";
+import type { SettingsResult, SettingsUpdate } from "./api-types.gen";
 
-/** Write the settings file (`settings.update`), CAS on mtime. */
-export const updateSettingsAtom = PeektraceClient.mutation("settings.update");
+export const updateSettingsAtom = Atom.fn(
+  ({ payload }: { readonly payload: SettingsUpdate }) =>
+    apiSend<SettingsResult>("PUT", "/api/settings", payload)
+);

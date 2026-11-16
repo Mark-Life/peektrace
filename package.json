@@ -25,7 +25,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
-    "serve": "bun run --filter=inspector build && bun run apps/cli/src/index.ts serve",
+    "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
     "tui": "bun run --filter=inspector build && bun run apps/cli/src/index.ts tui",
     "desktop:dev": "bun run --filter=@workspace/desktop dev",
     "desktop:package": "bun run --filter=@workspace/desktop package:mac",

@@ -103,6 +103,11 @@ jobs:
       - name: Build inspector UI
         run: bun run --filter=inspector build
 
+      # The inspector calls `/api`; refuse to ship a TS binary that only
+      # answers `/rpc`, or its UI loads no data.
+      - name: Check the TS server answers the inspector API
+        run: bun scripts/rust/ts-ui-guard.ts
+
       # `electrobun build` runs the preBuild hook (scripts/stage-sidecar.ts),
       # which compiles the CLI into a self-contained binary and stages it for
       # bundling, then produces the app + update artifacts under apps/desktop/artifacts.

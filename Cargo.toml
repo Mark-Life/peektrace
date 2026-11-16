@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/cli"]
+members = ["crates/core", "crates/protocol", "crates/server", "crates/cli"]
 
 [workspace.package]
 version = "0.0.0"
@@ -11,12 +11,15 @@ publish = false
 
 [workspace.dependencies]
 peektrace-core = { path = "crates/core" }
+peektrace-protocol = { path = "crates/protocol" }
+peektrace-server = { path = "crates/server" }
 anyhow = "1.0.104"
 jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-always"] }
 fancy-regex = { version = "0.20", default-features = false, features = ["std", "perf"] }
 icu_collator = { version = "2.4", features = ["unstable"] }
 indexmap = "2.14"
 sha1_smol = "1.0"
+notify = "8"
 clap = { version = "4.6", default-features = false, features = ["std", "derive", "help", "usage", "error-context", "suggestions"] }
 rayon = "1.12"
 regex = { version = "1.13", default-features = false, features = ["std", "perf", "unicode-case", "unicode-gencat"] }
@@ -43,4 +46,3 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 strip = true
-panic = "abort"

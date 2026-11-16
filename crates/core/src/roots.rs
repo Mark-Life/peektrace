@@ -2,14 +2,11 @@
 //! extra roots from `settings.json`. Pure: the caller passes env and file text.
 
 use std::borrow::Cow;
-use std::fmt;
 
-use serde::de::{Deserialize, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
-use serde_json::Value;
-
-use crate::js::{json, text};
+use crate::js::text;
 use crate::model::Agent;
 use crate::paths::PathStyle;
+use crate::settings_doc::{DocEntry, settings_doc};
 
 /// The environment inputs root resolution reads.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -82,28 +79,13 @@ pub struct Source {
     pub projects_root: String,
 }
 
-/// A root entry when `v` is an object with a string `path` and an optional
-/// string `label`. `escaped` says the strings are already transcript text;
-/// the path then drops to plain text, as Node's `fs` sees it.
-fn root_entry(v: &Value, escaped: bool) -> Option<RootEntry> {
-    let obj = v.as_object()?;
-    let path = obj.get("path")?.as_str()?;
-    let label = match obj.get("label") {
-        None => None,
-        Some(l) => Some(l.as_str()?),
-    };
-    let (path, label) = if escaped {
-        (
-            text::to_display(path).into_owned(),
-            label.map(str::to_owned),
-        )
-    } else {
-        (
-            path.to_owned(),
-            label.map(|l| text::escape_reserved(l).into_owned()),
-        )
-    };
-    Some(RootEntry { path, label })
+/// A document entry as root resolution uses it: the path as plain text,
+/// as Node's `fs` sees it; the label stays transcript text.
+fn root_entry(e: &DocEntry) -> RootEntry {
+    RootEntry {
+        path: text::to_display(&e.path).into_owned(),
+        label: e.label.clone(),
+    }
 }
 
 /// What root resolution takes from `settings.json`: each agent's extra
@@ -130,133 +112,29 @@ impl Settings {
     }
 }
 
-/// Valid entries of one agent's root list, `None` when it is not a list.
-fn entries_of(v: &Value, escaped: bool) -> Option<Vec<RootEntry>> {
-    v.as_array()
-        .map(|list| list.iter().filter_map(|e| root_entry(e, escaped)).collect())
-}
-
-/// True when `roots` decodes whole: an object whose known agents each map
-/// to a list of valid entries.
-fn roots_decode(roots: &Value) -> bool {
-    roots.as_object().is_some_and(|map| {
-        Agent::ALL
-            .into_iter()
-            .filter_map(|a| map.get(a.as_str()))
-            .all(|v| {
-                v.as_array()
-                    .is_some_and(|list| list.iter().all(|e| root_entry(e, false).is_some()))
-            })
-    })
-}
-
-/// True when some known agent keeps at least one valid entry.
-fn roots_salvage(roots: &Value) -> bool {
-    roots.as_object().is_some_and(|map| {
-        Agent::ALL
-            .into_iter()
-            .filter_map(|a| map.get(a.as_str()).and_then(|v| entries_of(v, false)))
-            .any(|entries| !entries.is_empty())
-    })
-}
-
-/// The last top-level `roots` value, as `JSON.parse` keeps it. Other keys
-/// are checked but not built, so their nesting depth has no limit.
-struct TopRoots(Option<Value>);
-
-impl<'de> Deserialize<'de> for TopRoots {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        d.deserialize_any(TopRootsVisitor)
-    }
-}
-
-struct TopRootsVisitor;
-
-impl<'de> Visitor<'de> for TopRootsVisitor {
-    type Value = TopRoots;
-
-    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("a JSON value")
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<TopRoots, A::Error> {
-        let mut roots = None;
-        while let Some(key) = map.next_key::<String>()? {
-            if key == "roots" {
-                roots = Some(map.next_value()?);
-            } else {
-                map.next_value::<IgnoredAny>()?;
-            }
-        }
-        Ok(TopRoots(roots))
-    }
-
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<TopRoots, A::Error> {
-        while seq.next_element::<IgnoredAny>()?.is_some() {}
-        Ok(TopRoots(None))
-    }
-
-    fn visit_bool<E>(self, _: bool) -> Result<TopRoots, E> {
-        Ok(TopRoots(None))
-    }
-    fn visit_i64<E>(self, _: i64) -> Result<TopRoots, E> {
-        Ok(TopRoots(None))
-    }
-    fn visit_u64<E>(self, _: u64) -> Result<TopRoots, E> {
-        Ok(TopRoots(None))
-    }
-    fn visit_f64<E>(self, _: f64) -> Result<TopRoots, E> {
-        Ok(TopRoots(None))
-    }
-    fn visit_str<E>(self, _: &str) -> Result<TopRoots, E> {
-        Ok(TopRoots(None))
-    }
-    fn visit_unit<E>(self) -> Result<TopRoots, E> {
-        Ok(TopRoots(None))
-    }
-}
-
-/// The `roots` value of settings text, read as leniently as `JSON.parse`.
-/// The flag says strings are transcript text.
-fn parse_json(raw: &str) -> Option<(Option<Value>, bool)> {
-    if let Ok(TopRoots(v)) = serde_json::from_str(raw) {
-        return Some((v, false));
-    }
-    let fixed = json::repair(raw, json::Overflow::Zero)?;
-    serde_json::from_str(&fixed)
-        .ok()
-        .map(|TopRoots(v)| (v, true))
-}
-
-/// Parse `settings.json` text. Tolerant: bad JSON yields no roots, and each
-/// invalid entry is dropped on its own. Non-blank text that decodes to no
-/// `roots`, even after dropping bad entries, is `unparseable`.
+/// Parse `settings.json` text through the settings editor's decoder.
+/// Tolerant: bad JSON yields no roots, and each invalid entry is dropped on
+/// its own. Non-blank text that decodes to no `roots`, even after dropping
+/// bad entries, is `unparseable`.
 pub fn parse_settings(raw: &str) -> Settings {
-    let trimmed = text::trim(raw);
-    if trimmed.is_empty() {
+    if text::trim(raw).is_empty() {
         return Settings::default();
     }
-    let Some((roots, escaped)) = parse_json(trimmed) else {
-        return Settings {
-            unparseable: true,
-            ..Settings::default()
-        };
-    };
-    let roots = roots.as_ref();
-    let has_roots = roots.is_some_and(|r| roots_decode(r) || roots_salvage(r));
-    let of = |agent: Agent| {
-        roots
-            .and_then(Value::as_object)
-            .and_then(|r| r.get(agent.as_str()))
-            .and_then(|v| entries_of(v, escaped))
-            .unwrap_or_default()
+    let doc = settings_doc(raw);
+    let of = |agent: Agent| -> Vec<RootEntry> {
+        doc.roots
+            .iter()
+            .flatten()
+            .filter(|(a, _)| *a == agent)
+            .flat_map(|(_, entries)| entries.iter().map(root_entry))
+            .collect()
     };
     Settings {
         claude: of(Agent::Claude),
         codex: of(Agent::Codex),
         pi: of(Agent::Pi),
         opencode: of(Agent::Opencode),
-        unparseable: !has_roots,
+        unparseable: doc.roots.is_none(),
     }
 }
 

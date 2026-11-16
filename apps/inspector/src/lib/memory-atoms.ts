@@ -1,19 +1,55 @@
-/** Memory CRUD mutation atoms.
- *
- * Queries live in `atoms.ts`; this adds the three write paths via
- * `PeektraceClient.mutation(tag)` (an `AtomResultFn` — call it with a payload and
- * read back a `Result`). After any successful write the explorer refreshes
- * `allVaultsAtom` so the gauge / diff / graph re-validate from disk. Drive the
- * writes with `useAtomSet(atom, { mode: "promiseExit" })` to inspect the typed
- * `Exit` (so a `FileChangedError` can surface the CAS-conflict choice).
+/** Memory writes over `/api/memory`. Call each with `{ payload }` through
+ * `useAtomSet(…, { mode: "promiseExit" })`.
  */
-import { PeektraceClient } from "./client";
+import { Atom } from "@effect-atom/atom-react";
+import type {
+  DeleteResult,
+  MemoryEntry,
+} from "@workspace/core/services/memory/types";
+import { apiPath, apiSend } from "./api";
 
-/** Create a memory (`memory.create`) → new `MemoryEntry`. */
-export const createMemoryAtom = PeektraceClient.mutation("memory.create");
+interface MemoryRef {
+  readonly name: string;
+  readonly project: string;
+}
 
-/** Update a memory body/frontmatter (`memory.update`), CAS on mtime. */
-export const updateMemoryAtom = PeektraceClient.mutation("memory.update");
+interface MemoryCreate extends MemoryRef {
+  readonly body: string;
+  readonly description: string;
+  readonly type: string;
+}
 
-/** Delete a memory (`memory.delete`) → dangling-reference report. */
-export const deleteMemoryAtom = PeektraceClient.mutation("memory.delete");
+interface MemoryUpdate extends MemoryRef {
+  readonly body?: string;
+  readonly expectedMtime?: number;
+  readonly frontmatter?: {
+    readonly description?: string;
+    readonly name?: string;
+    readonly type?: string;
+  };
+}
+
+const entries = (project: string) =>
+  apiPath("memory", "projects", project, "entries");
+
+export const createMemoryAtom = Atom.fn(
+  ({ payload }: { readonly payload: MemoryCreate }) =>
+    apiSend<MemoryEntry>("POST", entries(payload.project), payload)
+);
+
+export const updateMemoryAtom = Atom.fn(
+  ({ payload }: { readonly payload: MemoryUpdate }) =>
+    apiSend<MemoryEntry>(
+      "PATCH",
+      `${entries(payload.project)}/${encodeURIComponent(payload.name)}`,
+      payload
+    )
+);
+
+export const deleteMemoryAtom = Atom.fn(
+  ({ payload }: { readonly payload: MemoryRef }) =>
+    apiSend<DeleteResult>(
+      "DELETE",
+      `${entries(payload.project)}/${encodeURIComponent(payload.name)}`
+    )
+);

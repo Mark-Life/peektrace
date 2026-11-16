@@ -135,7 +135,7 @@ const runFixtureSuites = (root: string) => {
  * Copy `src` to `dest` so live sessions cannot move numbers. On macOS
  * `cp -c` makes an APFS clone; elsewhere it is a full copy.
  */
-const snapshot = (src: string, dest: string): boolean => {
+export const snapshot = (src: string, dest: string): boolean => {
   if (!existsSync(src)) {
     return false;
   }
@@ -157,7 +157,7 @@ const snapshot = (src: string, dest: string): boolean => {
 };
 
 /** The OpenCode data dir: only its DB files and `storage/`. */
-const snapshotOpencode = (src: string, dest: string) => {
+export const snapshotOpencode = (src: string, dest: string) => {
   rmSync(dest, { recursive: true, force: true });
   mkdirSync(dest, { recursive: true });
   if (!existsSync(src)) {
@@ -171,7 +171,7 @@ const snapshotOpencode = (src: string, dest: string) => {
   snapshot(join(src, "storage"), join(dest, "storage"));
 };
 
-const opencodeDataDir = (home: string) => {
+export const opencodeDataDir = (home: string) => {
   const xdg = process.env.XDG_DATA_HOME;
   return join(xdg ? xdg : join(home, ".local/share"), "opencode");
 };

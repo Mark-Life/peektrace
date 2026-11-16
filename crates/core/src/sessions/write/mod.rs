@@ -1,9 +1,11 @@
 //! JSON for the session model, in the key order the TS core inserts keys.
 
 mod event;
+mod header;
 
 use event::usize_json;
 pub use event::{write_event, write_turn};
+pub use header::{headers_json, listing_json, write_header};
 
 use crate::js::json_out::Writer;
 use crate::sessions::model::{
@@ -162,9 +164,23 @@ fn write_cost(w: &mut Writer, c: &SessionCost) {
     w.end_obj();
 }
 
+/// `JSON.stringify(parsed)` or `JSON.stringify(parsed, null, 2)`.
+pub fn parsed_json(p: &ParsedSession, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
+    w.begin_obj();
+    write_parsed_fields(&mut w, p);
+    w.end_obj();
+    w.finish()
+}
+
 /// `JSON.stringify(analyzed, null, 2)`.
 pub fn analyzed_json(a: &AnalyzedSession) -> String {
-    let mut w = Writer::new(true);
+    analyzed_json_with(a, true)
+}
+
+/// `JSON.stringify(analyzed)` or `JSON.stringify(analyzed, null, 2)`.
+pub fn analyzed_json_with(a: &AnalyzedSession, pretty: bool) -> String {
+    let mut w = Writer::new(pretty);
     w.begin_obj();
     write_parsed_fields(&mut w, &a.parsed);
     w.key("contextWindow").num(a.context_window);

@@ -4,14 +4,15 @@
  * screenshot-heavy session stays light. An image is fetched when the row that
  * holds it is opened: this component mounts only inside opened bodies.
  */
-import { Result, useAtomValue } from "@effect-atom/atom-react";
+import { Atom, Result, useAtomValue } from "@effect-atom/atom-react";
 import type {
   ImageRef,
   TimelineEvent,
 } from "@workspace/core/services/sessions/schema";
 import { cn } from "@workspace/ui/lib/utils";
+import { Cause, Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
-import { PeektraceClient } from "../../lib/client";
+import { apiBlob, apiPath } from "../../lib/api";
 import { useTranscriptSource } from "../../lib/transcript-source";
 
 const FRAME = "rounded-md border bg-muted/30";
@@ -47,7 +48,7 @@ const Picture = ({
     return <span className={NOTE}>Decoding image…</span>;
   }
   return (
-    // biome-ignore lint/performance/noImgElement: Vite app, not Next; a data: URL needs no optimizer.
+    // biome-ignore lint/performance/noImgElement: Vite app, not Next; a blob: URL needs no optimizer.
     <img
       alt={alt}
       className={cn(
@@ -61,6 +62,21 @@ const Picture = ({
   );
 };
 
+/** An object URL for `blob`, revoked when it changes or on unmount. */
+const useObjectUrl = (blob: Blob | null) => {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (blob === null) {
+      setUrl(null);
+      return;
+    }
+    const made = URL.createObjectURL(blob);
+    setUrl(made);
+    return () => URL.revokeObjectURL(made);
+  }, [blob]);
+  return url;
+};
+
 const EventImage = ({
   line,
   imageRef,
@@ -70,34 +86,48 @@ const EventImage = ({
 }) => {
   const source = useTranscriptSource();
   const [full, setFull] = useState(false);
-  const atom = useMemo(
-    () =>
-      PeektraceClient.query("sessions.image", {
-        id: source?.id ?? "",
-        line,
-        block: imageRef.block,
-        ...(source?.parent ? { parent: source.parent } : {}),
-        ...(imageRef.item === undefined ? {} : { item: imageRef.item }),
-      }),
-    [source, line, imageRef]
-  );
+  const atom = useMemo(() => {
+    const segments = [
+      "sessions",
+      source?.id ?? "",
+      "images",
+      line,
+      imageRef.block,
+      ...(imageRef.item === undefined ? [] : [imageRef.item]),
+    ];
+    // A missing image reads as `null`: the ref names no showable image.
+    return Atom.make(
+      apiBlob(apiPath(...segments), {
+        parent: source?.parent ?? undefined,
+      }).pipe(
+        Effect.catchIf(
+          (e) => e._tag === "ImageNotFoundError",
+          () => Effect.succeed(null)
+        )
+      )
+    );
+  }, [source, line, imageRef]);
   const result = useAtomValue(atom);
+  const blob = Result.isSuccess(result) ? result.value : null;
+  const src = useObjectUrl(blob);
   if (!Result.isSuccess(result)) {
     return (
       <div className={cn(FRAME, NOTE)} data-testid="event-image-pending">
-        {Result.isFailure(result)
+        {Result.isFailure(result) && !Cause.isInterruptedOnly(result.cause)
           ? "Image could not be read."
           : "Loading image…"}
       </div>
     );
   }
-  const image = result.value;
-  if (image === null) {
+  if (result.value === null) {
     return (
       <div className={cn(FRAME, NOTE)}>
         {imageRef.mediaType} is not shown inline.
       </div>
     );
+  }
+  if (src === null) {
+    return <span className={NOTE}>Decoding image…</span>;
   }
   return (
     <button
@@ -113,7 +143,7 @@ const EventImage = ({
       <Picture
         alt={`${imageRef.mediaType} from the transcript`}
         full={full}
-        src={`data:${image.mediaType};base64,${image.data}`}
+        src={src}
       />
     </button>
   );

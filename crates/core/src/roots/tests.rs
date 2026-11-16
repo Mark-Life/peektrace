@@ -275,3 +275,34 @@ fn unparseable_settings_match_ts() {
         assert!(!parse_settings(raw).unparseable, "{raw}");
     }
 }
+
+/// The settings editor and root resolution read the file through one
+/// decoder, so they never disagree on which roots exist.
+#[test]
+fn listing_and_editor_agree_on_roots() {
+    use crate::settings_doc::settings_doc;
+    let deep = format!("{}{}", "[".repeat(600), "]".repeat(600));
+    let raws = [
+        r#"{"roots":{"codex":[{"path":"/c"},{"path":1}],"claude":[{"path":"/a","label":"w"}]}}"#
+            .to_owned(),
+        "{\"roots\":{\"claude\":[{\"path\":\"/w\\ud800\"}]}}".to_owned(),
+        format!(r#"{{"x":{deep},"roots":{{"claude":[{{"path":"/a"}}]}}}}"#),
+    ];
+    for raw in &raws {
+        let doc = settings_doc(raw);
+        let s = parse_settings(raw);
+        let paths = |agent: Agent| -> Vec<String> {
+            doc.roots
+                .iter()
+                .flatten()
+                .filter(|(a, _)| *a == agent)
+                .flat_map(|(_, e)| e.iter().map(|e| text::to_display(&e.path).into_owned()))
+                .collect()
+        };
+        for agent in Agent::ALL {
+            let listed: Vec<String> = s.extras(agent).iter().map(|e| e.path.clone()).collect();
+            assert_eq!(listed, paths(agent), "{agent} {raw}");
+        }
+        assert_eq!(s.unparseable, doc.roots.is_none(), "{raw}");
+    }
+}

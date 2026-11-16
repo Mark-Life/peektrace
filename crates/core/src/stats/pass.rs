@@ -316,11 +316,13 @@ pub fn fold_refs(
             );
         }
     } else {
+        // Merged into the index as it is now: a full pass may have
+        // rewritten it while this one ran.
         let scanned: Vec<String> = refs.iter().map(|r| r.path.clone()).collect();
-        let next = merge_index(&index, &entries, &scanned);
-        if !index_unchanged(&index, &next) {
-            env.cache.commit(&next);
-        }
+        env.cache.update(|now| {
+            let next = merge_index(now, &entries, &scanned);
+            (!index_unchanged(now, &next)).then_some(next)
+        });
     }
     out.paths = refs
         .iter()

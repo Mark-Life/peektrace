@@ -112,7 +112,7 @@ pub fn run_ls(args: &MemoryLsArgs, globals: Globals, ctx: &Context) -> Output {
         None => {
             let projects = list_projects(&roots.claude);
             if globals.json {
-                projects_json(&projects)
+                projects_json(&projects, true)
             } else {
                 projects_table(&projects, globals.pretty)
             }
@@ -120,7 +120,7 @@ pub fn run_ls(args: &MemoryLsArgs, globals: Globals, ctx: &Context) -> Output {
         Some(slug) => {
             let vault = get_vault(&roots.claude, slug);
             if globals.json {
-                vault_json(&vault)
+                vault_json(&vault, true)
             } else {
                 vault_table(&vault, globals.pretty)
             }
@@ -146,7 +146,7 @@ pub fn run_show(args: &MemoryNameArgs, globals: Globals, ctx: &Context) -> Outpu
             notes: vec![not_found(args)],
             ..printed(String::new(), warnings)
         },
-        Some(e) if globals.json => printed(entry_json(e), warnings),
+        Some(e) if globals.json => printed(entry_json(e, true), warnings),
         Some(e) => printed(entry_text(e, globals.pretty), warnings),
     }
 }
@@ -169,7 +169,7 @@ pub fn run_rm(
     let result = delete(&mem, Agent::Claude, &args.project, &args.name)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
     let stdout = if globals.json {
-        delete_json(&result)
+        delete_json(&result, true)
     } else {
         delete_text(&result)
     };

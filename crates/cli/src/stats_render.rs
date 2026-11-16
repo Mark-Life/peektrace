@@ -361,11 +361,19 @@ pub fn render_drill(d: &DrillResult, pretty: bool) -> String {
     if paired {
         headers.push("RETRY");
     }
-    let (count, total, offset) = (d.hits.len(), d.total, d.offset);
-    let shown = match (offset, count) {
-        (0, _) => format!("{count} of {total} calls"),
-        (_, 0) => format!("0 of {total} calls (offset {offset} is past the end)"),
-        _ => format!("calls {}-{} of {total}", offset + 1, offset + count),
+    let (count, total) = (d.hits.len(), d.total);
+    #[expect(clippy::cast_precision_loss, reason = "a page of hits")]
+    let shown = match (d.offset, count) {
+        (0.0, _) => format!("{count} of {total} calls"),
+        (o, 0) => format!(
+            "0 of {total} calls (offset {} is past the end)",
+            to_js_string(o)
+        ),
+        (o, _) => format!(
+            "calls {}-{} of {total}",
+            to_js_string(o + 1.0),
+            to_js_string(o + count as f64)
+        ),
     };
     format!(
         "{} {}: {shown}\n{}",

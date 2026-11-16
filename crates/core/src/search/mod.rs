@@ -4,6 +4,7 @@
 //! matched, so a common phrase in recent sessions reads little.
 
 mod fold;
+mod json;
 mod matcher;
 mod snippet;
 mod window;
@@ -12,6 +13,7 @@ use std::time::Instant;
 
 use tracing::{field, info_span};
 
+pub use json::result_json;
 pub use matcher::{
     MatchArgs, Matcher, Patterns, SearchHit, TranscriptMatch, match_transcript, query_patterns,
     words,
@@ -19,9 +21,10 @@ pub use matcher::{
 pub use snippet::{Snippet, build_snippet, redact_display};
 
 use crate::export::home::HomeCollapser;
+use crate::header_cache::HeaderCache;
 use crate::js::time::LocalZone;
 use crate::js::units;
-use crate::listing::{AgentRoots, ListFilter, default_root, list_sessions};
+use crate::listing::{AgentRoots, ListFilter, default_root, list_sessions, list_sessions_cached};
 use crate::model::{Agent, SessionHeader};
 use crate::opencode;
 use crate::select::{self, SelectOptions};
@@ -84,6 +87,8 @@ pub struct SearchEnv<'a> {
     pub home: Option<&'a str>,
     /// Zone for timestamps without an offset.
     pub local: &'a (dyn LocalZone + Sync),
+    /// List headers kept between calls, when the caller has them.
+    pub headers: Option<&'a HeaderCache>,
 }
 
 /// Text of one transcript as the agent loads it; `None` when it cannot be
@@ -171,13 +176,14 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
         None => true,
         Some(p) => name == p || (req.redact && scanner.display(name) == p),
     };
-    let listing = list_sessions(
-        env.roots,
-        &ListFilter {
-            agent: req.agent,
-            project: None,
-        },
-    );
+    let filter = ListFilter {
+        agent: req.agent,
+        project: None,
+    };
+    let listing = match env.headers {
+        Some(cache) => list_sessions_cached(env.roots, &filter, cache),
+        None => list_sessions(env.roots, &filter),
+    };
     let listing_unreadable = listing.unreadable.len();
     let unreadable_listed = listing
         .unreadable

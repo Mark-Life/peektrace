@@ -43,7 +43,7 @@ fn hit() -> DrillHit {
     }
 }
 
-fn header_of(offset: usize, hits: Vec<DrillHit>) -> String {
+fn header_of(offset: f64, hits: Vec<DrillHit>) -> String {
     let d = DrillResult {
         table: DrillTable::Fail,
         key: "k".into(),
@@ -61,18 +61,21 @@ fn header_of(offset: usize, hits: Vec<DrillHit>) -> String {
 
 #[test]
 fn drill_first_page_keeps_the_short_header() {
-    assert_eq!(header_of(0, vec![hit(), hit()]), "fail k: 2 of 12 calls");
+    assert_eq!(header_of(0.0, vec![hit(), hit()]), "fail k: 2 of 12 calls");
 }
 
 #[test]
 fn drill_later_page_names_its_range() {
-    assert_eq!(header_of(5, vec![hit(), hit()]), "fail k: calls 6-7 of 12");
+    assert_eq!(
+        header_of(5.0, vec![hit(), hit()]),
+        "fail k: calls 6-7 of 12"
+    );
 }
 
 #[test]
 fn drill_offset_past_the_end_says_so() {
     assert_eq!(
-        header_of(20, vec![]),
+        header_of(20.0, vec![]),
         "fail k: 0 of 12 calls (offset 20 is past the end)"
     );
 }

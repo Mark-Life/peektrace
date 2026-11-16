@@ -19,7 +19,7 @@ const GLOBAL_SWITCHES: [&str; 9] = [
     "--version",
 ];
 /// Global flags that take a value.
-const GLOBAL_VALUES: [&str; 1] = ["--log-level"];
+const GLOBAL_VALUES: [&str; 2] = ["--log-level", "--remote"];
 const SEARCH_SWITCHES: [&str; 1] = ["--no-redact"];
 const SEARCH_VALUES: [&str; 4] = ["--agent", "--project", "--since", "--limit"];
 

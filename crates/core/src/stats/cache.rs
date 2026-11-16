@@ -3,6 +3,8 @@
 
 use std::fs;
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, PoisonError};
 
 use indexmap::IndexMap;
 
@@ -15,6 +17,7 @@ use crate::js::json_out::Writer;
 use crate::js::time::{LocalZone, parse_date};
 use crate::js::value::{JsObject, JsValue};
 use crate::model::Agent;
+use crate::roots::RootsEnv;
 
 const INDEX_VERSION: f64 = 1.0;
 const LEDGER_VERSION: f64 = 1.0;
@@ -269,14 +272,34 @@ fn entry_of(v: &JsValue) -> Option<CacheEntry> {
     })
 }
 
-/// Write `body` to `path` through a temp file and a rename.
+/// Held across each index rewrite in this process, so passes running side
+/// by side never drop each other's entries.
+static INDEX_LOCK: Mutex<()> = Mutex::new(());
+
+/// Write `body` to `path` through a temp file and a rename. The temp name
+/// is unique, so two writers of one path never mix their bytes.
 fn write_atomic(path: &str, body: &str) -> std::io::Result<()> {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
     if let Some(dir) = Path::new(path).parent() {
         fs::create_dir_all(dir)?;
     }
-    let tmp = format!("{path}.tmp");
-    fs::write(&tmp, body)?;
-    fs::rename(&tmp, path)
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    let tmp = format!("{path}.{}-{n}.tmp", std::process::id());
+    let written = fs::write(&tmp, body).and_then(|()| fs::rename(&tmp, path));
+    if written.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    written
+}
+
+/// `$PEEKTRACE_DIR/stats-rs`, else `~/.peektrace/stats-rs`. Separate from
+/// the TS `stats/` dir, so the two never read each other's shards.
+pub fn cache_root(env: &RootsEnv) -> String {
+    let dir = env
+        .peektrace_dir
+        .clone()
+        .unwrap_or_else(|| env.style.join(&[&env.home, ".peektrace"]));
+    env.style.join(&[&dir, "stats-rs"])
 }
 
 impl StatsCache {
@@ -333,8 +356,7 @@ impl StatsCache {
         }
         let shard = format!("{}.jsonl", &sha1_hex(path)[..SHARD_HASH_LEN]);
         let body = facts.iter().map(fact_json).collect::<Vec<_>>().join("\n");
-        fs::create_dir_all(&self.shards_dir).ok()?;
-        fs::write(format!("{}/{shard}", self.shards_dir), body).ok()?;
+        write_atomic(&format!("{}/{shard}", self.shards_dir), &body).ok()?;
         Some(CacheEntry {
             path: path.to_owned(),
             mtime_ms: stat.mtime_ms,
@@ -348,6 +370,24 @@ impl StatsCache {
 
     /// Replace the index with `entries`. Errors are ignored: the next pass re-extracts.
     pub fn commit(&self, entries: &[CacheEntry]) {
+        let _held = INDEX_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+        self.write_index(entries);
+    }
+
+    /// Rewrite the index from its current contents: `next` returns the
+    /// entries to write, or `None` to keep it. No other index write in this
+    /// process runs in between.
+    pub fn update(
+        &self,
+        next: impl FnOnce(&IndexMap<String, CacheEntry>) -> Option<Vec<CacheEntry>>,
+    ) {
+        let _held = INDEX_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(entries) = next(&self.load()) {
+            self.write_index(&entries);
+        }
+    }
+
+    fn write_index(&self, entries: &[CacheEntry]) {
         let mut w = Writer::new(false);
         w.begin_obj();
         w.key("version").num(INDEX_VERSION);
