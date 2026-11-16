@@ -164,12 +164,12 @@
     },
     {
       "key": "stats-corpus",
-      "rect": [280, 68, 689, 18],
+      "rect": [280, 68, 815, 18],
       "role": "text",
-      "text": "3 transcripts · 1 projects · 23 tool calls · 23 shell calls · 12m40s of shell time"
+      "text": "2 sessions + 1 subagent runs · 1 projects · 23 tool calls · 23 shell calls · 12m40s of shell time"
     },
     {
-      "rect": [981, 77, 435, 0],
+      "rect": [1107, 77, 309, 0],
       "role": "group"
     },
     {
@@ -275,9 +275,9 @@
       "role": "icon"
     },
     {
-      "rect": [300, 165, 525, 15],
+      "rect": [300, 165, 492, 15],
       "role": "text",
-      "text": "Command text, error signatures and cluster labels are redacted before they are stored or shown."
+      "text": "Secrets such as API keys and tokens are masked. Commands and paths are shown as run."
     },
     {
       "key": "stats-caveats-toggle",
@@ -391,7 +391,7 @@
     {
       "rect": [292, 391, 538, 15],
       "role": "text",
-      "text": "3 hits · 3 sessions with a retry · 1 projects · hits main 2 / sub 1"
+      "text": "3 hits · 2 sessions with a retry · 1 projects · hits main 2 / sub 1"
     },
     {
       "rect": [292, 414, 538, 113],
@@ -1709,9 +1709,9 @@
       "text": "3"
     },
     {
-      "rect": [766, 1574, 58, 15],
+      "rect": [766, 1574, 59, 15],
       "role": "text",
-      "text": "3 sessions"
+      "text": "2 sessions"
     },
     {
       "rect": [832, 1555, 128, 18],
@@ -2424,7 +2424,7 @@
     {
       "rect": [280, 2150, 1136, 15],
       "role": "text",
-      "text": "Each command line is charged to exactly one job; Co-present counts the lines that hold the job and were charged to a higher-priority one. Tools that wait on a human are out of the denominator."
+      "text": "Each command line is charged to exactly one job; “In other jobs” counts the lines that also run the job but are charged to a higher-priority one. Tools that wait on a human are out of the denominator."
     },
     {
       "key": "time-table",
@@ -2458,7 +2458,7 @@
     {
       "rect": [1160, 2187, 88, 15],
       "role": "text",
-      "text": "Co-present"
+      "text": "In other jobs"
     },
     {
       "rect": [1256, 2187, 72, 15],
@@ -2528,7 +2528,7 @@
     {
       "rect": [1240, 2221, 9, 18],
       "role": "text",
-      "text": "1"
+      "text": "0"
     },
     {
       "rect": [1256, 2221, 72, 18],
@@ -2597,7 +2597,7 @@
     {
       "rect": [1240, 2257, 9, 18],
       "role": "text",
-      "text": "5"
+      "text": "0"
     },
     {
       "rect": [1256, 2257, 72, 18],
@@ -2664,9 +2664,9 @@
       "role": "group"
     },
     {
-      "rect": [1231, 2290, 17, 18],
+      "rect": [1240, 2290, 9, 18],
       "role": "text",
-      "text": "11"
+      "text": "2"
     },
     {
       "rect": [1256, 2290, 72, 18],
@@ -2735,7 +2735,7 @@
     {
       "rect": [1240, 2324, 9, 18],
       "role": "text",
-      "text": "5"
+      "text": "0"
     },
     {
       "rect": [1256, 2324, 72, 18],
@@ -2804,7 +2804,7 @@
     {
       "rect": [1240, 2357, 9, 18],
       "role": "text",
-      "text": "2"
+      "text": "0"
     },
     {
       "rect": [1256, 2357, 72, 18],
@@ -2873,7 +2873,7 @@
     {
       "rect": [1240, 2391, 9, 18],
       "role": "text",
-      "text": "1"
+      "text": "0"
     },
     {
       "rect": [1256, 2391, 72, 18],
@@ -3184,8 +3184,8 @@
       "role": "group"
     },
     {
-      "key": "rank-row:cluster:<n> fail",
-      "label": "<n> fail",
+      "key": "rank-row:cluster:Blocked: sleep <n>",
+      "label": "Blocked: sleep <n>",
       "rect": [280, 2713, 1136, 33],
       "role": "button"
     },
@@ -3194,12 +3194,12 @@
       "role": "group"
     },
     {
-      "rect": [288, 2717, 41, 15],
+      "rect": [288, 2717, 106, 15],
       "role": "text",
-      "text": "<n> fail"
+      "text": "Blocked: sleep <n>"
     },
     {
-      "rect": [341, 2732, 877, 0],
+      "rect": [406, 2732, 812, 0],
       "role": "group"
     },
     {
@@ -3221,8 +3221,8 @@
       "role": "group"
     },
     {
-      "key": "rank-row:cluster:Blocked: sleep <n>",
-      "label": "Blocked: sleep <n>",
+      "key": "rank-row:cluster:zsh:<n>: command not found: jqq",
+      "label": "zsh:<n>: command not found: jqq",
       "rect": [280, 2754, 1136, 33],
       "role": "button"
     },
@@ -3231,12 +3231,12 @@
       "role": "group"
     },
     {
-      "rect": [288, 2758, 106, 15],
+      "rect": [288, 2758, 187, 15],
       "role": "text",
-      "text": "Blocked: sleep <n>"
+      "text": "zsh:<n>: command not found: jqq"
     },
     {
-      "rect": [406, 2773, 812, 0],
+      "rect": [487, 2773, 731, 0],
       "role": "group"
     },
     {
@@ -3258,8 +3258,8 @@
       "role": "group"
     },
     {
-      "key": "rank-row:cluster:zsh:<n>: command not found: jqq",
-      "label": "zsh:<n>: command not found: jqq",
+      "key": "rank-row:cluster:zsh:<n>: no matches found: <path>*.js",
+      "label": "zsh:<n>: no matches found: <path>*.js",
       "rect": [280, 2795, 1136, 33],
       "role": "button"
     },
@@ -3268,12 +3268,12 @@
       "role": "group"
     },
     {
-      "rect": [288, 2799, 187, 15],
+      "rect": [288, 2799, 213, 15],
       "role": "text",
-      "text": "zsh:<n>: command not found: jqq"
+      "text": "zsh:<n>: no matches found: <path>*.js"
     },
     {
-      "rect": [487, 2814, 731, 0],
+      "rect": [513, 2814, 705, 0],
       "role": "group"
     },
     {
@@ -3295,8 +3295,8 @@
       "role": "group"
     },
     {
-      "key": "rank-row:cluster:zsh:<n>: no matches found: <path>*.js",
-      "label": "zsh:<n>: no matches found: <path>*.js",
+      "key": "rank-row:cluster:<n> fail",
+      "label": "<n> fail",
       "rect": [280, 2836, 1136, 33],
       "role": "button"
     },
@@ -3305,12 +3305,12 @@
       "role": "group"
     },
     {
-      "rect": [288, 2840, 213, 15],
+      "rect": [288, 2840, 41, 15],
       "role": "text",
-      "text": "zsh:<n>: no matches found: <path>*.js"
+      "text": "<n> fail"
     },
     {
-      "rect": [513, 2855, 705, 0],
+      "rect": [341, 2855, 877, 0],
       "role": "group"
     },
     {
@@ -3321,7 +3321,7 @@
     {
       "rect": [1286, 2840, 123, 15],
       "role": "text",
-      "text": "2 sessions · Bash"
+      "text": "1 sessions · Bash"
     },
     {
       "rect": [288, 2859, 1120, 6],

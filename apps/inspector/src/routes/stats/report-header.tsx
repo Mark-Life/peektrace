@@ -153,14 +153,16 @@ export const ReportHeader = ({
   readonly report: StatsReport;
 }) => {
   const { corpus } = report;
+  const nestedRuns = corpus.transcripts - (corpus.kinds.main ?? 0);
 
   return (
     <header className="flex flex-col gap-3" data-testid="stats-header">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-mono text-sm" data-testid="stats-corpus">
-          {n(corpus.transcripts)} transcripts · {n(corpus.projects)} projects ·{" "}
-          {n(corpus.toolCalls)} tool calls · {n(corpus.bashCalls)} shell calls ·{" "}
-          {hms(corpus.bashSec)} of shell time
+          {n(corpus.sessions)} sessions + {n(nestedRuns)} subagent runs ·{" "}
+          {n(corpus.projects)} projects · {n(corpus.toolCalls)} tool calls ·{" "}
+          {n(corpus.bashCalls)} shell calls · {hms(corpus.bashSec)} of shell
+          time
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <Controls
@@ -186,8 +188,8 @@ export const ReportHeader = ({
       </p>
       <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         <ShieldCheckIcon className="size-3.5 shrink-0" />
-        Command text, error signatures and cluster labels are redacted before
-        they are stored or shown.
+        Secrets such as API keys and tokens are masked. Commands and paths are
+        shown as run.
       </div>
       <Collapsible>
         <CollapsibleTrigger className="text-muted-foreground text-left text-xs underline decoration-dotted">

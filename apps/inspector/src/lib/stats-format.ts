@@ -75,7 +75,7 @@ export const timeNote = (row: TimeRow): string | null =>
 
 /** How many lines held this job but were charged to a higher-priority one. */
 export const coPresentNote = (row: TimeRow): string =>
-  `${n(row.coPresentRuns)} lines hold this job and were charged elsewhere`;
+  `${n(row.coPresentRuns)} lines also run this job but are charged to another one`;
 
 /** The cold-start list: rows that carry a fix, cheapest fix first. */
 export const findingsOf = (report: StatsReport) =>

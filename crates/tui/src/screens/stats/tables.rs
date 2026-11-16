@@ -337,7 +337,7 @@ pub fn time_table(
         "{g}{}{g}{}{g}{}",
         num("SHARE", t.share),
         num("RUNS", t.runs),
-        num("CO-PRESENT", t.co_present)
+        num("IN OTHERS", t.co_present)
     );
     if t.median > 0 {
         let _ = write!(rest, "{g}{}", num("MEDIAN", t.median));

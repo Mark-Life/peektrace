@@ -164,12 +164,12 @@
     },
     {
       "key": "stats-corpus",
-      "rect": [280, 68, 664, 18],
+      "rect": [280, 68, 790, 18],
       "role": "text",
-      "text": "0 transcripts · 0 projects · 0 tool calls · 0 shell calls · 0.00s of shell time"
+      "text": "0 sessions + 0 subagent runs · 0 projects · 0 tool calls · 0 shell calls · 0.00s of shell time"
     },
     {
-      "rect": [956, 77, 460, 0],
+      "rect": [1082, 77, 334, 0],
       "role": "group"
     },
     {
@@ -275,9 +275,9 @@
       "role": "icon"
     },
     {
-      "rect": [300, 165, 525, 15],
+      "rect": [300, 165, 492, 15],
       "role": "text",
-      "text": "Command text, error signatures and cluster labels are redacted before they are stored or shown."
+      "text": "Secrets such as API keys and tokens are masked. Commands and paths are shown as run."
     },
     {
       "key": "stats-caveats-toggle",
@@ -416,7 +416,7 @@
     {
       "rect": [280, 601, 1136, 15],
       "role": "text",
-      "text": "Each command line is charged to exactly one job; Co-present counts the lines that hold the job and were charged to a higher-priority one. Tools that wait on a human are out of the denominator."
+      "text": "Each command line is charged to exactly one job; “In other jobs” counts the lines that also run the job but are charged to a higher-priority one. Tools that wait on a human are out of the denominator."
     },
     {
       "key": "time-empty",

@@ -66,7 +66,7 @@ const TIME_COLUMNS: [Column; 6] = [
         right: true,
     },
     Column {
-        head: "Co-present",
+        head: "In other jobs",
         w: 88.0,
         from: 2,
         right: true,
