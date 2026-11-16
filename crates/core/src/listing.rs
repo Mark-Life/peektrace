@@ -49,7 +49,7 @@ pub struct ListFilter {
     pub project: Option<String>,
     /// Add Claude subagent files to the cost, for callers that show it.
     /// Without it they are not read, and a cost they could add to is left
-    /// unknown.
+    /// unknown until [`crate::claude::add_subagent_costs_to`].
     pub with_subagent_costs: bool,
 }
 

@@ -1,5 +1,6 @@
 //! `peektrace sessions ls`: validate flags, list, select and render.
 
+use peektrace_core::claude::add_subagent_costs_to;
 use peektrace_core::header_cache::HeaderCache;
 use peektrace_core::js::num;
 use peektrace_core::roots::{self, RootsEnv};
@@ -159,7 +160,8 @@ fn fetch(
     let filter = ListFilter {
         agent,
         project: project.map(str::to_owned),
-        with_subagent_costs: true,
+        // Without a cache, only the rows shown get subagent costs.
+        with_subagent_costs: input.headers.is_some(),
     };
     let listing = match input.headers {
         Some(cache) => list_sessions_cached(&roots, &filter, cache),
@@ -215,7 +217,7 @@ pub fn list(
     });
     let (headers, unreadable, warnings) = fetch(input, ctx, remote)?;
     let all_ids: Vec<String> = headers.iter().map(|h| h.id.as_str().to_owned()).collect();
-    let picked = select::select_sessions(
+    let mut picked = select::select_sessions(
         headers,
         &SelectOptions {
             since_ms,
@@ -224,6 +226,9 @@ pub fn list(
         },
         &SystemZone::default(),
     );
+    if input.headers.is_none() {
+        add_subagent_costs_to(&mut picked.rows);
+    }
     let (stdout, table_notes) = if globals.json {
         (render::json_rows(&picked.rows), Vec::new())
     } else {

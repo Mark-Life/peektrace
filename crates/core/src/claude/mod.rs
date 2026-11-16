@@ -19,6 +19,7 @@ use tracing::{Span, field, info_span};
 use header::FileMeta;
 pub use parse::{ParseArgs, SubagentTurns, parse_claude_session, parse_subagent_turns};
 use read::{Loaded, load_file};
+pub use subagent_cost::add_subagent_costs_to;
 pub(crate) use subagent_cost::{SubagentCosts, add_subagent_costs, drop_pending_costs};
 
 use crate::discover;

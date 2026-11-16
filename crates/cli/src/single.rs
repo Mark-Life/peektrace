@@ -236,12 +236,11 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
             ),
         ));
     }
-    let provider_id = Provider::ALL
-        .into_iter()
-        .find(|p| p.as_str() == provider)
-        .unwrap_or_default();
+    // A provider from a newer server has no estimate wording here.
+    let known = Provider::ALL.into_iter().find(|p| p.as_str() == provider);
     let (warning, note) = cost
-        .map(|c| estimate_lines(c, provider_id))
+        .zip(known)
+        .map(|(c, p)| estimate_lines(c, p))
         .unwrap_or_default();
     if let Some(w) = warning {
         rows.push(row("warning", w));

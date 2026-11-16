@@ -10,7 +10,7 @@ const CENT = 0.005;
 const USD_DECIMALS = 2;
 const PERCENT = 100;
 
-/** `SessionCost`, where a list row may hold any field but the source unset. */
+/** `SessionCost` where every field but `source` may be unset, as on a list row. */
 type CostFields = Pick<SessionCost, "source"> & {
   readonly [K in Exclude<keyof SessionCost, "source">]?:
     | SessionCost[K]

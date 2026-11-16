@@ -96,19 +96,15 @@ fn file_cost(path: &Path, stamp: FileStamp, cache: Option<&SubagentCosts>) -> Op
     }
 }
 
-/// Add the session's subagent files to its cost. Returns the files priced,
-/// for the cache.
+/// Set the session's cost from its parts plus its subagent files. Returns
+/// the files priced, for the cache.
 fn add_to(h: &mut SessionHeader, cache: Option<&SubagentCosts>) -> Vec<(PathBuf, Priced)> {
     let Some(base) = h.cost_parts.as_deref() else {
         return Vec::new();
     };
-    let Some(dir) = subagent_dir(&h.path) else {
-        return Vec::new();
-    };
     let mut files = Vec::new();
-    subagent_files(&dir, 0, &mut files);
-    if files.is_empty() {
-        return Vec::new();
+    if let Some(dir) = subagent_dir(&h.path) {
+        subagent_files(&dir, 0, &mut files);
     }
     let priced: Vec<_> = files
         .par_iter()
@@ -127,6 +123,14 @@ fn add_to(h: &mut SessionHeader, cache: Option<&SubagentCosts>) -> Vec<(PathBuf,
     }
     h.cost = header_cost(&parts);
     seen
+}
+
+/// Add subagent costs to headers listed without them, reading every file:
+/// for a one-shot list that prices only the rows it shows.
+pub fn add_subagent_costs_to(headers: &mut [SessionHeader]) {
+    headers.par_iter_mut().for_each(|h| {
+        add_to(h, None);
+    });
 }
 
 /// Leave unknown every Claude cost that subagent files could still add to.
