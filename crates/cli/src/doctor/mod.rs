@@ -155,6 +155,8 @@ pub struct DoctorEnv<'a> {
     /// `PEEKTRACE_DIR` as set, or `None`.
     pub peektrace_dir: Option<&'a str>,
     pub home: &'a str,
+    /// `home` with symlinks resolved, when that differs.
+    pub real_home: Option<&'a str>,
     /// `$USER` and `$USERNAME`, scrubbed from the bundle with the home dir.
     pub user_names: [Option<&'a str>; 2],
     pub now_ms: f64,
@@ -163,6 +165,8 @@ pub struct DoctorEnv<'a> {
 /// Run `doctor` and return its stdout lines.
 pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserError> {
     let last = parse_limit(&args.last)?;
+    let homes: Vec<&str> = std::iter::once(env.home).chain(env.real_home).collect();
+    let id = Identity::new(&homes, &env.user_names);
     let open_failed = |reason: String| {
         UserError::Invalid(format!("Could not open the telemetry store: {reason}"))
     };
@@ -174,11 +178,7 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
         .and_then(|s| s.recent(limit, args.interesting_only))
         .map_err(|e| open_failed(e.to_string()))?;
     let events: Vec<JsValue> = rows.iter().filter_map(|r| event::decode(r)).collect();
-    let text = bundle(
-        &events,
-        env.now_ms,
-        &Identity::new(env.home, &env.user_names),
-    );
+    let text = bundle(&events, env.now_ms, &id);
     let dir_text = env.peektrace_dir.map_or_else(
         || PathStyle::NATIVE.join(&[env.home, ".peektrace"]),
         str::to_owned,
@@ -208,6 +208,10 @@ pub fn run_here(args: &DoctorArgs) -> Result<Vec<String>, UserError> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
+    let real_home = std::fs::canonicalize(&home)
+        .ok()
+        .map(|h| h.to_string_lossy().into_owned())
+        .filter(|h| *h != home);
     let var = |k| std::env::var_os(k).map(|d| d.to_string_lossy().into_owned());
     let peektrace_dir = var("PEEKTRACE_DIR");
     let (user, username) = (var("USER"), var("USERNAME"));
@@ -216,6 +220,7 @@ pub fn run_here(args: &DoctorArgs) -> Result<Vec<String>, UserError> {
         &DoctorEnv {
             peektrace_dir: peektrace_dir.as_deref(),
             home: &home,
+            real_home: real_home.as_deref(),
             user_names: [user.as_deref(), username.as_deref()],
             now_ms: crate::otel::now_ms(),
         },
@@ -253,7 +258,7 @@ mod tests {
 
     fn redacted(src: &str) -> String {
         JsValue::parse(src)
-            .map(|v| redact_json(&v, None, &Identity::new("", &[])).stringify(false))
+            .map(|v| redact_json(&v, None, &Identity::new(&[], &[])).stringify(false))
             .unwrap_or_default()
     }
 
@@ -285,7 +290,7 @@ mod tests {
     #[test]
     fn bundle_shape() {
         assert_eq!(
-            bundle(&[], 5.0, &Identity::new("", &[])),
+            bundle(&[], 5.0, &Identity::new(&[], &[])),
             "{\n  \"schema\": \"peektrace-report/v1\",\n  \"generatedAt\": 5,\n  \"count\": 0,\n  \"events\": []\n}"
         );
     }
@@ -297,7 +302,7 @@ mod tests {
         let out = bundle(
             &[ev],
             1.0,
-            &Identity::new("/home/zed", &[Some("zedd"), None]),
+            &Identity::new(&["/home/zed"], &[Some("zedd"), None]),
         );
         assert!(!out.contains("/home/zed"), "{out}");
         assert!(!out.contains("zed"), "{out}");
