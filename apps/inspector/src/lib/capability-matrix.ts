@@ -1,6 +1,6 @@
 /** The capability matrix's pure rules: columns, level styles and glosses,
  * legend order, grouping, and a cell's note. */
-import type { Capability } from "./api-types.gen";
+import type { Capability } from "@workspace/view-core/api-types.gen";
 
 /** A per-agent support cell, narrowed from the contract `Capability`. */
 export type Support = Capability["perAgent"][keyof Capability["perAgent"]];

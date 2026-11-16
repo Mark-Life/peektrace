@@ -5,11 +5,11 @@
  * holds it is opened: this component mounts only inside opened bodies.
  */
 import { Atom, Result, useAtomValue } from "@effect-atom/atom-react";
+import { cn } from "@workspace/ui/lib/utils";
 import type {
   ImageRef,
   TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
-import { cn } from "@workspace/ui/lib/utils";
+} from "@workspace/view-core/api-types.gen";
 import { Cause, Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
 import { apiBlob, apiPath } from "../../lib/api";

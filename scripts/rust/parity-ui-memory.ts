@@ -7,10 +7,6 @@
  * stage matches with TS. Real vaults are read in place and never quoted. */
 import { chmodSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import type {
-  ApiError,
-  Capability,
-} from "../../apps/inspector/src/lib/api-types.gen";
 import {
   memoryCrudVerdict,
   memorySupportSummary,
@@ -33,6 +29,10 @@ import type {
 } from "../../packages/core/src/services/memory/types";
 import { MEMORY_TYPES } from "../../packages/core/src/services/memory/types";
 import type { SessionHeader } from "../../packages/core/src/services/sessions/schema";
+import type {
+  ApiError,
+  Capability,
+} from "../../packages/view-core/src/api-types.gen";
 import { fixtureEnv, run, rustBin, WORK } from "./parity-lib";
 import { buildMemHome } from "./parity-memory-fixtures";
 import { digest } from "./parity-oracle";

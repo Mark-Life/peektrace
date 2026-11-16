@@ -1,26 +1,23 @@
-import {
-  type ExportFormat,
-  renderExport,
-} from "@workspace/core/services/sessions/export/index";
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+/** Session export: the server renders the file (`GET /api/sessions/{id}/export`),
+ * with the same redaction as the screen. */
+import type { EXPORT_FORMATS } from "@workspace/view-core/constants.gen";
+import { apiPath } from "./api";
+import type { SessionKey } from "./session-data";
 
-const MIME: Record<ExportFormat, string> = {
-  html: "text/html",
-  md: "text/markdown",
-  json: "application/json",
-};
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 const SHORT_ID_LENGTH = 8;
 
-/** File name, MIME type and text of a session export. `redacted` is passed
- * through to the renderer. */
-export const exportFile = (
-  a: AnalyzedSession,
-  format: ExportFormat,
-  redacted: boolean,
-  exportedAt = new Date().toISOString()
-) => ({
-  name: `session-${a.sessionId.slice(0, SHORT_ID_LENGTH)}.${format}`,
-  type: `${MIME[format]};charset=utf-8`,
-  text: renderExport(format, a, { exportedAt, redacted }),
+/** Download name of an export: the short id and the format. */
+export const exportName = (id: string, format: ExportFormat) =>
+  `session-${id.slice(0, SHORT_ID_LENGTH)}.${format}`;
+
+/** Route and query of a session's export in `format`. */
+export const exportRequest = (k: SessionKey, format: ExportFormat) => ({
+  path: apiPath("sessions", k.id, "export"),
+  query: {
+    format,
+    parent: k.parent ?? undefined,
+    redact: k.redact ? undefined : "false",
+  },
 });

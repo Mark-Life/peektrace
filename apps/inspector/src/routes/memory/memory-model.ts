@@ -4,7 +4,7 @@ import type {
   AllVaults,
   MemoryEntry,
   MemoryVault,
-} from "@workspace/core/services/memory/types";
+} from "@workspace/view-core/api-types.gen";
 
 /** Bytes per kilobyte, for the size column. */
 const BYTES_PER_KB = 1024;
@@ -52,7 +52,7 @@ export const visibleVaults = ({
   query,
   type,
 }: {
-  readonly all: typeof AllVaults.Type;
+  readonly all: AllVaults;
   readonly scope: string;
   readonly query: string;
   readonly type: string;

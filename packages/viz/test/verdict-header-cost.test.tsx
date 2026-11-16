@@ -1,6 +1,6 @@
 /** The session verdict header shows the session cost as readable text. Synthetic fixtures only. */
 import { expect, test } from "bun:test";
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
 import { VerdictHeader } from "../src/components/verdict-header";
 import { MOCK_SESSION } from "../src/mock/session";

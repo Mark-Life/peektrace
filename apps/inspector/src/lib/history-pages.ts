@@ -9,10 +9,11 @@
  * only their own events, in short runs.
  */
 import type {
+  GrowthSeries,
+  HistoryPageMeta,
   TimelineEvent,
   TurnSnapshot,
-} from "@workspace/core/services/sessions/schema";
-import type { GrowthSeries, HistoryPageMeta } from "./api-types.gen";
+} from "@workspace/view-core/api-types.gen";
 import type {
   ChatNode,
   EventRow,

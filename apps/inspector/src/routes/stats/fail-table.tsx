@@ -5,7 +5,6 @@
  * is the point: a call that printed a failure and exited 0 never set the flag.
  * A row says "printed a failure", never "this broke".
  */
-import type { FailRow } from "@workspace/core/services/stats/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
@@ -16,6 +15,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
+import type { FailRow } from "@workspace/view-core/api-types.gen";
 import { Fragment } from "react";
 import { n, type PromptFor } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";

@@ -5,10 +5,7 @@
  * and the row are one set by construction, not by agreement — and the declared
  * seconds of a backgrounded wait print beside the charged ones, never summed in.
  */
-import type {
-  ClusterRow,
-  WaitPanel,
-} from "@workspace/core/services/stats/schema";
+import type { ClusterRow, WaitPanel } from "@workspace/view-core/api-types.gen";
 import { RankBar, type RankRow } from "@workspace/viz/components/rank-bar";
 import { hms, n, pct } from "../../lib/stats-format";
 

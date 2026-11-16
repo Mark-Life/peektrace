@@ -14,8 +14,9 @@
       "!.agents/**/*",
       "!.claude/**/*",
       "!apps/cli/scripts/npm",
-      // Generated from crates/protocol.
-      "!apps/inspector/src/lib/api-types.gen.ts",
+      // Generated from crates/protocol, crates/core and crates/server.
+      "!packages/view-core/src/*.gen.ts",
+      "!apps/inspector/test/fixtures/**/*",
       "!packages/ui/src/components/**/*",
       "!packages/ui/src/hooks/**/*",
       "!packages/ui/src/lib/**/*"

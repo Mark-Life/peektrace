@@ -45,6 +45,7 @@ describe("stageFiles", () => {
       "apps/inspector/src/lib/chat-lane.ts",
       "apps/inspector/src/routes/sessions/session-list-model.ts",
       "packages/viz/src/components/growth-timeline.tsx",
+      "packages/view-core/src/diff.ts",
       "apps/inspector/src/routes/settings-route.tsx",
       "apps/inspector/src/components/shortcuts-dialog.tsx",
     ]) {

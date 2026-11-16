@@ -1,5 +1,5 @@
 /** Pure helpers behind the session rail: filtering, ordering and row labels. */
-import type { SessionHeader } from "@workspace/core/services/sessions/schema";
+import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import type { DateRange } from "react-day-picker";
 import { AGENT_LABEL } from "../../lib/agent-label";
 import type { ListKey } from "../../lib/routes";

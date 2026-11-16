@@ -4,8 +4,8 @@
  * the turn gutter and deep links survive a re-sort. Ties fall back to
  * transcript order, so equal keys read in the order they happened.
  */
-import { eventTokens } from "@workspace/core/services/sessions/tokens";
 import { badgeOf, type EventRow, type TranscriptRowRef } from "./chat-lane";
+import { eventTokens } from "./event-tokens";
 
 type Row = TranscriptRowRef<EventRow>;
 

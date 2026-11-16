@@ -10,7 +10,7 @@
 import type {
   AnalyzedSession,
   TimelineEvent,
-} from "@workspace/core/services/sessions/schema";
+} from "@workspace/view-core/api-types.gen";
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 import type { ChatNode, EventRow, TranscriptRowRef } from "./chat-lane";

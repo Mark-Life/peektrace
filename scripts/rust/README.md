@@ -57,9 +57,9 @@ On macOS, `--write` records `tests/goldens/darwin-arm64/` for local checks. Git 
 
 Re-record a stage after a change to one of its inputs. `goldens-inputs.ts` lists them:
 
-- every stage: the TS CLI and the packages it imports (`apps/cli/src`, `packages/*/src` except `ui` and `viz`), the fixtures (`packages/core/test/fixtures`), `bun.lock`, `package.json`, and `parity.ts` with the scripts it shares
-- `serve` only: `apps/inspector` and `packages/ui`, `packages/viz`
-- `ui` only: the inspector helpers, chart and pages the Rune app ports (`apps/inspector/src/lib`, `apps/inspector/src/routes/sessions`, the Settings and Capabilities routes, the shortcuts dialog, `read-only.tsx`, `root-row.tsx`), `packages/ui`, `packages/viz`
+- every stage: the TS CLI and the packages it imports (`apps/cli/src`, `packages/*/src` except `ui`, `viz` and `view-core`), the fixtures (`packages/core/test/fixtures`), `bun.lock`, `package.json`, and `parity.ts` with the scripts it shares
+- `serve` only: `apps/inspector` and `packages/ui`, `packages/viz`, `packages/view-core`
+- `ui` only: the inspector helpers, chart and pages the Rune app ports (`apps/inspector/src/lib`, `apps/inspector/src/routes/sessions`, the Settings and Capabilities routes, the shortcuts dialog, `read-only.tsx`, `root-row.tsx`), `packages/ui`, `packages/viz`, `packages/view-core`
 - each stage: the stage scripts it imports, for example `parity-tui.ts` for `tui` only
 
 Each stage's `<stage>.json` keeps a hash of its inputs. The check fails with `goldens are stale` and names the stages when the hash does not match, so a change cannot skip the regeneration. Re-record only those stages: label the PR, then copy just their artifacts. Rust changes never need it.

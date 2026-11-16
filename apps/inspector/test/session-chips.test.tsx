@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { SampleRef } from "@workspace/core/services/stats/schema";
+import type { SampleRef } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
 import { chipLabelOf, sessionChips, titleKey } from "../src/lib/stats-format";
 import {

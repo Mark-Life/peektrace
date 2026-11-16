@@ -23,6 +23,8 @@ pub mod select;
 pub mod sessions;
 pub mod settings_doc;
 pub mod stats;
+#[cfg(test)]
+mod ts_consts;
 pub mod watch;
 pub mod wire;
 

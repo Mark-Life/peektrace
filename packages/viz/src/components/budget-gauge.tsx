@@ -5,8 +5,8 @@
  * (lines + bytes) show fill vs the cliff; a greyed "invisible" callout appears
  * whenever entries fall below the fold.
  */
-import type { IndexBudget } from "@workspace/core/services/memory/types";
 import { cn } from "@workspace/ui/lib/utils";
+import type { IndexBudget } from "@workspace/view-core/api-types.gen";
 import { EyeOffIcon } from "lucide-react";
 
 /** Full-scale percentage. */
@@ -64,11 +64,7 @@ const Bar = ({
 };
 
 /** Render the index budget for a vault. */
-export const BudgetGauge = ({
-  budget,
-}: {
-  readonly budget: typeof IndexBudget.Type;
-}) => {
+export const BudgetGauge = ({ budget }: { readonly budget: IndexBudget }) => {
   if (budget.kind === "absent") {
     return (
       <p className="text-muted-foreground text-sm" data-testid="budget-absent">

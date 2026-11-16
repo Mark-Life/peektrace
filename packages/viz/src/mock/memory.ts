@@ -4,7 +4,7 @@
  * exercises every state the memory views can render — indexed files, orphan
  * files absent from `MEMORY.md`, dangling links whose target file does not
  * exist, graph orphans with no links at all, and an index that is over budget on
- * both the 200-line and 25 KB cliffs. Values are typed against the core schemas,
+ * both the 200-line and 25 KB cliffs. Values are typed against the generated wire types,
  * so a schema change breaks this file rather than the demo.
  */
 import type {
@@ -12,11 +12,11 @@ import type {
   GraphNode,
   IndexBudget,
   LinkEdge,
-} from "@workspace/core/services/memory/types";
+} from "@workspace/view-core/api-types.gen";
 import {
   MAX_INDEX_BYTES,
   MAX_INDEX_LINES,
-} from "@workspace/core/services/memory/types";
+} from "@workspace/view-core/constants.gen";
 
 /** Synthetic source node for index edges, matching core's graph builder. */
 const INDEX_NODE = "__index__";
@@ -243,7 +243,7 @@ const MOCK_EDGES: readonly LinkEdge[] = [
  * (`inIndex: false`) are files the index never points at; `orphans` are the
  * files with no body links in either direction.
  */
-export const MOCK_GRAPH: typeof GraphData.Type = {
+export const MOCK_GRAPH: GraphData = {
   nodes: MOCK_NODES,
   edges: MOCK_EDGES,
   orphans: ["user-preferences", "old-scratch-notes"],
@@ -254,7 +254,7 @@ export const MOCK_GRAPH: typeof GraphData.Type = {
  * lines, 29,594 of 25,600 bytes), leaving six entries below the fold and
  * therefore never loaded into context.
  */
-export const MOCK_INDEX_BUDGET: typeof IndexBudget.Type = {
+export const MOCK_INDEX_BUDGET: IndexBudget = {
   lines: 241,
   maxLines: MAX_INDEX_LINES,
   bytes: 29_594,

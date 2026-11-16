@@ -10,7 +10,7 @@
     "strictNullChecks": true,
     "paths": {
       "@workspace/ui/*": ["../ui/src/*"],
-      "@workspace/core/*": ["../core/src/*"]
+      "@workspace/view-core/*": ["../view-core/src/*"]
     }
   },
   "include": ["src"],

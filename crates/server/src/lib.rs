@@ -176,6 +176,7 @@ fn api_router() -> Router<Arc<AppState>> {
         .route("/api/sessions/search", route(get(api::search)))
         .route("/api/sessions/{id}", route(get(api::session)))
         .route("/api/sessions/{id}/analysis", route(get(api::analysis)))
+        .route("/api/sessions/{id}/export", route(get(api::export)))
         .route("/api/sessions/{id}/markers", route(get(api::markers)))
         .route("/api/sessions/{id}/summary", route(get(api::summary)))
         .route("/api/sessions/{id}/growth", route(get(api::growth)))

@@ -9,10 +9,10 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty";
 import { Skeleton } from "@workspace/ui/components/skeleton";
+import type { ServerInfo } from "@workspace/view-core/api-types.gen";
 import { MessagesSquareIcon } from "lucide-react";
 import { RootRow } from "../../components/root-row";
 import { AGENT_LABEL } from "../../lib/agent-label";
-import type { ServerInfo } from "../../lib/api-types.gen";
 import { RetryButton } from "../../lib/result-view";
 import { useLiveServerInfo, withLastSuccess } from "../../lib/server-info";
 

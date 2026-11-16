@@ -4,7 +4,6 @@
  * against the session being inspected — the cards say so and stay a drill-down
  * rather than being folded into the transcript itself.
  */
-import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -12,6 +11,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible";
+import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
 import { ArrowUpRightIcon, ChevronRightIcon } from "lucide-react";
 import { sessionHash, useListParams } from "../../lib/routes";

@@ -37,15 +37,15 @@ const SHARED_ENTRY = `${SCRIPTS}/parity.ts`;
 /** TS inputs every stage reads: the CLI and the packages it imports (not
  * the inspector UI ones), the fixtures, dependencies. */
 const SHARED_SOURCE =
-  /^(apps\/cli\/src\/|packages\/(?!ui\/|viz\/)[^/]+\/(src\/|package\.json$)|packages\/core\/test\/fixtures\/|bun\.lock$|package\.json$)/;
+  /^(apps\/cli\/src\/|packages\/(?!ui\/|viz\/|view-core\/)[^/]+\/(src\/|package\.json$)|packages\/core\/test\/fixtures\/|bun\.lock$|package\.json$)/;
 /** The inspector and its UI packages: only `serve` returns them. */
 const SERVE_SOURCE =
-  /^(apps\/inspector\/(?!dist\/|test\/)|packages\/(ui|viz)\/(src\/|package\.json$))/;
+  /^(apps\/inspector\/(?!dist\/|test\/)|packages\/(ui|viz|view-core)\/(src\/|package\.json$))/;
 /** The inspector helpers, chart and pages the Rune app ports: `ui` answers
  * with them in process, and reads the Settings, Capabilities and shortcut
  * pages for their copy. */
 const UI_SOURCE =
-  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|src\/routes\/memory\/|src\/routes\/(settings|capabilities)-route\.tsx$|src\/components\/(shortcuts-dialog|read-only|root-row)\.tsx$|package\.json$)|packages\/(ui|viz)\/(src\/|package\.json$))/;
+  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|src\/routes\/memory\/|src\/routes\/(settings|capabilities)-route\.tsx$|src\/components\/(shortcuts-dialog|read-only|root-row)\.tsx$|package\.json$)|packages\/(ui|viz|view-core)\/(src\/|package\.json$))/;
 /** Paths `git ls-files` lists for the patterns above. */
 const TREE = [
   "apps/cli/src",

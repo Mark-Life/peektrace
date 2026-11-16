@@ -1,12 +1,9 @@
 /** Marks for an event a later context edit changed: a header badge and a note
- *  with the original text. Wording comes from core so the TUI says the same. */
-import {
-  contextEditNote,
-  contextEditTag,
-} from "@workspace/core/services/sessions/labels";
-import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
+ *  with the original text. The Rust core keeps the same wording for the TUI. */
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+import { contextEditNote, contextEditTag } from "../../lib/event-labels";
 
 /** `removed` / `edited` badge, or nothing for an untouched event. */
 export const ContextEditBadge = ({

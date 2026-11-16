@@ -44,7 +44,7 @@ pub use memory::{
     memory_all, memory_create, memory_delete, memory_projects, memory_update, memory_vault,
 };
 pub use search::search;
-pub use sessions::{analysis, image, session, sessions};
+pub use sessions::{analysis, export, image, session, sessions};
 pub use settings::{settings_get, settings_put};
 pub use stats::{markers, stats_drill, stats_refresh, stats_report, stats_usage};
 

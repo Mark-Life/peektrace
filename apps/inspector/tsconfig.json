@@ -11,7 +11,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@workspace/ui/*": ["../../packages/ui/src/*"],
-      "@workspace/core/*": ["../../packages/core/src/*"],
+      "@workspace/view-core/*": ["../../packages/view-core/src/*"],
       "@workspace/viz/*": ["../../packages/viz/src/*"]
     }
   },

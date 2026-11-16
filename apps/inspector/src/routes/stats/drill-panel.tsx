@@ -11,10 +11,6 @@
  */
 import type { Atom, Result } from "@effect-atom/atom-react";
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
-import type {
-  DrillHit,
-  DrillResult,
-} from "@workspace/core/services/stats/schema";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -24,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@workspace/ui/components/sheet";
+import type { DrillHit, DrillResult } from "@workspace/view-core/api-types.gen";
 import { type UIEvent, useState } from "react";
 import type { ApiFailure } from "../../lib/api";
 import { ResultView } from "../../lib/result-view";

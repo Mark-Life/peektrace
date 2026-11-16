@@ -4,8 +4,6 @@
  * The caveats ship with the numbers and are one click away, never dropped: the
  * durations include approval waits, and a silent-failure count is a floor.
  */
-import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
-import type { StatsReport } from "@workspace/core/services/stats/schema";
 import { Button } from "@workspace/ui/components/button";
 import {
   Collapsible,
@@ -20,6 +18,8 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
+import type { AgentId, StatsReport } from "@workspace/view-core/api-types.gen";
+import { AGENT_IDS } from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 import { at, hms, n } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";

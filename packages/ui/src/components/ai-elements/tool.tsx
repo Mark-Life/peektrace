@@ -25,7 +25,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible";
-import type { DiffRow, DiffRowKind, LineDiff } from "@workspace/core/diff";
+import type { DiffRow, DiffRowKind, LineDiff } from "@workspace/view-core/diff";
 import type {
   CodeBlockLanguage,
   CodeLine,

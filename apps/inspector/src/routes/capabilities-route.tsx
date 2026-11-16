@@ -24,8 +24,8 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
+import type { Capability } from "@workspace/view-core/api-types.gen";
 import { Fragment, useState } from "react";
-import type { Capability } from "../lib/api-types.gen";
 import { capabilitiesAtom } from "../lib/atoms";
 import {
   AGENT_COLUMNS,

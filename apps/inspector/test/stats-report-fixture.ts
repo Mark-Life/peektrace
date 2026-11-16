@@ -4,8 +4,8 @@ import type {
   FailRow,
   StatsReport,
   TimeRow,
-} from "@workspace/core/services/stats/schema";
-import { DETECTOR_VERSION } from "@workspace/core/services/stats/schema";
+} from "@workspace/view-core/api-types.gen";
+import { DETECTOR_VERSION } from "@workspace/view-core/constants.gen";
 
 export const report = (args: {
   readonly causes?: readonly CauseRow[];

@@ -3,8 +3,11 @@
 mod common;
 
 use common::{Options, SESSION, start};
+use std::sync::Arc;
+
+use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::Utc;
-use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
+use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
 use peektrace_core::sessions::write::analyzed_json_with;
 
 fn tag(a: &common::Answer) -> String {
@@ -110,6 +113,76 @@ fn get_folds_subagents_and_analysis_matches_core() {
             .status,
         400
     );
+}
+
+#[test]
+fn export_renders_core_export_with_the_server_home() {
+    let s = start(&Options {
+        name: "export",
+        now: Some(Arc::new(|| 1_782_907_200_000.0)),
+        home: Some("/Users/demo".to_owned()),
+        ..Options::default()
+    });
+    let roots = common::fixture_roots();
+    let env = SessionEnv {
+        roots: &roots,
+        local: &Utc,
+    };
+    for (format, mime) in [
+        (ExportFormat::Html, "text/html;charset=utf-8"),
+        (ExportFormat::Md, "text/markdown;charset=utf-8"),
+        (ExportFormat::Json, "application/json;charset=utf-8"),
+    ] {
+        for redact in [true, false] {
+            let q = if redact { "" } else { "&redact=false" };
+            let a = s.get(&format!(
+                "/api/sessions/{SESSION}/export?format={}{q}",
+                format.as_str()
+            ));
+            assert_eq!(a.status, 200, "{}", a.body);
+            assert_eq!(a.header("content-type"), Some(mime));
+            assert_eq!(
+                a.header("content-disposition"),
+                Some(
+                    format!(
+                        "attachment; filename=\"session-11111111.{}\"",
+                        format.as_str()
+                    )
+                    .as_str()
+                )
+            );
+            let session = get_session(env, Target::Lookup(SESSION), None, redact).expect("session");
+            let want = render_export(
+                format,
+                &session,
+                &ExportOptions {
+                    exported_at: "2026-07-01T12:00:00.000Z".to_owned(),
+                    home: Some("/Users/demo".to_owned()),
+                    redacted: redact,
+                },
+            );
+            assert_eq!(a.body, want, "{} redact={redact}", format.as_str());
+        }
+    }
+    let md = s
+        .get(&format!("/api/sessions/{SESSION}/export?format=md"))
+        .body;
+    assert!(
+        md.contains("~/proj") && !md.contains("/Users/demo/"),
+        "{md}"
+    );
+    let sub = s.get(&format!(
+        "/api/sessions/agent-1/export?format=json&parent={SESSION}"
+    ));
+    assert_eq!(sub.status, 200, "{}", sub.body);
+    for bad in ["", "?format=pdf"] {
+        let a = s.get(&format!("/api/sessions/{SESSION}/export{bad}"));
+        assert_eq!(a.status, 400, "{bad}");
+        assert_eq!(tag(&a), "BadRequestError");
+    }
+    let missing = s.get("/api/sessions/nope/export?format=md");
+    assert_eq!(missing.status, 404);
+    assert_eq!(tag(&missing), "SessionNotFoundError");
 }
 
 #[test]

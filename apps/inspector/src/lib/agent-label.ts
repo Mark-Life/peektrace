@@ -1,4 +1,4 @@
-import type { AgentId } from "@workspace/core/services/agent-id";
+import type { AgentId } from "@workspace/view-core/api-types.gen";
 
 /** Human label per agent id. */
 export const AGENT_LABEL: Record<AgentId, string> = {

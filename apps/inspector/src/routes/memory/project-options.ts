@@ -7,8 +7,10 @@
  * from the server, so a project keeps its name after its first memory.
  */
 
-import type { ProjectLabel } from "@workspace/core/services/memory/types";
-import type { SessionHeader } from "@workspace/core/services/sessions/schema";
+import type {
+  ProjectLabel,
+  SessionHeader,
+} from "@workspace/view-core/api-types.gen";
 
 /** One pickable project. */
 export interface ProjectOption {
