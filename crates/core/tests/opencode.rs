@@ -238,7 +238,7 @@ fn cost_of(session_cost: f64, message_costs: &[Option<f64>]) -> (Option<f64>, bo
     (
         cost.total_usd,
         cost.from_agent,
-        h.cost_usd.unwrap_or(f64::NAN),
+        h.cost.usd.unwrap_or(f64::NAN),
     )
 }
 

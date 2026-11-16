@@ -17,15 +17,15 @@ fn compact_table_and_notes() {
     assert_eq!(
         out,
         format!(
-            "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n\
+            "id\tagent\tproject\tmodel\tmsgs\tcost\tsize\tupdated\ttitle\n\
              bad\tclaude\t-tmp-proj\t-\t2\t-\t62 B\t{MTIME_ISO}\t-\n\
              ws\tclaude\t-tmp-proj\t-\t0\t-\t4 B\t{MTIME_ISO}\t-\n\
-             s1\tclaude\t-tmp-proj\tclaude-opus-5-5\t5\t~$0.02*\t1.3 KB\t2026-01-01T09:00:00.000Z\tFirst title\n"
+             s1\tclaude\t-tmp-proj\tclaude-opus-5-5\t5\t~$0.03*\t1.3 KB\t2026-01-01T09:00:00.000Z\tFirst title\n"
         )
     );
     assert_eq!(
         err,
-        "EST COST covers the main transcript only, without subagent files\n\
+        "COST includes subagents: $ is the agent's own record, ~$ an estimate from tokens\n\
          * some models unpriced: the figure is too low\n"
     );
 }
@@ -61,9 +61,9 @@ fn pretty_table() {
     assert_eq!(code, 0);
     assert_eq!(
         out,
-        "ID  AGENT   PROJECT    MODEL            MSGS  EST COST  SIZE    UPDATED                   TITLE\n\
-         --  ------  ---------  ---------------  ----  --------  ------  ------------------------  -----------\n\
-         s1  claude  -tmp-proj  claude-opus-5-5  5     ~$0.02*   1.3 KB  2026-01-01T09:00:00.000Z  First title\n"
+        "ID  AGENT   PROJECT    MODEL            MSGS  COST     SIZE    UPDATED                   TITLE\n\
+         --  ------  ---------  ---------------  ----  -------  ------  ------------------------  -----------\n\
+         s1  claude  -tmp-proj  claude-opus-5-5  5     ~$0.03*  1.3 KB  2026-01-01T09:00:00.000Z  First title\n"
     );
 }
 
@@ -74,7 +74,7 @@ fn empty_results() {
     assert_eq!((code, err.as_str()), (0, ""));
     assert_eq!(
         out,
-        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
+        "id\tagent\tproject\tmodel\tmsgs\tcost\tsize\tupdated\ttitle\n(none)\n"
     );
 }
 
@@ -85,7 +85,7 @@ fn opencode_with_no_sessions_lists_none() {
     assert_eq!((code, err.as_str()), (0, ""));
     assert_eq!(
         out,
-        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
+        "id\tagent\tproject\tmodel\tmsgs\tcost\tsize\tupdated\ttitle\n(none)\n"
     );
 }
 
@@ -112,7 +112,7 @@ fn non_utf8_flag_values_run() {
     assert_eq!(code, 0, "{err}");
     assert_eq!(
         out,
-        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n(none)\n"
+        "id\tagent\tproject\tmodel\tmsgs\tcost\tsize\tupdated\ttitle\n(none)\n"
     );
     assert!(err.contains("/tmp/a\u{FFFD}"), "{err}");
 }

@@ -539,9 +539,23 @@ sourceLabel?: string,
 /**
  * Malformed lines other than a partial last line; set only above 0.
  */
-malformedLines?: number, costUsd?: number, 
+malformedLines?: number, 
 /**
- * Model ids with no rate card; set only when non-empty.
+ * The session's cost, the same total the session detail shows:
+ * subagents and workflow agents included.
+ */
+costUsd?: number, 
+/**
+ * Where `costUsd` comes from; set with it.
+ */
+costSource?: CostSource, 
+/**
+ * Estimated subagent share of `costUsd`. Absent beside a Claude Code
+ * record, which already counts subagents.
+ */
+subagentsUsd?: number, 
+/**
+ * Models an estimated `costUsd` leaves out.
  */
 unpricedModels?: ReadonlyArray<string>, };
 

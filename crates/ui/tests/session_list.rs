@@ -54,6 +54,7 @@ fn header(i: usize) -> SessionHeader {
         title: Some(format!("Synthetic task {i}")),
         started_at: Some(iso(start)),
         cost_usd: None,
+        cost_source: None,
         source: None,
         source_label: None,
     }

@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, PoisonError};
 
+use crate::claude::SubagentCosts;
 use crate::headers::{Outcome, unreadable};
 use crate::model::{Agent, FileStamp, ProjectSlug, SessionFileRef, SessionHeader, SessionId};
 
@@ -38,11 +39,14 @@ struct Entry {
 
 type AgentEntries = HashMap<Key, Entry>;
 
-/// Cached headers per agent. Concurrent lists race last-writer-wins; every
-/// entry is checked by its stamp on read, so a race costs extra parses, never
-/// a wrong header.
+/// Cached headers per agent, plus Claude subagent costs per file.
+/// Concurrent lists race last-writer-wins; every entry is checked by its
+/// stamp on read, so a race costs extra parses, never a wrong header.
 #[derive(Debug, Default)]
-pub struct HeaderCache(Mutex<HashMap<Agent, AgentEntries>>);
+pub struct HeaderCache {
+    headers: Mutex<HashMap<Agent, AgentEntries>>,
+    pub(crate) subagents: SubagentCosts,
+}
 
 /// What a cached entry yields for `r` now.
 fn reuse(agent: Agent, r: &SessionFileRef, entry: &Entry) -> Outcome {
@@ -81,7 +85,7 @@ impl HeaderCache {
         load: impl FnOnce(&[SessionFileRef]) -> Vec<Outcome>,
     ) -> Vec<Outcome> {
         let hits: Vec<Option<Entry>> = {
-            let all = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+            let all = self.headers.lock().unwrap_or_else(PoisonError::into_inner);
             let cached = all.get(&agent);
             refs.iter()
                 .map(|r| {
@@ -118,7 +122,7 @@ impl HeaderCache {
                 (outcomes, fresh)
             },
         );
-        let mut all = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let mut all = self.headers.lock().unwrap_or_else(PoisonError::into_inner);
         if complete {
             all.insert(agent, fresh);
         } else {

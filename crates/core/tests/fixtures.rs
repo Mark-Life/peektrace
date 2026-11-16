@@ -64,7 +64,8 @@ fn golden_session_header() {
     assert_eq!(h.git_branch.as_deref(), Some("main"));
     assert_eq!(h.model.as_deref(), Some("claude-opus-4"));
     assert_eq!(h.title.as_deref(), Some("Refactor auth module"));
-    assert_eq!(h.cost_usd, Some(0.117_038_5));
+    // Main transcript plus its subagent file, as the detail counts it.
+    assert_eq!(h.cost.usd, Some(0.117_192_499_999_999_99));
     assert_eq!(h.source, None);
 }
 
@@ -84,7 +85,7 @@ fn claude_fixture_costs_and_counts() {
         ("thinking-tokens", 4, Some(0.039_082)),
         ("server-tools", 2, Some(0.016_64)),
         ("streamed-output", 3, Some(0.028_782_000_000_000_002)),
-        ("measured-image", 11, Some(0.320_623_750_000_000_04)),
+        ("measured-image", 11, Some(0.320_623_75)),
         ("prompt-snapshot", 3, Some(0.043_480_000_000_000_005)),
         ("prompt-origin", 6, None),
         ("retries", 22, None),
@@ -92,10 +93,10 @@ fn claude_fixture_costs_and_counts() {
     for (id, count, cost) in cases {
         let row = find(h, id);
         assert_eq!(row.message_count, count, "{id}");
-        assert_eq!(row.cost_usd, cost, "{id}");
+        assert_eq!(row.cost.usd, cost, "{id}");
     }
     assert_eq!(
-        find(h, "retries").unpriced_models,
+        find(h, "retries").cost.unpriced_models,
         Some(vec!["claude-test".to_owned()])
     );
 }

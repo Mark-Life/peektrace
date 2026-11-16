@@ -17,7 +17,7 @@ const STYLE: PathStyle = PathStyle::NATIVE;
 pub(crate) const JSONL: &str = ".jsonl";
 
 /// Size and mtime of a stat result. A missing mtime reads as 0.
-fn stamp_of(meta: &fs::Metadata) -> FileStamp {
+pub(crate) fn stamp_of(meta: &fs::Metadata) -> FileStamp {
     FileStamp {
         size_bytes: meta.len(),
         mtime_ms: meta.modified().map_or(0, file_time_ms),

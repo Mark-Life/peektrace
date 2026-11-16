@@ -7,7 +7,9 @@ use common::{analyze_default, jsonl, parse_text};
 use peektrace_core::js::value::JsValue;
 use peektrace_core::pi::parse_pi_session;
 use peektrace_core::sessions::cost::cost_summary;
-use peektrace_core::sessions::model::{AnalyzedSession, SessionCost, SubagentRef, TurnsCost};
+use peektrace_core::sessions::model::{
+    AnalyzedSession, Provider, SessionCost, SubagentRef, TurnsCost,
+};
 use peektrace_core::sessions::read::{cost_from_json, parsed_from_json};
 use peektrace_core::sessions::write::{analyzed_json, parsed_json};
 use serde_json::{Value, json};
@@ -101,7 +103,7 @@ fn lines_for(recorded: f64) -> (Option<String>, Option<String>) {
         &claude("claude-opus-5-5", &[cost_state(T0_MS - 1000, recorded)]),
         None,
     );
-    let s = cost_summary(cost(&a), "Claude Code");
+    let s = cost_summary(cost(&a), Provider::ClaudeCode);
     (s.warning, s.estimate_note)
 }
 
@@ -181,7 +183,7 @@ fn an_unpriced_model_warns_even_with_a_small_gap() {
     assert_eq!(c.estimate_gap, None, "{c:?}");
     assert!(c.estimate_warning);
     assert_eq!(
-        cost_summary(c, "Claude Code").warning.as_deref(),
+        cost_summary(c, Provider::ClaudeCode).warning.as_deref(),
         Some("estimate from tokens ~$4.00 (2% lower)")
     );
 }
@@ -286,4 +288,16 @@ fn a_record_from_another_session_is_ignored() {
     other["sessionId"] = json!("another-session");
     let a = analyzed(&claude("claude-opus-5-5", &[other]), None);
     assert!(cost(&a).recorded_usd.is_none());
+}
+
+#[test]
+fn only_claude_code_notes_say_transcripts_miss_calls() {
+    use peektrace_core::sessions::cost::estimate_note;
+    assert_eq!(
+        estimate_note(4.0, Provider::ClaudeCode),
+        "Estimate from transcript: ~$4.00. Transcripts miss some billed calls."
+    );
+    for p in [Provider::Opencode, Provider::Pi, Provider::Codex] {
+        assert_eq!(estimate_note(4.0, p), "Estimate at list price: ~$4.00.");
+    }
 }

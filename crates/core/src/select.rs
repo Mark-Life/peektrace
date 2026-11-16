@@ -295,8 +295,8 @@ mod tests {
             title: None,
             started_at: None,
             malformed_lines: None,
-            cost_usd: None,
-            unpriced_models: None,
+            cost: crate::model::HeaderCost::default(),
+            cost_parts: None,
             source: None,
         }
     }

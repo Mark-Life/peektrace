@@ -35,6 +35,7 @@ import {
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
+import { headerCost } from "@workspace/view-core/cost";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { RefObject } from "react";
@@ -200,6 +201,7 @@ const SessionRow = memo(function SessionRow({
   const title = titleOf(h);
   const stamp = h.updatedAt ?? h.startedAt;
   const branch = visibleBranch(h.gitBranch);
+  const cost = headerCost(h);
 
   return (
     // Layout classes go on `Item` so they merge over its defaults; the
@@ -274,6 +276,16 @@ const SessionRow = memo(function SessionRow({
           >
             {h.messageCount} msgs
           </span>
+          {cost === undefined ? null : (
+            <span
+              className="shrink-0 whitespace-nowrap tabular-nums"
+              data-testid="session-row-cost"
+              title={cost.title}
+            >
+              <span className="sr-only">{cost.title}</span>
+              <span aria-hidden="true">{cost.text}</span>
+            </span>
+          )}
         </span>
       </a>
     </Item>

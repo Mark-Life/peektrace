@@ -2,14 +2,23 @@
 //! timeline. The project is the cwd's last segment, since Codex has no
 //! per-project dir.
 
-use super::context::{is_injected_user_message, plain};
+use super::context::{Base, is_injected_user_message, plain};
+use super::usage::{UsageFold, call_tokens, response_item_events};
 use crate::headers::{RowFold, fold_text};
 use crate::js::time;
 use crate::js::value::{JsValue, defined, js_string};
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionHeader};
+use crate::sessions::cost::{header_cost, turns_cost};
+use crate::sessions::model::{CostParts, Turn};
 
 #[derive(Default)]
 pub(crate) struct Acc {
+    /// Rows seen, objects or not, as the parse indexes them.
+    rows: usize,
+    usage: UsageFold,
+    /// The model of the calls that follow, as the parse tracks it.
+    current_model: Option<String>,
+    turns: Vec<Turn>,
     messages: u64,
     cwd: Option<String>,
     git_branch: Option<String>,
@@ -23,7 +32,42 @@ fn str_field<'a>(v: &'a JsValue, key: &str) -> Option<&'a str> {
 }
 
 impl Acc {
-    fn apply(&mut self, row: &JsValue) {
+    /// Fold a row's usage as the parse does: one call per counted
+    /// `token_count`, priced at the model the last `turn_context` named.
+    fn usage(&mut self, row: &JsValue, payload: &JsValue, index: usize) {
+        let ts = str_field(row, "timestamp");
+        match str_field(row, "type") {
+            Some("session_meta") => self.usage.session_meta(payload),
+            Some("turn_context") => {
+                if let Some(m) = str_field(payload, "model") {
+                    self.current_model = Some(m.to_owned());
+                }
+            }
+            // Only a fork waiting for its own output needs the events.
+            Some("response_item") if self.usage.inherited => {
+                let base = Base { index, ts };
+                if response_item_events(payload, base)
+                    .iter()
+                    .any(|e| e.kind.is_output())
+                {
+                    self.usage.output();
+                }
+            }
+            Some("event_msg") if str_field(payload, "type") == Some("token_count") => {
+                if let Some(tokens) = plain(payload.get("info"))
+                    .and_then(|info| self.usage.call(info))
+                    .and_then(call_tokens)
+                {
+                    let model = self.current_model.as_deref().unwrap_or("unknown");
+                    self.turns
+                        .push(Turn::new(String::new(), model.to_owned(), tokens, None));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn apply(&mut self, row: &JsValue, index: usize) {
         if let Some(ts) = str_field(row, "timestamp").filter(|t| !t.is_empty()) {
             self.started_at.get_or_insert_with(|| ts.to_owned());
             self.updated_at = Some(ts.to_owned());
@@ -31,6 +75,7 @@ impl Acc {
         let Some(payload) = plain(row.get("payload")) else {
             return;
         };
+        self.usage(row, payload, index);
         let ty = defined(row.get("type")).map(|t| js_string(Some(t)));
         let cwd = str_field(payload, "cwd");
         match ty.as_deref() {
@@ -82,10 +127,12 @@ fn last_segment(path: &str) -> &str {
 
 impl RowFold for Acc {
     fn row(&mut self, row: JsValue) {
+        let index = self.rows;
+        self.rows += 1;
         if row.as_obj().is_none() {
             return;
         }
-        self.apply(&row);
+        self.apply(&row, index);
         if is_message(&row) {
             self.messages += 1;
         }
@@ -93,6 +140,10 @@ impl RowFold for Acc {
 
     /// `cwd`, `gitBranch` and `model` print even when empty.
     fn header(self, r: &SessionFileRef, malformed: u64) -> SessionHeader {
+        let cost = header_cost(&CostParts {
+            own: turns_cost(&self.turns),
+            ..CostParts::default()
+        });
         let project = [
             self.cwd.as_deref().map_or("", last_segment),
             r.slug.as_str(),
@@ -116,8 +167,8 @@ impl RowFold for Acc {
             title: None,
             started_at: self.started_at,
             malformed_lines: (malformed > 0).then_some(malformed),
-            cost_usd: None,
-            unpriced_models: None,
+            cost,
+            cost_parts: None,
             source: None,
         }
     }

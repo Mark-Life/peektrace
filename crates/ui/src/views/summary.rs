@@ -128,7 +128,7 @@ fn tiles(a: &AnalyzedSession, zone: Zone, cols: usize, t: &Theme) -> El {
         ),
     ];
     if let Some(cost) = &a.cost {
-        let c = cost_summary(cost, provider_label(&a.provider));
+        let c = cost_summary(cost, &a.provider);
         let mut v = c.total;
         if !c.notes.is_empty() {
             v = format!("{v} · {}", c.notes.join(" · "));

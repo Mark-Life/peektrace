@@ -2,7 +2,7 @@
 //! [`super::write`], for clients that talk to a remote server.
 
 use crate::js::value::JsValue;
-use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
+use crate::model::{Agent, HeaderCost, ProjectSlug, SessionHeader, SessionId, SourceTag};
 use crate::sessions::model::SessionCost;
 pub use crate::sessions::read_parsed::parsed_from_json;
 
@@ -50,8 +50,13 @@ pub fn header_from_json(v: &JsValue) -> Option<SessionHeader> {
         title: text(v, "title"),
         started_at: text(v, "startedAt"),
         malformed_lines: count(v, "malformedLines"),
-        cost_usd: v.get("costUsd").and_then(JsValue::as_num),
-        unpriced_models: texts(v, "unpricedModels"),
+        cost: HeaderCost {
+            usd: v.get("costUsd").and_then(JsValue::as_num),
+            from_agent: v.get("costSource").and_then(JsValue::as_str) == Some("agent"),
+            subagents_usd: v.get("subagentsUsd").and_then(JsValue::as_num),
+            unpriced_models: texts(v, "unpricedModels"),
+        },
+        cost_parts: None,
         source,
     })
 }
@@ -107,8 +112,13 @@ mod tests {
             title: Some("t\u{10F800}".to_owned()),
             started_at: Some("2026".to_owned()),
             malformed_lines: Some(1),
-            cost_usd: Some(0.25),
-            unpriced_models: Some(vec!["u".to_owned()]),
+            cost: HeaderCost {
+                usd: Some(0.25),
+                from_agent: false,
+                subagents_usd: Some(0.125),
+                unpriced_models: Some(vec!["u".to_owned()]),
+            },
+            cost_parts: None,
             source: Some(SourceTag {
                 id: "pi:w".to_owned(),
                 label: "w".to_owned(),

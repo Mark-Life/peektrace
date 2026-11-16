@@ -348,7 +348,7 @@ fn lists_and_resolves_across_agents() {
         .expect("row");
     assert_eq!(fixture_row.project.as_str(), "peephole");
     assert_eq!(fixture_row.message_count, 3);
-    assert_eq!(fixture_row.cost_usd, None);
+    assert!(fixture_row.cost.usd.is_some_and(|c| c > 0.0));
     let pis = by_agent(&all.headers, Agent::Pi);
     assert_eq!(pis.len(), 4);
     let pi_row = pis
@@ -386,11 +386,12 @@ fn lists_and_resolves_across_agents() {
     let a = analyze_session(env, Target::Lookup("rollout-fixture"), None, true).expect("codex");
     assert_eq!(a.parsed.session_id, CODEX_ID);
     assert_eq!(a.context_window, 258_400.0);
+    assert_eq!(a.cost.and_then(|c| c.total_usd), fixture_row.cost.usd);
     for h in &pis {
         let a = analyze_session(env, Target::Lookup(h.id.as_str()), None, false).expect("pi");
         let listed = analyze_session(env, Target::Listed(h), None, false).expect("listed");
         assert_eq!(listed.parsed, a.parsed, "{}", h.id);
-        assert_eq!(a.cost.and_then(|c| c.total_usd), h.cost_usd, "{}", h.id);
+        assert_eq!(a.cost.and_then(|c| c.total_usd), h.cost.usd, "{}", h.id);
     }
     let err = |id: &str, parent: Option<&str>| {
         analyze_session(env, Target::Lookup(id), parent, true)

@@ -13,6 +13,7 @@ use common::home;
 use peektrace_core::js::time::Utc;
 use peektrace_core::sessions::cost as core_cost;
 use peektrace_core::sessions::labels as core_labels;
+use peektrace_core::sessions::model::Provider;
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session};
 use peektrace_core::sessions::write::analyzed_json_with;
 use peektrace_core::{AgentRoots, ListFilter, PathStyle, list_sessions};
@@ -60,12 +61,14 @@ fn labels_and_cost_match_core() {
             assert_eq!(v.is_user_authored(), c.is_user_authored());
         }
         if let (Some(c), Some(v)) = (&core.cost, &view.cost) {
-            let a = core_cost::cost_summary(c, "Claude Code");
-            let b = labels::cost_summary(v, "Claude Code");
-            assert_eq!(
-                (a.total, a.notes, a.warning, a.estimate_note),
-                (b.total, b.notes, b.warning, b.estimate_note)
-            );
+            for provider in Provider::ALL {
+                let a = core_cost::cost_summary(c, provider);
+                let b = labels::cost_summary(v, provider.as_str());
+                assert_eq!(
+                    (a.total, a.notes, a.warning, a.estimate_note),
+                    (b.total, b.notes, b.warning, b.estimate_note)
+                );
+            }
         }
     }
 }

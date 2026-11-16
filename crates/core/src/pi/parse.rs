@@ -11,7 +11,7 @@ use super::context::{
     system_event, tool_result_text,
 };
 use super::edits::{PiEdit, collect_edits, fold_with_edit, is_editable};
-use super::header::pi_tokens;
+use super::header::{PiRecord, pi_tokens};
 use crate::js::text;
 use crate::js::units;
 use crate::js::value::{EMPTY_OBJECT, JsValue, defined, str_of};
@@ -19,7 +19,7 @@ use crate::sessions::images::{as_image, image_marker};
 use crate::sessions::jsonl::parse_rows;
 use crate::sessions::measure::measure_tokens;
 use crate::sessions::model::{
-    EventKind, EventShape, LoadedCategory, NativeCost, ParsedSession, Provider, TimelineEvent, Turn,
+    EventKind, EventShape, LoadedCategory, ParsedSession, Provider, TimelineEvent, Turn,
 };
 use crate::sessions::model_windows::window_for_model;
 
@@ -31,19 +31,7 @@ pub struct State {
     by_id: HashMap<String, usize>,
     models: Vec<String>,
     compaction_indexes: Vec<usize>,
-    /// Pi's own per-call cost summed over calls it priced (above 0), and the
-    /// calls it wrote 0 for, which means "no price", not "free".
-    recorded_usd: f64,
-    unrecorded_calls: usize,
-}
-
-/// `usage.cost.total` when Pi priced the call.
-fn recorded_cost(usage: &JsValue) -> Option<f64> {
-    usage
-        .get("cost")
-        .and_then(|c| c.get("total"))
-        .and_then(JsValue::as_num)
-        .filter(|usd| *usd > 0.0)
+    record: PiRecord,
 }
 
 impl State {
@@ -60,10 +48,7 @@ impl State {
         if self.by_id.contains_key(request_id) || tokens.context <= 0.0 {
             return;
         }
-        match recorded_cost(usage) {
-            Some(usd) => self.recorded_usd += usd,
-            None => self.unrecorded_calls += 1,
-        }
+        self.record.add(usage);
         self.by_id.insert(request_id.to_owned(), self.turns.len());
         self.turns.push(Turn::new(
             request_id.to_owned(),
@@ -387,11 +372,7 @@ pub fn parse_pi_session(text_in: &str, path: &str, session_id: &str) -> ParsedSe
     let guess = window_for_model(meta.last_model.as_deref());
     // A call larger than the guessed window proves the guess wrong.
     let window = guess.filter(|&g| state.turns.iter().all(|t| t.context_tokens <= g));
-    let native_cost = (state.recorded_usd > 0.0).then_some(NativeCost {
-        usd: state.recorded_usd,
-        includes_subagents: false,
-        partial: state.unrecorded_calls > 0,
-    });
+    let native_cost = state.record.native();
     let mut parsed = ParsedSession {
         provider: Provider::Pi,
         session_id: meta.session_id.unwrap_or_else(|| session_id.to_owned()),

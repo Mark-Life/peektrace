@@ -125,7 +125,7 @@ fn card_rows(s: &AnalyzedSession, w: usize) -> Vec<Row> {
         LABEL_W,
     )));
     if let Some(cost) = &s.cost {
-        let c = cost_summary(cost, provider_label(s.parsed.provider));
+        let c = cost_summary(cost, s.parsed.provider);
         let line = std::iter::once(c.total)
             .chain(c.notes)
             .collect::<Vec<_>>()

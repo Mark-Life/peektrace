@@ -1,13 +1,17 @@
 //! Fold Claude JSONL lines into a session header: timestamps, cwd, branch,
-//! model, title, message count and estimated cost. No timeline is built.
+//! model, title, message count and cost. No timeline is built.
 
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use super::cost_state::CostStates;
 use super::line::{Line, Usage, parse_line, parse_repaired};
+use crate::js::value::JsValue;
 use crate::js::{json, text, time};
 use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
 use crate::pricing::{CostTokens, card_for, turn_cost};
+use crate::sessions::cost::header_cost;
+use crate::sessions::model::{CostParts, TurnsCost};
 
 /// Model id Claude Code writes on harness-made messages.
 const SYNTHETIC_MODEL: &str = "<synthetic>";
@@ -29,11 +33,16 @@ struct Turn {
     /// Index into `HeaderAcc::models`.
     model: usize,
     tokens: CostTokens,
+    /// An inline `isSidechain` call, priced apart from the main ones.
+    sidechain: bool,
 }
 
 /// Running state while lines stream in.
 #[derive(Debug, Default)]
 pub struct HeaderAcc {
+    /// `cost-state` lines of another session (a fork's copies) are skipped.
+    session_id: String,
+    cost_states: CostStates,
     started_at: Option<String>,
     updated_at: Option<String>,
     cwd: Option<String>,
@@ -99,6 +108,14 @@ fn repairable(line: &str, e: &serde_json::Error) -> bool {
 }
 
 impl HeaderAcc {
+    /// An empty fold for the transcript of `session_id`.
+    pub fn new(session_id: &str) -> Self {
+        Self {
+            session_id: session_id.to_owned(),
+            ..Self::default()
+        }
+    }
+
     /// Fold one raw line (no trailing `\n`). Blank lines are skipped; a line
     /// that is not valid JSON counts as malformed.
     pub fn push_line(&mut self, line: &str) {
@@ -106,14 +123,14 @@ impl HeaderAcc {
             return;
         }
         match parse_line(line) {
-            Ok(row) => return self.accept(&row, false),
+            Ok(row) => return self.accept(&row, false, line),
             Err(e) if !repairable(line, &e) => return self.reject(),
             Err(_) => {}
         }
         if let Some(fixed) = json::repair(line, json::Overflow::Sentinel)
             && let Ok(row) = parse_repaired(&fixed)
         {
-            return self.accept(&row, true);
+            return self.accept(&row, true, &fixed);
         }
         self.reject();
     }
@@ -125,10 +142,25 @@ impl HeaderAcc {
 
     /// `escaped` says the line's strings are already transcript text (see
     /// [`text::units`]); otherwise kept strings are escaped here.
-    fn accept(&mut self, row: &Line<'_>, escaped: bool) {
+    fn accept(&mut self, row: &Line<'_>, escaped: bool, text: &str) {
         self.last_bad = false;
         if row.is_object {
             self.apply(row, escaped);
+            if row.kind.is("cost-state") {
+                self.cost_state(text);
+            }
+        }
+    }
+
+    /// Fold a `cost-state` line of this session; the rare line is parsed in
+    /// full, as the session parse reads it.
+    fn cost_state(&mut self, text: &str) {
+        let Some(o) = JsValue::parse(text) else {
+            return;
+        };
+        let session = o.get("sessionId").and_then(JsValue::as_str);
+        if session.is_none_or(|s| s == self.session_id) {
+            self.cost_states.push(&o);
         }
     }
 
@@ -203,7 +235,11 @@ impl HeaderAcc {
                 *slot = Some(self.turns.len());
             }
             let model = self.model_index(&keep(model, escaped));
-            self.turns.push(Turn { model, tokens });
+            self.turns.push(Turn {
+                model,
+                tokens,
+                sidechain: o.is_sidechain.0,
+            });
         }
     }
 
@@ -227,11 +263,11 @@ impl HeaderAcc {
         }
     }
 
-    /// Sum priced turns in first-seen order; name the unpriced models. Each
-    /// distinct model resolves to its card once.
-    fn cost(&self) -> (Option<f64>, Option<Vec<String>>) {
+    /// Sum the priced turns `want` keeps, in first-seen order; name the
+    /// unpriced models. Each distinct model resolves to its card once.
+    fn turns_cost(&self, want: impl Fn(&Turn) -> bool) -> TurnsCost {
         let cards: Vec<_> = self.models.iter().map(|m| card_for(m)).collect();
-        let (usd, mut unpriced) = self.turns.iter().fold(
+        let (usd, mut unpriced) = self.turns.iter().filter(|t| want(t)).fold(
             (None::<f64>, Vec::<&str>::new()),
             |(usd, mut unpriced), t| {
                 if let Some(c) = turn_cost(cards[t.model].as_ref(), &t.tokens) {
@@ -245,14 +281,39 @@ impl HeaderAcc {
             },
         );
         unpriced.sort_by(|a, b| text::cmp_utf16(a, b));
-        let unpriced =
-            (!unpriced.is_empty()).then(|| unpriced.into_iter().map(str::to_owned).collect());
-        (usd, unpriced)
+        TurnsCost {
+            cost_usd: usd,
+            unpriced_models: (!unpriced.is_empty())
+                .then(|| unpriced.into_iter().map(str::to_owned).collect()),
+        }
     }
 
-    /// The finished header.
+    /// Every turn's cost, as a subagent file counts it.
+    pub fn all_turns_cost(&self) -> TurnsCost {
+        self.turns_cost(|_| true)
+    }
+
+    /// The cost parts of a main transcript: its own turns, inline sidechain
+    /// turns apart, and Claude Code's record.
+    fn cost_parts(&self) -> CostParts {
+        let sidechain = self
+            .turns
+            .iter()
+            .any(|t| t.sidechain)
+            .then(|| self.turns_cost(|t| t.sidechain));
+        CostParts {
+            own: self.turns_cost(|t| !t.sidechain),
+            parts: sidechain.into_iter().collect(),
+            native: self.cost_states.native(self.started_at.as_deref()),
+            unreadable: 0,
+        }
+    }
+
+    /// The finished header. Its parts stay on it while subagent files can
+    /// still add to the cost.
     pub fn finish(self, meta: FileMeta) -> SessionHeader {
-        let (cost_usd, unpriced_models) = self.cost();
+        let parts = self.cost_parts();
+        let full_record = parts.native.is_some_and(|n| !n.partial);
         let malformed = self.malformed();
         let non_empty = |s: Option<String>| s.filter(|v| !v.is_empty());
         SessionHeader {
@@ -271,8 +332,8 @@ impl HeaderAcc {
             title: non_empty(self.title),
             started_at: self.started_at,
             malformed_lines: (malformed > 0).then_some(malformed),
-            cost_usd,
-            unpriced_models,
+            cost: header_cost(&parts),
+            cost_parts: (!full_record).then(|| Box::new(parts)),
             source: meta.source,
         }
     }
@@ -287,7 +348,7 @@ fn is_not_user_written(o: &Line<'_>) -> bool {
 #[cfg(test)]
 fn build_header(text: &str, meta: FileMeta) -> SessionHeader {
     let text = text.strip_prefix('\u{FEFF}').unwrap_or(text);
-    let mut acc = HeaderAcc::default();
+    let mut acc = HeaderAcc::new(meta.id.as_str());
     text.split('\n').for_each(|line| acc.push_line(line));
     acc.finish(meta)
 }
@@ -341,8 +402,11 @@ mod tests {
         assert_eq!(h.started_at.as_deref(), Some("2026-01-01T10:00:00.000Z"));
         assert_eq!(h.updated_at, "2026-01-01T09:00:00.000Z");
         assert_eq!(h.malformed_lines, Some(1));
-        assert_eq!(h.cost_usd, Some(0.0234));
-        assert_eq!(h.unpriced_models, Some(vec!["mystery-model".to_owned()]));
+        assert_eq!(h.cost.usd, Some(0.0234));
+        assert_eq!(
+            h.cost.unpriced_models,
+            Some(vec!["mystery-model".to_owned()])
+        );
     }
 
     #[test]
@@ -375,8 +439,8 @@ mod tests {
                 ..CostTokens::default()
             },
         );
-        assert_eq!(h.cost_usd, one_turn);
-        assert_eq!(h.unpriced_models, Some(vec!["mystery".to_owned()]));
+        assert_eq!(h.cost.usd, one_turn);
+        assert_eq!(h.cost.unpriced_models, Some(vec!["mystery".to_owned()]));
     }
 
     #[test]
@@ -411,7 +475,7 @@ mod tests {
         assert_eq!(h.message_count, 2);
         assert_eq!(h.model.as_deref(), Some("claude-opus-5-5"));
         assert_eq!(h.malformed_lines, None);
-        assert!(h.cost_usd.is_some_and(f64::is_infinite));
+        assert!(h.cost.usd.is_some_and(f64::is_infinite));
     }
 
     #[test]

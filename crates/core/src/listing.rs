@@ -101,13 +101,14 @@ fn agent_outcomes(
         Agent::Pi => pi::load_headers(refs, parent),
         Agent::Opencode => opencode::load_headers(refs, &default_root(&roots.opencode), parent),
     };
-    let outcomes = match cache {
-        Some(c) if agent != Agent::Opencode => {
-            let complete = agent == Agent::Codex || project.is_none_or(str::is_empty);
-            c.outcomes(agent, &refs, complete, load)
-        }
+    let complete = agent == Agent::Codex || project.is_none_or(str::is_empty);
+    let mut outcomes = match cache {
+        Some(c) if agent != Agent::Opencode => c.outcomes(agent, &refs, complete, load),
         _ => load(&refs),
     };
+    if agent == Agent::Claude {
+        claude::add_subagent_costs(&mut outcomes, cache.map(|c| &c.subagents), complete);
+    }
     match agent {
         Agent::Codex | Agent::Opencode => outcomes
             .into_iter()

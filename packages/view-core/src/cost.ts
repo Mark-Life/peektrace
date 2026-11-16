@@ -1,9 +1,16 @@
 /** A session cost as display text. The figures come from the server. */
-import type { SessionCost } from "./api-types.gen";
+import type { AgentId, SessionCost, SessionHeader } from "./api-types.gen";
 
 const CENT = 0.005;
 const USD_DECIMALS = 2;
 const PERCENT = 100;
+
+/** `SessionCost`, where a list row may hold any field but the source unset. */
+type CostFields = Pick<SessionCost, "source"> & {
+  readonly [K in Exclude<keyof SessionCost, "source">]?:
+    | SessionCost[K]
+    | undefined;
+};
 
 const usd = (n: number, prefix: string) =>
   n > 0 && n < CENT ? "<$0.01" : `${prefix}$${n.toFixed(USD_DECIMALS)}`;
@@ -27,15 +34,32 @@ export const estimateWarning = ({
   return `estimate from tokens ${fmtUsd(estimate)} (${Math.abs(gap * PERCENT).toFixed(0)}% ${gap < 0 ? "lower" : "higher"})`;
 };
 
-/** `Estimate from transcript: ~$6.10. Transcripts miss some billed calls.` */
-export const estimateNote = (estimate: number) =>
-  `Estimate from transcript: ${fmtUsd(estimate)}. Transcripts miss some billed calls.`;
+/** Display label per transcript provider. */
+const PROVIDER_LABEL: ReadonlyMap<string, string> = new Map([
+  ["claude-code", "Claude Code"],
+  ["codex", "Codex"],
+  ["opencode", "OpenCode"],
+  ["pi", "Pi"],
+]);
+
+/** The agent's display name for a provider id, else the id itself. */
+export const providerLabel = (provider: string) =>
+  PROVIDER_LABEL.get(provider) ?? provider;
+
+/**
+ * The quiet note for the estimate beside a full record. Only Claude Code bills
+ * calls its transcript does not log, so only its note says so.
+ */
+export const estimateNote = (estimate: number, provider: string) =>
+  provider === "claude-code"
+    ? `Estimate from transcript: ${fmtUsd(estimate)}. Transcripts miss some billed calls.`
+    : `Estimate at list price: ${fmtUsd(estimate)}.`;
 
 /**
  * The warning or the quiet note for the estimate beside a full record. Core
  * decides when it warns (`estimateWarning`).
  */
-const estimateLines = (cost: SessionCost) => {
+const estimateLines = (cost: CostFields, provider: string) => {
   const { estimateUsd: estimate, recordedUsd: recorded } = cost;
 
   if (
@@ -52,11 +76,11 @@ const estimateLines = (cost: SessionCost) => {
         estimateNote: undefined,
         warning: estimateWarning({ estimate, recorded }),
       }
-    : { estimateNote: estimateNote(estimate), warning: undefined };
+    : { estimateNote: estimateNote(estimate, provider), warning: undefined };
 };
 
 /** Notes that qualify a session cost after its source. */
-const costNotes = (cost: SessionCost, agentLabel: string) => [
+const costNotes = (cost: CostFields, agentLabel: string) => [
   ...(cost.subagentsUsd !== undefined && cost.subagentsUsd !== 0
     ? [`incl. subagents ${fmtUsd(cost.subagentsUsd)}`]
     : []),
@@ -73,7 +97,7 @@ const costNotes = (cost: SessionCost, agentLabel: string) => [
     : []),
 ];
 
-const fmtTotal = (cost: SessionCost) => {
+const fmtTotal = (cost: CostFields) => {
   if (cost.totalUsd === undefined) {
     return "—";
   }
@@ -88,13 +112,55 @@ const fmtTotal = (cost: SessionCost) => {
  * the notes that qualify it led by its source, and beside a full record
  * either a warning (a likely price problem) or a quiet estimate note.
  */
-export const costSummary = (cost: SessionCost, agentLabel: string) => ({
+export const costSummary = (cost: CostFields, provider: string) => ({
   notes: [
     cost.source === "agent"
-      ? `recorded by ${agentLabel}`
+      ? `recorded by ${providerLabel(provider)}`
       : "estimated from tokens",
-    ...costNotes(cost, agentLabel),
+    ...costNotes(cost, providerLabel(provider)),
   ],
   total: fmtTotal(cost),
-  ...estimateLines(cost),
+  ...estimateLines(cost, provider),
 });
+
+/** The provider id of a list row's agent. */
+const PROVIDER_OF: Readonly<Record<AgentId, string>> = {
+  claude: "claude-code",
+  codex: "codex",
+  opencode: "opencode",
+  pi: "pi",
+};
+
+/**
+ * A list row's cost, marked as the session detail marks it: `$1.23` when the
+ * agent recorded it, `~$1.23` when estimated from tokens. `title` holds the
+ * detail's notes. `undefined` when the row has no cost.
+ */
+export const headerCost = (
+  h: Pick<
+    SessionHeader,
+    "agent" | "costSource" | "costUsd" | "subagentsUsd" | "unpricedModels"
+  >
+) => {
+  const { costUsd, subagentsUsd, unpricedModels } = h;
+
+  const summary =
+    costUsd === undefined
+      ? undefined
+      : costSummary(
+          {
+            source: h.costSource ?? "estimate",
+            subagentsUsd,
+            totalUsd: costUsd,
+            unpricedModels,
+          },
+          PROVIDER_OF[h.agent]
+        );
+
+  return summary === undefined
+    ? undefined
+    : {
+        text: summary.total,
+        title: `Cost: ${[summary.total, ...summary.notes].join(" · ")}`,
+      };
+};
