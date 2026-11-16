@@ -38,7 +38,7 @@ pub fn cost_cell(c: &HeaderCost) -> String {
     }
 }
 
-/// What the `sessions ls` cost column holds.
+/// Stderr note under the `sessions ls` table when a row has a cost.
 const COST_NOTE: &str =
     "COST includes subagents: $ is the agent's own record, ~$ an estimate from tokens";
 

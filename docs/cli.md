@@ -212,7 +212,8 @@ were hidden.
 `COST` is the same total `sessions analyze` shows. `$1.23` is the agent's own
 record: Claude Code `cost-state` (subagents included), Pi or OpenCode.
 `~$1.23` is an estimate at API list price over the main transcript,
-its subagents and workflow agents. A `*` means some models have no rate card,
+its subagents and workflow agents; Codex costs are always estimates. A note on
+stderr explains `$` and `~$`. A `*` means some models have no rate card,
 so the estimate is too low. `--json` adds `costSource` (`agent` or
 `estimate`) and `subagentsUsd`, the estimated subagent share of the total,
 when the total counts one.
