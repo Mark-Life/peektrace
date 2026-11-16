@@ -38,6 +38,7 @@ describe("cost formatting", () => {
     expect(
       costSummary({ source: "estimate", unpricedModels: ["mystery-a"] }, "X")
     ).toEqual({
+      estimateNote: undefined,
       notes: ["estimated from tokens", "unpriced: mystery-a"],
       total: "—",
       warning: undefined,
@@ -99,6 +100,7 @@ describe("cost formatting", () => {
         "Claude Code"
       )
     ).toEqual({
+      estimateNote: undefined,
       notes: [
         "estimated from tokens",
         "Claude Code recorded $74.42 for part of the session",
