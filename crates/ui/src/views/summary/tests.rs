@@ -112,7 +112,7 @@ fn subagents_share_and_unreadable_subagents_show_as_notes() {
         }))
         .elements(),
     );
-    assert!(all.contains("subagents ~$0.75"), "{all}");
+    assert!(all.contains("incl. subagents ~$0.75"), "{all}");
     assert!(all.contains("1 subagent(s) unreadable"));
 }
 

@@ -427,7 +427,10 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
             "system" => handle_system(&row, &mut state),
             "cost-state" => {
                 state.one_million = state.one_million || has_one_million_key(o);
-                state.cost_states.push(o);
+                // A line copied from another session (a fork) is not this one's.
+                if str_field(o, "sessionId").is_none_or(|s| s == args.session_id) {
+                    state.cost_states.push(o);
+                }
             }
             "" => {}
             t if !KNOWN_IGNORED_TYPES.contains(&t) => bump(&mut state.unknown_types, t),

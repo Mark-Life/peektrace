@@ -22,7 +22,7 @@ fn analyze_table() {
          turns\t2\n\
          tool calls\t0\n\
          cost\t~$0.03 (estimated from tokens)\n  \
-         subagents (est.)\t<$0.01\n\
+         incl. subagents (est.)\t<$0.01\n\
          unpriced models\tmystery-model\n\
          dumb-zone cross turn\tnever\n\
          \n\

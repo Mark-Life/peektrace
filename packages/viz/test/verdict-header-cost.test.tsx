@@ -52,7 +52,7 @@ test("subagents share and unreadable subagents show as notes", () => {
     },
   });
 
-  expect(html).toContain("subagents ~$0.75");
+  expect(html).toContain("incl. subagents ~$0.75");
   expect(html).toContain("1 subagent(s) unreadable");
 });
 

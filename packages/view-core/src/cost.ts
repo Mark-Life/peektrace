@@ -27,7 +27,7 @@ export const estimateWarning = ({
 /** Notes that qualify a session cost after its source. */
 const costNotes = (cost: SessionCost, agentLabel: string) => [
   ...(cost.subagentsUsd !== undefined && cost.subagentsUsd !== 0
-    ? [`subagents ${fmtUsd(cost.subagentsUsd)}`]
+    ? [`incl. subagents ${fmtUsd(cost.subagentsUsd)}`]
     : []),
   ...(cost.recordPartial === true && cost.recordedUsd !== undefined
     ? [

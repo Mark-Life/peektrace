@@ -163,7 +163,7 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
         "estimated from tokens".to_owned()
     }];
     if let Some(s) = cost.subagents_usd.filter(|s| *s != 0.0 && !s.is_nan()) {
-        notes.push(format!("subagents {}", fmt_usd(s)));
+        notes.push(format!("incl. subagents {}", fmt_usd(s)));
     }
     if let Some(r) = cost.recorded_usd.filter(|_| cost.record_partial) {
         notes.push(format!(

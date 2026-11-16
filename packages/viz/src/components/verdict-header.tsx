@@ -97,6 +97,7 @@ const CostValue = ({
           data-testid="session-cost-warning"
           title="A model may lack a price card, or the transcript misses calls"
         >
+          <span className="sr-only">Warning: </span>
           {warning}
         </span>
       )}

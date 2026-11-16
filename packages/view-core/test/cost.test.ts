@@ -28,7 +28,7 @@ describe("cost formatting", () => {
       ).notes
     ).toEqual([
       "recorded by OpenCode",
-      "subagents ~$0.25",
+      "incl. subagents ~$0.25",
       "unpriced: mystery-a, mystery-b",
       "2 subagent(s) unreadable",
     ]);

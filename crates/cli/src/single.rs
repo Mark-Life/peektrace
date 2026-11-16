@@ -218,7 +218,10 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
     };
     let mut rows = vec![row("cost", total)];
     if subagents > 0.0 {
-        rows.push(row("  subagents (est.)", render::usd_cell(Some(subagents))));
+        rows.push(row(
+            "  incl. subagents (est.)",
+            render::usd_cell(Some(subagents)),
+        ));
     }
     if let Some(c) = cost.filter(|c| c.record_partial)
         && let Some(r) = c.recorded_usd
@@ -240,7 +243,7 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
     if unreadable > 0 {
         rows.push(row(
             "unreadable subagents",
-            format!("{unreadable} (not in cost)"),
+            format!("{unreadable} (not in estimate)"),
         ));
     }
     rows

@@ -200,3 +200,11 @@ fn a_zero_record_is_no_record() {
     assert!(!c.from_agent && c.recorded_usd.is_none());
     assert!(close(c.total_usd, 4.0));
 }
+
+#[test]
+fn a_record_from_another_session_is_ignored() {
+    let mut other = cost_state(T0_MS - 1000, 9.0);
+    other["sessionId"] = json!("another-session");
+    let a = analyzed(&claude("claude-opus-5-5", &[other]), None);
+    assert!(cost(&a).recorded_usd.is_none());
+}

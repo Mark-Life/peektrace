@@ -276,7 +276,7 @@ counts, the dumb-zone crossing turn (1-based, or `never`, in the table; `--json`
 is shown (`$1.23 (recorded by claude-code)`): Claude Code's `cost-state`
 (subagents already counted), Pi's per-call cost when every call has one above
 $0, or OpenCode's session cost. Otherwise it is the session at API list price
-(`~$1.23 (estimated from tokens)`), subagents included. `subagents (est.)` is
+(`~$1.23 (estimated from tokens)`), subagents included. `incl. subagents (est.)` is
 always our estimate. Models with no rate card are listed under `unpriced
 models`. A Claude Code record that starts after the session does (a resumed
 process only) is not the total: it shows as `partial record`. When the record
