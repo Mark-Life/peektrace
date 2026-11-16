@@ -35,6 +35,19 @@ fn db(dir: &std::path::Path, name: &str, sql: &str) -> String {
     path
 }
 
+/// Move a file's mtime a minute ahead, so the cache sees a change even when
+/// the write kept its size and landed in the same clock tick.
+fn bump(path: &str) {
+    let m = std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .expect("mtime");
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .and_then(|f| f.set_modified(m + Duration::from_secs(60)))
+        .expect("touch");
+}
+
 fn thread(title: &str, branch: Option<&str>, worktree: Option<&str>) -> Thread {
     Thread {
         title: Some(title.to_owned()),
@@ -207,6 +220,7 @@ fn load_rereads_after_the_db_changes() {
             )
         })
         .expect("rename");
+    bump(&path);
     assert_eq!(title().as_deref(), Some("Renamed, longer"));
 }
 
@@ -244,6 +258,7 @@ fn a_locked_db_keeps_the_last_good_index() {
         .execute_batch("BEGIN EXCLUSIVE; UPDATE orchestration_v2_projection_threads SET title = 'Held, not committed';")
         .expect("lock");
     assert!(read_index(&path).is_none());
+    bump(&path);
     assert_eq!(title().as_deref(), Some("Named"));
     writer.execute_batch("ROLLBACK;").expect("unlock");
 }
