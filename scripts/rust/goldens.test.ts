@@ -40,6 +40,16 @@ describe("stageFiles", () => {
     expect(stagesWith("apps/inspector/src/fonts.css")).toEqual(["serve"]);
   });
 
+  test("the helpers and chart the Rune app ports count for serve and ui", () => {
+    for (const f of [
+      "apps/inspector/src/lib/chat-lane.ts",
+      "apps/inspector/src/routes/sessions/session-list-model.ts",
+      "packages/viz/src/components/growth-timeline.tsx",
+    ]) {
+      expect(stagesWith(f)).toEqual(["serve", "ui"]);
+    }
+  });
+
   test("shared inputs count for every stage", () => {
     for (const f of [
       "scripts/rust/parity.ts",
@@ -52,7 +62,8 @@ describe("stageFiles", () => {
   });
 
   test("a stage script counts for the stages that import it", () => {
-    expect(stagesWith("scripts/rust/parity-tui.ts")).toEqual(["tui"]);
+    expect(stagesWith("scripts/rust/parity-tui.ts")).toEqual(["tui", "ui"]);
+    expect(stagesWith("scripts/rust/parity-ui-growth.ts")).toEqual(["ui"]);
     expect(stagesWith("scripts/rust/parity-stats-cases.ts")).toEqual([
       "stats",
       "serve",
@@ -91,7 +102,10 @@ describe("orderProblems", () => {
 
   test("every checked-in stage records its dir order", () => {
     const dir = join(REPO, "tests/goldens/linux-x64");
-    const recorded = STAGES.map((s) => {
+    // A stage not recorded yet fails the check itself (no goldens).
+    const recorded = STAGES.filter((s) =>
+      existsSync(join(dir, `${s}.json`))
+    ).map((s) => {
       const meta = JSON.parse(readFileSync(join(dir, `${s}.json`), "utf8")) as {
         dirOrder?: "creation" | "newest-first" | "other";
       };

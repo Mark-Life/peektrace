@@ -203,6 +203,22 @@ pub enum WatchProblem {
     Root { path: PathBuf, reason: String },
 }
 
+impl WatchProblem {
+    /// What the user misses and how to fix it, one sentence.
+    pub fn message(&self) -> String {
+        match self {
+            Self::Limit { path } => format!(
+                "live refresh misses changes under {}: the OS file-watch limit is reached. On Linux raise fs.inotify.max_user_watches (e.g. sudo sysctl fs.inotify.max_user_watches=524288) and restart.",
+                path.display()
+            ),
+            Self::Root { path, reason } => {
+                format!("live refresh is off for {} ({reason}).", path.display())
+            }
+            Self::Unavailable { reason } => format!("live refresh is off ({reason})."),
+        }
+    }
+}
+
 /// The problem a failed watch of `path` leaves.
 pub fn root_problem(path: &Path, e: &notify::Error) -> WatchProblem {
     match e.kind {

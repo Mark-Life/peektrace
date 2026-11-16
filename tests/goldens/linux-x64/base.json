@@ -4,6 +4,6 @@
   "dirOrder": "newest-first",
   "platform": "linux-x64",
   "root": "/dev/shm/peektrace-goldens",
-  "tsSourceHash": "3c5276c818e16b1e6acf63e8593cfec7ad0ae067cbd3dbfd2431b299c2898e46",
+  "tsSourceHash": "2e56a13eba811e671bd98126e0f63f571875450b45dd4be99029be321db2f73d",
   "values": 3286
 }

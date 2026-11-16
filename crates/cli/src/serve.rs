@@ -14,14 +14,15 @@ use peektrace_protocol::WatchVersions;
 use peektrace_server::auth::{self, TOKEN_ENV};
 use peektrace_server::bind::bind_free_port;
 use peektrace_server::guard::Allowlist;
+use peektrace_server::rune_assets::RuneSource;
 use peektrace_server::{AppState, Assets, Guards, system_clock};
 use tokio::sync::watch;
 
-use crate::args::ServeArgs;
+use crate::args::{ServeArgs, WebUi};
 use crate::ls::{Context, UserError};
 use crate::signals::stop_signal;
 use crate::single::agent_roots;
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 
 mod sibling;
 
@@ -32,6 +33,27 @@ const MAX_PORT: i64 = 65_535;
 /// How long in-flight requests get to finish after a stop signal. A stats
 /// pass cannot be cancelled, so the process does not wait for it.
 const GRACE: Duration = Duration::from_secs(2);
+
+const RUNE_DIR_ENV: &str = "PEEKTRACE_RUNE_DIR";
+/// WebGPU needs a secure context, which plain HTTP gives only on localhost.
+const RUNE_REMOTE: &str = "  WARNING: --ui rune needs WebGPU, which browsers enable only on https or localhost. From another machine, tunnel with ssh -L and open http://127.0.0.1:<port>/.";
+
+/// The Rune source as served assets; a build without the bundle, or a
+/// bundle directory without its page, fails instead of serving 503s.
+fn rune_assets((src, label): (RuneSource, String)) -> Result<(Assets, String), UserError> {
+    match &src {
+        RuneSource::Missing => Err(UserError::Invalid(format!(
+            "--ui rune: this build does not include the Rune UI. Set {RUNE_DIR_ENV} to a built Rune web app directory, or serve without --ui rune."
+        ))),
+        RuneSource::Dir(dir) if !dir.join("index.html").is_file() => {
+            Err(UserError::Invalid(format!(
+                "--ui rune: {RUNE_DIR_ENV} points at {}, which has no index.html. Set it to a built Rune web app directory.",
+                dir.display()
+            )))
+        }
+        _ => Ok((Assets::Rune(src), format!("{label}, rune"))),
+    }
+}
 
 /// What `serve` prints before it starts answering.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,19 +109,7 @@ pub fn banner(host: &str, port: u16, read_only: bool, token: Option<&str>, ui: &
 pub fn watch_warnings(problems: &[WatchProblem]) -> Vec<String> {
     problems
         .iter()
-        .map(|p| match p {
-            WatchProblem::Limit { path } => format!(
-                "  WARNING: live refresh misses changes under {}: the OS file-watch limit is reached. On Linux raise fs.inotify.max_user_watches (e.g. sudo sysctl fs.inotify.max_user_watches=524288) and restart.",
-                path.display()
-            ),
-            WatchProblem::Root { path, reason } => format!(
-                "  WARNING: live refresh is off for {} ({reason}).",
-                path.display()
-            ),
-            WatchProblem::Unavailable { reason } => {
-                format!("  WARNING: live refresh is off ({reason}).")
-            }
-        })
+        .map(|p| format!("  WARNING: {}", p.message()))
         .collect()
 }
 
@@ -173,15 +183,23 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
         .then(|| auth::resolve_token(std::env::var(TOKEN_ENV).ok().as_deref()))
         .transpose()
         .map_err(UserError::Invalid)?;
+    let cwd = std::env::current_dir()
+        .map(|d| d.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let (assets, ui) = match args.ui {
+        WebUi::Inspector => {
+            let client_dir = std::env::var("PEEKTRACE_CLIENT_DIR").ok();
+            Assets::resolve(client_dir.as_deref(), &cwd)
+        }
+        WebUi::Rune => {
+            let rune_dir = std::env::var(RUNE_DIR_ENV).ok();
+            rune_assets(RuneSource::resolve(rune_dir.as_deref(), &cwd))?
+        }
+    };
     let start = u16::try_from(args.port).unwrap_or(u16::MAX);
     let (listener, port) =
         bind_free_port(&args.host, start).map_err(|e| UserError::Invalid(e.to_string()))?;
     let (roots, warnings) = agent_roots(ctx);
-    let cwd = std::env::current_dir()
-        .map(|d| d.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let client_dir = std::env::var("PEEKTRACE_CLIENT_DIR").ok();
-    let (assets, ui) = Assets::resolve(client_dir.as_deref(), &cwd);
     let (tx, rx) = watch::channel(WatchVersions::default());
     let (stop, stop_rx) = watch::channel(false);
     let state = AppState {
@@ -203,8 +221,12 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
         token: token.clone(),
         port,
     };
+    let mut banner = banner(&args.host, port, posture.read_only, token.as_deref(), &ui);
+    if args.ui == WebUi::Rune && token.is_some() {
+        banner.stderr.push(RUNE_REMOTE.to_owned());
+    }
     Ok(Prepared {
-        banner: banner(&args.host, port, posture.read_only, token.as_deref(), &ui),
+        banner,
         warnings,
         open: !args.no_open,
         listener,
@@ -316,6 +338,24 @@ mod tests {
         assert_eq!(b.open_url, "http://[::1]:1");
         let b = banner("fd7a::1", 2, true, Some("t"), "x");
         assert_eq!(b.open_url, "http://[fd7a::1]:2/?token=t");
+    }
+
+    #[test]
+    fn a_build_or_dir_without_the_rune_ui_refuses_to_serve_it() {
+        let err = rune_assets((RuneSource::Missing, "not built".into())).unwrap_err();
+        assert!(err.to_string().contains(RUNE_DIR_ENV));
+        let typo = rune_assets((RuneSource::Dir("/no/such/dir".into()), "x".into())).unwrap_err();
+        assert!(
+            typo.to_string()
+                .contains("/no/such/dir, which has no index.html")
+        );
+        let dir = std::env::temp_dir().join(format!("rune-dir-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("index.html"), "<p>app</p>").unwrap();
+        let (assets, label) = rune_assets((RuneSource::Dir(dir.clone()), "/d".into())).unwrap();
+        assert_eq!(assets, Assets::Rune(RuneSource::Dir(dir.clone())));
+        assert_eq!(label, "/d, rune");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

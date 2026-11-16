@@ -7,14 +7,18 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               statusline mcp upgrade tui telemetry ci
+#                                               statusline mcp upgrade tui telemetry ci app web
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
+#   BENCH_SUITES="app web" ...                  the Rune app suites; web also needs agent-browser and brotli.
+#                                               BENCH_DESKTOP_APP=<Peektrace.app> adds the TS desktop bundle to the size rows
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
 # The serve suites live in bench-serve.sh, the statusline, mcp and upgrade suites in bench-stdio.sh,
-# the TUI suite in bench-tui.sh and the telemetry suite in bench-telemetry.sh, sourced below.
+# the TUI suite in bench-tui.sh, the telemetry suite in bench-telemetry.sh, and the app and web
+# suites in bench-app.sh, sourced below.
+# `add_rust` adds a Rust-only case (no Bun counterpart): Bun cells print n/a.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # `set_input` gives the last case a file fed to stdin (hyperfine --input, `<` for GNU time).
 # `set_cols` names the two columns of the last case when they are not Bun and Rust; such cases get their own table.
@@ -71,9 +75,12 @@ done
 
 REPORT_ONLY="${BENCH_REPORT_ONLY:-0}"
 if [[ "${BENCH_SKIP_BUILD:-0}" != 1 && "$REPORT_ONLY" != 1 ]]; then
-  (cd "$ROOT" && cargo build --release)
-  # build.ts builds the inspector UI first, then compiles the binary.
+  # build.ts builds the inspector UI first, then compiles the binary. It runs before cargo,
+  # so the Rust binary embeds the same inspector build.
   (cd "$ROOT/apps/cli" && bun run build:binary)
+  (cd "$ROOT" && cargo build --release)
+  if [[ " $BENCH_SUITES " == *" app "* ]]; then (cd "$ROOT" && cargo build --release -p peektrace-app); fi
+  if [[ " $BENCH_SUITES " == *" web "* ]]; then "$ROOT/scripts/rust/build-rune-web.sh"; fi
   # The ci suite checks the parity-profile binary, as CI does.
   if [[ " $BENCH_SUITES " == *" ci "* ]]; then
     (cd "$ROOT" && cargo build --locked --profile parity --bins --examples)
@@ -131,6 +138,8 @@ add_case() {
   shift 5
   add_pair "$n" "$w" "$r" "$f" "$l" "$BUN_BIN $*" "$RUST_BIN $*"
 }
+# add_rust <name> <warmup> <runs> <flags> <label> <command> -> a Rust-only case.
+add_rust() { add_pair "$1" "$2" "$3" "$4" "$5" "" "$6"; }
 # set_prepare <command> -> run before each timed and RSS run of the last case; no shell, so no globs or pipes.
 set_prepare() { C_PREP[$((${#C_NAME[@]} - 1))]="$1"; }
 # set_input <file> -> stdin of the last case; default /dev/null.
@@ -319,11 +328,13 @@ suite_memory() {
 . "$ROOT/scripts/rust/bench-telemetry.sh"
 # shellcheck source=scripts/rust/bench-ci.sh
 . "$ROOT/scripts/rust/bench-ci.sh"
-trap 'stop_live; stop_fake_release' EXIT
+# shellcheck source=scripts/rust/bench-app.sh
+. "$ROOT/scripts/rust/bench-app.sh"
+trap 'stop_live; stop_fake_release; stop_web' EXIT
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui | telemetry | ci) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui | telemetry | ci | app | web) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -334,6 +345,7 @@ gz_of() { gzip -9 -c "$1" | wc -c | tr -d ' '; }
 BUN_SIZE="$(size_of "$BUN_BIN")"; BUN_GZ="$(gz_of "$BUN_BIN")"
 RUST_SIZE="$(size_of "$RUST_BIN")"; RUST_GZ="$(gz_of "$RUST_BIN")"
 printf 'bun %s %s\nrust %s %s\n' "$BUN_SIZE" "$BUN_GZ" "$RUST_SIZE" "$RUST_GZ" >"$OUT/size.txt"
+sizes_measure
 
 RSS_CASES=""
 for ((c = 0; c < N_CASES; c++)); do has_flag "$c" rss && RSS_CASES+=" $c"; done
@@ -366,11 +378,13 @@ if [[ "$REPORT_ONLY" != 1 ]]; then
     [[ -n "${C_INPUT[c]}" ]] && input=(--input "${C_INPUT[c]}")
     conclude=()
     [[ -n "${C_BUN_END[c]}" ]] && conclude=(--conclude "${C_BUN_END[c]}" --conclude "${C_RUST_END[c]}")
+    cmds=()
+    [[ -n "${C_BUN[c]}" ]] && cmds=(--command-name bun "${C_BUN[c]}")
+    cmds+=(--command-name rust "${C_RUST[c]}")
     hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} ${input[@]+"${input[@]}"} \
       --export-json "$OUT/${C_NAME[c]}.json" \
       ${conclude[@]+"${conclude[@]}"} \
-      --command-name bun "${C_BUN[c]}" \
-      --command-name rust "${C_RUST[c]}"
+      "${cmds[@]}"
   done
 
   # --- serve payloads and memory ---------------------------------------------------------
@@ -387,6 +401,7 @@ if [[ "$REPORT_ONLY" != 1 ]]; then
   fi
 
   if [[ "${TUI:-0}" == 1 ]]; then tui_measure; fi
+  if [[ "${WEB:-0}" == 1 ]]; then web_measure; fi
   for hook in ${MEASURE_HOOKS[@]+"${MEASURE_HOOKS[@]}"}; do "$hook"; done
 
   # --- peak RSS (GNU time, interleaved) -----------------------------------------------
@@ -397,6 +412,7 @@ if [[ "$REPORT_ONLY" != 1 ]]; then
       read -ra prep <<<"${C_PREP[c]}"
       for impl in bun rust; do
         if [[ "$impl" == bun ]]; then read -ra argv <<<"${C_BUN[c]}"; else read -ra argv <<<"${C_RUST[c]}"; fi
+        ((${#argv[@]})) || continue
         if ((${#prep[@]})); then "${prep[@]}"; fi
         # %M is KiB on both macOS gtime and Linux GNU time; keep only its last stderr line.
         "$GTIME" -f %M "${argv[@]}" <"${C_INPUT[c]:-/dev/null}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
@@ -414,14 +430,16 @@ stats() { sort -n "$1" | awk '{a[NR]=$1} END {m=(NR%2)?a[(NR+1)/2]:(a[NR/2]+a[NR
 # hf <name> <bun|rust> [metric] -> "median min max" in ms.
 # hyperfine 2.x has per-metric summaries; 1.x has wall time only, so other metrics print n/a.
 hf() {
-  jq -r --arg c "$2" --arg m "${3:-time_wall_clock}" '.results[]
+  local v
+  v="$(jq -r --arg c "$2" --arg m "${3:-time_wall_clock}" '.results[]
     | select((.name // .command) == $c)
     | (if .summary then .summary[$m] elif $m == "time_wall_clock" then . else null end)
-    | if . == null then "n/a" else "\(.median*1000) \(.min*1000) \(.max*1000)" end' "$OUT/$1.json"
+    | if . == null then "n/a" else "\(.median*1000) \(.min*1000) \(.max*1000)" end' "$OUT/$1.json")"
+  echo "${v:-n/a}"
 }
 # Seconds from 10 s up, so long-running commands stay readable.
 fmt_ms() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 >= 10000) printf "%.1f s (%.1f–%.1f)", $1/1000, $2/1000, $3/1000; else printf "%.1f ms (%.1f–%.1f)", $1, $2, $3 }'; }
-fmt_mib() { awk '{printf "%.1f MiB (%.1f–%.1f)", $1/1024, $2/1024, $3/1024}'; }
+fmt_mib() { awk '{ if ($1 == "n/a") print "n/a"; else printf "%.1f MiB (%.1f–%.1f)", $1/1024, $2/1024, $3/1024 }'; }
 # delta <bun> <rust> [word] -> "-93.3% (14.9× faster)"; when Rust is worse: "+6.8% (1.1× slower)"
 delta() {
   [[ "$1" == n/a || "$2" == n/a ]] && { echo n/a; return; }
@@ -442,7 +460,9 @@ row_hf() {
 # row_rss <label> <file prefix>: reads <prefix>-bun.txt and <prefix>-rust.txt (KiB per line)
 row_rss() {
   local label="$1" name="$2" b r
-  b="$(stats "$name-bun.txt")"; r="$(stats "$name-rust.txt")"
+  b=n/a; r=n/a
+  [[ -s "$name-bun.txt" ]] && b="$(stats "$name-bun.txt")"
+  [[ -s "$name-rust.txt" ]] && r="$(stats "$name-rust.txt")"
   printf '| %s | %s | %s | %s |\n' "$label" "$(fmt_mib <<<"$b")" "$(fmt_mib <<<"$r")" \
     "$(delta "${b%% *}" "${r%% *}" less)"
 }
@@ -530,6 +550,8 @@ done
     echo
   fi
   if [[ "${TUI:-0}" == 1 ]]; then tui_summary; fi
+  if [[ "${APP:-0}" == 1 ]]; then app_summary; fi
+  if [[ "${WEB:-0}" == 1 ]]; then web_summary; fi
   for hook in ${REPORT_HOOKS[@]+"${REPORT_HOOKS[@]}"}; do "$hook"; done
   echo "## Method"
   echo

@@ -19,7 +19,7 @@ use crate::ls::{Context, Globals, UserError};
 use crate::remote::Remote;
 use crate::render;
 use crate::verdict::{fraction_of, verdict};
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 
 /// What a single-session command produces.
 #[derive(Debug, Clone, PartialEq, Eq)]

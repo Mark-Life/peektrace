@@ -31,5 +31,10 @@ url = "2"
 serde_json.workspace = true
 ureq = { version = "3", default-features = false }
 
+[features]
+default = []
+# Build the Rune web app (crates/app/dist) into the binary for `serve --ui rune`.
+rune-ui = []
+
 [lints]
 workspace = true

@@ -11,6 +11,7 @@ pub mod auth;
 pub mod bind;
 mod events;
 pub mod guard;
+pub mod rune_assets;
 
 use std::sync::Arc;
 
@@ -219,7 +220,10 @@ async fn static_files(State(assets): State<Arc<Assets>>, req: Request) -> Respon
         *res.status_mut() = StatusCode::NOT_FOUND;
         return res;
     }
-    assets.respond(req.uri().path())
+    let (parts, _) = req.into_parts();
+    tokio::task::spawn_blocking(move || assets.respond_to(parts.uri.path(), &parts.headers))
+        .await
+        .unwrap_or_else(|_| text(StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error"))
 }
 
 async fn health() -> Response<Body> {
