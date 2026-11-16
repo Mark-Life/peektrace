@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use super::attachments::{AttachmentBase, PromptSeen, attachment_event};
 use super::blocks::{AssistantBase, UserBase, assistant_block_event, user_block_event};
 use super::branches::dead_branch_rows;
+use super::cost_state::CostStates;
 use super::records::{
     KNOWN_IGNORED_TYPES, KNOWN_SYSTEM_SUBTYPES, NewTurn, SYNTHETIC_MODEL, bump, compact_meta_of,
     has_one_million_key, merge_streamed_usage, new_turn,
@@ -60,6 +61,7 @@ struct State {
     compaction_indexes: Vec<usize>,
     models: Vec<String>,
     one_million: bool,
+    cost_states: CostStates,
     /// Token counts of the last `compact_boundary`, for the next summary.
     pending_compact: Option<(Option<f64>, Option<f64>)>,
     /// Prompt parts already shown, per thread (main or one subagent).
@@ -423,8 +425,12 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
             "assistant" => handle_assistant(&row, &mut state, args.include_sidechain_turns, false),
             "summary" => handle_summary(&row, &mut state),
             "system" => handle_system(&row, &mut state),
-            "cost-state" => state.one_million = state.one_million || has_one_million_key(o),
-            "" => {}
+            // A line copied from another session (a fork) is not this one's.
+            "cost-state" if str_field(o, "sessionId").is_none_or(|s| s == args.session_id) => {
+                state.one_million = state.one_million || has_one_million_key(o);
+                state.cost_states.push(o);
+            }
+            "cost-state" | "" => {}
             t if !KNOWN_IGNORED_TYPES.contains(&t) => bump(&mut state.unknown_types, t),
             _ => {}
         }
@@ -434,6 +440,7 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
     let mut events = state.events;
     measure_thinking(&mut events, &turns);
     let counts = |c: Vec<(String, f64)>| (!c.is_empty()).then(|| js_key_order(c));
+    let native_cost = state.cost_states.native(meta.started_at.as_deref());
     let mut parsed = ParsedSession {
         provider: Provider::ClaudeCode,
         session_id: args.session_id.to_owned(),
@@ -453,7 +460,7 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
         unknown_record_types: counts(state.unknown_types),
         unknown_system_subtypes: counts(state.unknown_subtypes),
         sidechain_cost: (!sidechain.is_empty()).then(|| turns_cost(&sidechain)),
-        native_cost_usd: None,
+        native_cost,
         launcher: None,
     };
     measure_tokens(&mut parsed);

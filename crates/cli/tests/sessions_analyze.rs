@@ -78,7 +78,7 @@ fn cwd_picks_the_newest_session_at_or_below_the_directory() {
 fn latest_and_cwd_combine_and_the_table_works() {
     let r = analyze(&home(), &["--latest", "--cwd", OLD_CWD]);
     assert_eq!(r.code, 0, "{}", r.err);
-    for want in [MID_ID, "verdict", "est. cost"] {
+    for want in [MID_ID, "verdict", "cost"] {
         assert!(r.out.contains(want), "{want}: {}", r.out);
     }
 }

@@ -1,6 +1,6 @@
  Peektrace   1    2    3    4    5                                loopback only
  Stats ▸ what fails, what costs time        60d · all agents · scanned just now
- 5 transcripts · 3 projects · 50 shell calls · 16m40s shell time
+ 5 sessions + 0 subagent runs · 3 projects · 50 shell calls · 16m40s shell time
  stats/v2 · detector v2 · durations ≈ call→result gap · 10 caveats (c)
 
  ▌FIX FIRST  0 rows name a change · f to open
@@ -12,9 +12,9 @@
 
 
  ▌WHAT COSTS TIME  by seconds charged · one line, one job · 2 rows
-   JOB                   TIME▼  SHARE    RUNS CO-PRESENT      CAPPED         BG
- ▸ file i/o              8m20s  50.0%      25         50           —          —
-   tests                 8m20s  50.0%      25         25           —          —
+   JOB                   TIME▼  SHARE    RUNS  IN OTHERS      CAPPED         BG
+ ▸ file i/o              8m20s  50.0%      25         25           —          —
+   tests                 8m20s  50.0%      25          0           —          —
 
 
 

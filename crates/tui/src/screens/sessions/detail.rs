@@ -131,11 +131,27 @@ fn card_rows(s: &AnalyzedSession, w: usize) -> Vec<Row> {
             .collect::<Vec<_>>()
             .join(" · ");
         rows.push(left(field(
-            "Est. cost",
+            "Cost",
             &clip(&line, w.saturating_sub(LABEL_W)),
             text,
             LABEL_W,
         )));
+        if let Some(warning) = c.warning {
+            rows.push(left(field(
+                "",
+                &clip(&format!("! {warning}"), w.saturating_sub(LABEL_W)),
+                text,
+                LABEL_W,
+            )));
+        }
+        if let Some(note) = c.estimate_note {
+            rows.push(left(field(
+                "",
+                &clip(&note, w.saturating_sub(LABEL_W)),
+                fg(theme::TEXT_DIM),
+                LABEL_W,
+            )));
+        }
     }
     let cache = if s.peak_context_tokens > 0.0 {
         s.peak_cache_read_tokens / s.peak_context_tokens

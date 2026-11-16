@@ -5,9 +5,9 @@
 use crate::js::json_out::Writer;
 use crate::js::value::{JsObject, JsValue};
 use crate::sessions::model::{
-    ContextEdit, ContextEditStep, EventKind, EventShape, ImageRef, LoadedCategory, ParsedSession,
-    PromptOrigin, Provider, SubagentRef, TimelineEvent, Turn, TurnField, TurnShape, TurnTokens,
-    TurnsCost,
+    ContextEdit, ContextEditStep, EventKind, EventShape, ImageRef, LoadedCategory, NativeCost,
+    ParsedSession, PromptOrigin, Provider, SubagentRef, TimelineEvent, Turn, TurnField, TurnShape,
+    TurnTokens, TurnsCost,
 };
 use crate::sessions::write::{write_event, write_turn};
 
@@ -295,7 +295,11 @@ pub fn parsed_from_json(v: &JsValue) -> Option<ParsedSession> {
         unknown_record_types: count_map("unknownRecordTypes")?,
         unknown_system_subtypes: count_map("unknownSystemSubtypes")?,
         sidechain_cost: v.get("sidechainCost").map(cost),
-        native_cost_usd: n(v, "nativeCostUsd"),
+        native_cost: n(v, "nativeCostUsd").map(|usd| NativeCost {
+            usd,
+            includes_subagents: b(v, "nativeCostIncludesSubagents") == Some(true),
+            partial: b(v, "nativeCostPartial") == Some(true),
+        }),
         launcher: v
             .get("launcher")
             .and_then(crate::sessions::read::launcher_from_json),

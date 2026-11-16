@@ -263,7 +263,7 @@ fn report_view(v: &V<'_>, layer: &mut Vec<El>) -> Vec<El> {
             "seconds charged",
             vec![
                 muted(
-                    "Each command line is charged to exactly one job; Co-present counts the lines that hold the job and were charged to a higher-priority one. Tools that wait on a human are out of the denominator.",
+                    "Each command line is charged to exactly one job; “In other jobs” counts the lines that also run the job but are charged to a higher-priority one. Tools that wait on a human are out of the denominator.",
                     t,
                 ),
                 fails_time::time(v, layer),

@@ -1,6 +1,6 @@
  Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats        loopback only
  Stats ▸ what fails, what costs time                            60d · all agents · scanned just now
- 5 transcripts · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
+ 5 sessions + 0 subagent runs · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
  peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 10 caveats (c)
 
  ▌FIX FIRST  0 rows name a change · f to open
@@ -12,9 +12,9 @@
 
 
  ▌WHAT COSTS TIME  ranked by seconds charged  ·  every line charged to exactly one job
-   JOB                 TIME▼   SHARE     RUNS  CO-PRESENT   MEDIAN     P95       CAPPED          BG
- ▸ file i/o            8m20s   50.0%       25          50    20.0s   20.0s            —           —
-   tests               8m20s   50.0%       25          25    20.0s   20.0s            —           —
+   JOB                 TIME▼   SHARE     RUNS   IN OTHERS   MEDIAN     P95       CAPPED          BG
+ ▸ file i/o            8m20s   50.0%       25          25    20.0s   20.0s            —           —
+   tests               8m20s   50.0%       25           0    20.0s   20.0s            —           —
 
 
 

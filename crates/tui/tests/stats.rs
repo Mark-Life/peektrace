@@ -124,7 +124,12 @@ fn busy() -> StatsReport {
     let mut r = empty();
     r.window.days = 30.0;
     r.corpus.transcripts = 2509.0;
-    r.corpus.sessions = 2491.0;
+    r.corpus.sessions = 401.0;
+    r.corpus.kinds = vec![
+        ("main".to_owned(), 401.0),
+        ("subagent".to_owned(), 108.0),
+        ("workflow-agent".to_owned(), 2000.0),
+    ];
     r.corpus.projects = 26.0;
     r.corpus.tool_calls = 64_644.0;
     r.corpus.bash_calls = 36_324.0;
@@ -301,7 +306,7 @@ fn both_ranked_tables_render_with_their_ranking_keys_at_100_columns() {
         "TIME",
         "unquoted echo === separator",
         "waiting",
-        "2,509 transcripts",
+        "401 sessions + 2,108 subagent runs",
         "NOTE",
     ] {
         assert!(frame.contains(want), "{want}: {frame}");

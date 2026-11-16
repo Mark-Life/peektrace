@@ -1,5 +1,5 @@
 //! API list prices per model generation (USD per million tokens) and the
-//! per-turn cost they give. Prices checked 2026-11-08.
+//! per-turn cost they give. Prices checked 2026-11-16.
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -108,6 +108,7 @@ const fn openai(
     }
 }
 
+const FABLE_5_2: PriceCard = anthropic(rates(8.0, 10.0, 16.0, 0.2, 40.0));
 const FABLE_5_1: PriceCard = anthropic(rates(10.0, 12.5, 20.0, 0.25, 50.0));
 const FABLE_5: PriceCard = anthropic(rates(10.0, 12.5, 20.0, 1.0, 50.0));
 const OPUS_5_5: PriceCard = anthropic(rates(4.0, 5.0, 8.0, 0.2, 20.0));
@@ -129,6 +130,7 @@ const GPT_4_1: PriceCard = openai(2.0, 0.5, 8.0, None, None);
 
 /// Table order matters only among keys of equal length.
 const CARDS: &[(&str, PriceCard)] = &[
+    ("fable-5-2", FABLE_5_2),
     ("fable-5-1", FABLE_5_1),
     ("mythos-5-1", FABLE_5_1),
     ("fable-5", FABLE_5),
@@ -213,7 +215,7 @@ const FAMILY_FALLBACK: &[(&str, &str)] = &[
     ("opus", "opus-5-5"),
     ("sonnet", "sonnet-5-5"),
     ("haiku", "haiku-5-5"),
-    ("fable", "fable-5-1"),
+    ("fable", "fable-5-2"),
     ("mythos", "mythos-5-1"),
 ];
 

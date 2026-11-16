@@ -108,6 +108,8 @@ fn unknown_versions_stay_unpriced() {
         "claude-3-opus-20240229",
         "claude-3-5-haiku-20241022",
         "claude-3-7-sonnet-latest",
+        "claude-fable-5-3",
+        "claude-mythos-5-2",
     ] {
         assert_eq!(key(id), None, "{id}");
     }
@@ -194,4 +196,20 @@ fn card_cache_matches_card_for() {
         assert_eq!(cache.get(id), card_for(id), "{id}");
     }
     assert_eq!(cache.0.len(), 3);
+}
+
+#[test]
+fn fable_5_2_has_its_own_card() {
+    assert_eq!(key("claude-fable-5-2"), Some("fable-5-2"));
+    assert_eq!(key("claude-fable-5-2[1m]"), Some("fable-5-2"));
+    assert_eq!(key("claude-fable"), Some("fable-5-2"));
+    let t = CostTokens {
+        input: 1_000_000.0,
+        output: 1_000_000.0,
+        cache_read: 1_000_000.0,
+        cache_creation: 2_000_000.0,
+        cache_creation_1h: Some(1_000_000.0),
+    };
+    // 8 input + 40 output + 0.20 read + 10 (5m write) + 16 (1h write).
+    assert!(close(cost("claude-fable-5-2", &t), 74.2));
 }

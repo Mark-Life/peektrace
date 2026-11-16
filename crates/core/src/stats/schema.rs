@@ -88,6 +88,13 @@ pub struct FactBase {
     pub run: Option<String>,
 }
 
+impl FactBase {
+    /// The main session this transcript belongs to: its parent, or itself.
+    pub fn root_sid(&self) -> &str {
+        self.parent.as_deref().unwrap_or(&self.sid)
+    }
+}
+
 /// One transcript, summarised.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SessionFact {

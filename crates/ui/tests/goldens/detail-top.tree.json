@@ -784,13 +784,13 @@
     {
       "rect": [905, 287, 229, 15],
       "role": "text",
-      "text": "EST. COST"
+      "text": "COST"
     },
     {
       "key": "session-cost",
       "rect": [905, 304, 229, 18],
       "role": "text",
-      "text": "~$8.19"
+      "text": "~$8.19 · estimated from tokens"
     },
     {
       "key": "tile-dwell",

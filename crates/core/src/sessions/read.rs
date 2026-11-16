@@ -88,6 +88,11 @@ pub fn cost_from_json(v: &JsValue) -> Option<SessionCost> {
         unpriced_models: texts(v, "unpricedModels"),
         #[expect(clippy::cast_possible_truncation, reason = "a small count")]
         unreadable_subagents: count(v, "unreadableSubagents").map(|n| n as usize),
+        recorded_usd: v.get("recordedUsd").and_then(JsValue::as_num),
+        estimate_usd: v.get("estimateUsd").and_then(JsValue::as_num),
+        record_partial: v.get("recordPartial").is_some_and(JsValue::is_true),
+        estimate_gap: v.get("estimateGap").and_then(JsValue::as_num),
+        estimate_warning: v.get("estimateWarning").is_some_and(JsValue::is_true),
     })
 }
 

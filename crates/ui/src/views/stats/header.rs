@@ -135,7 +135,7 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
                 .child(icon(&SHIELD_CHECK, 14.0).color(t.muted_fg))
                 .child(
                     muted(
-                        "Command text, error signatures and cluster labels are redacted before they are stored or shown.",
+                        "Secrets such as API keys and tokens are masked. Commands and paths are shown as run.",
                         t,
                     )
                     .shrink(),

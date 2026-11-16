@@ -62,7 +62,10 @@ fn labels_and_cost_match_core() {
         if let (Some(c), Some(v)) = (&core.cost, &view.cost) {
             let a = core_cost::cost_summary(c, "Claude Code");
             let b = labels::cost_summary(v, "Claude Code");
-            assert_eq!((a.total, a.notes), (b.total, b.notes));
+            assert_eq!(
+                (a.total, a.notes, a.warning, a.estimate_note),
+                (b.total, b.notes, b.warning, b.estimate_note)
+            );
         }
     }
 }

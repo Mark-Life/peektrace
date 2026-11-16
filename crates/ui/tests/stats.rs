@@ -132,7 +132,7 @@ fn report_header_tables_and_findings() {
     let rt = runtime(stats_state());
     assert!(has_text(
         &rt,
-        "3 transcripts · 1 projects · 23 tool calls · 23 shell calls · 12m40s of shell time"
+        "2 sessions + 1 subagent runs · 1 projects · 23 tool calls · 23 shell calls · 12m40s of shell time"
     ));
     assert!(has_text(
         &rt,

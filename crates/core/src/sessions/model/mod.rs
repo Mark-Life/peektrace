@@ -524,9 +524,21 @@ pub struct ParsedSession {
     pub unknown_record_types: Option<Vec<(String, f64)>>,
     pub unknown_system_subtypes: Option<Vec<(String, f64)>>,
     pub sidechain_cost: Option<TurnsCost>,
-    pub native_cost_usd: Option<f64>,
+    pub native_cost: Option<NativeCost>,
     /// The app that started the session, e.g. t3code.
     pub launcher: Option<crate::model::Launcher>,
+}
+
+/// Cost the agent recorded itself.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct NativeCost {
+    pub usd: f64,
+    /// True when the figure already counts subagents (Claude Code's
+    /// `cost-state`); else it covers the main transcript only.
+    pub includes_subagents: bool,
+    /// True when the record misses part of the session, so it cannot be the
+    /// session's total.
+    pub partial: bool,
 }
 
 mod analysis;

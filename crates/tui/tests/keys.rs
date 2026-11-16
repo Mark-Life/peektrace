@@ -502,14 +502,18 @@ fn every_screen_mounts_on_an_empty_home() {
     h.keys(&["4"]);
     assert!(h.text().contains("No extra roots."));
     h.keys(&["5"]);
-    assert!(h.text().contains("0 transcripts"), "{}", h.text());
+    assert!(
+        h.text().contains("0 sessions + 0 subagent runs"),
+        "{}",
+        h.text()
+    );
 }
 
 #[test]
 fn the_card_shows_the_estimated_cost_and_attachment_badges() {
     let mut h = sessions();
     let t = h.text();
-    assert!(t.contains("Est. cost      ~$"), "{t}");
+    assert!(t.contains("Cost           ~$"), "{t}");
     assert!(t.contains("[t0] [deferred tools delta]"));
 }
 
