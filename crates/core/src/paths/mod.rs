@@ -75,3 +75,46 @@ pub fn claude_slug(path: &str) -> String {
         })
         .collect()
 }
+
+/// A Windows verbatim path as Node `fs.realpath` prints it: `\\?\C:\x` is
+/// `C:\x` and `\\?\UNC\host\share` is `\\host\share`. Others pass through.
+pub fn strip_verbatim(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}");
+    }
+    match path.strip_prefix(r"\\?\") {
+        Some(rest) if rest.as_bytes().get(1) == Some(&b':') => rest.to_owned(),
+        _ => path.to_owned(),
+    }
+}
+
+/// `fs.realpath(path)`, or `path` itself when it cannot be resolved.
+pub fn real_path(path: &str) -> String {
+    std::fs::canonicalize(path).map_or_else(
+        |_| path.to_owned(),
+        |p| strip_verbatim(&p.to_string_lossy()),
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_windows_verbatim_prefixes() {
+        for (raw, want) in [
+            (r"\\?\C:\Users\x\CLAUDE.md", r"C:\Users\x\CLAUDE.md"),
+            (r"\\?\UNC\host\share\a.md", r"\\host\share\a.md"),
+            (r"\\?\Volume{1}\a.md", r"\\?\Volume{1}\a.md"),
+            ("/home/x/CLAUDE.md", "/home/x/CLAUDE.md"),
+        ] {
+            assert_eq!(strip_verbatim(raw), want);
+        }
+    }
+
+    #[test]
+    fn real_path_has_no_verbatim_prefix() {
+        let dir = std::env::temp_dir();
+        assert!(!real_path(&dir.to_string_lossy()).starts_with(r"\\?\"));
+    }
+}

@@ -59,7 +59,7 @@ fn load() -> TimeZone {
         Some(Some(t)) => TzVar::Text(t),
         Some(None) => TzVar::NotUtf8,
     };
-    zone_for(var, |name| TimeZone::get(name).ok(), TimeZone::system)
+    zone_for(var, peektrace_core::js::time::zone_named, TimeZone::system)
 }
 
 /// The `TZ` zone as Bun reads it, else the OS zone, else UTC.
@@ -116,7 +116,7 @@ mod tests {
 
     /// Hours east of UTC on 2026-07-01 for `TZ`, with UTC as the OS zone.
     fn hours(tz: TzVar<'_>) -> i64 {
-        let tz = zone_for(tz, |name| TimeZone::get(name).ok(), || TimeZone::UTC);
+        let tz = zone_for(tz, peektrace_core::js::time::zone_named, || TimeZone::UTC);
         let at = "2026-07-01T00:00:00Z"
             .parse::<Timestamp>()
             .unwrap_or_default();
@@ -158,8 +158,7 @@ mod tests {
         assert_eq!(hours(TzVar::NotUtf8), 0);
     }
 
-    /// Legacy aliases ship with macOS; Debian moved them to `tzdata-legacy`.
-    #[cfg(target_os = "macos")]
+    /// Legacy aliases resolve even where the OS ships them separately.
     #[test]
     fn legacy_tz_aliases_resolve() {
         assert_eq!(hours(TzVar::Text("Japan")), 9);

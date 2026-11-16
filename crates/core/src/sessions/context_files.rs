@@ -34,8 +34,7 @@ fn read_context(path: &str) -> Option<ContextRead> {
     if !exists(path) {
         return None;
     }
-    let real = fs::canonicalize(path)
-        .map_or_else(|_| path.to_owned(), |p| p.to_string_lossy().into_owned());
+    let real = crate::paths::real_path(path);
     let meta = fs::metadata(&real).ok()?;
     Some(ContextRead {
         bytes: meta.len() as f64,
@@ -177,8 +176,7 @@ pub fn rule_paths(dir: &str) -> Vec<String> {
         reason = "Claude Code loads only lowercase `.md` rules"
     )]
     fn walk(dir: &str, depth: usize, seen: &mut HashSet<String>, out: &mut Vec<String>) {
-        let real = fs::canonicalize(dir)
-            .map_or_else(|_| dir.to_owned(), |p| p.to_string_lossy().into_owned());
+        let real = crate::paths::real_path(dir);
         if depth > MAX_RULE_DEPTH || !seen.insert(real) {
             return;
         }

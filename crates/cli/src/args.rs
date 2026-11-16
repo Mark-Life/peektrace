@@ -50,6 +50,110 @@ pub struct Cli {
 pub enum Command {
     /// List and analyze sessions
     Sessions(SessionsArgs),
+    /// Cross-session friction: what fails, what costs time, what to fix first
+    Stats(StatsArgs),
+}
+
+/// Window, scope and row-cap flags shared by the `stats` commands.
+#[derive(Debug, Default, Args)]
+pub struct StatsCommon {
+    /// History window in days (default 60)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub days: Option<String>,
+
+    /// Agent to scan: claude|codex|pi|opencode|all
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub agent: Option<String>,
+
+    /// Rows kept per table (default 20)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub limit: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct StatsArgs {
+    #[command(subcommand)]
+    pub command: Option<StatsCommand>,
+
+    #[command(flatten)]
+    pub common: StatsCommon,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum StatsCommand {
+    /// The calls behind one row of a stats table
+    Drill(StatsDrillArgs),
+    /// An investigation prompt for the report or one row of it
+    Prompt(StatsPromptArgs),
+    /// Re-extract the fact cache without computing a report
+    Refresh(StatsRefreshArgs),
+    /// Tokens and estimated cost per day, month or 5-hour block
+    Usage(StatsUsageArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct StatsDrillArgs {
+    /// Cause-table key to expand into failed → retry pairs
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub cause: Option<String>,
+    /// Fail-table key to expand
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub fail: Option<String>,
+    /// Time-table job to expand
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub time: Option<String>,
+    /// Error-cluster signature to expand
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub cluster: Option<String>,
+    /// Waiting-panel key to expand
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub wait: Option<String>,
+    #[command(flatten)]
+    pub common: StatsCommon,
+}
+
+#[derive(Debug, Args)]
+pub struct StatsPromptArgs {
+    /// Cause id or key, e.g. zsh-glob-flag (default: the whole report)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub cause: Option<String>,
+    /// Fail-table key
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub fail: Option<String>,
+    /// Time-table job
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub time: Option<String>,
+    #[command(flatten)]
+    pub common: StatsCommon,
+}
+
+#[derive(Debug, Args)]
+pub struct StatsRefreshArgs {
+    /// Agent to scan: claude|codex|pi|opencode|all
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub agent: Option<String>,
+    /// Ignore cached shards and re-extract every transcript
+    #[arg(long)]
+    pub force: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct StatsUsageArgs {
+    /// Bucket by day, month or 5-hour block
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub by: Option<String>,
+    /// Days back from now (default 30 by day, 365 by month, 7 by block)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub days: Option<String>,
+    /// Agent to scan: claude|codex|pi|opencode|all
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub agent: Option<String>,
+    /// IANA time zone for day and month keys (default: this machine's)
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub tz: Option<String>,
+    /// Ignore cached shards and re-extract every transcript
+    #[arg(long)]
+    pub force: bool,
 }
 
 /// `sessions` with no subcommand prints its help and exits 0.
