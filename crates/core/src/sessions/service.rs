@@ -14,6 +14,7 @@ use super::model::{AnalyzedSession, ParsedSession, SubagentRef, TurnsCost};
 use super::redact::{redact_parsed, redact_session};
 use super::resolve::{
     SessionError, SubagentStub, find_subagents, read_text, resolve_claude_session, resolve_session,
+    split_nested_id,
 };
 use super::workflows::{WorkflowCall, pick_workflow_call, workflow_calls_by_run};
 use crate::claude::{ParseArgs, parse_claude_session, parse_subagent_turns};
@@ -114,6 +115,21 @@ fn stamp_transcript(
     stamp_all(paths.into_iter().flatten())
 }
 
+/// The subagent with id `id`, else the one it is a prefix of. On a miss,
+/// the ids it is a prefix of (none, or more than one).
+fn pick_subagent<'a>(stubs: &'a [SubagentStub], id: &str) -> Result<&'a SubagentStub, Vec<String>> {
+    if let Some(exact) = stubs.iter().find(|s| s.id == id) {
+        return Ok(exact);
+    }
+    let mut prefixed: Vec<_> = stubs.iter().filter(|s| s.id.starts_with(id)).collect();
+    let mut seen = std::collections::HashSet::new();
+    prefixed.retain(|s| seen.insert(s.id.as_str()));
+    match prefixed.as_slice() {
+        [one] => Ok(one),
+        many => Err(many.iter().map(|s| s.id.clone()).collect()),
+    }
+}
+
 /// Read a subagent transcript through its parent session.
 fn load_nested(
     env: SessionEnv<'_>,
@@ -131,16 +147,13 @@ fn load_nested(
     }
     let loc = resolve_claude_session(&env.roots.claude, &owner.file.path)?;
     let stubs = find_subagents(loc.subagent_dir.as_deref());
-    let mut prefixed = stubs.iter().filter(|s| s.id.starts_with(id));
-    let unique = match (prefixed.next(), prefixed.next()) {
-        (Some(one), None) => Some(one),
-        _ => None,
-    };
-    let stub = stubs
-        .iter()
-        .find(|s| s.id == id)
-        .or(unique)
-        .ok_or_else(not_found)?;
+    let stub = pick_subagent(&stubs, id).map_err(|ids| {
+        if ids.is_empty() {
+            not_found()
+        } else {
+            SessionError::ambiguous(id, ids)
+        }
+    })?;
     let inputs = stamp_transcript(env, track, Agent::Claude, &stub.path, &stub.id);
     Ok(Loaded {
         agent: Agent::Claude,
@@ -161,6 +174,11 @@ fn load(
 ) -> Result<Loaded, SessionError> {
     if let Some(parent) = parent {
         return load_nested(env, target.id(), parent, track);
+    }
+    if let Target::Lookup(id) = target
+        && let Some((parent, agent)) = split_nested_id(id)
+    {
+        return load_nested(env, agent, parent, track);
     }
     let (agent, id, path, source) = match target {
         Target::Lookup(id) => {

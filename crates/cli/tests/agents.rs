@@ -323,5 +323,61 @@ fn codex_and_pi_sessions_list_and_analyze() {
     assert!(out.starts_with("# Pi title\n"), "{out}");
     let (code, _, err) = f.run(&["sessions", "analyze", "019f"]);
     assert_eq!(code, 1);
-    assert_eq!(err, "Session \"019f\" not found (searched all agents).\n");
+    assert_eq!(
+        err,
+        "Session \"019f\" is ambiguous: it matches 2 sessions \
+         (019f0000-0000-7000-8000-000000000001, 019f1111-0000-7000-8000-000000000001). \
+         Give more of the id.\n"
+    );
+    let (code, _, err) = f.run(&["sessions", "analyze", "019e"]);
+    assert_eq!(code, 1);
+    assert_eq!(err, "Session \"019e\" not found (searched all agents).\n");
+}
+
+// Codex UUIDv7 ids that share their first part: ls prints the shortest
+// prefix unique in the listing, and that prefix is one analyze accepts.
+
+#[test]
+fn ls_prints_ids_analyze_accepts_and_a_shared_part_is_ambiguous() {
+    const SAME: &str = "22222222-9999-4222-8222-222222222222";
+    let h = ls_home();
+    h.codex(SAME, CODEX_AT, CODEX_CWD);
+    let (code, out, _) = ls(&h, &["--agent", "codex"]);
+    assert_eq!(code, 0);
+    let printed: Vec<_> = data_rows(&out).iter().map(|r| r[0].to_owned()).collect();
+    let mut sorted = printed.clone();
+    sorted.sort();
+    assert_eq!(sorted, ["22222222-2", "22222222-9"]);
+    for id in &printed {
+        let (code, _, err) = h.run(&["sessions", "analyze", id]);
+        assert_eq!((code, err.as_str()), (0, ""), "{id}");
+    }
+    let (code, _, err) = h.run(&["sessions", "analyze", "22222222"]);
+    assert_eq!(code, 1);
+    assert!(
+        err.starts_with("Session \"22222222\" is ambiguous: it matches 2 sessions")
+            && err.contains(CODEX_ID)
+            && err.contains(SAME),
+        "{err}"
+    );
+}
+
+#[test]
+fn analyze_window_overrides_the_model_window() {
+    let h = ls_home();
+    let (code, out, err) = h.run(&[
+        "sessions", "analyze", CODEX_ID, "--window", "200000", "--json",
+    ]);
+    assert_eq!((code, err.as_str()), (0, ""));
+    let v: Value = serde_json::from_str(&out).expect("json");
+    assert_eq!(v["contextWindow"], 200_000.0);
+    assert_eq!(v["contextWindowInferred"], false);
+    for bad in ["0", "-5", "abc", ""] {
+        let (code, _, err) = h.run(&["sessions", "analyze", CODEX_ID, "--window", bad]);
+        assert_eq!(code, 1, "{bad}");
+        assert!(
+            err.contains("--window must be a positive number"),
+            "{bad}: {err}"
+        );
+    }
 }

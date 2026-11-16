@@ -391,6 +391,10 @@ pub struct TargetArgs {
 pub struct AnalyzeArgs {
     #[command(flatten)]
     pub target: TargetArgs,
+
+    /// Context window in tokens, instead of the one the model implies
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub window: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -413,7 +417,14 @@ pub struct ExportArgs {
 }
 
 /// Flags of `sessions analyze` and `sessions export` that take a value.
-const VALUE_FLAGS: [&str; 5] = ["--cwd", "--parent", "--format", "--out", "--log-level"];
+const VALUE_FLAGS: [&str; 6] = [
+    "--cwd",
+    "--parent",
+    "--window",
+    "--format",
+    "--out",
+    "--log-level",
+];
 
 /// The flag `@effect/cli` reports as missing its value: a value flag that
 /// ends the command line of a single-session command given no id. It reads

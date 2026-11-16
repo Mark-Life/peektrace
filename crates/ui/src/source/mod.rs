@@ -14,6 +14,7 @@ use peektrace_protocol::stats::{DrillView, StatsReportView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView, mend_surrogates};
 use peektrace_protocol::{
     ApiError, ApiErrorBody, Capability, ServerInfo, SettingsResult, SettingsUpdate, WatchVersions,
+    ambiguous_message,
 };
 
 use self::memory::{MemoryData, MemoryDone, MemoryWrite};
@@ -50,6 +51,11 @@ impl std::fmt::Display for LoadError {
             Self::Api(ApiError::SessionNotFoundError { id, .. }) => {
                 write!(f, "Session {id} was not found.")
             }
+            Self::Api(ApiError::SessionAmbiguousError {
+                id,
+                candidates,
+                count,
+            }) => f.write_str(&ambiguous_message(id, candidates, *count)),
             Self::Api(ApiError::TranscriptParseError { path, reason }) => {
                 write!(f, "Could not read {path}: {reason}")
             }

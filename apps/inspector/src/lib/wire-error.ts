@@ -20,6 +20,7 @@ const WIRE_TAGS = new Set<string>([
   "CapabilityUnsupportedError",
   "PathOutsideRootError",
   "SessionNotFoundError",
+  "SessionAmbiguousError",
   "TranscriptParseError",
   "SettingsWriteError",
   "StatsScanError",
@@ -83,6 +84,17 @@ export const wireErrorMessage = (error: WireError): string => {
 
     case "SessionNotFoundError": {
       return `Session "${error.id}" was not found.`;
+    }
+
+    case "SessionAmbiguousError": {
+      const more = error.count - error.candidates.length;
+
+      const listed =
+        more > 0
+          ? `${error.candidates.join(", ")}, and ${more} more`
+          : error.candidates.join(", ");
+
+      return `Session "${error.id}" is ambiguous: it matches ${error.count} sessions (${listed}). Give more of the id.`;
     }
 
     case "TranscriptParseError": {

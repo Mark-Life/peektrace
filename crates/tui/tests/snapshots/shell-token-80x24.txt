@@ -1,7 +1,7 @@
  Peektrace   1    2    3    4    5                                        token
  ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis────────────────────╮
  │                                            │ │                             │
- │ / filter (press /)                         │ │ Fix the f…  ● Healthy  peak │
+ │ / filter (press /)                         │ │ Fix the f…  ● Degrading  pe │
  │ agent: all · a to cycle                    │ │                             │
  │                                            │ │  History   Growth   g toggl │
  │ ╭───────────────────────────────────────╮  │ │                             │

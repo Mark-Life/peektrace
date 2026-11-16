@@ -12,7 +12,7 @@ use crate::args::SearchArgs;
 use crate::ls::{
     CLI_NAMES, Context, Globals, InputNames, UserError, parse_agent, parse_bounds, parse_limit,
 };
-use crate::render::{self, clip_to_width, printable, short_id};
+use crate::render::{self, clip_to_width, printable, unique_prefixes};
 use crate::single::{Output, agent_roots};
 use peektrace_core::js::system_zone::SystemZone;
 
@@ -25,7 +25,7 @@ const HEADERS: [&str; 6] = [
 /// One row per hit; the session columns fill only the first. The pretty
 /// table shortens project and date so the fixed columns fit a narrow
 /// terminal.
-fn session_rows(s: &SearchSession, pretty: bool) -> Vec<Vec<String>> {
+fn session_rows(s: &SearchSession, id: &str, pretty: bool) -> Vec<Vec<String>> {
     s.hits
         .iter()
         .enumerate()
@@ -33,7 +33,7 @@ fn session_rows(s: &SearchSession, pretty: bool) -> Vec<Vec<String>> {
             let mut row = if i == 0 {
                 let project = printable(&s.project);
                 vec![
-                    printable(short_id(&s.id)),
+                    printable(id),
                     s.agent.as_str().to_owned(),
                     if pretty {
                         clip_to_width(&project, PRETTY_PROJECT_WIDTH)
@@ -58,9 +58,12 @@ fn session_rows(s: &SearchSession, pretty: bool) -> Vec<Vec<String>> {
 
 /// The hits table.
 pub fn render_search(sessions: &[SearchSession], pretty: bool, max_width: Option<usize>) -> String {
+    let among: Vec<&str> = sessions.iter().map(|s| s.id.as_str()).collect();
+    let ids = unique_prefixes(among.iter().copied(), &among);
     let rows: Vec<Vec<String>> = sessions
         .iter()
-        .flat_map(|s| session_rows(s, pretty))
+        .zip(ids)
+        .flat_map(|(s, id)| session_rows(s, id, pretty))
         .collect();
     render::fit_table(&HEADERS, &rows, pretty, max_width)
 }
@@ -217,7 +220,7 @@ mod tests {
         assert_eq!(
             render_search(&[session()], false, Some(10)),
             "session\tagent\tproject\tupdated\tmatches\tsnippet\n\
-             abc\tclaude\tsessions-opencode\t2026-11-12T03:32:31.236Z\t2\tL3  hey there\n\
+             abc-def\tclaude\tsessions-opencode\t2026-11-12T03:32:31.236Z\t2\tL3  hey there\n\
              \t\t\t\t\tL5  again"
         );
     }

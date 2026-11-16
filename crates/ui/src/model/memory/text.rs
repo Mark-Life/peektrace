@@ -2,7 +2,7 @@
 //! errors (`lib/wire-error.ts`).
 
 use peektrace_protocol::view::memory::{DeleteView, ProjectSummaryView};
-use peektrace_protocol::{ApiError, FileChangeReason};
+use peektrace_protocol::{ApiError, FileChangeReason, ambiguous_message};
 
 /// CSS `text-transform: capitalize`: each word's first letter upper case.
 pub fn capitalize(s: &str) -> String {
@@ -141,6 +141,11 @@ pub fn wire_error_message(e: &ApiError) -> String {
             format!("Refused: {path} is outside the agent roots.")
         }
         ApiError::SessionNotFoundError { id, .. } => format!("Session \"{id}\" was not found."),
+        ApiError::SessionAmbiguousError {
+            id,
+            candidates,
+            count,
+        } => ambiguous_message(id, candidates, *count),
         ApiError::TranscriptParseError { reason, .. } => format!(
             "That transcript could not be read ({reason}). The file may be locked or malformed."
         ),
