@@ -331,6 +331,9 @@ const CARDS: readonly (readonly [string, PriceCard])[] = [
   ["gpt-4.1-mini", openai({ input: 0.4, cached: 0.1, output: 1.6 })],
 ];
 
+/** Every rate-card key. The Rust parity harness prices one session per key. */
+export const PRICE_KEYS: readonly string[] = CARDS.map(([key]) => key);
+
 /** Longest key first, so `opus-4-1` wins over `opus-4`. */
 const PRICE_CARDS = [...CARDS].sort((a, b) => b[0].length - a[0].length);
 
