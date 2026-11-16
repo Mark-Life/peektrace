@@ -74,6 +74,18 @@ fn up_to_date_line(installed: &str, tag: &str, forced: bool) -> String {
     )
 }
 
+/// What `--check` reports; it matches what a real run would do.
+fn check_line(tag: &str, installed: &str, forced: bool, exe: &str) -> String {
+    match release::compare_versions(tag, installed) {
+        Ordering::Greater => notice::update_hint(tag, exe),
+        Ordering::Less if forced => format!(
+            "peektrace upgrade would install the requested release {tag} over installed {}.",
+            release::normalize_tag(installed)
+        ),
+        _ => up_to_date_line(installed, tag, forced),
+    }
+}
+
 /// Run `upgrade`; each stdout line goes to `print` as it is decided, so
 /// `Fetching ...` shows before the download.
 pub fn run(
@@ -96,17 +108,12 @@ pub fn run(
     let pinned = args.version.as_deref();
     let tag = release::resolve_target_tag(&agent, config, pinned)?;
     let forced = pinned.is_some() || config.pinned_version.is_some();
-    let up_to_date = up_to_date_line(env.version, &tag, forced);
     if args.check {
-        if is_newer(&tag, env.version) {
-            print(&notice::update_hint(&tag, &env.exe));
-        } else {
-            print(&up_to_date);
-        }
+        print(&check_line(&tag, env.version, forced, &env.exe));
         return Ok(());
     }
     if !should_install(&tag, env.version, forced) {
-        print(&up_to_date);
+        print(&up_to_date_line(env.version, &tag, forced));
         return Ok(());
     }
     if os == Os::Windows {
@@ -165,6 +172,24 @@ mod tests {
         assert_eq!(
             up_to_date_line("cli-v0.13.0", "cli-v0.13.0", true),
             "peektrace is up to date: installed cli-v0.13.0, requested release cli-v0.13.0."
+        );
+    }
+
+    #[test]
+    fn check_matches_the_real_run() {
+        let exe = "/usr/local/bin/peektrace";
+        assert!(
+            check_line("cli-v0.13.0", "0.13.0-rc.1", false, exe).starts_with("A newer version")
+        );
+        assert!(
+            check_line("cli-v0.12.0", "0.13.0", false, exe).starts_with("peektrace is up to date")
+        );
+        assert_eq!(
+            check_line("cli-v0.12.0", "0.13.0", true, exe),
+            "peektrace upgrade would install the requested release cli-v0.12.0 over installed cli-v0.13.0."
+        );
+        assert!(
+            check_line("cli-v0.13.0", "0.13.0", true, exe).starts_with("peektrace is up to date")
         );
     }
 }
