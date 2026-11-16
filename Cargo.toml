@@ -48,3 +48,13 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 strip = true
+
+# Parity checks in CI: release semantics (embedded UI, no debug assertions),
+# built fast.
+[profile.parity]
+inherits = "release"
+opt-level = 2
+lto = "off"
+codegen-units = 16
+debug-assertions = false
+incremental = false

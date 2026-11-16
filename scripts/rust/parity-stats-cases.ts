@@ -27,6 +27,7 @@ type Args = readonly string[];
 const TS_DEFECT =
   /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#|Could not scan the corpus: TypeError/m;
 const WINDOW_LINE = /^peektrace stats {2}(\S+) window {2}.* → .*$/m;
+const DATA_RANGE = /^Data \(\d{4}-\d{2}-\d{2} → \d{4}-\d{2}-\d{2}\):$/m;
 const BASE = ["--no-telemetry"];
 const GENERATED_AT = /^ {2}"generatedAt": .*\n/m;
 const FROM_ISO = /^ {4}"fromIso": .*\n/m;
@@ -49,11 +50,39 @@ const stripClock = (stdout: string): string => {
   }
 };
 
-/** A stats text or JSON body with its clock-dependent parts masked. */
+/** A stats text or JSON body with its clock-dependent parts masked: the
+ * report window line and the prompt's `Data (<from> → <to>):` line. */
 export const maskStatsClock = (text: string) =>
-  stripClock(text).replace(WINDOW_LINE, "peektrace stats  $1 window  <window>");
+  stripClock(text)
+    .replace(WINDOW_LINE, "peektrace stats  $1 window  <window>")
+    .replace(DATA_RANGE, "Data (<window>):");
 
 const normalise = (r: Run): Run => ({ ...r, stdout: maskStatsClock(r.stdout) });
+
+const CLOCK_VALUES = [
+  /^( {2}"generatedAt"): .*?(,?)$/m,
+  /^( {4}"fromIso"): .*?(,?)$/m,
+  /^( {4}"toIso"): .*?(,?)$/m,
+];
+
+/** Record-time canon: the clock fields keep their lines with a fixed value,
+ * so the JSON still parses for key discovery and `maskStatsClock` drops
+ * them as before. */
+export const canonStatsClock = (r: Run): Run => {
+  try {
+    const v = JSON.parse(r.stdout) as Record<string, unknown>;
+    if (typeof v !== "object" || v === null || !("schemaVersion" in v)) {
+      return r;
+    }
+    const stdout = CLOCK_VALUES.reduce(
+      (acc, re) => acc.replace(re, '$1: "<clock>"$2'),
+      r.stdout
+    );
+    return { ...r, stdout };
+  } catch {
+    return { ...r, stdout: maskStatsClock(r.stdout) };
+  }
+};
 
 export interface Stage {
   readonly env: Record<string, string>;
@@ -62,7 +91,9 @@ export interface Stage {
 }
 
 const runBoth = (stage: Stage, args: Args) => {
-  const ts = run([...TS_CMD, ...BASE, ...args], stage.env);
+  const ts = run([...TS_CMD, ...BASE, ...args], stage.env, {
+    canon: canonStatsClock,
+  });
   const rust = run([rustBin, ...BASE, ...args], stage.env);
   return { raw: ts.stdout, ts: normalise(ts), rust: normalise(rust) };
 };

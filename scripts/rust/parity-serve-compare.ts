@@ -77,6 +77,20 @@ export const exitDiff = (exit: RpcExit, r: ApiAnswer, norm: Norm = same) => {
   return [...status, ...jsonDiff(norm(exit.error), norm(error))];
 };
 
+/** An exit with `norm` applied to its value. */
+export const normExit =
+  (norm: Norm) =>
+  (exit: RpcExit): RpcExit =>
+    exit.kind === "ok" ? { kind: "ok", value: norm(exit.value) } : exit;
+
+export interface CompareOpts {
+  /** Record the TS answer through `norm`, so the golden keeps only what is
+   * compared. `norm` must give the same result run twice. */
+  readonly keepNormed?: boolean;
+  readonly norm?: Norm;
+  readonly retry?: boolean;
+}
+
 export interface Compared {
   readonly exit: RpcExit;
   readonly rust: ApiAnswer;
@@ -89,12 +103,16 @@ export const compareCall = async (
   pair: Pair,
   label: string,
   call: Call,
-  opts: { readonly norm?: Norm; readonly retry?: boolean } = {}
+  opts: CompareOpts = {}
 ): Promise<Compared> => {
   c.cases += 1;
   c.features += 1;
+  const canon =
+    opts.keepNormed === true && opts.norm !== undefined
+      ? normExit(opts.norm)
+      : undefined;
   const once = async () => {
-    const exit = await rpc(pair.ts.port, call.tag, call.payload ?? {});
+    const exit = await rpc(pair.ts.port, call.tag, call.payload ?? {}, canon);
     const rust = await api(pair.rust.port, call.path, call.init);
     return { exit, rust, diffs: exitDiff(exit, rust, opts.norm) };
   };
@@ -173,4 +191,19 @@ export const dropClock: Norm = (v) => {
   }
   const { fromIso: _f, toIso: _t, ...w } = window as Record<string, unknown>;
   return { ...rest, window: w };
+};
+
+const WINDOW_KEYS = new Set(["schemaVersion", "by", "tz", "window"]);
+
+/** Only how a windowed answer resolved its window, without the clock. Its
+ * rows count fixture data with fixed dates against each run's clock, so a
+ * recorded answer would drift from a later one as days pass. */
+export const windowOnly: Norm = (v) => {
+  const d = dropClock(v);
+  if (d === null || typeof d !== "object" || !("window" in d)) {
+    return d;
+  }
+  return Object.fromEntries(
+    Object.entries(d).filter(([k]) => WINDOW_KEYS.has(k))
+  );
 };

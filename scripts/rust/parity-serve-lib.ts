@@ -5,17 +5,27 @@ import { connect, createServer } from "node:net";
 import { join } from "node:path";
 import type { Subprocess } from "bun";
 import { REPO, report, rustBin, TS_CMD, WORK } from "./parity-lib";
+import { ORACLE_MODE, PINNED, tsValue } from "./parity-oracle";
 
 const READY = /PEEKTRACE_READY:(\d+)/;
 const START_TIMEOUT_MS = 30_000;
 const MAX_PATHS = 10;
+/** TS servers listen on fixed ports when goldens are recorded or replayed,
+ * so the keys and the recorded text do not move from run to run. The range
+ * sits below every OS ephemeral range (Linux 32768+, macOS and Windows
+ * 49152+), so no client socket the kernel opens can hold one. */
+export const TS_PORT_BASE = 20_000;
+export const TS_PORT_SPAN = 100;
+let tsServers = 0;
+const tsPorts = new Set<number>();
 
 export interface Server {
   readonly label: "ts" | "rust";
   /** Everything printed so far. */
   readonly out: { stdout: string; stderr: string };
   readonly port: number;
-  readonly proc: Subprocess<"ignore", "pipe", "pipe">;
+  /** Absent for a replayed TS server: nothing runs. */
+  readonly proc?: Subprocess<"ignore", "pipe", "pipe">;
 }
 
 const drain = async (
@@ -27,6 +37,20 @@ const drain = async (
     sink(decoder.decode(chunk, { stream: true }));
   }
 };
+
+const running = new Set<Subprocess>();
+const stopAll = () => {
+  for (const proc of running) {
+    proc.kill();
+  }
+};
+process.on("exit", stopAll);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    stopAll();
+    process.exit(130);
+  });
+}
 
 /** Start `serve` and wait for its `PEEKTRACE_READY:<port>` line. */
 export const startServer = async (
@@ -46,6 +70,7 @@ export const startServer = async (
     stdout: "pipe",
     stderr: "pipe",
   });
+  running.add(proc);
   const out = { stdout: "", stderr: "" };
   drain(proc.stdout, (s) => {
     out.stdout += s;
@@ -76,8 +101,7 @@ export interface Pair {
   readonly tsDir: string;
 }
 
-/** A free port far from the others in use. */
-export const freePort = () =>
+const anyPort = () =>
   new Promise<number>((done) => {
     const srv = createServer();
     srv.listen(0, "127.0.0.1", () => {
@@ -86,6 +110,53 @@ export const freePort = () =>
       srv.close(() => done(port));
     });
   });
+
+const isTsPort = (port: number) =>
+  port >= TS_PORT_BASE && port < TS_PORT_BASE + TS_PORT_SPAN;
+
+/** A free port far from the others in use, never a fixed TS one. */
+export const freePort = async (): Promise<number> => {
+  const port = await anyPort();
+  return PINNED && isTsPort(port) ? freePort() : port;
+};
+
+const tsPort = () => {
+  if (!PINNED) {
+    return freePort();
+  }
+  const port = TS_PORT_BASE + tsServers;
+  tsServers += 1;
+  return Promise.resolve(port);
+};
+
+/** The TS server of a pair: started, or in replay a stub with the startup
+ * output it printed when recorded. */
+const startTs = async (
+  name: string,
+  args: readonly string[],
+  env: Record<string, string>
+): Promise<Server> => {
+  const port = await tsPort();
+  tsPorts.add(port);
+  const key = `serve ${name} startup`;
+  if (ORACLE_MODE === "replay") {
+    const out = await tsValue(key, () => ({ stdout: "", stderr: "" }));
+    return { label: "ts", port, out };
+  }
+  const server = await startServer(
+    "ts",
+    ["--port", String(port), ...args],
+    env
+  );
+  if (PINNED && server.port !== port) {
+    await stopServer(server);
+    throw new Error(
+      `TS serve took port ${server.port}, not ${port}: free ${TS_PORT_BASE}-${TS_PORT_BASE + TS_PORT_SPAN - 1}`
+    );
+  }
+  await tsValue(key, () => ({ ...server.out }));
+  return server;
+};
 
 /** Start a TS and a Rust server with the same flags. Each gets its own
  * `PEEKTRACE_DIR`, or both get `shared` (TS caches stats in `stats/`, Rust
@@ -107,11 +178,10 @@ export const startPair = async (
   const rustDir = shared ?? join(WORK, "serve", name, "rust-dir");
   mkdirSync(tsDir, { recursive: true });
   mkdirSync(rustDir, { recursive: true });
-  const ts = await startServer(
-    "ts",
-    ["--port", String(await freePort()), ...flags],
-    { ...env("ts"), PEEKTRACE_DIR: tsDir }
-  );
+  const ts = await startTs(name, flags, {
+    ...env("ts"),
+    PEEKTRACE_DIR: tsDir,
+  });
   try {
     const rust = await startServer(
       "rust",
@@ -142,7 +212,8 @@ export const withPair = async (
 };
 
 export const stopServer = async (s: Server | undefined) => {
-  if (s) {
+  if (s?.proc) {
+    running.delete(s.proc);
     s.proc.kill();
     await s.proc.exited;
   }
@@ -154,11 +225,24 @@ export type RpcExit =
   | { readonly kind: "fail"; readonly error: unknown }
   | { readonly kind: "die"; readonly cause: unknown };
 
-/** One TS RPC call over NDJSON. */
-export const rpc = async (
+/** One TS RPC call over NDJSON; recorded (through `canon`, if given) and
+ * replayed as a TS result. */
+export const rpc = (
   port: number,
   tag: string,
-  payload: unknown = {}
+  payload: unknown = {},
+  canon?: (exit: RpcExit) => RpcExit
+): Promise<RpcExit> =>
+  tsValue(
+    `rpc ${port} ${tag} ${JSON.stringify(payload)}`,
+    () => rpcLive(port, tag, payload),
+    canon === undefined ? {} : { canon }
+  );
+
+const rpcLive = async (
+  port: number,
+  tag: string,
+  payload: unknown
 ): Promise<RpcExit> => {
   const body = `${JSON.stringify({ _tag: "Request", id: "1", tag, payload, headers: [] })}\n`;
   const res = await fetch(`http://127.0.0.1:${port}/rpc`, {
@@ -209,8 +293,32 @@ export interface RawAnswer {
   readonly status: number;
 }
 
-/** Send `request` as written over a plain socket; parse the answer. */
+/** Send `request` as written over a plain socket; parse the answer. A TS
+ * server's answer is recorded and replayed. */
 export const raw = (port: number, request: string) =>
+  tsPorts.has(port)
+    ? tsValue(`raw ${request}`, () => rawLive(port, request), {
+        canon: comparedHeaders,
+      })
+    : rawLive(port, request);
+
+/** Headers the serve stage compares; the rest (date, etag) move per run. */
+const COMPARED_HEADERS = new Set([
+  "cache-control",
+  "content-type",
+  "location",
+  "referrer-policy",
+  "set-cookie",
+]);
+
+const comparedHeaders = (a: RawAnswer): RawAnswer => ({
+  ...a,
+  headers: Object.fromEntries(
+    Object.entries(a.headers).filter(([k]) => COMPARED_HEADERS.has(k))
+  ),
+});
+
+const rawLive = (port: number, request: string) =>
   new Promise<RawAnswer>((resolveAnswer, reject) => {
     const socket = connect(port, "127.0.0.1");
     const chunks: Buffer[] = [];

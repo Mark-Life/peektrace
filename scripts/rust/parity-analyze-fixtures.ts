@@ -34,27 +34,28 @@ import {
   user,
   WIDE_MEMORY,
 } from "./parity-analyze-records";
+import { FAKE_SECRETS as F } from "./parity-fake-secrets";
 
 const NO_ACCESS = 0o000;
 
 export const SECRETS = [
-  "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----",
-  `key sk-ant-api03-${"A1b2".repeat(12)}`,
-  `openai sk-proj-${"x9Y8".repeat(7)} and sk-ant-short`,
-  `gh ghp_${"a1B2".repeat(9)} pat github_pat_${"c".repeat(82)}`,
-  `gl glpat-${"d".repeat(20)} aws AKIA${"ABCD1234".repeat(2)}`,
-  `google AIza${"e".repeat(35)} oauth ya29.${"f".repeat(25)}`,
-  `slack xoxb-${"1".repeat(15)} app xapp-1-${"g".repeat(12)}`,
-  `hook https://hooks.slack.com/services/T123/B456/${"h".repeat(24)}`,
-  `stripe sk_live_${"i".repeat(20)} whsec_${"j".repeat(25)}`,
-  `sg SG.${"k".repeat(22)}.${"l".repeat(43)} npm npm_${"m".repeat(36)}`,
-  `do dop_v1_${"ab12".repeat(16)} hf hf_${"n".repeat(34)}`,
-  `jwt eyJ${"o".repeat(12)}.${"p".repeat(8)}.${"q".repeat(10)}`,
+  `${F.pemHeader}\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----`,
+  `key ${F.anthropic}`,
+  `openai ${F.openai} and sk-ant-short`,
+  `gh ${F.github} pat ${F.githubPat}`,
+  `gl ${F.gitlab} aws ${F.awsKeyId}`,
+  `google ${F.google} oauth ${F.googleOauth}`,
+  `slack ${F.slackBot} app ${F.slackApp}`,
+  `hook https://${F.slackHook}`,
+  `stripe ${F.stripe} ${F.stripeHook}`,
+  `sg ${F.sendgrid} npm ${F.npm}`,
+  `do ${F.digitalocean} hf ${F.huggingface}`,
+  `jwt ${F.jwt}`,
   `Authorization: Bearer ${"r".repeat(25)}`,
   `"Authorization": "Basic ${"dXNlcjpwYXNz".repeat(2)}="`,
-  "mongodb+srv://admin:pa55word@host/db and https://user@host/x",
-  `aws_secret_access_key = "${"Ab1/Cd2+Ef3=Gh4/Ij5+Kl6=Mn7/Op8+Qr9=St0/"}"`,
-  `twilio AC${"0a1b".repeat(8)} and SK${"2c3d".repeat(8)}`,
+  `${F.mongodb}/db and https://user@host/x`,
+  `aws_secret_access_key = "${F.awsSecret}"`,
+  `twilio ${F.twilioAccount} and ${F.twilioKey}`,
   `password: hunter2hunter2 token=abcdef123 api_key = 'placeholder' secret=\${SECRET}`,
   'export DB_PASSWORD=supersecret123\nAPI_URL=https://x\nMY_TOKEN="changeme"\r\nPRIVATE_KEY=abc\u2028NAME_KEY=zzz',
   "credential is Zx9Qw3Er5Ty7Ui9Op1As3Df5Gh7Jk9Lz2 and plain Zx9Qw3Er5Ty7Ui9Op1As3Df5Gh7Jk9Lz3",
@@ -64,7 +65,7 @@ export const SECRETS = [
 
 const secrets = doc(
   { ...user(1, SECRETS.join("\n\n")), cwd: "/tmp/secret-dir" },
-  { type: "ai-title", aiTitle: `title ghp_${"a1B2".repeat(9)}` },
+  { type: "ai-title", aiTitle: `title ${F.github}` },
   asst(2, "r1", [
     text(SECRETS.slice(0, 4).join(" ")),
     tool("t1", { k: SECRETS[12] }),
@@ -204,7 +205,7 @@ const homeFiles = (home: string): Record<string, string> => {
     [`${subs}/agent-a.jsonl`]: sub(10),
     [`${subs}/agent-a.meta.json`]: L({
       agentType: "Explore",
-      description: `look at ${home}/x with ghp_${"a1B2".repeat(9)}`,
+      description: `look at ${home}/x with ${F.github}`,
       toolUseId: "call-1",
     }),
     [`${subs}/agent-b.jsonl`]: sub(11),

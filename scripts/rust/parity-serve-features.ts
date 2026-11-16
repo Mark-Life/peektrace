@@ -13,7 +13,7 @@
  */
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { fixtureEnv, WORK } from "./parity-lib";
+import { COPY, fixtureEnv, WORK } from "./parity-lib";
 import { buildMemHome, EXTRA_SLUGS } from "./parity-memory-fixtures";
 import type { Counts } from "./parity-serve-cases";
 import { compareCall, type Norm, query } from "./parity-serve-compare";
@@ -79,10 +79,10 @@ const searchCase = (c: Counts, pair: Pair, label: string, s: Search) =>
 const copyMemory = (mem: string, home: string) => {
   const keep = (s: string) => !s.endsWith("locked.md");
   cpSync(join(mem, ".claude/projects"), join(home, ".claude/projects"), {
-    recursive: true,
+    ...COPY,
     filter: keep,
   });
-  cpSync(join(mem, "outside"), join(home, "outside"), { recursive: true });
+  cpSync(join(mem, "outside"), join(home, "outside"), COPY);
 };
 
 export const fixtureFeatures = async (c: Counts, dist: string) => {
