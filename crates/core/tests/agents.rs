@@ -369,6 +369,7 @@ fn lists_and_resolves_across_agents() {
             &ListFilter {
                 agent: None,
                 project: Some(project.to_owned()),
+                ..ListFilter::default()
             },
         )
         .headers

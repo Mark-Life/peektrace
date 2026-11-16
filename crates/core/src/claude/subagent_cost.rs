@@ -14,7 +14,7 @@ use tracing::debug;
 use super::read::subagent_cost;
 use crate::discover::stamp_of;
 use crate::headers::Outcome;
-use crate::model::{FileStamp, SessionHeader};
+use crate::model::{FileStamp, HeaderCost, SessionHeader};
 use crate::sessions::cost::header_cost;
 use crate::sessions::model::TurnsCost;
 
@@ -46,9 +46,12 @@ impl SubagentCosts {
     }
 }
 
+/// Subdirs deeper than this are not walked, so a symlink loop ends.
+const MAX_DEPTH: usize = 8;
+
 /// Every `agent-*.jsonl` under `dir` and its subdirs, as `find_subagents`
 /// walks them, with its stamp.
-fn subagent_files(dir: &Path, out: &mut Vec<(PathBuf, FileStamp)>) {
+fn subagent_files(dir: &Path, depth: usize, out: &mut Vec<(PathBuf, FileStamp)>) {
     let Ok(read) = fs::read_dir(dir) else {
         return;
     };
@@ -58,7 +61,9 @@ fn subagent_files(dir: &Path, out: &mut Vec<(PathBuf, FileStamp)>) {
             continue;
         };
         if meta.is_dir() {
-            subagent_files(&path, out);
+            if depth < MAX_DEPTH {
+                subagent_files(&path, depth + 1, out);
+            }
         } else if meta.is_file()
             && entry
                 .file_name()
@@ -79,7 +84,11 @@ fn subagent_dir(transcript: &str) -> Option<PathBuf> {
 /// One subagent file's cost: cached at this stamp, else read. `None` when
 /// the file cannot be read.
 fn file_cost(path: &Path, stamp: FileStamp, cache: Option<&SubagentCosts>) -> Option<TurnsCost> {
-    if let Some(c) = cache.and_then(|c| c.get(path, stamp)) {
+    // A chmod keeps size and mtime, so a hit counts only while the file
+    // still opens.
+    if let Some(c) = cache.and_then(|c| c.get(path, stamp))
+        && fs::File::open(path).is_ok()
+    {
         return Some(c);
     }
     match subagent_cost(path) {
@@ -101,7 +110,7 @@ fn add_to(h: &mut SessionHeader, cache: Option<&SubagentCosts>) -> Vec<(PathBuf,
         return Vec::new();
     };
     let mut files = Vec::new();
-    subagent_files(&dir, &mut files);
+    subagent_files(&dir, 0, &mut files);
     if files.is_empty() {
         return Vec::new();
     }
@@ -122,6 +131,17 @@ fn add_to(h: &mut SessionHeader, cache: Option<&SubagentCosts>) -> Vec<(PathBuf,
     }
     h.cost = header_cost(&parts);
     seen
+}
+
+/// Leave unknown every Claude cost that subagent files could still add to.
+pub fn drop_pending_costs(outcomes: &mut [Outcome]) {
+    for o in outcomes {
+        if let Outcome::Header(h) = o
+            && h.cost_parts.is_some()
+        {
+            h.cost = HeaderCost::default();
+        }
+    }
 }
 
 /// Add subagent costs to every Claude header that still needs them.

@@ -34,6 +34,7 @@ fn claude_only(project: Option<&str>) -> ListFilter {
     ListFilter {
         agent: Some(Agent::Claude),
         project: project.map(str::to_owned),
+        ..ListFilter::default()
     }
 }
 
@@ -120,6 +121,7 @@ fn agents_without_roots_list_nothing() {
     let filter = ListFilter {
         agent: Some(Agent::Codex),
         project: None,
+        ..ListFilter::default()
     };
     let listing = list_sessions(&roots_at(&fixtures("")), &filter);
     assert_eq!(listing.headers, Vec::new());

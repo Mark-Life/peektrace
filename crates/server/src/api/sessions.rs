@@ -59,7 +59,11 @@ pub async fn sessions(State(state): Shared, method: Method, RawQuery(raw): RawQu
                 let _entered = current.enter();
                 Ok::<_, ApiError>(list_sessions_cached(
                     &state.roots,
-                    &ListFilter { agent, project },
+                    &ListFilter {
+                        agent,
+                        project,
+                        ..ListFilter::default()
+                    },
                     &state.headers,
                 ))
             })

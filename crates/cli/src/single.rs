@@ -149,7 +149,10 @@ fn resolve_target(
             let (mut headers, unreadable) = if let Some(r) = remote {
                 listing_from_json(&r.get_json(&["sessions"], &[])?).ok_or_else(|| r.unexpected())?
             } else {
-                let filter = ListFilter::default();
+                let filter = ListFilter {
+                    skip_subagent_costs: true,
+                    ..ListFilter::default()
+                };
                 let listing = match headers {
                     Some(cache) => list_sessions_cached(roots, &filter, cache),
                     None => list_sessions(roots, &filter),

@@ -319,6 +319,7 @@ fn header_cost(text: &str) -> (Option<f64>, Option<Vec<String>>) {
     let filter = ListFilter {
         agent: Some(Agent::Claude),
         project: None,
+        ..ListFilter::default()
     };
     let listing = list_sessions(&roots, &filter);
     let h = listing.headers.first().expect("header");

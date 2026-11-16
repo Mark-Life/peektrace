@@ -116,6 +116,7 @@ fn claude_only() -> ListFilter {
     ListFilter {
         agent: Some(Agent::Claude),
         project: None,
+        ..ListFilter::default()
     }
 }
 
@@ -283,4 +284,60 @@ fn opencode_rows_match_the_detail_with_and_without_a_record() {
     );
     assert!(listing.headers.iter().any(|h| h.cost.from_agent));
     assert!(listing.headers.iter().any(|h| !h.cost.from_agent));
+}
+
+#[test]
+fn the_same_id_in_two_projects_keeps_its_own_subagents() {
+    let projects = temp_dir("list-cost-dup");
+    claude_session(&projects.join("-a"), "dup", &[]);
+    fs::remove_dir_all(projects.join("-a/dup")).expect("rm");
+    claude_session(&projects.join("-b"), "dup", &[]);
+    let roots = claude_roots(&projects);
+    let listing = list_sessions(&roots, &claude_only());
+    assert_eq!(
+        assert_list_matches_detail(&roots, &listing.headers).len(),
+        2
+    );
+    let [a, b] = listing.headers.as_slice() else {
+        panic!("two rows")
+    };
+    assert_ne!(a.cost.usd, b.cost.usd, "only one has subagent files");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_cached_subagent_that_stops_opening_counts_as_unreadable() {
+    use std::os::unix::fs::PermissionsExt;
+    let projects = temp_dir("list-cost-chmod");
+    claude_session(&projects.join("-p"), "s", &[]);
+    let file = projects.join("-p/s/subagents/agent-a0.jsonl");
+    fs::rename(projects.join("-p/s/subagents/agent-a1.jsonl"), &file).expect("mv");
+    let roots = claude_roots(&projects);
+    let cache = HeaderCache::default();
+    let before = list_sessions_cached(&roots, &claude_only(), &cache).headers;
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod");
+    if fs::File::open(&file).is_ok() {
+        return; // running as root: the file still opens
+    }
+    let after = list_sessions_cached(&roots, &claude_only(), &cache).headers;
+    let uncached = list_sessions(&roots, &claude_only()).headers;
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("chmod back");
+    assert_eq!(after[0].cost, uncached[0].cost);
+    assert_ne!(after[0].cost, before[0].cost);
+}
+
+#[test]
+fn a_list_that_skips_subagents_leaves_their_cost_unknown() {
+    let projects = temp_dir("list-cost-skip");
+    let slug = projects.join("-p");
+    claude_session(&slug, "none", &[]);
+    claude_session(&slug, "full", &[cost_state("full", T0_MS - 1000, 9.5)]);
+    let roots = claude_roots(&projects);
+    let filter = ListFilter {
+        skip_subagent_costs: true,
+        ..claude_only()
+    };
+    let h = list_sessions(&roots, &filter).headers;
+    assert_eq!(by_id(&h, "none").cost.usd, None);
+    assert_eq!(by_id(&h, "full").cost.usd, Some(9.5));
 }

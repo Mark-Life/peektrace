@@ -47,6 +47,9 @@ pub struct ListFilter {
     pub agent: Option<Agent>,
     /// Exact project slug; empty means no filter.
     pub project: Option<String>,
+    /// For callers that never show cost: Claude subagent files are not
+    /// read, and a cost they could add to is left unknown.
+    pub skip_subagent_costs: bool,
 }
 
 /// Transcript files of one agent. A Claude or Pi row's project is its slug,
@@ -90,10 +93,11 @@ fn in_project(o: &Outcome, project: Option<&str>) -> bool {
 fn agent_outcomes(
     agent: Agent,
     roots: &AgentRoots,
-    project: Option<&str>,
+    filter: &ListFilter,
     cache: Option<&HeaderCache>,
     parent: &Span,
 ) -> Vec<Outcome> {
+    let project = filter.project.as_deref();
     let refs = session_files(agent, roots, project);
     let load = |refs: &[SessionFileRef]| match agent {
         Agent::Claude => claude::load_headers(refs, parent),
@@ -107,7 +111,11 @@ fn agent_outcomes(
         _ => load(&refs),
     };
     if agent == Agent::Claude {
-        claude::add_subagent_costs(&mut outcomes, cache.map(|c| &c.subagents), complete);
+        if filter.skip_subagent_costs {
+            claude::drop_pending_costs(&mut outcomes);
+        } else {
+            claude::add_subagent_costs(&mut outcomes, cache.map(|c| &c.subagents), complete);
+        }
     }
     match agent {
         Agent::Codex | Agent::Opencode => outcomes
@@ -165,7 +173,7 @@ fn list_with(
     let outcomes = Agent::ALL
         .into_iter()
         .filter(|a| filter.agent.is_none_or(|f| f == *a))
-        .flat_map(|agent| agent_outcomes(agent, roots, filter.project.as_deref(), cache, &span))
+        .flat_map(|agent| agent_outcomes(agent, roots, filter, cache, &span))
         .collect();
     let listing = to_listing(outcomes);
     let malformed: u64 = listing

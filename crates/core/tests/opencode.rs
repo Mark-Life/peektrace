@@ -329,6 +329,7 @@ fn project_filter_uses_the_cwd_basename() {
             &ListFilter {
                 agent: None,
                 project: Some(p.to_owned()),
+                ..ListFilter::default()
             },
         )
         .headers
