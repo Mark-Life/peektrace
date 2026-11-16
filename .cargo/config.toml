@@ -1,0 +1,4 @@
+[env]
+# SQLite's default memory accounting takes one process-wide mutex on every
+# malloc/free, which serialises the rayon workers reading OpenCode DBs.
+LIBSQLITE3_FLAGS = "-DSQLITE_DEFAULT_MEMSTATUS=0"

@@ -222,6 +222,13 @@ pub enum EventShape {
     PiAssistantBlock,
     /// Pi tool result.
     PiToolResult,
+    /// `OpenCode` text, thinking or compaction part.
+    OcText,
+    OcToolCall,
+    OcToolResult,
+    OcAttachment,
+    /// `OpenCode` subtask, agent or retry part.
+    OcSystem,
 }
 
 /// One row of the session timeline. Fields a producer does not set are
@@ -324,6 +331,7 @@ pub enum TurnField {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TurnShape {
     Claude,
+    Opencode,
 }
 
 /// The usage counts every turn carries.

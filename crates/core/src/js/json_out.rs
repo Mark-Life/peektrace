@@ -30,6 +30,22 @@ fn push_units(out: &mut String, units: impl Iterator<Item = Unit>) {
     out.push('"');
 }
 
+/// UTF-8 byte length of transcript text written as a JSON string.
+pub fn text_len(s: &str) -> usize {
+    let escaped = |c: char| matches!(c, '"' | '\\') || u32::from(c) < 0x20;
+    if !s.as_bytes().contains(&0xF4) && !s.chars().any(escaped) {
+        return s.len() + 2;
+    }
+    2 + text::units(s)
+        .map(|u| match u {
+            Unit::Char('"' | '\\' | '\u{08}' | '\u{0C}' | '\n' | '\r' | '\t') => 2,
+            Unit::Char(c) if u32::from(c) < 0x20 => 6,
+            Unit::Char(c) => c.len_utf8(),
+            Unit::Lone(_) => 6,
+        })
+        .sum::<usize>()
+}
+
 /// Append a plain string as JSON.
 pub fn push_str(out: &mut String, s: &str) {
     push_units(out, s.chars().map(Unit::Char));

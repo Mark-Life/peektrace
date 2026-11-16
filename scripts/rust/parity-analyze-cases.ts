@@ -38,7 +38,7 @@ export const analyze = (t: string, ...rest: string[]) => [
   t,
   ...rest,
 ];
-const exportOf = (t: string, ...rest: string[]) => [
+export const exportOf = (t: string, ...rest: string[]) => [
   "sessions",
   "export",
   t,
