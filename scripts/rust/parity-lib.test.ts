@@ -3,8 +3,9 @@ import { resolveWork } from "./parity-lib";
 
 const REPO = "/r/repo";
 const TMP = "/t";
+const GOLDENS = "/g";
 const work = (...args: string[]) =>
-  resolveWork(["bun", "parity.ts", ...args], REPO, TMP);
+  resolveWork(["bun", "parity.ts", ...args], REPO, TMP, GOLDENS);
 
 describe("resolveWork", () => {
   test("defaults under .scratch", () => {
@@ -16,6 +17,11 @@ describe("resolveWork", () => {
       dir: "/r/repo/.scratch/p2",
     });
     expect(work("--work", "/t/p2")).toEqual({ dir: "/t/p2" });
+  });
+
+  test("accepts a stage dir under the goldens root", () => {
+    expect(work("--work", "/g/base")).toEqual({ dir: "/g/base" });
+    expect(work("--work", "/g")).toHaveProperty("error");
   });
 
   test("refuses a missing value", () => {

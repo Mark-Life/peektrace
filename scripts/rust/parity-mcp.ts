@@ -10,8 +10,16 @@
  * sessions). */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { REPO, report, runAsync, rustBin, TS_CMD, WORK } from "./parity-lib";
-import { maskStatsClock } from "./parity-stats-cases";
+import {
+  REPO,
+  type Run,
+  report,
+  runAsync,
+  rustBin,
+  TS_CMD,
+  WORK,
+} from "./parity-lib";
+import { canonStatsClock, maskStatsClock } from "./parity-stats-cases";
 
 const U2028 = String.fromCharCode(0x20_28);
 const STATS_TOOLS = new Set(["stats_report", "stats_drill"]);
@@ -285,7 +293,57 @@ const runSide = (
   env: Record<string, string>,
   input: string,
   cwd: string
-) => runAsync([...cmd, "--no-telemetry", "mcp"], env, input, cwd);
+) => runAsync([...cmd, "--no-telemetry", "mcp"], env, input, cwd, byReplyId);
+
+interface ReplyLine {
+  readonly id?: unknown;
+  readonly result?: { content?: { text: string }[] };
+}
+
+/** One reply line with stats clocks masked in its text content. */
+const canonReply = (line: string) => {
+  try {
+    const v = JSON.parse(line) as ReplyLine;
+    const content = v.result?.content;
+    if (!content) {
+      return line;
+    }
+    const texts = content.map((c) => ({
+      ...c,
+      text: canonStatsClock({ code: 0, stdout: c.text, stderr: "" }).stdout,
+    }));
+    return texts.every((c, i) => c.text === content[i]?.text)
+      ? line
+      : JSON.stringify({ ...v, result: { ...v.result, content: texts } });
+  } catch {
+    return line;
+  }
+};
+
+const idOf = (line: string) => {
+  try {
+    return JSON.stringify((JSON.parse(line) as ReplyLine).id) ?? "";
+  } catch {
+    return "";
+  }
+};
+
+/** Record-time canon: replies sorted by id (stable, so repeats of one id
+ * keep their order), since concurrent tool calls answer in any order and
+ * the compare matches replies by id; stats clocks masked as the compare
+ * masks them. */
+const byReplyId = (r: Run): Run => {
+  const sorted = r.stdout
+    .split("\n")
+    .filter((l) => l !== "")
+    .map((line, i) => ({ line: canonReply(line), i, id: idOf(line) }))
+    .sort((a, b) => a.id.localeCompare(b.id, "en") || a.i - b.i)
+    .map((x) => x.line);
+  return {
+    ...r,
+    stdout: sorted.length > 0 ? `${sorted.join("\n")}\n` : r.stdout,
+  };
+};
 
 /** Diffs between the two sides' replies; empty when they match. */
 const compare = (

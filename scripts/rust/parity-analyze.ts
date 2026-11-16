@@ -57,6 +57,7 @@ import {
   tallyLine,
   WORK,
 } from "./parity-lib";
+import { tsValue } from "./parity-oracle";
 
 const READ_WRITE = 0o644;
 const JSONL = /\.jsonl$/;
@@ -188,15 +189,16 @@ export const runCase = async (
   let files = ["", ""];
   if (c.out) {
     // One path for both, so the `Wrote <path>` line matches.
-    ts = await runAsync(tsArgs, env);
-    files = [readOut(c.out), ""];
+    ts = await runAsync(tsArgs, env, undefined, undefined, masked);
+    const out = c.out;
+    files = [await tsValue(`${label} --out file`, () => readOut(out)), ""];
     rmSync(c.out, { force: true });
     rust = await runAsync(rustArgs, env);
     files[1] = readOut(c.out);
     rmSync(c.out, { force: true });
   } else {
     [ts, rust] = await Promise.all([
-      runAsync(tsArgs, env),
+      runAsync(tsArgs, env, undefined, undefined, masked),
       runAsync(rustArgs, env),
     ]);
   }

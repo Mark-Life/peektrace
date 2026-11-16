@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { REPO } from "./parity-lib";
+import { fixturesDir } from "./parity-lib";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
 /** Float seconds as `fs.utimes` takes them: stored as ns `…122999906`,
@@ -152,7 +152,7 @@ const seedVault = (dir: string) => {
     join(dir, "MEMORY.md"),
     "- [A](a.md) — first\n- [B](b.md) — second\n- [Ghost](ghost.md) — missing\n"
   );
-  const fixtures = join(REPO, "packages/core/test/fixtures/memory");
+  const fixtures = join(fixturesDir(), "memory");
   for (const name of ["nested.md", "flat.md"]) {
     put(join(dir, `fx-${name}`), readFileSync(join(fixtures, name)));
   }

@@ -22,6 +22,12 @@
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
+ * CI does not run this file per push: it replays recorded TS results with
+ * `scripts/rust/goldens.ts`. After a change to the TS sources, the fixtures
+ * or these scripts, re-record the checked-in linux-x64 set in CI: label the
+ * PR `record-goldens`, then copy the `goldens-*` artifacts into
+ * `tests/goldens/linux-x64` ("When to regenerate" in `scripts/rust/README.md`).
+ *
  * Normalisation, kept to what the comparison needs:
  * - Fixture suites run with a clean env (`PATH`, a fake `HOME`, `TZ=UTC`).
  *   The edge suite runs again under `TZ=Asia/Tokyo`, because both CLIs read
@@ -65,8 +71,8 @@ import {
   diffs,
   firstLineDiff,
   fixtureEnv,
+  fixturesDir,
   flag,
-  REPO,
   report,
   run,
   rustBin,
@@ -77,6 +83,7 @@ import {
 import { runMemoryStage } from "./parity-memory";
 import { runOpencodeStage } from "./parity-opencode";
 import { storeStamp } from "./parity-opencode-stamp";
+import { finishOracle } from "./parity-oracle";
 import { runSearchStage } from "./parity-search";
 import { runServeStage } from "./parity-serve";
 import { runStatsStage } from "./parity-stats";
@@ -206,7 +213,7 @@ const runSuite = (suite: Suite) => {
 const fixtureSuites = (): Suite[] => {
   const emptyHome = join(WORK, "empty-home");
   mkdirSync(emptyHome, { recursive: true });
-  const fixtures = join(REPO, "packages/core/test/fixtures");
+  const fixtures = fixturesDir();
   const edgeHome = buildEdge();
   return [
     {
@@ -485,6 +492,7 @@ const main = async () => {
   for (const path of locked.filter((p) => existsSync(p))) {
     chmodSync(path, READ_WRITE);
   }
+  await finishOracle();
   console.log(
     diffs.length === 0 ? "parity: OK" : `parity: ${diffs.length} difference(s)`
   );

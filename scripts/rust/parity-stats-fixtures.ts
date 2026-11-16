@@ -15,7 +15,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { REPO } from "./parity-lib";
+import { COPY, fixturesDir } from "./parity-lib";
 import { buildAgentsStats } from "./parity-stats-agents";
 
 /** Every file gets this mtime, so ledger dates and cache keys are stable. */
@@ -251,16 +251,16 @@ const touchAll = (dir: string) => {
 export const buildStatsHome = (root: string): string => {
   const home = join(root, "stats-home");
   const projects = join(home, ".claude/projects");
-  const fixtures = join(REPO, "packages/core/test/fixtures");
+  const fixtures = fixturesDir();
   cpSync(
     join(fixtures, "sessions/projects/-Users-demo-proj"),
     join(projects, "-Users-demo-proj"),
-    { recursive: true }
+    COPY
   );
   const stats = join(projects, "-Users-demo-stats");
   mkdirSync(stats, { recursive: true });
   for (const name of readdirSync(join(fixtures, "sessions-claude"))) {
-    cpSync(join(fixtures, "sessions-claude", name), join(stats, name));
+    cpSync(join(fixtures, "sessions-claude", name), join(stats, name), COPY);
   }
   const cwd = join(home, "work/edge");
   const edge = join(projects, "-work-edge");

@@ -7,6 +7,7 @@ import { Database } from "bun:sqlite";
 import { cpSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createOpencodeSchema } from "../../packages/core/test/fixtures/opencode-db";
+import { COPY } from "./parity-lib";
 import {
   costSessions,
   edgeSessions,
@@ -191,7 +192,7 @@ export const buildOpencodeData = (
   x.close();
 
   const mixedClaude = join(root, "mixed-claude");
-  cpSync(goldenProjects, mixedClaude, { recursive: true });
+  cpSync(goldenProjects, mixedClaude, COPY);
   const amb = join(mixedClaude, "-w-amb", "ses_amb1.jsonl");
   mkdirSync(dirname(amb), { recursive: true });
   writeFileSync(

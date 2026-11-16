@@ -7,12 +7,15 @@ import { promptsOf } from "../../apps/inspector/src/lib/stats-format";
 import { report } from "./parity-lib";
 import type { Counts } from "./parity-serve-cases";
 import {
+  type Call,
+  type CompareOpts,
   compareCall,
   compareKnown,
   dropClock,
   query,
   seg,
   send,
+  windowOnly,
 } from "./parity-serve-compare";
 import type { Pair, RpcExit } from "./parity-serve-lib";
 
@@ -32,6 +35,14 @@ interface ReportArgs {
 
 const reportPath = (a: ReportArgs) =>
   `/api/stats/report${query({ agent: a.agents, days: a.days, force: a.force, limit: a.limit })}`;
+
+/** With no `days` the server's default window runs back from its clock and
+ * fixture dates are fixed, so only the window is compared and recorded;
+ * fixture rows need an explicit `days`. */
+export const windowOpts = (days?: number): CompareOpts =>
+  days === undefined
+    ? { norm: windowOnly, keepNormed: true }
+    : { norm: dropClock };
 
 const okValue = <A>(exit: RpcExit) =>
   exit.kind === "ok" ? (exit.value as A) : undefined;
@@ -55,7 +66,7 @@ const reportCase = (c: Counts, pair: Pair, label: string, a: ReportArgs) =>
     pair,
     `stats.report ${label}`,
     { tag: "stats.report", payload: a, path: reportPath(a) },
-    { norm: dropClock }
+    windowOpts(a.days)
   );
 
 const refreshCase = (c: Counts, pair: Pair, label: string, body: object) =>
@@ -138,24 +149,34 @@ const markerCases = async (c: Counts, pair: Pair, r: StatsReport) => {
   });
 };
 
-const usageCases = async (c: Counts, pair: Pair) => {
-  for (const by of ["day", "month", "block"]) {
-    for (const tz of ["UTC", "Asia/Tokyo"]) {
-      for (const days of [undefined, ALL_DAYS]) {
+interface UsageCall {
+  readonly call: Call;
+  readonly label: string;
+  readonly opts: CompareOpts;
+}
+
+/** Each period and zone, on the default window and on every day. */
+export const usageCalls = (): UsageCall[] =>
+  ["day", "month", "block"].flatMap((by) =>
+    ["UTC", "Asia/Tokyo"].flatMap((tz) =>
+      [undefined, ALL_DAYS].map((days) => {
         const payload = { by, tz, ...(days === undefined ? {} : { days }) };
-        await compareCall(
-          c,
-          pair,
-          `stats.usage ${by} ${tz} ${days ?? "default"}`,
-          {
+        return {
+          label: `stats.usage ${by} ${tz} ${days ?? "default"}`,
+          call: {
             tag: "stats.usage",
             payload,
             path: `/api/stats/usage${query(payload)}`,
           },
-          { norm: dropClock, retry: true }
-        );
-      }
-    }
+          opts: windowOpts(days),
+        };
+      })
+    )
+  );
+
+const usageCases = async (c: Counts, pair: Pair) => {
+  for (const u of usageCalls()) {
+    await compareCall(c, pair, u.label, u.call, { ...u.opts, retry: true });
   }
   const bad: [string, object][] = [
     ["tz", { by: "day", tz: "Mars/Olympus" }],

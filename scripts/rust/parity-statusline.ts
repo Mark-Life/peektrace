@@ -16,6 +16,7 @@ import {
   REPO,
   type Run,
   report,
+  run,
   rustBin,
   TS_CMD,
   WORK,
@@ -193,19 +194,15 @@ const fixtureCases = (h: ReturnType<typeof buildHome>): Case[] => {
 const runWith = (
   cmd: readonly string[],
   env: Record<string, string>,
-  stdin: string | Uint8Array
-): Run => {
-  const out = Bun.spawnSync([...cmd], {
-    env,
-    cwd: REPO,
-    stdin: typeof stdin === "string" ? new Blob([stdin]) : new Blob([stdin]),
-  });
-  return {
-    code: out.exitCode ?? -1,
-    stdout: out.stdout.toString(),
-    stderr: out.stderr.toString(),
-  };
-};
+  stdin: string | Uint8Array,
+  canon?: (r: Run) => Run
+): Run => run(cmd, env, { stdin, cwd: REPO, canon });
+
+/** Record-time canon of an `--otel` run: span durations read as 0 ms. */
+const zeroDurations = (r: Run): Run => ({
+  ...r,
+  stderr: r.stderr.replace(new RegExp(DURATION, "g"), " 0ms "),
+});
 
 const argvOf = (c: Case) => [
   "--no-telemetry",
@@ -221,13 +218,16 @@ const runCase = (label: string, c: Case, env: Record<string, string>) => {
   compareRun(`statusline ${label}`, ts, rust);
 };
 
-/** Span names of an `--otel` run, timings dropped and RPC spans removed. */
+/** Span lines of an `--otel` run, timings dropped, RPC spans removed and
+ * sorted: Rust's worker thread interleaves its spans with the main thread's,
+ * so only the set of spans is stable. */
 const spanNames = (stderr: string) =>
   stderr
     .split("\n")
     .filter((l) => l.startsWith("[otel] "))
     .map((l) => l.replace(DURATION, " "))
-    .filter((l) => !RPC_SPAN.test(l));
+    .filter((l) => !RPC_SPAN.test(l))
+    .sort();
 
 const otelCase = (
   h: ReturnType<typeof buildHome>,
@@ -235,7 +235,7 @@ const otelCase = (
 ) => {
   const stdin = JSON.stringify({ transcript_path: h.path });
   const argv = ["--otel", "--no-telemetry", "statusline", ...SLOW_OK];
-  const ts = runWith([...TS_CMD, ...argv], env, stdin);
+  const ts = runWith([...TS_CMD, ...argv], env, stdin, zeroDurations);
   const rust = runWith([rustBin, ...argv], env, stdin);
   compareRun(
     "statusline otel (stdout)",
