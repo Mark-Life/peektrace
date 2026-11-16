@@ -453,4 +453,27 @@ mod tests {
         let text = "42\n{\"type\":\"assistant\"}\n{\"type\":\"assistant\"}";
         assert_eq!(build_header(text, meta()).message_count, 2);
     }
+
+    /// TS `record-types`: `<synthetic>` is never the header model.
+    #[test]
+    fn synthetic_is_not_the_model() {
+        let user =
+            r#"{"type":"user","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hi"}}"#;
+        let synthetic = r#"{"type":"assistant","timestamp":"2026-01-01T00:00:01Z","requestId":"r0","message":{"model":"<synthetic>","usage":{"input_tokens":0,"output_tokens":0},"content":[{"type":"text","text":"API Error: synthetic"}]},"isApiErrorMessage":true}"#;
+        let real = r#"{"type":"assistant","timestamp":"2026-01-01T00:00:02Z","requestId":"r1","message":{"model":"claude-opus-9","usage":{"input_tokens":10,"output_tokens":50},"content":[{"type":"text","text":"ok"}]}}"#;
+        let only = build_header(&format!("{user}\n{synthetic}\n"), meta());
+        assert_eq!(only.model, None);
+        let both = build_header(&format!("{user}\n{synthetic}\n{real}\n"), meta());
+        assert_eq!(both.model.as_deref(), Some("claude-opus-9"));
+    }
+
+    /// TS `defensive`: a fully garbage transcript still folds.
+    #[test]
+    fn garbage_transcript_folds() {
+        let h = build_header("garbage\n{broken\n\n!!!", meta());
+        assert_eq!(h.id.as_str(), "s");
+        assert_eq!(h.model, None);
+        assert_eq!(h.message_count, 0);
+        assert_eq!(h.malformed_lines, Some(2));
+    }
 }

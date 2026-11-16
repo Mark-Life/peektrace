@@ -4,6 +4,7 @@ mod args;
 mod ls;
 mod otel;
 mod render;
+mod single;
 mod width;
 mod zone;
 
@@ -19,7 +20,7 @@ use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{Span, field, info_span};
 
-use crate::args::{Cli, Command, LsArgs, SessionsArgs, SessionsCommand};
+use crate::args::{Cli, Command, SessionsArgs, SessionsCommand};
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -27,9 +28,11 @@ const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
     None => "0.0.0-dev",
 };
 
-/// Everything `sessions ls` reads from the environment, read once here.
+/// Everything a command reads from the environment, read once here.
 /// Values that are not valid UTF-8 are decoded lossily, as Node does.
-fn gather_context(args: &LsArgs) -> anyhow::Result<Context> {
+/// `cwd_flag` is the `--cwd` value; the working dir is read only when it is
+/// relative.
+fn gather_context(cwd_flag: Option<&str>) -> anyhow::Result<Context> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
@@ -39,9 +42,7 @@ fn gather_context(args: &LsArgs) -> anyhow::Result<Context> {
     let settings = std::fs::read(roots_env.settings_path())
         .ok()
         .map(|bytes| String::from_utf8_lossy(&bytes).into_owned());
-    let cwd = args
-        .cwd
-        .as_deref()
+    let cwd = cwd_flag
         .filter(|c| select::needs_base_dir(c, &roots_env.home, roots_env.style))
         .map(|_| {
             std::env::current_dir()
@@ -97,9 +98,27 @@ fn print_help(path: &[&str]) -> ExitCode {
     }
 }
 
-/// `sessions ls` under the root `cli` span. Every failure, including an
-/// early `?` exit, records `error` on that span.
-fn run(cli: &Cli, args: &LsArgs) -> anyhow::Result<ExitCode> {
+/// The command to run, from the parsed command line.
+#[derive(Clone, Copy)]
+enum Run<'a> {
+    Ls(&'a args::LsArgs),
+    Analyze(&'a args::AnalyzeArgs),
+    Export(&'a args::ExportArgs),
+}
+
+impl<'a> Run<'a> {
+    fn cwd_flag(self) -> Option<&'a str> {
+        match self {
+            Self::Ls(a) => a.cwd.as_deref(),
+            Self::Analyze(a) => a.target.cwd.as_deref(),
+            Self::Export(a) => a.target.cwd.as_deref(),
+        }
+    }
+}
+
+/// A command under the root `cli` span. Every failure, including an early
+/// `?` exit, records `error` on that span.
+fn run(cli: &Cli, cmd: Run<'_>) -> anyhow::Result<ExitCode> {
     let command_line = std::env::args_os()
         .skip(1)
         .map(|a| a.to_string_lossy().into_owned())
@@ -114,40 +133,89 @@ fn run(cli: &Cli, args: &LsArgs) -> anyhow::Result<ExitCode> {
         error = field::Empty
     );
     let _entered = root.enter();
-    let result = run_ls(cli, args, &root);
+    let result = run_command(cli, cmd, &root);
     if let Err(e) = &result {
         root.record("error", field::display(format!("{e:#}")));
     }
     result
 }
 
-fn run_ls(cli: &Cli, args: &LsArgs, root: &Span) -> anyhow::Result<ExitCode> {
-    let ctx = gather_context(args)?;
-    let globals = Globals {
-        json: cli.json,
-        pretty: cli.pretty,
-    };
-    match ls::run(args, globals, &ctx) {
-        Ok(out) => {
-            root.record("sessions.unreadable", out.unreadable);
-            if otel::shows_warnings(cli.log_level) {
-                out.warnings
-                    .iter()
-                    .for_each(|w| print_stderr(&format!("WARN {w}")));
-            }
-            print_stdout(&out.stdout)?;
-            out.notes.iter().for_each(|n| print_stderr(n));
-            Ok(ExitCode::SUCCESS)
-        }
-        Err(e) => {
-            root.record("error", field::display(&e));
-            print_stderr(&e.to_string());
-            Ok(ExitCode::FAILURE)
+/// Print a user error and fail.
+fn fail(root: &Span, e: &ls::UserError) -> ExitCode {
+    root.record("error", field::display(e));
+    print_stderr(&e.to_string());
+    ExitCode::FAILURE
+}
+
+fn print_warnings(cli: &Cli, warnings: &[String]) {
+    if otel::shows_warnings(cli.log_level) {
+        for w in warnings {
+            print_stderr(&format!("WARN {w}"));
         }
     }
 }
 
+/// `Cannot write` reason for a failed export write, as TS words it.
+fn write_failure(e: &io::Error) -> &'static str {
+    match e.kind() {
+        io::ErrorKind::NotFound => "the directory does not exist",
+        io::ErrorKind::PermissionDenied => "permission denied",
+        io::ErrorKind::IsADirectory => "the path is a directory",
+        io::ErrorKind::AlreadyExists => "AlreadyExists",
+        _ => "Unknown",
+    }
+}
+
+fn run_command(cli: &Cli, cmd: Run<'_>, root: &Span) -> anyhow::Result<ExitCode> {
+    let ctx = gather_context(cmd.cwd_flag())?;
+    let globals = Globals {
+        json: cli.json,
+        pretty: cli.pretty,
+    };
+    let out = match cmd {
+        Run::Ls(args) => match ls::run(args, globals, &ctx) {
+            Ok(out) => {
+                root.record("sessions.unreadable", out.unreadable);
+                print_warnings(cli, &out.warnings);
+                print_stdout(&out.stdout)?;
+                out.notes.iter().for_each(|n| print_stderr(n));
+                return Ok(ExitCode::SUCCESS);
+            }
+            Err(e) => return Ok(fail(root, &e)),
+        },
+        Run::Analyze(args) => single::run_analyze(args, globals, &ctx),
+        Run::Export(args) => single::run_export(args, globals, &ctx),
+    };
+    let out = match out {
+        Ok(out) => out,
+        Err(e) => return Ok(fail(root, &e)),
+    };
+    if let Some(n) = out.unreadable {
+        root.record("sessions.unreadable", n);
+    }
+    print_warnings(cli, &out.warnings);
+    if let Some(stdout) = &out.stdout {
+        print_stdout(stdout)?;
+    }
+    if let Some((path, text)) = &out.write {
+        if let Err(e) = std::fs::write(path, text) {
+            let e = ls::UserError::Invalid(format!("Cannot write {path}: {}", write_failure(&e)));
+            return Ok(fail(root, &e));
+        }
+        print_stderr(&format!("Wrote {path}"));
+    }
+    out.notes.iter().for_each(|n| print_stderr(n));
+    Ok(ExitCode::SUCCESS)
+}
+
 fn main() -> ExitCode {
+    let argv: Vec<String> = std::env::args_os()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    if let Some(flag) = args::missing_value(&argv) {
+        print_stderr(&format!("Missing value for {flag}."));
+        return ExitCode::FAILURE;
+    }
     let cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(e) => {
@@ -164,18 +232,20 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::FAILURE,
         };
     }
-    let args = match &cli.command {
+    let cmd = match &cli.command {
         None => return print_help(&[]),
         Some(Command::Sessions(SessionsArgs { command: None })) => {
             return print_help(&["sessions"]);
         }
-        Some(Command::Sessions(SessionsArgs {
-            command: Some(SessionsCommand::Ls(args)),
-        })) => args,
+        Some(Command::Sessions(SessionsArgs { command: Some(c) })) => match c {
+            SessionsCommand::Ls(a) => Run::Ls(a),
+            SessionsCommand::Analyze(a) => Run::Analyze(a),
+            SessionsCommand::Export(a) => Run::Export(a),
+        },
     };
     let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
     otel::init(echo, cli.log_level);
-    run(&cli, args).unwrap_or_else(|e| {
+    run(&cli, cmd).unwrap_or_else(|e| {
         print_stderr(&format!("{e:#}"));
         ExitCode::FAILURE
     })
