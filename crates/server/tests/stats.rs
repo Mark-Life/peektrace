@@ -13,8 +13,10 @@ use common::stats_fixture::{self, FIXED_MS, SECRET, SID};
 use common::{Options, TestServer, start};
 use peektrace_core::js::time::Utc;
 use peektrace_core::stats::cache::StatsCache;
-use peektrace_core::stats::prompts::{PromptTarget, stats_prompt};
+use peektrace_core::stats::findings::FindingFormat;
+use peektrace_core::stats::prompts::{PromptTarget, stats_prompt_with};
 use peektrace_core::stats::service::{ReportRequest, StatsEnv, markers, refresh, report};
+use peektrace_core::stats::text::text_of;
 use serde_json::{Value, json};
 
 /// A window wide enough to hold the fixture.
@@ -176,7 +178,7 @@ fn a_sample_names_its_call_time_and_its_transcripts_path() {
 fn the_investigation_prompts_carry_the_paths_and_no_secret() {
     let f = fixture("prompts");
     let body = f.server.get(&format!("/api/stats/report?{WIDE}")).body;
-    // The prompt is built client side from the report: build the same report
+    // Core writes the prompts into the report's text: build the same report
     // in core and check it is the body the route sent.
     let roots = stats_fixture::roots(&f.root);
     let env = StatsEnv {
@@ -191,15 +193,27 @@ fn the_investigation_prompts_carry_the_paths_and_no_secret() {
         ..ReportRequest::default()
     };
     let r = report(&env, &req).expect("report");
-    assert_eq!(r.to_json(false), body);
+    assert_eq!(r.to_api_json(&text_of(&r, None)), body);
+    let sent: Value = serde_json::from_str(&body).expect("report json");
+    let prompts = &sent["text"]["prompts"];
     let texts: Vec<String> = [
-        PromptTarget::Report,
-        PromptTarget::Cause("zsh-glob-flag".to_owned()),
-        PromptTarget::Fail("scan:tsc".to_owned()),
+        &prompts["report"],
+        &prompts["cause"]["cause:zsh-glob-flag"],
+        &prompts["fail"]["scan:tsc"],
     ]
     .iter()
-    .map(|t| stats_prompt(&r, None, t).unwrap_or_default())
+    .map(|t| t.as_str().unwrap_or_default().to_owned())
     .collect();
+    assert_eq!(
+        texts[1],
+        stats_prompt_with(
+            &r,
+            None,
+            &PromptTarget::Cause("zsh-glob-flag".to_owned()),
+            &FindingFormat::INSPECTOR
+        )
+        .unwrap_or_default()
+    );
     let path = stats_fixture::transcript(&f.root);
     assert!(texts[1].contains(&format!("· tool-3 · {}", path.to_string_lossy())));
     assert!(texts[2].contains("Pattern: error TS####"));

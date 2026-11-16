@@ -15,6 +15,7 @@ use peektrace_core::stats::detectors::usage::UsageBy;
 use peektrace_core::stats::service::{
     DrillPage, ReportRequest, StatsEnv, StatsError, drill, markers_json, refresh, report,
 };
+use peektrace_core::stats::text::text_of;
 use peektrace_core::stats::usage_service::{MAX_USAGE_DAYS, UsageRequest, usage};
 use peektrace_protocol::ApiError;
 use tracing::{Instrument as _, Span};
@@ -108,7 +109,15 @@ pub async fn stats_report(State(state): Shared, method: Method, RawQuery(raw): R
         let q = query_pairs(raw.as_deref());
         let result = async {
             let req = report_request(&q)?;
-            let body = locked(state, move |env| Ok(report(env, &req)?.to_json(false))).await?;
+            let agent = match req.agents.as_deref() {
+                Some([one]) => Some(*one),
+                _ => None,
+            };
+            let body = locked(state, move |env| {
+                let r = report(env, &req)?;
+                Ok(r.to_api_json(&text_of(&r, agent)))
+            })
+            .await?;
             Ok(json(body))
         }
         .await;

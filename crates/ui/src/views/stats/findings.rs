@@ -3,6 +3,7 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::{SampleRefView, StatsReportView};
+use peektrace_protocol::stats_text::{EMPTY_FINDINGS, SUGGESTED_NOTE, SUGGESTED_TITLE};
 use rune::{El, col, row, spacer, text};
 
 use super::copy::{copy_button, prompt_button};
@@ -141,8 +142,8 @@ fn suggested(v: &V<'_>, rules: &[String]) -> Option<El> {
                     .flex_wrap()
                     .gap(8.0)
                     .center_y()
-                    .child(text("Suggested rules").font(ty::SM_MEDIUM).color(t.fg))
-                    .child(muted("lines no CLAUDE.md / AGENTS.md states yet", t))
+                    .child(text(SUGGESTED_TITLE).font(ty::SM_MEDIUM).color(t.fg))
+                    .child(muted(SUGGESTED_NOTE, t))
                     .child(spacer())
                     .child(copy_button(
                         v.s,
@@ -177,10 +178,7 @@ pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {
     };
     let all = &text.findings;
     if all.is_empty() {
-        return empty(
-            "No row in this window carries a named fix. The tables below still rank what happened.",
-            v,
-        );
+        return empty(EMPTY_FINDINGS, v);
     }
     let shown = if v.s.stats.show_all {
         all.len()

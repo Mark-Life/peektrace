@@ -1,30 +1,19 @@
-/** Formatters for the stats screen, and the findings order bound to them.
+/** Formatters for the stats screen, and access to the text core wrote.
  *
- * Which rows lead a cold start, and what each one says, is `stats-findings`'
- * answer; this file only supplies how a number is spelled in a browser. The
- * Rust TUI and native app keep a port of the same sentences (`stats::findings`).
+ * Which rows lead a cold start, and every sentence about them, come from core
+ * in the report's `text`; this file only spells the numbers of table cells in
+ * a browser.
  */
 import type {
   AgentId,
+  DrillTable,
   SampleRef,
   StatsReport,
+  StatsText,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
-import { fmtK } from "@workspace/viz/lib/session-format";
-
-import {
-  findingsOf as coreFindingsOf,
-  timeNote as coreTimeNote,
-} from "./stats-findings";
-import type { FindingFormat } from "./stats-findings";
-import { statsPrompt } from "./stats-prompts";
-import type { PromptTarget } from "./stats-prompts";
 
 export { NO_RULE } from "@workspace/view-core/constants.gen";
-
-export type { Finding } from "./stats-findings";
-
-export { ruleLine, suggestedRules } from "./stats-findings";
 
 const SEC_PER_MIN = 60;
 const SEC_PER_HOUR = 3600;
@@ -66,30 +55,72 @@ export const n = (value: number): string => value.toLocaleString();
 export const at = (epochMs: number): string =>
   new Date(epochMs).toLocaleString();
 
-/** How this surface spells a number, for the sentences `stats-findings` composes. */
-const FORMAT: FindingFormat = { count: n, hms, pct, tokens: fmtK };
+/** Rates at or above this print as whole numbers. */
+const RATE_WHOLE = 10;
 
-/** What a time row can say for itself, from its own columns. */
-export const timeNote = (row: TimeRow): string | null =>
-  coreTimeNote(row, FORMAT);
+/** Significant digits of a smaller rate. */
+const RATE_DIGITS = 2;
+
+/** The smallest rate kept; a side with hits below it prints `<0.01`. */
+const RATE_FLOOR = 0.01;
+
+/** A per-1k rate: `41`, `4.2`, `0.31`. A side with hits never reads `0`. */
+export const rateText = (rate: number, hits: number): string => {
+  if (hits > 0 && rate < RATE_FLOOR) {
+    return `<${RATE_FLOOR}`;
+  }
+
+  return rate >= RATE_WHOLE
+    ? Math.round(rate).toLocaleString("en-US")
+    : String(Number(rate.toPrecision(RATE_DIGITS)));
+};
 
 /** How many lines held this job but were charged to a higher-priority one. */
 export const coPresentNote = (row: TimeRow): string =>
   `${n(row.coPresentRuns)} lines also run this job but are charged to another one`;
 
-/** The cold-start list: rows that carry a fix, cheapest fix first. */
-export const findingsOf = (report: StatsReport) =>
-  coreFindingsOf(report, FORMAT);
+/** What a prompt is about: the whole report, or one row of a table. */
+export type PromptTarget =
+  | { readonly table: "report" }
+  | { readonly table: DrillTable; readonly key: string };
 
 /** The investigation prompt for one row, or null when no row has the key. */
 export type PromptFor = (target: PromptTarget) => string | null;
 
-/** Bind the prompt builder to this report, its agent scope and this
- * surface's number spelling, so every button copies the CLI's text. */
+/** Core's prompt for one target, or null when it wrote none. */
+const promptIn = (text: StatsText, target: PromptTarget): string | null => {
+  if (target.table === "report") {
+    return text.prompts.report;
+  }
+
+  if (target.table === "cluster" || target.table === "wait") {
+    return null;
+  }
+
+  return text.prompts[target.table][target.key] ?? null;
+};
+
+/** Core's prompts for this report, as the CLI writes them. */
 export const promptsOf =
-  (report: StatsReport, agent: AgentId | null): PromptFor =>
+  (text: StatsText): PromptFor =>
   (target) =>
-    statsPrompt({ agent, format: FORMAT, report, target });
+    promptIn(text, target);
+
+/** The samples of the row a finding names. */
+export const samplesOf = (
+  report: StatsReport,
+  table: DrillTable,
+  key: string
+): readonly SampleRef[] => {
+  const rows: Partial<
+    Record<
+      DrillTable,
+      readonly { key: string; samples: readonly SampleRef[] }[]
+    >
+  > = { cause: report.causes, fail: report.fails, time: report.time };
+
+  return rows[table]?.find((row) => row.key === key)?.samples ?? [];
+};
 
 /** Chars of a project slug a session chip keeps. */
 const PROJECT_TAIL = 18;

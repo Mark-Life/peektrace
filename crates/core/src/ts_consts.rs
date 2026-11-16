@@ -1,6 +1,11 @@
 //! Writes the constants the inspector shares with core, so the two cannot
 //! drift. Run with `UPDATE_TS_TYPES=1` to rewrite the checked-in file.
 
+use peektrace_protocol::stats_text::{
+    CAUSES_SECTION, CLUSTERS_SECTION, EMPTY_CAUSES, EMPTY_FAILS, EMPTY_FINDINGS, EMPTY_TIME,
+    FAILS_SECTION, FINDINGS_SECTION, SUGGESTED_NOTE, SUGGESTED_TITLE, Section, TIME_SECTION,
+    WAITING_SECTION, retry_note,
+};
 use serde_json::{Value, json};
 
 use crate::export::ExportFormat;
@@ -87,6 +92,62 @@ fn causes_lit() -> String {
     ordered(&rows)
 }
 
+fn sections_lit() -> String {
+    let retry = retry_note(&crate::js::num::to_js_string(RETRY_WINDOW));
+    let rows: Vec<_> = [
+        ("findings", FINDINGS_SECTION, None),
+        ("causes", CAUSES_SECTION, Some(retry.as_str())),
+        ("fails", FAILS_SECTION, None),
+        ("time", TIME_SECTION, None),
+        ("waiting", WAITING_SECTION, None),
+        ("clusters", CLUSTERS_SECTION, None),
+    ]
+    .into_iter()
+    .map(|(key, s, note): (&str, Section, Option<&str>)| {
+        let note = note.or(s.note);
+        (
+            key,
+            vec![
+                ("title", json!(s.title)),
+                ("rankedBy", json!(s.ranked_by)),
+                ("note", json!(note)),
+            ],
+        )
+    })
+    .collect();
+    ordered(&rows)
+}
+
+/// Section headings, notes and empty states every stats surface shows.
+fn stats_copy() -> String {
+    [
+        constant(
+            "Each stats section's heading, what it ranks by, and its lead note.",
+            "STATS_SECTIONS",
+            &sections_lit(),
+            None,
+        ),
+        constant(
+            "The suggested-rules box under the findings.",
+            "STATS_SUGGESTED",
+            &json_lit(&json!({ "title": SUGGESTED_TITLE, "note": SUGGESTED_NOTE })),
+            None,
+        ),
+        constant(
+            "What a stats section says when this window has no row for it.",
+            "STATS_EMPTY",
+            &json_lit(&json!({
+                "findings": EMPTY_FINDINGS,
+                "causes": EMPTY_CAUSES,
+                "fails": EMPTY_FAILS,
+                "time": EMPTY_TIME,
+            })),
+            None,
+        ),
+    ]
+    .concat()
+}
+
 fn generated() -> String {
     let agents: Vec<&str> = Agent::ALL.iter().map(|a| a.as_str()).collect();
     let kinds: Vec<&str> = EventKind::ALL.iter().map(|k| k.as_str()).collect();
@@ -171,6 +232,7 @@ fn generated() -> String {
         ),
     ]
     .concat()
+        + &stats_copy()
 }
 
 #[test]

@@ -13,7 +13,7 @@ use peektrace_core::stats::findings::{
     NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules,
 };
 use peektrace_core::stats::format::{count, hms, percent, rate_text, tokens};
-use peektrace_core::stats::schema::{DETECTOR_VERSION, Job, STATS_SCHEMA_VERSION};
+use peektrace_core::stats::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
 use peektrace_core::stats::service::{DrillResult, StatsReport};
 use peektrace_core::stats::usage_service::{UsageReport, zone_of};
 
@@ -22,24 +22,6 @@ use crate::render::table;
 const CELL_MAX: usize = 72;
 const REFS_PER_ROW: usize = 3;
 const FINDINGS_SHOWN: usize = 5;
-
-fn job_fix(job: Job) -> &'static str {
-    match job {
-        Job::WaitPoll => {
-            "poll a condition instead of sleeping; background the job and check it once"
-        }
-        Job::Test => "scope the run to the changed package or file",
-        Job::Build => "reuse the build cache; build once per change, not once per check",
-        Job::Typecheck => "typecheck the package you touched, not the repo",
-        Job::Lint => "lint the changed files",
-        Job::PackageInstall => "install from the lockfile once per environment",
-        Job::Net => "cache the response; a repeat fetch inside one run pays twice",
-        Job::ScriptRun => "name a recurring one-off as a script so it is cached and reviewed",
-        Job::Git => "batch status/diff into one call",
-        Job::Search => "narrow the path; search the package, not the repo",
-        Job::FileIo | Job::Other => NO_RULE,
-    }
-}
 
 fn short_sid(sid: &str) -> String {
     let head = sid.split('-').next().unwrap_or(sid);
@@ -197,7 +179,6 @@ fn time_cells(row: &TimeRow, bash_sec: f64) -> Vec<String> {
         } else {
             format!("{} / {}", n(row.bg_runs), hms(row.bg_sec))
         },
-        job_fix(row.key).to_owned(),
         refs_of(&row.samples),
         format!("--time {}", row.key.as_str()),
     ]
@@ -322,7 +303,7 @@ pub fn render_report(r: &StatsReport, pretty: bool, hint: &str) -> String {
         "WHAT COSTS TIME  (ranked by seconds; each command is charged to exactly one job)".to_owned(),
         table(
             &[
-                "JOB", "RUNS", "IN OTHER JOBS", "TOTAL", "SHARE", "MEDIAN", "P95", "CAPPED", "BG", "FIX", "SEEN IN", "DRILL",
+                "JOB", "RUNS", "IN OTHER JOBS", "TOTAL", "SHARE", "MEDIAN", "P95", "CAPPED", "BG", "SEEN IN", "DRILL",
             ],
             &time,
             pretty,

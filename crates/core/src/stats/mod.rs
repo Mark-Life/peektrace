@@ -28,5 +28,6 @@ pub mod schema;
 pub mod service;
 pub mod shell_ctx;
 pub mod shell_lex;
+pub mod text;
 pub mod usage_service;
 pub mod walk;

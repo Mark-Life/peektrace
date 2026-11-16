@@ -16,12 +16,12 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
-import type { CauseRow, RuleCheck } from "@workspace/view-core/api-types.gen";
+import type { CauseRow, StatsText } from "@workspace/view-core/api-types.gen";
+import { STATS_EMPTY } from "@workspace/view-core/constants.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
 
-import { rateText, suggestedRuleOf } from "../../lib/stats-findings";
-import { hms, NO_RULE, n, ruleLine } from "../../lib/stats-format";
+import { hms, NO_RULE, n, rateText } from "../../lib/stats-format";
 import type { PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
 import { PromptButton } from "./prompt-button";
@@ -31,20 +31,34 @@ import { SessionLinks } from "./session-links";
 const WIDE = "hidden text-right md:table-cell";
 
 /** The rule check of a cause whose rule a memory file already states. */
-const RuleBadge = ({ rule }: { readonly rule: RuleCheck }) => (
+const RuleBadge = ({ line }: { readonly line: string }) => (
   <Badge
     className="h-auto w-auto justify-start rounded-md border-amber-500/40 bg-amber-500/10 text-left whitespace-normal text-amber-400"
     variant="outline"
   >
-    {ruleLine(rule)}
+    {line}
   </Badge>
 );
+
+/** The rule column: the rule check, or a dash when no memory file states it. */
+const RuleCell = ({ line }: { readonly line: string | undefined }) =>
+  line === undefined ? (
+    <span className="text-muted-foreground">—</span>
+  ) : (
+    <RuleBadge line={line} />
+  );
 
 /**
  * The row's columns as one wrapped line, under the cause, for a phone: a
  * seven-column table at 390px shows the first column and nothing else.
  */
-const NarrowSummary = ({ row }: { readonly row: CauseRow }) => (
+const NarrowSummary = ({
+  row,
+  ruleLine,
+}: {
+  readonly row: CauseRow;
+  readonly ruleLine: string | undefined;
+}) => (
   <div
     className="mt-1 flex flex-col gap-1 md:hidden"
     data-testid="cause-narrow"
@@ -58,7 +72,7 @@ const NarrowSummary = ({ row }: { readonly row: CauseRow }) => (
         ? ""
         : ` · ${fmtK(row.retryCtxTokens)} ctx re-read`}
     </p>
-    {row.rule === null ? null : <RuleBadge rule={row.rule} />}
+    {ruleLine === undefined ? null : <RuleBadge line={ruleLine} />}
   </div>
 );
 
@@ -88,12 +102,14 @@ const DetailRow = ({
   row,
   onDrill,
   prompt,
+  text,
 }: {
   readonly onDrill: () => void;
   readonly prompt: PromptFor;
   readonly row: CauseRow;
+  readonly text: StatsText;
 }) => {
-  const rule = suggestedRuleOf(row);
+  const rule = text.suggestedRule[row.key] ?? null;
 
   return (
     <TableRow
@@ -128,7 +144,7 @@ const DetailRow = ({
           {row.rule === null ? null : (
             <div className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
               <p>
-                {ruleLine(row.rule)}
+                {text.ruleLines[row.key]}
                 {" — "}
                 {row.rule.advice}
               </p>
@@ -186,11 +202,13 @@ export const CauseTable = ({
   onSelect,
   prompt,
   selectedKey,
+  text,
 }: {
   readonly onSelect: (key: string) => void;
   readonly prompt: PromptFor;
   readonly rows: readonly CauseRow[];
   readonly selectedKey: string | null;
+  readonly text: StatsText;
 }) => {
   const [openKey, setOpenKey] = useState<string | null>(selectedKey);
 
@@ -201,7 +219,7 @@ export const CauseTable = ({
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="cause-empty">
-        No named cause fired in this window.
+        {STATS_EMPTY.causes}
       </p>
     );
   }
@@ -260,7 +278,7 @@ export const CauseTable = ({
                     </Badge>
                     <Badge variant="secondary">{row.kind}</Badge>
                   </div>
-                  <NarrowSummary row={row} />
+                  <NarrowSummary row={row} ruleLine={text.ruleLines[row.key]} />
                 </TableCell>
                 <TableCell className={cn(WIDE, "align-top font-mono text-sm")}>
                   {n(row.hits)}
@@ -286,11 +304,7 @@ export const CauseTable = ({
                   {row.tokensMeasured === 0 ? "—" : fmtK(row.retryCtxTokens)}
                 </TableCell>
                 <TableCell className="hidden min-w-[16ch] align-top text-xs whitespace-normal md:table-cell">
-                  {row.rule === null ? (
-                    <span className="text-muted-foreground">—</span>
-                  ) : (
-                    <RuleBadge rule={row.rule} />
-                  )}
+                  <RuleCell line={text.ruleLines[row.key]} />
                 </TableCell>
               </TableRow>
               {openKey === row.key ? (
@@ -300,6 +314,7 @@ export const CauseTable = ({
                   }}
                   prompt={prompt}
                   row={row}
+                  text={text}
                 />
               ) : null}
             </Fragment>

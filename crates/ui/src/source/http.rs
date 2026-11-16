@@ -283,11 +283,12 @@ impl DataSource for Http {
         spawn_local(async move {
             let out = load("/api/stats/report", path).await;
             reply(
-                out.map(|report: peektrace_protocol::stats::StatsReportView| {
+                out.map(|mut report: peektrace_protocol::stats::StatsReportView| {
                     let generated = at(report.generated_at, local_offset(report.generated_at));
+                    let text = report.text.take();
                     StatsScreen {
                         report,
-                        text: None,
+                        text,
                         generated,
                     }
                 }),
