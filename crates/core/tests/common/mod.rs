@@ -1,6 +1,7 @@
-//! Helpers shared by the ported TS session tests, plus throwaway `OpenCode`
-//! data dirs and SQLite stores built with the DDL of
-//! `packages/core/test/fixtures/opencode-db.ts`.
+//! Helpers shared by the ported TS tests: session parsing, throwaway temp
+//! dirs, `OpenCode` data dirs and SQLite stores built with the DDL of
+//! `packages/core/test/fixtures/opencode-db.ts`, and (in `stats`) synthetic
+//! stats facts and transcripts.
 #![allow(dead_code)]
 
 use std::fs;
@@ -20,6 +21,12 @@ use peektrace_core::{
 };
 use rusqlite::{Connection, params};
 use serde_json::Value;
+
+pub mod causes;
+pub mod rules;
+mod stats;
+
+pub use stats::*;
 
 /// A path under `packages/core/test/fixtures`.
 pub fn fixture(sub: &str) -> String {
@@ -202,12 +209,12 @@ pub fn session_env(roots: &AgentRoots) -> SessionEnv<'_> {
     SessionEnv { roots, local: &Utc }
 }
 
-/// A [`temp_dir`] removed on drop.
+/// A canonical [`temp_dir`] removed on drop.
 pub struct TempDir(PathBuf);
 
 impl TempDir {
     pub fn new(tag: &str) -> Self {
-        Self(temp_dir(tag))
+        Self(std::fs::canonicalize(temp_dir(tag)).expect("canonical temp dir"))
     }
 
     pub fn path(&self) -> &Path {
@@ -216,6 +223,11 @@ impl TempDir {
 
     pub fn str(&self) -> String {
         self.0.to_string_lossy().into_owned()
+    }
+
+    /// The full path of `rel`.
+    pub fn join(&self, rel: &str) -> String {
+        self.0.join(rel).to_string_lossy().into_owned()
     }
 
     /// Write `body` at `rel`, creating parent dirs; returns the full path.
@@ -274,4 +286,14 @@ pub fn pretty(pairs: &[(&str, &str)]) -> String {
         .map(|(k, v)| format!("  \"{k}\": \"{v}\""))
         .collect();
     format!("{{\n{}\n}}", body.join(",\n"))
+}
+
+/// Set a file's mtime to `ms` since the epoch.
+pub fn set_mtime(path: &str, ms: u64) {
+    let t = std::time::UNIX_EPOCH + std::time::Duration::from_millis(ms);
+    std::fs::File::options()
+        .write(true)
+        .open(path)
+        .and_then(|f| f.set_modified(t))
+        .expect("set mtime");
 }

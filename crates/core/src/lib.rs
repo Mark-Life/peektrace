@@ -12,10 +12,11 @@ pub mod model;
 pub mod opencode;
 mod paths;
 pub mod pi;
-mod pricing;
+pub mod pricing;
 pub mod roots;
 pub mod select;
 pub mod sessions;
+pub mod stats;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions};
 pub use model::{

@@ -29,6 +29,8 @@ pub struct Output {
     pub warnings: Vec<String>,
     /// Sessions the `--latest` listing could not read.
     pub unreadable: Option<usize>,
+    /// Printed on stderr after everything else.
+    pub notes: Vec<String>,
 }
 
 /// The validated target: an explicit id, or the newest session.
@@ -62,7 +64,7 @@ fn plan_target(
 
 /// Every agent's roots from the environment and `settings.json`, plus the
 /// warning for unparseable settings.
-fn agent_roots(ctx: &Context) -> (AgentRoots, Vec<String>) {
+pub fn agent_roots(ctx: &Context) -> (AgentRoots, Vec<String>) {
     let settings = ctx
         .settings
         .as_deref()
@@ -296,6 +298,7 @@ pub fn run_analyze(
         write: None,
         warnings,
         unreadable,
+        notes: Vec::new(),
     })
 }
 
@@ -366,12 +369,14 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
             write: None,
             warnings,
             unreadable,
+            notes: Vec::new(),
         },
         Some(path) => Output {
             stdout: None,
             write: Some((path.to_owned(), rendered)),
             warnings,
             unreadable,
+            notes: Vec::new(),
         },
     })
 }

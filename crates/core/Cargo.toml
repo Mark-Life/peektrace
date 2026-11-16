@@ -8,7 +8,11 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+fancy-regex.workspace = true
+indexmap.workspace = true
+jiff.workspace = true
 rayon.workspace = true
+sha1_smol.workspace = true
 regex.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
