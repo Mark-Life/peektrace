@@ -7,6 +7,7 @@ The app is Rust (`crates/`): the `peektrace` CLI, server, TUI and the Rune nativ
 - Rust checks: `cargo fmt --all --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`. The Rune app crates are outside default-members: add `-p peektrace-ui -p peektrace-app`.
 - TS checks: `bun run typecheck`, `bun run check`, `bun test`.
 - Fixtures the Rust tests read live in `tests/fixtures`.
+- Git hooks (husky): pre-commit runs `ultracite fix` on staged TS/JS and `cargo fmt --all` when `.rs` files are staged; pre-push runs the CI clippy commands when the pushed commits touch Rust (plus the Rune crates when `crates/ui` or `crates/app` change).
 - Build cache: `kache` (`cargo install kache --locked`, then `kache init`) wraps rustc on each machine and restores crate outputs across worktrees, so each worktree keeps its own `target/`. CI uses `kunobi-ninja/kache-action`.
 
 ## Code Quality
