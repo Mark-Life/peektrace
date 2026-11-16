@@ -8,7 +8,7 @@ use std::time::UNIX_EPOCH;
 
 use indexmap::IndexMap;
 use rayon::prelude::*;
-use tracing::{field, info_span};
+use tracing::{Span, field, info_span};
 
 use super::cache::{
     CacheEntry, FileStat, StatsCache, fact_ms, is_fresh, is_past_window, merge_index,
@@ -65,7 +65,8 @@ fn parse_claude(text: &str, r: &TranscriptRef) -> ParsedSession {
 
 /// Load and parse one transcript; `None` when a text transcript cannot be
 /// read. An `OpenCode` session no store holds parses as an empty session.
-fn parse_ref(r: &TranscriptRef, opencode: &mut Reader<'_>) -> Option<ParsedSession> {
+/// Spans hang off `parent`: rayon workers have no current span.
+fn parse_ref(r: &TranscriptRef, opencode: &mut Reader<'_>, parent: &Span) -> Option<ParsedSession> {
     let parse_text: fn(&str, &TranscriptRef) -> ParsedSession = match r.agent {
         Agent::Claude => parse_claude,
         Agent::Codex => |text, r| parse_codex_session(text, &r.path, &r.id),
@@ -73,6 +74,7 @@ fn parse_ref(r: &TranscriptRef, opencode: &mut Reader<'_>) -> Option<ParsedSessi
         Agent::Opencode => {
             let session = {
                 let _span = info_span!(
+                    parent: parent,
                     "AgentRegistry.loadTranscript",
                     agent = Agent::Opencode.as_str()
                 )
@@ -82,7 +84,7 @@ fn parse_ref(r: &TranscriptRef, opencode: &mut Reader<'_>) -> Option<ParsedSessi
             return Some(parse_opencode_session(session.as_ref(), &r.path, &r.id));
         }
     };
-    load_transcript(r).map(|text| parse_text(&text, r))
+    load_transcript(r, parent).map(|text| parse_text(&text, r))
 }
 
 /// What a pass folds and over which window.
@@ -128,8 +130,9 @@ fn stat_of(path: &str) -> FileStat {
     )
 }
 
-fn load_transcript(r: &TranscriptRef) -> Option<String> {
+fn load_transcript(r: &TranscriptRef, parent: &Span) -> Option<String> {
     let span = info_span!(
+        parent: parent,
         "AgentRegistry.loadTranscript",
         agent = r.agent.as_str(),
         error = field::Empty
@@ -147,6 +150,7 @@ fn facts_for(
     r: &TranscriptRef,
     args: &PassArgs<'_>,
     opencode: &mut Reader<'_>,
+    parent: &Span,
 ) -> FileResult {
     let stat = stat_of(&r.path);
     if let Some(entry) = index
@@ -176,7 +180,7 @@ fn facts_for(
         facts: Vec::new(),
         skipped: true,
     };
-    let Some(parsed) = parse_ref(r, opencode) else {
+    let Some(parsed) = parse_ref(r, opencode, parent) else {
         return skipped;
     };
     let project = if r.slug.is_empty() {
@@ -257,17 +261,18 @@ pub fn fold_refs(
     let mut skipped: Vec<&str> = Vec::new();
     let mut done = 0;
     {
-        let _span = info_span!("Stats.foldCorpus", transcripts = refs.len()).entered();
+        let span = info_span!("Stats.foldCorpus", transcripts = refs.len());
+        let _entered = span.enter();
         std::thread::scope(|scope| {
             let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<FileResult>>(0);
-            let index = &index;
+            let (index, span) = (&index, &span);
             scope.spawn(move || {
                 for chunk in refs.chunks(CHUNK) {
                     let results: Vec<FileResult> = chunk
                         .par_iter()
                         .map_init(
                             || opencode.reader(),
-                            |reader, r| facts_for(cache, local, index, r, args, reader),
+                            |reader, r| facts_for(cache, local, index, r, args, reader, span),
                         )
                         .collect();
                     if tx.send(results).is_err() {

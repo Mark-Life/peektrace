@@ -95,9 +95,8 @@ fn telemetry_flags_override_each_other() {
     );
 }
 
-/// The rows of the owned root page (TS `COMMAND_ROWS`, without `doctor`,
-/// which Rust does not have yet).
-const COMMAND_ROWS: [(&str, &str); 17] = [
+/// The rows of the owned root page (TS `COMMAND_ROWS`).
+const COMMAND_ROWS: [(&str, &str); 18] = [
     ("serve", "Start the local web UI"),
     ("tui", "Browse sessions in a terminal UI"),
     ("sessions ls", "List session headers"),
@@ -138,6 +137,7 @@ const COMMAND_ROWS: [(&str, &str); 17] = [
         "mcp",
         "Serve read-only session and stats tools over stdio MCP",
     ),
+    ("doctor", "Write a redacted telemetry bundle for support"),
     (
         "upgrade",
         "Upgrade the installed binary to the latest release",

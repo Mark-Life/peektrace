@@ -31,8 +31,8 @@ pub struct Cli {
     #[arg(long = "log-level", global = true, value_enum)]
     pub log_level: Option<LogLevel>,
 
-    // Accepted for TS flag parity. No telemetry store exists yet, so nothing
-    // reads them.
+    // Telemetry is decided from the raw command line before parsing
+    // (`argv::telemetry_on`); clap only accepts the flags.
     /// Disable local wide-event telemetry (on by default)
     #[arg(long = "no-telemetry", global = true, overrides_with = "telemetry")]
     pub no_telemetry: bool,
@@ -82,8 +82,23 @@ pub enum Command {
     Tui(ServeArgs),
     /// Serve read-only session and stats tools over stdio MCP
     Mcp,
+    /// Write a redacted telemetry bundle for support
+    Doctor(DoctorArgs),
     /// Upgrade the installed binary to the latest release
     Upgrade(UpgradeArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct DoctorArgs {
+    /// Max events to include
+    #[arg(long, default_value = "200", allow_hyphen_values = true, value_parser = lossy())]
+    pub last: String,
+    /// Only errors/slow events
+    #[arg(long = "interesting-only")]
+    pub interesting_only: bool,
+    /// Output path for the bundle
+    #[arg(long, allow_hyphen_values = true, value_parser = lossy())]
+    pub out: Option<String>,
 }
 
 #[derive(Debug, Args)]

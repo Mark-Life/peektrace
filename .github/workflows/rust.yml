@@ -58,9 +58,9 @@ jobs:
         run: cargo test --locked
 
   windows:
-    # Lint, unit tests, the fixture listing, Codex/Pi discovery and memory
-    # reads, writes and path containment. The CLI end-to-end tests drive a
-    # POSIX HOME, so they stay off.
+    # Lint, unit tests, the fixture listing, Codex/Pi discovery, memory
+    # reads, writes and path containment, and the telemetry store. The CLI
+    # end-to-end tests drive a POSIX HOME, so they stay off.
     name: check (windows-latest)
     runs-on: windows-latest
     timeout-minutes: 20
@@ -89,10 +89,15 @@ jobs:
           --test fixtures --test discovery --test codex --test pi
           --test pi_context_edit --test memory --test memory_fs
 
-  parity:
-    name: parity (fixtures)
+      - name: Telemetry store and layer
+        run: cargo test --locked -p peektrace-telemetry --test writer --test layer
+
+  parity-build:
+    # Builds once; each stage job below restores the binary, the examples
+    # and the inspector build from the cache and needs no Rust toolchain.
+    name: parity build
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -122,5 +127,72 @@ jobs:
           cargo build --locked --release
           cargo build --locked --release -p peektrace-core -p peektrace-tui --examples
 
+      - name: Save the build
+        uses: actions/cache/save@v4
+        with:
+          key: parity-bin-${{ github.sha }}
+          path: |
+            target/release/peektrace
+            target/release/examples/highlight
+            target/release/examples/views
+            apps/inspector/dist
+
+  parity:
+    name: parity (${{ matrix.stage }})
+    needs: parity-build
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { stage: base, timeout: 45 }
+          - { stage: stats, timeout: 30 }
+          - { stage: serve, timeout: 30 }
+          - { stage: search, timeout: 25 }
+          - { stage: memory, timeout: 20 }
+          - { stage: cli, timeout: 20 }
+          - { stage: tui, timeout: 20 }
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Restore the build
+        uses: actions/cache/restore@v4
+        with:
+          key: parity-bin-${{ github.sha }}
+          fail-on-cache-miss: true
+          path: |
+            target/release/peektrace
+            target/release/examples/highlight
+            target/release/examples/views
+            apps/inspector/dist
+
       - name: Parity against the TS CLI
-        run: bun scripts/rust/parity.ts --fixtures-only
+        run: >-
+          bun scripts/rust/parity.ts --fixtures-only
+          --${{ matrix.stage }}-only --bin target/release/peektrace
+
+  parity-done:
+    # Keeps the old check name for branch rules.
+    name: parity (fixtures)
+    needs: parity
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Every stage passed
+        if: needs.parity.result != 'success'
+        run: exit 1

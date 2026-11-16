@@ -2,6 +2,8 @@
 
 mod args;
 mod argv;
+mod dispatch;
+mod doctor;
 mod help;
 mod ls;
 mod mcp;
@@ -12,6 +14,7 @@ mod render;
 mod reorder;
 mod search;
 mod serve;
+mod signals;
 mod single;
 mod stats;
 mod stats_progress;
@@ -26,20 +29,17 @@ mod width;
 mod zone;
 
 use std::io::{self, Write as _};
+use std::panic::{self, AssertUnwindSafe};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context as _;
-use clap::Parser as _;
-use clap::error::ErrorKind;
 use peektrace_core::PathStyle;
 use peektrace_core::roots::RootsEnv;
 use peektrace_core::select;
 use tracing::{Span, field, info_span};
 
-use crate::args::{
-    Cli, Command, MemoryArgs, MemoryCommand, SessionsArgs, SessionsCommand, StatsArgs, StatsCommand,
-};
+use crate::args::Cli;
 use crate::ls::{Context, Globals};
 
 const VERSION: &str = match option_env!("PEEKTRACE_VERSION") {
@@ -103,26 +103,6 @@ fn print_stderr(text: &str) {
     let _ = writeln!(io::stderr().lock(), "{text}");
 }
 
-/// A page or script that runs before any command, exit 0 (1 for a
-/// `--completions` value that names no shell).
-fn print_early(early: help::Early) -> ExitCode {
-    let text = match early {
-        help::Early::RootHelp => format!("{}\n", help::root_page(VERSION)),
-        help::Early::GroupHelp(g) => format!("{}\n", help::group_page(g, VERSION)),
-        help::Early::Completions(Ok(shell)) => help::completions(shell),
-        help::Early::Completions(Err(value)) => {
-            print_stderr(&format!(
-                "invalid value '{value}' for '--completions <shell>'\n  [possible values: sh, bash, fish, zsh]"
-            ));
-            return ExitCode::FAILURE;
-        }
-    };
-    match write_stdout(&[&text]) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(_) => ExitCode::FAILURE,
-    }
-}
-
 /// The command to run, from the parsed command line.
 #[derive(Clone, Copy)]
 enum Run<'a> {
@@ -142,6 +122,7 @@ enum Run<'a> {
     Statusline(&'a args::StatuslineArgs),
     Mcp,
     Upgrade(&'a args::UpgradeArgs),
+    Doctor(&'a args::DoctorArgs),
     Tui(&'a args::ServeArgs),
 }
 
@@ -165,6 +146,7 @@ impl<'a> Run<'a> {
             | Self::Statusline(_)
             | Self::Mcp
             | Self::Upgrade(_)
+            | Self::Doctor(_)
             | Self::Tui(_) => None,
         }
     }
@@ -180,24 +162,11 @@ impl<'a> Run<'a> {
 }
 
 /// A command under the root `cli` span. Every failure, including an early
-/// `?` exit, records `error` on that span. `argv` is the normalized command
-/// line clap parsed.
-fn run(cli: &Cli, cmd: Run<'_>, argv: &[String]) -> anyhow::Result<ExitCode> {
-    let command_line = argv::loggable(argv);
-    let scrub = argv::has_free_text(argv);
-    let root = info_span!(
-        "cli",
-        peektrace.root = true,
-        peektrace.kind = "cli",
-        argv = command_line.as_str(),
-        sessions.unreadable = field::Empty,
-        error = field::Empty
-    );
-    let _entered = root.enter();
-    let failed = Failure { root: &root, scrub };
-    let result = run_command(cli, cmd, failed);
+/// `?` exit, records `error` on that span.
+fn run(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<ExitCode> {
+    let result = run_command(cli, cmd, failure);
     if let Err(e) = &result {
-        failed.record(&format!("{e:#}"));
+        failure.record(&format!("{e:#}"));
     }
     result
 }
@@ -215,7 +184,7 @@ impl Failure<'_> {
         let message = if self.scrub {
             "invalid command line"
         } else {
-            message
+            message.trim_end()
         };
         self.root.record("error", field::display(message));
     }
@@ -266,6 +235,9 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         print_warnings(cli, &warnings_of(&ctx));
         mcp::serve(ctx, io::stdin().lock());
         return Ok(ExitCode::SUCCESS);
+    }
+    if let Run::Doctor(args) = cmd {
+        return Ok(run_doctor(args, failure));
     }
     if let Run::Upgrade(args) = cmd {
         let env = upgrade::UpgradeEnv::from_process(VERSION);
@@ -323,7 +295,7 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         Run::StatsPrompt(args) => stats::run_prompt(args, &ctx),
         Run::StatsRefresh(args) => stats::run_refresh(args, globals, &ctx),
         Run::StatsUsage(args) => stats::run_usage(args, globals, &ctx),
-        Run::Statusline(_) | Run::Mcp | Run::Upgrade(_) => unreachable!(),
+        Run::Statusline(_) | Run::Mcp | Run::Upgrade(_) | Run::Doctor(_) => unreachable!(),
     };
     let out = match out {
         Ok(out) => out,
@@ -428,75 +400,66 @@ fn run_tui(
     Ok(ExitCode::SUCCESS)
 }
 
-fn main() -> ExitCode {
-    let argv: Vec<String> = std::env::args_os()
-        .map(|a| a.to_string_lossy().into_owned())
-        .collect();
-    if let Some(early) = help::early(&argv) {
-        return print_early(early);
-    }
-    if let Some(flag) = args::missing_value(&argv) {
-        print_stderr(&format!("Missing value for {flag}."));
-        return ExitCode::FAILURE;
-    }
-    let argv = reorder::normalize(&argv);
-    let cli = match Cli::try_parse_from(&argv) {
-        Ok(cli) => cli,
-        Err(e) => {
-            let _ = e.print();
-            return match e.kind() {
-                ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => ExitCode::SUCCESS,
-                _ => ExitCode::FAILURE,
-            };
-        }
-    };
-    if cli.version {
-        return match print_stdout(VERSION) {
+/// `doctor`: write the support bundle and print where it went.
+fn run_doctor(args: &args::DoctorArgs, failure: Failure<'_>) -> ExitCode {
+    match doctor::run_here(args) {
+        Ok(lines) => match print_stdout(&lines.join("\n")) {
             Ok(()) => ExitCode::SUCCESS,
             Err(_) => ExitCode::FAILURE,
-        };
+        },
+        Err(e) => failure.fail(&e),
     }
-    let cmd = match &cli.command {
-        None => {
-            return match print_stdout(&help::banner()) {
-                Ok(()) => ExitCode::SUCCESS,
-                Err(_) => ExitCode::FAILURE,
-            };
-        }
-        Some(Command::Sessions(SessionsArgs { command: None })) => {
-            return print_early(help::Early::GroupHelp("sessions"));
-        }
-        Some(Command::Sessions(SessionsArgs { command: Some(c) })) => match c {
-            SessionsCommand::Ls(a) => Run::Ls(a),
-            SessionsCommand::Analyze(a) => Run::Analyze(a),
-            SessionsCommand::Export(a) => Run::Export(a),
-            SessionsCommand::Search(a) => Run::Search(a),
-        },
-        Some(Command::Memory(MemoryArgs { command: None })) => {
-            return print_early(help::Early::GroupHelp("memory"));
-        }
-        Some(Command::Memory(MemoryArgs { command: Some(c) })) => match c {
-            MemoryCommand::Ls(a) => Run::MemoryLs(a),
-            MemoryCommand::Show(a) => Run::MemoryShow(a),
-            MemoryCommand::Rm(a) => Run::MemoryRm(a),
-        },
-        Some(Command::Stats(StatsArgs { command, common })) => match command {
-            None => Run::Stats(common),
-            Some(StatsCommand::Drill(a)) => Run::StatsDrill(a),
-            Some(StatsCommand::Prompt(a)) => Run::StatsPrompt(a),
-            Some(StatsCommand::Refresh(a)) => Run::StatsRefresh(a),
-            Some(StatsCommand::Usage(a)) => Run::StatsUsage(a),
-        },
-        Some(Command::Serve(a)) => Run::Serve(a),
-        Some(Command::Statusline(a)) => Run::Statusline(a),
-        Some(Command::Mcp) => Run::Mcp,
-        Some(Command::Upgrade(a)) => Run::Upgrade(a),
-        Some(Command::Tui(a)) => Run::Tui(a),
-    };
-    let echo = cli.otel || std::env::var("PEEKTRACE_OTEL").is_ok_and(|v| !v.is_empty());
-    otel::init(echo, cli.log_level);
-    run(&cli, cmd, &argv).unwrap_or_else(|e| {
-        print_stderr(&format!("{e:#}"));
-        ExitCode::FAILURE
-    })
 }
+
+fn main() -> ExitCode {
+    let raw: Vec<String> = std::env::args_os()
+        .map(|a| a.to_string_lossy().into_owned())
+        .collect();
+    otel::start(&raw, VERSION);
+    let argv = reorder::normalize(&raw);
+    let command_line = argv::loggable(&argv::version_alias(&argv));
+    let code = {
+        let root = info_span!(
+            "cli",
+            peektrace.root = true,
+            peektrace.kind = "cli",
+            argv = command_line.as_str(),
+            sessions.unreadable = field::Empty,
+            error = field::Empty
+        );
+        let _entered = root.enter();
+        let failure = Failure {
+            root: &root,
+            scrub: argv::has_free_text(&argv),
+        };
+        let caught = panic::catch_unwind(AssertUnwindSafe(|| {
+            crash_point();
+            dispatch::dispatch(&raw, &argv, failure)
+        }));
+        if let Err(payload) = &caught {
+            peektrace_telemetry::record_panic(payload.as_ref());
+        }
+        caught
+    };
+    // A panic still reaches the store: the root is closed, so flush, then
+    // carry on unwinding.
+    peektrace_telemetry::flush(peektrace_telemetry::exit_wait());
+    code.unwrap_or_else(|payload| panic::resume_unwind(payload))
+}
+
+/// `PEEKTRACE_TEST_PANIC=main` panics on this thread; `worker` panics on
+/// another and re-raises here, as rayon does. Debug builds only.
+#[cfg(debug_assertions)]
+fn crash_point() {
+    match std::env::var("PEEKTRACE_TEST_PANIC").as_deref() {
+        Ok("main") => panic!("test panic"),
+        Ok("worker") => {
+            let Err(payload) = std::thread::spawn(|| panic!("worker panic")).join();
+            panic::resume_unwind(payload);
+        }
+        _ => {}
+    }
+}
+
+#[cfg(not(debug_assertions))]
+const fn crash_point() {}

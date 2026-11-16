@@ -62,7 +62,7 @@ serve_init() {
   [[ "${SERVE:-0}" == 1 ]] && return
   SERVE=1
   BUN_PORT="$(free_port 47810)"; RUST_PORT="$(free_port $((BUN_PORT + 1)))"
-  METHOD_EXTRA+=("Serve: both servers run \`serve --no-open\` on 127.0.0.1 with \`$SERVE_ENV\` and default settings (TS records local telemetry per RPC). Each call is one \`curl\` process, timed by \`hyperfine -N\`; curl startup is in both numbers.")
+  METHOD_EXTRA+=("Serve: both servers run \`serve --no-open\` on 127.0.0.1 with \`$SERVE_ENV\` and default settings (both record local telemetry per RPC). Each call is one \`curl\` process, timed by \`hyperfine -N\`; curl startup is in both numbers.")
   METHOD_EXTRA+=("Payload: raw = body bytes without \`Accept-Encoding\` (TS includes the NDJSON \`Exit\` envelope); gzip -6 = that body through \`gzip -6\`; wire = bytes received with \`Accept-Encoding: gzip\`. Rust gzips responses over 1 KiB through tower-http \`CompressionLayer\`; TS \`/rpc\` sends no compression.")
   METHOD_EXTRA+=("Server RSS: per round and group, start the server under GNU time, wait for \`/health\`, wait 10 s, read RSS with \`ps -o rss=\` (idle), run the group's calls in order, read RSS again, stop the server; peak = GNU time \`%M\` over the whole life. $RSS_ROUNDS rounds, Bun and Rust interleaved, median (min–max).")
 }

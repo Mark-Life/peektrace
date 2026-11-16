@@ -202,7 +202,11 @@ const compareTokens = (
 /** Tool and prompt bodies of the newest real sessions, decoded as the
  * history view decodes them. Written to WORK only. */
 const realBodies = () => {
-  const env = { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" };
+  const env = {
+    PATH: process.env.PATH ?? "",
+    HOME: process.env.HOME ?? "",
+    PEEKTRACE_NO_TELEMETRY: "1",
+  };
   const ls = run(
     [
       rustBin,

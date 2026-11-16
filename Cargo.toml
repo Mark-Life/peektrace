@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui"]
+members = ["crates/core", "crates/protocol", "crates/server", "crates/cli", "crates/tui", "crates/telemetry"]
 
 [workspace.package]
 version = "0.0.0"
@@ -14,6 +14,7 @@ peektrace-core = { path = "crates/core" }
 peektrace-protocol = { path = "crates/protocol" }
 peektrace-server = { path = "crates/server" }
 peektrace-tui = { path = "crates/tui" }
+peektrace-telemetry = { path = "crates/telemetry" }
 anyhow = "1.0.104"
 jiff = { version = "0.2.37", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-always"] }
 fancy-regex = { version = "0.20", default-features = false, features = ["std", "perf"] }
