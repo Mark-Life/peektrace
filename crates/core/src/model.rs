@@ -25,8 +25,17 @@ impl Agent {
     }
 
     /// True when this build can read the agent's sessions.
+    #[expect(
+        clippy::match_same_arms,
+        reason = "one arm per agent, so adding a reader changes one line"
+    )]
     pub const fn has_reader(self) -> bool {
-        matches!(self, Self::Claude)
+        match self {
+            Self::Claude => true,
+            Self::Codex => true,
+            Self::Pi => true,
+            Self::Opencode => false,
+        }
     }
 
     /// Exact, case-sensitive match on the agent id.
@@ -66,11 +75,13 @@ macro_rules! string_id {
 }
 
 string_id!(
-    /// Session id: the transcript file name without `.jsonl`.
+    /// Session id from the transcript file name: the name without `.jsonl`
+    /// (Claude), or the uuid in it (Codex, Pi).
     SessionId
 );
 string_id!(
-    /// Claude project slug: the transcript's parent directory name.
+    /// A session's project: the slug dir name (Claude, Pi), or the cwd's last
+    /// segment (Codex).
     ProjectSlug
 );
 

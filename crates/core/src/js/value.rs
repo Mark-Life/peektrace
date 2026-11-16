@@ -43,7 +43,20 @@ fn index_key(k: &str) -> Option<u32> {
         .and_then(|n| u32::try_from(n).ok())
 }
 
+/// `{}`: what `x ?? {}` reads when `x` is missing.
+pub static EMPTY_OBJECT: JsValue = JsValue::Obj(JsObject(Vec::new()));
+
 impl JsObject {
+    /// `{...self, [key]: value}`: an existing key keeps its place.
+    #[must_use]
+    pub fn with(mut self, key: &str, value: JsValue) -> Self {
+        match self.0.iter_mut().find(|(k, _)| k == key) {
+            Some(slot) => slot.1 = value,
+            None => self.0.push((key.to_owned(), value)),
+        }
+        Self::from_entries(self.0)
+    }
+
     /// Build from entries in insertion order, applying JS key order.
     pub fn from_entries(entries: impl IntoIterator<Item = (String, JsValue)>) -> Self {
         let mut out: Vec<(String, JsValue)> = Vec::new();

@@ -51,18 +51,11 @@ fn session_of(out: &str) -> String {
         .to_owned()
 }
 
-/// TS picks the Codex session; this build reads Claude only, so it picks the
-/// newest Claude session and says Codex was not searched.
 #[test]
-fn latest_picks_the_newest_readable_session() {
+fn latest_picks_the_newest_session_of_any_agent() {
     let r = analyze(&home(), &["--latest", "--json"]);
     assert_eq!(r.code, 0, "{}", r.err);
-    assert_eq!(session_of(&r.out), MID_ID);
-    assert!(
-        r.err.contains("codex sessions are not searched"),
-        "{}",
-        r.err
-    );
+    assert_eq!(session_of(&r.out), CODEX_ID);
 }
 
 #[test]

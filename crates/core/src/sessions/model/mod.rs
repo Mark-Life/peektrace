@@ -3,7 +3,7 @@
 //! counts read from a transcript are `f64`, as in JS.
 //!
 //! JSON key order differs by producer, so events and turns carry a shape tag
-//! that fixes it (see `write.rs`). A parser for another agent adds its own
+//! that fixes it (see `write/event.rs`). Each agent's parser adds its own
 //! shapes; the structs stay the same.
 
 /// Which agent wrote the transcript, as the JSON `provider` field names it.
@@ -205,6 +205,23 @@ pub enum EventShape {
     Attachment,
     /// The shared system-prompt builder.
     SystemPrompt,
+    /// Codex assistant text, reasoning or user prompt; a call's output gets
+    /// its request id last.
+    CodexText,
+    /// Codex injected message part or inter-agent message.
+    CodexAttachment,
+    /// Codex tool call; gets its request id last.
+    CodexToolCall,
+    /// Codex tool output.
+    CodexToolResult,
+    /// Pi user text block.
+    PiPrompt,
+    /// Pi user image, custom message or bash run.
+    PiAttachment,
+    /// Any block of a Pi assistant message.
+    PiAssistantBlock,
+    /// Pi tool result.
+    PiToolResult,
 }
 
 /// One row of the session timeline. Fields a producer does not set are
@@ -302,10 +319,21 @@ pub enum TurnField {
     CostUsd,
 }
 
-/// Which producer built a turn; fixes its JSON key order.
+/// Which producer built a turn; fixes its JSON key order. Codex and Pi
+/// turns use the Claude order with the Claude-only fields unset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TurnShape {
     Claude,
+}
+
+/// The usage counts every turn carries.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct TurnTokens {
+    pub context: f64,
+    pub input: f64,
+    pub cache_read: f64,
+    pub cache_creation: f64,
+    pub output: f64,
 }
 
 /// One model call.
@@ -331,6 +359,38 @@ pub struct Turn {
     pub cost_usd: Option<f64>,
     /// Keys set after the turn was built, in the order they were added.
     pub appended: Vec<TurnField>,
+}
+
+impl Turn {
+    /// A turn with its usage set and every optional field unset.
+    pub fn new(request_id: String, model: String, tokens: TurnTokens, ts: Option<String>) -> Self {
+        Self {
+            shape: TurnShape::Claude,
+            request_id,
+            model,
+            context_tokens: tokens.context,
+            input_tokens: tokens.input,
+            cache_read_tokens: tokens.cache_read,
+            cache_creation_tokens: tokens.cache_creation,
+            output_tokens: tokens.output,
+            cache_creation_1h_tokens: None,
+            cache_creation_5m_tokens: None,
+            event_indexes: Vec::new(),
+            ts,
+            thinking_tokens: None,
+            web_search_requests: None,
+            web_fetch_requests: None,
+            effort: None,
+            cost_usd: None,
+            appended: Vec::new(),
+        }
+    }
+
+    /// Link the event at position `pos` to this turn.
+    #[expect(clippy::cast_possible_wrap, reason = "positions fit i64")]
+    pub fn link(&mut self, pos: usize) {
+        self.event_indexes.push(pos as i64);
+    }
 }
 
 /// Cost of a list of turns.

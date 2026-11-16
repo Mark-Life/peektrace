@@ -1,12 +1,12 @@
 /**
- * Analyze/export stage of the parity harness. Every listed Claude session
- * runs through `sessions analyze` and `sessions export` in every output mode,
- * addressed by full id, short id and path, plus its subagents via `--parent`
- * and a fixed set of target and flag errors.
+ * Analyze/export stage of the parity harness. Every listed Claude, Codex and
+ * Pi session runs through `sessions analyze` and `sessions export` in every
+ * output mode, addressed by full id, short id and path, plus Claude
+ * subagents via `--parent` and a fixed set of target and flag errors.
  *
  * Normalisation:
- * - Codex, Pi and OpenCode roots point at an empty dir, so TS prefix lookups
- *   and `--latest` see Claude sessions only, as the Rust CLI does.
+ * - The OpenCode root points at an empty dir, so TS prefix lookups and
+ *   `--latest` see the agents the Rust CLI reads.
  * - `exportedAt` (JSON), the `Exported:` line (md) and `<dt>Exported</dt>`
  *   (html) are the only time-based values; their stamp is masked.
  * - A TS defect (an Effect stack on stdout, e.g. a `null` row) skips the
@@ -14,7 +14,8 @@
  *   fixture suites only the `KNOWN_DEFECTS` sessions may hit one, and each of
  *   them must.
  * - Real corpus: a sample by default (newest, largest, with subagents, with
- *   compaction); `--real-all` runs every session. Cases whose transcript or
+ *   compaction, plus up to REAL_PER_AGENT newest Codex and Pi sessions);
+ *   `--real-all` runs every session. Cases whose transcript or
  *   subagent tree changed during the run are skipped as live.
  */
 import {
@@ -27,6 +28,14 @@ import {
   statSync,
 } from "node:fs";
 import { basename, dirname, join } from "node:path";
+import {
+  analyze,
+  type Case,
+  fixedCases,
+  type Row,
+  subagentCases,
+  targetCases,
+} from "./parity-analyze-cases";
 import { buildAnalyzeEdge, LOCKED } from "./parity-analyze-fixtures";
 import {
   compareRun,
@@ -46,24 +55,17 @@ const READ_WRITE = 0o644;
 const DEFECT = /^\[\d\d:\d\d:\d\d\.\d{3}\] ERROR \(#/;
 const JSONL = /\.jsonl$/;
 const STAMP = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/;
-const SUBAGENTS_PER_SESSION = 3;
 const SAMPLE = { newest: 30, largest: 10, subagents: 20, compaction: 10 };
+const REAL_PER_AGENT = 100;
 /** Fixture sessions the TS CLI fails on; see "Known differences" in the plan. */
-const KNOWN_DEFECTS = new Set(["nonobj", "nullrow"]);
+const KNOWN_DEFECTS = new Set([
+  "nonobj",
+  "nullrow",
+  "rollout-nullrow",
+  "pi-nullrow",
+]);
 const REAL = "real";
 const STDERR_SHOWN = 200;
-
-interface Case {
-  readonly args: readonly string[];
-  /** File the command writes, compared too. */
-  readonly out?: string;
-}
-
-interface Row {
-  readonly id: string;
-  readonly path: string;
-  readonly sizeBytes: number;
-}
 
 const stats = { cases: 0, defects: 0, live: 0 };
 const defectsSeen = new Set<string>();
@@ -72,9 +74,14 @@ const isJsonOut = (args: readonly string[]) =>
   args.includes("--json") ||
   args.some((a, i) => a === "--format" && args[i + 1] === "json");
 
-/** The known-defect session a case targets, by id or transcript path. */
+/** The known-defect session a case targets, by id, short id or transcript
+ * path. */
 const knownDefect = (args: readonly string[]) =>
-  args.map((a) => basename(a, ".jsonl")).find((a) => KNOWN_DEFECTS.has(a));
+  args
+    .filter((a) => !a.startsWith("-"))
+    .map((a) => basename(a, ".jsonl"))
+    .flatMap((a) => [...KNOWN_DEFECTS].filter((k) => k.startsWith(a)))
+    .at(0);
 
 /** TS failed, so there is nothing to compare: Rust must still succeed. */
 const checkDefect = (suite: string, label: string, c: Case, rust: Run) => {
@@ -208,141 +215,10 @@ const runCase = async (
 
 const listRows = async (env: Record<string, string>) => {
   const out = await runAsync(
-    [rustBin, "--json", "sessions", "ls", "--agent", "claude", "--limit", "0"],
+    [rustBin, "--json", "sessions", "ls", "--limit", "0"],
     env
   );
   return JSON.parse(out.stdout) as Row[];
-};
-
-/** `id` up to its first `-`, when no other listed id starts with it. */
-const shortIdOf = (id: string, ids: readonly string[]) => {
-  const short = id.split("-")[0] ?? id;
-  return short !== id && ids.filter((x) => x.startsWith(short)).length === 1
-    ? short
-    : undefined;
-};
-
-const analyze = (t: string, ...rest: string[]) => [
-  "sessions",
-  "analyze",
-  t,
-  ...rest,
-];
-const exportOf = (t: string, ...rest: string[]) => [
-  "sessions",
-  "export",
-  t,
-  ...rest,
-];
-
-/** Every mode for a full id; a smaller set for its other names. An id that
- * starts with `-` reads as a flag in both CLIs, so only its path is used. */
-const targetCases = (row: Row, ids: readonly string[]): Case[] => {
-  const byPath: Case[] = [
-    { args: analyze(row.path, "--json") },
-    { args: exportOf(row.path, "--format", "html") },
-  ];
-  if (row.id.startsWith("-")) {
-    return byPath;
-  }
-  const all: Case[] = [
-    { args: analyze(row.id, "--json") },
-    { args: analyze(row.id) },
-    { args: ["--pretty", ...analyze(row.id)] },
-    { args: exportOf(row.id, "--format", "json") },
-    { args: exportOf(row.id, "--format", "md") },
-    { args: exportOf(row.id, "--format", "html") },
-    { args: exportOf(row.id, "--no-redact", "--format", "json") },
-    { args: exportOf(row.id) },
-  ];
-  const short = shortIdOf(row.id, ids);
-  return [
-    ...all,
-    ...(short
-      ? [
-          { args: analyze(short, "--json") },
-          { args: exportOf(short, "--format", "md") },
-        ]
-      : []),
-    ...byPath,
-  ];
-};
-
-/** `--parent` cases for the first subagents of a session. */
-const subagentCases = async (row: Row, env: Record<string, string>) => {
-  const out = await runAsync(
-    [rustBin, "sessions", "analyze", row.id, "--json"],
-    env
-  );
-  let subs: { id: string }[] = [];
-  try {
-    subs = (JSON.parse(out.stdout) as { subagents: { id: string }[] })
-      .subagents;
-  } catch {
-    return [];
-  }
-  return subs
-    .slice(0, SUBAGENTS_PER_SESSION)
-    .flatMap((s) => [
-      { args: analyze(s.id, "--parent", row.id, "--json") },
-      { args: exportOf(s.id, "--parent", row.id, "--format", "md") },
-    ]);
-};
-
-/** Target, flag and write errors, run once per fixture suite. */
-const fixedCases = (rows: readonly Row[], work: string): Case[] => {
-  const first = rows[0]?.id ?? "x";
-  const ids = rows.map((r) => r.id);
-  const shared = ids
-    .map((id) => id.slice(0, 1))
-    .find((p) => ids.filter((x) => x.startsWith(p)).length > 1);
-  return [
-    { args: ["sessions", "analyze", "--latest"] },
-    { args: ["sessions", "analyze", "--latest", "--json"] },
-    { args: ["sessions", "analyze", "--cwd", "/"] },
-    { args: ["sessions", "analyze", "--cwd", "/Users/demo/proj"] },
-    { args: ["sessions", "analyze", "--cwd", "/nope"] },
-    { args: ["sessions", "analyze"] },
-    { args: ["sessions", "analyze", "x", "--latest"] },
-    { args: ["sessions", "analyze", "--parent", "p"] },
-    { args: ["sessions", "analyze", "--cwd"] },
-    { args: ["sessions", "export", "--out"] },
-    { args: ["sessions", "analyze", "-x"] },
-    { args: ["sessions", "analyze", "zzz"] },
-    { args: ["sessions", "analyze", "zzz.jsonl"] },
-    ...(shared ? [{ args: ["sessions", "analyze", shared] }] : []),
-    { args: ["sessions", "analyze", first, "--parent", "zz"] },
-    { args: ["sessions", "analyze", "agent-1", "--parent", first] },
-    { args: ["sessions", "export", first, "--format", "pdf"] },
-    { args: ["sessions", "export", "--latest", "--format", "json"] },
-    {
-      args: ["sessions", "export", first, "--out", join(work, "x.HTM")],
-      out: join(work, "x.HTM"),
-    },
-    {
-      args: [
-        "sessions",
-        "export",
-        first,
-        "--out",
-        join(work, "x.json"),
-        "--no-redact",
-      ],
-      out: join(work, "x.json"),
-    },
-    {
-      args: [
-        "sessions",
-        "export",
-        first,
-        "--out",
-        join(work, "missing", "x.md"),
-      ],
-    },
-    { args: ["sessions", "export", first, "--out", work] },
-    { args: ["sessions", "export", first, "--out", "-"] },
-    { args: ["--json", "sessions", "export", first] },
-  ];
 };
 
 /** A suite in full, or (`zoneOnly`) just the dates a time zone changes. */
@@ -395,8 +271,10 @@ const sampleRows = (rows: readonly Row[], all: boolean) => {
   if (all) {
     return [...rows];
   }
-  const withSubagents = rows.filter((r) =>
-    existsSync(join(dirname(r.path), r.id, "subagents"))
+  const withSubagents = rows.filter(
+    (r) =>
+      r.agent === "claude" &&
+      existsSync(join(dirname(r.path), r.id, "subagents"))
   );
   const compacted = rows.filter((r) => {
     try {
@@ -405,8 +283,12 @@ const sampleRows = (rows: readonly Row[], all: boolean) => {
       return false;
     }
   });
+  const newestOf = (agent: string) =>
+    rows.filter((r) => r.agent === agent).slice(0, REAL_PER_AGENT);
   const picked = [
     ...rows.slice(0, SAMPLE.newest),
+    ...newestOf("codex"),
+    ...newestOf("pi"),
     ...[...rows]
       .sort((a, b) => b.sizeBytes - a.sizeBytes)
       .slice(0, SAMPLE.largest),
@@ -426,8 +308,7 @@ const runReal = async (pin: Record<string, string>, all: boolean) => {
   const picked = sampleRows(rows, all);
   const before = new Map(picked.map((r) => [r.path, stampOf(r.path)]));
   const subs = (await pool(picked, (r) => subagentCases(r, env))).flat();
-  const owner = (c: Case) =>
-    picked.find((r) => c.args.includes(r.id) || c.args.includes(r.path));
+  const owner = (c: Case) => picked.find((r) => r.path === c.owner);
   const cases = [...picked.flatMap((r) => targetCases(r, ids)), ...subs];
   console.log(
     `suite real analyze: ${picked.length} of ${rows.length} sessions, ${cases.length} cases`
@@ -447,11 +328,7 @@ export const runAnalyzeStage = async (args: {
 }) => {
   const empty = join(WORK, "empty-agents");
   mkdirSync(empty, { recursive: true });
-  const pin = {
-    PEEKTRACE_CODEX_SESSIONS: empty,
-    PEEKTRACE_PI_SESSIONS: empty,
-    PEEKTRACE_OPENCODE_DATA: empty,
-  };
+  const pin = { PEEKTRACE_OPENCODE_DATA: empty };
   if (args.fixtures.length > 0) {
     const home = join(WORK, "analyze-home");
     buildAnalyzeEdge(home);
