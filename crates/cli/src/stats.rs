@@ -18,7 +18,7 @@ use crate::ls::{Context, Globals, UserError};
 use crate::render::table;
 use crate::single::{Output, agent_roots};
 use crate::stats_progress::{self, Progress};
-use crate::stats_render::{render_drill, render_report, render_usage};
+use crate::stats_render::{CLI_DRILL_HINT, render_drill, render_report, render_usage};
 use crate::zone::SystemZone;
 use std::io::{IsTerminal as _, Write as _};
 
@@ -127,15 +127,54 @@ fn request(common: &StatsCommon) -> Result<ReportRequest, UserError> {
 /// `stats`: the ranked tables.
 pub fn run_report(common: &StatsCommon, g: Globals, ctx: &Context) -> Result<Output, UserError> {
     let req = request(common)?;
+    report_output(&req, g, ctx, CLI_DRILL_HINT, true).map_err(scan_error)
+}
+
+/// The report for a validated request; `hint` ends the text notes.
+/// `progress` draws the progress line on a capable terminal.
+pub fn report_output(
+    req: &ReportRequest,
+    g: Globals,
+    ctx: &Context,
+    hint: &str,
+    progress: bool,
+) -> Result<Output, StatsError> {
     let p = prepare(ctx);
     let zone = SystemZone::default();
-    let r = with_progress(|pr| report(&env_of(ctx, &p, &zone, pr), &req)).map_err(scan_error)?;
+    let r = maybe_progress(progress, |pr| report(&env_of(ctx, &p, &zone, pr), req))?;
     let out = if g.json {
         r.to_json(true)
     } else {
-        render_report(&r, g.pretty)
+        render_report(&r, g.pretty, hint)
     };
     Ok(output(p, &out))
+}
+
+/// The calls behind one row, for a validated request.
+pub fn drill_output(
+    req: &ReportRequest,
+    table_: DrillTable,
+    key: &str,
+    page: DrillPage,
+    g: Globals,
+    ctx: &Context,
+    progress: bool,
+) -> Result<Output, StatsError> {
+    let p = prepare(ctx);
+    let zone = SystemZone::default();
+    let d = maybe_progress(progress, |pr| {
+        drill(&env_of(ctx, &p, &zone, pr), req, table_, key, page)
+    })?;
+    let out = if g.json {
+        d.to_json(true)
+    } else {
+        render_drill(&d, g.pretty)
+    };
+    Ok(output(p, &out))
+}
+
+fn maybe_progress<T>(on: bool, f: impl FnOnce(Option<&dyn Fn(usize, usize)>) -> T) -> T {
+    if on { with_progress(f) } else { f(None) }
 }
 
 /// `stats drill`: the calls behind one row.
@@ -156,24 +195,7 @@ pub fn run_drill(a: &StatsDrillArgs, g: Globals, ctx: &Context) -> Result<Output
         ));
     };
     let req = request(&a.common)?;
-    let p = prepare(ctx);
-    let zone = SystemZone::default();
-    let d = with_progress(|pr| {
-        drill(
-            &env_of(ctx, &p, &zone, pr),
-            &req,
-            table_,
-            key,
-            DrillPage::default(),
-        )
-    })
-    .map_err(scan_error)?;
-    let out = if g.json {
-        d.to_json(true)
-    } else {
-        render_drill(&d, g.pretty)
-    };
-    Ok(output(p, &out))
+    drill_output(&req, table_, key, DrillPage::default(), g, ctx, true).map_err(scan_error)
 }
 
 /// `stats prompt`: the investigation prompt for the report or one row.

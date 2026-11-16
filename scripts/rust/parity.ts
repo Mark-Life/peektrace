@@ -13,6 +13,7 @@
  *   bun scripts/rust/parity.ts --stats-only    # only the `stats` stage
  *   bun scripts/rust/parity.ts --search-only   # only the `sessions search` stage
  *   bun scripts/rust/parity.ts --memory-only   # only the `memory` stage
+ *   bun scripts/rust/parity.ts --cli-only      # only statusline, mcp, upgrade
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
@@ -52,6 +53,7 @@ import {
   buildPiRoot,
 } from "./parity-agents-fixtures";
 import { runAnalyzeStage } from "./parity-analyze";
+import { runCliStage } from "./parity-cli";
 import { edgeFiles, edgeSettings } from "./parity-fixtures";
 import {
   compareRun,
@@ -382,10 +384,11 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
 
 /** Which stages run: all by default, or one with `--<stage>-only`. */
 const pickStages = () => {
-  const only = ["stats", "search", "memory", "serve"].find((s) =>
+  const only = ["stats", "search", "memory", "serve", "cli"].find((s) =>
     flag(`--${s}-only`)
   );
   return {
+    cli: only === undefined || only === "cli",
     base: only === undefined,
     search: only === undefined || only === "search",
     memory: only === undefined || only === "memory",
@@ -419,6 +422,9 @@ const runStages = async (
   }
   if (stages.memory) {
     await runMemoryStage({ fixtures, real });
+  }
+  if (stages.cli) {
+    await runCliStage({ fixtures, real });
   }
   const realStats =
     real &&

@@ -259,7 +259,7 @@ fn header(r: &StatsReport) -> String {
     .join("\n")
 }
 
-fn footer(r: &StatsReport) -> String {
+fn footer(r: &StatsReport, hint: &str) -> String {
     let notes = r.caveats.iter().cloned().chain([
         format!("FIX '{NO_RULE}' means no rule fired for that row: drill it to read the calls"),
         format!(
@@ -267,7 +267,7 @@ fn footer(r: &StatsReport) -> String {
             n(RETRY_WINDOW)
         ),
         "HITS M/S splits hits between main sessions and subagents; PER 1K IN WINDOW M/S is hits per 1,000 calls that could have hit, per side, over the whole window (a RULE rate counts only since its rule line appeared)".to_owned(),
-        "drill a row with: peektrace stats drill <DRILL>".to_owned(),
+        hint.to_owned(),
     ]);
     let skipped = (!r.skipped.is_empty()).then(|| {
         format!(
@@ -281,8 +281,12 @@ fn footer(r: &StatsReport) -> String {
         .join("\n")
 }
 
+/// The CLI's last report note.
+pub const CLI_DRILL_HINT: &str = "drill a row with: peektrace stats drill <DRILL>";
+
 /// The whole text report: findings first, then the tables, then the notes.
-pub fn render_report(r: &StatsReport, pretty: bool) -> String {
+/// `hint` is the last note, on how to drill a row.
+pub fn render_report(r: &StatsReport, pretty: bool, hint: &str) -> String {
     let causes: Vec<Vec<String>> = r.causes.iter().map(cause_cells).collect();
     let fails: Vec<Vec<String>> = r.fails.iter().map(fail_cells).collect();
     let time: Vec<Vec<String>> = r
@@ -325,7 +329,7 @@ pub fn render_report(r: &StatsReport, pretty: bool) -> String {
         String::new(),
         wait_line(r),
         String::new(),
-        footer(r),
+        footer(r, hint),
     ]
     .join("\n")
 }

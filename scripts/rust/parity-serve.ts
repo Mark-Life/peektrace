@@ -33,6 +33,7 @@ import {
   staticHttp,
 } from "./parity-serve-http";
 import { freePort, withPair } from "./parity-serve-lib";
+import { remoteStatusline } from "./parity-statusline";
 
 const DIST = join(REPO, "apps/inspector/dist");
 const TOKEN = "parity-token-0123456789abcdefghijklmn";
@@ -171,12 +172,20 @@ const fixtureStage = async (c: Counts) => {
         ],
         env
       );
-      const rows = JSON.parse(ids.stdout || "[]") as { id: string }[];
+      const rows = JSON.parse(ids.stdout || "[]") as {
+        id: string;
+        path: string;
+      }[];
       remoteCli(
         pair,
         c,
         env,
         rows.map((r) => r.id)
+      );
+      c.cases += remoteStatusline(
+        { rust: pair.rust.port, ts: pair.ts.port },
+        env,
+        rows
       );
       remoteErrors(env, await freePort());
       const transcript = join(

@@ -204,7 +204,12 @@ pub fn session_table(rows: &[SessionHeader], pretty: bool) -> (String, Vec<Strin
 }
 
 /// Notes in print order: unreadable count, table notes, then the limit hint.
-pub fn list_notes(unreadable: usize, table_notes: Vec<String>, hidden: usize) -> Vec<String> {
+pub fn list_notes(
+    unreadable: usize,
+    table_notes: Vec<String>,
+    hidden: usize,
+    limit_name: &str,
+) -> Vec<String> {
     let noun = if unreadable == 1 {
         "session"
     } else {
@@ -213,7 +218,7 @@ pub fn list_notes(unreadable: usize, table_notes: Vec<String>, hidden: usize) ->
     std::iter::once((unreadable > 0).then(|| format!("{unreadable} {noun} could not be read")))
         .chain(table_notes.into_iter().map(Some))
         .chain(std::iter::once((hidden > 0).then(|| {
-            format!("{hidden} more hidden, use --limit 0 to show all")
+            format!("{hidden} more hidden, use {limit_name} 0 to show all")
         })))
         .flatten()
         .collect()
@@ -264,13 +269,13 @@ mod tests {
     #[test]
     fn notes_order() {
         assert_eq!(
-            list_notes(2, vec!["x".to_owned()], 3),
+            list_notes(2, vec!["x".to_owned()], 3, "--limit"),
             [
                 "2 sessions could not be read",
                 "x",
                 "3 more hidden, use --limit 0 to show all"
             ]
         );
-        assert_eq!(list_notes(0, vec![], 0), Vec::<String>::new());
+        assert_eq!(list_notes(0, vec![], 0, "--limit"), Vec::<String>::new());
     }
 }
