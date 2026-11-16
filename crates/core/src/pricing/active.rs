@@ -75,28 +75,23 @@ fn key_of(provider: Provider, id: &str) -> String {
 
 /// Cards keyed overrides first, then each table in turn: the first source
 /// with a key wins, so a downloaded table that dropped a model still leaves
-/// the built-in price. A dated-only id is also keyed without its date.
+/// the built-in price. A dated-only id is also keyed without its date, after
+/// every exact key.
 pub(super) fn resolve(tables: &[&Table], origin: TableOrigin) -> Active {
     let mut cards: Vec<(String, PriceCard)> = OVERRIDES
         .iter()
         .map(|&(p, key, r)| (key.to_owned(), card(p, r, None)))
         .collect();
-    let mut add = |key: &str, c: PriceCard| {
+    let keyed: Vec<(String, PriceCard)> = tables
+        .iter()
+        .flat_map(|t| &t.models)
+        .map(|e| (key_of(e.provider, &e.id), card(e.provider, e.base, e.long)))
+        .collect();
+    let exact = keyed.iter().map(|(k, c)| (k.as_str(), *c));
+    let undated = keyed.iter().map(|(k, c)| (strip_trailing_suffixes(k), *c));
+    for (key, c) in exact.chain(undated) {
         if !cards.iter().any(|(k, _)| k == key) {
             cards.push((key.to_owned(), c));
-        }
-    };
-    for table in tables {
-        let keyed: Vec<(String, PriceCard)> = table
-            .models
-            .iter()
-            .map(|e| (key_of(e.provider, &e.id), card(e.provider, e.base, e.long)))
-            .collect();
-        for (key, c) in &keyed {
-            add(key, *c);
-        }
-        for (key, c) in &keyed {
-            add(strip_trailing_suffixes(key), *c);
         }
     }
     cards.sort_by_key(|(key, _)| std::cmp::Reverse(key.len()));
@@ -106,7 +101,7 @@ pub(super) fn resolve(tables: &[&Table], origin: TableOrigin) -> Active {
             source: first.map(|t| t.source.clone()).unwrap_or_default(),
             fetched: first.map(|t| t.fetched.clone()).unwrap_or_default(),
             origin,
-            models: cards.len() - OVERRIDES.len(),
+            models: first.map_or(0, |t| t.models.len()),
             overrides: OVERRIDES.len(),
         },
         cards,

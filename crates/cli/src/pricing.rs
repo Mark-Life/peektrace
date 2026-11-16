@@ -130,7 +130,12 @@ pub fn update(
         path.display()
     ));
     if args.output.is_none() {
-        print("Running peektrace processes keep their prices until they restart.");
+        print(match read_local_table(&path) {
+            LocalTable::Newer(_) => {
+                "It is used from the next start; running peektrace processes keep their prices."
+            }
+            _ => "It is not newer than the built-in table, so the built-in table stays in use.",
+        });
     }
     Ok(())
 }

@@ -224,6 +224,7 @@ fn overrides_win_then_the_download_then_the_built_in_table() {
             entry(Anthropic, "claude-opus-5-5", 99.0),
             entry(Anthropic, "claude-opus-4-1", 99.0),
             entry(OpenAi, "gpt-only-1-20990101", 7.0),
+            entry(OpenAi, "gpt-4o-2024-05-13", 9.0),
         ],
     };
     let built_in = built_in_table().expect("parses");
