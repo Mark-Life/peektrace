@@ -9,7 +9,7 @@ use peektrace_protocol::wire::stats::{SampleRef as WireSample, TranscriptKind};
 
 use super::accumulate::{DrillTable, SampleRef};
 use super::findings::{
-    self, FindingFormat, findings_with, rule_line, suggested_rule_of, suggested_rules,
+    self, FindingFormat, findings_with, is_working, rule_line, suggested_rule_of, suggested_rules,
     time_note_with, working_with,
 };
 use super::format::count;
@@ -113,7 +113,15 @@ pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
         rule_lines: r
             .causes
             .iter()
-            .filter_map(|c| Some((c.key.clone(), rule_line(c.rule.as_ref()?))))
+            .filter_map(|c| {
+                let line = rule_line(c.rule.as_ref()?);
+                let line = if is_working(c) {
+                    format!("fixed · {line}")
+                } else {
+                    line
+                };
+                Some((c.key.clone(), line))
+            })
             .collect(),
         suggested_rule: r
             .causes

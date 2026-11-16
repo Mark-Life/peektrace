@@ -84,8 +84,9 @@ fn working_line(r: &StatsReport) -> Option<String> {
     (!working.is_empty()).then(|| {
         let titles: Vec<&str> = working.iter().map(|f| f.title.as_str()).collect();
         format!(
-            "WORKING  {} with no hit since their memory rule: {}",
+            "WORKING  {} ({}): {}",
             plural(working.len(), "cause"),
+            peektrace_protocol::stats_text::WORKING_NOTE,
             titles.join(", ")
         )
     })

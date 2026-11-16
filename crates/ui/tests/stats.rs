@@ -143,9 +143,9 @@ fn report_header_tables_and_findings() {
     assert_eq!(
         cards,
         [
-            "stats-finding:cost:context",
-            "stats-finding:cost:fanout",
-            "stats-finding:cause:cause:zsh-glob-path"
+            "stats-finding:cause:cause:zsh-glob-path",
+            "stats-finding:cause:cause:command-not-found",
+            "stats-finding:cause:cause:sleep-blocked"
         ]
     );
     assert!(has_text(

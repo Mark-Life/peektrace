@@ -1,11 +1,13 @@
 //! Corpus panels from session rows: context peaks, workflow fan-out,
 //! repeated web fetches and the cost estimate.
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 use indexmap::IndexMap;
 
-use crate::js::num::{js_round, to_fixed, to_js_string};
+use crate::js::num::{js_round, to_fixed};
 use crate::model::Agent;
 use crate::pricing::{CardCache, CostTokens, card_for, pricing_echo, turn_cost};
 use crate::stats::accumulate::FinishCtx;
@@ -66,20 +68,6 @@ fn session_cost(s: &SessionAgg) -> f64 {
     model_slices(s)
         .iter()
         .fold(0.0, |acc, (m, t)| acc + t.cost(m))
-}
-
-/// Token counts short enough to read inside a sentence.
-pub fn compact(n: f64) -> String {
-    let abs = n.abs();
-    if abs >= 1e9 {
-        format!("{}B", to_fixed(n / 1e9, 2))
-    } else if abs >= 1e6 {
-        format!("{}M", to_fixed(n / 1e6, 2))
-    } else if abs >= 1e3 {
-        format!("{}k", to_fixed(n / 1e3, 1))
-    } else {
-        to_js_string(js_round(n))
-    }
 }
 
 /// Per workflow run: prefix tokens, sessions per project, agent ids.
@@ -152,11 +140,14 @@ pub struct CorpusPanelSink {
     web: IndexMap<String, WebAgg>,
     web_calls: f64,
     /// Per-call cost by session, from usage facts.
+    /// Every session with a usage fact has an entry, even when dedup left
+    /// it no call.
     usd_by_sid: HashMap<String, f64>,
-    /// Sessions with any usage fact, counted before dedup.
-    has_usage: HashSet<String>,
     usage_by_model: IndexMap<String, ModelUsage>,
-    seen_calls: HashSet<String>,
+    /// Per-call cost of cache reads alone, by session.
+    read_usd_by_sid: HashMap<String, f64>,
+    /// Hashes of the dedup keys priced so far.
+    seen_calls: HashSet<u64>,
     cards: CardCache,
 }
 
@@ -208,11 +199,11 @@ impl CorpusPanelSink {
         if !self.sessions.contains_key(&u.sid) {
             return;
         }
-        self.has_usage.insert(u.sid.clone());
+        self.usd_by_sid.entry(u.sid.clone()).or_default();
+        let mut h = DefaultHasher::new();
+        dedup_key_of(u.agent, &u.sid, &u.req).hash(&mut h);
         if t.input + t.output + t.cache_read + t.cache_creation == 0.0
-            || !self
-                .seen_calls
-                .insert(dedup_key_of(u.agent, &u.sid, &u.req))
+            || !self.seen_calls.insert(h.finish())
         {
             return;
         }
@@ -229,6 +220,15 @@ impl CorpusPanelSink {
         )
         .unwrap_or(0.0);
         *self.usd_by_sid.entry(u.sid.clone()).or_default() += usd;
+        let read = CostTokens {
+            input: 0.0,
+            output: 0.0,
+            cache_read: t.cache_read,
+            cache_creation: 0.0,
+            cache_creation_1h: None,
+        };
+        *self.read_usd_by_sid.entry(u.sid.clone()).or_default() +=
+            turn_cost(card.as_ref(), &read).unwrap_or(0.0);
         let model = if u.model.is_empty() {
             UNKNOWN_MODEL
         } else {
@@ -243,11 +243,10 @@ impl CorpusPanelSink {
     /// A session's estimate: its priced calls, else its totals split evenly
     /// across its models.
     fn usd_of(&self, s: &SessionAgg) -> f64 {
-        if self.has_usage.contains(&s.sid) {
-            self.usd_by_sid.get(&s.sid).copied().unwrap_or(0.0)
-        } else {
-            session_cost(s)
-        }
+        self.usd_by_sid
+            .get(&s.sid)
+            .copied()
+            .unwrap_or_else(|| session_cost(s))
     }
 
     fn add_session(&mut self, f: &SessionFact) {
@@ -406,7 +405,7 @@ impl CorpusPanelSink {
             let cost = self.usd_of(s);
             *usd_by_kind.entry(s.kind.as_str().to_owned()).or_default() += cost;
             *usd_by_project.entry(s.project.clone()).or_default() += cost;
-            if self.has_usage.contains(&s.sid) {
+            if self.usd_by_sid.contains_key(&s.sid) {
                 continue;
             }
             let slices = model_slices(s);

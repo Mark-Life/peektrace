@@ -102,7 +102,7 @@ const FindingCard = ({
       </Badge>
       {look === "fixed" ? (
         <Badge
-          className="shrink-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          className="shrink-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
           variant="outline"
         >
           fixed

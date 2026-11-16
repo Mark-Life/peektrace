@@ -120,9 +120,9 @@ pub fn cell(c: &Column, lines: Vec<(String, Color)>, sub: Option<String>, t: &Th
 /// The rule that should have prevented the cause, cut to one line; the
 /// full line is its tooltip and heads the open row's rule check. Green when
 /// the rule stopped the cause, amber otherwise.
-fn rule_badge(key: &str, line: &str, fixed: bool) -> El {
+fn rule_badge(key: &str, line: &str, fixed: bool, t: &Theme) -> El {
     let (edge, ink) = if fixed {
-        (emerald(), emerald_text())
+        (emerald(), emerald_text(t))
     } else {
         (amber(), amber_text())
     };
@@ -182,7 +182,7 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
             .gap(4.0)
             .child(mono(cause_narrow(r), t));
         if let Some(l) = rule_line(v, r) {
-            narrow = narrow.child(rule_badge(&r.key, l, is_fixed(v, r)));
+            narrow = narrow.child(rule_badge(&r.key, l, is_fixed(v, r), v.t));
         }
         c = c.child(narrow);
     }
@@ -216,7 +216,7 @@ fn cause_row(v: &V<'_>, r: &CauseRowView, open: bool, selected: bool) -> El {
     if shown(&COLUMNS[5], v) {
         let rule = rule_line(v, r).map_or_else(
             || text("—").font(ty::XS).color(t.muted_fg),
-            |l| rule_badge(&r.key, l, is_fixed(v, r)),
+            |l| rule_badge(&r.key, l, is_fixed(v, r), v.t),
         );
         line = line.child(col().w(COLUMNS[5].w).child(rule));
     }

@@ -318,3 +318,23 @@ fn a_structured_output_resend_pairs_and_names_the_field() {
     assert_eq!(r.kind.as_str(), "workflow");
     assert!(r.fix.as_deref().unwrap_or("").contains("'severity'"));
 }
+
+#[test]
+fn a_name_that_ran_only_inside_backticks_is_not_a_missing_binary() {
+    let fix_of = |facts: Vec<In>| row(&rows_of(facts), CNF).and_then(|r| r.fix.clone());
+    let quoted = || {
+        err(cnf(
+            "git commit -m \"add `languages` support\"",
+            "languages",
+            None,
+        ))
+    };
+    let only = fix_of(facts![quoted()]).unwrap_or_default();
+    assert!(only.contains("backticks"), "{only}");
+    let both = fix_of(facts![
+        quoted(),
+        err(cnf("rsync -a x y", "rsync", Some("-a x y")))
+    ])
+    .unwrap_or_default();
+    assert_eq!(both, "install rsync. Misses: rsync 1");
+}

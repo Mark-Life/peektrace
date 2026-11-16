@@ -64,7 +64,9 @@ impl CorpusPanelSink {
         }
         let mut parents: IndexMap<String, ParentAgg> = IndexMap::new();
         for s in &nested {
-            let root = s.parent.clone().unwrap_or_else(|| s.sid.clone());
+            let Some(root) = s.parent.clone() else {
+                continue;
+            };
             let e = parents
                 .entry(root)
                 .or_insert_with(|| (0.0, 0.0, s.agent, s.project.clone()));
@@ -135,12 +137,24 @@ impl CorpusPanelSink {
             mains: mains.len() as f64,
             head_read: top.iter().map(|s| s.tokens.cache_read).sum(),
             total_read,
-            usd: top.iter().map(|s| part_cost(s, read_only)).sum(),
+            usd: top
+                .iter()
+                .map(|s| {
+                    if self.usd_by_sid.contains_key(&s.sid) {
+                        self.read_usd_by_sid.get(&s.sid).copied().unwrap_or(0.0)
+                    } else {
+                        part_cost(s, read_only)
+                    }
+                })
+                .sum(),
             samples: top
                 .iter()
                 .take(ctx.sample_cap)
                 .map(|s| {
-                    let line = format!("{} cache-read tokens", super::compact(s.tokens.cache_read));
+                    let line = format!(
+                        "{} cache-read tokens",
+                        crate::stats::format::tokens(s.tokens.cache_read)
+                    );
                     main_ref(ctx, &s.sid, s.agent, &s.project, line)
                 })
                 .collect(),

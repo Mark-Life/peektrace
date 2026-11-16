@@ -9,7 +9,7 @@ use peektrace_core::stats::detectors::retries::CauseRow;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::findings::{
     Finding, FindingFormat, NO_RULE, cause_impact_with, cause_note, cause_spread_with,
-    fail_spread_with, findings_with, time_note_with, time_spread_with, working_with,
+    fail_spread_with, findings_with, time_note_with, time_spread_with,
 };
 use peektrace_core::stats::format::{hms, percent, short_id};
 use peektrace_core::stats::report::StatsReport;
@@ -45,11 +45,9 @@ pub struct DrillTarget {
     pub table: DrillTable,
 }
 
-/// Findings to act on, then the causes a rule already stopped.
+/// Findings to act on; causes a rule stopped show only in the cause table.
 pub fn findings_of(report: &StatsReport) -> Vec<Finding> {
-    let mut all = findings_with(report, &FORMAT);
-    all.extend(working_with(report, &FORMAT));
-    all
+    findings_with(report, &FORMAT)
 }
 
 pub fn short_sid(sid: &str) -> String {

@@ -64,7 +64,7 @@ pub fn cause_spread(row: &CauseRow) -> String {
 
 pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
     let exit0 = row.hits - row.flagged;
-    let hits = if let Some(split) = row.rule.as_ref().and_then(|r| rule_split(r, f)) {
+    let hits = if let Some(split) = rule_split(row, f) {
         split
     } else if exit0 > 0.0 {
         format!(
@@ -154,22 +154,35 @@ fn short_day(iso: &str) -> String {
     }
 }
 
-/// `72 hits up to the rule (Oct 21), 0 since`, when the rule has a date.
-pub fn rule_split(rule: &RuleCheck, f: &FindingFormat) -> Option<String> {
+/// `72 hits up to the rule (Oct 21), 0 since`, when the rule has a date;
+/// hits with no day are named apart.
+pub fn rule_split(row: &CauseRow, f: &FindingFormat) -> Option<String> {
+    let rule = row.rule.as_ref()?;
     let day = short_day(rule.since_iso.as_deref()?);
+    let none = undated(row, rule);
+    let tail = if none > 0.0 {
+        format!(", {} with no date", (f.count)(none))
+    } else {
+        String::new()
+    };
     Some(format!(
-        "{} hits up to the rule ({day}), {} since",
+        "{} hits up to the rule ({day}), {} since{tail}",
         (f.count)(rule.hits_through.total()),
         (f.count)(rule.hits_after.total())
     ))
 }
 
-/// Hits a fix could still save: those after the rule's day, or all of them
-/// when no dated rule covers the cause.
+/// Hits with no day: neither before nor after the rule.
+fn undated(row: &CauseRow, rule: &RuleCheck) -> f64 {
+    (row.hits - rule.hits_through.total() - rule.hits_after.total()).max(0.0)
+}
+
+/// Hits a fix could still save: those after the rule's day plus any with no
+/// day, or all of them when no dated rule covers the cause.
 pub fn live_hits(row: &CauseRow) -> f64 {
     match &row.rule {
         Some(r) if r.since_iso.is_some() && rule_state(r) != RuleState::Unmeasured => {
-            r.hits_after.total()
+            r.hits_after.total() + undated(row, r)
         }
         _ => row.hits,
     }
@@ -188,7 +201,7 @@ pub fn is_working(row: &CauseRow) -> bool {
             / 1000.0;
         r.since_iso.is_some()
             && rule_state(r) == RuleState::Quiet
-            && r.hits_after.total() == 0.0
+            && r.hits_after.total() + undated(row, r) == 0.0
             && expected >= QUIET_EVIDENCE
     })
 }

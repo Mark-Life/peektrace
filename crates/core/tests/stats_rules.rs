@@ -23,6 +23,10 @@ type Asked = RefCell<Vec<Vec<(RuleCover, String)>>>;
 struct Recording<'a>(&'a Asked);
 
 impl CauseCounts for Recording<'_> {
+    fn around(&self, _key: &str, _day: &str) -> (Split, Split) {
+        (Split::default(), Split::default())
+    }
+
     fn since(&self, _key: &str, covers: &[CoverSince<'_>]) -> (Split, Split) {
         self.0.borrow_mut().push(
             covers
@@ -47,6 +51,10 @@ impl CauseCounts for Recording<'_> {
 struct ClaudeOnly;
 
 impl CauseCounts for ClaudeOnly {
+    fn around(&self, _key: &str, _day: &str) -> (Split, Split) {
+        (Split::default(), Split::default())
+    }
+
     fn since(&self, _key: &str, covers: &[CoverSince<'_>]) -> (Split, Split) {
         let n = if covers.iter().any(|c| c.cover.agent != Agent::Codex) {
             1.0
@@ -70,6 +78,10 @@ impl CauseCounts for ClaudeOnly {
 struct Fresh;
 
 impl CauseCounts for Fresh {
+    fn around(&self, _key: &str, _day: &str) -> (Split, Split) {
+        (Split::default(), Split::default())
+    }
+
     fn since(&self, _key: &str, covers: &[CoverSince<'_>]) -> (Split, Split) {
         if covers.iter().all(|c| c.after_day.is_empty()) {
             (

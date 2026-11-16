@@ -72,9 +72,7 @@ pub trait CauseCounts {
     fn since(&self, key: &str, covers: &[CoverSince<'_>]) -> (Split, Split);
 
     /// Dated hits anywhere, up to and including `day`, then after it.
-    fn around(&self, _key: &str, _day: &str) -> (Split, Split) {
-        (Split::default(), Split::default())
-    }
+    fn around(&self, key: &str, day: &str) -> (Split, Split);
 }
 
 #[derive(Debug, Clone, PartialEq)]

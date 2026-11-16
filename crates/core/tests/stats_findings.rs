@@ -235,16 +235,16 @@ fn cause_findings_rank_by_live_hits_and_ties_keep_table_order() {
 
 #[test]
 fn a_dated_rule_ranks_by_hits_after_its_day() {
-    let after = |n: f64| RuleCheck {
-        hits_through: split(100.0, 0.0),
+    let after = |before: f64, n: f64| RuleCheck {
+        hits_through: split(before, 0.0),
         hits_after: split(n, 0.0),
         hits_since: split(n, 0.0),
         ..firing()
     };
     let mut a = named_cause("cause:a", CauseId::ZshGlobFlag, 200.0);
-    a.rule = Some(after(1.0));
+    a.rule = Some(after(199.0, 1.0));
     let mut b = named_cause("cause:b", CauseId::PkillSelfKill, 50.0);
-    b.rule = Some(after(20.0));
+    b.rule = Some(after(30.0, 20.0));
     let r = report(100.0, vec![a, b], vec![], vec![]);
     assert_eq!(keys(&r), ["cause:b", "cause:a"]);
 }
@@ -267,6 +267,27 @@ fn a_quiet_dated_rule_with_enough_calls_moves_to_working() {
     assert_eq!(keys(&r), ["cause:b"]);
     let working: Vec<String> = working_of(&r).into_iter().map(|f| f.key).collect();
     assert_eq!(working, ["cause:a"]);
+}
+
+#[test]
+fn hits_with_no_date_stay_live_and_keep_a_cause_out_of_working() {
+    let mut a = named_cause("cause:a", CauseId::ZshGlobFlag, 50.0);
+    a.rule = Some(RuleCheck {
+        hits_through: split(40.0, 0.0),
+        hits_after: Split::default(),
+        hits_since: Split::default(),
+        calls_since: split(2000.0, 2000.0),
+        per1k_since: Split::default(),
+        ..firing()
+    });
+    let r = report(100.0, vec![a], vec![], vec![]);
+    assert_eq!(keys(&r), ["cause:a"]);
+    assert!(working_of(&r).is_empty());
+    let spread = &findings_of(&r)[0].spread;
+    assert!(
+        spread.starts_with("40 hits up to the rule (Aug 1), 0 since, 10 with no date"),
+        "{spread}"
+    );
 }
 
 #[test]

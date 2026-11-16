@@ -43,7 +43,7 @@ const RuleBadge = ({
     className={cn(
       "h-auto w-auto justify-start rounded-md text-left whitespace-normal",
       fixed
-        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
         : "border-amber-500/40 bg-amber-500/10 text-amber-400"
     )}
     data-fixed={fixed}

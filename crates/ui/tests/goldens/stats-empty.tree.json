@@ -329,6 +329,10 @@
       "text": "ranked by largest share of the spend, then hits since the last fix"
     },
     {
+      "rect": [280, 288, 1136, 18],
+      "role": "group"
+    },
+    {
       "key": "stats-no-findings",
       "rect": [280, 288, 1136, 18],
       "role": "text",

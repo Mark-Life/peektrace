@@ -8,6 +8,14 @@ use super::service::StatsReport;
 
 /// Share of the estimated spend at which a cost finding leads the list.
 const LEAD_SHARE: f64 = 0.1;
+/// Below this a dollar card says nothing worth a change.
+const MIN_USD: f64 = 1.0;
+
+/// `1 session`, `2 sessions`.
+fn counted(n: f64, word: &str, f: &FindingFormat) -> String {
+    let s = if n == 1.0 { "" } else { "s" };
+    format!("{} {word}{s}", (f.count)(n))
+}
 
 fn dollars(usd: f64, f: &FindingFormat) -> String {
     format!("~${}", (f.count)(usd.round()))
@@ -50,9 +58,9 @@ fn fanout(i: &FanoutInsight, total: f64, f: &FindingFormat) -> Finding {
             ),
             format!("Spawn fewer agents per task, or give each a shorter prompt{prefix}."),
             format!(
-                "{} agent transcripts from {} sessions",
-                (f.count)(i.agents),
-                (f.count)(i.parents)
+                "{} from {}",
+                counted(i.agents, "agent transcript", f),
+                counted(i.parents, "session", f)
             ),
         )
     }
@@ -63,19 +71,22 @@ fn context(i: &ContextInsight, f: &FindingFormat) -> Finding {
         samples: i.samples.clone(),
         ..card(
             "context",
-            "A few long sessions re-read the most context",
+            if i.head == 1.0 {
+                "One long session re-reads the most context"
+            } else {
+                "A few long sessions re-read the most context"
+            },
             format!(
-                "{} of cache reads in {} {}",
+                "{} of cache reads in {}",
                 dollars(i.usd, f),
-                (f.count)(i.head),
-                if i.head == 1.0 { "session" } else { "sessions" }
+                counted(i.head, "session", f)
             ),
             "Start a new session per task, or compact a long one, so each turn re-reads less."
                 .to_owned(),
             format!(
-                "{} of {} main sessions hold {} of their cache reads ({} of {} tokens)",
+                "{} of {} hold {} of their cache reads ({} of {} tokens)",
                 (f.count)(i.head),
-                (f.count)(i.mains),
+                counted(i.mains, "main session", f),
                 (f.pct)(safe_div(i.head_read, i.total_read)),
                 (f.tokens)(i.head_read),
                 (f.tokens)(i.total_read)
@@ -86,9 +97,9 @@ fn context(i: &ContextInsight, f: &FindingFormat) -> Finding {
 
 fn web(i: &WebInsight, f: &FindingFormat) -> Finding {
     let impact = if i.in_run > 0.0 {
-        format!("{} repeat fetches inside one run", (f.count)(i.in_run))
+        format!("{} inside one run", counted(i.in_run, "repeat fetch", f))
     } else {
-        format!("{} urls fetched more than once", (f.count)(i.repeated))
+        format!("{} fetched more than once", counted(i.repeated, "url", f))
     };
     Finding {
         samples: i.samples.clone(),
@@ -99,9 +110,9 @@ fn web(i: &WebInsight, f: &FindingFormat) -> Finding {
             "Keep fetched pages for the run, or pass the first result to the agents that need it."
                 .to_owned(),
             format!(
-                "{} urls or queries fetched more than once · {} web calls",
-                (f.count)(i.repeated),
-                (f.count)(i.calls)
+                "{} fetched more than once · {}",
+                counted(i.repeated, "url or query", f),
+                counted(i.calls, "web call", f)
             ),
         )
     }
@@ -117,7 +128,7 @@ pub fn cost_findings(r: &StatsReport, f: &FindingFormat) -> (Vec<Finding>, Vec<F
         .iter()
         .map(|x| (x.usd, fanout(x, i.total_usd, f)))
         .chain(i.context.iter().map(|x| (x.usd, context(x, f))))
-        .filter(|(usd, _)| *usd > 0.0)
+        .filter(|(usd, _)| *usd >= MIN_USD)
         .collect();
     priced.sort_by(|a, b| desc(a.0, b.0));
     let (lead, mut rest): (Vec<_>, Vec<_>) = priced

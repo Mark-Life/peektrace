@@ -80,7 +80,7 @@ fn card(v: &V<'_>, f: &Finding, look: Look, layer: &mut Vec<El>) -> El {
         head = head.child(
             text("fixed")
                 .font(ty::XS_MEDIUM)
-                .color(emerald_text())
+                .color(emerald_text(t))
                 .key("stats-working-badge"),
         );
     }
@@ -215,7 +215,12 @@ pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {
     };
     let all = &text.findings;
     if all.is_empty() {
-        return empty(EMPTY_FINDINGS, v);
+        return col()
+            .w_full()
+            .gap(12.0)
+            .child(empty(EMPTY_FINDINGS, v))
+            .children(working(v, &text.working, layer))
+            .children(suggested(v, &text.suggested));
     }
     let shown = if v.s.stats.show_all {
         all.len()

@@ -50,6 +50,9 @@ pub struct CauseTable<'a> {
     local: &'a dyn LocalZone,
 }
 
+/// The fix when every missing name ran only inside backticks.
+const BACKTICK_FIX: &str = "these names ran inside backticks in double-quoted text, so the shell ran them as commands: use single quotes, or escape the backticks";
+
 impl<'a> CauseTable<'a> {
     pub fn new(drill: Option<&DrillTarget>, local: &'a dyn LocalZone) -> Self {
         Self {
@@ -263,6 +266,9 @@ impl<'a> CauseTable<'a> {
                     .take(4)
                     .cloned()
                     .collect();
+                if bins.is_empty() && !agg.details.is_empty() {
+                    return Some(BACKTICK_FIX.to_owned());
+                }
                 if !bins.is_empty() && missing.is_empty() {
                     return None;
                 }

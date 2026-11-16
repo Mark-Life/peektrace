@@ -34,6 +34,7 @@ const AMBER_400: &str = "#fbbf24";
 const SKY_500: &str = "#0ea5e9";
 const EMERALD_500: &str = "#10b981";
 const EMERALD_400: &str = "#34d399";
+const EMERALD_700: &str = "#047857";
 
 pub static ARROW_UP_RIGHT: Icon = Icon {
     name: "stats-arrow-up-right",
@@ -69,8 +70,9 @@ pub fn emerald() -> Color {
     hex_or_grey(EMERALD_500)
 }
 
-pub fn emerald_text() -> Color {
-    hex_or_grey(EMERALD_400)
+/// Readable on the theme's background: 700 on light, 400 on dark.
+pub fn emerald_text(t: &Theme) -> Color {
+    hex_or_grey(if t.dark { EMERALD_400 } else { EMERALD_700 })
 }
 
 pub fn sky() -> Color {

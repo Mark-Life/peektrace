@@ -4,7 +4,7 @@
  peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 9 caveats (c)
 
  ▌FIX FIRST  rows that name a change  ·  ▲ = a named rule fired
- · A few long sessions re-read… ~$3 of cache reads in 1 sessions  1 of 5 main sessions hold 99.9% of their cache reads (9.5M of 9.5M tokens)
+ · One long session re-reads t… ~$3 of cache reads in 1 session  1 of 5 main sessions hold 99.9% of their cache reads (9.5M of 9.5M tokens)
    Start a new session per task, or compact a long one, so each turn re-reads less.
 
 
