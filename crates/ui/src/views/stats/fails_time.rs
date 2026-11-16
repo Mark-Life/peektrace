@@ -3,6 +3,7 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::{FailRowView, TimeRowView};
+use peektrace_protocol::stats_text::{EMPTY_FAILS, EMPTY_TIME};
 use rune::{Color, El, col, row, text};
 
 use super::causes::{Column, cell, head_row, shown};
@@ -200,7 +201,7 @@ fn fail_detail(v: &V<'_>, r: &FailRowView, layer: &mut Vec<El>) -> El {
 pub fn fails(v: &V<'_>, layer: &mut Vec<El>) -> El {
     let t = v.t;
     if v.r.fails.is_empty() {
-        return text("Nothing failed in this window.")
+        return text(EMPTY_FAILS)
             .font(ty::SM)
             .color(t.muted_fg)
             .key("fail-empty");
@@ -295,7 +296,7 @@ fn time_detail(v: &V<'_>, r: &TimeRowView, layer: &mut Vec<El>) -> El {
 pub fn time(v: &V<'_>, layer: &mut Vec<El>) -> El {
     let t = v.t;
     if v.r.time.is_empty() {
-        return text("No shell time measured in this window.")
+        return text(EMPTY_TIME)
             .font(ty::SM)
             .color(t.muted_fg)
             .key("time-empty");

@@ -335,6 +335,7 @@ impl HeaderAcc {
             cost: header_cost(&parts),
             cost_parts: (!full_record).then(|| Box::new(parts)),
             source: meta.source,
+            launcher: None,
         }
     }
 }

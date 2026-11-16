@@ -300,5 +300,8 @@ pub fn parsed_from_json(v: &JsValue) -> Option<ParsedSession> {
             includes_subagents: b(v, "nativeCostIncludesSubagents") == Some(true),
             partial: b(v, "nativeCostPartial") == Some(true),
         }),
+        launcher: v
+            .get("launcher")
+            .and_then(crate::sessions::read::launcher_from_json),
     })
 }

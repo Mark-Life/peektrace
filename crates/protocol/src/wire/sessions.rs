@@ -196,6 +196,20 @@ pub struct TurnSnapshot {
     pub slices: BudgetSlices,
 }
 
+/// The app that started a session (e.g. t3code), with the branch and
+/// worktree it gave the session.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(optional_fields))]
+#[serde(rename_all = "camelCase")]
+pub struct Launcher {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree_path: Option<String>,
+}
+
 /// A parsed session without its events and turns.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -244,6 +258,9 @@ pub struct ParsedMeta {
     /// Cost of inline sidechain turns, which `turns` leaves out.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sidechain_cost: Option<TurnsCost>,
+    /// The app that started the session, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub launcher: Option<Launcher>,
 }
 
 /// `GET /api/sessions/{id}`.
@@ -392,6 +409,9 @@ pub struct SessionHeader {
     /// Malformed lines other than a partial last line; set only above 0.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub malformed_lines: Option<f64>,
+    /// The app that started the session, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub launcher: Option<Launcher>,
     /// The session's cost, the same total the session detail shows:
     /// subagents and workflow agents included.
     #[serde(skip_serializing_if = "Option::is_none")]

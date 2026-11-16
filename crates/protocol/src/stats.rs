@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::stats_text::StatsText;
 use crate::{AgentId, DrillTable};
 
 /// A count split by who made the call: the main thread or a subagent.
@@ -225,6 +226,9 @@ pub struct StatsReportView {
     pub clusters: Vec<ClusterRowView>,
     pub skipped: Vec<String>,
     pub caveats: Vec<String>,
+    /// Core's text for this report; the CLI's `--json` has none.
+    #[serde(default)]
+    pub text: Option<StatsText>,
 }
 
 /// One call behind a drilled row.

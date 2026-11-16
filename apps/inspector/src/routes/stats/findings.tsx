@@ -9,9 +9,14 @@
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
+import type { Finding, SampleRef } from "@workspace/view-core/api-types.gen";
+import {
+  STATS_EMPTY,
+  STATS_SUGGESTED,
+} from "@workspace/view-core/constants.gen";
 import { ListTreeIcon } from "lucide-react";
 
-import type { Finding, PromptFor } from "../../lib/stats-format";
+import type { PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
@@ -22,18 +27,25 @@ export const VISIBLE = 6;
 /** Where a finding came from, in one word the reader can trust. */
 const SOURCE_LABEL: Record<Finding["table"], string> = {
   cause: "retries",
+  cluster: "clusters",
   fail: "fails",
   time: "time",
+  wait: "waiting",
 };
+
+/** The samples of the row a finding names. */
+type SamplesOf = (finding: Finding) => readonly SampleRef[];
 
 const FindingCard = ({
   finding,
   onDrill,
   prompt,
+  samples,
 }: {
   readonly finding: Finding;
   readonly onDrill: (table: Finding["table"], key: string) => void;
   readonly prompt: PromptFor;
+  readonly samples: SamplesOf;
 }) => (
   <article
     className={cn(
@@ -68,7 +80,7 @@ const FindingCard = ({
       {finding.spread}
     </p>
     <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
-      <SessionLinks detector={finding.detector} samples={finding.samples} />
+      <SessionLinks detector={finding.detector} samples={samples(finding)} />
       {finding.rule === null ? null : (
         <CopyButton
           label="Copy rule"
@@ -104,9 +116,9 @@ const SuggestedRules = ({ rules }: { readonly rules: readonly string[] }) =>
       data-testid="stats-suggested-rules"
     >
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="text-sm font-medium">Suggested rules</span>
+        <span className="text-sm font-medium">{STATS_SUGGESTED.title}</span>
         <span className="text-muted-foreground text-xs">
-          lines no CLAUDE.md / AGENTS.md states yet
+          {STATS_SUGGESTED.note}
         </span>
         <span className="ml-auto">
           <CopyButton
@@ -131,12 +143,14 @@ export const Findings = ({
   showAll,
   onShowAll,
   prompt,
+  samples,
   suggested,
 }: {
   readonly findings: readonly Finding[];
   readonly onDrill: (table: Finding["table"], key: string) => void;
   readonly onShowAll: () => void;
   readonly prompt: PromptFor;
+  readonly samples: SamplesOf;
   readonly showAll: boolean;
   readonly suggested: readonly string[];
 }) => {
@@ -146,8 +160,7 @@ export const Findings = ({
         className="text-muted-foreground text-sm"
         data-testid="stats-no-findings"
       >
-        No row in this window carries a named fix. The tables below still rank
-        what happened.
+        {STATS_EMPTY.findings}
       </p>
     );
   }
@@ -163,6 +176,7 @@ export const Findings = ({
             key={`${finding.table}:${finding.key}`}
             onDrill={onDrill}
             prompt={prompt}
+            samples={samples}
           />
         ))}
       </div>

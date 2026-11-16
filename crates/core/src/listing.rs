@@ -16,6 +16,8 @@ pub struct AgentRoots {
     pub codex: Vec<Source>,
     pub pi: Vec<Source>,
     pub opencode: Vec<Source>,
+    /// t3code's state dir, read for thread titles; `None` reads nothing.
+    pub t3code: Option<String>,
 }
 
 impl AgentRoots {
@@ -27,6 +29,7 @@ impl AgentRoots {
             codex: of(Agent::Codex),
             pi: of(Agent::Pi),
             opencode: of(Agent::Opencode),
+            t3code: Some(roots::t3code_state_dir(env)),
         }
     }
 
@@ -176,7 +179,8 @@ fn list_with(
         .filter(|a| filter.agent.is_none_or(|f| f == *a))
         .flat_map(|agent| agent_outcomes(agent, roots, filter, cache, &span))
         .collect();
-    let listing = to_listing(outcomes);
+    let mut listing = to_listing(outcomes);
+    crate::t3code::apply_headers(&mut listing.headers, roots.t3code.as_deref());
     let malformed: u64 = listing
         .headers
         .iter()

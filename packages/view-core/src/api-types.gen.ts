@@ -253,6 +253,8 @@ unreadable?: true, costUsd?: number,
  */
 unpricedModels?: ReadonlyArray<string>, };
 
+export type Launcher = { name: string, branch?: string, worktreePath?: string, };
+
 export type ContextFileScope = "global" | "project" | "memory";
 
 export type OnDiskContextFile = { label: string, path: string, bytes: number, tokensEst: number, scope: ContextFileScope, };
@@ -294,7 +296,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type ParsedSession = { events: ReadonlyArray<TimelineEvent>, turns: ReadonlyArray<Turn>, provider: Provider, sessionId: string, path: string, cwd?: string, gitBranch?: string, title?: string, version?: string, models: ReadonlyArray<string>, startedAt?: string, endedAt?: string, compactionIndexes: ReadonlyArray<number>, subagents: ReadonlyArray<SubagentRef>, 
 /**
@@ -325,7 +331,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type CostSource = "estimate" | "agent";
 
@@ -405,7 +415,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type AnalyzedSession = { events: ReadonlyArray<TimelineEvent>, turns: ReadonlyArray<Turn>, snapshots: ReadonlyArray<TurnSnapshot>, contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -444,7 +458,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type SessionSummary = { history: SummaryHistory, contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -483,7 +501,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type HistoryPage = { events: ReadonlyArray<TimelineEvent>, rev: string, offset: number, total: number, 
 /**
@@ -540,6 +562,10 @@ sourceLabel?: string,
  * Malformed lines other than a partial last line; set only above 0.
  */
 malformedLines?: number, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, 
 /**
  * The session's cost, the same total the session detail shows:
  * subagents and workflow agents included.
@@ -711,6 +737,44 @@ export type CorpusSummary = { transcripts: number, sessions: number, projects: n
 
 export type StatsWindow = { days: number, fromIso: string, toIso: string, };
 
+export type Finding = { detector: string | null, 
+/**
+ * What it costs, in the unit its own table ranks by.
+ */
+impact: string, key: string, note: string, 
+/**
+ * The memory line this finding suggests copying.
+ */
+rule: string | null, 
+/**
+ * How wide it reaches, in that table's own columns.
+ */
+spread: string, table: DrillTable, title: string, };
+
+export type StatsPrompts = { report: string, cause: Record<string, string>, fail: Record<string, string>, time: Record<string, string>, };
+
+export type StatsText = { 
+/**
+ * Rows that name a change, cheapest change first.
+ */
+findings: ReadonlyArray<Finding>, 
+/**
+ * Every suggested memory line, in the cause table's order.
+ */
+suggested: ReadonlyArray<string>, prompts: StatsPrompts, 
+/**
+ * Cause key to its rule check line.
+ */
+ruleLines: Record<string, string>, 
+/**
+ * Cause key to the memory line it suggests.
+ */
+suggestedRule: Record<string, string>, 
+/**
+ * Time key to its note.
+ */
+timeNotes: Record<string, string>, };
+
 export type StatsReport = { schemaVersion: StatsSchemaVersion, 
 /**
  * Epoch ms of the report clock.
@@ -719,7 +783,11 @@ generatedAt: number, window: StatsWindow, detectorVersion: number, corpus: Corpu
 /**
  * Transcript path of every session a sample names, by `sid`.
  */
-paths: Record<string, string>, caveats: ReadonlyArray<string>, };
+paths: Record<string, string>, caveats: ReadonlyArray<string>, 
+/**
+ * Every sentence the screen shows about this report, written by core.
+ */
+text: StatsText, };
 
 export type DrillHit = { durSec: number | null, tool: string, failed: boolean, 
 /**

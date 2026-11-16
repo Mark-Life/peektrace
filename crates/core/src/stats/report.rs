@@ -13,7 +13,9 @@ use super::markers::SessionMarker;
 use super::rank::uniq_sorted;
 use super::redact::Redactor;
 use super::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
+use super::text::write_text;
 use crate::js::json_out::Writer;
+use peektrace_protocol::stats_text::StatsText;
 
 /// The versioned report.
 #[derive(Debug, Clone, Default)]
@@ -77,6 +79,15 @@ fn paths_json(w: &mut Writer, paths: &[(String, String)]) {
 
 impl StatsReport {
     pub fn to_json(&self, pretty: bool) -> String {
+        self.json_with(pretty, None)
+    }
+
+    /// The report as `GET /api/stats/report` sends it: with core's text.
+    pub fn to_api_json(&self, text: &StatsText) -> String {
+        self.json_with(false, Some(text))
+    }
+
+    fn json_with(&self, pretty: bool, text: Option<&StatsText>) -> String {
         let mut w = Writer::new(pretty);
         w.begin_obj();
         w.key("schemaVersion").str(STATS_SCHEMA_VERSION);
@@ -116,6 +127,10 @@ impl StatsReport {
             .texts(self.caveats.iter().map(String::as_str));
         w.key("paths");
         paths_json(&mut w, &self.paths);
+        if let Some(t) = text {
+            w.key("text");
+            write_text(&mut w, t);
+        }
         w.end_obj();
         w.finish()
     }

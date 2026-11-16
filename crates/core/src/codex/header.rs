@@ -166,6 +166,7 @@ impl RowFold for Acc {
             cost,
             cost_parts: None,
             source: None,
+            launcher: None,
         }
     }
 }

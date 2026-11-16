@@ -234,6 +234,16 @@ pub fn get_bytes(
     url: &str,
     headers: &[(&str, &str)],
 ) -> Result<Vec<u8>, FetchError> {
+    get_bytes_capped(agent, url, headers, u64::MAX)
+}
+
+/// GET `url` as bytes; a body over `limit` bytes fails.
+pub fn get_bytes_capped(
+    agent: &ureq::Agent,
+    url: &str,
+    headers: &[(&str, &str)],
+    limit: u64,
+) -> Result<Vec<u8>, FetchError> {
     if let Some(m) = tls_missing(url) {
         return Err(FetchError::Other(m));
     }
@@ -247,7 +257,7 @@ pub fn get_bytes(
     }
     res.body_mut()
         .with_config()
-        .limit(u64::MAX)
+        .limit(limit)
         .read_to_vec()
         .map_err(|e| FetchError::Other(e.to_string()))
 }

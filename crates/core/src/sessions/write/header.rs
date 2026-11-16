@@ -55,6 +55,9 @@ pub fn write_header(w: &mut Writer, h: &SessionHeader) {
         w.key("source").text(&s.id);
         w.key("sourceLabel").text(&s.label);
     }
+    if let Some(l) = &h.launcher {
+        super::write_launcher(w, l);
+    }
     w.end_obj();
 }
 

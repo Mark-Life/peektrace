@@ -298,6 +298,7 @@ mod tests {
             cost: crate::model::HeaderCost::default(),
             cost_parts: None,
             source: None,
+            launcher: None,
         }
     }
 

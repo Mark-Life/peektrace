@@ -199,9 +199,6 @@ export const CAUSES = {
   }
 } as const satisfies Record<CauseId, { readonly kind: CauseKind; readonly label: string; readonly fix: string | null; readonly failing: boolean }>;
 
-/** Calls after a failure within which a similar success counts as its retry. */
-export const RETRY_WINDOW = 3 as const;
-
 /** Bumped when a detector's rule changes. */
 export const DETECTOR_VERSION = 2 as const;
 
@@ -217,3 +214,51 @@ export const EXPORT_FORMATS = [
 
 /** The fix text of a cause with no rule. */
 export const NO_RULE = "no rule to suggest" as const;
+
+/** Each stats section's heading, what it ranks by, and its lead note. */
+export const STATS_SECTIONS = {
+  "findings": {
+    title: "Flagged findings",
+    rankedBy: "cheapest fix first, then by each table's own impact",
+    note: null
+  },
+  "causes": {
+    title: "Avoidable retries",
+    rankedBy: "sessions with a retry, then sessions, then retries",
+    note: "A retry is a failed call followed within 3 calls by a similar call of the same tool that succeeded: a round trip a rule or an env fix would have saved. Retry time is the call-to-call gap; context re-read is what the retrying model call carried. Neither is added to the other."
+  },
+  "fails": {
+    title: "What fails",
+    rankedBy: "sessions spanned, then calls",
+    note: "A row says a call printed a failure — never that something broke. Flagged counts the calls that set the agent's own error flag; the gap between it and Calls is what an error panel alone would miss."
+  },
+  "time": {
+    title: "What costs time",
+    rankedBy: "seconds charged",
+    note: "Each command line is charged to exactly one job; “In other jobs” counts the lines that also run the job but are charged to a higher-priority one. Tools that wait on a human are out of the denominator."
+  },
+  "waiting": {
+    title: "Waiting",
+    rankedBy: "seconds parked",
+    note: null
+  },
+  "clusters": {
+    title: "Error clusters",
+    rankedBy: "rows, then sessions spanned",
+    note: null
+  }
+} as const;
+
+/** The suggested-rules box under the findings. */
+export const STATS_SUGGESTED = {
+  "note": "lines no CLAUDE.md / AGENTS.md states yet",
+  "title": "Suggested rules"
+} as const;
+
+/** What a stats section says when this window has no row for it. */
+export const STATS_EMPTY = {
+  "causes": "No named cause fired in this window.",
+  "fails": "Nothing failed in this window.",
+  "findings": "No row in this window carries a named fix. The tables below still rank what happened.",
+  "time": "No shell time measured in this window."
+} as const;

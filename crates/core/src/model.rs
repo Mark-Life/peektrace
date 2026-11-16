@@ -82,6 +82,15 @@ pub struct SourceTag {
     pub label: String,
 }
 
+/// The app that started a session, when peektrace knows it. Every field is
+/// text from that app's store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Launcher {
+    pub name: String,
+    pub branch: Option<String>,
+    pub worktree_path: Option<String>,
+}
+
 /// File size and mtime, as `fs.stat` reports them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FileStamp {
@@ -121,6 +130,7 @@ pub struct SessionHeader {
     /// it: a Claude session without a full cost record.
     pub cost_parts: Option<Box<CostParts>>,
     pub source: Option<SourceTag>,
+    pub launcher: Option<Launcher>,
 }
 
 /// A list row's cost: the same headline the session detail shows.

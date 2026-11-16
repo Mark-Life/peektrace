@@ -3,6 +3,7 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::CauseRowView;
+use peektrace_protocol::stats_text::EMPTY_CAUSES;
 use rune::{Align, Color, El, col, row, text};
 
 use super::copy::{copy_button, prompt_button};
@@ -303,7 +304,7 @@ fn detail(v: &V<'_>, r: &CauseRowView, layer: &mut Vec<El>) -> El {
 pub fn table(v: &V<'_>, layer: &mut Vec<El>) -> El {
     let t = v.t;
     if v.r.causes.is_empty() {
-        return text("No named cause fired in this window.")
+        return text(EMPTY_CAUSES)
             .font(ty::SM)
             .color(t.muted_fg)
             .key("cause-empty");

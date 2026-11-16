@@ -56,6 +56,7 @@ fn header(i: usize) -> SessionHeader {
         cost_usd: None,
         source: None,
         source_label: None,
+        launcher: None,
     }
 }
 

@@ -16,6 +16,7 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import type { FailRow } from "@workspace/view-core/api-types.gen";
+import { STATS_EMPTY } from "@workspace/view-core/constants.gen";
 import { Fragment } from "react";
 
 import { n } from "../../lib/stats-format";
@@ -66,7 +67,7 @@ export const FailTable = ({
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="fail-empty">
-        Nothing failed in this window.
+        {STATS_EMPTY.fails}
       </p>
     );
   }

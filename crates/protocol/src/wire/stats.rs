@@ -393,6 +393,8 @@ pub struct StatsReport {
     #[cfg_attr(test, ts(type = "Record<string, string>"))]
     pub paths: BTreeMap<String, String>,
     pub caveats: Vec<String>,
+    /// Every sentence the screen shows about this report, written by core.
+    pub text: crate::stats_text::StatsText,
 }
 
 /// One call behind an aggregate row.

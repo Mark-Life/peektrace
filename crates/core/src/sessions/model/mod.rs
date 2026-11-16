@@ -535,6 +535,8 @@ pub struct ParsedSession {
     pub unknown_system_subtypes: Option<Vec<(String, f64)>>,
     pub sidechain_cost: Option<TurnsCost>,
     pub native_cost: Option<NativeCost>,
+    /// The app that started the session, e.g. t3code.
+    pub launcher: Option<crate::model::Launcher>,
 }
 
 /// Cost the agent recorded itself.

@@ -94,10 +94,10 @@ fn file_cost(path: &Path, stamp: FileStamp, cache: Option<&SubagentCosts>) -> Op
     }
 }
 
-/// Set the session's cost from its parts plus its subagent files. Returns
-/// the files priced, for the cache.
+/// Set the session's cost from its parts plus its subagent files, and drop
+/// the parts: nothing else adds to it. Returns the files priced, for the cache.
 fn add_to(h: &mut SessionHeader, cache: Option<&SubagentCosts>) -> Vec<(PathBuf, Priced)> {
-    let Some(base) = h.cost_parts.as_deref() else {
+    let Some(base) = h.cost_parts.take() else {
         return Vec::new();
     };
     let mut files = Vec::new();
@@ -108,7 +108,7 @@ fn add_to(h: &mut SessionHeader, cache: Option<&SubagentCosts>) -> Vec<(PathBuf,
         .par_iter()
         .map(|(path, stamp)| (path, *stamp, file_cost(path, *stamp, cache)))
         .collect();
-    let mut parts = base.clone();
+    let mut parts = *base;
     let mut seen = Vec::with_capacity(priced.len());
     for (path, stamp, cost) in priced {
         match cost {

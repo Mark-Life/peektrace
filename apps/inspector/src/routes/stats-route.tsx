@@ -19,7 +19,7 @@ import type {
   DrillTable,
   StatsReport,
 } from "@workspace/view-core/api-types.gen";
-import { RETRY_WINDOW } from "@workspace/view-core/constants.gen";
+import { STATS_SECTIONS } from "@workspace/view-core/constants.gen";
 import { useState } from "react";
 
 import type { ApiFailure } from "../lib/api";
@@ -31,7 +31,7 @@ import {
   useStatsRefresh,
   useStatsReport,
 } from "../lib/stats-atoms";
-import { findingsOf, promptsOf, suggestedRules } from "../lib/stats-format";
+import { promptsOf, samplesOf } from "../lib/stats-format";
 import { CauseTable } from "./stats/cause-table";
 import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
@@ -84,19 +84,28 @@ export const detectorOf = (
   return report.fails.find((row) => row.key === drill.key)?.detector ?? null;
 };
 
-/** A section heading that states its ranking key: the ranking is the opinion. */
+/** A section heading that states its ranking key, then its lead note. */
 const SectionHead = ({
-  by,
-  title,
+  section,
 }: {
-  readonly by: string;
-  readonly title: string;
-}) => (
-  <div className="flex flex-wrap items-baseline gap-2">
-    <h2 className="text-base font-semibold">{title}</h2>
-    <span className="text-muted-foreground text-xs">ranked by {by}</span>
-  </div>
-);
+  readonly section: keyof typeof STATS_SECTIONS;
+}) => {
+  const { note, rankedBy, title } = STATS_SECTIONS[section];
+
+  return (
+    <>
+      <div className="flex flex-wrap items-baseline gap-2">
+        <h2 className="text-base font-semibold">{title}</h2>
+        <span className="text-muted-foreground text-xs">
+          ranked by {rankedBy}
+        </span>
+      </div>
+      {note === null ? null : (
+        <p className="text-muted-foreground text-xs">{note}</p>
+      )}
+    </>
+  );
+};
 
 const openDrill = (table: DrillTable, key: string) => {
   setHashParam("drill", `${table}:${key}`);
@@ -127,7 +136,8 @@ const ReportView = ({
   const keyOf = (table: DrillTable) =>
     drill?.table === table ? drill.key : null;
 
-  const prompt = promptsOf(report, agent);
+  const { text } = report;
+  const prompt = promptsOf(text);
 
   return (
     <>
@@ -147,51 +157,35 @@ const ReportView = ({
       />
 
       <section className="flex flex-col gap-3">
-        <SectionHead
-          by="cheapest fix first, then by each table's own impact"
-          title="Flagged findings"
-        />
+        <SectionHead section="findings" />
         <Findings
-          findings={findingsOf(report)}
+          findings={text.findings}
           onDrill={openDrill}
           onShowAll={() => {
             setShowAllFindings(true);
           }}
           prompt={prompt}
+          samples={(finding) => samplesOf(report, finding.table, finding.key)}
           showAll={showAllFindings}
-          suggested={suggestedRules(report)}
+          suggested={text.suggested}
         />
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHead
-          by="sessions with a retry, then sessions, then retries"
-          title="Avoidable retries"
-        />
-        <p className="text-muted-foreground text-xs">
-          A retry is a failed call followed within {RETRY_WINDOW} calls by a
-          similar call of the same tool that succeeded: a round trip a rule or
-          an env fix would have saved. Retry time is the call-to-call gap;
-          context re-read is what the retrying model call carried. Neither is
-          added to the other.
-        </p>
+        <SectionHead section="causes" />
         <CauseTable
           onSelect={(key) => {
             openDrill("cause", key);
           }}
           prompt={prompt}
           rows={report.causes}
+          text={text}
           selectedKey={keyOf("cause")}
         />
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHead by="sessions spanned, then calls" title="What fails" />
-        <p className="text-muted-foreground text-xs">
-          A row says a call printed a failure — never that something broke.
-          Flagged counts the calls that set the agent&apos;s own error flag; the
-          gap between it and Calls is what an error panel alone would miss.
-        </p>
+        <SectionHead section="fails" />
         <FailTable
           onSelect={(key) => {
             openDrill("fail", key);
@@ -203,30 +197,25 @@ const ReportView = ({
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHead by="seconds charged" title="What costs time" />
-        <p className="text-muted-foreground text-xs">
-          Each command line is charged to exactly one job; &ldquo;In other
-          jobs&rdquo; counts the lines that also run the job but are charged to
-          a higher-priority one. Tools that wait on a human are out of the
-          denominator.
-        </p>
+        <SectionHead section="time" />
         <TimeTable
           onSelect={(key) => {
             openDrill("time", key);
           }}
           prompt={prompt}
           rows={report.time}
+          timeNotes={text.timeNotes}
           selectedKey={keyOf("time")}
         />
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHead by="seconds parked" title="Waiting" />
+        <SectionHead section="waiting" />
         <Waiting panel={report.waiting} />
       </section>
 
       <section className="flex flex-col gap-3">
-        <SectionHead by="rows, then sessions spanned" title="Error clusters" />
+        <SectionHead section="clusters" />
         <Clusters
           onSelect={(key) => {
             openDrill("cluster", key);

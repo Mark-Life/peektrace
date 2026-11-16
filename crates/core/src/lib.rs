@@ -23,6 +23,7 @@ pub mod select;
 pub mod sessions;
 pub mod settings_doc;
 pub mod stats;
+pub mod t3code;
 #[cfg(test)]
 mod ts_consts;
 pub mod watch;
@@ -30,7 +31,7 @@ pub mod wire;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions, list_sessions_cached};
 pub use model::{
-    Agent, FileStamp, HeaderCost, ProjectSlug, SessionFileRef, SessionHeader, SessionId,
+    Agent, FileStamp, HeaderCost, Launcher, ProjectSlug, SessionFileRef, SessionHeader, SessionId,
     SessionListing, SourceTag, UnreadableSession,
 };
 pub use paths::PathStyle;

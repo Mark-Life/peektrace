@@ -47,6 +47,7 @@ fn header(id: &str, agent: Agent, title: &str, started: &str) -> SessionHeader {
         cost: peektrace_core::HeaderCost::default(),
         cost_parts: None,
         source: None,
+        launcher: None,
     }
 }
 
