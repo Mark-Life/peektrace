@@ -125,6 +125,70 @@ suite_serve_data() {
   METHOD_EXTRA+=("Serve stats: both servers share the scratch \`PEEKTRACE_DIR\` (TS cache \`stats/\`, Rust \`stats-rs/\`); the cold row empties both caches before each run (\`hyperfine --prepare\`), so every transcript is extracted. The server RSS group empties them before the server starts, so its first report is cold. Search: \`$word\` (override with \`BENCH_SEARCH_WORD\`), stops after 51 matches.")
 }
 
+# Opening one session the way each inspector does. TS: `sessions.analyze`. Rust, base inspector:
+# `/analysis` whole. Rust, this inspector: summary, growth, history index and the first
+# history page, in one curl process. paged_args gives 3 of the 4 `-o /dev/null`; callers add one.
+paged_args() {
+  local u="http://127.0.0.1:$1/api/sessions/$2"
+  echo "-o /dev/null -o /dev/null -o /dev/null $u/summary $u/growth $u/history/index $u/history?offset=0&limit=100"
+}
+OPEN_IDS=() OPEN_SIZES=()
+suite_serve_open() {
+  serve_init
+  local i=0 agent id bytes size first
+  while read -r agent id bytes; do
+    i=$((i + 1)); size="$(fmt_bytes <<<"$bytes")"
+    OPEN_IDS+=("$id") OPEN_SIZES+=("$size")
+    ((i == 1)) && first=${#P_NAME[@]}
+    ENV_EXTRA+=("serve-open session #$i: $agent $id ($size)")
+    add_http "open-$i" "open session #$i ($size): TS \`sessions.analyze\` vs Rust summary + growth + history index + first page" \
+      "$(rpc_args "$BUN_PORT" sessions.analyze "{\"id\":\"$id\"}")" "$(paged_args "$RUST_PORT" "$id")" nosize
+  done < <(jq -s -r 'add | sort_by(-.sizeBytes) | .[:3][] | "\(.agent) \(.id) \(.sizeBytes)"' "$OUT"/bun-ls-*.json)
+  ((i > 0)) || { echo "no sessions found" >&2; exit 1; }
+  for ((i = 0; i < ${#OPEN_IDS[@]}; i++)); do
+    add_pair "serve-open-rust-$((i + 1))" 2 10 live "open session #$((i + 1)) (${OPEN_SIZES[i]}): Rust \`/analysis\` vs Rust paged" \
+      "curl -sf -o /dev/null $(api_args "$RUST_PORT" "/sessions/${OPEN_IDS[i]}/analysis")" \
+      "curl -sf -o /dev/null $(paged_args "$RUST_PORT" "${OPEN_IDS[i]}")"
+    set_cols "Rust \`/analysis\` (base inspector)" "Rust paged (this inspector)"
+  done
+  add_rss_group open "open #1: TS \`sessions.analyze\`, Rust paged" "" "$first"
+  MEASURE_HOOKS+=(open_payloads)
+  REPORT_HOOKS+=(open_summary)
+  METHOD_EXTRA+=("Serve open: one curl process per open. Rust paged = \`/summary\`, \`/growth\`, \`/history/index\`, \`/history?offset=0&limit=100\` in a row on one connection; the inspector asks for the first three at once. Rust keeps the last few paged analyses in memory and checks the files are unchanged, so after warmup the paged rows read that cache; \`/analysis\` and TS \`sessions.analyze\` analyze on every call.")
+}
+
+# sum_download <raw|gzip> <curl args...> -> bytes received over every URL in the args
+sum_download() {
+  local enc=()
+  [[ "$1" == gzip ]] && enc=(-H accept-encoding:gzip)
+  shift
+  curl -s ${enc[@]+"${enc[@]}"} -o /dev/null -w '%{size_download}\n' "$@" | awk '{s += $1} END {print s}'
+}
+# open_payloads -> $OUT/open-payload.txt: <n> <ts raw> <ts wire> <analysis raw> <analysis wire> <paged raw> <paged wire>
+open_payloads() {
+  local i a t p
+  start_live
+  for ((i = 0; i < ${#OPEN_IDS[@]}; i++)); do
+    read -ra t <<<"$(rpc_args "$BUN_PORT" sessions.analyze "{\"id\":\"${OPEN_IDS[i]}\"}")"
+    read -ra a <<<"$(api_args "$RUST_PORT" "/sessions/${OPEN_IDS[i]}/analysis")"
+    read -ra p <<<"$(paged_args "$RUST_PORT" "${OPEN_IDS[i]}")"
+    echo "$((i + 1)) $(sum_download raw "${t[@]}") $(sum_download gzip "${t[@]}") $(sum_download raw "${a[@]}") $(sum_download gzip "${a[@]}") $(sum_download raw "${p[@]}") $(sum_download gzip "${p[@]}")"
+  done | tee "$OUT/open-payload.txt"
+  stop_live
+}
+open_summary() {
+  local n traw twire araw awire praw pwire
+  echo "## Serve open payloads"
+  echo
+  echo "| bytes to open | TS \`sessions.analyze\` | Rust \`/analysis\` (base inspector) | Rust paged (this inspector) | paged vs \`/analysis\` |"
+  echo "|---|---|---|---|---|"
+  while read -r n traw twire araw awire praw pwire; do
+    printf '| session #%s (%s), raw | %s | %s | %s | %s |\n' "$n" "${OPEN_SIZES[n - 1]}" "$(fmt_bytes <<<"$traw")" "$(fmt_bytes <<<"$araw")" "$(fmt_bytes <<<"$praw")" "$(delta "$araw" "$praw" smaller)"
+    printf '| same, on the wire with `Accept-Encoding: gzip` | %s | %s | %s | %s |\n' "$(fmt_bytes <<<"$twire")" "$(fmt_bytes <<<"$awire")" "$(fmt_bytes <<<"$pwire")" "$(delta "$awire" "$pwire" smaller)"
+  done <"$OUT/open-payload.txt"
+  echo
+}
+
 LIVE_PIDS=()
 start_live() {
   # shellcheck disable=SC2086

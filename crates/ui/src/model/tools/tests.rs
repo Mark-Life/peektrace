@@ -3,18 +3,16 @@ use crate::model::diff::RowKind;
 use crate::model::fixtures::kind;
 
 fn call(body: &str) -> TimelineEvent {
-    TimelineEvent {
-        body: body.into(),
-        title: "tool_use".into(),
-        ..kind(EventKind::ToolCall)
-    }
+    let mut built = kind(EventKind::ToolCall);
+    built.body = body.into();
+    built.title = "tool_use".into();
+    built
 }
 
 fn result(body: &str) -> TimelineEvent {
-    TimelineEvent {
-        body: body.into(),
-        ..kind(EventKind::ToolResult)
-    }
+    let mut built = kind(EventKind::ToolResult);
+    built.body = body.into();
+    built
 }
 
 fn code(p: &ToolPane) -> &str {
@@ -118,9 +116,10 @@ fn prose_and_code_args() {
 
 #[test]
 fn no_payload_falls_back_to_parameters() {
-    let e = TimelineEvent {
-        preview: "TODO".into(),
-        ..call(r#"{"pattern":"TODO"}"#)
+    let e = {
+        let mut built = call(r#"{"pattern":"TODO"}"#);
+        built.preview = "TODO".into();
+        built
     };
     let view = call_view(&e);
     assert_eq!(view.panes.len(), 1);
@@ -161,9 +160,10 @@ fn results() {
             language: "json"
         }
     );
-    let server = TimelineEvent {
-        server_tool: Some(true),
-        ..result("{\"a\":1}")
+    let server = {
+        let mut built = result("{\"a\":1}");
+        built.server_tool = Some(true);
+        built
     };
     assert_eq!(
         result_pane(&server),
@@ -187,16 +187,18 @@ fn pairing_and_state() {
         e
     };
     let events = vec![
-        TimelineEvent {
-            tool_name: Some("Bash".into()),
-            ..with_id(call("{}"), "ok")
+        {
+            let mut built = with_id(call("{}"), "ok");
+            built.tool_name = Some("Bash".into());
+            built
         },
         with_id(call("{}"), "bad"),
         with_id(call("{}"), "open"),
         with_id(result("ok"), "ok"),
-        TimelineEvent {
-            is_error: Some(true),
-            ..with_id(result("boom"), "bad")
+        {
+            let mut built = with_id(result("boom"), "bad");
+            built.is_error = Some(true);
+            built
         },
     ];
     let ix = index_tools(&events);
@@ -216,9 +218,10 @@ fn small_helpers() {
     assert_eq!(language_of_path("x.jsonc"), "json");
     assert_eq!(language_of_path("README.md"), "markdown");
     assert_eq!(language_of_path("a.py"), "text");
-    let file = |t: &str| TimelineEvent {
-        title: t.into(),
-        ..kind(EventKind::Attachment)
+    let file = |t: &str| {
+        let mut built = kind(EventKind::Attachment);
+        built.title = t.into();
+        built
     };
     assert_eq!(body_view(&file("file: a.ts")), Some("typescript"));
     assert_eq!(body_view(&file("file: a.md")), None);
@@ -242,11 +245,12 @@ fn a_text_block_holding_json_stays_a_json_code_block() {
 
 #[test]
 fn a_server_tool_result_is_prose_a_request_id_alone_is_not() {
-    let hits = TimelineEvent {
-        request_id: Some("r1".into()),
-        server_tool: Some(true),
-        title: "web_search result".into(),
-        ..result("- [Bun 1.4](https://bun.sh/blog/bun-v1.4)")
+    let hits = {
+        let mut built = result("- [Bun 1.4](https://bun.sh/blog/bun-v1.4)");
+        built.request_id = Some("r1".into());
+        built.server_tool = Some(true);
+        built.title = "web_search result".into();
+        built
     };
     assert_eq!(
         result_pane(&hits),
@@ -254,20 +258,22 @@ fn a_server_tool_result_is_prose_a_request_id_alone_is_not() {
             text: hits.body.clone()
         }
     );
-    let shell = TimelineEvent {
-        server_tool: None,
-        body: "a.md\nb.md".into(),
-        ..hits
+    let shell = {
+        let mut built = hits;
+        built.server_tool = None;
+        built.body = "a.md\nb.md".into();
+        built
     };
     assert!(matches!(result_pane(&shell), Body::Code { .. }));
 }
 
 #[test]
 fn body_views_by_title() {
-    let file = |t: &str| TimelineEvent {
-        title: t.into(),
-        body: "x".into(),
-        ..kind(EventKind::Attachment)
+    let file = |t: &str| {
+        let mut built = kind(EventKind::Attachment);
+        built.title = t.into();
+        built.body = "x".into();
+        built
     };
     assert_eq!(body_view(&file("skills_instructions")), None);
     assert_eq!(body_view(&file("file: CLAUDE.md")), None);

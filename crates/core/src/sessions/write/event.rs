@@ -268,7 +268,7 @@ fn write_images(w: &mut Writer, images: &[ImageRef]) {
     w.end_arr();
 }
 
-fn write_context_edit(w: &mut Writer, edit: &ContextEdit) {
+fn write_context_edit(w: &mut Writer, edit: &ContextEdit, with_original: bool) {
     w.begin_obj();
     w.key("status").str(edit.status());
     w.key("atIndex").num(edit.at_index());
@@ -281,7 +281,7 @@ fn write_context_edit(w: &mut Writer, edit: &ContextEdit) {
             ..
         } => {
             w.key("originalTokensEst").num(*original_tokens_est);
-            if let Some(o) = original {
+            if let Some(o) = original.as_ref().filter(|_| with_original) {
                 w.key("original").text(o);
             }
             steps
@@ -301,7 +301,7 @@ fn write_context_edit(w: &mut Writer, edit: &ContextEdit) {
     w.end_obj();
 }
 
-fn write_field(w: &mut Writer, e: &TimelineEvent, f: F) {
+fn write_field(w: &mut Writer, e: &TimelineEvent, f: F, row: bool) {
     let text = |w: &mut Writer, key: &str, v: Option<&String>| {
         if let Some(v) = v {
             w.key(key).text(v);
@@ -352,7 +352,7 @@ fn write_field(w: &mut Writer, e: &TimelineEvent, f: F) {
         }
         F::ContextEdit => {
             if let Some(edit) = &e.context_edit {
-                write_context_edit(w.key("contextEdit"), edit);
+                write_context_edit(w.key("contextEdit"), edit, !row);
             }
         }
         CompactPreTokens => num(w, "compactPreTokens", e.compact_pre_tokens),
@@ -362,13 +362,20 @@ fn write_field(w: &mut Writer, e: &TimelineEvent, f: F) {
 
 pub fn write_event(w: &mut Writer, e: &TimelineEvent) {
     w.begin_obj();
-    for &f in event_keys(e.shape) {
-        write_field(w, e, f);
+    write_event_fields(w, e, false);
+    w.end_obj();
+}
+
+/// An event's keys, no braces. A `row` (history index) leaves out the
+/// body, preview, request id, timestamp and context-edit original.
+pub fn write_event_fields(w: &mut Writer, e: &TimelineEvent, row: bool) {
+    let dropped = |f: &F| row && matches!(f, Body | Preview | RequestId | Ts);
+    for &f in event_keys(e.shape).iter().filter(|f| !dropped(f)) {
+        write_field(w, e, f, row);
     }
     if let Some(m) = e.tokens_measured {
         w.key("tokensMeasured").num(m);
     }
-    w.end_obj();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

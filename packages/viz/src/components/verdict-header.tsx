@@ -7,6 +7,7 @@
  */
 import { costSummary } from "@workspace/core/services/sessions/cost";
 import type { AnalyzedSession } from "@workspace/core/services/sessions/schema";
+
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
@@ -20,6 +21,12 @@ import {
   zoneOf,
 } from "../lib/session-format";
 import type { SessionJump } from "../lib/session-jump";
+
+/** An analysis without its per-event and per-turn arrays: all the summary cards read. */
+export type SessionOverview = Omit<
+  AnalyzedSession,
+  "events" | "snapshots" | "turns"
+>;
 
 /** Short id prefix shown in the metadata line. */
 const ID_PREFIX = 8;
@@ -125,7 +132,7 @@ const JumpChip = ({
   );
 
 /** The peak gauge track: fill width = peak fraction, dumb-zone tick overlaid. */
-const PeakGauge = ({ a }: { readonly a: AnalyzedSession }) => {
+const PeakGauge = ({ a }: { readonly a: SessionOverview }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
   const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
   return (
@@ -158,7 +165,7 @@ export const VerdictHeader = ({
   a,
   onJump,
 }: {
-  readonly a: AnalyzedSession;
+  readonly a: SessionOverview;
   readonly onJump?: (j: SessionJump) => void;
 }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;

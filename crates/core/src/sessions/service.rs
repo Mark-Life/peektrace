@@ -9,6 +9,7 @@ use tracing::{debug, field, info_span};
 use super::analyze::{AnalyzeOptions, analyze};
 use super::context_files::gather_on_disk_context_files;
 use super::cost::turns_cost;
+use super::inputs::{Input, context_inputs, stamp_all, transcript_inputs};
 use super::model::{AnalyzedSession, ParsedSession, SubagentRef, TurnsCost};
 use super::redact::{redact_parsed, redact_session};
 use super::resolve::{
@@ -67,6 +68,8 @@ struct Loaded {
     path: String,
     source: Option<String>,
     body: Body,
+    /// Stamped before `body` was read; empty unless tracked.
+    inputs: Vec<Input>,
 }
 
 /// `String(e)` of the platform error a failed read raises.
@@ -98,8 +101,26 @@ pub(crate) fn load_transcript(agent: Agent, path: &str) -> Result<String, Sessio
     })
 }
 
+/// The transcript inputs of a session about to be read, when tracked.
+fn stamp_transcript(
+    env: SessionEnv<'_>,
+    track: bool,
+    agent: Agent,
+    path: &str,
+    id: &str,
+) -> Vec<Input> {
+    let opencode = default_root(&env.roots.opencode);
+    let paths = track.then(|| transcript_inputs(agent, path, id, &opencode));
+    stamp_all(paths.into_iter().flatten())
+}
+
 /// Read a subagent transcript through its parent session.
-fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, SessionError> {
+fn load_nested(
+    env: SessionEnv<'_>,
+    id: &str,
+    parent: &str,
+    track: bool,
+) -> Result<Loaded, SessionError> {
     let not_found = || SessionError::NotFound {
         id: id.to_owned(),
         searched: format!("subagents of {parent}"),
@@ -120,6 +141,7 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         .find(|s| s.id == id)
         .or(unique)
         .ok_or_else(not_found)?;
+    let inputs = stamp_transcript(env, track, Agent::Claude, &stub.path, &stub.id);
     Ok(Loaded {
         agent: Agent::Claude,
         id: stub.id.clone(),
@@ -127,6 +149,7 @@ fn load_nested(env: SessionEnv<'_>, id: &str, parent: &str) -> Result<Loaded, Se
         path: stub.path.clone(),
         source: owner.file.source.map(|s| s.id),
         body: Body::Text(load_transcript(Agent::Claude, &stub.path)?),
+        inputs,
     })
 }
 
@@ -134,9 +157,10 @@ fn load(
     env: SessionEnv<'_>,
     target: Target<'_>,
     parent: Option<&str>,
+    track: bool,
 ) -> Result<Loaded, SessionError> {
     if let Some(parent) = parent {
-        return load_nested(env, target.id(), parent);
+        return load_nested(env, target.id(), parent, track);
     }
     let (agent, id, path, source) = match target {
         Target::Lookup(id) => {
@@ -150,6 +174,7 @@ fn load(
             (h.agent, h.id.as_str().to_owned(), h.path.clone(), source)
         }
     };
+    let inputs = stamp_transcript(env, track, agent, &path, &id);
     let body = match agent {
         Agent::Opencode => Body::Opencode(
             opencode::load_session(&path, &id, &default_root(&env.roots.opencode)).map(Box::new),
@@ -163,6 +188,7 @@ fn load(
         nested: false,
         path,
         source,
+        inputs,
     })
 }
 
@@ -278,6 +304,8 @@ pub struct FullParse {
     pub parsed: ParsedSession,
     /// Id of the Claude root that owns the session, when several are set.
     pub source: Option<String>,
+    /// Transcript inputs stamped before the read; empty unless tracked.
+    pub inputs: Vec<Input>,
 }
 
 /// Resolve and fully parse one transcript (`parent` names the session a
@@ -287,13 +315,22 @@ pub fn parse_full(
     target: Target<'_>,
     parent: Option<&str>,
 ) -> Result<FullParse, SessionError> {
+    parse_inner(env, target, parent, false)
+}
+
+fn parse_inner(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+    track: bool,
+) -> Result<FullParse, SessionError> {
     let id = target.id();
     let span = match parent {
         None => info_span!("Sessions.parse", id, error = field::Empty),
         Some(p) => info_span!("Sessions.parseNested", id, parent = p, error = field::Empty),
     };
     let _entered = span.enter();
-    let result = load(env, target, parent).map(|loaded| {
+    let result = load(env, target, parent, track).map(|loaded| {
         let (path, sid) = (&loaded.path, &loaded.id);
         let parsed = match (&loaded.body, loaded.agent) {
             (Body::Opencode(session), _) => {
@@ -322,6 +359,7 @@ pub fn parse_full(
             agent: loaded.agent,
             parsed,
             source: loaded.source,
+            inputs: loaded.inputs,
         }
     });
     if let Err(e) = &result {
@@ -372,18 +410,59 @@ pub fn analyze_session_with(
     redact: bool,
     overrides: AnalyzeOverrides,
 ) -> Result<AnalyzedSession, SessionError> {
+    analyze_inner(env, target, parent, redact, overrides, false).map(|t| t.analysis)
+}
+
+/// An analysis and every path whose change can change it, each stamped
+/// before it was read.
+#[derive(Debug)]
+pub struct Tracked {
+    pub analysis: AnalyzedSession,
+    pub inputs: Vec<Input>,
+}
+
+/// [`analyze_session_with`], plus the paths it read (see
+/// [`super::inputs`]).
+pub fn analyze_session_tracked(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+    redact: bool,
+    overrides: AnalyzeOverrides,
+) -> Result<Tracked, SessionError> {
+    analyze_inner(env, target, parent, redact, overrides, true)
+}
+
+/// Home and projects root of the Claude root that owns `source`.
+fn context_roots<'a>(env: SessionEnv<'a>, source: Option<&str>) -> (&'a str, &'a str) {
+    source
+        .and_then(|s| env.roots.claude.iter().find(|c| c.id == s))
+        .or_else(|| env.roots.claude.first())
+        .map_or(("", ""), |s| (s.home.as_str(), s.projects_root.as_str()))
+}
+
+fn analyze_inner(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+    redact: bool,
+    overrides: AnalyzeOverrides,
+    track: bool,
+) -> Result<Tracked, SessionError> {
     let span = info_span!("Sessions.analyze", id = target.id(), error = field::Empty);
     let _entered = span.enter();
-    let result = parse_full(env, target, parent).map(|full| {
-        let files = if full.agent == Agent::Claude {
-            let owning = full
-                .source
-                .as_deref()
-                .and_then(|s| env.roots.claude.iter().find(|c| c.id == s))
-                .or_else(|| env.roots.claude.first());
-            let (home, root) =
-                owning.map_or(("", ""), |s| (s.home.as_str(), s.projects_root.as_str()));
-            gather_on_disk_context_files(full.parsed.cwd.as_deref(), home, root)
+    let result = parse_inner(env, target, parent, track).map(|full| {
+        let claude = full.agent == Agent::Claude;
+        let (home, root) = context_roots(env, full.source.as_deref());
+        let cwd = full.parsed.cwd.as_deref();
+        let context = (track && claude).then(|| stamp_all(context_inputs(cwd, home, root)));
+        let inputs = full
+            .inputs
+            .into_iter()
+            .chain(context.into_iter().flatten())
+            .collect();
+        let files = if claude {
+            gather_on_disk_context_files(cwd, home, root)
         } else {
             Vec::new()
         };
@@ -399,7 +478,10 @@ pub fn analyze_session_with(
         if redact {
             redact_session(&mut a);
         }
-        a
+        Tracked {
+            analysis: a,
+            inputs,
+        }
     });
     if let Err(e) = &result {
         span.record("error", field::display(e));
@@ -418,7 +500,7 @@ pub fn session_image(
     item: Option<usize>,
 ) -> Result<Option<super::images::ImageData>, SessionError> {
     let _span = info_span!("Sessions.image", id, line).entered();
-    let loaded = load(env, Target::Lookup(id), parent)?;
+    let loaded = load(env, Target::Lookup(id), parent, false)?;
     let (Agent::Claude, Body::Text(text)) = (loaded.agent, loaded.body) else {
         return Ok(None);
     };

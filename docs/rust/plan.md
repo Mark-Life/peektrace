@@ -1,6 +1,6 @@
 # Rust rewrite plan
 
-Goal: move Peektrace from TS/Bun to Rust, so it is faster, lighter and uses less memory. End state: all product code is Rust. `ratatui` runs the TUI, and Rune runs the native app and the browser UI. The only TS left is `apps/web`, an unused landing page that is out of scope here.
+Goal: move Peektrace from TS/Bun to Rust, so it is faster, lighter and uses less memory. End state: the CLI, the TUI and every backend are Rust. `ratatui` runs the TUI, and Rune runs the native app. The browser UI stays the React inspector (`apps/inspector`) over the Rust server's `/api` and SSE. The TS left after cutover: `apps/inspector`, `packages/ui`, `packages/viz`, and the unused `apps/web` landing page.
 
 Work happens on a long-lived `rust` branch until the Rust version reaches parity.
 
@@ -24,13 +24,13 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs. The `cli` stage (`--cli-only`) covers `statusline` (stdin payloads, flags, `--otel` span names, the real corpus, and `--remote` against the serve pair), `mcp` (one process per side, replies matched by id and compared byte for byte, the real corpus), `upgrade` (a local fake release server: `--check` runs, and installs on temp targets through `PEEKTRACE_UPGRADE_TARGET`) the owned help pages, and telemetry: `doctor` byte for byte over a seeded store, the opt-out rules, and the event shape each CLI records, read back by the other's `doctor`. It never calls GitHub and never runs TS `upgrade` without `--check`. CI does not run the TS CLI: the `parity (fixtures)` job replays the TS results recorded in `tests/goldens` against the Rust binary (`scripts/rust/goldens.ts`, see `scripts/rust/README.md`), and a nightly job runs the full live harness on fixtures.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed. The serve stage runs the TS and Rust servers side by side and compares every `/rpc` call with its `/api` route, the Host, Origin and token guards, static files and `--remote` (`--serve-only` runs just that stage). That includes search, every stats route, the inspector's prompt text, and memory reads and writes: writes run on twin HOME copies and the two trees are diffed. On the real corpus it reads a snapshot and writes only to copies of the `memory` dirs. TS has no paged session routes, so the serve stage checks Rust's summary, growth series, history index, event pages and history search against cuts of the TS analysis; turn numbers and search hits are checked against `scripts/rust/parity-history-rules.ts`, a frozen copy of the inspector's former in-browser rules, which now read these values from the server rows. The `cli` stage (`--cli-only`) covers `statusline` (stdin payloads, flags, `--otel` span names, the real corpus, and `--remote` against the serve pair), `mcp` (one process per side, replies matched by id and compared byte for byte, the real corpus), `upgrade` (a local fake release server: `--check` runs, and installs on temp targets through `PEEKTRACE_UPGRADE_TARGET`) the owned help pages, and telemetry: `doctor` byte for byte over a seeded store, the opt-out rules, and the event shape each CLI records, read back by the other's `doctor`. It never calls GitHub and never runs TS `upgrade` without `--check`. CI does not run the TS CLI: the `parity (fixtures)` job replays the TS results recorded in `tests/goldens` against the Rust binary (`scripts/rust/goldens.ts`, see `scripts/rust/README.md`), and a nightly job runs the full live harness on fixtures.
 
 The `tui` stage (`--tui-only`) compares the `tui --port` errors byte for byte, the syntax tokenizer token by token on edge snippets and on every tool body of the 25 newest real Claude sessions (about 2,700 bodies), and the TUI's number, text and layout helpers. TUI screens have no TS diff, since the Rust TUI fixes the TS layout bugs; `crates/tui/tests/snapshots` holds each screen on a synthetic HOME.
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
-The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions: list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). It also checks the static answers of `serve --ui rune` on a fake bundle.
+The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions (turn numbers and the cross index against the frozen `parity-history-rules.ts` copy): list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). It also checks the static answers of `serve --ui rune` on a fake bundle. `serve --ui rune` is experimental (see Decisions).
 
 ## Target layout
 
@@ -38,11 +38,13 @@ The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/exam
 crates/
   core      parsers (claude, codex, pi, opencode), analyze, stats, memory, pricing, search, watch
   protocol  request/response types (serde), shared by server, tui, app
-  server    axum HTTP API, serves embedded web UI
+  server    axum HTTP API (`/api`, SSE), serves the embedded React inspector
   cli       clap commands, MCP stdio server
   tui       ratatui, calls core in-process
-  ui        Rune views, theme and the DataSource (core in process, or /api over fetch + SSE)
-  app       Rune: native window (`peektrace-app`) + web build served by `server --ui rune`
+  ui        Rune views, theme and the DataSource (core in process; `/api` over fetch + SSE for the experimental web build)
+  app       Rune native window (`peektrace-app`); its web build stays behind `serve --ui rune`, experimental
+apps/
+  inspector React inspector over `/api` (paged session routes) + SSE: the web UI
 ```
 
 The TUI and the native app call `core` directly, with no HTTP in between. Only the browser UI goes through `server`.
@@ -51,11 +53,11 @@ The TUI and the native app call `core` directly, with no HTTP in between. Only t
 
 0. **Spike.** Port the Claude JSONL parser and `sessions.list`. Compare binary size, startup, RSS and latency with the Bun build, and go or no-go on the numbers.
 1. **Core + parity harness.** Port `packages/core` one agent parser at a time, then analyze, stats, memory, search and pricing. The harness runs TS and Rust on the same fixtures and real sessions and diffs the JSON. It runs in CI on every change.
-2. **Protocol + server.** Design a new API. It does not have to match the Effect RPC wire format, so make it cleaner and lighter where possible (streaming, paging, smaller payloads). Generate TS types from Rust (`ts-rs` or `specta`) and move the TS inspector onto them, so `serve` works before Rune is ready. Embed the assets with `rust-embed`.
+2. **Protocol + server.** Design a new API. It does not have to match the Effect RPC wire format, so make it cleaner and lighter where possible (streaming, paging, smaller payloads). Generate TS types from Rust (`ts-rs` or `specta`) and move the TS inspector onto them. Embed the assets with `rust-embed`. Session detail pages: summary, growth, history index, body pages, server-side history search; the full `/analysis` stays for `--remote` and the CLI.
 3. **CLI.** Port the commands: sessions, stats, memory, statusline, upgrade, export, search. Port the MCP stdio server. Use `notify` for file watching. Highlighting is a port of the five `@tanstack/highlight` languages TS uses (`core::highlight`), so terminal and web share one token stream.
 4. **TUI.** Use `ratatui`. The current OpenTUI screens are the spec. `crates/tui` calls core in process; `tui` still runs the web server beside it.
-5. **Distribution.** Use `cargo-dist` for GitHub Releases and the shell/PowerShell installers. Add musl static Linux builds (x64, arm64), which fixes the Alpine gap. `peektrace upgrade` stays. Choose the channels (npm, Homebrew, both) once everything is built, because `cargo-dist` makes that a config change. Cut over: merge `rust` into `main` and delete the TS cli, core, rpc and desktop packages.
-6. **Rune app.** One Rust UI with a native window (macOS, Windows, Linux) and a web build that `serve` hosts. It replaces `apps/inspector`, `packages/ui`, `packages/viz` and `apps/desktop`. Pin a Rune `dev` rev.
+5. **Distribution.** Use `cargo-dist` for GitHub Releases and the shell/PowerShell installers. Add musl static Linux builds (x64, arm64), which fixes the Alpine gap. `peektrace upgrade` stays. Choose the channels (npm, Homebrew, both) once everything is built, because `cargo-dist` makes that a config change. Cut over: merge `rust` into `main` and delete the TS `apps/cli`, `packages/core`, `packages/rpc` and `apps/desktop`. `apps/inspector`, `packages/ui` and `packages/viz` stay. Prerequisite: the inspector, `packages/ui` and `packages/viz` import 17 `@workspace/core` modules (97 import lines: sessions, stats and memory schema types, `labels`, `tokens`, `diff`, `export`, `highlight`, `stats/findings`, `prompts`, `agent-id`, `settings`, `cost`, `prompt-origin`, `analyze`). Before deleting core, generate those types from Rust (`crates/protocol`) and move the pure helpers the browser still runs into the inspector (or a small `packages/view-core`). Browser-side export can move to a server `/api/sessions/{id}/export?format=` on the Rust `core::export`.
+6. **Rune native app.** One Rust UI in a native window (macOS, Windows, Linux). It replaces `apps/desktop` only. `apps/inspector` stays the web UI; `packages/ui` and `packages/viz` stay for it. The Rune web build stays behind `serve --ui rune`, marked experimental, with no parity target. Pin a Rune `dev` rev.
 7. **Telemetry sinks.** Port the SQLite wide-event store (`rusqlite`, crate `crates/telemetry`) as a `tracing-subscriber` layer with a background writer, and port `peektrace doctor`. No OTLP export (see the decisions below). No module code changes, because the spans already exist.
 
 ## Telemetry rule (all phases)
@@ -163,8 +165,12 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app `Math.round(-0.5)` in `fmt` | `-0` | `0` |
 | Rune app tool bodies over 32 KiB | shown whole | the first 32 KiB to a line end, plus `Show full output (<size>)`; over 128 KiB the full body draws uncoloured |
 | Rune app JSON tool args nested deeper than 128 | parsed | read as not JSON, shown verbatim |
-| Rune web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
-| Rune web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
+| Experimental `serve --ui rune`: web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
+| Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
+
+## Decisions
+
+**Rune is native only (2026-11-13).** The browser UI stays the React inspector over `/api` + SSE; Rust owns the TUI and every backend. Measured on the Rune web build: WebGPU only (no page at all without it), 4.0 MiB brotli bundle, session list 299 ms vs 206 ms for React. Rune opened the biggest session in 434 ms against React's 592 ms. That gap came from React loading the whole analysis, so the inspector moved to paged session routes instead. `serve --ui rune` stays, marked experimental. After the move, same method (fresh headless Chromium per run, median of 5, first transcript row drawn): the biggest real session (48 MiB) 558 ms against 616 ms before, with 280 KB of session data instead of 2.2 MB; a 49 MB synthetic session 483 ms against 714 ms. The rest of the open time is the app shell and the session list, the same in both.
 
 ## Telemetry decisions
 
@@ -179,9 +185,9 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Risk | Mitigation |
 |---|---|
 | Parser drift gives wrong token and cost numbers | parity harness in CI, real-session corpus |
-| Rune is pre-release, git-only, takes no PRs | do it last, pin rev, keep the TS inspector until Rune reaches parity |
-| Rune web build is heavy or limited (WebGPU, text, a11y) | spike Rune web early, run alongside phase 2 |
-| Charts, graph and transcript views are big to rebuild | port view by view, using inspector screenshots as the spec |
+| Rune is pre-release, git-only, takes no PRs | the native app only; the web UI does not depend on Rune. Do it last, pin rev |
+| Rune web: experimental, WebGPU only, not a release target | the React inspector stays the web UI |
+| Charts, graph and transcript views are big to rebuild in the native app | port view by view, using inspector screenshots as the spec |
 
 ## Side task (any time, on `main`)
 
@@ -215,10 +221,12 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 24. Keep the 300 ms exit wait and the 100 ms busy timeout (the writer retries a held lock for 250 ms), or pick other values?
 25. Map Rust failures to the TS tags (`SessionNotFoundError`, `InvalidValue`, ...) later, so `error_tag` queries work across both CLIs?
 26. After cutover, let the schema accept kind `tui`?
-27. Rune app: move the JS-compat helpers (`js::num`, `js::time`, labels, cost text) out of core into a wasm-safe crate, instead of the copies in `crates/ui` kept equal by drift tests?
-28. Rune web: ship a Noto CJK and emoji fallback (several MB), or accept boxes?
+27. Rune app (experimental web only): move the JS-compat helpers (`js::num`, `js::time`, labels, cost text) out of core into a wasm-safe crate, instead of the copies in `crates/ui` kept equal by drift tests?
+28. Dropped: the Rune web build is experimental.
 29. `peektrace-app --otel` prints `tracing-subscriber` fmt lines, not the CLI's `[otel]` format. Move `crates/cli/src/otel.rs` into a shared crate?
 30. A `peektrace app` subcommand that launches `peektrace-app`, or two binaries?
-31. Release builds: turn on `rune-ui` (the web bundle inside the CLI, ~4 MB brotli + raw) by default, or ship the bundle beside it?
+31. Answered: `rune-ui` (the Rune web bundle inside the CLI) stays off by default in release builds.
 32. Keep the growth chart's `pos(t)` fix for interleaved turns, or copy TS?
 33. `virtual_rows` takes one row height estimate: ask Rune for per-row estimates, or live with the scroll thumb moving on long unvisited transcripts?
+34. Move the inspector off `@workspace/core` before cutover: types from Rust plus a `view-core` package, or server export?
+35. Keep or drop the Rune web build after the native app ships?

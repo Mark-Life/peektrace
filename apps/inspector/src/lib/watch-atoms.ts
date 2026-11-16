@@ -4,7 +4,7 @@
  * agent writes outside the app, and pushes the versions over `/api/events`
  * (`live.ts`). When a scope's settled version increases, only the atoms that
  * scope feeds refresh: `allVaultsAtom` for memory, `sessionsListAtom` for
- * sessions, plus the open session's analysis (see `useAnalyzedSession`).
+ * sessions, plus the open session's summary (see `useSessionSummary`).
  *
  * Refreshes key off the settled versions (see `settle.ts`): sessions reload at
  * most every few seconds under continuous writes, and nothing reloads while the

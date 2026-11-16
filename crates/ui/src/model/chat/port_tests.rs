@@ -22,9 +22,10 @@ fn plan(events: &[TimelineEvent]) -> Vec<ChatNode> {
 
 #[test]
 fn a_harness_prompt_is_centred_a_persons_stays_right() {
-    let prompt = |o| TimelineEvent {
-        prompt_origin: Some(o),
-        ..ev(EventKind::UserPrompt)
+    let prompt = |o| {
+        let mut built = ev(EventKind::UserPrompt);
+        built.prompt_origin = Some(o);
+        built
     };
     for o in [
         PromptOrigin::Human,
@@ -44,9 +45,10 @@ fn a_harness_prompt_is_centred_a_persons_stays_right() {
 
 #[test]
 fn no_title_falls_back_to_the_badge_word() {
-    let e = TimelineEvent {
-        attachment_type: Some("todo".into()),
-        ..ev(EventKind::Attachment)
+    let e = {
+        let mut built = ev(EventKind::Attachment);
+        built.attachment_type = Some("todo".into());
+        built
     };
     assert_eq!(chip_label(&e), "todo");
 }
@@ -66,12 +68,11 @@ fn adjacent_context_injections_merge_into_one_cluster() {
 }
 
 fn style(attachment_type: &str, body: &str, title: &str) -> TimelineEvent {
-    TimelineEvent {
-        attachment_type: Some(attachment_type.into()),
-        body: body.into(),
-        title: title.into(),
-        ..ev(EventKind::Attachment)
-    }
+    let mut built = ev(EventKind::Attachment);
+    built.attachment_type = Some(attachment_type.into());
+    built.body = body.into();
+    built.title = title.into();
+    built
 }
 
 fn concise() -> TimelineEvent {
@@ -79,10 +80,9 @@ fn concise() -> TimelineEvent {
 }
 
 fn reply(n: usize) -> TimelineEvent {
-    TimelineEvent {
-        body: format!("reply {n}"),
-        ..ev(EventKind::AssistantText)
-    }
+    let mut built = ev(EventKind::AssistantText);
+    built.body = format!("reply {n}");
+    built
 }
 
 fn repeats_of(events: &[TimelineEvent]) -> Vec<bool> {
@@ -117,9 +117,10 @@ fn different_images_with_the_same_label_never_fold() {
 
 #[test]
 fn a_run_keeps_its_items_and_order_when_some_repeat() {
-    let other = TimelineEvent {
-        title: "other".into(),
-        ..concise()
+    let other = {
+        let mut built = concise();
+        built.title = "other".into();
+        built
     };
     let nodes = plan(&[concise(), reply(1), concise(), other]);
     let last = nodes.iter().rev().find_map(|n| match n {
@@ -242,11 +243,12 @@ const TURNS: [usize; 7] = [1, 1, 2, 2, 2, 3, 3];
 
 fn jump_events() -> Vec<TimelineEvent> {
     use EventKind as K;
-    let e = |k: K, request: &str, tool: Option<&str>| TimelineEvent {
-        request_id: Some(request.into()),
-        tool_use_id: tool.map(Into::into),
-        tool_name: tool.map(|_| "Task".into()),
-        ..ev(k)
+    let e = |k: K, request: &str, tool: Option<&str>| {
+        let mut built = ev(k);
+        built.request_id = Some(request.into());
+        built.tool_use_id = tool.map(Into::into);
+        built.tool_name = tool.map(|_| "Task".into());
+        built
     };
     vec![
         e(K::UserPrompt, "r1", None),

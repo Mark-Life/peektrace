@@ -24,7 +24,7 @@ export const Subagents = ({
   onToggle,
   parent,
 }: {
-  readonly a: AnalyzedSession;
+  readonly a: Pick<AnalyzedSession, "subagents">;
   readonly isOpen: (id: string) => boolean;
   readonly onToggle: (id: string, open: boolean) => void;
   /** The session these subagents ran under; opens each one through it. */

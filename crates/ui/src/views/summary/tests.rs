@@ -3,8 +3,7 @@
 //! rendered through Rune's `Runtime`.
 
 use peektrace_protocol::view::{
-    AnalyzedSession, BudgetSlices, CostSource, EventKind, SessionCost, SubagentRef, TimelineEvent,
-    TurnSnapshot,
+    AnalyzedSession, BudgetSlices, CostSource, EventKind, SessionCost, SubagentRef, TurnSnapshot,
 };
 use rune::{ElementInfo, Env, Runtime};
 
@@ -48,10 +47,9 @@ fn cost(source: CostSource) -> SessionCost {
 }
 
 fn with_cost(c: SessionCost) -> AnalyzedSession {
-    AnalyzedSession {
-        cost: Some(c),
-        ..analysis()
-    }
+    let mut built = analysis();
+    built.cost = Some(c);
+    built
 }
 
 // verdict-header-cost.test.tsx
@@ -76,12 +74,13 @@ fn estimate_cost_renders_as_text_with_the_unpriced_models_named() {
 
 #[test]
 fn agent_reported_opencode_cost_is_labelled_as_the_agents_figure() {
-    let rt = render(AnalyzedSession {
-        provider: "opencode".into(),
-        ..with_cost(SessionCost {
+    let rt = render({
+        let mut built = with_cost(SessionCost {
             total_usd: Some(0.5),
             ..cost(CostSource::Agent)
-        })
+        });
+        built.provider = "opencode".into();
+        built
     });
     let els = rt.elements();
     let all = texts(&els);
@@ -132,10 +131,11 @@ fn a_fully_unpriced_session_shows_a_dash_never_zero() {
 
 fn summary() -> AnalyzedSession {
     use EventKind as K;
-    let evt = |index: usize, k: K, request: &str| TimelineEvent {
-        index,
-        request_id: (!request.is_empty()).then(|| request.to_owned()),
-        ..kind(k)
+    let evt = |index: usize, k: K, request: &str| {
+        let mut built = kind(k);
+        built.index = index;
+        built.request_id = (!request.is_empty()).then(|| request.to_owned());
+        built
     };
     let snap = |turn_index: usize| TurnSnapshot {
         turn_index,
@@ -146,31 +146,32 @@ fn summary() -> AnalyzedSession {
         slices: BudgetSlices::default(),
         ts: None,
     };
-    AnalyzedSession {
-        compaction_indexes: vec![2],
-        compaction_turns: vec![1],
-        dumb_zone_cross_turn: 1,
-        dumb_zone_fraction: 0.5,
-        dumb_zone_turns: 1,
-        events: vec![
+    {
+        let mut built = analysis();
+        built.compaction_indexes = vec![2];
+        built.compaction_turns = vec![1];
+        built.dumb_zone_cross_turn = 1;
+        built.dumb_zone_fraction = 0.5;
+        built.dumb_zone_turns = 1;
+        built.events = vec![
             evt(0, K::UserPrompt, "r1"),
             evt(1, K::AssistantText, "r1"),
             evt(2, K::Compaction, ""),
             evt(3, K::UserPrompt, "r2"),
             evt(4, K::AssistantText, "r2"),
-        ],
-        snapshots: vec![snap(0), snap(1)],
-        subagents: vec![SubagentRef {
+        ];
+        built.snapshots = vec![snap(0), snap(1)];
+        built.subagents = vec![SubagentRef {
             id: "agent-1".into(),
             agent_type: None,
             description: None,
             tool_use_id: None,
             turns: 1,
             peak_context_tokens: 0.0,
-        }],
-        turn_count: 2,
-        turns: vec![turn("r1"), turn("r2")],
-        ..analysis()
+        }];
+        built.turn_count = 2;
+        built.turns = vec![turn("r1"), turn("r2")];
+        built
     }
 }
 

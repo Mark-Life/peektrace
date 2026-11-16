@@ -8,19 +8,18 @@ use super::*;
 use crate::model::fixtures::kind;
 
 fn event() -> TimelineEvent {
-    TimelineEvent {
-        index: 7,
-        ts: Some("2026-08-08T15:00:00.000Z".into()),
-        request_id: Some("req_1".into()),
-        is_sidechain: Some(false),
-        title: "Bash".into(),
-        preview: "ls -la /workspace".into(),
-        body: r#"{"command":"ls -la /workspace"}"#.into(),
-        tokens_est: 42.0,
-        tool_name: Some("Bash".into()),
-        tool_use_id: Some("toolu_1".into()),
-        ..kind(EventKind::ToolCall)
-    }
+    let mut built = kind(EventKind::ToolCall);
+    built.index = 7;
+    built.ts = Some("2026-08-08T15:00:00.000Z".into());
+    built.request_id = Some("req_1".into());
+    built.is_sidechain = Some(false);
+    built.title = "Bash".into();
+    built.preview = "ls -la /workspace".into();
+    built.body = r#"{"command":"ls -la /workspace"}"#.into();
+    built.tokens_est = 42.0;
+    built.tool_name = Some("Bash".into());
+    built.tool_use_id = Some("toolu_1".into());
+    built
 }
 
 type Change = fn(&mut TimelineEvent);
@@ -84,17 +83,20 @@ fn every_field_the_row_renders_forces_a_rerender() {
 #[test]
 fn fields_the_row_never_renders_do_not_force_a_rerender() {
     let e = event();
-    let ts = TimelineEvent {
-        ts: Some("2026-01-01T00:00:00.000Z".into()),
-        ..event()
+    let ts = {
+        let mut built = event();
+        built.ts = Some("2026-01-01T00:00:00.000Z".into());
+        built
     };
-    let request = TimelineEvent {
-        request_id: Some("req_2".into()),
-        ..event()
+    let request = {
+        let mut built = event();
+        built.request_id = Some("req_2".into());
+        built
     };
-    let title = TimelineEvent {
-        title: "Other".into(),
-        ..event()
+    let title = {
+        let mut built = event();
+        built.title = "Other".into();
+        built
     };
     assert!(same_event(&e, &ts));
     assert!(same_event(&e, &request));
@@ -103,19 +105,21 @@ fn fields_the_row_never_renders_do_not_force_a_rerender() {
 
 #[test]
 fn a_context_edit_is_compared_by_value() {
-    let edited = TimelineEvent {
-        context_edit: Some(ContextEdit {
+    let edited = {
+        let mut built = event();
+        built.context_edit = Some(ContextEdit {
             status: "replaced".into(),
-        }),
-        ..event()
+        });
+        built
     };
     assert!(same_event(&edited, &edited.clone()));
     assert!(!same_event(&event(), &edited));
-    let removed = TimelineEvent {
-        context_edit: Some(ContextEdit {
+    let removed = {
+        let mut built = edited.clone();
+        built.context_edit = Some(ContextEdit {
             status: "removed".into(),
-        }),
-        ..edited.clone()
+        });
+        built
     };
     assert!(!same_chat_event(&edited, &removed));
     assert_ne!(hash(&edited), hash(&removed));
@@ -123,15 +127,17 @@ fn a_context_edit_is_compared_by_value() {
 
 #[test]
 fn an_attachment_that_changes_type_rerenders_its_badge() {
-    let listing = TimelineEvent {
-        kind: EventKind::Attachment,
-        tool_name: None,
-        attachment_type: Some("skill_listing".into()),
-        ..event()
+    let listing = {
+        let mut built = event();
+        built.kind = EventKind::Attachment;
+        built.tool_name = None;
+        built.attachment_type = Some("skill_listing".into());
+        built
     };
-    let todo = TimelineEvent {
-        attachment_type: Some("todo".into()),
-        ..listing.clone()
+    let todo = {
+        let mut built = listing.clone();
+        built.attachment_type = Some("todo".into());
+        built
     };
     assert!(!same_event(&listing, &todo));
     assert!(same_event(&listing, &listing.clone()));
@@ -139,10 +145,11 @@ fn an_attachment_that_changes_type_rerenders_its_badge() {
 
 #[test]
 fn an_appended_event_is_never_mistaken_for_an_existing_one() {
-    let appended = TimelineEvent {
-        index: 8,
-        preview: "next".into(),
-        ..event()
+    let appended = {
+        let mut built = event();
+        built.index = 8;
+        built.preview = "next".into();
+        built
     };
     assert!(!same_event(&event(), &appended));
 }
@@ -158,9 +165,10 @@ fn every_field_a_chat_leaf_renders_forces_a_rerender() {
 
 #[test]
 fn a_chip_label_is_a_chat_only_field() {
-    let relabelled = TimelineEvent {
-        title: "Other".into(),
-        ..event()
+    let relabelled = {
+        let mut built = event();
+        built.title = "Other".into();
+        built
     };
     assert!(same_event(&event(), &relabelled));
     assert!(!same_chat_event(&event(), &relabelled));
@@ -168,13 +176,15 @@ fn a_chip_label_is_a_chat_only_field() {
 
 #[test]
 fn fields_no_leaf_renders_still_do_not_force_a_rerender() {
-    let ts = TimelineEvent {
-        ts: Some("2026-01-01T00:00:00.000Z".into()),
-        ..event()
+    let ts = {
+        let mut built = event();
+        built.ts = Some("2026-01-01T00:00:00.000Z".into());
+        built
     };
-    let request = TimelineEvent {
-        request_id: Some("req_2".into()),
-        ..event()
+    let request = {
+        let mut built = event();
+        built.request_id = Some("req_2".into());
+        built
     };
     assert!(same_chat_event(&event(), &ts));
     assert!(same_chat_event(&event(), &request));

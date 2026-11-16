@@ -10,14 +10,19 @@ import { describe, expect, test } from "bun:test";
 import type { TimelineEvent } from "@workspace/core/services/sessions/schema";
 import { EventKind } from "@workspace/core/services/sessions/schema";
 import {
+  bodyKey,
+  bodyLength,
   buildChatPlan,
+  type ChatNode,
   chatIdsOf,
   chatNodeKeys,
   chipLabel,
+  type EventRow,
   laneOf,
   needsClamp,
   planIndexOfCall,
 } from "../src/lib/chat-lane";
+import { indexRowsOf } from "./history-rows";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   index: 0,
@@ -387,5 +392,62 @@ describe("repeat chips", () => {
     expect(run?.type === "run" ? run.items.map((i) => i.pos) : []).toEqual([
       2, 3,
     ]);
+  });
+});
+
+describe("index rows", () => {
+  const style = (body: string) =>
+    evt({ attachmentType: "output_style", body, kind: "attachment" });
+  const EVENTS = [
+    evt({ body: "go", kind: "user-prompt" }),
+    style("A"),
+    evt({ body: "x".repeat(900), kind: "assistant-text" }),
+    evt({ body: "{}", kind: "tool-call", toolUseId: "t" }),
+    evt({ body: "out", kind: "tool-result", toolUseId: "t" }),
+    style("A"),
+    evt({ body: "reply" }),
+    style("B"),
+    evt({ body: "end" }),
+    style("B"),
+  ];
+  const TURNS = [0, 1, 1, 1, 1, 2, 2, 2, 3, 3];
+  /** A node by type and positions, never by its event objects. */
+  const shapeOf = (n: ChatNode<EventRow>) => {
+    if (n.type === "run") {
+      return { items: n.items.map(({ pos, repeat }) => ({ pos, repeat })) };
+    }
+    if (n.type === "turn" || n.type === "dumbzone") {
+      return n;
+    }
+    return { key: chatNodeKeys([n])[0], type: n.type };
+  };
+  const shape = (plan: readonly ChatNode<EventRow>[]) => plan.map(shapeOf);
+
+  test("plan, ids and keys come out the same from rows as from events", () => {
+    const full = buildChatPlan({
+      crossEvtIdx: 4,
+      rows: rows(EVENTS),
+      turns: TURNS,
+    });
+    const index = indexRowsOf(EVENTS, TURNS);
+    const fromRows = buildChatPlan({
+      crossEvtIdx: 4,
+      rows: index.map((e, pos) => ({ e, pos })),
+      turns: TURNS,
+    });
+    expect(shape(fromRows)).toEqual(shape(full));
+    expect(chatNodeKeys(fromRows)).toEqual(chatNodeKeys(full));
+    expect(chatIdsOf(index.map((e, pos) => ({ e, pos })))).toEqual(
+      chatIdsOf(rows(EVENTS))
+    );
+    expect(index.map(needsClamp)).toEqual(EVENTS.map(needsClamp));
+    expect(index.map(chipLabel)).toEqual(EVENTS.map(chipLabel));
+  });
+
+  test("a body id and a length stand in for the body", () => {
+    const [row] = indexRowsOf([evt({ body: "héllo 👋" })], [0]);
+    expect(row && bodyLength(row)).toBe("héllo 👋".length);
+    expect(bodyKey(evt({ body: "b" }))).toBe("b");
+    expect(row && bodyKey(row)).toBe(0);
   });
 });

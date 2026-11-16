@@ -8,12 +8,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   matchLabel,
   rangesIn,
-  searchIndexOf,
   stepHit,
   textRanges,
   visibleRows,
 } from "../src/lib/history-search";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
+import { searchHitsOf } from "../src/lib/session-data";
 import { DEFAULT_SESSION_VIEW } from "../src/lib/session-view";
 import { queryStateFor } from "../src/lib/use-history-search";
 import {
@@ -52,20 +52,27 @@ const EVENTS = [
   }),
   evt({ body: "done", index: 4, preview: "done", title: "done" }),
 ];
-const INDEX = searchIndexOf(EVENTS);
+/** What `/history/search` answers for "zephyr" (matching and case folding
+ *  are tested on the Rust side): the system event too. */
+const ZEPHYR = new Set([0, 2, 3]);
 
-const rows = (over: { kind?: string; query?: string } = {}) =>
+const rows = (
+  over: {
+    kind?: string;
+    query?: string;
+    sort?: typeof DEFAULT_HISTORY_SORT;
+  } = {}
+) =>
   visibleRows({
     events: EVENTS,
-    index: INDEX,
+    hits: ZEPHYR,
     kind: over.kind ?? "all",
     query: over.query ?? "",
-    sort: DEFAULT_HISTORY_SORT,
+    sort: over.sort ?? DEFAULT_HISTORY_SORT,
   }).map(({ pos }) => pos);
 
-test("matches text past the first line, ignoring case", () => {
+test("hits filter the rows, system rows still dropped", () => {
   expect(rows({ query: "zephyr" })).toEqual([2, 3]);
-  expect(rows({ query: "ZEPHYR VALVE" })).toEqual([2]);
 });
 
 test("kind and query combine", () => {
@@ -73,19 +80,37 @@ test("kind and query combine", () => {
   expect(rows({ kind: "user-prompt", query: "zephyr" })).toEqual([]);
 });
 
-test("an empty query keeps every non-system event", () => {
+test("an empty query keeps every non-system event and ignores the hits", () => {
   expect(rows()).toEqual([1, 2, 3, 4]);
 });
 
 test("the table sort still applies to the hits", () => {
-  const sorted = visibleRows({
-    events: EVENTS,
-    index: INDEX,
-    kind: "all",
+  expect(
+    rows({ query: "zephyr", sort: { dir: "desc", key: "tokens" } })
+  ).toEqual([3, 2]);
+});
+
+test("a new revision keeps the last hits without dimming; a new query dims", () => {
+  const answer = { hits: ZEPHYR, query: "zephyr", session: "s" };
+  expect(searchHitsOf({ answer, query: "zephyr", session: "s" })).toEqual({
+    hits: ZEPHYR,
+    pending: false,
     query: "zephyr",
-    sort: { dir: "desc", key: "tokens" },
-  }).map(({ pos }) => pos);
-  expect(sorted).toEqual([3, 2]);
+  });
+  expect(searchHitsOf({ answer, query: "zeph", session: "s" }).pending).toBe(
+    true
+  );
+  expect(searchHitsOf({ answer, query: "zephyr", session: "t" }).pending).toBe(
+    true
+  );
+  expect(searchHitsOf({ answer: null, query: "zephyr", session: "s" })).toEqual(
+    {
+      hits: undefined,
+      pending: true,
+      query: "",
+    }
+  );
+  expect(searchHitsOf({ answer, query: "", session: "s" }).pending).toBe(false);
 });
 
 test("stepping wraps at both ends", () => {
@@ -279,15 +304,37 @@ test("a history view renders unfiltered with an empty search box", () => {
     state: DEFAULT_SESSION_VIEW,
     toggleExpanded: () => undefined,
   };
+  const a = session([
+    evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
+    evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
+  ]);
+  const { events, snapshots: _s, turns: _t, ...rest } = a;
+  // Whole events stand in for index rows: a row that carries its body draws
+  // without waiting for a page.
+  const rows = events.map((e, pos) => ({
+    ...e,
+    bodyId: pos,
+    bodyLen: e.body.length,
+    turn: 0,
+  }));
+  const history = {
+    growth: "g",
+    index: "i",
+    pageSize: 100,
+    pages: ["p"],
+    rev: "r",
+    total: rows.length,
+  };
   const html = renderToStaticMarkup(
     <SessionHistory
-      a={session([
-        evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
-        evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
-      ])}
+      growth={null}
+      index={{ crossEvent: -1, hash: "i", rev: "r", rows, total: rows.length }}
+      k={{ id: "s-fresh", parent: null, redact: true }}
       landing={{ done: { current: null } }}
+      onStale={() => undefined}
       onSummary={() => undefined}
       req={null}
+      s={{ ...rest, history }}
       sectionRef={{ current: null }}
       seq={0}
       sid="s-fresh"

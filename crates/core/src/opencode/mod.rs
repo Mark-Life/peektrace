@@ -71,6 +71,25 @@ fn locate<'a>(path: &'a str, id: &'a str, default_root: &'a str) -> (&'a str, &'
         .map_or((default_root, id), |at| (&path[..at], &path[at + 1..]))
 }
 
+/// The store files one session reads from: its data dir, each
+/// `opencode*.db` there with its `-wal`, and its tree message dir. A write
+/// to the session changes the size or modified time of one of them.
+pub fn store_paths(path: &str, id: &str, default_root: &str) -> Vec<String> {
+    let (data_dir, id) = locate(path, id, default_root);
+    let style = crate::paths::PathStyle::NATIVE;
+    let dbs = db::db_names(data_dir).into_iter().flat_map(|name| {
+        let db = style.join(&[data_dir, &name]);
+        let wal = format!("{db}-wal");
+        [db, wal]
+    });
+    std::iter::once(data_dir.to_owned())
+        .chain(dbs)
+        .chain(std::iter::once(
+            style.join(&[data_dir, "storage", "message", id]),
+        ))
+        .collect()
+}
+
 /// Load one session from DBs open on its data dir, else from the tree.
 fn load_with(
     dbs: &[db::Db],

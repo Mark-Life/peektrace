@@ -215,6 +215,7 @@ pub fn prepare(args: &ServeArgs, read_only: bool, ctx: &Context) -> Result<Prepa
         tmp_dir: tmpdir(),
         now: system_clock(),
         stats_lock: Arc::default(),
+        pages: peektrace_server::pages::PagesCache::default(),
     };
     let guards = Guards {
         allow: Allowlist::new(&args.host, port),

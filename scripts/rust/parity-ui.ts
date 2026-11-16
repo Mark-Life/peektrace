@@ -297,15 +297,17 @@ const fixtureHome = () => {
   }
   const pi = join(home, ".pi", "agent", "sessions", "--Users-demo-proj--");
   mkdirSync(pi, { recursive: true });
-  readdirSync(join(FIXTURES, "sessions-pi")).forEach((f, i) => {
-    copyFileSync(
-      join(FIXTURES, "sessions-pi", f),
-      join(
-        pi,
-        `2026-05-19T08-00-0${i}-000Z_019f42f4-0000-7000-8000-00000000000${i}.jsonl`
-      )
-    );
-  });
+  readdirSync(join(FIXTURES, "sessions-pi"))
+    .sort()
+    .forEach((f, i) => {
+      copyFileSync(
+        join(FIXTURES, "sessions-pi", f),
+        join(
+          pi,
+          `2026-05-19T08-00-0${i}-000Z_019f42f4-0000-7000-8000-00000000000${i}.jsonl`
+        )
+      );
+    });
   if (PINNED) {
     pinTree(home);
   }
