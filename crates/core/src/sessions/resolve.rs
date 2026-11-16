@@ -11,6 +11,7 @@ use crate::listing::{AgentRoots, default_root, session_files};
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionId};
 use crate::roots::Source;
 use crate::sessions::jsonl::decode;
+use peektrace_protocol::ambiguous_message;
 
 const JSONL: &str = ".jsonl";
 const WORKFLOW_RUN: &str = "wf_";
@@ -20,8 +21,44 @@ const WORKFLOW_RUN: &str = "wf_";
 pub enum SessionError {
     #[error("Session \"{id}\" not found (searched {searched}).")]
     NotFound { id: String, searched: String },
+    #[error("{}", ambiguous_message(id, candidates, *count))]
+    Ambiguous {
+        id: String,
+        /// The first [`MAX_CANDIDATES`] matching ids, sorted.
+        candidates: Vec<String>,
+        /// Every match, listed or not.
+        count: u64,
+    },
     #[error("Failed to parse transcript {path}: {reason}")]
     Read { path: String, reason: String },
+}
+
+/// Most candidate ids an ambiguity error carries.
+pub const MAX_CANDIDATES: usize = 10;
+
+impl SessionError {
+    /// [`Self::Ambiguous`] for `id` from every matching id.
+    pub fn ambiguous(id: &str, mut matches: Vec<String>) -> Self {
+        matches.sort();
+        matches.dedup();
+        let count = u64::try_from(matches.len()).unwrap_or(u64::MAX);
+        matches.truncate(MAX_CANDIDATES);
+        Self::Ambiguous {
+            id: id.to_owned(),
+            candidates: matches,
+            count,
+        }
+    }
+}
+
+/// `parent/agent-x`, as `stats drill` prints a subagent, split in two.
+pub fn split_nested_id(id: &str) -> Option<(&str, &str)> {
+    if id.ends_with(JSONL) {
+        return None;
+    }
+    let (parent, agent) = id.split_once('/')?;
+    let valid = !parent.is_empty() && agent.starts_with("agent-") && !agent.contains('/');
+    valid.then_some((parent, agent))
 }
 
 /// `parts.join("/")` with repeated slashes collapsed.
@@ -92,13 +129,13 @@ fn resolve_direct_path(roots: &AgentRoots, id_or_path: &str) -> Option<Resolutio
 }
 
 /// An exact id, first agent first, else a prefix that names exactly one
-/// session across all agents.
-fn scan_for_id(roots: &AgentRoots, wanted: &str) -> Option<Resolution> {
+/// session id across all agents (the first copy when it is in two roots).
+fn scan_for_id(roots: &AgentRoots, wanted: &str) -> Result<Resolution, SessionError> {
     let mut prefixed = Vec::new();
     for agent in Agent::ALL {
         let refs = session_files(agent, roots, None);
         if let Some(exact) = refs.iter().find(|r| r.id.as_str() == wanted) {
-            return Some(Resolution {
+            return Ok(Resolution {
                 agent,
                 file: exact.clone(),
             });
@@ -109,9 +146,20 @@ fn scan_for_id(roots: &AgentRoots, wanted: &str) -> Option<Resolution> {
                 .map(|file| Resolution { agent, file }),
         );
     }
+    let mut seen = std::collections::HashSet::new();
+    prefixed.retain(|r| seen.insert(r.file.id.clone()));
     match <[Resolution; 1]>::try_from(prefixed) {
-        Ok([only]) => Some(only),
-        Err(_) => None,
+        Ok([only]) => Ok(only),
+        Err(none) if none.is_empty() => Err(SessionError::NotFound {
+            id: wanted.to_owned(),
+            searched: "all agents".to_owned(),
+        }),
+        Err(many) => Err(SessionError::ambiguous(
+            wanted,
+            many.into_iter()
+                .map(|r| r.file.id.as_str().to_owned())
+                .collect(),
+        )),
     }
 }
 
@@ -121,11 +169,7 @@ pub fn resolve_session(roots: &AgentRoots, id_or_path: &str) -> Result<Resolutio
     if let Some(r) = resolve_direct_path(roots, id_or_path) {
         return Ok(r);
     }
-    let wanted = strip_jsonl(id_or_path);
-    scan_for_id(roots, wanted).ok_or_else(|| SessionError::NotFound {
-        id: wanted.to_owned(),
-        searched: "all agents".to_owned(),
-    })
+    scan_for_id(roots, strip_jsonl(id_or_path))
 }
 
 /// A Claude transcript's location and its subagents dir, if present.
@@ -205,12 +249,18 @@ pub fn resolve_claude_session(
             }
         }
     }
+    let mut seen = std::collections::HashSet::new();
+    matches.retain(|(sid, _)| seen.insert(sid.clone()));
     match matches.as_slice() {
         [(sid, dir)] => Ok(with_subagent_dir(sid, dir)),
-        _ => Err(SessionError::NotFound {
+        [] => Err(SessionError::NotFound {
             id: id.to_owned(),
             searched: default_root(claude),
         }),
+        _ => Err(SessionError::ambiguous(
+            id,
+            matches.into_iter().map(|(sid, _)| sid).collect(),
+        )),
     }
 }
 
@@ -370,5 +420,28 @@ mod tests {
                 .as_deref(),
             Some("Session \"zzz\" not found (searched all agents).")
         );
+    }
+
+    #[test]
+    fn ambiguity_lists_sorted_candidates_and_counts_the_rest() {
+        let ids = (0..12).rev().map(|i| format!("ab{i:02}")).collect();
+        let e = SessionError::ambiguous("ab", ids);
+        assert_eq!(
+            e.to_string(),
+            "Session \"ab\" is ambiguous: it matches 12 sessions (ab00, ab01, ab02, ab03, ab04, ab05, ab06, ab07, ab08, ab09, and 2 more). Give more of the id."
+        );
+    }
+
+    #[test]
+    fn splits_the_drill_form_only() {
+        assert_eq!(
+            split_nested_id("518d7c58/agent-abe3f92a"),
+            Some(("518d7c58", "agent-abe3f92a"))
+        );
+        assert_eq!(split_nested_id("/tmp/x/agent-a.jsonl"), None);
+        assert_eq!(split_nested_id("/agent-a"), None);
+        assert_eq!(split_nested_id("p/a/agent-a"), None);
+        assert_eq!(split_nested_id("p/notes"), None);
+        assert_eq!(split_nested_id("plain"), None);
     }
 }

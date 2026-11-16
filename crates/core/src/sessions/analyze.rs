@@ -8,8 +8,9 @@ use super::context_edits::{RequestSize, request_sizes, size_steps, tokens_at, to
 use super::cost::{price_turns, session_cost};
 use super::model::{
     AnalyzedSession, BudgetKey, BudgetSlice, BudgetSlices, EventKind, LoadedCategory,
-    OnDiskContextFile, ParsedSession, TimelineEvent, Turn, TurnSnapshot,
+    OnDiskContextFile, ParsedSession, Provider, TimelineEvent, Turn, TurnSnapshot,
 };
+use super::model_windows::session_window;
 use crate::js::time::{self, LocalZone};
 
 const DEFAULT_WINDOW: f64 = 1_000_000.0;
@@ -348,7 +349,10 @@ pub fn analyze(mut p: ParsedSession, opts: AnalyzeOptions<'_>) -> AnalyzedSessio
     }
     let final_context = p.turns.last().map_or(0.0, |t| t.context_tokens);
     let native = p.native_context_window;
-    let context_window = opts.window.or(native).unwrap_or(DEFAULT_WINDOW);
+    let context_window = opts.window.or(native).unwrap_or_else(|| match p.provider {
+        Provider::ClaudeCode => session_window(p.models.iter().map(String::as_str), peak),
+        _ => DEFAULT_WINDOW,
+    });
     let overhead = system_overhead(&p);
     let (snapshots, compaction_turns) = walk_turns(&p, overhead);
     let peak_snap = snapshots

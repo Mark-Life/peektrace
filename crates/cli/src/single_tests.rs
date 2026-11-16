@@ -132,7 +132,7 @@ fn newest_reuses_the_header_cache() {
         parent: None,
     };
     let cache = HeaderCache::default();
-    let run = |cache| analyze(&target, &CLI_TARGET, globals, &ctx, None, cache);
+    let run = |cache| analyze(&target, &CLI_TARGET, globals, &ctx, None, cache, None);
     assert!(run(Some(&cache)).is_ok());
 
     // Same size and mtime: only the cached header still says `/a`.

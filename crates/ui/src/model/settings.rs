@@ -5,6 +5,7 @@
 use peektrace_js::text::trim;
 use peektrace_protocol::{
     AgentId, ApiError, FileChangeReason, PeektraceSettings, ScannedRoot, ServerInfo,
+    ambiguous_message,
 };
 use serde_json::{Map, Value};
 
@@ -122,6 +123,11 @@ pub fn wire_error_message(e: &ApiError) -> String {
             format!("Refused: {path} is outside the agent roots.")
         }
         ApiError::SessionNotFoundError { id, .. } => format!("Session \"{id}\" was not found."),
+        ApiError::SessionAmbiguousError {
+            id,
+            candidates,
+            count,
+        } => ambiguous_message(id, candidates, *count),
         ApiError::TranscriptParseError { reason, .. } => format!(
             "That transcript could not be read ({reason}). The file may be locked or malformed."
         ),

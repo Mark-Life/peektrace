@@ -78,6 +78,15 @@ fn session_error(e: SessionError) -> LoadError {
             id,
             searched_root: searched,
         },
+        SessionError::Ambiguous {
+            id,
+            candidates,
+            count,
+        } => ApiError::SessionAmbiguousError {
+            id,
+            candidates,
+            count,
+        },
         SessionError::Read { path, reason } => ApiError::TranscriptParseError { path, reason },
     })
 }

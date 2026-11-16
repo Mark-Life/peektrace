@@ -213,6 +213,7 @@ pub fn list(
         select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
     });
     let (headers, unreadable, warnings) = fetch(input, ctx, remote)?;
+    let all_ids: Vec<String> = headers.iter().map(|h| h.id.as_str().to_owned()).collect();
     let picked = select::select_sessions(
         headers,
         &SelectOptions {
@@ -225,7 +226,8 @@ pub fn list(
     let (stdout, table_notes) = if globals.json {
         (render::json_rows(&picked.rows), Vec::new())
     } else {
-        render::session_table(&picked.rows, globals.pretty)
+        let among: Vec<&str> = all_ids.iter().map(String::as_str).collect();
+        render::session_table(&picked.rows, &among, globals.pretty)
     };
     let notes = render::list_notes(unreadable, table_notes, picked.hidden, names.limit);
     Ok(Output {

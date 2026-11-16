@@ -422,7 +422,7 @@ fn collects_global_project_and_memory_files() {
 }
 
 #[test]
-fn unique_prefix_resolves_and_ambiguous_is_not_found() {
+fn unique_prefix_resolves_and_ambiguous_lists_the_candidates() {
     let (dir, _) = resolve_tree();
     let base = dir.str();
     let claude = sources(&format!("{base}/home"), &format!("{base}/claude/projects"));
@@ -434,6 +434,18 @@ fn unique_prefix_resolves_and_ambiguous_is_not_found() {
             .is_some_and(|d| d.ends_with("/subagents"))
     );
     let err = resolve_claude_session(&claude, "aaaaaaaa");
+    assert_eq!(
+        err,
+        Err(SessionError::Ambiguous {
+            id: "aaaaaaaa".to_owned(),
+            candidates: vec![
+                "aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa".to_owned(),
+                "aaaaaaaa-2222-4aaa-8aaa-aaaaaaaaaaaa".to_owned(),
+            ],
+            count: 2,
+        })
+    );
+    let err = resolve_claude_session(&claude, "ffffffff");
     assert!(matches!(err, Err(SessionError::NotFound { .. })), "{err:?}");
 }
 

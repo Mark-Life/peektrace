@@ -10,7 +10,9 @@ use peektrace_core::roots;
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::read::{cost_from_json, listing_from_json, parsed_from_json};
-use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
+use peektrace_core::sessions::service::{
+    AnalyzeOverrides, SessionEnv, Target, analyze_session_with, get_session,
+};
 use peektrace_core::sessions::write::analyzed_json;
 use peektrace_core::{AgentRoots, ListFilter, SessionHeader, list_sessions, list_sessions_cached};
 
@@ -362,11 +364,33 @@ pub fn run_analyze(
     ctx: &Context,
     remote: Option<&Remote>,
 ) -> Result<Output, UserError> {
-    analyze(&args.target, &CLI_TARGET, globals, ctx, remote, None)
+    let window = args.window.as_deref().map(parse_window).transpose()?;
+    analyze(
+        &args.target,
+        &CLI_TARGET,
+        globals,
+        ctx,
+        remote,
+        None,
+        window,
+    )
+}
+
+/// `--window` as the API reads `?window=`: a finite number, here also
+/// above zero.
+fn parse_window(raw: &str) -> Result<f64, UserError> {
+    let n = num::parse_number(raw);
+    if text::trim(raw).is_empty() || !n.is_finite() || n <= 0.0 {
+        return Err(UserError::Invalid(format!(
+            "--window must be a positive number of tokens, got {raw:?}."
+        )));
+    }
+    Ok(n)
 }
 
 /// The analysis of the session `t` picks; `m` words the target messages.
-/// `headers` caches the `--latest`/`--cwd` listing across calls.
+/// `headers` caches the `--latest`/`--cwd` listing across calls; `window`
+/// overrides the context window.
 pub fn analyze(
     t: &TargetArgs,
     m: &TargetMessages,
@@ -374,6 +398,7 @@ pub fn analyze(
     ctx: &Context,
     remote: Option<&Remote>,
     headers: Option<&HeaderCache>,
+    window: Option<f64>,
 ) -> Result<Output, UserError> {
     let (roots, warnings) = match remote {
         Some(_) => (AgentRoots::default(), Vec::new()),
@@ -383,7 +408,11 @@ pub fn analyze(
     let (pick, unreadable) = resolve_target(t, m, ctx, &roots, &zone, remote, headers)?;
     let parent = t.parent.as_deref();
     let stdout = if let Some(r) = remote {
-        let query: Vec<(&str, &str)> = parent.map(|p| ("parent", p)).into_iter().collect();
+        let window = window.map(num::to_js_string);
+        let query: Vec<(&str, &str)> = [("parent", parent), ("window", window.as_deref())]
+            .into_iter()
+            .filter_map(|(k, v)| v.map(|v| (k, v)))
+            .collect();
         let v = r.get_json(&["sessions", pick.target().id(), "analysis"], &query)?;
         if globals.json {
             v.stringify(true)
@@ -396,7 +425,11 @@ pub fn analyze(
             roots: &roots,
             local: &zone,
         };
-        let a = analyze_session(env, pick.target(), parent, true)
+        let overrides = AnalyzeOverrides {
+            window,
+            dumb_zone: None,
+        };
+        let a = analyze_session_with(env, pick.target(), parent, true, overrides)
             .map_err(|e| UserError::Invalid(e.to_string()))?;
         if globals.json {
             analyzed_json(&a)

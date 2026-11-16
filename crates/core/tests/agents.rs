@@ -200,7 +200,7 @@ fn pi_meta_turns_and_window() {
     assert_eq!(a.ts.as_deref(), Some("2026-07-06T13:05:20.000Z"));
     assert_eq!(turn("bbbb2222").map(|t| t.context_tokens), Some(120.0));
     assert!(turn("cccc3333").is_none());
-    assert_eq!(p.native_context_window, Some(200_000.0));
+    assert_eq!(p.native_context_window, Some(1_000_000.0));
     let empty = p
         .events
         .iter()
@@ -214,7 +214,7 @@ fn pi_window_is_dropped_by_a_larger_call() {
     let text = read("sessions-pi/pi-fixture.jsonl");
     let at = text.find("\"input\":").expect("usage");
     let end = at + text[at..].find(',').expect("comma");
-    let big = format!("{}\"input\":300000{}", &text[..at], &text[end..]);
+    let big = format!("{}\"input\":1200000{}", &text[..at], &text[end..]);
     assert_eq!(pi_text(&big).native_context_window, None);
     let one = r#"{"type":"session","version":1,"id":"s1","cwd":"/tmp"}"#;
     assert_eq!(pi_text(one).native_context_window, None);
@@ -399,7 +399,13 @@ fn lists_and_resolves_across_agents() {
     };
     assert_eq!(
         err("rollout", None).as_deref(),
-        Some("Session \"rollout\" not found (searched all agents).")
+        Some(
+            "Session \"rollout\" is ambiguous: it matches 4 sessions (rollout-budget, rollout-context, rollout-fixture, rollout-fork). Give more of the id."
+        )
+    );
+    assert_eq!(
+        err("zzz", None).as_deref(),
+        Some("Session \"zzz\" not found (searched all agents).")
     );
     assert_eq!(
         err("x", Some("pi-fixture")).as_deref(),

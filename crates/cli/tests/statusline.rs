@@ -6,12 +6,14 @@ mod common;
 use std::process::Stdio;
 use std::time::{Duration, Instant};
 
-use common::{Home, Run, claude_lines, claude_path};
+use common::{Home, Run, claude_model_lines, claude_path};
 use serde_json::json;
 
 const ID: &str = "44444444-4444-4444-8444-444444444444";
 const BIG_ID: &str = "55555555-5555-4555-8555-555555555555";
 const FALLBACK: &str = "ctx --\n";
+/// A model with a 1M window.
+const MODEL: &str = "claude-opus-4-6";
 /// Generous, so a slow CI machine never hits the deadline by accident.
 const SLOW_OK: [&str; 3] = ["statusline", "--timeout", "60000"];
 
@@ -25,11 +27,16 @@ fn fixture() -> Fixture {
     let home = Home::new("statusline");
     let path = home.write(
         &claude_path("-home-demo-work", ID),
-        &claude_lines("2026-03-01T10:00:00.000Z", 50_000, "/home/demo/work"),
+        &claude_model_lines("2026-03-01T10:00:00.000Z", 50_000, "/home/demo/work", MODEL),
     );
     let big = home.write(
         &claude_path("-home-demo-work", BIG_ID),
-        &claude_lines("2026-03-02T10:00:00.000Z", 150_000, "/home/demo/work"),
+        &claude_model_lines(
+            "2026-03-02T10:00:00.000Z",
+            150_000,
+            "/home/demo/work",
+            MODEL,
+        ),
     );
     let s = |p: std::path::PathBuf| p.to_string_lossy().into_owned();
     Fixture {
@@ -67,6 +74,22 @@ fn session_id_alone_resolves_the_same_session() {
         f.run(&json!({ "session_id": ID }).to_string()),
         ok("ctx 5% Healthy\n")
     );
+}
+
+#[test]
+fn a_200k_model_reads_against_200k() {
+    let f = fixture();
+    let path = f.home.write(
+        &claude_path("-home-demo-work", "66666666-6666-4666-8666-666666666666"),
+        &claude_model_lines(
+            "2026-03-03T10:00:00.000Z",
+            50_000,
+            "/home/demo/work",
+            "claude-haiku-4-5",
+        ),
+    );
+    let r = f.run(&json!({ "transcript_path": path }).to_string());
+    assert_eq!(r, ok("ctx 25% Healthy\n"));
 }
 
 #[test]
