@@ -27,6 +27,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
+
 import {
   bodyParts,
   fmtDate,
@@ -54,7 +55,7 @@ const LinkedBody = ({
 }) => {
   const parts = bodyParts(entry);
   return (
-    <div className="whitespace-pre-wrap font-mono text-xs leading-relaxed">
+    <div className="font-mono text-xs leading-relaxed whitespace-pre-wrap">
       {parts.map((part, i) => {
         if ("link" in part) {
           return (
@@ -115,7 +116,7 @@ const DetailRow = ({
             <span className="text-muted-foreground">Links:</span>
             {entry.links.map((l) => (
               <button
-                className="rounded border border-border px-1.5 py-0.5 font-mono text-sky-400 hover:bg-muted"
+                className="border-border hover:bg-muted rounded border px-1.5 py-0.5 font-mono text-sky-400"
                 key={`${l.targetSlug}:${l.line}`}
                 onClick={() => actions.onNavigate(l.targetSlug)}
                 type="button"
@@ -157,7 +158,7 @@ const SortHead = ({
 }) => (
   <TableHead className={className}>
     <button
-      className="inline-flex items-center gap-1 hover:text-foreground"
+      className="hover:text-foreground inline-flex items-center gap-1"
       onClick={() => onSort(col)}
       type="button"
     >
@@ -213,7 +214,7 @@ export const BrowseTable = ({
   }
 
   return (
-    <div className="rounded-lg border border-border" data-testid="browse-table">
+    <div className="border-border rounded-lg border" data-testid="browse-table">
       <Table>
         <TableHeader>
           <TableRow>
@@ -286,20 +287,20 @@ export const BrowseTable = ({
                     <span className="text-muted-foreground text-xs">—</span>
                   )}
                 </TableCell>
-                <TableCell className="hidden max-w-[24ch] truncate text-muted-foreground text-sm md:table-cell">
+                <TableCell className="text-muted-foreground hidden max-w-[24ch] truncate text-sm md:table-cell">
                   {entry.description ?? "—"}
                 </TableCell>
                 <TableCell className="text-right font-mono text-xs">
                   {fmtSize(entry.size)}
                 </TableCell>
-                <TableCell className="hidden text-muted-foreground text-xs lg:table-cell">
+                <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
                   {fmtDate(entry.mtime)}
                 </TableCell>
                 <TableCell>
                   {entry.inIndex ? (
                     <CheckIcon className="size-4 text-emerald-400" />
                   ) : (
-                    <XIcon className="size-4 text-muted-foreground" />
+                    <XIcon className="text-muted-foreground size-4" />
                   )}
                 </TableCell>
                 <TableCell className="text-right font-mono text-xs">

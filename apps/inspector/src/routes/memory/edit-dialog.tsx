@@ -32,6 +32,7 @@ import { Exit } from "effect";
 import { AlertTriangleIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { updateMemoryAtom } from "../../lib/memory-atoms";
 import { wireErrorMessage, wireErrorOf } from "../../lib/wire-error";
 
@@ -164,7 +165,7 @@ export const EditDialog = ({
               />
             </div>
             {error ? (
-              <p className="text-red-400 text-sm" data-testid="edit-error">
+              <p className="text-sm text-red-400" data-testid="edit-error">
                 {error}
               </p>
             ) : null}

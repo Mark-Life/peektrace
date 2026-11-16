@@ -42,7 +42,7 @@ export const StatsPending = ({ since }: { readonly since: number }) => {
           <Skeleton className="h-5 w-full max-w-md" />
           <Skeleton className="h-7 w-72" />
         </div>
-        <div className="flex items-baseline gap-2 text-muted-foreground text-sm">
+        <div className="text-muted-foreground flex items-baseline gap-2 text-sm">
           <p role="status">
             {announce
               ? "Reading transcripts. The first pass parses every file and can take about 20 s; later passes read the cache."

@@ -1,5 +1,6 @@
 /** Shared history prefs: normalization, and one store every reader follows. */
 import { expect, test } from "bun:test";
+
 import {
   DEFAULT_HISTORY_PREFS,
   getHistoryPrefs,

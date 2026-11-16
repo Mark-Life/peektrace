@@ -21,6 +21,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { AgentId, StatsReport } from "@workspace/view-core/api-types.gen";
 import { AGENT_IDS } from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
+
 import { at, hms, n } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 
@@ -166,13 +167,13 @@ export const ReportHeader = ({
         {report.window.toIso.slice(0, 10)} · generated {at(report.generatedAt)}{" "}
         · {report.schemaVersion} · detector v{report.detectorVersion}
       </p>
-      <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         <ShieldCheckIcon className="size-3.5 shrink-0" />
         Command text, error signatures and cluster labels are redacted before
         they are stored or shown.
       </div>
       <Collapsible>
-        <CollapsibleTrigger className="text-left text-muted-foreground text-xs underline decoration-dotted">
+        <CollapsibleTrigger className="text-muted-foreground text-left text-xs underline decoration-dotted">
           {n(report.caveats.length)} caveats travel with these numbers
           {report.skipped.length > 0
             ? ` · ${n(report.skipped.length)} files skipped`
@@ -180,7 +181,7 @@ export const ReportHeader = ({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <ul
-            className="mt-2 flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-xs"
+            className="text-muted-foreground mt-2 flex list-disc flex-col gap-1 pl-4 text-xs"
             data-testid="stats-caveats"
           >
             {report.caveats.map((caveat) => (

@@ -5,6 +5,7 @@
  * Rust TUI and native app keep a port of the same sentences (`stats::findings`).
  */
 import { fmtK } from "@workspace/viz/lib/session-format";
+
 import {
   findingsOf as coreFindingsOf,
   timeNote as coreTimeNote,

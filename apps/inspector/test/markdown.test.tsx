@@ -4,6 +4,7 @@
  * claims in `markdown.tsx` are checked on the rendered markup itself.
  */
 import { describe, expect, test } from "bun:test";
+
 import {
   fenceLanguage,
   MARKDOWN_CHAR_LIMIT,

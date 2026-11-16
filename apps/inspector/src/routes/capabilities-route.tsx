@@ -26,6 +26,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import type { Capability } from "@workspace/view-core/api-types.gen";
 import { Fragment, useState } from "react";
+
 import { capabilitiesAtom } from "../lib/atoms";
 import {
   AGENT_COLUMNS,
@@ -50,7 +51,7 @@ interface Selection {
 const Pill = ({ level }: { readonly level: Support["level"] }) => (
   <span
     className={cn(
-      "inline-flex items-center rounded-full border px-2 py-0.5 font-medium text-xs capitalize",
+      "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize",
       LEVEL_STYLES[level]
     )}
   >
@@ -67,7 +68,7 @@ const Matrix = ({
   readonly onSelect: (s: Selection) => void;
 }) => (
   <div
-    className="rounded-lg border border-border"
+    className="border-border rounded-lg border"
     data-testid="capability-matrix"
   >
     <Table>
@@ -84,7 +85,7 @@ const Matrix = ({
           <Fragment key={group}>
             <TableRow className="bg-muted/40 hover:bg-muted/40">
               <TableCell
-                className="py-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide"
+                className="text-muted-foreground py-1.5 text-xs font-medium tracking-wide uppercase"
                 colSpan={1 + AGENT_COLUMNS.length}
               >
                 {group}
@@ -93,7 +94,7 @@ const Matrix = ({
             {rows.map((cap) => (
               <TableRow key={cap.id}>
                 <TableCell className="align-top">
-                  <div className="font-medium text-sm">{cap.title}</div>
+                  <div className="text-sm font-medium">{cap.title}</div>
                   <div className="text-muted-foreground text-xs">
                     {cap.description}
                   </div>
@@ -101,7 +102,7 @@ const Matrix = ({
                 {AGENT_COLUMNS.map((agent) => (
                   <TableCell className="align-top" key={agent.id}>
                     <button
-                      className="cursor-pointer rounded-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      className="focus:ring-ring cursor-pointer rounded-sm focus:ring-2 focus:outline-none"
                       data-testid={`cap-cell-${cap.id}-${agent.id}`}
                       onClick={() =>
                         onSelect({
@@ -163,16 +164,16 @@ const CellSheet = ({
               <Pill level={selection.support.level} />
             </div>
             <div>
-              <div className="font-medium text-sm">Note</div>
+              <div className="text-sm font-medium">Note</div>
               <p
-                className="mt-1 text-muted-foreground text-sm"
+                className="text-muted-foreground mt-1 text-sm"
                 data-testid="cap-cell-note"
               >
                 {cellNote(selection.support)}
               </p>
             </div>
             <div>
-              <div className="font-medium text-sm">Legend</div>
+              <div className="text-sm font-medium">Legend</div>
               <Legend />
             </div>
           </div>

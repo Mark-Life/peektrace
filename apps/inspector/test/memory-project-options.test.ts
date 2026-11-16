@@ -1,5 +1,6 @@
 /** Project picker options: Claude-only, deduped, server labels, recency order. */
 import { describe, expect, test } from "bun:test";
+
 import { memoryProjectOptions } from "../src/routes/memory/project-options";
 
 const PREFIX = "-home-dev-code-";

@@ -51,6 +51,7 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import { AGENT_LABEL } from "../../lib/agent-label";
 import {
   sessionHash,
@@ -223,19 +224,19 @@ const SessionRow = memo(
               />
             ) : null}
             <span
-              className="min-w-0 flex-1 truncate font-medium text-sm"
+              className="min-w-0 flex-1 truncate text-sm font-medium"
               title={title}
             >
               {title}
             </span>
             <span
-              className="shrink-0 text-muted-foreground tabular-nums"
+              className="text-muted-foreground shrink-0 tabular-nums"
               title={stampTitle(h)}
             >
               {fmtStamp(stamp)}
             </span>
           </span>
-          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
+          <span className="text-muted-foreground flex min-w-0 items-center gap-2">
             <Badge className={cn(AGENT_BADGE[h.agent])} variant="outline">
               {AGENT_LABEL[h.agent] ?? h.agent}
             </Badge>
@@ -243,7 +244,7 @@ const SessionRow = memo(
               <Badge variant="secondary">{h.sourceLabel}</Badge>
             ) : null}
             <span
-              className="min-w-0 max-w-1/2 shrink-0 truncate"
+              className="max-w-1/2 min-w-0 shrink-0 truncate"
               title={h.cwd ?? h.project}
             >
               {projectLabel(h)}
@@ -649,7 +650,7 @@ const SessionListView = ({
         />
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-1 text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex items-center justify-between gap-2 px-1 text-xs">
         <span>
           {rows.length} {rows.length === 1 ? "session" : "sessions"}
         </span>

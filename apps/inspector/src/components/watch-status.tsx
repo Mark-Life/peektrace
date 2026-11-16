@@ -20,6 +20,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+
 import {
   livePausedAtom,
   liveWaitingAtom,
@@ -65,7 +66,7 @@ export const WatchStatusView = ({
   const Icon = paused ? PlayIcon : PauseIcon;
   return (
     <div
-      className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs"
+      className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 text-xs"
       data-live={mode}
       data-syncing={syncing ? "true" : "false"}
       data-testid="watch-status"
@@ -78,7 +79,7 @@ export const WatchStatusView = ({
           aria-hidden="true"
           className={cn(
             "size-1.5 rounded-full transition-colors duration-500",
-            paused && "border border-muted-foreground",
+            paused && "border-muted-foreground border",
             !paused && syncing ? "bg-primary" : "bg-transparent"
           )}
         />

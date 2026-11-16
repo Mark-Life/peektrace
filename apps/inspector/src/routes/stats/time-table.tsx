@@ -18,6 +18,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import type { TimeRow } from "@workspace/view-core/api-types.gen";
 import { Fragment } from "react";
+
 import {
   coPresentNote,
   hms,
@@ -46,7 +47,7 @@ const DetailRow = ({
           data-testid="time-detail"
         >
           <div className="flex flex-wrap items-start gap-2">
-            <p className="min-w-0 flex-1 text-muted-foreground text-xs">
+            <p className="text-muted-foreground min-w-0 flex-1 text-xs">
               {coPresentNote(row)}
             </p>
             <PromptButton
@@ -88,7 +89,7 @@ export const TimeTable = ({
     );
   }
   return (
-    <div className="rounded-lg border border-border" data-testid="time-table">
+    <div className="border-border rounded-lg border" data-testid="time-table">
       <Table>
         <TableHeader>
           <TableRow>
@@ -119,7 +120,7 @@ export const TimeTable = ({
                 onClick={() => onSelect(row.key)}
               >
                 <TableCell className="align-top">
-                  <span className="font-medium text-sm">{row.label}</span>
+                  <span className="text-sm font-medium">{row.label}</span>
                   {row.cappedRuns > 0 ? (
                     <Badge className="ml-2" variant="outline">
                       {n(row.cappedRuns)} capped
@@ -140,13 +141,13 @@ export const TimeTable = ({
                 <TableCell className="text-right align-top font-mono text-sm">
                   {n(row.runs)}
                 </TableCell>
-                <TableCell className="hidden text-right align-top font-mono text-muted-foreground text-sm lg:table-cell">
+                <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm lg:table-cell">
                   {n(row.coPresentRuns)}
                 </TableCell>
-                <TableCell className="hidden text-right align-top font-mono text-muted-foreground text-sm md:table-cell">
+                <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm md:table-cell">
                   {hms(row.medianSec)}
                 </TableCell>
-                <TableCell className="hidden text-right align-top font-mono text-muted-foreground text-sm md:table-cell">
+                <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm md:table-cell">
                   {hms(row.p95Sec)}
                 </TableCell>
               </TableRow>

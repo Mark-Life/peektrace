@@ -44,6 +44,7 @@ import type {
   BudgetKey,
 } from "@workspace/view-core/api-types.gen";
 import { useId, useMemo } from "react";
+
 import {
   CAT_META,
   fmtK,
@@ -301,11 +302,11 @@ export const GrowthTimelineTanstack = ({
 
   return (
     <section
-      className="flex flex-col gap-2 rounded-lg border border-border p-4"
+      className="border-border flex flex-col gap-2 rounded-lg border p-4"
       data-testid="growth-timeline-tanstack"
     >
       <div>
-        <h2 className="font-semibold text-base">Context growth timeline</h2>
+        <h2 className="text-base font-semibold">Context growth timeline</h2>
       </div>
 
       {/* TanStack Charts has no pattern resource; the hatch fill referenced by

@@ -1,7 +1,9 @@
 /** Guessed block heights: bigger when open, bounded by the CSS caps. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import type { ChatNode } from "../src/lib/chat-lane";
 import {
   CHAT_GAP,

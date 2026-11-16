@@ -22,6 +22,7 @@ import { LinkGraph } from "@workspace/viz/components/link-graph";
 import { TypeDonut } from "@workspace/viz/components/type-donut";
 import { PlusIcon } from "lucide-react";
 import { type ReactNode, useState } from "react";
+
 import { BrowseTable } from "./browse-table";
 import { CreateDialog } from "./create-dialog";
 import { DeleteDialog } from "./delete-dialog";
@@ -77,7 +78,7 @@ export const VaultSection = ({
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="font-medium text-sm">
+            <h3 className="text-sm font-medium">
               {entries.length} of {vault.entries.length} memories
             </h3>
             {canWrite ? (

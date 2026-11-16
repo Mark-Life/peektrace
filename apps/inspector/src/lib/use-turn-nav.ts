@@ -2,6 +2,7 @@
  * move focus there, so a screen reader announces it and the item stays
  * mounted while the reader moves on. */
 import { type RefObject, useEffect, useRef } from "react";
+
 import { useShortcut } from "./shortcuts";
 import { stepStop } from "./turn-nav";
 import { landAt } from "./virtual-jump";

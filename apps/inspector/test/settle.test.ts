@@ -1,7 +1,9 @@
 /** Settled versions: reloads wait for quiet, never starve under continuous
  *  writes, and hold while live updates are paused. */
 import { expect, test } from "bun:test";
+
 import { Atom, Registry } from "@effect-atom/atom-react";
+
 import { settleDelay, settledAtom } from "../src/lib/settle";
 
 const timing = { maxWait: 60, wait: 20 };

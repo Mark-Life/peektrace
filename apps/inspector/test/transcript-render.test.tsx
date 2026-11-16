@@ -9,6 +9,7 @@
  */
 
 import { expect, test } from "bun:test";
+
 import type {
   AnalyzedSession,
   TimelineEvent,
@@ -17,6 +18,7 @@ import type {
 import { GrowthTimeline } from "@workspace/viz/components/growth-timeline";
 import { VerdictHeader } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { buildChatPlan, chatNodeKeys } from "../src/lib/chat-lane";
 import { DEFAULT_HISTORY_SORT } from "../src/lib/history-sort";
 import type { ToolMarks } from "../src/lib/session-markers";

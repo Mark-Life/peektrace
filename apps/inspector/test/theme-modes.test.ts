@@ -1,5 +1,6 @@
 /** The toggle shows two states but stores three: "system" means no override. */
 import { describe, expect, test } from "bun:test";
+
 import { nextThemePress } from "../src/lib/theme-modes";
 
 const press = (resolvedTheme?: string, systemTheme?: string) =>

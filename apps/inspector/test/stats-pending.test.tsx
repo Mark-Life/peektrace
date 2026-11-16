@@ -1,6 +1,8 @@
 /** Stats first load: report-shaped skeleton, a status note and a counter. */
 import { expect, test } from "bun:test";
+
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { StatsPending } from "../src/routes/stats/stats-pending";
 
 const EMPTY_STATUS = /<p role="status"><\/p>/;

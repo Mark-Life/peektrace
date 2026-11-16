@@ -21,6 +21,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton";
 import { cn } from "@workspace/ui/lib/utils";
 import { MousePointerClickIcon } from "lucide-react";
 import { lazy, type RefObject, Suspense, useEffect, useRef } from "react";
+
 import { sessionHeadersAtom, sessionsListAtom } from "../lib/atoms";
 import { SESSION_DETAIL_ID } from "../lib/landmarks";
 import { ResultView } from "../lib/result-view";
@@ -136,7 +137,7 @@ export const SessionsRoute = () => {
                   the page padding above and below (py-6), so it ends on screen. */}
               <div
                 className={cn(
-                  "md:scrollbar-gutter-stable md:sticky md:top-6 md:max-h-[calc(100dvh-5.75rem)] md:w-80 md:shrink-0 md:self-start md:overflow-y-auto md:pr-1",
+                  "md:sticky md:top-6 md:max-h-[calc(100dvh-5.75rem)] md:w-80 md:shrink-0 md:scrollbar-gutter-stable md:self-start md:overflow-y-auto md:pr-1",
                   selected ? "hidden md:block" : "block"
                 )}
                 ref={listPane}

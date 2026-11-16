@@ -22,6 +22,7 @@ import { CAUSES } from "@workspace/view-core/constants.gen";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
 import { CornerDownLeftIcon } from "lucide-react";
 import { memo } from "react";
+
 import { tokenLabel } from "../../lib/event-tokens";
 import { callView, resultPane } from "../../lib/tool-event";
 import { sameToolPair } from "../../lib/transcript-row";
@@ -144,10 +145,10 @@ const ChatToolCardBody = ({
         open={open}
       >
         <ToolHeader
-          className="flex-wrap px-3 py-2 text-sm hover:bg-muted/40"
+          className="hover:bg-muted/40 flex-wrap px-3 py-2 text-sm"
           icon={
             call ? undefined : (
-              <CornerDownLeftIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <CornerDownLeftIcon className="text-muted-foreground size-3.5 shrink-0" />
             )
           }
           name={name}
@@ -172,14 +173,14 @@ const ChatToolCardBody = ({
             />
           ))}
           <span
-            className="flex min-w-0 @md:flex-1 @md:basis-0 basis-full items-center gap-2 @md:pl-0 pl-5.5"
+            className="flex min-w-0 basis-full items-center gap-2 pl-5.5 @md:flex-1 @md:basis-0 @md:pl-0"
             data-testid="tool-summary"
           >
-            <span className="min-w-0 truncate text-muted-foreground text-xs">
+            <span className="text-muted-foreground min-w-0 truncate text-xs">
               {(view ? view.summary : result?.preview) || "(empty)"}
             </span>
             <span
-              className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
+              className="text-muted-foreground ml-auto shrink-0 font-mono text-xs"
               title={cost.title}
             >
               {cost.short}

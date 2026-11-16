@@ -6,6 +6,7 @@
  */
 import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
+
 import { CAT_META, fmtK, PERCENT, STACK_ORDER } from "../lib/session-format";
 import {
   type GrowthSnapshot,
@@ -160,11 +161,11 @@ export const GrowthTimelinePending = ({
   ) : (
     <section
       aria-busy="true"
-      className="flex flex-col gap-2 rounded-lg border border-border p-3 md:p-4"
+      className="border-border flex flex-col gap-2 rounded-lg border p-3 md:p-4"
       data-testid="growth-timeline-pending"
     >
       <div>
-        <h2 className="font-semibold text-base">Context growth timeline</h2>
+        <h2 className="text-base font-semibold">Context growth timeline</h2>
       </div>
       <div className="overflow-x-auto">
         <div
@@ -424,11 +425,11 @@ export const GrowthTimeline = ({
 
   return (
     <section
-      className="flex flex-col gap-2 rounded-lg border border-border p-3 md:p-4"
+      className="border-border flex flex-col gap-2 rounded-lg border p-3 md:p-4"
       data-testid="growth-timeline"
     >
       <div>
-        <h2 className="font-semibold text-base">Context growth timeline</h2>
+        <h2 className="text-base font-semibold">Context growth timeline</h2>
       </div>
       <div className="overflow-x-auto">
         <svg

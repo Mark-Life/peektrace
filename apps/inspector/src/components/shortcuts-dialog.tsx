@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { KeyboardIcon } from "lucide-react";
+
 import { ShortcutKeys } from "../lib/shortcut-keys";
 import {
   ariaKeys,
@@ -40,7 +41,7 @@ export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
   <div className="flex flex-col gap-4" data-testid="shortcuts-list">
     {GROUPS.map((group) => (
       <section aria-label={group} className="flex flex-col gap-1" key={group}>
-        <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {group}
         </h3>
         {GROUP_NOTE[group] ? (
@@ -49,7 +50,7 @@ export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
         <dl className="flex flex-col">
           {SHORTCUTS.filter((s) => s.group === group).map((s) => (
             <div
-              className="flex items-center justify-between gap-4 border-border border-b py-1.5 text-sm last:border-b-0"
+              className="border-border flex items-center justify-between gap-4 border-b py-1.5 text-sm last:border-b-0"
               data-shortcut={s.id}
               key={s.id}
             >

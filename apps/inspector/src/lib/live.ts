@@ -15,6 +15,7 @@
  */
 import type { WatchVersions } from "@workspace/view-core/api-types.gen";
 import { Effect } from "effect";
+
 import { apiGet, apiUrl } from "./api";
 
 const POLL_INTERVAL = 1000;

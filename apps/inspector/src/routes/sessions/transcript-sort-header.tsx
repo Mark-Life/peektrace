@@ -6,6 +6,7 @@
  */
 import { cn } from "@workspace/ui/lib/utils";
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from "lucide-react";
+
 import type { HistorySort, HistorySortKey } from "../../lib/history-sort";
 
 const COLUMNS: readonly {
@@ -38,7 +39,7 @@ export const SortHeader = ({
   readonly sort: HistorySort;
 }) => (
   <div
-    className="flex items-center gap-2 border-border border-b bg-muted/30 px-2 py-1 text-muted-foreground text-xs"
+    className="border-border bg-muted/30 text-muted-foreground flex items-center gap-2 border-b px-2 py-1 text-xs"
     data-testid="history-sort-header"
   >
     {/* Lines the first label up with the row chevron's column. */}
@@ -54,8 +55,8 @@ export const SortHeader = ({
           }
           aria-pressed={active}
           className={cn(
-            "inline-flex items-center gap-1 rounded-sm px-1 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-            active && "font-medium text-foreground",
+            "hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1 rounded-sm px-1 focus-visible:ring-1 focus-visible:outline-none",
+            active && "text-foreground font-medium",
             className
           )}
           data-dir={active ? sort.dir : undefined}

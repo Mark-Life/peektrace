@@ -8,6 +8,7 @@ import {
 import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
 import type { ReactNode } from "react";
+
 import { ShortcutKeys } from "./shortcut-keys";
 import { ariaKeys, useShortcut } from "./shortcuts";
 import { type Appearance, nextThemePress } from "./theme-modes";

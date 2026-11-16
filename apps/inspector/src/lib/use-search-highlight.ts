@@ -7,6 +7,7 @@
  * safe.
  */
 import { type RefObject, useEffect } from "react";
+
 import { rangesIn, textRanges } from "./history-search";
 
 /** Highlight names, matched by the `::highlight()` rules in the search bar. */

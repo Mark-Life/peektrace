@@ -19,6 +19,7 @@ import type {
 import { fmt, fmtK, PERCENT } from "@workspace/viz/lib/session-format";
 import { FileTextIcon, ScissorsIcon, SettingsIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+
 import {
   buildChatPlan,
   type ChatNode,
@@ -136,7 +137,7 @@ const Band = ({
             {bandLabel(e)} · {tokenLabel(e, fmtK)}
           </span>
         </button>
-        <p className="truncate text-muted-foreground text-xs">{e.preview}</p>
+        <p className="text-muted-foreground truncate text-xs">{e.preview}</p>
         {open ? (
           <div
             className="mt-1 flex flex-col gap-1 text-left"
@@ -382,7 +383,7 @@ export const TranscriptChat = ({
 
   if (rows.length === 0) {
     return (
-      <p className="px-3 py-6 text-center text-muted-foreground text-sm">
+      <p className="text-muted-foreground px-3 py-6 text-center text-sm">
         No events match the filters.
       </p>
     );

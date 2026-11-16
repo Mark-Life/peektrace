@@ -1,7 +1,9 @@
 /** Finding a tool call among the visible history rows. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import { rowIndexOfCall } from "../src/lib/history-filter";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({

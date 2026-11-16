@@ -1,10 +1,12 @@
 /** The `/api` fetch client: typed JSON errors and transport failures. */
 import { afterEach, describe, expect, test } from "bun:test";
+
 import type {
   HistoryPage,
   SessionSummary,
 } from "@workspace/view-core/api-types.gen";
 import { Effect, Either } from "effect";
+
 import { apiGet, apiPath, apiUrl } from "../src/lib/api";
 
 const realFetch = globalThis.fetch;

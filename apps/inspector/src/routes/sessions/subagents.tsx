@@ -14,6 +14,7 @@ import {
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
 import { ArrowUpRightIcon, ChevronRightIcon } from "lucide-react";
+
 import { sessionHash, useListParams } from "../../lib/routes";
 import { subagentCollapseId } from "../../lib/session-view";
 
@@ -36,32 +37,32 @@ export const Subagents = ({
   }
   return (
     <div className="flex flex-col gap-2" data-testid="subagents">
-      <h3 className="font-medium text-sm">Subagents ({a.subagents.length})</h3>
+      <h3 className="text-sm font-medium">Subagents ({a.subagents.length})</h3>
       <p className="text-muted-foreground text-xs">
         Each runs in its own context window — these tokens do not count against
         the main session.
       </p>
       {a.subagents.map((s) => (
         <Collapsible
-          className="rounded-md border border-border"
+          className="border-border rounded-md border"
           data-testid="subagent-card"
           key={s.id}
           onOpenChange={(o) => onToggle(subagentCollapseId(s.id), o)}
           open={isOpen(subagentCollapseId(s.id))}
         >
-          <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
-            <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
+          <CollapsibleTrigger className="hover:bg-muted/40 flex w-full items-center gap-2 px-3 py-2 text-left text-sm [&[data-state=open]>svg]:rotate-90">
+            <ChevronRightIcon className="text-muted-foreground size-3.5 shrink-0 transition-transform" />
             <Badge variant="secondary">{s.agentType ?? "agent"}</Badge>
             <span className="font-mono text-xs">{s.id}</span>
-            <span className="truncate text-muted-foreground text-xs">
+            <span className="text-muted-foreground truncate text-xs">
               {s.description ?? "subagent"} · {s.turns} turns
             </span>
-            <span className="ml-auto shrink-0 font-mono text-muted-foreground text-xs">
+            <span className="text-muted-foreground ml-auto shrink-0 font-mono text-xs">
               peak {fmtK(s.peakContextTokens)}
             </span>
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <pre className="whitespace-pre-wrap break-words bg-muted/30 px-3 py-2 text-xs">
+            <pre className="bg-muted/30 px-3 py-2 text-xs break-words whitespace-pre-wrap">
               {`agentType: ${s.agentType ?? "—"}
 description: ${s.description ?? "—"}
 toolUseId: ${s.toolUseId ?? "—"}

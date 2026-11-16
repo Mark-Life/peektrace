@@ -6,6 +6,7 @@ import { Effect } from "effect";
 import { DownloadIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { apiBlob } from "../../lib/api";
 import {
   type ExportFormat,
@@ -55,7 +56,7 @@ export const ExportButtons = ({ k }: { readonly k: SessionKey }) => {
       <legend className="sr-only">Export session</legend>
       <DownloadIcon
         aria-hidden="true"
-        className="size-3.5 text-muted-foreground"
+        className="text-muted-foreground size-3.5"
       />
       {EXPORT_FORMATS.map((format) => (
         <Button

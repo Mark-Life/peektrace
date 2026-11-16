@@ -1,8 +1,10 @@
 /** Session rail over a large listing: rows stay compact and readable. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { SessionList } from "../src/routes/sessions/session-list";
 
 const COUNT = 500;

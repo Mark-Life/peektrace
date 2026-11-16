@@ -8,6 +8,7 @@
  */
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { lazy, Suspense } from "react";
+
 import { AppShell } from "./components/app-shell";
 import { useRoute } from "./lib/routes";
 import { SessionsRoute } from "./routes/sessions-route";

@@ -29,6 +29,7 @@ import {
   SettingsIcon,
 } from "lucide-react";
 import { type ComponentType, type ReactNode, useState } from "react";
+
 import { useDocumentTitle } from "../lib/document-title";
 import { MAIN_CONTENT_ID } from "../lib/landmarks";
 import { navigate, type RouteId, useRoute } from "../lib/routes";
@@ -85,9 +86,9 @@ const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(true|false)/;
 /** Content header: section title, the sidebar toggle, the sync dot and the
  *  read-only badge. */
 const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
-  <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
+  <header className="border-border flex h-11 shrink-0 items-center gap-2 border-b px-3">
     <SidebarTrigger className="-ml-1" />
-    <span className="font-medium text-sm">{active?.label}</span>
+    <span className="text-sm font-medium">{active?.label}</span>
     <span className="text-muted-foreground text-xs">{active?.hint}</span>
     <WatchStatus />
     <ReadOnlyBadge />
@@ -134,12 +135,12 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
       <Sidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex h-8 items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 font-bold text-primary text-xs">
+            <div className="bg-primary/15 text-primary flex size-8 shrink-0 items-center justify-center rounded-md text-xs font-bold">
               P
             </div>
             <div className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate font-semibold text-sm">Peektrace</span>
-              <span className="truncate text-muted-foreground text-xs">
+              <span className="truncate text-sm font-semibold">Peektrace</span>
+              <span className="text-muted-foreground truncate text-xs">
                 Agent session inspector
               </span>
             </div>
@@ -159,7 +160,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
                       tooltip={`${item.label} · ${item.hint}`}
                     >
                       <item.icon className="size-4 shrink-0" />
-                      <span className="truncate font-medium text-sm group-data-[collapsible=icon]:hidden">
+                      <span className="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">
                         {item.label}
                       </span>
                     </SidebarMenuButton>
@@ -177,7 +178,7 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
       <SidebarInset className="min-w-0 overflow-hidden">
         <ShellHeader active={active} />
         <div
-          className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto outline-none"
+          className="min-h-0 flex-1 scrollbar-gutter-stable overflow-y-auto outline-none"
           id={MAIN_CONTENT_ID}
           ref={setScrollRoot}
           tabIndex={-1}

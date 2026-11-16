@@ -7,8 +7,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 import { EVENT_KINDS } from "@workspace/view-core/constants.gen";
+
 import {
   bodyKey,
   bodyLength,

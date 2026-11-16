@@ -17,6 +17,7 @@ import {
 import type { ProjectLabel } from "@workspace/view-core/api-types.gen";
 import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
+
 import { sessionsListAtom } from "../../lib/atoms";
 import { memoryProjectOptions, type ProjectOption } from "./project-options";
 
@@ -86,7 +87,7 @@ export const ProjectPicker = ({
         </SelectContent>
       </Select>
       {Result.isFailure(result) && options.length === 0 ? (
-        <p className="text-red-400 text-xs" data-testid="create-project-error">
+        <p className="text-xs text-red-400" data-testid="create-project-error">
           Could not load the session list.
         </p>
       ) : null}

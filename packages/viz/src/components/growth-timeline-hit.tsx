@@ -10,9 +10,9 @@
  * second tap on the same snapshot reports it.
  */
 import type { TurnSnapshot } from "@workspace/view-core/api-types.gen";
-
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useRef, useState } from "react";
+
 import { fmtK } from "../lib/session-format";
 import { clickAction, snapIndexAtX } from "../lib/timeline-hit";
 

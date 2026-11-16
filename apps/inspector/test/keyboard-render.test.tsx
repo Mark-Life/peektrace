@@ -2,9 +2,11 @@
  * session rail, the help sheet listing every shortcut, the skip links. */
 
 import { describe, expect, test } from "bun:test";
+
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { ShortcutsList } from "../src/components/shortcuts-dialog";
 import { SkipLinks } from "../src/components/skip-links";
 import { SHORTCUTS } from "../src/lib/shortcuts";

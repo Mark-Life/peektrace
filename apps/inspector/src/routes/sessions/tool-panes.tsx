@@ -6,6 +6,7 @@ import {
   ToolOutput,
   ToolProse,
 } from "@workspace/ui/components/ai-elements/tool";
+
 import type { ResultPane, ToolPane } from "../../lib/tool-event";
 
 /** One pane of a tool call's arguments. */

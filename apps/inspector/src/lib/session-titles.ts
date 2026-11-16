@@ -5,6 +5,7 @@
  * every chip fall back to `project/id`.
  */
 import { Atom, Result } from "@effect-atom/atom-react";
+
 import { sessionsListAtom } from "./atoms";
 import { type SessionTitles, titleKey } from "./stats-format";
 

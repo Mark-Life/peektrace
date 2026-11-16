@@ -7,6 +7,7 @@ import {
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import { bodyView, EMPTY_BODY } from "../../lib/tool-event";
 import { EventImages } from "./event-images";
 
@@ -22,7 +23,7 @@ export const ProseBody = ({
 }) => (
   <div
     className={cn(
-      "relative rounded-md border bg-background px-3 py-2 text-xs leading-relaxed",
+      "bg-background relative rounded-md border px-3 py-2 text-xs leading-relaxed",
       className
     )}
   >

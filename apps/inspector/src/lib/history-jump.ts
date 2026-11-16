@@ -13,6 +13,7 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+
 import type { ChatNode, EventRow, TranscriptRowRef } from "./chat-lane";
 import { planIndexOfCall } from "./chat-lane";
 import { rowIndexOfCall } from "./history-filter";

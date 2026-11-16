@@ -5,6 +5,7 @@
  * nothing the raw arguments did not.
  */
 import { describe, expect, test } from "bun:test";
+
 import { diffLines } from "../src/diff";
 
 const shape = (before: string, after: string) =>

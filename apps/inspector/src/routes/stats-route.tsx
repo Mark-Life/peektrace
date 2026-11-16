@@ -20,6 +20,7 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { RETRY_WINDOW } from "@workspace/view-core/constants.gen";
 import { useState } from "react";
+
 import type { ApiFailure } from "../lib/api";
 import { ResultView } from "../lib/result-view";
 import { setHashParam, useHashParam } from "../lib/routes";
@@ -86,7 +87,7 @@ const SectionHead = ({
   readonly title: string;
 }) => (
   <div className="flex flex-wrap items-baseline gap-2">
-    <h2 className="font-semibold text-base">{title}</h2>
+    <h2 className="text-base font-semibold">{title}</h2>
     <span className="text-muted-foreground text-xs">ranked by {by}</span>
   </div>
 );

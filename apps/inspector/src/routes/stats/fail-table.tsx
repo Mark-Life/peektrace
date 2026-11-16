@@ -17,6 +17,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import type { FailRow } from "@workspace/view-core/api-types.gen";
 import { Fragment } from "react";
+
 import { n, type PromptFor } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
@@ -69,7 +70,7 @@ export const FailTable = ({
     );
   }
   return (
-    <div className="rounded-lg border border-border" data-testid="fail-table">
+    <div className="border-border rounded-lg border" data-testid="fail-table">
       <Table>
         <TableHeader>
           <TableRow>
@@ -95,7 +96,7 @@ export const FailTable = ({
                 onClick={() => onSelect(row.key)}
               >
                 <TableCell className="max-w-[42ch] align-top">
-                  <div className="truncate font-medium text-sm">
+                  <div className="truncate text-sm font-medium">
                     {row.label}
                   </div>
                   {row.detector === null ? null : (
@@ -104,7 +105,7 @@ export const FailTable = ({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className="align-top text-muted-foreground text-xs">
+                <TableCell className="text-muted-foreground align-top text-xs">
                   {row.where}
                 </TableCell>
                 <TableCell className="text-right align-top font-mono text-sm">
@@ -113,10 +114,10 @@ export const FailTable = ({
                 <TableCell className="text-right align-top font-mono text-sm">
                   {n(row.rows)}
                 </TableCell>
-                <TableCell className="text-right align-top font-mono text-muted-foreground text-sm">
+                <TableCell className="text-muted-foreground text-right align-top font-mono text-sm">
                   {n(row.flagged)}
                 </TableCell>
-                <TableCell className="hidden text-right align-top font-mono text-muted-foreground text-sm lg:table-cell">
+                <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm lg:table-cell">
                   {n(row.projects)}
                 </TableCell>
               </TableRow>

@@ -2,6 +2,7 @@
  * "Copy link" work, and each page names its tab. Synthetic fixtures only. */
 
 import { expect, test } from "bun:test";
+
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import type {
   SampleRef,
@@ -9,6 +10,7 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { analyzedTitle } from "@workspace/viz/components/verdict-header";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import {
   pageTitle,
   setTitleBase,

@@ -6,6 +6,7 @@
  * `history-prefs.ts`). Kept out of the URL to keep deep links clean.
  */
 import { useCallback, useMemo } from "react";
+
 import { useLocalStorage } from "./use-local-storage";
 
 /** Persisted, per-session inspector view state. */

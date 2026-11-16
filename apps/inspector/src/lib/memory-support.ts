@@ -6,6 +6,7 @@ import type {
   SupportLevel,
 } from "@workspace/view-core/api-types.gen";
 import { AGENT_IDS } from "@workspace/view-core/constants.gen";
+
 import { AGENT_LABEL } from "./agent-label";
 
 /** The capability id that gates all memory writes. */

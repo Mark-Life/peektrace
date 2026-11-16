@@ -27,11 +27,11 @@ const OnDiskTable = ({ a }: { readonly a: Artifacts }) => {
   const total = a.onDiskContextFiles.reduce((s, f) => s + f.tokensEst, 0);
   return (
     <div className="flex flex-col gap-2">
-      <h3 className="font-medium text-muted-foreground text-sm">
+      <h3 className="text-muted-foreground text-sm font-medium">
         Instruction files on disk
       </h3>
       {total > TRIM_HINT_TOKENS ? (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-300 text-xs">
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
           Your instruction files and memory total ~{fmt(total)} tokens — loaded
           every turn. Consider trimming.
         </div>
@@ -74,11 +74,11 @@ const OnDiskTable = ({ a }: { readonly a: Artifacts }) => {
 /** Loaded artifacts section. */
 export const LoadedArtifacts = ({ a }: { readonly a: Artifacts }) => (
   <section
-    className="flex flex-col gap-5 rounded-lg border border-border p-3 md:p-4"
+    className="border-border flex flex-col gap-5 rounded-lg border p-3 md:p-4"
     data-testid="loaded-artifacts"
   >
     <div>
-      <h2 className="font-semibold text-base">Loaded artifacts</h2>
+      <h2 className="text-base font-semibold">Loaded artifacts</h2>
       <p className="text-muted-foreground text-sm">
         Persistent things injected into context on every turn.
       </p>

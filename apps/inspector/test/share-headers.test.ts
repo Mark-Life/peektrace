@@ -1,8 +1,10 @@
 /** Structural sharing keeps unchanged session headers as the same objects, so
  *  memoized rows skip work when a live session reloads the list. */
 import { expect, test } from "bun:test";
+
 import { Atom, Registry, Result } from "@effect-atom/atom-react";
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
+
 import { sharedHeadersAtom, shareHeaders } from "../src/lib/share-headers";
 
 const header = (

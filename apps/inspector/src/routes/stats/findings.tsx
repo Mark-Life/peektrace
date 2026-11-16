@@ -10,6 +10,7 @@ import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import { cn } from "@workspace/ui/lib/utils";
 import { ListTreeIcon } from "lucide-react";
+
 import type { Finding, PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
 import { PromptButton } from "./prompt-button";
@@ -36,13 +37,13 @@ const FindingCard = ({
 }) => (
   <article
     className={cn(
-      "flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border border-border p-3",
+      "border-border flex min-w-0 flex-col gap-2 overflow-hidden rounded-lg border p-3",
       finding.detector !== null && "border-amber-500/40 bg-amber-500/5"
     )}
     data-testid="stats-finding"
   >
     <div className="flex flex-wrap items-baseline gap-2">
-      <span className="wrap-break-word min-w-0 font-medium text-sm">
+      <span className="min-w-0 text-sm font-medium wrap-break-word">
         {finding.title}
       </span>
       <Badge className="shrink-0" variant="secondary">
@@ -56,14 +57,14 @@ const FindingCard = ({
       {/* Not shrink-0: a retry impact names four numbers and must wrap, not
           run past the card's clipped edge. */}
       <span
-        className="wrap-break-word ml-auto min-w-0 font-mono text-sm"
+        className="ml-auto min-w-0 font-mono text-sm wrap-break-word"
         data-testid="stats-finding-impact"
       >
         {finding.impact}
       </span>
     </div>
     <p className="text-muted-foreground text-xs">{finding.note}</p>
-    <p className="wrap-break-word font-mono text-muted-foreground text-xs">
+    <p className="text-muted-foreground font-mono text-xs wrap-break-word">
       {finding.spread}
     </p>
     <div className="flex min-w-0 flex-wrap items-end justify-between gap-2">
@@ -97,11 +98,11 @@ const FindingCard = ({
 const SuggestedRules = ({ rules }: { readonly rules: readonly string[] }) =>
   rules.length === 0 ? null : (
     <div
-      className="flex flex-col gap-2 rounded-lg border border-border p-3"
+      className="border-border flex flex-col gap-2 rounded-lg border p-3"
       data-testid="stats-suggested-rules"
     >
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="font-medium text-sm">Suggested rules</span>
+        <span className="text-sm font-medium">Suggested rules</span>
         <span className="text-muted-foreground text-xs">
           lines no CLAUDE.md / AGENTS.md states yet
         </span>
@@ -113,7 +114,7 @@ const SuggestedRules = ({ rules }: { readonly rules: readonly string[] }) =>
           />
         </span>
       </div>
-      <ul className="list-disc pl-5 text-muted-foreground text-xs">
+      <ul className="text-muted-foreground list-disc pl-5 text-xs">
         {rules.map((r) => (
           <li key={r}>{r}</li>
         ))}

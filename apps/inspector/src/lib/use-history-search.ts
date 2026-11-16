@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { type StepDir, stepHit } from "./history-search";
 import { cardOf, firstHitIn, useSearchHighlight } from "./use-search-highlight";
 import { revealAt } from "./virtual-jump";

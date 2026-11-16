@@ -1,10 +1,12 @@
 /** History search: what a query matches, stepping through hits, the counter. */
 import { expect, test } from "bun:test";
+
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import {
   matchLabel,
   rangesIn,

@@ -1,6 +1,7 @@
 /** One Tab stop for the session list, and how keys move it. */
 
 import { describe, expect, test } from "bun:test";
+
 import { focusAfterSelect, rovingStop, stepIndex } from "../src/lib/roving";
 
 describe("rovingStop", () => {

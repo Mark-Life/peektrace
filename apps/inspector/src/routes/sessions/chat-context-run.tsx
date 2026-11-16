@@ -23,6 +23,7 @@ import {
   WrenchIcon,
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
+
 import {
   chipLabel,
   type RunItem,
@@ -117,12 +118,12 @@ const ContextCard = ({
   const Icon = itemIcon(e);
   return (
     <section
-      className="w-full overflow-hidden rounded-md border border-primary/40 bg-background"
+      className="border-primary/40 bg-background w-full overflow-hidden rounded-md border"
       data-testid="chat-chip-card"
     >
       <button
         aria-expanded
-        className="flex w-full items-center gap-2 border-primary/30 border-b bg-primary/10 px-2.5 py-1.5 text-left text-xs hover:bg-primary/15"
+        className="border-primary/30 bg-primary/10 hover:bg-primary/15 flex w-full items-center gap-2 border-b px-2.5 py-1.5 text-left text-xs"
         data-kind={e.kind}
         data-lane="center"
         data-sidechain={e.isSidechain ? "true" : "false"}
@@ -133,8 +134,8 @@ const ContextCard = ({
         title="Collapse"
         type="button"
       >
-        <Icon className="size-3.5 shrink-0 text-primary" />
-        <span className="min-w-0 truncate font-medium font-mono">
+        <Icon className="text-primary size-3.5 shrink-0" />
+        <span className="min-w-0 truncate font-mono font-medium">
           {chipLabel(e)}
         </span>
         {e.attachmentType ? (
@@ -143,7 +144,7 @@ const ContextCard = ({
           </Badge>
         ) : null}
         <ContextEditBadge className="h-4 px-1" e={e} />
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px]">
           {tokenLabel(e, fmtK)} tok
           <ChevronUpIcon className="size-3.5" />
         </span>
@@ -288,7 +289,7 @@ export const ChatContextRun = ({
 
   return (
     <div className="flex w-full flex-col gap-1.5" data-testid="chat-chip-run">
-      <p className="text-center text-[10px] text-muted-foreground">
+      <p className="text-muted-foreground text-center text-[10px]">
         +{items.length} items loaded ·{" "}
         {items.every(({ e }) => eventTokens(e).measured) ? "" : "~"}
         {fmtK(tokens)} tok

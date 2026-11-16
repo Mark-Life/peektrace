@@ -22,6 +22,7 @@ import {
 } from "@workspace/ui/components/sheet";
 import type { DrillHit, DrillResult } from "@workspace/view-core/api-types.gen";
 import { type UIEvent, useState } from "react";
+
 import type { ApiFailure } from "../../lib/api";
 import { ResultView } from "../../lib/result-view";
 import { markedSessionHash } from "../../lib/routes";
@@ -64,7 +65,7 @@ const Hit = ({
 }) => (
   <div className="flex flex-col gap-1" data-testid="drill-hit">
     <a
-      className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/30"
+      className="border-border hover:bg-muted/50 focus-visible:ring-ring/30 flex w-full flex-col gap-1 rounded-md border px-2 py-1.5 text-left outline-none focus-visible:ring-2"
       href={markedSessionHash({
         id: hit.sid,
         parent: hit.parent,
@@ -85,19 +86,19 @@ const Hit = ({
             failed
           </Badge>
         ) : null}
-        <span className="ml-auto shrink-0 font-mono text-muted-foreground">
+        <span className="text-muted-foreground ml-auto shrink-0 font-mono">
           {hit.durSec === null ? "—" : hms(hit.durSec)}
         </span>
       </div>
-      <code className="wrap-break-word whitespace-pre-wrap text-muted-foreground text-xs">
+      <code className="text-muted-foreground text-xs wrap-break-word whitespace-pre-wrap">
         {hit.line}
       </code>
       {hit.pairLine === null ? null : (
-        <code className="wrap-break-word whitespace-pre-wrap text-xs">
+        <code className="text-xs wrap-break-word whitespace-pre-wrap">
           → {hit.pairLine}
         </code>
       )}
-      <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
+      <span className="text-muted-foreground/70 font-mono text-xs wrap-break-word">
         {drillLabel(hit, titles)} · {hit.kind} · {hit.ts ?? "no timestamp"}
       </span>
     </a>

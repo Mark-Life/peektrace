@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import { costSummary, fmtUsd } from "../src/cost";
 
 describe("cost formatting", () => {

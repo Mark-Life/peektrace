@@ -1,8 +1,10 @@
 /** The header's live toggle states: one fixed name, pressed when paused, and a
  *  live-region description that says when changes are held back. */
 import { expect, test } from "bun:test";
+
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import type { LiveMode } from "../src/components/watch-status";
 import { WatchStatusView } from "../src/components/watch-status";
 

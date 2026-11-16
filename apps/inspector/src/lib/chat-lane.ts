@@ -11,6 +11,7 @@ import type {
   HistoryRow,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
 import { eventBadgeLabel, isUserAuthored } from "./event-labels";
 import { chatCollapseId } from "./session-view";
 
@@ -41,8 +42,9 @@ export interface TranscriptRowRef<E extends EventRow = TimelineEvent> {
 
 /** A chip of a context run. `repeat` is set when an earlier chip of the same
  *  identity already carried this exact body, so the chat can fold it. */
-export interface RunItem<E extends EventRow = TimelineEvent>
-  extends TranscriptRowRef<E> {
+export interface RunItem<
+  E extends EventRow = TimelineEvent,
+> extends TranscriptRowRef<E> {
   readonly repeat: boolean;
 }
 

@@ -6,6 +6,7 @@
  * still fires asks why instead of suggesting the same line again.
  */
 import { describe, expect, test } from "bun:test";
+
 import type {
   CauseRow,
   FailRow,
@@ -14,6 +15,7 @@ import type {
   StatsReport,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
+
 import type { FindingFormat } from "../src/lib/stats-findings";
 import { statsPrompt } from "../src/lib/stats-prompts";
 

@@ -2,10 +2,12 @@
  *  and where each layout finds it. */
 
 import { describe, expect, test } from "bun:test";
+
 import type {
   SubagentRef,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
 import { buildChatPlan, type TranscriptRowRef } from "../src/lib/chat-lane";
 import {
   isHiddenJump,

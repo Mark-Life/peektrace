@@ -18,6 +18,7 @@ import type { MemoryEntry } from "@workspace/view-core/api-types.gen";
 import { Exit } from "effect";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { deleteMemoryAtom } from "../../lib/memory-atoms";
 import { wireErrorMessage, wireErrorOf } from "../../lib/wire-error";
 

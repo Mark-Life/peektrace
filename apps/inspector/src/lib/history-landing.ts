@@ -3,6 +3,7 @@
  *  sits outside the virtual list.
  */
 import { type RefObject, useEffect, useLayoutEffect, useState } from "react";
+
 import type { HistoryJump } from "./history-jump";
 
 /** The toolbar sticks only on screens at least this tall; on a short one (a

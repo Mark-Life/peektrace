@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
+
 import { fmt, fmtK, PERCENT } from "../lib/session-format";
 
 /** Hatched (inferred) slices get a diagonal overlay rather than a flat fill. */
@@ -42,14 +43,14 @@ export const BudgetBar = ({
   const free = Math.max(0, a.contextWindow - a.peakContextTokens);
   return (
     <section
-      className="flex flex-col gap-3 rounded-lg border border-border p-3 md:p-4"
+      className="border-border flex flex-col gap-3 rounded-lg border p-3 md:p-4"
       data-testid="budget-bar"
     >
       <div>
-        <h2 className="font-semibold text-base">Context budget at peak</h2>
+        <h2 className="text-base font-semibold">Context budget at peak</h2>
       </div>
 
-      <div className="flex h-7 w-full overflow-hidden rounded-md border border-border">
+      <div className="border-border flex h-7 w-full overflow-hidden rounded-md border">
         {a.budget.map((s) => {
           const pct = (PERCENT * s.tokens) / total;
           return (
@@ -63,7 +64,7 @@ export const BudgetBar = ({
               title={`${s.label}: ${fmt(s.tokens)} (${pct.toFixed(1)}%)`}
             >
               {pct > LABEL_MIN_PCT ? (
-                <span className="px-1 font-medium text-[10px] text-white/90">
+                <span className="px-1 text-[10px] font-medium text-white/90">
                   {s.short}
                 </span>
               ) : null}
@@ -71,7 +72,7 @@ export const BudgetBar = ({
           );
         })}
       </div>
-      <div className="flex justify-between text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex justify-between text-xs">
         <span>0</span>
         <span>
           window {fmtK(a.contextWindow)} · free {fmt(free)}
@@ -103,7 +104,7 @@ export const BudgetBar = ({
                     />
                     {s.label}
                     {s.estimated ? (
-                      <span className="text-[10px] text-muted-foreground">
+                      <span className="text-muted-foreground text-[10px]">
                         est
                       </span>
                     ) : null}

@@ -44,6 +44,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import { chatIdsOf } from "../../lib/chat-lane";
 import {
   isHiddenJump,
@@ -111,7 +112,7 @@ const sameNumbers = (x: readonly number[], y: readonly number[]) =>
 const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
   redacted ? null : (
     <span
-      className="inline-flex items-center gap-1 rounded-md border border-destructive/60 bg-destructive/15 px-1.5 py-0.5 font-medium text-destructive text-xs"
+      className="border-destructive/60 bg-destructive/15 text-destructive inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium"
       data-testid="sticky-redaction-off"
     >
       <ShieldAlertIcon className="size-3.5" />
@@ -362,7 +363,7 @@ export const SessionHistory = ({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="font-semibold text-base outline-none" tabIndex={-1}>
+          <h2 className="text-base font-semibold outline-none" tabIndex={-1}>
             Full history
           </h2>
           <span className="text-muted-foreground text-xs">
@@ -385,7 +386,7 @@ export const SessionHistory = ({
 
       <div
         className={cn(
-          "flex items-center gap-2 rounded-md border px-3 py-2 text-destructive text-xs",
+          "text-destructive flex items-center gap-2 rounded-md border px-3 py-2 text-xs",
           redacted
             ? "border-destructive/30 bg-destructive/5"
             : "border-destructive/60 bg-destructive/15 font-medium"
@@ -408,7 +409,7 @@ export const SessionHistory = ({
       </div>
 
       <div
-        className="@container top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 border-border border-b bg-background/95 px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
+        className="border-border bg-background/95 @container top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 border-b px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
         data-testid="history-toolbar"
         ref={setBar}
       >
@@ -423,7 +424,7 @@ export const SessionHistory = ({
         />
         <Select onValueChange={prefs.setKind} value={kind}>
           <SelectTrigger
-            className="@2xl:w-40 w-36"
+            className="w-36 @2xl:w-40"
             data-testid="history-kind-filter"
           >
             <SelectValue />
@@ -438,7 +439,7 @@ export const SessionHistory = ({
         </Select>
         <fieldset
           aria-label="Transcript layout"
-          className="ml-auto flex items-center gap-0.5 rounded-md border border-border p-0.5"
+          className="border-border ml-auto flex items-center gap-0.5 rounded-md border p-0.5"
           data-testid="history-layout-toggle"
         >
           <Button
@@ -473,7 +474,7 @@ export const SessionHistory = ({
             ) : (
               <ChevronsUpDownIcon className="size-3.5" />
             )}
-            <span className="@2xl:inline hidden">{expandLabel}</span>
+            <span className="hidden @2xl:inline">{expandLabel}</span>
           </Button>
         ) : null}
         <RedactionOffBadge redacted={redacted} />

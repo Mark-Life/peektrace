@@ -14,6 +14,7 @@ import type {
   TimelineEvent,
   TurnSnapshot,
 } from "@workspace/view-core/api-types.gen";
+
 import type {
   ChatNode,
   EventRow,
@@ -251,9 +252,11 @@ export const missingFetches = ({
       !current(pageOf(pos, size)) &&
       !skipRow(pos)
   );
-  const runs = runsOf(rows, { bodyLen }).map(
-    (r): BodyFetch => ({ ...r, kind: "run", rev })
-  );
+  const runs = runsOf(rows, { bodyLen }).map((r): BodyFetch => ({
+    ...r,
+    kind: "run",
+    rev,
+  }));
   return [...pages, ...runs];
 };
 

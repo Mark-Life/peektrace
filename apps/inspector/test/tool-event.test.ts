@@ -18,10 +18,12 @@
  * dedupes via `@vitejs/plugin-react`). Typecheck and the Vite build cover the JSX.
  */
 import { describe, expect, test } from "bun:test";
+
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
 import {
   bodyView,
   callView,

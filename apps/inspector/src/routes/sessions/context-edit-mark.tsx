@@ -3,6 +3,7 @@
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import { contextEditNote, contextEditTag } from "../../lib/event-labels";
 
 /** `removed` / `edited` badge, or nothing for an untouched event. */
@@ -44,7 +45,7 @@ export const ContextEditNote = ({
   }
   return (
     <pre
-      className="wrap-break-word max-h-64 overflow-auto whitespace-pre-wrap border-amber-500/40 border-l-2 bg-amber-500/5 px-3 py-2 text-muted-foreground text-xs"
+      className="text-muted-foreground max-h-64 overflow-auto border-l-2 border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs wrap-break-word whitespace-pre-wrap"
       data-testid="context-edit-note"
     >
       {note}

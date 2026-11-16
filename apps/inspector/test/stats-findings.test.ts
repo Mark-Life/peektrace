@@ -10,6 +10,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+
 import type {
   CauseRow,
   FailRow,
@@ -17,6 +18,7 @@ import type {
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { NO_RULE } from "@workspace/view-core/constants.gen";
+
 import {
   causeNote,
   type FindingFormat,

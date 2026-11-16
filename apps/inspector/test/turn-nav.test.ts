@@ -1,7 +1,9 @@
 /** Where [ and ] land in both transcript layouts. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import { buildChatPlan } from "../src/lib/chat-lane";
 import { chatTurnStops, stepStop, tableTurnStops } from "../src/lib/turn-nav";
 

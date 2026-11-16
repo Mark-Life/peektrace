@@ -27,6 +27,7 @@ import {
 import type { SessionJump } from "@workspace/viz/lib/session-jump";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+
 import { useTitleOverride } from "../../lib/document-title";
 import {
   type JumpLanding,
@@ -54,7 +55,7 @@ const ParentNote = ({ parent }: { readonly parent: string }) => {
   const list = useListParams();
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-sm"
+      className="border-border flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"
       data-testid="subagent-parent"
     >
       <span className="text-muted-foreground">Subagent of</span>

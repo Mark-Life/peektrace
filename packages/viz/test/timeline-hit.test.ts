@@ -1,6 +1,7 @@
 /** Mapping a pointer over the growth timeline to the nearest snapshot. */
 
 import { expect, test } from "bun:test";
+
 import { clickAction, snapIndexAtX } from "../src/lib/timeline-hit";
 
 const plot = { left: 100, plotW: 800 } as const;

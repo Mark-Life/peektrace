@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
+
 import { npmReadme } from "./npm-readme";
 
 const RELATIVE_MD_LINK = /\]\((?!https?:|#)/;

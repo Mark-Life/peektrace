@@ -19,6 +19,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { CauseRow, RuleCheck } from "@workspace/view-core/api-types.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
+
 import { rateText, suggestedRuleOf } from "../../lib/stats-findings";
 import {
   hms,
@@ -37,7 +38,7 @@ const WIDE = "hidden text-right md:table-cell";
 /** The rule check of a cause whose rule a memory file already states. */
 const RuleBadge = ({ rule }: { readonly rule: RuleCheck }) => (
   <Badge
-    className="h-auto w-auto justify-start whitespace-normal rounded-md border-amber-500/40 bg-amber-500/10 text-left text-amber-400"
+    className="h-auto w-auto justify-start rounded-md border-amber-500/40 bg-amber-500/10 text-left whitespace-normal text-amber-400"
     variant="outline"
   >
     {ruleLine(rule)}
@@ -53,7 +54,7 @@ const NarrowSummary = ({ row }: { readonly row: CauseRow }) => (
     className="mt-1 flex flex-col gap-1 md:hidden"
     data-testid="cause-narrow"
   >
-    <p className="font-mono text-muted-foreground text-xs">
+    <p className="text-muted-foreground font-mono text-xs">
       {n(row.hits)} hits · {n(row.pairs)}{" "}
       {row.failing ? "retries" : "read-backs"} in {n(row.retrySessions)}{" "}
       sessions
@@ -70,7 +71,7 @@ const NarrowSummary = ({ row }: { readonly row: CauseRow }) => (
  * narrow screen hides, always shown once the row is open. */
 const SplitLine = ({ row }: { readonly row: CauseRow }) => (
   <p
-    className="font-mono text-muted-foreground text-xs"
+    className="text-muted-foreground font-mono text-xs"
     data-testid="cause-split"
   >
     hits main {n(row.hitsBy.main)} / sub {n(row.hitsBy.nested)} · per 1k calls
@@ -137,7 +138,7 @@ const DetailRow = ({
               </p>
               {row.rule.matches.map((m) => (
                 <code
-                  className="wrap-anywhere block whitespace-pre-wrap text-muted-foreground"
+                  className="text-muted-foreground block wrap-anywhere whitespace-pre-wrap"
                   key={`${m.path}:${m.line}`}
                 >
                   {m.path}:{m.line} {m.excerpt}
@@ -147,7 +148,7 @@ const DetailRow = ({
           )}
           <SplitLine row={row} />
           {row.diffs.length === 0 ? null : (
-            <p className="font-mono text-muted-foreground text-xs">
+            <p className="text-muted-foreground font-mono text-xs">
               learned:{" "}
               {row.diffs
                 .map((d) => `${d.from} → ${d.to} (${n(d.pairs)})`)
@@ -155,7 +156,7 @@ const DetailRow = ({
             </p>
           )}
           {row.details.length === 0 ? null : (
-            <p className="font-mono text-muted-foreground text-xs">
+            <p className="text-muted-foreground font-mono text-xs">
               named:{" "}
               {row.details.map((d) => `${d.value} ${n(d.hits)}`).join(" · ")}
             </p>
@@ -164,7 +165,7 @@ const DetailRow = ({
             <div className="flex flex-col gap-0.5" data-testid="cause-pairs">
               {row.pairSamples.map((p) => (
                 <code
-                  className="wrap-anywhere block whitespace-pre-wrap text-muted-foreground text-xs"
+                  className="text-muted-foreground block text-xs wrap-anywhere whitespace-pre-wrap"
                   key={`${p.failed.sid}#${p.failed.seq}`}
                 >
                   {p.failed.line} → {p.retry.line}
@@ -206,7 +207,7 @@ export const CauseTable = ({
     );
   }
   return (
-    <div className="rounded-lg border border-border" data-testid="cause-table">
+    <div className="border-border rounded-lg border" data-testid="cause-table">
       <Table>
         <TableHeader>
           <TableRow>
@@ -235,13 +236,13 @@ export const CauseTable = ({
                 data-testid="cause-row"
                 onClick={() => toggle(row.key)}
               >
-                <TableCell className="whitespace-normal align-top md:max-w-[42ch] md:whitespace-nowrap">
+                <TableCell className="align-top whitespace-normal md:max-w-[42ch] md:whitespace-nowrap">
                   {/* The row is clickable for a mouse; this button is the
                       keyboard and screen-reader route to the same detail. */}
                   <button
                     aria-controls={`cause-detail-${row.key}`}
                     aria-expanded={openKey === row.key}
-                    className="block max-w-full rounded-sm text-left font-medium text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring md:truncate"
+                    className="focus-visible:ring-ring block max-w-full rounded-sm text-left text-sm font-medium outline-none focus-visible:ring-2 md:truncate"
                     data-testid="cause-toggle"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -268,21 +269,21 @@ export const CauseTable = ({
                     {n(row.retrySessions)} sessions
                   </div>
                 </TableCell>
-                <TableCell className="hidden text-right align-top font-mono text-muted-foreground text-sm lg:table-cell">
+                <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm lg:table-cell">
                   {n(row.hitsBy.main)} / {n(row.hitsBy.nested)}
                 </TableCell>
                 <TableCell
                   className={cn(
                     WIDE,
-                    "align-top font-mono text-muted-foreground text-sm"
+                    "text-muted-foreground align-top font-mono text-sm"
                   )}
                 >
                   {row.secMeasured === 0 ? "—" : hms(row.retrySec)}
                 </TableCell>
-                <TableCell className="hidden text-right align-top font-mono text-muted-foreground text-sm lg:table-cell">
+                <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm lg:table-cell">
                   {row.tokensMeasured === 0 ? "—" : fmtK(row.retryCtxTokens)}
                 </TableCell>
-                <TableCell className="hidden min-w-[16ch] whitespace-normal align-top text-xs md:table-cell">
+                <TableCell className="hidden min-w-[16ch] align-top text-xs whitespace-normal md:table-cell">
                   {row.rule === null ? (
                     <span className="text-muted-foreground">—</span>
                   ) : (

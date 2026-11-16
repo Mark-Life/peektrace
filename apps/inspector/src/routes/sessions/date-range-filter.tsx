@@ -97,7 +97,7 @@ export const DateRangeFilter = ({
         {selected ? (
           <Button
             aria-label="Clear date filter"
-            className="absolute top-1/2 right-1 size-6 -translate-y-1/2 text-muted-foreground"
+            className="text-muted-foreground absolute top-1/2 right-1 size-6 -translate-y-1/2"
             data-testid="session-filter-date-clear"
             onClick={() => onChange(undefined)}
             size="icon"

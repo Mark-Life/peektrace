@@ -1,9 +1,9 @@
 {
   "name": "@workspace/view-core",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
   "license": "MIT",
+  "type": "module",
   "exports": {
     "./*": "./src/*.ts"
   },

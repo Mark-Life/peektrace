@@ -52,16 +52,16 @@ const Row = ({
     <>
       <div className="flex items-baseline justify-between gap-3 text-xs">
         <span className="truncate font-medium">{row.label}</span>
-        <span className="shrink-0 font-mono text-muted-foreground">
+        <span className="text-muted-foreground shrink-0 font-mono">
           {row.valueText ?? row.value.toLocaleString()}
           {row.secondary ? (
-            <span className="ml-2 text-muted-foreground/70">
+            <span className="text-muted-foreground/70 ml-2">
               {row.secondary}
             </span>
           ) : null}
         </span>
       </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
         <div
           className="h-full rounded-full bg-sky-500/70"
           style={{ width: `${widthOf(row.value, max)}%` }}
@@ -82,7 +82,7 @@ const Row = ({
   return (
     <button
       className={cn(
-        "flex w-full flex-col gap-1 rounded-md px-2 py-1 text-left hover:bg-muted/50",
+        "hover:bg-muted/50 flex w-full flex-col gap-1 rounded-md px-2 py-1 text-left",
         selected && "bg-muted/60"
       )}
       data-testid="rank-row"

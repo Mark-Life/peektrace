@@ -14,6 +14,7 @@ import {
 } from "@workspace/ui/components/popover";
 import type { SampleRef } from "@workspace/view-core/api-types.gen";
 import { ArrowUpRightIcon } from "lucide-react";
+
 import { markedSessionHash } from "../../lib/routes";
 import { sessionTitlesAtom } from "../../lib/session-titles";
 import {
@@ -94,10 +95,10 @@ const SessionLink = ({
   const chip = chipLabelOf(sample, titles);
   const subagent = samples.some((s) => s.parent !== null);
   return (
-    <span className="flex min-w-0 max-w-full items-center gap-0.5">
+    <span className="flex max-w-full min-w-0 items-center gap-0.5">
       <Button
         asChild
-        className="h-6 min-w-0 max-w-full gap-1 px-2 font-mono text-xs"
+        className="h-6 max-w-full min-w-0 gap-1 px-2 font-mono text-xs"
         size="sm"
         variant="outline"
       >
@@ -110,13 +111,13 @@ const SessionLink = ({
           <span className="flex min-w-0">
             <span className="truncate">{chip.label}</span>
             {chip.id === null ? null : (
-              <span className="shrink-0 text-muted-foreground">
+              <span className="text-muted-foreground shrink-0">
                 {" "}
                 · {chip.id}
               </span>
             )}
             {subagent ? (
-              <span className="shrink-0 text-muted-foreground">
+              <span className="text-muted-foreground shrink-0">
                 {" "}
                 · subagent
               </span>
@@ -129,7 +130,7 @@ const SessionLink = ({
           <PopoverTrigger asChild>
             <Button
               aria-label={`Open one of ${samples.length} samples`}
-              className="h-6 shrink-0 px-1.5 font-mono text-muted-foreground text-xs"
+              className="text-muted-foreground h-6 shrink-0 px-1.5 font-mono text-xs"
               data-testid="stats-session-more"
               size="sm"
               variant="ghost"
@@ -163,7 +164,7 @@ export const SessionLinksView = ({
   }
   return (
     <div
-      className="flex min-w-0 max-w-full flex-col gap-1"
+      className="flex max-w-full min-w-0 flex-col gap-1"
       data-testid="stats-session-links"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -178,7 +179,7 @@ export const SessionLinksView = ({
       </div>
       {showLine && samples[0] ? (
         <code
-          className="block min-w-0 truncate text-muted-foreground text-xs"
+          className="text-muted-foreground block min-w-0 truncate text-xs"
           title={samples[0].line}
         >
           {samples[0].line}

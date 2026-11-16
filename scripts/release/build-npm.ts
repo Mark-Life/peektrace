@@ -31,6 +31,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+
 import {
   binaryName,
   DESCRIPTION,

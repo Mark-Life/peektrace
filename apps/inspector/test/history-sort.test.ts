@@ -1,6 +1,8 @@
 /** Table sort: stored-value migration, header clicks, and row ordering. */
 import { expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import {
   DEFAULT_HISTORY_SORT,
   historySortOf,

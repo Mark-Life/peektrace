@@ -1,8 +1,10 @@
 /** ResultView failure branch: optional Retry button and its busy state. */
 import { describe, expect, test } from "bun:test";
+
 import { Result } from "@effect-atom/atom-react";
 import { Cause, Option } from "effect";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { ResultView } from "../src/lib/result-view";
 import { withLastSuccess } from "../src/lib/server-info";
 

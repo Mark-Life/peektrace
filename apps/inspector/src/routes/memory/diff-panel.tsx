@@ -26,7 +26,7 @@ export const DiffPanel = ({ diff }: { readonly diff: VaultDiff }) => {
             {diff.orphans.length} orphan file
             {diff.orphans.length === 1 ? "" : "s"} (not in index)
           </div>
-          <ul className="ml-6 list-disc font-mono text-muted-foreground text-xs">
+          <ul className="text-muted-foreground ml-6 list-disc font-mono text-xs">
             {diff.orphans.map((o) => (
               <li key={o}>{o}</li>
             ))}
@@ -40,7 +40,7 @@ export const DiffPanel = ({ diff }: { readonly diff: VaultDiff }) => {
             {diff.dangling.length} dangling pointer
             {diff.dangling.length === 1 ? "" : "s"} (file missing)
           </div>
-          <ul className="ml-6 list-disc font-mono text-muted-foreground text-xs">
+          <ul className="text-muted-foreground ml-6 list-disc font-mono text-xs">
             {diff.dangling.map((d) => (
               <li key={`${d.target}:${d.line}`}>
                 {d.target} <span className="opacity-60">(line {d.line})</span>

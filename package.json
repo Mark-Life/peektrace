@@ -1,8 +1,27 @@
 {
-  "overrides": {
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "effect": "3.21.4"
+  "name": "peektrace-workspace",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ]
+  },
+  "type": "module",
+  "scripts": {
+    "build": "bun run --filter=inspector build",
+    "dev": "bun run --filter=inspector dev",
+    "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
+    "tui": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- tui",
+    "lint": "bun run check",
+    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit --fast -p scripts",
+    "format": "bun run fix",
+    "check": "bunx --bun ultracite check --type-aware",
+    "fix": "bunx --bun ultracite fix --type-aware",
+    "prepare": "husky",
+    "upgrade": "bun run scripts/upgrade.ts"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.90.0",
@@ -17,33 +36,14 @@
     "typescript": "7.0.2",
     "ultracite": "8.1.1"
   },
-  "name": "peektrace-workspace",
-  "scripts": {
-    "build": "bun run --filter=inspector build",
-    "dev": "bun run --filter=inspector dev",
-    "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
-    "tui": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- tui",
-    "lint": "bun run check",
-    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit --fast -p scripts",
-    "format": "bun run fix",
-    "check": "bunx --bun ultracite check --type-aware",
-    "fix": "bunx --bun ultracite fix --type-aware",
-    "prepare": "husky",
-    "upgrade": "bun run scripts/upgrade.ts"
+  "overrides": {
+    "effect": "3.21.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
-  "version": "0.0.1",
-  "workspaces": {
-    "packages": [
-      "apps/*",
-      "packages/*"
-    ]
-  },
-  "private": true,
-  "license": "MIT",
-  "packageManager": "bun@1.3.14",
   "engines": {
-    "node": ">=20.9.0",
-    "bun": ">=1.3.0"
+    "bun": ">=1.3.0",
+    "node": ">=20.9.0"
   },
-  "type": "module"
+  "packageManager": "bun@1.3.14"
 }

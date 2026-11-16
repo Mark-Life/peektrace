@@ -1,5 +1,6 @@
 /** A shortcut's keycaps, read from the shortcut table. */
 import { Kbd } from "@workspace/ui/components/kbd";
+
 import {
   isMacPlatform,
   keyLabel,

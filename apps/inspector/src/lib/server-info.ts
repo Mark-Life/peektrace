@@ -4,6 +4,7 @@
 import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import { Option } from "effect";
 import { useEffect, useRef } from "react";
+
 import { serverInfoAtom } from "./atoms";
 import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
 

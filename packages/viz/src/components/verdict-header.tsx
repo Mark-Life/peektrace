@@ -10,6 +10,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { costSummary } from "@workspace/view-core/cost";
 import type { ReactNode } from "react";
+
 import {
   fmt,
   fmtK,
@@ -50,11 +51,11 @@ const Meta = ({
   readonly k: string;
   readonly children: ReactNode;
 }) => (
-  <div className="min-w-0 rounded-md border border-border bg-card px-3 py-2">
-    <div className="truncate text-muted-foreground text-xs uppercase tracking-wide">
+  <div className="border-border bg-card min-w-0 rounded-md border px-3 py-2">
+    <div className="text-muted-foreground truncate text-xs tracking-wide uppercase">
       {k}
     </div>
-    <div className="wrap-anywhere mt-0.5 text-sm">{children}</div>
+    <div className="mt-0.5 text-sm wrap-anywhere">{children}</div>
   </div>
 );
 
@@ -109,7 +110,7 @@ const JumpChip = ({
     <Badge
       asChild
       className={cn(
-        "min-h-6 cursor-pointer hover:bg-muted focus-visible:outline-none",
+        "hover:bg-muted min-h-6 cursor-pointer focus-visible:outline-none",
         className
       )}
       variant="outline"
@@ -136,18 +137,18 @@ const PeakGauge = ({ a }: { readonly a: SessionOverview }) => {
   const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
   return (
     <div className="flex flex-col gap-1" data-testid="peak-gauge">
-      <div className="relative h-4 overflow-hidden rounded-full bg-muted">
+      <div className="bg-muted relative h-4 overflow-hidden rounded-full">
         <div
           className={cn("h-full", ZONE_CLASSES[zone].fill)}
           style={{ width: `${Math.min(PERCENT, frac * PERCENT).toFixed(1)}%` }}
         />
         <div
-          className="absolute top-0 h-full w-0.5 bg-foreground/70"
+          className="bg-foreground/70 absolute top-0 h-full w-0.5"
           style={{ left: `${(a.dumbZoneFraction * PERCENT).toFixed(0)}%` }}
           title={`dumb zone ${Math.round(a.dumbZoneFraction * PERCENT)}%`}
         />
       </div>
-      <div className="flex justify-between text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex justify-between text-xs">
         <span data-testid="peak-tokens">peak {fmt(a.peakContextTokens)}</span>
         <span>
           {fmtPct(frac)} of {fmt(a.contextWindow)}
@@ -174,14 +175,14 @@ export const VerdictHeader = ({
     : 0;
   return (
     <section
-      className="@container flex flex-col gap-4 rounded-lg border border-border p-3 md:p-4"
+      className="border-border @container flex flex-col gap-4 rounded-lg border p-3 md:p-4"
       data-testid="verdict-header"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <div className="font-semibold text-lg">{analyzedTitle(a)}</div>
+          <div className="text-lg font-semibold">{analyzedTitle(a)}</div>
           <div
-            className="truncate font-mono text-muted-foreground text-xs"
+            className="text-muted-foreground truncate font-mono text-xs"
             title={a.cwd ?? undefined}
           >
             {a.sessionId.slice(0, ID_PREFIX)} · {a.models.join(", ")} ·{" "}
@@ -204,7 +205,7 @@ export const VerdictHeader = ({
 
       <PeakGauge a={a} />
 
-      <div className="grid @4xl:grid-cols-6 @lg:grid-cols-3 grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 @lg:grid-cols-3 @4xl:grid-cols-6">
         <Meta k="Peak context">
           <span className={ZONE_CLASSES[zone].text}>
             {fmt(a.peakContextTokens)}

@@ -33,6 +33,7 @@ import {
 import type { AllVaults, Capability } from "@workspace/view-core/api-types.gen";
 import { MEMORY_TYPES } from "@workspace/view-core/constants.gen";
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import {
   allVaultsAtom,
   capabilitiesAtom,

@@ -12,6 +12,7 @@ import { Input } from "@workspace/ui/components/input";
 import { cn } from "@workspace/ui/lib/utils";
 import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
 import { type KeyboardEvent, useRef } from "react";
+
 import type { StepDir } from "../../lib/history-search";
 import { matchLabel } from "../../lib/history-search";
 import {
@@ -116,7 +117,7 @@ export const HistorySearch = ({
         {active ? (
           <button
             aria-label="Clear search"
-            className="absolute top-1/2 right-0.5 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-0.5 -translate-y-1/2 rounded p-1"
             data-testid="history-search-clear"
             onClick={clear}
             type="button"
@@ -129,7 +130,7 @@ export const HistorySearch = ({
         aria-busy={pending}
         aria-live="polite"
         className={cn(
-          "shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums",
+          "text-muted-foreground shrink-0 text-xs whitespace-nowrap tabular-nums",
           label === "" && "sr-only"
         )}
         data-testid="history-match-count"

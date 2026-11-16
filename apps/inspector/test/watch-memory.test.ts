@@ -2,7 +2,9 @@
  *  next tick, a refresh of the vaults refetches `/api/memory`, and a paused
  *  view holds the bump back until resumed. */
 import { afterEach, expect, test } from "bun:test";
+
 import { Registry } from "@effect-atom/atom-react";
+
 import { allVaultsAtom } from "../src/lib/atoms";
 import {
   livePausedAtom,

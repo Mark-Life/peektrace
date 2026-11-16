@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover";
 import { LockIcon } from "lucide-react";
+
 import { serverInfoAtom } from "../lib/atoms";
 
 /** The reason under a "Read-only server" title, flags marked up as code. */

@@ -7,6 +7,7 @@
 import { Result, useAtomValue } from "@effect-atom/atom-react";
 import type { SessionMarker } from "@workspace/view-core/api-types.gen";
 import { useMemo } from "react";
+
 import { useSessionMarkers } from "./stats-atoms";
 
 /** Marks for one tool call, in the order core emitted them. */

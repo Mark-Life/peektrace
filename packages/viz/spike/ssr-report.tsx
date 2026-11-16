@@ -7,6 +7,7 @@
  */
 import type { ReactElement } from "react";
 import { renderToString } from "react-dom/server";
+
 import { GrowthTimeline } from "../src/components/growth-timeline";
 import { LinkGraph } from "../src/components/link-graph";
 import { TypeDonut } from "../src/components/type-donut";

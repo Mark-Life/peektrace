@@ -18,9 +18,9 @@
  */
 
 import { defineChart, dot, link, text } from "@tanstack/charts";
-import { forceLayout } from "@tanstack/charts/network/force";
 import { scaleLinear } from "@tanstack/charts-scales/linear";
 import { scaleOrdinal } from "@tanstack/charts-scales/ordinal";
+import { forceLayout } from "@tanstack/charts/network/force";
 import { Chart } from "@tanstack/react-charts";
 import type { GraphData } from "@workspace/view-core/api-types.gen";
 import { useMemo } from "react";

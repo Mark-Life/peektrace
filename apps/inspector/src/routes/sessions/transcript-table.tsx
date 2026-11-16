@@ -26,6 +26,7 @@ import type {
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
 import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+
 import type {
   EventRow as AnyEvent,
   TranscriptRowRef,
@@ -74,7 +75,7 @@ const PCT_DECIMALS = 2;
 
 /** Turn-number gutter, shared by every transcript row. */
 const TurnGutter = ({ turn }: { readonly turn: number }) => (
-  <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
+  <span className="text-muted-foreground w-8 shrink-0 font-mono text-xs">
     t{turn}
   </span>
 );
@@ -90,7 +91,7 @@ const TokenCount = ({
   const { tokens, measured } = eventTokens(e);
   return (
     <span
-      className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
+      className="text-muted-foreground ml-auto shrink-0 font-mono text-xs"
       title={measured ? "measured from usage" : "estimated (chars/4)"}
     >
       {tokens ? tokenLabel(e, fmt) : ""}
@@ -162,10 +163,10 @@ const ToolEventRowBody = ({
       open={open}
     >
       <ToolHeader
-        className="px-2 py-1.5 text-sm hover:bg-muted/40"
+        className="hover:bg-muted/40 px-2 py-1.5 text-sm"
         icon={
           view ? undefined : (
-            <CornerDownLeftIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <CornerDownLeftIcon className="text-muted-foreground size-3.5 shrink-0" />
           )
         }
         lead={<TurnGutter turn={turn} />}
@@ -178,7 +179,7 @@ const ToolEventRowBody = ({
           </Badge>
         ) : null}
         <ContextEditBadge e={e} />
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="text-muted-foreground truncate text-xs">
           {(view ? view.summary : e.preview) || "(empty)"}
         </span>
         <TokenCount e={e} share={share} />
@@ -224,8 +225,8 @@ const EventRowBody = ({
       onOpenChange={onOpenChange}
       open={open}
     >
-      <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
-        <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
+      <CollapsibleTrigger className="hover:bg-muted/40 flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm [&[data-state=open]>svg]:rotate-90">
+        <ChevronRightIcon className="text-muted-foreground size-3.5 shrink-0 transition-transform" />
         <TurnGutter turn={turn} />
         <Badge className="shrink-0" variant="outline">
           {eventBadgeLabel(e)}
@@ -236,7 +237,7 @@ const EventRowBody = ({
           </Badge>
         ) : null}
         <ContextEditBadge e={e} />
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="text-muted-foreground truncate text-xs">
           {e.preview || "(empty)"}
         </span>
         <TokenCount e={e} share={share} />
@@ -265,7 +266,7 @@ export type TableSession = Pick<
 /** The dumb-zone notice, drawn above the row where the session crossed it. */
 const DumbZoneDivider = ({ a }: { readonly a: TableSession }) => (
   <div
-    className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
+    className="bg-red-500/15 px-3 py-1.5 text-center text-xs font-medium text-red-300"
     data-testid="dumbzone-divider"
   >
     entered dumb zone — {Math.round(a.dumbZoneFraction * PERCENT)}% (
@@ -423,7 +424,7 @@ export const TranscriptTable = ({
     });
 
   return (
-    <div className="rounded-md border border-border">
+    <div className="border-border rounded-md border">
       <SortHeader
         onSort={(key: HistorySortKey) => onSort(nextSort(sort, key))}
         sort={sort}
@@ -456,7 +457,7 @@ export const TranscriptTable = ({
         testId="table-transcript"
       />
       {rows.length === 0 ? (
-        <p className="px-3 py-6 text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground px-3 py-6 text-center text-sm">
           No events match the filters.
         </p>
       ) : null}

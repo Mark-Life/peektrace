@@ -1,6 +1,8 @@
 /** Stats header: the rescan button while a pass is in flight. */
 import { expect, test } from "bun:test";
+
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { ReportHeader } from "../src/routes/stats/report-header";
 import { report } from "./stats-report-fixture";
 

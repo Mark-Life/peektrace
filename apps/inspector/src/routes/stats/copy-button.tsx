@@ -97,7 +97,7 @@ export const CopyButton = ({
       {state === "failed" ? (
         <textarea
           aria-label={`${label}: select and copy`}
-          className="h-16 w-64 max-w-full resize-y rounded border bg-muted p-1 font-mono text-xs"
+          className="bg-muted h-16 w-64 max-w-full resize-y rounded border p-1 font-mono text-xs"
           data-testid={`${testId}-manual`}
           readOnly
           ref={manual}

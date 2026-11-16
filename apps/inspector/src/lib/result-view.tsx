@@ -17,6 +17,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Cause } from "effect";
 import { RotateCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
+
 import { wireErrorMessage, wireErrorOfCause } from "./wire-error";
 
 /** Default skeleton shown while a query is in its initial (no-data) load. */
@@ -80,13 +81,13 @@ const FailureView = ({
         {wire ? (
           <p className="text-sm">{wireErrorMessage(wire)}</p>
         ) : (
-          <pre className="whitespace-pre-wrap break-words text-xs">
+          <pre className="text-xs break-words whitespace-pre-wrap">
             {Cause.pretty(cause)}
           </pre>
         )}
         {onRetry ? (
           <RetryButton
-            className="mt-2 text-foreground"
+            className="text-foreground mt-2"
             onRetry={onRetry}
             retrying={retrying}
             testId="result-retry"

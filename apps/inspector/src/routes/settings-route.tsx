@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { ReadOnlyReason } from "../components/read-only";
 import { RootRow } from "../components/root-row";
 import { AGENT_LABEL } from "../lib/agent-label";
@@ -317,7 +318,7 @@ export const SettingsRoute = () => {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <div>
-        <h1 className="font-semibold text-lg">Settings</h1>
+        <h1 className="text-lg font-semibold">Settings</h1>
         <p className="text-muted-foreground text-sm">
           Point peektrace at extra agent config dirs — e.g. a separate work
           account — to scan them in parallel.

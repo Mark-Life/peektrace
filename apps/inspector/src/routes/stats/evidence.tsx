@@ -7,6 +7,7 @@
  */
 import type { ClusterRow, WaitPanel } from "@workspace/view-core/api-types.gen";
 import { RankBar, type RankRow } from "@workspace/viz/components/rank-bar";
+
 import { hms, n, pct } from "../../lib/stats-format";
 
 /** Clusters drawn as bars before the list gets longer than it is useful. */

@@ -10,6 +10,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import { changelogSection } from "./changelog";
 
 const DEFAULT_REPO = "Mark-Life/peektrace";

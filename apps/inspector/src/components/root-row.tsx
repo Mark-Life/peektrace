@@ -3,6 +3,7 @@
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type { ReactNode } from "react";
+
 import { tildePath } from "../lib/paths";
 
 export const RootRow = ({
@@ -31,7 +32,7 @@ export const RootRow = ({
     data-testid={testId}
   >
     <span className="shrink-0 font-medium">{label}</span>
-    <code className="min-w-0 break-all text-muted-foreground">
+    <code className="text-muted-foreground min-w-0 break-all">
       {tildePath({ path, home })}
     </code>
     {children}

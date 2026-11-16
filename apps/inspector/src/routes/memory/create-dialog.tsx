@@ -31,6 +31,7 @@ import { MEMORY_TYPES } from "@workspace/view-core/constants.gen";
 import { Exit } from "effect";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { createMemoryAtom } from "../../lib/memory-atoms";
 import { wireErrorMessage, wireErrorOf } from "../../lib/wire-error";
 import type { ProjectOption } from "./project-options";
@@ -172,7 +173,7 @@ export const CreateDialog = ({
             />
           </div>
           {error ? (
-            <p className="text-red-400 text-sm" data-testid="create-error">
+            <p className="text-sm text-red-400" data-testid="create-error">
               {error}
             </p>
           ) : null}

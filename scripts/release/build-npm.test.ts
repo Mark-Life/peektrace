@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
 import { pickTargets, stage } from "./build-npm";
 import { TARGETS, type Target, variantName } from "./npm-meta";
 

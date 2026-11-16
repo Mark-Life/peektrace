@@ -1,5 +1,6 @@
 /** The shared tokenizer behind inspector code blocks and TUI bodies. */
 import { describe, expect, test } from "bun:test";
+
 import {
   type CodeLine,
   isHighlightable,

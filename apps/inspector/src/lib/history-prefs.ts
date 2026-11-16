@@ -12,6 +12,7 @@
  * event keeps other tabs in step.
  */
 import { useCallback, useSyncExternalStore } from "react";
+
 import {
   DEFAULT_HISTORY_SORT,
   type HistorySort,

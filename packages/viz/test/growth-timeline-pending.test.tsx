@@ -1,7 +1,9 @@
 /** The growth chart's loading box draws the chart's frame and legend, so the
  *  page below it keeps its place when the chart lands. Synthetic fixtures only. */
 import { expect, test } from "bun:test";
+
 import { renderToStaticMarkup } from "react-dom/server";
+
 import {
   GrowthTimeline,
   GrowthTimelinePending,

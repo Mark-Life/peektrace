@@ -111,7 +111,7 @@ export const TypeDonut = ({
               style={{ background: d.fill }}
             />
             <span className="capitalize">{d.type}</span>
-            <span className="font-mono text-muted-foreground">{d.count}</span>
+            <span className="text-muted-foreground font-mono">{d.count}</span>
           </li>
         ))}
       </ul>

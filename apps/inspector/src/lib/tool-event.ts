@@ -11,6 +11,7 @@ import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 import type { LineDiff } from "@workspace/view-core/diff";
 import { diffLines } from "@workspace/view-core/diff";
+
 import { FILE_TITLE_PREFIXES } from "./chat-lane";
 
 /** Text shown when an event carries no body at all. */
@@ -251,16 +252,15 @@ export const callView = (e: TimelineEvent): ToolCallView => {
   }
   const panes: ToolPane[] = [
     ...diffs,
-    ...payloads.map(
-      ([key, value]): ToolPane =>
-        isProse(key, input)
-          ? { label: key, text: String(value), type: "prose" }
-          : {
-              code: String(value),
-              label: key,
-              language: languageOf(key, input),
-              type: "code",
-            }
+    ...payloads.map(([key, value]): ToolPane =>
+      isProse(key, input)
+        ? { label: key, text: String(value), type: "prose" }
+        : {
+            code: String(value),
+            label: key,
+            language: languageOf(key, input),
+            type: "code",
+          }
     ),
   ];
   const rest = args.filter((entry) => !isPayload(entry));

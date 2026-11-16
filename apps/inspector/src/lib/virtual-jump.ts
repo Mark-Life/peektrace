@@ -5,6 +5,7 @@
  * can differ from the guess the first scroll used.
  */
 import { type RefObject, useEffect } from "react";
+
 import type { VirtualListHandle } from "./virtual-range";
 
 /** How long to wait for the target to be drawn after the first scroll; its

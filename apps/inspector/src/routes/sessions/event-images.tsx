@@ -12,6 +12,7 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { Cause, Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
+
 import { apiBlob, apiPath } from "../../lib/api";
 import { useTranscriptSource } from "../../lib/transcript-source";
 

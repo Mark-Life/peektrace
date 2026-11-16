@@ -1,9 +1,9 @@
 {
   "name": "inspector",
   "version": "0.0.1",
-  "type": "module",
   "private": true,
   "license": "MIT",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -11,19 +11,19 @@
     "test": "bun test"
   },
   "dependencies": {
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "effect": "latest",
     "@effect-atom/atom-react": "latest",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@tanstack/react-virtual": "^3.14.26",
-    "@workspace/view-core": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "@workspace/view-core": "workspace:*",
     "@workspace/viz": "workspace:*",
+    "effect": "latest",
     "lucide-react": "^1.16.0",
     "next-themes": "^0.4.6",
+    "react": "19.2.8",
     "react-day-picker": "^10.0.1",
+    "react-dom": "19.2.8",
     "sonner": "^2.0.7"
   },
   "devDependencies": {

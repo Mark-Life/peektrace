@@ -6,12 +6,14 @@
  * and a fail count is never added to a second.
  */
 import { expect, test } from "bun:test";
+
 import type {
   CauseRow,
   FailRow,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { markedSessionHash } from "../src/lib/routes";
 import {
   findingsOf,
