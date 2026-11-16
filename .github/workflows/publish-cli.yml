@@ -18,6 +18,9 @@ run-name: "publish cli ${{ github.event_name == 'workflow_dispatch' && inputs.ta
 #              publishes npm LAST.
 #   smoke-linux installs the published release on real Linux x64 and arm64.
 #
+# A workflow_dispatch with `dry_run: true` builds every target and smokes the
+# Linux build artifacts, but skips `publish`. The tag need not exist.
+#
 # Release assets, which scripts/install.sh, scripts/install.ps1 and
 # `peektrace upgrade` (crates/cli/src/upgrade) download:
 #   peektrace-darwin-arm64, peektrace-darwin-x64, peektrace-linux-x64,
@@ -64,6 +67,11 @@ on:
         description: "Git tag to publish (e.g. cli-v1.2.3)"
         required: true
         type: string
+      dry_run:
+        description: "Build and smoke from artifacts; publish nothing"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -258,6 +266,7 @@ jobs:
           retention-days: 1
 
   publish:
+    if: ${{ !inputs.dry_run }}
     needs: [version, build]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -441,8 +450,10 @@ jobs:
   #
   # Runs AFTER publish because it installs from the release, so it cannot gate
   # one: a failure flags a release to repair via workflow_dispatch.
+  # A dry run has no release, so it smokes the build artifact instead.
   smoke-linux:
-    needs: [version, publish]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (inputs.dry_run || needs.publish.result == 'success') }}
+    needs: [version, build, publish]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
 
@@ -464,10 +475,46 @@ jobs:
       # Pinned to the tag just published, so this never races the "newest
       # cli-v*" API lookup.
       - name: Install from the published release
+        if: ${{ !inputs.dry_run }}
         env:
           PEEKTRACE_VERSION: ${{ needs.version.outputs.tag }}
           PEEKTRACE_INSTALL_DIR: ${{ runner.temp }}/peektrace-bin
         run: sh scripts/install.sh
+
+      - name: Download the build artifact
+        if: ${{ inputs.dry_run }}
+        uses: actions/download-artifact@v4
+        with:
+          name: bin-peektrace-linux-${{ matrix.arch }}
+          path: ${{ runner.temp }}/artifact
+
+      - name: Install from the build artifact
+        if: ${{ inputs.dry_run }}
+        env:
+          SRC: ${{ runner.temp }}/artifact/peektrace-linux-${{ matrix.arch }}
+          DIR: ${{ runner.temp }}/peektrace-bin
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$DIR"
+          if [ -f "$SRC.gz" ]; then gunzip -c "$SRC.gz" > "$DIR/peektrace"; else cp "$SRC" "$DIR/peektrace"; fi
+          chmod +x "$DIR/peektrace"
+
+      - name: List fixture sessions
+        if: ${{ inputs.dry_run }}
+        env:
+          BIN: ${{ runner.temp }}/peektrace-bin/peektrace
+          HOME: ${{ runner.temp }}/home
+          PEEKTRACE_DIR: ${{ runner.temp }}/home/.peektrace
+          PEEKTRACE_CLAUDE_PROJECTS: ${{ github.workspace }}/tests/fixtures/sessions/projects
+          PEEKTRACE_CODEX_SESSIONS: ${{ github.workspace }}/tests/fixtures/sessions-codex
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME"
+          out="$("$BIN" sessions ls)"
+          printf '%s\n' "$out"
+          [ -n "$out" ] || { echo "::error::sessions ls printed nothing" >&2; exit 1; }
 
       # `serve` is the headless path a VPS uses: it boots the server and serves
       # the embedded inspector UI. The TUI needs a TTY and is not exercised
