@@ -49,3 +49,9 @@ npm-debug.log*
 
 # original (unoptimized) screenshots — optimized .webp are committed instead
 assets/.raw/
+
+# Rust
+/target
+
+# Local scratch space
+/.scratch
