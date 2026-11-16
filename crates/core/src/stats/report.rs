@@ -58,6 +58,10 @@ pub(super) fn samples_in(r: &StatsReport) -> Vec<&SampleRef> {
     out.extend(r.time.iter().flat_map(|x| &x.samples));
     out.extend(&r.waiting.samples);
     out.extend(r.clusters.iter().flat_map(|x| &x.samples));
+    let i = &r.panels.insights;
+    out.extend(i.fanout.iter().flat_map(|x| &x.samples));
+    out.extend(i.context.iter().flat_map(|x| &x.samples));
+    out.extend(i.web.iter().flat_map(|x| &x.samples));
     out
 }
 

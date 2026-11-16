@@ -1,41 +1,68 @@
-//! What a cold start leads with: the rows that carry a fix, cheapest fix
-//! first, each in its own table's unit.
+//! What a cold start leads with: where the spend goes, then the causes a
+//! fix would still save, each in its own unit. Causes a rule already stopped
+//! sit in a collapsed "working" list.
 
 use peektrace_protocol::DrillTable;
-use peektrace_protocol::stats::{SampleRefView, StatsReportView};
-use peektrace_protocol::stats_text::{EMPTY_FINDINGS, SUGGESTED_NOTE, SUGGESTED_TITLE};
+use peektrace_protocol::stats::SampleRefView;
+use peektrace_protocol::stats_text::{
+    EMPTY_FINDINGS, SUGGESTED_NOTE, SUGGESTED_TITLE, WORKING_NOTE, WORKING_TITLE,
+};
+use peektrace_protocol::wire::stats::{SampleRef, TranscriptKind};
 use rune::{El, col, row, spacer, text};
+use rune_kit::Collapsible;
 
 use super::copy::{copy_button, prompt_button};
 use super::links::links;
-use super::{LIST_TREE, V, amber, muted, outline_badge, secondary_badge, small_button};
+use super::{
+    LIST_TREE, V, amber, emerald, emerald_text, muted, outline_badge, secondary_badge, small_button,
+};
 use crate::model::stats::Finding;
 use crate::model::stats::rows::{VISIBLE_FINDINGS, show_more, table_name};
 use crate::state::Ui;
 use crate::theme::ty;
 
-const fn source_label(t: DrillTable) -> &'static str {
+const fn source_label(t: Option<DrillTable>) -> &'static str {
     match t {
-        DrillTable::Cause => "retries",
-        DrillTable::Fail => "fails",
-        _ => "time",
+        Some(DrillTable::Cause) => "retries",
+        Some(DrillTable::Fail) => "fails",
+        Some(_) => "time",
+        None => "cost",
     }
 }
 
-/// The samples of the row a finding came from.
-pub fn samples_of<'a>(r: &'a StatsReportView, table: DrillTable, key: &str) -> &'a [SampleRefView] {
-    let found = match table {
-        DrillTable::Cause => r.causes.iter().find(|c| c.key == key).map(|c| &c.samples),
-        DrillTable::Fail => r.fails.iter().find(|c| c.key == key).map(|c| &c.samples),
-        DrillTable::Time => r.time.iter().find(|c| c.key == key).map(|c| &c.samples),
-        _ => None,
-    };
-    found.map_or(&[], Vec::as_slice)
+/// A finding's sessions in the shape the link chips read.
+pub fn sample_views(samples: &[SampleRef]) -> Vec<SampleRefView> {
+    samples
+        .iter()
+        .map(|s| SampleRefView {
+            sid: s.sid.clone(),
+            agent: s.agent,
+            project: s.project.clone(),
+            kind: match s.kind {
+                TranscriptKind::Main => "main",
+                TranscriptKind::Subagent => "subagent",
+                TranscriptKind::WorkflowAgent => "workflow-agent",
+            }
+            .to_owned(),
+            parent: s.parent.clone(),
+            seq: s.seq,
+            tool_use_id: s.tool_use_id.clone(),
+            ts: s.ts.clone(),
+            line: s.line.clone(),
+        })
+        .collect()
 }
 
-fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
+/// How a card is drawn: a live finding, or a cause its rule stopped.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Look {
+    Live,
+    Fixed,
+}
+
+fn card(v: &V<'_>, f: &Finding, look: Look, layer: &mut Vec<El>) -> El {
     let t = v.t;
-    let id = format!("{}:{}", table_name(f.table), f.key);
+    let id = format!("{}:{}", f.table.map_or("cost", table_name), f.key);
     let mut head = row()
         .w_full()
         .flex_wrap()
@@ -49,6 +76,14 @@ fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
                 .min_w(0.0),
         )
         .child(secondary_badge(source_label(f.table), t));
+    if look == Look::Fixed {
+        head = head.child(
+            text("fixed")
+                .font(ty::XS_MEDIUM)
+                .color(emerald_text())
+                .key("stats-working-badge"),
+        );
+    }
     if let Some(d) = &f.detector {
         head = head.child(outline_badge(d.clone(), true, t));
     }
@@ -60,9 +95,9 @@ fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
             .shrink()
             .key("stats-finding-impact"),
     );
-    let samples = samples_of(v.r, f.table, &f.key);
+    let samples = sample_views(&f.samples);
     let mut actions = row().w_full().flex_wrap().gap(8.0).items_end();
-    if let Some(l) = links(v, &format!("finding/{id}"), samples, layer) {
+    if let Some(l) = links(v, &format!("finding/{id}"), &samples, layer) {
         actions = actions.child(l);
     }
     if let Some(rule) = &f.rule {
@@ -76,24 +111,33 @@ fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
             t,
         ));
     }
-    let prompt = v.text.and_then(|x| x.prompts.of(f.table, &f.key));
-    actions = actions.children(prompt_button(
-        v.s,
-        "finding-prompt",
-        format!("finding-prompt:{id}"),
-        &f.title,
-        prompt,
-        t,
-    ));
-    let (table, key) = (f.table, f.key.clone());
-    actions = actions.child(spacer()).child(
-        small_button("All calls", true, t)
-            .icon(&LIST_TREE)
-            .on_press(move |s: &mut Ui| s.open_drill(table, &key))
-            .build(&t.kit)
-            .key("finding-drill"),
-    );
-    let flagged = f.detector.is_some();
+    if let Some(table) = f.table {
+        let prompt = v.text.and_then(|x| x.prompts.of(table, &f.key));
+        actions = actions.children(prompt_button(
+            v.s,
+            "finding-prompt",
+            format!("finding-prompt:{id}"),
+            &f.title,
+            prompt,
+            t,
+        ));
+        let key = f.key.clone();
+        actions = actions.child(spacer()).child(
+            small_button("All calls", true, t)
+                .icon(&LIST_TREE)
+                .on_press(move |s: &mut Ui| s.open_drill(table, &key))
+                .build(&t.kit)
+                .key("finding-drill"),
+        );
+    }
+    let flagged = f.detector.is_some() && look == Look::Live;
+    let edge = if look == Look::Fixed {
+        emerald().alpha(0.4)
+    } else if flagged {
+        amber().alpha(0.4)
+    } else {
+        t.border
+    };
     col()
         .key(format!("stats-finding:{id}"))
         .w_full()
@@ -101,14 +145,7 @@ fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
         .gap(8.0)
         .padding(12.0)
         .radius(8.0)
-        .border(
-            1.0,
-            if flagged {
-                amber().alpha(0.4)
-            } else {
-                t.border
-            },
-        )
+        .border(1.0, edge)
         .fill(if flagged {
             amber().alpha(0.05)
         } else {
@@ -185,7 +222,10 @@ pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {
     } else {
         all.len().min(VISIBLE_FINDINGS)
     };
-    let cards: Vec<El> = all[..shown].iter().map(|f| card(v, f, layer)).collect();
+    let cards: Vec<El> = all[..shown]
+        .iter()
+        .map(|f| card(v, f, Look::Live, layer))
+        .collect();
     let columns = if v.bp.lg { 2 } else { 1 };
     let mut grid = col().w_full().gap(12.0);
     let mut cards = cards.into_iter().peekable();
@@ -209,5 +249,32 @@ pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {
             ),
         );
     }
-    c.children(suggested(v, &text.suggested))
+    c.children(working(v, &text.working, layer))
+        .children(suggested(v, &text.suggested))
+}
+
+/// Causes a rule already stopped, collapsed under one line.
+fn working(v: &V<'_>, all: &[Finding], layer: &mut Vec<El>) -> Option<El> {
+    if all.is_empty() {
+        return None;
+    }
+    let t = v.t;
+    let cards = col()
+        .key("stats-working")
+        .w_full()
+        .gap(12.0)
+        .pt(8.0)
+        .child(muted(WORKING_NOTE, t))
+        .children(all.iter().map(|f| card(v, f, Look::Fixed, layer)));
+    Some(
+        Collapsible::new(
+            format!("{WORKING_TITLE} ({})", all.len()),
+            v.s.stats.working_open,
+        )
+        .ghost()
+        .on_toggle(|s: &mut Ui| s.stats.working_open = !s.stats.working_open)
+        .child(cards)
+        .build(&t.kit)
+        .key("stats-working-toggle"),
+    )
 }

@@ -89,11 +89,10 @@ fn a_subagents_own_model_calls_are_costed() {
     assert_eq!(sub["cacheReadTokens"], 400);
     assert_eq!(sub["outputTokens"], 100);
     let caveats = r["caveats"].as_array().cloned().unwrap_or_default();
-    assert!(
-        caveats
-            .iter()
-            .any(|c| c.as_str().is_some_and(|c| c.contains("subagent")))
-    );
+    assert!(caveats.iter().any(|c| {
+        c.as_str()
+            .is_some_and(|c| c.contains("Subagent and workflow-agent transcripts record"))
+    }));
 }
 
 #[test]
@@ -149,11 +148,16 @@ fn every_ranking_is_capped_and_every_truncation_is_stated() {
     let r = get(&f, &format!("/api/stats/report?{WIDE}&limit=1"));
     assert_eq!(r["fails"].as_array().map(Vec::len), Some(1));
     let caveats = r["caveats"].as_array().cloned().unwrap_or_default();
-    assert!(
-        caveats
-            .iter()
-            .any(|c| c.as_str().is_some_and(|c| c.contains("not shown")))
-    );
+    for note in [
+        "The retries table shows the top 1 of 2 causes",
+        "The time table shows the top 1 of 3 jobs",
+        "Error clusters show the top 1 of 3",
+    ] {
+        assert!(
+            caveats.iter().any(|c| c.as_str() == Some(note)),
+            "{note} in {caveats:?}"
+        );
+    }
 }
 
 #[test]

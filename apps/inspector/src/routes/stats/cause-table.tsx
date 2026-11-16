@@ -30,10 +30,23 @@ import { SessionLinks } from "./session-links";
 /** A numeric column a phone drops; `NarrowSummary` says the same in a line. */
 const WIDE = "hidden text-right md:table-cell";
 
-/** The rule check of a cause whose rule a memory file already states. */
-const RuleBadge = ({ line }: { readonly line: string }) => (
+/** The rule check of a cause whose rule a memory file already states:
+ *  green once the rule stopped it, amber while it still fires. */
+const RuleBadge = ({
+  fixed,
+  line,
+}: {
+  readonly fixed: boolean;
+  readonly line: string;
+}) => (
   <Badge
-    className="h-auto w-auto justify-start rounded-md border-amber-500/40 bg-amber-500/10 text-left whitespace-normal text-amber-400"
+    className={cn(
+      "h-auto w-auto justify-start rounded-md text-left whitespace-normal",
+      fixed
+        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+        : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+    )}
+    data-fixed={fixed}
     variant="outline"
   >
     {line}
@@ -41,21 +54,33 @@ const RuleBadge = ({ line }: { readonly line: string }) => (
 );
 
 /** The rule column: the rule check, or a dash when no memory file states it. */
-const RuleCell = ({ line }: { readonly line: string | undefined }) =>
+const RuleCell = ({
+  fixed,
+  line,
+}: {
+  readonly fixed: boolean;
+  readonly line: string | undefined;
+}) =>
   line === undefined ? (
     <span className="text-muted-foreground">—</span>
   ) : (
-    <RuleBadge line={line} />
+    <RuleBadge fixed={fixed} line={line} />
   );
+
+/** The cause sits in the "working" list: its rule stopped it. */
+const isFixed = (text: StatsText, key: string) =>
+  text.working.some((w) => w.key === key);
 
 /**
  * The row's columns as one wrapped line, under the cause, for a phone: a
  * seven-column table at 390px shows the first column and nothing else.
  */
 const NarrowSummary = ({
+  fixed,
   row,
   ruleLine,
 }: {
+  readonly fixed: boolean;
   readonly row: CauseRow;
   readonly ruleLine: string | undefined;
 }) => (
@@ -72,7 +97,9 @@ const NarrowSummary = ({
         ? ""
         : ` · ${fmtK(row.retryCtxTokens)} ctx re-read`}
     </p>
-    {ruleLine === undefined ? null : <RuleBadge line={ruleLine} />}
+    {ruleLine === undefined ? null : (
+      <RuleBadge fixed={fixed} line={ruleLine} />
+    )}
   </div>
 );
 
@@ -142,7 +169,14 @@ const DetailRow = ({
             </Button>
           </div>
           {row.rule === null ? null : (
-            <div className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs">
+            <div
+              className={cn(
+                "flex flex-col gap-1 rounded-md border p-2 text-xs",
+                isFixed(text, row.key)
+                  ? "border-emerald-500/40 bg-emerald-500/5"
+                  : "border-amber-500/40 bg-amber-500/5"
+              )}
+            >
               <p>
                 {text.ruleLines[row.key]}
                 {" — "}
@@ -278,7 +312,11 @@ export const CauseTable = ({
                     </Badge>
                     <Badge variant="secondary">{row.kind}</Badge>
                   </div>
-                  <NarrowSummary row={row} ruleLine={text.ruleLines[row.key]} />
+                  <NarrowSummary
+                    fixed={isFixed(text, row.key)}
+                    row={row}
+                    ruleLine={text.ruleLines[row.key]}
+                  />
                 </TableCell>
                 <TableCell className={cn(WIDE, "align-top font-mono text-sm")}>
                   {n(row.hits)}
@@ -304,7 +342,10 @@ export const CauseTable = ({
                   {row.tokensMeasured === 0 ? "—" : fmtK(row.retryCtxTokens)}
                 </TableCell>
                 <TableCell className="hidden min-w-[16ch] align-top text-xs whitespace-normal md:table-cell">
-                  <RuleCell line={text.ruleLines[row.key]} />
+                  <RuleCell
+                    fixed={isFixed(text, row.key)}
+                    line={text.ruleLines[row.key]}
+                  />
                 </TableCell>
               </TableRow>
               {openKey === row.key ? (

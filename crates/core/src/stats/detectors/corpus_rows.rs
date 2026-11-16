@@ -3,6 +3,7 @@
 use crate::js::json_out::Writer;
 use crate::model::Agent;
 use crate::pricing::{CostTokens, base_cost, card_for};
+use crate::stats::accumulate::SampleRef;
 use crate::stats::schema::Kind;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -87,12 +88,60 @@ pub struct CostRow {
     pub tokens: Tokens,
 }
 
+/// Subagents and workflow agents: what they cost, and the prompt prefix every
+/// agent pays for again.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FanoutInsight {
+    pub usd: f64,
+    pub agents: f64,
+    /// Main sessions that spawned them.
+    pub parents: f64,
+    pub prefix_tokens: f64,
+    pub prefix_usd: f64,
+    /// The parents that spent most on agents.
+    pub samples: Vec<SampleRef>,
+}
+
+/// The few main sessions that re-read the most cached context.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContextInsight {
+    pub head: f64,
+    pub mains: f64,
+    pub head_read: f64,
+    pub total_read: f64,
+    /// What the head's cache reads cost.
+    pub usd: f64,
+    pub samples: Vec<SampleRef>,
+}
+
+/// Web calls that fetched a url or query again.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WebInsight {
+    /// Repeats inside the run that already fetched it.
+    pub in_run: f64,
+    /// Urls or queries fetched more than once.
+    pub repeated: f64,
+    pub calls: f64,
+    pub samples: Vec<SampleRef>,
+}
+
+/// What the corpus panels say is worth changing.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CostInsights {
+    /// Estimated USD of every session in the window.
+    pub total_usd: f64,
+    pub fanout: Option<FanoutInsight>,
+    pub context: Option<ContextInsight>,
+    pub web: Option<WebInsight>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct CorpusPanels {
     pub context: Vec<ContextRow>,
     pub fanout: Vec<FanoutRow>,
     pub web: Vec<WebRepeatRow>,
     pub cost: Vec<CostRow>,
+    pub insights: CostInsights,
 }
 
 impl CorpusPanels {

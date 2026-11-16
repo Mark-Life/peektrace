@@ -9,7 +9,7 @@ use peektrace_core::stats::detectors::retries::CauseRow;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::findings::{
     Finding, FindingFormat, NO_RULE, cause_impact_with, cause_note, cause_spread_with,
-    fail_spread_with, findings_with, time_note_with, time_spread_with,
+    fail_spread_with, findings_with, time_note_with, time_spread_with, working_with,
 };
 use peektrace_core::stats::format::{hms, percent, short_id};
 use peektrace_core::stats::report::StatsReport;
@@ -45,8 +45,11 @@ pub struct DrillTarget {
     pub table: DrillTable,
 }
 
+/// Findings to act on, then the causes a rule already stopped.
 pub fn findings_of(report: &StatsReport) -> Vec<Finding> {
-    findings_with(report, &FORMAT)
+    let mut all = findings_with(report, &FORMAT);
+    all.extend(working_with(report, &FORMAT));
+    all
 }
 
 pub fn short_sid(sid: &str) -> String {
@@ -233,7 +236,7 @@ fn cause_target(row: &CauseRow) -> DrillTarget {
 
 /// A finding resolved back to the row it came from.
 pub fn finding_target(f: &Finding, r: &StatsReport) -> Option<DrillTarget> {
-    match f.table {
+    match f.table? {
         DrillTable::Cause => r.causes.iter().find(|x| x.key == f.key).map(cause_target),
         DrillTable::Fail => r.fails.iter().find(|x| x.key == f.key).map(fail_target),
         _ => r

@@ -70,6 +70,11 @@ pub struct CoverSince<'a> {
 /// What the rule check reads back from the cause table.
 pub trait CauseCounts {
     fn since(&self, key: &str, covers: &[CoverSince<'_>]) -> (Split, Split);
+
+    /// Dated hits anywhere, up to and including `day`, then after it.
+    fn around(&self, _key: &str, _day: &str) -> (Split, Split) {
+        (Split::default(), Split::default())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +88,11 @@ pub struct RuleMatch {
 pub struct RuleCheck {
     pub matches: Vec<RuleMatch>,
     pub since_iso: Option<String>,
+    /// Dated hits anywhere up to and including the rule's day; zero when
+    /// the rule has no date.
+    pub hits_through: Split,
+    /// Dated hits anywhere after the rule's day, in reach or not.
+    pub hits_after: Split,
     pub hits_since: Split,
     pub calls_since: Split,
     pub per1k_since: Split,
@@ -315,6 +325,11 @@ pub fn check_row(
         })
         .collect();
     let (hits, calls) = counts.since(row.key, &covers);
+    let (hits_through, hits_after) = if after_day.is_empty() {
+        (Split::default(), Split::default())
+    } else {
+        counts.around(row.key, &after_day)
+    };
     let mut listed = HashSet::new();
     let matches: Vec<RuleMatch> = found
         .iter()
@@ -330,6 +345,8 @@ pub fn check_row(
     Some(RuleCheck {
         matches,
         since_iso: newest.map(|n| to_iso_string(n as i64)),
+        hits_through,
+        hits_after,
         hits_since: hits,
         calls_since: calls,
         per1k_since: per1k_of(hits, calls),

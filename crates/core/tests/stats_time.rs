@@ -172,7 +172,11 @@ fn a_capped_run_is_split_out_of_its_job_total() {
     let wait = row(&r.rows, Job::WaitPoll);
     assert_eq!((wait.capped_runs, wait.capped_sec), (1.0, 600.0));
     assert!(wait.total_sec > wait.capped_sec);
-    assert!(r.caveats.iter().any(|c| c.contains("harness ceiling")));
+    assert!(
+        r.caveats
+            .iter()
+            .any(|c| c.contains("hit the harness time limit"))
+    );
 }
 
 #[test]

@@ -3,8 +3,9 @@
 
 use peektrace_protocol::stats_text::{
     CAUSES_SECTION, CLUSTERS_SECTION, EMPTY_CAUSES, EMPTY_FAILS, EMPTY_FINDINGS, EMPTY_TIME,
-    FAILS_SECTION, FINDINGS_SECTION, SUGGESTED_NOTE, SUGGESTED_TITLE, Section, TIME_SECTION,
-    WAITING_SECTION, retry_note,
+    FAILS_SECTION, FINDINGS_SECTION, FINDINGS_VISIBLE, MEASURED_TITLE, SUGGESTED_NOTE,
+    SUGGESTED_TITLE, Section, TIME_SECTION, WAITING_SECTION, WORKING_NOTE, WORKING_TITLE,
+    retry_note,
 };
 use serde_json::{Value, json};
 
@@ -131,6 +132,17 @@ fn stats_copy() -> String {
             "The suggested-rules box under the findings.",
             "STATS_SUGGESTED",
             &json_lit(&json!({ "title": SUGGESTED_TITLE, "note": SUGGESTED_NOTE })),
+            None,
+        ),
+        constant(
+            "How many findings show first, the collapsed list of causes a rule stopped, and the measurement-notes link.",
+            "STATS_FINDINGS",
+            &json_lit(&json!({
+                "visible": FINDINGS_VISIBLE,
+                "workingTitle": WORKING_TITLE,
+                "workingNote": WORKING_NOTE,
+                "measuredTitle": MEASURED_TITLE,
+            })),
             None,
         ),
         constant(

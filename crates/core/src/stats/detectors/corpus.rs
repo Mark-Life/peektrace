@@ -1,21 +1,28 @@
 //! Corpus panels from session rows: context peaks, workflow fan-out,
 //! repeated web fetches and the cost estimate.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use indexmap::IndexMap;
 
 use crate::js::num::{js_round, to_fixed, to_js_string};
 use crate::model::Agent;
-use crate::pricing::{card_for, pricing_echo};
+use crate::pricing::{CardCache, CostTokens, card_for, pricing_echo, turn_cost};
 use crate::stats::accumulate::FinishCtx;
-use crate::stats::rank::{cmp_str, desc, rank, round, share, top_key, uniq_sorted};
-use crate::stats::schema::{Fact, Kind, SessionFact};
+use crate::stats::rank::{cmp_str, desc, rank, round, top_key, uniq_sorted};
+use crate::stats::schema::{Fact, Kind, SessionFact, UsageFact};
 
-pub use super::corpus_rows::{ContextRow, CorpusPanels, CostRow, FanoutRow, Tokens, WebRepeatRow};
+use super::usage::dedup_key_of;
+
+pub use super::corpus_rows::{
+    ContextInsight, ContextRow, CorpusPanels, CostInsights, CostRow, FanoutInsight, FanoutRow,
+    Tokens, WebInsight, WebRepeatRow,
+};
+
+#[path = "corpus_insights.rs"]
+mod insights;
 
 const UNKNOWN_MODEL: &str = "(unknown)";
-const CONCENTRATION_HEAD: f64 = 0.01;
 pub const WEB_TOOLS: [&str; 4] = ["WebFetch", "WebSearch", "web_search", "web_search_call"];
 
 #[derive(Debug, Clone)]
@@ -24,6 +31,7 @@ struct SessionAgg {
     agent: Agent,
     project: String,
     kind: Kind,
+    parent: Option<String>,
     run: Option<String>,
     models: Vec<String>,
     max_context_tokens: f64,
@@ -74,10 +82,6 @@ pub fn compact(n: f64) -> String {
     }
 }
 
-fn pct(part: f64, total: f64) -> String {
-    format!("{}%", to_fixed(share(part, total) * 100.0, 1))
-}
-
 /// Per workflow run: prefix tokens, sessions per project, agent ids.
 type RunAgg = (f64, IndexMap<String, f64>, HashSet<String>);
 
@@ -87,7 +91,17 @@ struct WebAgg {
     chars: f64,
     runs: HashSet<String>,
     sessions: HashSet<String>,
+    /// Root session to its agent and project, for links.
+    roots: IndexMap<String, (Agent, String)>,
     tool: String,
+}
+
+/// Per-call cost of one model, from usage facts.
+#[derive(Default)]
+struct ModelUsage {
+    tokens: Tokens,
+    usd: f64,
+    sids: HashSet<String>,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -96,21 +110,13 @@ struct CostAgg {
     tokens: Tokens,
 }
 
-fn note_dropped(ctx: &mut FinishCtx<'_>, dropped: usize, what: &str) {
-    if dropped > 0 {
-        ctx.caveat(format!("{dropped} more {what} not shown"));
-    }
-}
-
 struct CostBlock<'a> {
     aggs: &'a IndexMap<String, CostAgg>,
     limit: f64,
     prefix: &'a str,
-    what: &'a str,
 }
 
 fn cost_block(
-    ctx: &mut FinishCtx<'_>,
     b: &CostBlock<'_>,
     name: &dyn Fn(&str) -> String,
     usd_of: &dyn Fn(&str, &CostAgg) -> f64,
@@ -135,7 +141,6 @@ fn cost_block(
         |x, y| desc(x.1, y.1).then_with(|| cmp_str(&x.0, &y.0)),
         b.limit,
     );
-    note_dropped(ctx, ranked.dropped, b.what);
     ranked.rows.into_iter().map(|(_, _, r)| r).collect()
 }
 
@@ -146,6 +151,13 @@ pub struct CorpusPanelSink {
     run_calls: IndexMap<String, (f64, f64)>,
     web: IndexMap<String, WebAgg>,
     web_calls: f64,
+    /// Per-call cost by session, from usage facts.
+    usd_by_sid: HashMap<String, f64>,
+    /// Sessions with any usage fact, counted before dedup.
+    has_usage: HashSet<String>,
+    usage_by_model: IndexMap<String, ModelUsage>,
+    seen_calls: HashSet<String>,
+    cards: CardCache,
 }
 
 impl CorpusPanelSink {
@@ -174,11 +186,67 @@ impl CorpusPanelSink {
                         agg.calls += 1.0;
                         agg.chars += c.out_chars;
                         agg.sessions.insert(c.base.root_sid().to_owned());
+                        agg.roots
+                            .entry(c.base.root_sid().to_owned())
+                            .or_insert_with(|| (c.base.agent, c.base.project.clone()));
                         agg.runs.insert(c.base.run.clone().unwrap_or_default());
                     }
                 }
             }
-            Fact::Usage(_) => {}
+            Fact::Usage(u) => self.add_usage(u),
+        }
+    }
+
+    /// Price one model call, once per request id.
+    fn add_usage(&mut self, u: &UsageFact) {
+        let t = Tokens {
+            input: u.input_tokens,
+            output: u.output_tokens,
+            cache_read: u.cache_read_tokens,
+            cache_creation: u.cache_creation_tokens,
+        };
+        if !self.sessions.contains_key(&u.sid) {
+            return;
+        }
+        self.has_usage.insert(u.sid.clone());
+        if t.input + t.output + t.cache_read + t.cache_creation == 0.0
+            || !self
+                .seen_calls
+                .insert(dedup_key_of(u.agent, &u.sid, &u.req))
+        {
+            return;
+        }
+        let card = self.cards.get(&u.model);
+        let usd = turn_cost(
+            card.as_ref(),
+            &CostTokens {
+                input: t.input,
+                output: t.output,
+                cache_read: t.cache_read,
+                cache_creation: t.cache_creation,
+                cache_creation_1h: None,
+            },
+        )
+        .unwrap_or(0.0);
+        *self.usd_by_sid.entry(u.sid.clone()).or_default() += usd;
+        let model = if u.model.is_empty() {
+            UNKNOWN_MODEL
+        } else {
+            &u.model
+        };
+        let m = self.usage_by_model.entry(model.to_owned()).or_default();
+        m.tokens = m.tokens.add(t);
+        m.usd += usd;
+        m.sids.insert(u.sid.clone());
+    }
+
+    /// A session's estimate: its priced calls, else its totals split evenly
+    /// across its models.
+    fn usd_of(&self, s: &SessionAgg) -> f64 {
+        if self.has_usage.contains(&s.sid) {
+            self.usd_by_sid.get(&s.sid).copied().unwrap_or(0.0)
+        } else {
+            session_cost(s)
         }
     }
 
@@ -207,6 +275,7 @@ impl CorpusPanelSink {
                         agent: f.base.agent,
                         project: f.base.project.clone(),
                         kind: f.base.kind,
+                        parent: f.base.parent.clone(),
                         run: f.base.run.clone(),
                         models: f.models.clone(),
                         max_context_tokens: f.max_context_tokens,
@@ -218,90 +287,53 @@ impl CorpusPanelSink {
         }
     }
 
-    #[expect(
-        clippy::cast_precision_loss,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss
-    )]
-    fn context_panel(&self, ctx: &mut FinishCtx<'_>) -> Vec<ContextRow> {
+    fn context_panel(&self, ctx: &FinishCtx<'_>) -> Vec<ContextRow> {
         let mains: Vec<&SessionAgg> = self
             .sessions
             .values()
             .filter(|s| s.kind == Kind::Main)
             .collect();
-        let total_read = mains.iter().fold(0.0, |a, s| a + s.tokens.cache_read);
-        let head = ((mains.len() as f64 * CONCENTRATION_HEAD).ceil() as usize).max(1);
-        let mut by_read = mains.clone();
-        by_read.sort_by(|a, b| {
-            desc(a.tokens.cache_read, b.tokens.cache_read).then_with(|| cmp_str(&a.sid, &b.sid))
-        });
-        let head_read = by_read
-            .iter()
-            .take(head)
-            .fold(0.0, |a, s| a + s.tokens.cache_read);
-        if total_read > 0.0 {
-            ctx.caveat(format!(
-                "Context: the top 1% of main sessions ({head} of {}) hold {} of {} cache-read tokens — compact or split those sessions before tuning anything else",
-                mains.len(),
-                pct(head_read, total_read),
-                compact(total_read)
-            ));
-        }
-        let ranked = rank(
+        rank(
             mains,
             |a, b| {
                 desc(a.max_context_tokens, b.max_context_tokens)
                     .then_with(|| cmp_str(&a.sid, &b.sid))
             },
             ctx.limit,
-        );
-        note_dropped(ctx, ranked.dropped, "context sessions");
-        ranked
-            .rows
-            .into_iter()
-            .map(|s| ContextRow {
-                key: s.sid.clone(),
-                sid: s.sid.clone(),
-                agent: s.agent,
-                project: ctx.redact.text(&s.project),
-                kind: s.kind,
-                max_context_tokens: s.max_context_tokens,
-                cache_read_tokens: s.tokens.cache_read,
-                cache_creation_tokens: s.tokens.cache_creation,
-                output_tokens: s.tokens.output,
+        )
+        .rows
+        .into_iter()
+        .map(|s| ContextRow {
+            key: s.sid.clone(),
+            sid: s.sid.clone(),
+            agent: s.agent,
+            project: ctx.redact.text(&s.project),
+            kind: s.kind,
+            max_context_tokens: s.max_context_tokens,
+            cache_read_tokens: s.tokens.cache_read,
+            cache_creation_tokens: s.tokens.cache_creation,
+            output_tokens: s.tokens.output,
+        })
+        .collect()
+    }
+
+    fn workflow_agents(&self) -> Vec<&SessionAgg> {
+        self.sessions
+            .values()
+            .filter(|s| {
+                s.kind == Kind::WorkflowAgent && s.run.as_deref().is_some_and(|r| !r.is_empty())
             })
             .collect()
     }
 
     #[expect(clippy::cast_precision_loss)]
-    fn fanout_panel(&self, ctx: &mut FinishCtx<'_>) -> Vec<FanoutRow> {
-        let agents: Vec<&SessionAgg> = self
-            .sessions
-            .values()
-            .filter(|s| {
-                s.kind == Kind::WorkflowAgent && s.run.as_deref().is_some_and(|r| !r.is_empty())
-            })
-            .collect();
+    fn fanout_panel(&self, ctx: &FinishCtx<'_>) -> Vec<FanoutRow> {
         let mut by_run: IndexMap<String, RunAgg> = IndexMap::new();
-        for s in &agents {
+        for s in self.workflow_agents() {
             let e = by_run.entry(s.run.clone().unwrap_or_default()).or_default();
             e.0 += s.first_turn_cache_creation;
             *e.1.entry(s.project.clone()).or_default() += 1.0;
             e.2.insert(s.sid.clone());
-        }
-        let created = agents.iter().fold(0.0, |a, s| a + s.tokens.cache_creation);
-        let prefix = agents
-            .iter()
-            .fold(0.0, |a, s| a + s.first_turn_cache_creation);
-        if created > 0.0 {
-            ctx.caveat(format!(
-                "Fan-out: {} of workflow cache creation ({} of {} tokens) is first-turn prefix, re-paid by every agent a run spawns — shrink the shared prefix or spawn fewer agents; filtered to {} workflow-agent transcripts across {} runs",
-                pct(prefix, created),
-                compact(prefix),
-                compact(created),
-                agents.len(),
-                by_run.len()
-            ));
         }
         let rows: Vec<FanoutRow> = by_run
             .iter()
@@ -317,17 +349,16 @@ impl CorpusPanelSink {
                 }
             })
             .collect();
-        let ranked = rank(
+        rank(
             rows,
             |a, b| desc(a.prefix_tokens, b.prefix_tokens).then_with(|| cmp_str(&a.key, &b.key)),
             ctx.limit,
-        );
-        note_dropped(ctx, ranked.dropped, "workflow runs");
-        ranked.rows
+        )
+        .rows
     }
 
     #[expect(clippy::cast_precision_loss)]
-    fn web_panel(&self, ctx: &mut FinishCtx<'_>) -> Vec<WebRepeatRow> {
+    fn web_panel(&self, ctx: &FinishCtx<'_>) -> Vec<WebRepeatRow> {
         let repeats: Vec<WebRepeatRow> = self
             .web
             .iter()
@@ -341,25 +372,12 @@ impl CorpusPanelSink {
                 same_run: a.runs.len() == 1 && !a.runs.contains(""),
             })
             .collect();
-        let in_run = repeats
-            .iter()
-            .filter(|r| r.same_run)
-            .fold(0.0, |a, r| a + (r.calls - 1.0));
-        if !repeats.is_empty() {
-            ctx.caveat(format!(
-                "Web: {} of {} web calls re-fetched a url or query already answered inside the same run — cache the fetch at run level; {} urls were fetched more than once overall",
-                to_js_string(in_run),
-                to_js_string(self.web_calls),
-                repeats.len()
-            ));
-        }
-        let ranked = rank(
+        rank(
             repeats,
             |a, b| desc(a.calls, b.calls).then_with(|| cmp_str(&a.key, &b.key)),
             ctx.limit,
-        );
-        note_dropped(ctx, ranked.dropped, "repeated web fetches");
-        ranked.rows
+        )
+        .rows
     }
 
     #[expect(clippy::cast_precision_loss)]
@@ -369,67 +387,74 @@ impl CorpusPanelSink {
         let mut by_model: IndexMap<String, CostAgg> = IndexMap::new();
         let mut usd_by_kind: IndexMap<String, f64> = IndexMap::new();
         let mut usd_by_project: IndexMap<String, f64> = IndexMap::new();
-        let mut unpriced: Vec<String> = Vec::new();
-        let mut multi_model = 0usize;
+        let mut usd_by_model: IndexMap<String, f64> = IndexMap::new();
+        let mut split = 0usize;
         let fold = |map: &mut IndexMap<String, CostAgg>, key: &str, t: Tokens| {
             let e = map.entry(key.to_owned()).or_default();
             e.sessions += 1.0;
             e.tokens = e.tokens.add(t);
         };
+        for (model, u) in &self.usage_by_model {
+            let e = by_model.entry(model.clone()).or_default();
+            e.sessions += u.sids.len() as f64;
+            e.tokens = e.tokens.add(u.tokens);
+            *usd_by_model.entry(model.clone()).or_default() += u.usd;
+        }
         for s in self.sessions.values() {
             fold(&mut by_kind, s.kind.as_str(), s.tokens);
             fold(&mut by_project, &s.project, s.tokens);
-            let cost = session_cost(s);
+            let cost = self.usd_of(s);
             *usd_by_kind.entry(s.kind.as_str().to_owned()).or_default() += cost;
             *usd_by_project.entry(s.project.clone()).or_default() += cost;
+            if self.has_usage.contains(&s.sid) {
+                continue;
+            }
             let slices = model_slices(s);
             if slices.len() > 1 {
-                multi_model += 1;
+                split += 1;
             }
             for (model, t) in slices {
+                *usd_by_model.entry(model.clone()).or_default() += t.cost(&model);
                 fold(&mut by_model, &model, t);
-                if card_for(&model).is_none() && !unpriced.contains(&model) {
-                    unpriced.push(model);
-                }
             }
         }
+        let unpriced: Vec<&str> = by_model
+            .keys()
+            .filter(|m| card_for(m).is_none())
+            .map(String::as_str)
+            .collect();
         ctx.caveat(format!(
-            "Cost is an ESTIMATE, not a measurement: no transcript records per-call tokens. Rates per million tokens (input/output/cacheWrite/cacheRead USD): {}",
+            "Cost is estimated at API list prices from each model call's token counts. Rates per million tokens (input / output / cache write / cache read, USD): {}",
             pricing_echo(by_model.keys().map(String::as_str))
         ));
         if !unpriced.is_empty() {
             ctx.caveat(format!(
-                "Cost: {} model ids have no rate card and are left out of the cost — {}",
+                "{} model ids have no price, so their calls are left out of the cost: {}",
                 unpriced.len(),
-                uniq_sorted(unpriced.iter().map(String::as_str)).join(", ")
+                uniq_sorted(unpriced).join(", ")
             ));
         }
-        if multi_model > 0 {
+        if split > 0 {
             ctx.caveat(format!(
-                "Cost by model splits each session's tokens evenly across the models it used, because a session fact records no per-model split; {multi_model} of {} sessions used more than one model",
-                self.sessions.len()
+                "{split} sessions record no per-call token counts and used more than one model: their cost splits the session total evenly across those models"
             ));
         }
         let redact = ctx.redact;
         let mut out = cost_block(
-            ctx,
             &CostBlock {
                 aggs: &by_kind,
                 limit: by_kind.len() as f64,
                 prefix: "kind",
-                what: "session kinds",
             },
             &|k| k.to_owned(),
             &|k, _| usd_by_kind.get(k).copied().unwrap_or(0.0),
         );
         let limit = ctx.limit;
         out.extend(cost_block(
-            ctx,
             &CostBlock {
                 aggs: &by_model,
                 limit,
                 prefix: "model",
-                what: "models",
             },
             &|k| {
                 if card_for(k).is_some() {
@@ -438,15 +463,13 @@ impl CorpusPanelSink {
                     format!("{k} (unpriced)")
                 }
             },
-            &|k, a| a.tokens.cost(k),
+            &|k, _| usd_by_model.get(k).copied().unwrap_or(0.0),
         ));
         out.extend(cost_block(
-            ctx,
             &CostBlock {
                 aggs: &by_project,
                 limit,
                 prefix: "project",
-                what: "projects",
             },
             &|k| redact.text(k),
             &|k, _| usd_by_project.get(k).copied().unwrap_or(0.0),
@@ -460,6 +483,7 @@ impl CorpusPanelSink {
             fanout: self.fanout_panel(ctx),
             web: self.web_panel(ctx),
             cost: self.cost_panel(ctx),
+            insights: self.insights(ctx),
         }
     }
 }

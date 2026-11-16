@@ -71,20 +71,27 @@ fn a_time_row_says_only_what_its_own_columns_measured() {
     );
     let notes = text(&r).time_notes;
     assert_eq!(notes.get("typecheck"), None);
-    assert!(notes["test"].contains("harness ceiling"), "{notes:?}");
-    assert!(notes["wait/poll"].contains("backgrounded"), "{notes:?}");
+    assert!(notes["test"].contains("harness time limit"), "{notes:?}");
+    assert!(notes["test"].contains("background"), "{notes:?}");
+    assert!(notes["wait/poll"].contains("background"), "{notes:?}");
 }
 
 // stats-format.test.tsx:83
 #[test]
-fn findings_lead_with_the_cheapest_fix_then_each_tables_own_impact() {
+fn fail_and_time_rows_are_never_findings_except_one_folded_piped_finding() {
+    let piped = |key: &str, n: f64| {
+        fail_row(key, |f| {
+            f.detector = Some("piped-exit-code".into());
+            f.note = Some("555 of 576 pipe into head/tail".into());
+            f.piped = n;
+            f.sessions = 225.0;
+        })
+    };
     let r = report(
         vec![],
         vec![
-            fail_row("scan:tsc", |f| {
-                f.note = Some("555 of 576 pipe into head/tail".into());
-                f.sessions = 225.0;
-            }),
+            piped("scan:tsc", 5.0),
+            piped("scan:jest", 1.0),
             fail_row("detect:zsh-equals-abort", |f| {
                 f.detector = Some("zsh-equals-abort".into());
                 f.note = Some("quote the separator: echo \"===\"".into());
@@ -99,10 +106,9 @@ fn findings_lead_with_the_cheapest_fix_then_each_tables_own_impact() {
     );
     let findings = text(&r).findings;
     let keys: Vec<&str> = findings.iter().map(|f| f.key.as_str()).collect();
-    assert_eq!(keys, ["detect:zsh-equals-abort", "scan:tsc", "test"]);
-    assert!(!keys.contains(&"flag:Bash"));
-    assert_eq!(findings[0].impact, "91 sessions");
-    assert_eq!(findings[findings.len() - 1].impact, "1m40s");
+    assert_eq!(keys, ["scan:tsc"]);
+    assert_eq!(findings[0].title, "Piped output hides failed exit codes");
+    assert_eq!(findings[0].impact, "6 calls");
 }
 
 // stats-format.test.tsx:115
@@ -155,7 +161,7 @@ fn a_subagent_chip_names_its_parent_session_and_says_subagent() {
 
 // stats-format.test.tsx:236
 #[test]
-fn a_cause_finding_leads_ahead_of_the_fail_rows() {
+fn a_fail_row_with_no_fix_is_not_a_finding() {
     let r = report(
         vec![cause_row(|_| {})],
         vec![fail_row("scan:tsc", |f| {
@@ -165,15 +171,9 @@ fn a_cause_finding_leads_ahead_of_the_fail_rows() {
         vec![],
     );
     let findings = text(&r).findings;
-    let order: Vec<(DrillTable, &str)> =
+    let order: Vec<(Option<DrillTable>, &str)> =
         findings.iter().map(|f| (f.table, f.key.as_str())).collect();
-    assert_eq!(
-        order,
-        [
-            (DrillTable::Cause, "cause:zsh-glob-flag"),
-            (DrillTable::Fail, "scan:tsc")
-        ]
-    );
+    assert_eq!(order, [(Some(DrillTable::Cause), "cause:zsh-glob-flag")]);
     assert_eq!(
         findings[0].impact,
         "675 retries (main 41 / sub 634) · 44m20s · 32.3M ctx tokens re-read"

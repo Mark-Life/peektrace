@@ -6,9 +6,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::DrillTable;
+use crate::wire::stats::SampleRef;
 
 /// One finding: a row that names a change, and the route back to it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct Finding {
@@ -21,8 +22,11 @@ pub struct Finding {
     pub rule: Option<String>,
     /// How wide it reaches, in that table's own columns.
     pub spread: String,
-    pub table: DrillTable,
+    /// The table it drills into; `None` for a cost finding.
+    pub table: Option<DrillTable>,
     pub title: String,
+    /// The sessions it came from.
+    pub samples: Vec<SampleRef>,
 }
 
 /// The investigation prompts of one report, by row key.
@@ -51,12 +55,15 @@ impl StatsPrompts {
 }
 
 /// Text core composes for one report, in the inspector's number format.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct StatsText {
-    /// Rows that name a change, cheapest change first.
+    /// Rows that name a change, largest share of the spend first, then
+    /// causes by hits since their last fix.
     pub findings: Vec<Finding>,
+    /// Causes a memory rule already stopped.
+    pub working: Vec<Finding>,
     /// Every suggested memory line, in the cause table's order.
     pub suggested: Vec<String>,
     pub prompts: StatsPrompts,
@@ -81,9 +88,25 @@ pub struct Section {
 
 pub const FINDINGS_SECTION: Section = Section {
     title: "Flagged findings",
-    ranked_by: "cheapest fix first, then by each table's own impact",
+    ranked_by: "largest share of the spend, then hits since the last fix",
     note: None,
 };
+
+/// Findings a surface shows before the reader asks for more.
+pub const FINDINGS_VISIBLE: usize = 3;
+
+/// The collapsed list of causes a rule already stopped.
+pub const WORKING_TITLE: &str = "Working";
+pub const WORKING_NOTE: &str = "causes with no hit since their memory rule";
+
+/// The link to the measurement notes; [`measured_link`] adds the count.
+pub const MEASURED_TITLE: &str = "How these numbers are measured";
+
+/// `How these numbers are measured (3 notes)`.
+pub fn measured_link(notes: usize) -> String {
+    let unit = if notes == 1 { "note" } else { "notes" };
+    format!("{MEASURED_TITLE} ({notes} {unit})")
+}
 
 /// The retry note names the retry window, so [`retry_note`] writes it.
 pub const CAUSES_SECTION: Section = Section {

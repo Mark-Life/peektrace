@@ -99,13 +99,13 @@ fn window_ms(w: &StatsWindow, local: &dyn LocalZone) -> (f64, f64) {
 }
 
 const BASE_CAVEATS: [&str; 7] = [
-    "durSec is the gap between a call and its result: it includes harness overhead and approval waits",
-    "silent-failure counts are a floor: a detector only sees the output the transcript stored",
-    "backgrounded runs are charged the seconds they took, which understates the wait they started",
-    "shell causes cover Claude, OpenCode and Pi shell rows; Codex exec_command output is not parsed for causes",
+    "A call's time is the gap between the call and its result, so it includes harness overhead and time spent waiting for your approval",
+    "Failure counts are a floor: a detector sees only the output the transcript kept",
+    "A command sent to the background is charged only the seconds it ran, not the wait it started",
+    "Retry causes cover Claude, OpenCode and Pi shell calls. Codex shell output is not read for causes",
     "",
-    "subagent and workflow-agent transcripts count their own model calls, so their tokens and cost are measured, not zero",
-    "a rule match is a keyword probe over CLAUDE.md/AGENTS.md: it means a line mentions the habit, not that it states the fix",
+    "Subagent and workflow-agent transcripts record their own model calls, so their tokens and cost are counted",
+    "A rule match means a CLAUDE.md or AGENTS.md line mentions the habit, found by keywords. It does not prove the line states the fix",
 ];
 
 fn base_caveats() -> Vec<String> {
@@ -114,7 +114,7 @@ fn base_caveats() -> Vec<String> {
         .map(|c| {
             if c.is_empty() {
                 format!(
-                    "a retry pair is a failed call followed within {} calls by a similar (hybrid similarity >= {}) succeeding call of the same tool, about 87% precise on a hand-labelled sample; retry seconds are call-to-call gaps of at most {}s",
+                    "A retry is a failed call followed within {} calls by a similar call of the same tool that succeeded (similarity at least {}). A hand check found 87% of them right. Retry time is the gap between the two calls, at most {}s",
                     to_js_string(RETRY_WINDOW),
                     to_js_string(PAIR_THRESHOLD),
                     to_js_string(MAX_RETRY_GAP_SEC)
@@ -232,11 +232,13 @@ pub fn report(env: &StatsEnv<'_>, req: &ReportRequest) -> Result<StatsReport, St
         };
         row.rule = check_row(&rr, &docs, &d.causes, &dates, &redact);
     }
+    // A cause its rule stopped ranks after every live one.
+    causes.sort_by_key(crate::stats::findings::is_working);
     let pairs: f64 = causes.iter().map(|r| r.pairs).sum();
     let costed: f64 = causes.iter().map(|r| r.tokens_measured).sum();
     if pairs > costed {
         ctx.caveat(format!(
-            "{} of {} retry pairs are uncosted in tokens: sidechain calls and calls with no recorded model usage carry no context count",
+            "{} of {} retries have no token count: sidechain calls and calls with no recorded model usage carry none",
             to_js_string(pairs - costed),
             to_js_string(pairs)
         ));

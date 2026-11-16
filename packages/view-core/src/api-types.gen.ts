@@ -709,15 +709,28 @@ rule: string | null,
 /**
  * How wide it reaches, in that table's own columns.
  */
-spread: string, table: DrillTable, title: string, };
+spread: string, 
+/**
+ * The table it drills into; `None` for a cost finding.
+ */
+table: DrillTable | null, title: string, 
+/**
+ * The sessions it came from.
+ */
+samples: ReadonlyArray<SampleRef>, };
 
 export type StatsPrompts = { report: string, cause: Record<string, string>, fail: Record<string, string>, time: Record<string, string>, };
 
 export type StatsText = { 
 /**
- * Rows that name a change, cheapest change first.
+ * Rows that name a change, largest share of the spend first, then
+ * causes by hits since their last fix.
  */
 findings: ReadonlyArray<Finding>, 
+/**
+ * Causes a memory rule already stopped.
+ */
+working: ReadonlyArray<Finding>, 
 /**
  * Every suggested memory line, in the cause table's order.
  */

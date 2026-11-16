@@ -452,8 +452,13 @@ fn the_report_detectors_ignore_usage_rows() {
         (totals.finish(), p)
     };
     let got = fold(&with_usage);
-    assert_eq!(got, fold(&base));
+    let want = fold(&base);
+    assert_eq!(got.0, want.0);
     assert_eq!(got.0.tool_calls, 1.0);
+    // Usage rows price the cost panel and its insights; every other panel stays.
+    assert_eq!(got.1.context, want.1.context);
+    assert_eq!(got.1.fanout, want.1.fanout);
+    assert_eq!(got.1.web, want.1.web);
 }
 
 mod common;

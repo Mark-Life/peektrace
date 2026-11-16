@@ -219,7 +219,7 @@ export const NO_RULE = "no rule to suggest" as const;
 export const STATS_SECTIONS = {
   "findings": {
     title: "Flagged findings",
-    rankedBy: "cheapest fix first, then by each table's own impact",
+    rankedBy: "largest share of the spend, then hits since the last fix",
     note: null
   },
   "causes": {
@@ -253,6 +253,14 @@ export const STATS_SECTIONS = {
 export const STATS_SUGGESTED = {
   "note": "lines no CLAUDE.md / AGENTS.md states yet",
   "title": "Suggested rules"
+} as const;
+
+/** How many findings show first, the collapsed list of causes a rule stopped, and the measurement-notes link. */
+export const STATS_FINDINGS = {
+  "measuredTitle": "How these numbers are measured",
+  "visible": 3,
+  "workingNote": "causes with no hit since their memory rule",
+  "workingTitle": "Working"
 } as const;
 
 /** What a stats section says when this window has no row for it. */

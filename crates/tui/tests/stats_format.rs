@@ -16,6 +16,7 @@ fn fail_row(key: &str, edit: impl FnOnce(&mut FailRow)) -> FailRow {
         key: key.to_owned(),
         label: key.to_owned(),
         r#where: "Bash".into(),
+        piped: 0.0,
         rows: 10.0,
         sessions: 5.0,
         projects: 2.0,
@@ -107,7 +108,7 @@ fn keys(r: &StatsReport) -> Vec<String> {
 }
 
 #[test]
-fn findings_rank_by_effort_tier_never_by_a_blended_score() {
+fn time_and_fail_rows_are_never_findings() {
     let r = report(
         vec![],
         vec![
@@ -118,22 +119,35 @@ fn findings_rank_by_effort_tier_never_by_a_blended_score() {
             fail_row("named", |r| {
                 r.note = Some("quote the separator".into());
                 r.detector = Some("zsh-equals-abort".into());
-                r.sessions = 1.0;
             }),
-            fail_row("quiet", |r| r.sessions = 500.0),
         ],
         vec![time_row(|r| {
             r.capped_runs = 3.0;
             r.capped_sec = 60.0;
         })],
     );
-    assert_eq!(keys(&r), ["named", "plain", "test"]);
+    assert_eq!(keys(&r), Vec::<String>::new());
 }
 
 #[test]
 fn a_row_core_minted_no_note_for_is_never_a_finding() {
     let r = report(vec![], vec![fail_row("k", |_| {})], vec![time_row(|_| {})]);
     assert_eq!(findings_of(&r), []);
+}
+
+#[test]
+fn piped_fail_rows_fold_into_one_finding() {
+    let piped = |key: &str, n: f64| {
+        fail_row(key, |r| {
+            r.detector = Some("piped-exit-code".into());
+            r.piped = n;
+        })
+    };
+    let r = report(vec![], vec![piped("few", 1.0), piped("most", 4.0)], vec![]);
+    let found = findings_of(&r);
+    assert_eq!(found.len(), 1);
+    assert_eq!(found[0].key, "most");
+    assert_eq!(found[0].table, Some(DrillTable::Fail));
 }
 
 #[test]
@@ -155,17 +169,10 @@ fn the_note_strip_states_the_measurement_never_invented_advice() {
 
 #[test]
 fn a_cause_finding_leads_and_drills_into_the_cause_table() {
-    let r = report(
-        vec![cause_row(|_| {})],
-        vec![fail_row("named", |r| {
-            r.note = Some("x".into());
-            r.detector = Some("piped-exit-code".into());
-        })],
-        vec![],
-    );
+    let r = report(vec![cause_row(|_| {})], vec![], vec![]);
     let found = findings_of(&r);
     let found_keys: Vec<&str> = found.iter().map(|f| f.key.as_str()).collect();
-    assert_eq!(found_keys, ["cause:zsh-glob-flag", "named"]);
+    assert_eq!(found_keys, ["cause:zsh-glob-flag"]);
     let target = finding_target(&found[0], &r).expect("target");
     assert_eq!(target.table, DrillTable::Cause);
     assert_eq!(target.key, "cause:zsh-glob-flag");

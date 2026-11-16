@@ -299,10 +299,14 @@ impl TimeTable {
             ctx.limit,
         );
         if ranked.dropped > 0 {
-            ctx.caveat(format!("time: {} job rows not shown", ranked.dropped));
+            ctx.caveat(format!(
+                "The time table shows the top {} of {} jobs",
+                ranked.rows.len(),
+                ranked.total
+            ));
         }
         if any_capped {
-            ctx.caveat("a run that returned at a harness ceiling measures the ceiling, not the command: subtract cappedSec for the net total".to_owned());
+            ctx.caveat("A command that hit the harness time limit counts the limit, not its real run time, so those jobs' seconds are a floor".to_owned());
         }
         ranked.rows
     }

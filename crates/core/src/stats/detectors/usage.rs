@@ -382,19 +382,19 @@ impl<'a> UsageSink<'a> {
     fn caveats_of(&self, models: &[&str], unpriced: &[String]) -> Vec<String> {
         let s = &self.skipped;
         let mut out = vec![format!(
-            "Cost is an ESTIMATE at API list prices, priced per call: a long prompt bills at its card's long tier, and every cache write at the 5-minute rate. Base rates per million tokens (input/output/cacheWrite/cacheRead USD): {}",
+            "Cost is estimated at API list prices from each model call's token counts: a long prompt is priced at its model's long-context rate, and every cache write at the 5-minute rate. Base rates per million tokens (input / output / cache write / cache read, USD): {}",
             pricing_echo(models.iter().copied())
         )];
         if !unpriced.is_empty() {
             out.push(format!(
-                "Cost: {} model ids have no rate card and are left out of the cost — {}",
+                "{} model ids have no price, so their calls are left out of the cost: {}",
                 unpriced.len(),
                 unpriced.join(", ")
             ));
         }
         if s.duplicates > 0.0 {
             out.push(format!(
-                "{} model calls repeat a request id already seen and count once, so totals can sit below the report's cost panel",
+                "{} model calls repeat a request id already seen and count once",
                 s.duplicates
             ));
         }

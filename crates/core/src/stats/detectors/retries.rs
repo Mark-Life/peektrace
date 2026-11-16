@@ -42,6 +42,8 @@ pub struct CauseTable<'a> {
     drill_key: Option<String>,
     last_miss: HashMap<String, f64>,
     last_ran: HashMap<String, f64>,
+    /// Missing names some call ran as a command, not only as backticked text.
+    bare_miss: HashSet<String>,
     on_host: HashSet<String>,
     pairer: Pairer<'a>,
     flushed: bool,
@@ -61,6 +63,7 @@ impl<'a> CauseTable<'a> {
                 .map(|d| d.key.clone()),
             last_miss: HashMap::new(),
             last_ran: HashMap::new(),
+            bare_miss: HashSet::new(),
             on_host: HashSet::new(),
             pairer: Pairer::new(local),
             flushed: false,
@@ -152,7 +155,12 @@ impl<'a> CauseTable<'a> {
         let drill = self.drill_key.as_deref() == Some(cause_key_of(cause, &f.tool).as_str());
         let detail = detail_of(cause, f);
         if let (Some(d), CauseId::CommandNotFound) = (&detail, cause) {
-            Self::latest(&mut self.last_miss, bin_name(d), f, local);
+            let name = bin_name(d);
+            Self::latest(&mut self.last_miss, name, f, local);
+            let cmd = f.bash.as_ref().map_or("", |b| b.cmd.as_str());
+            if !cmd.contains(&format!("`{name}")) {
+                self.bare_miss.insert(name.to_owned());
+            }
         }
         let agg = self.agg_for(cause, &f.tool);
         if f.err {
@@ -245,13 +253,13 @@ impl<'a> CauseTable<'a> {
         let s = spec(agg.cause());
         match agg.cause() {
             CauseId::CommandNotFound => {
-                let bins: Vec<String> = top_counts(&agg.details, agg.details.len())
+                let bins: Vec<(String, f64)> = top_counts(&agg.details, agg.details.len())
                     .into_iter()
-                    .map(|(b, _)| b)
+                    .filter(|(b, _)| self.bare_miss.contains(bin_name(b)))
                     .collect();
-                let missing: Vec<String> = bins
+                let missing: Vec<(String, f64)> = bins
                     .iter()
-                    .filter(|b| !self.installed(b))
+                    .filter(|(b, _)| !self.installed(b))
                     .take(4)
                     .cloned()
                     .collect();
@@ -359,7 +367,11 @@ impl<'a> CauseTable<'a> {
             .collect();
         let ranked = rank(rows, compare_cause_rows, ctx.limit);
         if ranked.dropped > 0 {
-            ctx.caveat(format!("cause table: {} rows not shown", ranked.dropped));
+            ctx.caveat(format!(
+                "The retries table shows the top {} of {} causes",
+                ranked.rows.len(),
+                ranked.total
+            ));
         }
         ranked.rows
     }
@@ -456,6 +468,17 @@ impl CauseCounts for CauseTable<'_> {
         (
             sum_cells([&agg.hits_by_cell], &keep),
             sum_cells(self.den.of(agg), &keep),
+        )
+    }
+
+    fn around(&self, key: &str, day: &str) -> (Split, Split) {
+        let Some(agg) = self.aggs.get(key) else {
+            return (Split::default(), Split::default());
+        };
+        let dated = |c: &super::cells::Cell| !c.day.is_empty();
+        (
+            sum_cells([&agg.hits_by_cell], &|c| dated(c) && c.day.as_str() <= day),
+            sum_cells([&agg.hits_by_cell], &|c| dated(c) && c.day.as_str() > day),
         )
     }
 }

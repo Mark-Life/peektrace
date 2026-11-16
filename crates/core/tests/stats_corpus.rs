@@ -80,12 +80,12 @@ fn context_names_the_head_of_the_distribution() {
             })
         })
         .collect();
-    let (_, caveats) = run(&facts);
-    let note = caveat_with(&caveats, "top 1%");
-    assert!(
-        note.contains("(1 of 100)") && note.contains("90.0%"),
-        "{note}"
-    );
+    let (p, caveats) = run(&facts);
+    assert_eq!(caveat_with(&caveats, "top 1%"), "");
+    let i = p.insights.context.expect("context insight");
+    assert_eq!((i.head, i.mains, i.head_read), (1.0, 100.0, 900_000.0));
+    assert_eq!(i.total_read, 900_000.0 + 99.0 * 1010.0);
+    assert_eq!(i.samples[0].sid, "s000");
 }
 
 #[test]
@@ -102,10 +102,11 @@ fn context_leaves_agent_transcripts_out() {
         }),
     ]);
     assert_eq!(sids(&p), ["m"]);
-    let note = caveat_with(&caveats, "top 1%");
-    assert!(
-        note.contains("main sessions (1 of 1)") && note.contains("100.0%"),
-        "{note}"
+    assert_eq!(caveat_with(&caveats, "top 1%"), "");
+    let i = p.insights.context.expect("context insight");
+    assert_eq!(
+        (i.head, i.mains, i.head_read, i.total_read),
+        (1.0, 1.0, 100.0, 100.0)
     );
 }
 
@@ -174,14 +175,11 @@ fn fanout_sums_the_prefix_per_run() {
 }
 
 #[test]
-fn fanout_states_the_kind_it_filtered_to() {
-    let (_, caveats) = run(&fanout());
-    let note = caveat_with(&caveats, "Fan-out");
-    assert!(note.contains("75.0%"), "{note}");
-    assert!(
-        note.contains("2 workflow-agent transcripts across 1 runs"),
-        "{note}"
-    );
+fn fanout_insight_counts_only_agent_transcripts() {
+    let (p, caveats) = run(&fanout());
+    assert_eq!(caveat_with(&caveats, "Fan-out"), "");
+    let i = p.insights.fanout.expect("fanout insight");
+    assert_eq!((i.agents, i.prefix_tokens), (2.0, 60_000.0));
 }
 
 #[test]
@@ -228,13 +226,15 @@ fn a_url_fetched_once_is_not_a_row() {
 
 #[test]
 fn counts_in_run_repeats_not_calls() {
-    let (_, caveats) = run(&[
+    let (p, caveats) = run(&[
         web("a1", Some("wf_1"), URL, 0.0),
         web("a1", Some("wf_1"), URL, 1.0),
         web("a1", Some("wf_1"), URL, 2.0),
         web("a1", Some("wf_1"), "https://example.com/other", 3.0),
     ]);
-    assert!(caveat_with(&caveats, "Web:").contains("2 of 4 web calls"));
+    assert_eq!(caveat_with(&caveats, "Web:"), "");
+    let i = p.insights.web.expect("web insight");
+    assert_eq!((i.in_run, i.calls, i.repeated), (2.0, 4.0, 1.0));
 }
 
 #[test]
@@ -288,7 +288,7 @@ fn every_cost_label_marks_an_estimate() {
 #[test]
 fn the_report_echoes_the_rate_table() {
     let (_, caveats) = run(&cost_facts());
-    let note = caveat_with(&caveats, "ESTIMATE");
+    let note = caveat_with(&caveats, "API list prices");
     assert!(note.contains("opus-5 5/25/6.25/0.5"), "{note}");
     assert!(note.contains("haiku-4-5 1/5/1.25/0.1"), "{note}");
 }
@@ -305,7 +305,7 @@ fn an_unpriced_model_is_labelled_and_named() {
         .find(|r| r.key == "model:example-model-1")
         .expect("row");
     assert!(r.label.contains("(unpriced)"));
-    assert!(caveat_with(&caveats, "no rate card").contains("example-model-1"));
+    assert!(caveat_with(&caveats, "have no price").contains("example-model-1"));
 }
 
 #[test]
@@ -321,7 +321,10 @@ fn a_two_model_session_splits_evenly() {
         .map(|r| r.tokens.output)
         .collect();
     assert_eq!(outs, [500.0, 500.0]);
-    assert!(caveat_with(&caveats, "splits each session").contains("1 of 1 sessions"));
+    assert!(
+        caveat_with(&caveats, "record no per-call token counts").starts_with("1 sessions"),
+        "{caveats:?}"
+    );
 }
 
 #[test]

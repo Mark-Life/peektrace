@@ -32,6 +32,8 @@ pub const LG: f32 = 1024.0;
 const AMBER_500: &str = "#f59e0b";
 const AMBER_400: &str = "#fbbf24";
 const SKY_500: &str = "#0ea5e9";
+const EMERALD_500: &str = "#10b981";
+const EMERALD_400: &str = "#34d399";
 
 pub static ARROW_UP_RIGHT: Icon = Icon {
     name: "stats-arrow-up-right",
@@ -60,6 +62,15 @@ pub fn amber() -> Color {
 
 pub fn amber_text() -> Color {
     hex_or_grey(AMBER_400)
+}
+
+/// The "fixed" colour: a cause its rule stopped.
+pub fn emerald() -> Color {
+    hex_or_grey(EMERALD_500)
+}
+
+pub fn emerald_text() -> Color {
+    hex_or_grey(EMERALD_400)
 }
 
 pub fn sky() -> Color {

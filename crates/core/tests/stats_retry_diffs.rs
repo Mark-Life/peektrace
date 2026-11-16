@@ -148,7 +148,7 @@ fn a_binary_that_ran_after_its_last_miss_is_installed() {
     };
     assert_eq!(
         fix_of(facts![miss(0, "jq"), miss(1, "rsync"), ran()]).as_deref(),
-        Some("install rsync")
+        Some("install rsync. Misses: rsync 1")
     );
     assert!(
         fix_of(facts![ran(), miss(10, "jq")])
@@ -170,7 +170,7 @@ fn a_binary_that_ran_after_its_last_miss_is_installed() {
     let rows = finish(&mut t);
     assert_eq!(
         row(&rows, CNF).and_then(|r| r.fix.as_deref()),
-        Some("install rsync")
+        Some("install rsync. Misses: rsync 2")
     );
 }
 

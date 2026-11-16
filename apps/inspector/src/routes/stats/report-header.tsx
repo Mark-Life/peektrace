@@ -19,7 +19,7 @@ import {
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
 import type { AgentId, StatsReport } from "@workspace/view-core/api-types.gen";
-import { AGENT_IDS } from "@workspace/view-core/constants.gen";
+import { AGENT_IDS, STATS_FINDINGS } from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 
 import { at, hms, n } from "../../lib/stats-format";
@@ -193,7 +193,8 @@ export const ReportHeader = ({
       </div>
       <Collapsible>
         <CollapsibleTrigger className="text-muted-foreground text-left text-xs underline decoration-dotted">
-          {n(report.caveats.length)} caveats travel with these numbers
+          {STATS_FINDINGS.measuredTitle} ({n(report.caveats.length)}{" "}
+          {report.caveats.length === 1 ? "note" : "notes"})
           {report.skipped.length > 0
             ? ` · ${n(report.skipped.length)} files skipped`
             : ""}
