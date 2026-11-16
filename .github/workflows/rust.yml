@@ -54,10 +54,12 @@ jobs:
 
       - name: Build cache (kache)
         # Compiler cache: restores each crate's rustc output by content
-        # hash. The store persists through the GitHub Actions cache.
+        # hash. The store persists through the GitHub Actions cache, one key
+        # per job: a key is saved once, so jobs sharing a key lose crates.
         uses: kunobi-ninja/kache-action@v1
         with:
           version: v2.1.1
+          cache-key-prefix: kache-${{ github.job }}
 
       - name: Format
         if: runner.os == 'Linux'
@@ -94,10 +96,12 @@ jobs:
 
       - name: Build cache (kache)
         # Compiler cache: restores each crate's rustc output by content
-        # hash. The store persists through the GitHub Actions cache.
+        # hash. The store persists through the GitHub Actions cache, one key
+        # per job: a key is saved once, so jobs sharing a key lose crates.
         uses: kunobi-ninja/kache-action@v1
         with:
           version: v2.1.1
+          cache-key-prefix: kache-${{ github.job }}
 
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
@@ -138,10 +142,12 @@ jobs:
 
       - name: Build cache (kache)
         # Compiler cache: restores each crate's rustc output by content
-        # hash. The store persists through the GitHub Actions cache.
+        # hash. The store persists through the GitHub Actions cache, one key
+        # per job: a key is saved once, so jobs sharing a key lose crates.
         uses: kunobi-ninja/kache-action@v1
         with:
           version: v2.1.1
+          cache-key-prefix: kache-${{ github.job }}
 
       - name: Linux packages
         # xkbcommon and wayland headers for the build; lavapipe (software
