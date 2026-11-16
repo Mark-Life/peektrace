@@ -1,7 +1,6 @@
-//! Helpers shared by the ported TS tests: session parsing, throwaway temp
-//! dirs, `OpenCode` data dirs and SQLite stores built with the DDL of
-//! `packages/core/test/fixtures/opencode-db.ts`, and (in `stats`) synthetic
-//! stats facts and transcripts.
+//! Shared test helpers: session parsing, throwaway temp dirs, `OpenCode`
+//! data dirs and SQLite stores built with `OpenCode`'s DDL, and (in
+//! `stats`) synthetic stats facts and transcripts.
 #![allow(dead_code)]
 
 use std::fs;
@@ -28,10 +27,10 @@ mod stats;
 
 pub use stats::*;
 
-/// A path under `packages/core/test/fixtures`.
+/// A path under `tests/fixtures`.
 pub fn fixture(sub: &str) -> String {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/core/test/fixtures")
+        .join("../../tests/fixtures")
         .join(sub)
         .to_string_lossy()
         .into_owned()
@@ -253,7 +252,7 @@ impl Drop for TempDir {
     }
 }
 
-/// The file ref a header builder takes (`HEADER_ARGS` in the TS tests).
+/// The file ref a header builder takes.
 pub fn file_ref(id: &str, slug: &str, path: &str, size_bytes: u64) -> SessionFileRef {
     SessionFileRef {
         id: SessionId::new(id),

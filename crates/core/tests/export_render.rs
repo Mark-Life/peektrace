@@ -1,5 +1,4 @@
-//! Markdown, JSON and HTML exports of a synthetic parsed session. Ported
-//! from the renderer cases of the `export` TS test.
+//! Markdown, JSON and HTML exports of a synthetic parsed session.
 
 use peektrace_core::export::{
     ExportFormat, ExportOptions, fence_for, render_export, render_html, render_json,

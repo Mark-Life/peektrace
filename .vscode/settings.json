@@ -66,21 +66,16 @@
   ],
   "npm.packageManager": "bun",
   "files.exclude": {
-    "**/.turbo": true,
     "**/*.tsbuildinfo": true,
     "**/.DS_Store": true
   },
   "search.exclude": {
     "**/node_modules": true,
-    "**/.next": true,
-    "**/.turbo": true,
     "**/dist": true,
     "**/bun.lock": true,
     "**/*.tsbuildinfo": true
   },
   "files.watcherExclude": {
-    "**/.next/**": true,
-    "**/.turbo/**": true,
     "**/node_modules/**": true,
     "**/dist/**": true
   }

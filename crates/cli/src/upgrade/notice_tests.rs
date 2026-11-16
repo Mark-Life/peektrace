@@ -2,7 +2,6 @@ use std::cell::Cell;
 
 use super::*;
 
-/// TS `update-hint.test.ts`.
 #[test]
 fn dev_versions() {
     assert!(is_dev_version("0.0.0-dev"));
@@ -11,7 +10,6 @@ fn dev_versions() {
     assert!(!is_dev_version("1.0.0"));
 }
 
-/// TS `update-hint.test.ts`.
 #[test]
 fn install_kinds() {
     assert!(is_npm_install(
@@ -30,7 +28,6 @@ fn install_kinds() {
     ));
 }
 
-/// TS `update-hint.test.ts`.
 #[test]
 fn hints() {
     assert_eq!(
@@ -80,7 +77,7 @@ fn caches() {
     );
 }
 
-/// TS `upgrade.test.ts` `startupUpdateNotice` cache rules.
+/// Cache rules of the startup update notice.
 #[test]
 fn cache_window() {
     let now = 10.0 * CACHE_TTL_MS;
@@ -182,7 +179,7 @@ fn releases_server(count: usize) -> String {
     origin
 }
 
-/// TS `update-hint.test.ts`, with its own fixtures.
+/// Update hints over a second set of inputs.
 #[test]
 fn update_hint_ts_fixtures() {
     assert!(is_dev_version("0.0.0-dev"));
@@ -404,8 +401,8 @@ fn startup_notice_uses_a_fresh_cache() {
     assert!(out.contains("A newer version (cli-v5.0.0) is available"));
 }
 
-/// TS `upgrade.test.ts` `startupUpdateNotice`: hint plus cache write,
-/// npm hint, unreachable stays silent.
+/// Startup update notice: hint plus cache write, npm hint, unreachable
+/// stays silent.
 #[test]
 fn notice_prints_the_hint_and_writes_the_cache() {
     let dir = std::env::temp_dir().join(format!("peektrace-notice-{}", std::process::id()));

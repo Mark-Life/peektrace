@@ -1,4 +1,4 @@
-//! The `packages/rpc/test/stats.test.ts` corpus: one Claude session with an
+//! The stats corpus: one Claude session with an
 //! aborted separator, a silent piped typecheck, a glob-flag failure and its
 //! quoted retry, plus a subagent with two model calls and no tools.
 

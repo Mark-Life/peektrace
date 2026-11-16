@@ -16,7 +16,7 @@ use peektrace_core::stats::walk::TranscriptRef;
 const SECRET: &str = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
 const PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../packages/core/test/fixtures/sessions-claude/retries.jsonl"
+    "/../../tests/fixtures/sessions-claude/retries.jsonl"
 );
 
 fn facts(enabled: bool) -> Vec<Fact> {

@@ -1,5 +1,5 @@
 //! The file watcher bumps the right version per changed path
-//! (`watch.test.ts`, plus every agent's root).
+//! (and for every agent's root).
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
@@ -118,7 +118,7 @@ fn wait_for(w: &Watcher, done: impl Fn(WatchVersions) -> bool) -> WatchVersions 
     w.versions()
 }
 
-// watch.test.ts: one watcher, a memory burst then a new transcript, each
+// One watcher, a memory burst then a new transcript, each
 // advancing only its own scope.
 #[test]
 fn emits_scope_classified_bumps_on_real_fs_writes() {

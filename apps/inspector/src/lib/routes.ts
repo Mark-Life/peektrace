@@ -4,9 +4,7 @@
  * `peektrace serve` (no server rewrites needed beyond the existing SPA
  * fallback). A section is the part after `#/`, e.g. `#/capabilities`. The
  * sessions section additionally carries an `?id=<sessionId>` query so an open
- * session is a shareable deep link. The hash query is entirely separate from
- * `window.location.search` (where `?titlebar=inset` lives), so host chrome
- * detection is unaffected.
+ * session is a shareable deep link.
  */
 import { useMemo, useSyncExternalStore } from "react";
 

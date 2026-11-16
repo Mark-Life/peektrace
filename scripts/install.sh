@@ -55,7 +55,7 @@ warn_if_musl() {
     (command -v ldd >/dev/null 2>&1 && ldd --version 2>&1 | grep -qi musl); then
     warn "warning: this looks like a musl system (e.g. Alpine)."
     warn "The Linux binaries are built against glibc and will not run here."
-    warn "Build from source instead: bun run --cwd apps/cli build"
+    warn "Build from source instead: cargo build --release -p peektrace-cli"
     warn ""
   fi
 }

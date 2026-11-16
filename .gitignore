@@ -15,26 +15,13 @@ node_modules
 # Testing
 coverage
 
-# Turbo
-.turbo
-
-# Vercel
-.vercel
-
 # Build Outputs
-.next/
 out/
 build
 dist
 
-# Staged npm publish artifacts (peektrace CLI per-platform packages)
-apps/cli/dist-npm/
-
-# Desktop build + packaging output (electrobun writes to build/ and artifacts/;
-# resources/ is the staged sidecar binary). The committed app icon lives in
-# apps/desktop/assets/, so nothing under build/ needs to be tracked.
-apps/desktop/resources/
-apps/desktop/artifacts/
+# Staged npm packages (scripts/release/build-npm.ts)
+/dist-npm/
 
 
 # Debug
@@ -55,7 +42,3 @@ assets/.raw/
 
 # Local scratch space
 /.scratch
-
-# Parity goldens: only the CI platform's set is checked in.
-/tests/goldens/*
-!/tests/goldens/linux-x64/

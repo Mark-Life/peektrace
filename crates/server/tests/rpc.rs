@@ -1,5 +1,5 @@
-//! `packages/rpc/test/rpc.test.ts` over `/api`: a Claude root holding a copy
-//! of the session fixture and a memory vault, nothing else.
+//! Session and memory routes over `/api`: a Claude root holding a copy of
+//! the session fixture and a memory vault, nothing else.
 
 mod common;
 

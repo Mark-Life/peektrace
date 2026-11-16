@@ -1,5 +1,4 @@
-//! Atomic writes, compare-and-swap and path containment (port of
-//! `packages/core/test/fs.test.ts`).
+//! Atomic writes, compare-and-swap and path containment.
 
 mod common;
 

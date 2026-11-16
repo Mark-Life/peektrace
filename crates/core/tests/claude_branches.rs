@@ -1,5 +1,4 @@
 //! Claude transcripts are trees (`parentUuid`): rewinds leave dead branches.
-//! Ported from the `claude-branches` TS test.
 #![allow(clippy::float_cmp)]
 
 mod common;

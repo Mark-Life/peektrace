@@ -310,8 +310,7 @@ mod tests {
 
     #[test]
     fn difflib_golden() {
-        let raw =
-            include_str!("../../../../../packages/core/test/fixtures/stats/difflib-golden.json");
+        let raw = include_str!("../../../../../tests/fixtures/stats/difflib-golden.json");
         let v: serde_json::Value = serde_json::from_str(raw).unwrap_or_default();
         let cases = v.as_array().cloned().unwrap_or_default();
         assert!(cases.len() >= 20);

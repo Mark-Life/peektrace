@@ -38,10 +38,7 @@ print("alive")
 "#;
 
 fn fixtures(sub: &str) -> String {
-    format!(
-        "{}/../../packages/core/test/fixtures/{sub}",
-        env!("CARGO_MANIFEST_DIR")
-    )
+    format!("{}/../../tests/fixtures/{sub}", env!("CARGO_MANIFEST_DIR"))
 }
 
 fn free_port() -> u16 {

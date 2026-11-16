@@ -2,7 +2,7 @@ name: CI
 
 # Gates every pull request and every push to main: typecheck, lint, tests, and
 # an inspector build (the CLI embeds the built inspector, so a broken build
-# breaks `serve`). Release builds live in publish-cli.yml / publish-desktop.yml.
+# breaks `serve`). Release builds live in publish-cli.yml; Rust checks in rust.yml.
 
 on:
   pull_request:

@@ -1,6 +1,4 @@
 //! Context entries, prompt origins, measured sizes and compaction buckets.
-//! Ported from the Claude cases of `context-entries`, `prompt-origin`,
-//! `measure` and `compaction-buckets` TS tests.
 #![allow(clippy::float_cmp)]
 
 mod common;

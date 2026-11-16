@@ -1,6 +1,6 @@
 //! On-disk context files Claude Code loads for a cwd, and session lookup.
-//! Ported from `context-files` and `resolve-context` TS tests. The trees
-//! sit under the system temp dir; ancestor dirs above it are filtered out.
+//! The trees sit under the system temp dir; ancestor dirs above it are
+//! filtered out.
 //! Paths are built as POSIX strings, so the tree tests are unix only.
 #![allow(clippy::float_cmp)]
 #![cfg_attr(not(unix), allow(dead_code))]

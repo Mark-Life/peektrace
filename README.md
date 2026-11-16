@@ -47,7 +47,8 @@ upgrade` replaces the binary in place, and `peektrace upgrade --check` only
 reports whether a newer release exists.
 
 Binaries cover macOS (arm64, x64), Linux (x64, arm64) and Windows (x64). The
-Linux builds link glibc — on musl (Alpine) or anything else, build from source.
+Linux builds need glibc 2.17 or newer (RHEL 7, Debian 8, Ubuntu 14.04 and later).
+On musl (Alpine) or anything else, build from source.
 
 ## From npm
 
@@ -230,17 +231,13 @@ problem.
 { "statusLine": { "type": "command", "command": "peektrace statusline" } }
 ```
 
-Full flag reference: [`apps/cli/README.md`](apps/cli/README.md).
+Full flag reference: [`docs/cli.md`](docs/cli.md).
 
-## Desktop app
+## Native app
 
-`apps/desktop` wraps the same binary in an Electron shell — native window,
-single-instance lock, auto-update from GitHub Releases — spawning the binary as a
-loopback sidecar and loading its URL.
-
-It is **not distributed yet**. The workflow is manual-dispatch only until builds
-can be signed and notarized; Mac builds are currently unsigned (right-click →
-Open on first launch)..
+`crates/app` is a native window (macOS, Windows, Linux) over the same core,
+built with [Rune](https://github.com/anomalyco/rune). It is **not distributed
+yet**. Run it from source with `cargo run --release -p peektrace-app`.
 
 ## Privacy posture
 
@@ -270,9 +267,9 @@ Open on first launch)..
 
 ## Prerequisites
 
-- **[Bun](https://bun.com/docs/installation)** `>=1.3.0` — runtime and package
-  manager.
-- **Node.js** `>=20.9.0` — required by some workspace tooling.
+- **Rust**: `rustup` installs the toolchain pinned in `rust-toolchain.toml`.
+- **[Bun](https://bun.com/docs/installation)** `>=1.3.0`: builds the web UI
+  (`apps/inspector`) and runs the release scripts.
 
 ## Run from source
 
@@ -282,49 +279,53 @@ bun run serve      # build the inspector, then serve on 127.0.0.1
 bun run tui        # same, into the terminal UI
 ```
 
-Both scripts build `apps/inspector` first. To skip the rebuild and pass flags
-straight through:
+Both scripts build `apps/inspector` first, because a release build embeds
+`apps/inspector/dist`. To skip the rebuild and pass flags straight through:
 
 ```sh
-bun run --filter=inspector build          # emit apps/inspector/dist once
-bun run apps/cli/src/index.ts serve --port 4321
+bun run --filter=inspector build                 # emit apps/inspector/dist once
+cargo run --release -p peektrace-cli -- serve --port 4321
 ```
 
-Dev vs prod transport is explained in
+A debug build (`cargo run -p peektrace-cli -- serve`) serves the repo's
+`apps/inspector/dist` from disk. For UI work with hot reload, run the server
+and the Vite dev server side by side; see
 [`apps/inspector/README.md`](apps/inspector/README.md).
 
 ## Layout
 
 | Path | Role |
 | --- | --- |
-| `packages/core` | Effect services: agents · capabilities · sessions · memory · stats · fs · watch |
-| `packages/rpc` | Effect-RPC contract, handlers, typed client |
-| `packages/viz` | Shared chart primitives |
-| `packages/ui` | shadcn/ui component library |
-| `apps/cli` | the `peektrace` binary: one-shot commands, `serve`, `tui` |
+| `crates/core` | agents, sessions, memory, stats, search, file watching |
+| `crates/protocol` | wire types; writes the TS types the web UI imports |
+| `crates/server` | the loopback HTTP server: `/api`, SSE, the embedded web UI |
+| `crates/cli` | the `peektrace` binary: one-shot commands, `serve`, `tui`, `mcp`, `upgrade` |
+| `crates/tui` | the terminal UI (`ratatui`) |
+| `crates/telemetry` | the local run log |
+| `crates/js` | JavaScript number, date and JSON rules the output keeps |
+| `crates/ui`, `crates/app` | the Rune native app |
 | `apps/inspector` | Vite + React + Effect-Atom web UI |
-| `apps/desktop` | Electron shell around the compiled binary |
-| `apps/web` | Next.js marketing site, independent of the inspector |
-
-`apps/web` and its oRPC `packages/api` are a separate concern from Peektrace
-itself. The site runs behind [portless](https://portless.sh) at
-`https://web.localhost:8443` — automatic HTTPS on an unprivileged port, so it
-never needs `sudo`. For plain `http://localhost:3000`, run `bun run dev:app` in
-`apps/web`.
+| `packages/ui` | shadcn/ui component library |
+| `packages/viz` | shared chart primitives |
+| `packages/view-core` | browser helpers and the generated wire types |
+| `scripts/release` | npm staging and release notes for `publish-cli.yml` |
+| `tests/fixtures` | session and memory fixtures the Rust tests read |
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `bun dev` | Start all apps in dev mode |
-| `bun run build` | Build every app and package |
-| `bun run typecheck` | `tsc --noEmit` per package |
+| `cargo test` | Rust tests (the Rune app crates need `-p peektrace-ui -p peektrace-app`) |
+| `cargo clippy --all-targets -- -D warnings` | Rust lint |
+| `cargo fmt --all` | Rust format |
+| `bun run dev` | Vite dev server for the web UI |
+| `bun run build` | Build the web UI |
+| `bun run typecheck` | `tsrs --noEmit` per package |
 | `bun run check` | Lint and format check (Ultracite / Biome) |
 | `bun run fix` | Auto-fix lint and formatting |
-| `bun run desktop:dev` | Run the Electron shell unpackaged |
-| `bun run desktop:package` | Build an unsigned macOS `.dmg` |
+| `bun test` | TS tests: web UI helpers and release scripts |
 
-Typecheck with `bun run typecheck` only. Never `tsc -b` or bare `tsc` — build
+Typecheck with `bun run typecheck` only. Never `tsc -b` or bare `tsc`: build
 mode emits `.js` and `.d.ts` next to sources and pollutes the tree.
 
 Add shadcn components to the shared package, then import from `@workspace/ui`:
@@ -343,21 +344,16 @@ on every save; `.editorconfig` covers other editors.
 
 ## Release
 
-`apps/cli` compiles to a standalone executable with the inspector embedded:
-
-```sh
-bun run --filter=peektrace build:binary
-```
-
-The result serves with zero external files. Linux builds strip debug info from
-OpenTUI's native library (needs `llvm-strip`, or GNU `strip` on a same-arch Linux host; see
-[`docs/binary-size.md`](docs/binary-size.md)). CI publishes it on `cli-v*` tags,
-feeding the installers in `scripts/` and the npm packages. The same binary is the
-sidecar inside the undistributed desktop app.
+A `cli-v<semver>` tag runs `.github/workflows/publish-cli.yml`. It builds the
+inspector once, then the release binary on a native runner per target, with
+the inspector embedded and the tag's version baked in. The binaries go to the
+GitHub Release (with `.gz` copies and `SHA256SUMS`), which feeds the installers
+in `scripts/` and `peektrace upgrade`.
 
 npm gets six packages per release: the `peektrace` wrapper plus one
-`@peektrace/cli-<platform>-<arch>` per binary, published over OIDC with no stored
-token. See the header of `.github/workflows/publish-cli.yml`.
+`@peektrace/cli-<platform>-<arch>` per binary, staged by
+`scripts/release/build-npm.ts` from the release binaries and published over
+OIDC with no stored token. See the header of the workflow.
 
 The GitHub Release body is the matching `## cli-vX.Y.Z` section of
 `CHANGELOG.md`. A tag with no section gets generated notes instead.
@@ -372,5 +368,6 @@ The GitHub Release body is the matching `## cli-vX.Y.Z` section of
 ## License
 
 [MIT](LICENSE) © Mark-Life Ltd and Andrey Markin. The licence sits at the repo
-root and covers the whole workspace — every package under `packages/` and
-`apps/`, and the standalone `peektrace` binary built from `apps/cli`.
+root and covers the whole workspace: every crate under `crates/`, every package
+under `packages/` and `apps/`, and the `peektrace` binary built from
+`crates/cli`.

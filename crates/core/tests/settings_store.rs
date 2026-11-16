@@ -1,5 +1,4 @@
-//! Settings file reads and compare-and-swap writes
-//! (`settings-service.test.ts`).
+//! Settings file reads and compare-and-swap writes.
 
 use std::path::PathBuf;
 
@@ -69,8 +68,6 @@ fn missing_file_with_an_mtime_is_refused() {
         other => panic!("expected a CAS failure, got {other:?}"),
     }
 }
-
-// settings-service.test.ts, same inputs and assertions.
 
 #[test]
 fn update_writes_pretty_json_and_get_reads_it_back() {

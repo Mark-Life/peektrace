@@ -1,6 +1,5 @@
 //! Claude `attachment` lines: budget category per type, metadata-only types
-//! and queued prompts. Ported from the `claude-attachments` TS test; each
-//! `attachmentEvent` call there is one parsed attachment line here.
+//! and queued prompts. Each case is one parsed attachment line.
 #![allow(clippy::float_cmp)]
 
 mod common;

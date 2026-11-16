@@ -10,38 +10,11 @@ const steps = [
     critical: true,
   },
   {
-    name: "Bump apps/web majors",
-    command: () =>
-      $`bun add -D typescript@latest && bun add lucide-react@latest`.cwd(
-        "apps/web"
-      ),
-    critical: true,
-  },
-  {
-    name: "Bump packages/api majors",
-    command: () =>
-      $`bun add zod@latest && bun add -D typescript@latest`.cwd("packages/api"),
-    critical: true,
-  },
-  {
-    name: "Bump packages/env majors",
-    command: () =>
-      $`bun add zod@latest dotenv@latest && bun add -D typescript@latest`.cwd(
-        "packages/env"
-      ),
-    critical: true,
-  },
-  {
     name: "Bump packages/ui majors",
     command: () =>
-      $`bun add zod@latest lucide-react@latest react-day-picker@latest && bun add -D typescript@latest`.cwd(
+      $`bun add lucide-react@latest react-day-picker@latest && bun add -D typescript@latest`.cwd(
         "packages/ui"
       ),
-    critical: true,
-  },
-  {
-    name: "Next.js Upgrade",
-    command: () => $`bunx @next/codemod@latest upgrade`.cwd("apps/web"),
     critical: true,
   },
   {

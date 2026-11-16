@@ -398,7 +398,7 @@ mod tests {
             "http://h:1/?token=a%20b%2B%2F~!"
         );
     }
-    // serve-auth.test.ts pure helpers, same inputs.
+    // Pure helpers.
 
     #[test]
     fn tokens_equal_cases() {
