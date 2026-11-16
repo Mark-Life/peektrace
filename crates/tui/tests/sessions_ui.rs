@@ -1,6 +1,6 @@
 //! The Sessions screen over a fake backend with synthetic analyses: history
 //! expand and sort, attachment badges, card selection driving the detail,
-//! the estimated cost, and the growth chart toggle.
+//! the cost and its source, and the growth chart toggle.
 
 mod common;
 
@@ -265,8 +265,11 @@ fn pasting_into_the_filter_moves_the_detail_to_the_first_match() {
 #[test]
 fn session_detail_summary_shows_the_estimated_cost() {
     let t = Ui::new(priced, 140, 40).text();
-    assert!(t.contains("Est. cost"), "{t}");
-    assert!(t.contains("~$1.23 · unpriced: mystery-model"), "{t}");
+    assert!(t.contains("Cost "), "{t}");
+    assert!(
+        t.contains("~$1.23 · estimated from tokens · unpriced: mystery-model"),
+        "{t}"
+    );
 }
 
 /// Five turns climbing to 190K of a 200K window, compacted at turn 3.

@@ -393,7 +393,7 @@ pub fn parse_codex_session(text: &str, path: &str, session_id: &str) -> ParsedSe
         unknown_record_types: None,
         unknown_system_subtypes: None,
         sidechain_cost: None,
-        native_cost_usd: None,
+        native_cost: None,
     };
     measure_tokens(&mut parsed);
     parsed

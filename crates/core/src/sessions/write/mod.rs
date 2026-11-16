@@ -113,8 +113,14 @@ fn write_parsed_fields(w: &mut Writer, p: &ParsedSession, arrays: bool) {
         write_cost_fields(w, c);
         w.end_obj();
     }
-    if let Some(n) = p.native_cost_usd {
-        w.key("nativeCostUsd").num(n);
+    if let Some(n) = &p.native_cost {
+        w.key("nativeCostUsd").num(n.usd);
+        if n.includes_subagents {
+            w.key("nativeCostIncludesSubagents").bool(true);
+        }
+        if n.partial {
+            w.key("nativeCostPartial").bool(true);
+        }
     }
 }
 
@@ -163,6 +169,21 @@ fn write_cost(w: &mut Writer, c: &SessionCost) {
     }
     if let Some(n) = c.unreadable_subagents {
         w.key("unreadableSubagents").int(usize_json(n));
+    }
+    if let Some(v) = c.recorded_usd {
+        w.key("recordedUsd").num(v);
+    }
+    if let Some(v) = c.estimate_usd {
+        w.key("estimateUsd").num(v);
+    }
+    if c.record_partial {
+        w.key("recordPartial").bool(true);
+    }
+    if let Some(v) = c.estimate_gap {
+        w.key("estimateGap").num(v);
+    }
+    if c.estimate_warning {
+        w.key("estimateWarning").bool(true);
     }
     w.end_obj();
 }

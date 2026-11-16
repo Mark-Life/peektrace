@@ -8,7 +8,7 @@ use crate::js::value::{JsObject, JsValue, str_of};
 use crate::pricing::{CostTokens, card_for, turn_cost};
 use crate::sessions::measure::measure_tokens;
 use crate::sessions::model::{
-    EventKind, EventShape, ParsedSession, Provider, TimelineEvent, Turn, TurnShape,
+    EventKind, EventShape, NativeCost, ParsedSession, Provider, TimelineEvent, Turn, TurnShape,
 };
 
 const LINE_CAP: usize = 200;
@@ -342,7 +342,7 @@ pub fn parse_opencode_session(
         unknown_record_types: None,
         unknown_system_subtypes: None,
         sidechain_cost: None,
-        native_cost_usd: None,
+        native_cost: None,
     };
     let Some(session) = session else {
         return p;
@@ -399,7 +399,10 @@ pub fn parse_opencode_session(
     }
     p.started_at = started_at;
     p.ended_at = meta.ended_at.or(last_message_at);
-    p.native_cost_usd = agent_cost(meta.native_cost, &message_costs);
+    p.native_cost = agent_cost(meta.native_cost, &message_costs).map(|usd| NativeCost {
+        usd,
+        ..NativeCost::default()
+    });
     measure_tokens(&mut p);
     p
 }

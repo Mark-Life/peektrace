@@ -3,6 +3,7 @@
 mod attachments;
 mod blocks;
 mod branches;
+mod cost_state;
 mod header;
 mod line;
 pub mod parse;

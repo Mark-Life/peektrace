@@ -96,21 +96,41 @@ pub fn fmt_usd(n: f64) -> String {
     }
 }
 
-/// A session cost as display text: the total (`—` when nothing is priced)
-/// and the notes that qualify it.
+/// A recorded figure: `$1.23`, or `<$0.01` below half a cent.
+pub fn fmt_recorded_usd(n: f64) -> String {
+    if n > 0.0 && n < CENT {
+        "<$0.01".to_owned()
+    } else {
+        format!("${}", to_fixed(n, 2))
+    }
+}
+
+/// A session cost as display text: the total (`—` when nothing is priced),
+/// the notes that qualify it, and a warning when record and estimate differ.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CostSummary {
     pub total: String,
     pub notes: Vec<String>,
+    pub warning: Option<String>,
+    /// The estimate beside a record when it does not warn; shown quietly.
+    pub estimate_note: Option<String>,
 }
 
 pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
-    let mut notes = Vec::new();
-    if cost.source == CostSource::Agent {
-        notes.push(format!("reported by {agent_label}"));
-    }
+    let recorded = cost.source == CostSource::Agent;
+    let mut notes = vec![if recorded {
+        format!("recorded by {agent_label}")
+    } else {
+        "estimated from tokens".to_owned()
+    }];
     if let Some(s) = cost.subagents_usd.filter(|s| *s != 0.0 && !s.is_nan()) {
-        notes.push(format!("subagents {}", fmt_usd(s)));
+        notes.push(format!("incl. subagents {}", fmt_usd(s)));
+    }
+    if let Some(r) = cost.recorded_usd.filter(|_| cost.record_partial) {
+        notes.push(format!(
+            "{agent_label} recorded {} for part of the session",
+            fmt_recorded_usd(r)
+        ));
     }
     if let Some(models) = cost.unpriced_models.as_ref().filter(|m| !m.is_empty()) {
         notes.push(format!("unpriced: {}", models.join(", ")));
@@ -118,9 +138,55 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
     if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
         notes.push(format!("{n} subagent(s) unreadable"));
     }
+    let (warning, estimate_note) = estimate_lines(cost);
+    let total = cost.total_usd.map_or_else(
+        || "—".to_owned(),
+        |t| {
+            if recorded {
+                fmt_recorded_usd(t)
+            } else {
+                fmt_usd(t)
+            }
+        },
+    );
     CostSummary {
-        total: cost.total_usd.map_or_else(|| "—".to_owned(), fmt_usd),
+        total,
         notes,
+        warning,
+        estimate_note,
+    }
+}
+
+/// `estimate from tokens ~$34.37 (93% lower)`.
+pub fn estimate_warning(recorded: f64, estimate: f64) -> String {
+    let gap = if recorded > 0.0 {
+        (estimate - recorded) / recorded
+    } else {
+        0.0
+    };
+    let pct = to_fixed((gap * 100.0).abs(), 0);
+    let dir = if gap < 0.0 { "lower" } else { "higher" };
+    format!("estimate from tokens {} ({pct}% {dir})", fmt_usd(estimate))
+}
+
+/// The warning or the quiet note for the estimate beside a full record.
+/// Core decides when it warns (`estimateWarning`).
+fn estimate_lines(cost: &SessionCost) -> (Option<String>, Option<String>) {
+    match (cost.recorded_usd, cost.estimate_usd) {
+        (Some(r), Some(e)) if cost.source == CostSource::Agent && !cost.record_partial => {
+            if cost.estimate_warning {
+                (Some(estimate_warning(r, e)), None)
+            } else {
+                (
+                    None,
+                    Some(format!(
+                        "Estimate from transcript: {}. Transcripts miss some billed calls.",
+                        fmt_usd(e)
+                    )),
+                )
+            }
+        }
+        _ => (None, None),
     }
 }
 
@@ -135,6 +201,11 @@ mod tests {
             subagents_usd: None,
             unpriced_models: None,
             unreadable_subagents: None,
+            recorded_usd: None,
+            estimate_usd: None,
+            record_partial: false,
+            estimate_gap: None,
+            estimate_warning: false,
         }
     }
 
@@ -148,7 +219,9 @@ mod tests {
             cost_summary(&c, "Claude Code"),
             CostSummary {
                 total: "~$1.23".into(),
-                notes: vec![]
+                notes: vec!["estimated from tokens".into()],
+                warning: None,
+                estimate_note: None,
             }
         );
         let c = SessionCost {
@@ -156,7 +229,34 @@ mod tests {
             ..cost(CostSource::Agent)
         };
         assert_eq!(cost_summary(&c, "Codex").total, "<$0.01");
-        assert_eq!(cost_summary(&c, "Codex").notes, ["reported by Codex"]);
+        assert_eq!(cost_summary(&c, "Codex").notes, ["recorded by Codex"]);
+        let c = SessionCost {
+            total_usd: Some(464.02),
+            recorded_usd: Some(464.02),
+            estimate_usd: Some(34.37),
+            estimate_gap: Some(-0.926),
+            estimate_warning: true,
+            ..cost(CostSource::Agent)
+        };
+        let s = cost_summary(&c, "Claude Code");
+        assert_eq!(s.total, "$464.02");
+        assert_eq!(
+            s.warning.as_deref(),
+            Some("estimate from tokens ~$34.37 (93% lower)")
+        );
+        let c = SessionCost {
+            total_usd: Some(95.23),
+            recorded_usd: Some(74.42),
+            record_partial: true,
+            ..cost(CostSource::Estimate)
+        };
+        assert_eq!(
+            cost_summary(&c, "Claude Code").notes,
+            [
+                "estimated from tokens",
+                "Claude Code recorded $74.42 for part of the session"
+            ]
+        );
         let c = SessionCost {
             subagents_usd: Some(3.375),
             unpriced_models: Some(vec!["m1".into(), "m2".into()]),
@@ -168,7 +268,8 @@ mod tests {
         assert_eq!(
             s.notes,
             [
-                "subagents ~$3.38",
+                "estimated from tokens",
+                "incl. subagents ~$3.38",
                 "unpriced: m1, m2",
                 "2 subagent(s) unreadable"
             ]

@@ -349,7 +349,7 @@ pub const TOOLS: [Tool; 5] = [
     },
     Tool {
         name: "sessions_analyze",
-        description: "Context-budget forensics for one session: verdict, peak and final context, turns, tool calls, estimated cost and the token budget at peak. Pass an id (short id works), or latest:true, or a cwd to pick the newest session there.",
+        description: "Context-budget forensics for one session: verdict, peak and final context, turns, tool calls, cost (the agent's own record when it has one, else estimated from tokens, with its source) and the token budget at peak. Pass an id (short id works), or latest:true, or a cwd to pick the newest session there.",
         fields: &[
             text("id", "Session id, short id, or transcript path"),
             Field {

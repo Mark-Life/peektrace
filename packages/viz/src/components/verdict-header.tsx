@@ -3,7 +3,7 @@
  * A health word (Healthy / Degrading / Rotting) derived from peak context vs
  * window, the peak gauge with its dumb-zone marker, and the headline metadata
  * grid (peak, turns, system tax, output, dumb-zone dwell, cache, and the
- * estimated cost when the session has one).
+ * cost and its source when the session has one).
  */
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
@@ -62,8 +62,9 @@ const Meta = ({
 );
 
 /**
- * Cost cell value as visible text: total (or `—` when nothing is priced), who
- * reported it, and the notes that qualify it.
+ * Cost cell value as visible text: total (or `—` when nothing is priced), its
+ * source, the notes that qualify it, and beside a full record either a
+ * warning or a quiet estimate note.
  */
 const CostValue = ({
   cost,
@@ -72,21 +73,43 @@ const CostValue = ({
   readonly cost: NonNullable<AnalyzedSession["cost"]>;
   readonly provider: string;
 }) => {
-  const { total, notes } = costSummary(
+  const { total, notes, warning, estimateNote } = costSummary(
     cost,
     PROVIDER_LABEL.get(provider) ?? provider
   );
 
   return (
-    <span
-      data-testid="session-cost"
-      title={cost.source === "estimate" ? "Estimate at list price" : undefined}
-    >
-      {total}
-      {notes.length > 0 ? (
-        <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
-      ) : null}
-    </span>
+    <>
+      <span
+        data-testid="session-cost"
+        title={
+          cost.source === "estimate" ? "Estimate at list price" : undefined
+        }
+      >
+        {total}
+        {notes.length > 0 ? (
+          <span className="text-muted-foreground"> · {notes.join(" · ")}</span>
+        ) : null}
+      </span>
+      {warning === undefined ? null : (
+        <span
+          className="block text-amber-700 dark:text-amber-400"
+          data-testid="session-cost-warning"
+          title="A model may lack a price card, or its price may be wrong"
+        >
+          <span className="sr-only">Warning: </span>
+          {warning}
+        </span>
+      )}
+      {estimateNote === undefined ? null : (
+        <span
+          className="text-muted-foreground block text-xs"
+          data-testid="session-cost-estimate"
+        >
+          {estimateNote}
+        </span>
+      )}
+    </>
   );
 };
 
@@ -229,7 +252,7 @@ export const VerdictHeader = ({
         <Meta k="System + tools tax">{fmt(a.systemOverheadTokens)}</Meta>
         <Meta k="Output">{fmt(a.totalOutputTokens)}</Meta>
         {a.cost ? (
-          <Meta k="Est. cost">
+          <Meta k="Cost">
             <CostValue cost={a.cost} provider={a.provider} />
           </Meta>
         ) : null}

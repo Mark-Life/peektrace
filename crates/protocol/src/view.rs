@@ -370,6 +370,28 @@ pub struct SessionCost {
     pub unpriced_models: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unreadable_subagents: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "opt_num"
+    )]
+    pub recorded_usd: Option<f64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "opt_num"
+    )]
+    pub estimate_usd: Option<f64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub record_partial: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "opt_num"
+    )]
+    pub estimate_gap: Option<f64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub estimate_warning: bool,
 }
 
 /// The session analysis without its events, turns and snapshots.

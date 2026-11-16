@@ -10,7 +10,7 @@
  │ ╰───────────────────────────────────────╯  │ │ │                                                                 │ │
  │ ╭───────────────────────────────────────╮  │ │ │ Turns          150 · 150 tools · 18,000 out                     │ │
  │ │ [Claude] Claude session               │  │ │ │ System + tools 5,710                                            │ │
- │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ │ Est. cost      ~$3.31                                           │ │
+ │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ │ Cost           ~$3.31 · estimated from tokens                   │ │
  │ ╰───────────────────────────────────────╯  │ │ │ Cache / window 100% · 200.0K (assumed)                          │ │
  │ ╭───────────────────────────────────────╮  │ │ │                                                                 │ │
  │ │ [Claude] Claude session               │  │ │ │ Budget at peak                                                  │ │

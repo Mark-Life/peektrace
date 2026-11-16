@@ -279,9 +279,18 @@ unknownRecordTypes?: Record<string, number>,
  */
 unknownSystemSubtypes?: Record<string, number>, 
 /**
- * USD the agent itself recorded (`OpenCode`); set only above 0.
+ * USD the agent itself recorded (Claude Code, Pi, `OpenCode`); set only
+ * above 0.
  */
 nativeCostUsd?: number, 
+/**
+ * True when `nativeCostUsd` already counts subagents.
+ */
+nativeCostIncludesSubagents?: boolean, 
+/**
+ * True when `nativeCostUsd` misses part of the session.
+ */
+nativeCostPartial?: boolean, 
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
@@ -301,9 +310,18 @@ unknownRecordTypes?: Record<string, number>,
  */
 unknownSystemSubtypes?: Record<string, number>, 
 /**
- * USD the agent itself recorded (`OpenCode`); set only above 0.
+ * USD the agent itself recorded (Claude Code, Pi, `OpenCode`); set only
+ * above 0.
  */
 nativeCostUsd?: number, 
+/**
+ * True when `nativeCostUsd` already counts subagents.
+ */
+nativeCostIncludesSubagents?: boolean, 
+/**
+ * True when `nativeCostUsd` misses part of the session.
+ */
+nativeCostPartial?: boolean, 
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
@@ -317,9 +335,38 @@ export type SessionCost = {
  */
 totalUsd?: number, 
 /**
- * The subagents' share of `totalUsd`; set only above 0.
+ * Estimated subagent cost, also when `totalUsd` is recorded; set only
+ * above 0.
  */
-subagentsUsd?: number, source: CostSource, unpricedModels?: ReadonlyArray<string>, unreadableSubagents?: number, };
+subagentsUsd?: number, 
+/**
+ * Where `totalUsd` comes from: the agent's own record or our estimate.
+ */
+source: CostSource, unpricedModels?: ReadonlyArray<string>, unreadableSubagents?: number, 
+/**
+ * The agent's own figure, also when it covers only part of the session.
+ */
+recordedUsd?: number, 
+/**
+ * Our token estimate over what `recordedUsd` covers.
+ */
+estimateUsd?: number, 
+/**
+ * True when `recordedUsd` misses part of the session, so the total is
+ * the estimate.
+ */
+recordPartial?: boolean, 
+/**
+ * `(estimateUsd - recordedUsd) / recordedUsd`, set only past 5% when the
+ * record is the total: a model may lack a price card.
+ */
+estimateGap?: number, 
+/**
+ * True when the record is the total and the estimate points at a price
+ * problem: a model is unpriced, the estimate is more than 5% above the
+ * record, or more than 35% below it.
+ */
+estimateWarning?: boolean, };
 
 export type AnalysisMeta = { contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -343,9 +390,18 @@ unknownRecordTypes?: Record<string, number>,
  */
 unknownSystemSubtypes?: Record<string, number>, 
 /**
- * USD the agent itself recorded (`OpenCode`); set only above 0.
+ * USD the agent itself recorded (Claude Code, Pi, `OpenCode`); set only
+ * above 0.
  */
 nativeCostUsd?: number, 
+/**
+ * True when `nativeCostUsd` already counts subagents.
+ */
+nativeCostIncludesSubagents?: boolean, 
+/**
+ * True when `nativeCostUsd` misses part of the session.
+ */
+nativeCostPartial?: boolean, 
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
@@ -373,9 +429,18 @@ unknownRecordTypes?: Record<string, number>,
  */
 unknownSystemSubtypes?: Record<string, number>, 
 /**
- * USD the agent itself recorded (`OpenCode`); set only above 0.
+ * USD the agent itself recorded (Claude Code, Pi, `OpenCode`); set only
+ * above 0.
  */
 nativeCostUsd?: number, 
+/**
+ * True when `nativeCostUsd` already counts subagents.
+ */
+nativeCostIncludesSubagents?: boolean, 
+/**
+ * True when `nativeCostUsd` misses part of the session.
+ */
+nativeCostPartial?: boolean, 
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
@@ -403,9 +468,18 @@ unknownRecordTypes?: Record<string, number>,
  */
 unknownSystemSubtypes?: Record<string, number>, 
 /**
- * USD the agent itself recorded (`OpenCode`); set only above 0.
+ * USD the agent itself recorded (Claude Code, Pi, `OpenCode`); set only
+ * above 0.
  */
 nativeCostUsd?: number, 
+/**
+ * True when `nativeCostUsd` already counts subagents.
+ */
+nativeCostIncludesSubagents?: boolean, 
+/**
+ * True when `nativeCostUsd` misses part of the session.
+ */
+nativeCostPartial?: boolean, 
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */

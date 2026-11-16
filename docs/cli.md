@@ -272,10 +272,19 @@ Reproduces the `session-report` math headlessly: verdict
 (Healthy/Degrading/Rotting), peak context vs window, final context, turn / tool
 counts, the dumb-zone crossing turn (1-based, or `never`, in the table; `--json` keeps the 0-based turn, `-1` for none), and the budget-at-peak partition.
 
-`est. cost` is the session at API list price (`~$1.23`), subagents included
-and also shown on their own row. Models with no rate card are left out and
-listed under `unpriced models`. When OpenCode recorded its own cost, that
-figure is shown instead, marked `(opencode)`.
+`cost` names its source. When the agent recorded its own cost, that figure
+is shown (`$1.23 (recorded by claude-code)`): Claude Code's `cost-state`
+(subagents already counted), Pi's per-call cost when every call has one above
+$0, or OpenCode's session cost. Otherwise it is the session at API list price
+(`~$1.23 (estimated from tokens)`), subagents included. `incl. subagents (est.)` is
+always our estimate. Models with no rate card are listed under `unpriced
+models`. A Claude Code record that starts after the session does (a resumed
+process only) is not the total: it shows as `partial record`. Beside a full
+record, an `estimate` row shows our estimate. Transcripts miss some billed
+calls, so it is often a little lower. It becomes a `warning` row when a model
+has no rate card, when it is more than 5% above the record, or more than 35%
+below it: a price is likely missing or wrong. `--json` sets
+`cost.estimateWarning` in those cases.
 
 ```sh
 peektrace sessions analyze <session-uuid>

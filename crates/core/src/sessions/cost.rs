@@ -58,45 +58,93 @@ pub fn turns_cost(turns: &[Turn]) -> TurnsCost {
     sum_priced(&priced)
 }
 
-/// A session's cost: the agent's own figure, else the sum of priced turns;
-/// plus inline sidechain turns and every subagent. `None` when there is
-/// nothing to price or report.
+/// Record and estimate differ past this share: `estimate_gap` is set.
+pub const ESTIMATE_GAP_LIMIT: f64 = 0.05;
+
+/// Warn when the estimate is above the record by more than this: a price
+/// card may be too high, or calls are counted twice.
+pub const ESTIMATE_HIGH_WARN: f64 = 0.05;
+
+/// Warn when the estimate is below the record by more than this: a price
+/// may be missing or wrong. Smaller gaps are normal, because transcripts
+/// miss some billed calls.
+pub const ESTIMATE_LOW_WARN: f64 = 0.35;
+
+/// `(estimate - recorded) / recorded`, `None` without a positive record.
+fn gap(recorded: f64, estimate: f64) -> Option<f64> {
+    (recorded > 0.0).then(|| (estimate - recorded) / recorded)
+}
+
+/// The gap when it passes `ESTIMATE_GAP_LIMIT`.
+fn estimate_gap(recorded: f64, estimate: f64) -> Option<f64> {
+    gap(recorded, estimate).filter(|g| g.abs() > ESTIMATE_GAP_LIMIT)
+}
+
+/// True when a full record and our estimate disagree in a way that points
+/// at a price problem: an unpriced model, an estimate too high, or one far
+/// too low.
+pub fn estimate_warns(recorded: f64, estimate: f64, unpriced: bool) -> bool {
+    gap(recorded, estimate)
+        .is_some_and(|g| unpriced || g > ESTIMATE_HIGH_WARN || g < -ESTIMATE_LOW_WARN)
+}
+
+/// A session's cost. The agent's own record is the total when it covers the
+/// whole session; a record that already counts subagents gets nothing added.
+/// Otherwise the sum of priced turns, inline sidechain turns and subagents.
+/// `None` when there is nothing to price or report.
 pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionCost> {
     let own = sum_priced(priced_turns);
-    let native = p.native_cost_usd;
-    let main = native.or(own.cost_usd);
     let parts: Vec<&TurnsCost> = p
         .sidechain_cost
         .iter()
         .chain(p.subagents.iter().map(|s: &SubagentRef| &s.cost))
         .collect();
     let subagents_usd = parts.iter().fold(0.0, |n, c| n + c.cost_usd.unwrap_or(0.0));
-    let mut unpriced: Vec<String> = if native.is_none() {
-        own.unpriced_models.unwrap_or_default()
-    } else {
-        Vec::new()
+    let parts_priced = parts.iter().any(|c| c.cost_usd.is_some());
+    let native = p.native_cost;
+    let headline = native.filter(|n| !n.partial);
+    // Our estimate over what the record covers.
+    let estimate = native.map(|n| {
+        own.cost_usd.unwrap_or(0.0)
+            + if n.includes_subagents {
+                subagents_usd
+            } else {
+                0.0
+            }
+    });
+    let total = match headline {
+        Some(n) if n.includes_subagents => Some(n.usd),
+        Some(n) => Some(n.usd + subagents_usd),
+        None => (own.cost_usd.is_some() || parts_priced)
+            .then(|| own.cost_usd.unwrap_or(0.0) + subagents_usd),
     };
+    // Kept beside a record too: they explain an estimate gap.
+    let mut unpriced = own.unpriced_models.unwrap_or_default();
     unpriced.extend(
         parts
             .iter()
             .flat_map(|c| c.unpriced_models.iter().flatten().cloned()),
     );
     let unreadable = p.subagents.iter().filter(|s| s.unreadable).count();
-    let total = if main.is_none() && !parts.iter().any(|c| c.cost_usd.is_some()) {
-        None
-    } else {
-        Some(main.unwrap_or(0.0) + subagents_usd)
-    };
     let unpriced = sorted(unpriced);
-    if total.is_none() && unpriced.is_none() && unreadable == 0 {
+    if total.is_none() && unpriced.is_none() && unreadable == 0 && native.is_none() {
         return None;
     }
     Some(SessionCost {
-        from_agent: native.is_some(),
+        from_agent: headline.is_some(),
         total_usd: total,
         subagents_usd: (subagents_usd > 0.0).then_some(subagents_usd),
-        unpriced_models: unpriced,
         unreadable_subagents: (unreadable > 0).then_some(unreadable),
+        recorded_usd: native.map(|n| n.usd),
+        estimate_usd: estimate,
+        record_partial: native.is_some_and(|n| n.partial),
+        estimate_gap: headline
+            .zip(estimate)
+            .and_then(|(n, e)| estimate_gap(n.usd, e)),
+        estimate_warning: headline
+            .zip(estimate)
+            .is_some_and(|(n, e)| estimate_warns(n.usd, e, unpriced.is_some())),
+        unpriced_models: unpriced,
     })
 }
 
@@ -111,23 +159,43 @@ pub fn fmt_usd(n: f64) -> String {
     }
 }
 
+/// A recorded USD figure: `$1.23`, or `<$0.01` below half a cent.
+pub fn fmt_recorded_usd(n: f64) -> String {
+    if n > 0.0 && n < CENT {
+        "<$0.01".to_owned()
+    } else {
+        format!("${}", crate::js::num::to_fixed(n, 2))
+    }
+}
+
 /// A session cost as display text.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CostSummary {
     /// `—` when nothing is priced.
     pub total: String,
     pub notes: Vec<String>,
+    /// Record and estimate disagree in a way that points at a price
+    /// problem; shown as a warning.
+    pub warning: Option<String>,
+    /// The estimate beside a record when it does not warn; shown quietly.
+    pub estimate_note: Option<String>,
 }
 
-/// The total and the notes that qualify it, led by who reported it when the
-/// agent did.
+/// The total and the notes that qualify it, led by where it comes from.
 pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
-    let mut notes = Vec::new();
-    if cost.from_agent {
-        notes.push(format!("reported by {agent_label}"));
-    }
+    let mut notes = vec![if cost.from_agent {
+        format!("recorded by {agent_label}")
+    } else {
+        "estimated from tokens".to_owned()
+    }];
     if let Some(s) = cost.subagents_usd.filter(|s| *s != 0.0 && !s.is_nan()) {
-        notes.push(format!("subagents {}", fmt_usd(s)));
+        notes.push(format!("incl. subagents {}", fmt_usd(s)));
+    }
+    if let Some(r) = cost.recorded_usd.filter(|_| cost.record_partial) {
+        notes.push(format!(
+            "{agent_label} recorded {} for part of the session",
+            fmt_recorded_usd(r)
+        ));
     }
     if let Some(models) = cost.unpriced_models.as_ref().filter(|m| !m.is_empty()) {
         notes.push(format!("unpriced: {}", models.join(", ")));
@@ -135,8 +203,52 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
     if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
         notes.push(format!("{n} subagent(s) unreadable"));
     }
+    let (warning, estimate_note) = estimate_lines(cost);
+    let total = cost.total_usd.map_or_else(
+        || "—".to_owned(),
+        |t| {
+            if cost.from_agent {
+                fmt_recorded_usd(t)
+            } else {
+                fmt_usd(t)
+            }
+        },
+    );
     CostSummary {
-        total: cost.total_usd.map_or_else(|| "—".to_owned(), fmt_usd),
+        total,
         notes,
+        warning,
+        estimate_note,
+    }
+}
+
+/// `estimate from tokens ~$34.37 (93% lower)`.
+pub fn estimate_warning(recorded: f64, estimate: f64) -> String {
+    let g = gap(recorded, estimate).unwrap_or(0.0);
+    let pct = crate::js::num::to_fixed((g * 100.0).abs(), 0);
+    let dir = if g < 0.0 { "lower" } else { "higher" };
+    format!("estimate from tokens {} ({pct}% {dir})", fmt_usd(estimate))
+}
+
+/// `Estimate from transcript: ~$6.10. Transcripts miss some billed calls.`
+pub fn estimate_note(estimate: f64) -> String {
+    format!(
+        "Estimate from transcript: {}. Transcripts miss some billed calls.",
+        fmt_usd(estimate)
+    )
+}
+
+/// The warning or the quiet note for the estimate beside a full record;
+/// both `None` without one.
+pub fn estimate_lines(cost: &SessionCost) -> (Option<String>, Option<String>) {
+    match (cost.recorded_usd, cost.estimate_usd) {
+        (Some(r), Some(e)) if cost.from_agent && !cost.record_partial => {
+            if cost.estimate_warning {
+                (Some(estimate_warning(r, e)), None)
+            } else {
+                (None, Some(estimate_note(e)))
+            }
+        }
+        _ => (None, None),
     }
 }
