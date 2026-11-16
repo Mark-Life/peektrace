@@ -16,7 +16,7 @@ use table::Provider;
 
 pub use active::{
     LocalTable, TableInfo, TableOrigin, built_in_table, local_table_path, read_local_table,
-    table_info, use_local_table,
+    table_info, tomorrow, use_local_table,
 };
 pub use table::{MODELS_DEV_URL, Table, from_models_dev, parse_table, table_json};
 

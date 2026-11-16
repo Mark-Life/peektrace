@@ -268,9 +268,18 @@ fn reads_the_local_table() {
     let mut table = built_in_table().expect("parses");
     std::fs::write(&path, table_json(&table)).expect("write");
     assert!(matches!(read_local_table(&path), LocalTable::NotNewer(_)));
-    table.fetched = "2999-01-01".to_owned();
+    table.fetched = tomorrow();
     std::fs::write(&path, table_json(&table)).expect("write");
     assert!(matches!(read_local_table(&path), LocalTable::Newer(_)));
+    for bad in ["2999-01-01", "2026-AB-CD", "2026-02-30"] {
+        let mut t = table.clone();
+        t.fetched = bad.to_owned();
+        std::fs::write(&path, table_json(&t)).expect("write");
+        assert!(
+            matches!(read_local_table(&path), LocalTable::Invalid(_)),
+            "{bad}"
+        );
+    }
     let other_format = table_json(&table).replace("\"format\": 1", "\"format\": 2");
     std::fs::write(&path, other_format).expect("write");
     assert!(matches!(read_local_table(&path), LocalTable::Invalid(_)));

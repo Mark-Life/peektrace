@@ -87,9 +87,10 @@ fn rates_of(
     })
 }
 
-const fn is_date(s: &str) -> bool {
-    let b = s.as_bytes();
-    b.len() == 10 && b[4] == b'-' && b[7] == b'-'
+/// A real calendar day written `YYYY-MM-DD`.
+fn is_date(s: &str) -> bool {
+    s.parse::<jiff::civil::Date>()
+        .is_ok_and(|d| d.to_string() == s)
 }
 
 /// Parse a table written by [`table_json`].

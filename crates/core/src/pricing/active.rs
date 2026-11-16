@@ -143,6 +143,16 @@ pub enum LocalTable {
     Newer(Table),
 }
 
+/// Tomorrow in UTC, as `YYYY-MM-DD`: no clock is that far behind a real
+/// download, so a later date is a bad file that would outrank every future
+/// built-in table.
+pub fn tomorrow() -> String {
+    let today = jiff::Timestamp::now()
+        .to_zoned(jiff::tz::TimeZone::UTC)
+        .date();
+    today.tomorrow().unwrap_or(today).to_string()
+}
+
 /// Read the downloaded table at `path`; nothing is installed.
 pub fn read_local_table(path: &Path) -> LocalTable {
     let text = match std::fs::read_to_string(path) {
@@ -154,6 +164,9 @@ pub fn read_local_table(path: &Path) -> LocalTable {
         Ok(t) => t,
         Err(e) => return LocalTable::Invalid(e),
     };
+    if table.fetched > tomorrow() {
+        return LocalTable::Invalid(format!("dated {}, in the future", table.fetched));
+    }
     let built_in = built_in_table().map(|t| t.fetched).unwrap_or_default();
     if table.fetched > built_in {
         LocalTable::Newer(table)

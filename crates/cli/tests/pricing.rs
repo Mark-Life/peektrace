@@ -34,9 +34,10 @@ fn update_writes_the_data_dir_and_a_newer_table_is_used() {
     let text = fs::read_to_string(&local).expect("table written");
     assert!(text.contains("\"id\":\"gpt-5.5\""), "{text}");
 
+    let tomorrow = peektrace_core::pricing::tomorrow();
     let newer = text.replacen(
         &text[text.find("\"fetched\"").expect("date")..][..23],
-        "\"fetched\": \"2999-01-01\"",
+        &format!("\"fetched\": \"{tomorrow}\""),
         1,
     );
     fs::write(&local, newer).expect("write newer");
@@ -44,7 +45,7 @@ fn update_writes_the_data_dir_and_a_newer_table_is_used() {
     assert_eq!(r.code, 0, "{}", r.err);
     assert!(
         r.out
-            .starts_with("Prices: models.dev 2999-01-01, downloaded\n"),
+            .starts_with(&format!("Prices: models.dev {tomorrow}, downloaded\n")),
         "{}",
         r.out
     );
