@@ -31,6 +31,8 @@ pub struct RootsEnv {
     pub opencode_data: Option<String>,
     /// `XDG_DATA_HOME`, the parent of opencode's data dir when non-empty.
     pub xdg_data_home: Option<String>,
+    /// `T3CODE_HOME`: t3code's base dir when non-empty, else `~/.t3`.
+    pub t3code_home: Option<String>,
     /// How paths join on this platform.
     pub style: PathStyle,
 }
@@ -48,6 +50,7 @@ impl RootsEnv {
             pi_sessions: var("PEEKTRACE_PI_SESSIONS"),
             opencode_data: var("PEEKTRACE_OPENCODE_DATA"),
             xdg_data_home: var("XDG_DATA_HOME"),
+            t3code_home: var("T3CODE_HOME"),
             style,
         }
     }
@@ -184,6 +187,16 @@ fn opencode_data(env: &RootsEnv) -> String {
             |x| env.style.join(&[&x, "opencode"]),
         )
     })
+}
+
+/// Where t3code keeps its state databases: `<T3CODE_HOME or ~/.t3>/userdata`.
+pub fn t3code_state_dir(env: &RootsEnv) -> String {
+    let base = env
+        .t3code_home
+        .clone()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| env.style.join(&[&env.home, ".t3"]));
+    env.style.join(&[&base, "userdata"])
 }
 
 /// An agent's root from the environment alone. `CODEX_HOME` is used

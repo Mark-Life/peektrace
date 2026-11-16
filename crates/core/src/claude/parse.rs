@@ -454,6 +454,7 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
         unknown_system_subtypes: counts(state.unknown_subtypes),
         sidechain_cost: (!sidechain.is_empty()).then(|| turns_cost(&sidechain)),
         native_cost_usd: None,
+        launcher: None,
     };
     measure_tokens(&mut parsed);
     parsed

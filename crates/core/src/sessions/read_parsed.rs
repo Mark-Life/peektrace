@@ -296,5 +296,8 @@ pub fn parsed_from_json(v: &JsValue) -> Option<ParsedSession> {
         unknown_system_subtypes: count_map("unknownSystemSubtypes")?,
         sidechain_cost: v.get("sidechainCost").map(cost),
         native_cost_usd: n(v, "nativeCostUsd"),
+        launcher: v
+            .get("launcher")
+            .and_then(crate::sessions::read::launcher_from_json),
     })
 }

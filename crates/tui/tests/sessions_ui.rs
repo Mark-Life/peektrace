@@ -47,6 +47,7 @@ fn header(id: &str, agent: Agent, title: &str, started: &str) -> SessionHeader {
         cost_usd: None,
         unpriced_models: None,
         source: None,
+        launcher: None,
     }
 }
 

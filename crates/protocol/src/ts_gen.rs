@@ -81,6 +81,7 @@ fn sessions_decls(cfg: &Config) -> Vec<String> {
         decl::<sessions::Turn>(cfg),
         decl::<sessions::TurnsCost>(cfg),
         decl::<sessions::SubagentRef>(cfg),
+        decl::<sessions::Launcher>(cfg),
         decl::<sessions::ContextFileScope>(cfg),
         decl::<sessions::OnDiskContextFile>(cfg),
         decl::<sessions::BudgetKey>(cfg),

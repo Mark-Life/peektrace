@@ -164,6 +164,7 @@ fn renders_exports_with_the_home() {
         unknown_system_subtypes: None,
         sidechain_cost: None,
         native_cost_usd: None,
+        launcher: None,
     };
     let out = render_json(
         &session,

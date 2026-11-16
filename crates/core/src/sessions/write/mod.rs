@@ -8,6 +8,7 @@ pub use event::{write_event, write_event_fields, write_turn};
 pub use header::{headers_json, listing_json, write_header};
 
 use crate::js::json_out::Writer;
+use crate::model::Launcher;
 use crate::sessions::model::{
     AnalyzedSession, BudgetKey, BudgetSlices, OnDiskContextFile, ParsedSession, SessionCost,
     SubagentRef, TurnsCost,
@@ -116,6 +117,22 @@ fn write_parsed_fields(w: &mut Writer, p: &ParsedSession, arrays: bool) {
     if let Some(n) = p.native_cost_usd {
         w.key("nativeCostUsd").num(n);
     }
+    if let Some(l) = &p.launcher {
+        write_launcher(w, l);
+    }
+}
+
+/// `"launcher": {name, branch?, worktreePath?}` at the writer's position.
+pub(crate) fn write_launcher(w: &mut Writer, l: &Launcher) {
+    w.key("launcher").begin_obj();
+    w.key("name").text(&l.name);
+    if let Some(b) = &l.branch {
+        w.key("branch").text(b);
+    }
+    if let Some(p) = &l.worktree_path {
+        w.key("worktreePath").text(p);
+    }
+    w.end_obj();
 }
 
 fn write_slices(w: &mut Writer, s: &BudgetSlices) {

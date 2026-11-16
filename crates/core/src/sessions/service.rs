@@ -350,7 +350,7 @@ fn parse_inner(
     let _entered = span.enter();
     let result = load(env, target, parent, track).map(|loaded| {
         let (path, sid) = (&loaded.path, &loaded.id);
-        let parsed = match (&loaded.body, loaded.agent) {
+        let mut parsed = match (&loaded.body, loaded.agent) {
             (Body::Opencode(session), _) => {
                 opencode::parse_opencode_session(session.as_deref(), path, sid)
             }
@@ -373,6 +373,14 @@ fn parse_inner(
                 parsed
             }
         };
+        if !loaded.nested {
+            crate::t3code::apply_parsed(
+                loaded.agent,
+                sid,
+                &mut parsed,
+                env.roots.t3code.as_deref(),
+            );
+        }
         FullParse {
             agent: loaded.agent,
             parsed,

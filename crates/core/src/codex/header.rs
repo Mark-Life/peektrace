@@ -119,6 +119,7 @@ impl RowFold for Acc {
             cost_usd: None,
             unpriced_models: None,
             source: None,
+            launcher: None,
         }
     }
 }

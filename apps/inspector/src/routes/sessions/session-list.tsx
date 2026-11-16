@@ -35,6 +35,7 @@ import {
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
+import { launcherHint } from "@workspace/view-core/launcher";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { RefObject } from "react";
@@ -257,6 +258,15 @@ const SessionRow = memo(function SessionRow({
           {h.sourceLabel !== undefined && h.sourceLabel !== "" ? (
             <Badge variant="secondary">{h.sourceLabel}</Badge>
           ) : null}
+          {h.launcher === undefined ? null : (
+            <Badge
+              data-testid="session-launcher"
+              title={launcherHint(h.launcher)}
+              variant="secondary"
+            >
+              {h.launcher.name}
+            </Badge>
+          )}
           <span
             className="max-w-1/2 min-w-0 shrink-0 truncate"
             title={h.cwd ?? h.project}

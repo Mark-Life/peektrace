@@ -93,7 +93,10 @@ fn row_cells(h: &SessionHeader, id: &str) -> Vec<String> {
     let star = if h.unpriced_models.is_some() { "*" } else { "" };
     vec![
         id.to_owned(),
-        h.agent.as_str().to_owned(),
+        h.launcher.as_ref().map_or_else(
+            || h.agent.as_str().to_owned(),
+            |l| format!("{} ({})", h.agent.as_str(), printable(&l.name)),
+        ),
         if h.agent == Agent::Codex {
             printable(h.project.as_str())
         } else {
