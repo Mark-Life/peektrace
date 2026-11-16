@@ -17,7 +17,10 @@ Build the binary first. The `parity` profile is release with LTO off, so it buil
 ```sh
 bun run --filter=inspector build
 cargo build --profile parity --bins --examples
+cargo build --profile parity -p peektrace-ui --no-default-features --examples
 ```
+
+The second call builds the `ui` stage's helpers probe without Rune, which only that stage needs.
 
 | Command | What it does |
 |---|---|
@@ -27,7 +30,7 @@ cargo build --profile parity --bins --examples
 | `bun scripts/rust/parity.ts --fixtures-only --bin target/parity/peektrace` | The full live run on fixtures, TS and Rust side by side. |
 | `bun scripts/rust/parity.ts` | Fixtures plus the real corpora (`~/.claude`, `~/.codex`, `~/.pi`, OpenCode). |
 
-Add `--stage base,serve` to `goldens.ts` to run some stages only. Stages: `base` (`sessions ls`, OpenCode, analyze/export), `search`, `memory`, `stats`, `serve`, `cli` (statusline, mcp, upgrade, help, telemetry), `tui`.
+Add `--stage base,serve` to `goldens.ts` to run some stages only. Stages: `base` (`sessions ls`, OpenCode, analyze/export), `search`, `memory`, `stats`, `serve`, `cli` (statusline, mcp, upgrade, help, telemetry), `tui`, `ui` (the Rune app's helpers and growth chart against the inspector's, `serve --ui rune`).
 
 ## Platforms
 
@@ -56,6 +59,7 @@ Re-record a stage after a change to one of its inputs. `goldens-inputs.ts` lists
 
 - every stage: the TS CLI and the packages it imports (`apps/cli/src`, `packages/*/src` except `ui` and `viz`), the fixtures (`packages/core/test/fixtures`), `bun.lock`, `package.json`, and `parity.ts` with the scripts it shares
 - `serve` only: `apps/inspector` and `packages/ui`, `packages/viz`
+- `ui` only: the inspector helpers and chart the Rune app ports (`apps/inspector/src/lib`, `apps/inspector/src/routes/sessions`), `packages/ui`, `packages/viz`
 - each stage: the stage scripts it imports, for example `parity-tui.ts` for `tui` only
 
 Each stage's `<stage>.json` keeps a hash of its inputs. The check fails with `goldens are stale` and names the stages when the hash does not match, so a change cannot skip the regeneration. Re-record only those stages: label the PR, then copy just their artifacts. Rust changes never need it.
@@ -72,6 +76,7 @@ Record with the Bun version that `package.json` pins (`packageManager`); `--writ
 - The root is shared by every checkout on the host, so one run at a time holds it (`<root>/.lock`). A second run fails fast. The root must be a real directory you own, not a symlink.
 - Stored text has the stage dir, its real path and the repo replaced by `<WORK>`, `<RWORK>` and `<REPO>`. The fake upgrade server, the host asset name and a closed port are bound the same way. `--write` fails if your home dir, temp dir or repo path would land in a golden.
 - Fixture copies get fixed mtimes, since some rows print a file's mtime.
+- Checks with no TS side, such as `serve --ui rune` in `ui`, run in replay as they are.
 - The fake credentials the fixtures plant to test redaction (`parity-fake-secrets.ts`) are stored as `<fake-secret:name>`, so GitHub secret scanning does not block a push. Replay maps them back before comparing.
 - A stats case that relies on fixture data passes an explicit `days`. Fixture dates are fixed, so on a default window they leave it as days pass and the golden drifts. A default-window case compares only the resolved window.
 - Clock values TS prints (stats `generatedAt` and window, export stamps, span durations, Effect log times) are masked when recorded, keeping the shape the compare-time masks expect.

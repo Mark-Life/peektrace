@@ -1,0 +1,16 @@
+[package]
+name = "peektrace-js"
+description = "JavaScript number, date, JSON and string semantics for peektrace, IO-free"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+icu_collator.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true

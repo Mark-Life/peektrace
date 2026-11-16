@@ -276,6 +276,19 @@ pub struct ServeArgs {
     /// Allow writes on a non-loopback --host (read-only by default there)
     #[arg(long = "allow-write")]
     pub allow_write: bool,
+
+    /// Web UI to serve
+    #[arg(long, value_enum, default_value_t = WebUi::Inspector)]
+    pub ui: WebUi,
+}
+
+/// Which web UI `serve` hosts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub enum WebUi {
+    /// The React inspector
+    Inspector,
+    /// The Rune app (WebGPU)
+    Rune,
 }
 
 /// `sessions` with no subcommand prints its help and exits 0.

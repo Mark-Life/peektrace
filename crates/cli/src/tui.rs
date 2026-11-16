@@ -15,7 +15,7 @@ use peektrace_tui::{Config, restore_terminal, run as run_ui};
 use crate::ls::{Context, UserError};
 use crate::otel;
 use crate::serve::{self, Prepared};
-use crate::zone::SystemZone;
+use peektrace_core::js::system_zone::SystemZone;
 
 /// The TUI draws only on a terminal.
 pub fn check_terminal() -> Result<(), UserError> {

@@ -26,7 +26,6 @@ mod tui;
 mod upgrade;
 mod verdict;
 mod width;
-mod zone;
 
 use std::io::{self, Write as _};
 use std::panic::{self, AssertUnwindSafe};

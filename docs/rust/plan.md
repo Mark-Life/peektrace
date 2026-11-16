@@ -30,6 +30,8 @@ The `tui` stage (`--tui-only`) compares the `tui --port` errors byte for byte, t
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
+The `ui` stage (`--ui-only`) checks the Rune app's pure helpers (`crates/ui/examples/ui_helpers`) against the inspector's own functions: list labels, order, live window, project options and filters on fixture and real headers; number formats, zones and chart hit tests on a sweep; the chat plan, node keys, collapse ids, lanes, chip labels, tool panes, result panes and body views on every fixture analysis and the 25 newest real sessions per agent; and the growth chart geometry against the inspector's SVG (`renderToStaticMarkup`). It also checks the static answers of `serve --ui rune` on a fake bundle.
+
 ## Target layout
 
 ```
@@ -39,7 +41,8 @@ crates/
   server    axum HTTP API, serves embedded web UI
   cli       clap commands, MCP stdio server
   tui       ratatui, calls core in-process
-  app       Rune: native window + web build served by `server`
+  ui        Rune views, theme and the DataSource (core in process, or /api over fetch + SSE)
+  app       Rune: native window (`peektrace-app`) + web build served by `server --ui rune`
 ```
 
 The TUI and the native app call `core` directly, with no HTTP in between. Only the browser UI goes through `server`.
@@ -155,6 +158,13 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `tui` text width | clips by UTF-16 units, so CJK and emoji overflow | clips by display columns |
 | `tui` layout | hint row overlaps the footer; long badges wrap history rows; Memory and Capabilities rows wrap at 100 cols; the summary card starves the history at 100x30; `turn1` axis label; finding titles run into wide impacts; the Settings conflict banner never shows (raw JSON error); a reopened filter shows empty; history rows stay open across sessions; toolbar buttons wrap at 120 cols; no loading mark when the analysis changes | each fixed: fixed rows, clipped spans, a one-line summary when the card does not fit, `turn 1`, a gap before the impact, the typed conflict, the query shown again, history state reset per session, short or hidden toolbar text, `Analysis ↻` while a new analysis loads |
 | `tui` and SIGHUP | Bun's default | restores the terminal and stops the server |
+| Growth chart: peak, dumb-zone crossing and compaction markers when turns interleave | the turn index is used as a snapshot position, so a marker can sit on another turn's snapshot | the first snapshot of that turn; equal for ordinary sessions. The `ui` stage counts these sessions as known |
+| Rune app timestamps with no offset | `Date.parse` local time | read as UTC (no local zone in wasm). Transcripts write `Z` |
+| Rune app `Math.round(-0.5)` in `fmt` | `-0` | `0` |
+| Rune app tool bodies over 32 KiB | shown whole | the first 32 KiB to a line end, plus `Show full output (<size>)`; over 128 KiB the full body draws uncoloured |
+| Rune app JSON tool args nested deeper than 128 | parsed | read as not JSON, shown verbatim |
+| Rune web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
+| Rune web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾`; CJK and emoji show as boxes |
 
 ## Telemetry decisions
 
@@ -205,3 +215,10 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 24. Keep the 300 ms exit wait and the 100 ms busy timeout (the writer retries a held lock for 250 ms), or pick other values?
 25. Map Rust failures to the TS tags (`SessionNotFoundError`, `InvalidValue`, ...) later, so `error_tag` queries work across both CLIs?
 26. After cutover, let the schema accept kind `tui`?
+27. Rune app: move the JS-compat helpers (`js::num`, `js::time`, labels, cost text) out of core into a wasm-safe crate, instead of the copies in `crates/ui` kept equal by drift tests?
+28. Rune web: ship a Noto CJK and emoji fallback (several MB), or accept boxes?
+29. `peektrace-app --otel` prints `tracing-subscriber` fmt lines, not the CLI's `[otel]` format. Move `crates/cli/src/otel.rs` into a shared crate?
+30. A `peektrace app` subcommand that launches `peektrace-app`, or two binaries?
+31. Release builds: turn on `rune-ui` (the web bundle inside the CLI, ~4 MB brotli + raw) by default, or ship the bundle beside it?
+32. Keep the growth chart's `pos(t)` fix for interleaved turns, or copy TS?
+33. `virtual_rows` takes one row height estimate: ask Rune for per-row estimates, or live with the scroll thumb moving on long unvisited transcripts?
