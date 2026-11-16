@@ -4,12 +4,12 @@
 use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::{self, LocalZone};
 use peektrace_core::js::{num, text};
-use peektrace_core::roots::{self, RootsEnv, Source};
+use peektrace_core::roots::{self, RootsEnv};
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
-use peektrace_core::sessions::service::{SessionEnv, analyze_session, get_session};
+use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
 use peektrace_core::sessions::write::analyzed_json;
-use peektrace_core::{Agent, AgentRoots, ListFilter, list_sessions};
+use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 use crate::args::{AnalyzeArgs, ExportArgs, TargetArgs};
 use crate::ls::{Context, Globals, UserError};
@@ -62,9 +62,9 @@ fn plan_target(
     }
 }
 
-/// Claude roots from the environment and `settings.json`, plus the warning
-/// for unparseable settings.
-fn claude_roots(ctx: &Context) -> (Vec<Source>, Vec<String>) {
+/// Every agent's roots from the environment and `settings.json`, plus the
+/// warning for unparseable settings.
+fn agent_roots(ctx: &Context) -> (AgentRoots, Vec<String>) {
     let settings = ctx
         .settings
         .as_deref()
@@ -80,10 +80,7 @@ fn claude_roots(ctx: &Context) -> (Vec<Source>, Vec<String>) {
         })
         .into_iter()
         .collect();
-    (
-        roots::claude_sources(&ctx.roots_env, &settings.claude),
-        warnings,
-    )
+    (AgentRoots::resolve(&ctx.roots_env, &settings), warnings)
 }
 
 /// Agents this build cannot read whose sessions root holds something.
@@ -112,14 +109,32 @@ fn search_note(t: &TargetArgs, typed: &str, resolved: &str, unsearched: &[Agent]
         .collect()
 }
 
-/// The session id to run on, and how many listed sessions were unreadable
+/// What a single-session command runs on.
+#[derive(Debug, Clone, PartialEq)]
+enum Pick {
+    /// The id or path the user typed.
+    Typed(String),
+    /// The newest listed session.
+    Newest(Box<SessionHeader>),
+}
+
+impl Pick {
+    fn target(&self) -> Target<'_> {
+        match self {
+            Self::Typed(id) => Target::Lookup(id),
+            Self::Newest(h) => Target::Listed(h),
+        }
+    }
+}
+
+/// The session to run on, and how many listed sessions were unreadable
 /// when the newest one had to be found.
 fn resolve_target(
     t: &TargetArgs,
     ctx: &Context,
-    claude: &[Source],
+    roots: &AgentRoots,
     zone: &dyn LocalZone,
-) -> Result<(String, Option<usize>), UserError> {
+) -> Result<(Pick, Option<usize>), UserError> {
     let cwd = t.cwd.as_deref().map(|c| {
         let env = &ctx.roots_env;
         select::resolve_cwd(c, &env.home, ctx.cwd.as_deref().unwrap_or(""), env.style)
@@ -130,17 +145,12 @@ fn resolve_target(
         cwd.as_deref(),
         t.parent.as_deref(),
     )? {
-        Plan::Picked(id) => Ok((id, None)),
+        Plan::Picked(id) => Ok((Pick::Typed(id), None)),
         Plan::Newest(cwd) => {
-            let listing = list_sessions(
-                &AgentRoots {
-                    claude: claude.to_vec(),
-                },
-                &ListFilter::default(),
-            );
+            let mut listing = list_sessions(roots, &ListFilter::default());
             let unreadable = listing.unreadable.len();
             let picked = select::select_sessions(
-                listing.headers,
+                listing.headers.iter().collect(),
                 &SelectOptions {
                     since_ms: None,
                     cwd: cwd.clone(),
@@ -148,8 +158,16 @@ fn resolve_target(
                 },
                 zone,
             );
-            match picked.rows.into_iter().next() {
-                Some(h) => Ok((h.id.as_str().to_owned(), Some(unreadable))),
+            // TS looks the id up again, which finds its first listed copy.
+            let first = picked
+                .rows
+                .first()
+                .and_then(|n| listing.headers.iter().position(|h| h.id == n.id));
+            match first {
+                Some(at) => Ok((
+                    Pick::Newest(Box::new(listing.headers.swap_remove(at))),
+                    Some(unreadable),
+                )),
                 None => Err(UserError::Invalid(match cwd {
                     Some(c) => format!("No sessions found under {c}."),
                     None => "No sessions found.".to_owned(),
@@ -286,18 +304,19 @@ pub fn run_analyze(
     globals: Globals,
     ctx: &Context,
 ) -> Result<Output, UserError> {
-    let (claude, warnings) = claude_roots(ctx);
+    let (roots, warnings) = agent_roots(ctx);
     let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
-    let (target, unreadable) = resolve_target(&args.target, ctx, &claude, &zone)?;
+    let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
     let env = SessionEnv {
-        claude: &claude,
+        roots: &roots,
         unsearched: &unsearched,
         local: &zone,
     };
-    let a = analyze_session(env, &target, args.target.parent.as_deref(), true)
+    let target = pick.target();
+    let a = analyze_session(env, target, args.target.parent.as_deref(), true)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
-    let notes = search_note(&args.target, &target, &a.parsed.session_id, &unsearched);
+    let notes = search_note(&args.target, target.id(), &a.parsed.session_id, &unsearched);
     let stdout = if globals.json {
         analyzed_json(&a)
     } else {
@@ -349,19 +368,20 @@ pub fn run_export(args: &ExportArgs, globals: Globals, ctx: &Context) -> Result<
             })
         })
         .transpose()?;
-    let (claude, warnings) = claude_roots(ctx);
+    let (roots, warnings) = agent_roots(ctx);
     let unsearched = unsearched_agents(&ctx.roots_env);
     let zone = SystemZone::default();
-    let (target, unreadable) = resolve_target(&args.target, ctx, &claude, &zone)?;
+    let (pick, unreadable) = resolve_target(&args.target, ctx, &roots, &zone)?;
     let env = SessionEnv {
-        claude: &claude,
+        roots: &roots,
         unsearched: &unsearched,
         local: &zone,
     };
     let redact = !args.no_redact;
-    let session = get_session(env, &target, args.target.parent.as_deref(), redact)
+    let target = pick.target();
+    let session = get_session(env, target, args.target.parent.as_deref(), redact)
         .map_err(|e| UserError::Invalid(e.to_string()))?;
-    let notes = search_note(&args.target, &target, &session.session_id, &unsearched);
+    let notes = search_note(&args.target, target.id(), &session.session_id, &unsearched);
     let out_path = args.out.as_deref().filter(|p| *p != "-");
     #[expect(clippy::cast_possible_truncation, reason = "epoch ms fit i64")]
     let exported_at = time::to_iso_string(ctx.now_ms as i64);

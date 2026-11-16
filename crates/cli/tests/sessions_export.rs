@@ -161,6 +161,17 @@ fn no_id_and_no_flag_fails_with_usage() {
 }
 
 #[test]
+fn latest_exports_a_non_claude_session() {
+    let h = home();
+    let r = export(&h, &["--latest", "--format", "json"]);
+    assert_eq!(r.code, 0, "{}", r.err);
+    let doc = json_of(&r.out);
+    assert_eq!(doc["session"]["sessionId"], CODEX_ID);
+    assert_eq!(doc["session"]["provider"], "codex");
+    assert!(!r.out.contains(&h.str()));
+}
+
+#[test]
 fn out_dash_prints_to_stdout_and_writes_no_file() {
     let r = export(&home(), &[CLAUDE_ID, "--out", "-"]);
     assert_eq!(r.code, 0, "{}", r.err);

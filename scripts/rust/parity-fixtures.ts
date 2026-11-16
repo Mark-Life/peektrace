@@ -217,7 +217,11 @@ export const edgeFiles: Record<string, string | Uint8Array> = {
 
 /** `settings.json` with a real extra root, a missing one, a duplicate of the
  * default, an invalid entry and a duplicate path. */
-export const edgeSettings = (work: string, missing: string) =>
+export const edgeSettings = (
+  work: string,
+  missing: string,
+  others: Record<string, unknown>
+) =>
   JSON.stringify({
     roots: {
       claude: [
@@ -227,6 +231,7 @@ export const edgeSettings = (work: string, missing: string) =>
         { path: 5 },
         { path: `${work}/`, label: "again" },
       ],
-      codex: "nope",
+      ...others,
+      opencode: "nope",
     },
   });

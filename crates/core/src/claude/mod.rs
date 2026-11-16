@@ -3,7 +3,6 @@
 mod attachments;
 mod blocks;
 mod branches;
-mod discover;
 mod header;
 mod line;
 pub mod parse;
@@ -13,30 +12,24 @@ mod records;
 use std::path::Path;
 
 use rayon::prelude::*;
-use tracing::{Span, debug, field, info_span};
+use tracing::{Span, field, info_span};
 
-pub use discover::list_session_files;
 use header::FileMeta;
 pub use parse::{ParseArgs, SubagentTurns, parse_claude_session, parse_subagent_turns};
 use read::{Loaded, load_file};
 
-use crate::model::{Agent, SessionFileRef, SessionHeader, UnreadableSession};
-use crate::paths::PathStyle;
+use crate::discover;
+pub use crate::headers::Outcome;
+use crate::headers::{header, unreadable};
+use crate::model::{Agent, SessionFileRef};
+use crate::roots::Source;
 
-/// What one listed transcript yields.
-#[derive(Debug, Clone, PartialEq)]
-pub enum Outcome {
-    Header(Box<SessionHeader>),
-    Skip,
-    Unreadable(UnreadableSession),
-}
-
-fn unreadable(r: &SessionFileRef, reason: &std::io::Error) -> Outcome {
-    debug!(path = %r.path, reason = %reason, "session unreadable");
-    Outcome::Unreadable(UnreadableSession {
-        agent: Agent::Claude,
-        project: PathStyle::NATIVE.basename(r.slug.as_str()).to_owned(),
-        path: r.path.clone(),
+/// Every Claude transcript across `sources`: `<root>/<slug>/<id>.jsonl`,
+/// limited to the `project` slug when one is given. Subagent files under
+/// `<slug>/<id>/subagents/` are never listed.
+pub fn list_session_files(sources: &[Source], project: Option<&str>) -> Vec<SessionFileRef> {
+    discover::list_sources(sources, |root| {
+        discover::slug_layout(root, project, discover::stem)
     })
 }
 
@@ -59,16 +52,11 @@ fn header_for(r: &SessionFileRef, parent: &Span) -> Outcome {
         source: r.source.clone(),
     };
     match load_file(path, meta) {
-        Ok(Loaded::Header(h)) => {
-            if let Some(n) = h.malformed_lines {
-                debug!(path = %r.path, malformedLines = n, "session has malformed lines");
-            }
-            Outcome::Header(h)
-        }
+        Ok(Loaded::Header(h)) => header(h),
         Ok(Loaded::Skip) => Outcome::Skip,
         Err(e) => {
             span.record("error", field::display(&e));
-            unreadable(r, &e)
+            unreadable(Agent::Claude, r, &e)
         }
     }
 }

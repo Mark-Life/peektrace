@@ -31,6 +31,21 @@ fn resolves_keys() {
 }
 
 #[test]
+fn the_most_specific_codex_key_wins() {
+    let input = |id: &str| price_for(id).map(|(_, c)| c.rates.input);
+    assert_eq!(input("gpt-5.1-codex"), Some(1.25));
+    assert_eq!(input("gpt-5.1-codex-mini"), Some(0.25));
+    assert_eq!(key("gpt-5.1-codex-max"), Some("gpt-5.1-codex-max"));
+    assert_eq!(key("openai/gpt-5.5"), Some("gpt-5.5"));
+}
+
+#[test]
+fn fast_mode_and_codex_spark_have_no_verified_rate() {
+    assert_eq!(key("gpt-5.6-terra-fast"), None);
+    assert_eq!(key("gpt-5.3-codex-spark"), None);
+}
+
+#[test]
 fn prices_a_turn() {
     let t = CostTokens {
         input: 1000.0,

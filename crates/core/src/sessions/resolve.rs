@@ -6,8 +6,8 @@ use std::fs;
 use tracing::{debug, info_span};
 
 use super::workflows::{WorkflowRun, parse_workflow_run, to_agent_ref};
-use crate::claude::list_session_files;
 use crate::js::value::JsValue;
+use crate::listing::{AgentRoots, session_files};
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionId};
 use crate::roots::Source;
 use crate::sessions::jsonl::decode;
@@ -67,19 +67,25 @@ fn strip_jsonl(s: &str) -> &str {
     s.strip_suffix(JSONL).unwrap_or(s)
 }
 
-/// A direct `.jsonl` path inside some root of an agent with a reader.
-fn resolve_direct_path(claude: &[Source], id_or_path: &str) -> Option<Resolution> {
+/// Agents this build reads, in lookup order.
+fn readers() -> impl Iterator<Item = Agent> {
+    Agent::ALL.into_iter().filter(|a| a.has_reader())
+}
+
+/// A direct `.jsonl` path inside some root of an agent with a reader; the
+/// first such agent owns it. Its id is the file name without `.jsonl`.
+fn resolve_direct_path(roots: &AgentRoots, id_or_path: &str) -> Option<Resolution> {
     if !id_or_path.ends_with(JSONL) || !exists(id_or_path) {
         return None;
     }
-    if !claude
-        .iter()
-        .any(|s| id_or_path.starts_with(&s.projects_root))
-    {
-        return None;
-    }
+    let agent = readers().find(|&a| {
+        roots
+            .of(a)
+            .iter()
+            .any(|s| id_or_path.starts_with(&s.projects_root))
+    })?;
     Some(Resolution {
-        agent: Agent::Claude,
+        agent,
         file: SessionFileRef {
             id: SessionId::new(strip_jsonl(basename(id_or_path))),
             slug: ProjectSlug::new(""),
@@ -90,53 +96,60 @@ fn resolve_direct_path(claude: &[Source], id_or_path: &str) -> Option<Resolution
     })
 }
 
-/// An exact id across agents, else a prefix that names exactly one session.
-fn scan_for_id(claude: &[Source], wanted: &str) -> Option<Resolution> {
-    let refs = {
-        let _span = info_span!("AgentRegistry.listSessionFiles", agent = "claude").entered();
-        list_session_files(claude, None)
-    };
-    if let Some(exact) = refs.iter().find(|r| r.id.as_str() == wanted) {
-        return Some(Resolution {
-            agent: Agent::Claude,
-            file: exact.clone(),
-        });
+/// An exact id, first agent first, else a prefix that names exactly one
+/// session across all agents.
+fn scan_for_id(roots: &AgentRoots, wanted: &str) -> Option<Resolution> {
+    let mut prefixed = Vec::new();
+    for agent in readers() {
+        let refs = session_files(agent, roots, None);
+        if let Some(exact) = refs.iter().find(|r| r.id.as_str() == wanted) {
+            return Some(Resolution {
+                agent,
+                file: exact.clone(),
+            });
+        }
+        prefixed.extend(
+            refs.into_iter()
+                .filter(|r| r.id.as_str().starts_with(wanted))
+                .map(|file| Resolution { agent, file }),
+        );
     }
-    let mut prefixed = refs
-        .into_iter()
-        .filter(|r| r.id.as_str().starts_with(wanted));
-    match (prefixed.next(), prefixed.next()) {
-        (Some(only), None) => Some(Resolution {
-            agent: Agent::Claude,
-            file: only,
-        }),
-        _ => None,
+    match <[Resolution; 1]>::try_from(prefixed) {
+        Ok([only]) => Some(only),
+        Err(_) => None,
     }
 }
 
-/// What a failed lookup says it searched: every agent, or Claude only when
-/// `unsearched` names agents whose sessions this build cannot read.
+/// What a failed lookup says it searched: every agent, or the agents with a
+/// reader when `unsearched` names agents whose sessions this build cannot
+/// read.
 fn searched_label(unsearched: &[Agent]) -> String {
     if unsearched.is_empty() {
         return "all agents".to_owned();
     }
-    let names = unsearched.iter().map(|a| a.as_str()).collect::<Vec<_>>();
-    format!("claude only; {} not supported yet", names.join(", "))
+    let names = |agents: &mut dyn Iterator<Item = Agent>| {
+        agents.map(Agent::as_str).collect::<Vec<_>>().join(", ")
+    };
+    format!(
+        "{}; {} not supported yet",
+        names(&mut readers()),
+        names(&mut unsearched.iter().copied())
+    )
 }
 
 /// Resolve an id (or direct `.jsonl` path) to its owning agent and file.
 /// `unsearched` lists agents that have sessions on disk but no reader.
 pub fn resolve_session(
-    claude: &[Source],
+    roots: &AgentRoots,
     unsearched: &[Agent],
     id_or_path: &str,
 ) -> Result<Resolution, SessionError> {
     let _span = info_span!("Sessions.resolve", idOrPath = id_or_path).entered();
-    if let Some(r) = resolve_direct_path(claude, id_or_path) {
+    if let Some(r) = resolve_direct_path(roots, id_or_path) {
         return Ok(r);
     }
     let wanted = strip_jsonl(id_or_path);
-    scan_for_id(claude, wanted).ok_or_else(|| SessionError::NotFound {
+    scan_for_id(roots, wanted).ok_or_else(|| SessionError::NotFound {
         id: wanted.to_owned(),
         searched: searched_label(unsearched),
     })
@@ -381,7 +394,7 @@ mod tests {
     #[test]
     fn not_found_names_what_was_searched() {
         let err = |unsearched: &[Agent]| {
-            resolve_session(&[], unsearched, "zzz.jsonl")
+            resolve_session(&AgentRoots::default(), unsearched, "zzz.jsonl")
                 .err()
                 .map(|e| e.to_string())
         };
@@ -390,8 +403,10 @@ mod tests {
             Some("Session \"zzz\" not found (searched all agents).")
         );
         assert_eq!(
-            err(&[Agent::Codex, Agent::Pi]).as_deref(),
-            Some("Session \"zzz\" not found (searched claude only; codex, pi not supported yet).")
+            err(&[Agent::Opencode]).as_deref(),
+            Some(
+                "Session \"zzz\" not found (searched claude, codex, pi; opencode not supported yet)."
+            )
         );
     }
 }

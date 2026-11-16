@@ -1,14 +1,13 @@
 //! Stream a transcript file into a header without holding the whole file.
 
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 
 use super::header::{FileMeta, HeaderAcc};
 use crate::model::SessionHeader;
+use crate::sessions::jsonl::read_lines;
 
-const BOM: &[u8] = b"\xEF\xBB\xBF";
 const READ_BUFFER: usize = 64 * 1024;
 
 /// What one transcript yields: a header, or nothing for an empty file.
@@ -20,27 +19,9 @@ pub enum Loaded {
 
 /// Fold a transcript from `reader`. Lines split on `\n`; bytes that are not
 /// UTF-8 become U+FFFD and a leading BOM is dropped, as `TextDecoder` does.
-pub fn read_transcript(mut reader: impl BufRead, meta: FileMeta) -> io::Result<Loaded> {
+pub fn read_transcript(reader: impl BufRead, meta: FileMeta) -> io::Result<Loaded> {
     let mut acc = HeaderAcc::default();
-    let mut buf = Vec::new();
-    let mut first = true;
-    let mut text_empty = true;
-    loop {
-        buf.clear();
-        if reader.read_until(b'\n', &mut buf)? == 0 {
-            break;
-        }
-        let mut line = buf.as_slice();
-        if first {
-            line = line.strip_prefix(BOM).unwrap_or(line);
-            first = false;
-        }
-        text_empty &= line.is_empty();
-        let line = line.strip_suffix(b"\n").unwrap_or(line);
-        let text =
-            std::str::from_utf8(line).map_or_else(|_| String::from_utf8_lossy(line), Cow::Borrowed);
-        acc.push_line(&text);
-    }
+    let text_empty = read_lines(reader, |line| acc.push_line(line))?;
     if text_empty && meta.size_bytes == 0 {
         return Ok(Loaded::Skip);
     }
@@ -81,7 +62,7 @@ mod tests {
 
     #[test]
     fn bom_only_file_is_a_row() {
-        let Loaded::Header(h) = load(BOM) else {
+        let Loaded::Header(h) = load(b"\xEF\xBB\xBF") else {
             panic!("expected a header")
         };
         assert_eq!(h.message_count, 0);
