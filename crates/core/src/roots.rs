@@ -4,6 +4,7 @@
 use std::borrow::Cow;
 
 use crate::js::text;
+use crate::js::value::JsValue;
 use crate::model::Agent;
 use crate::paths::PathStyle;
 use crate::settings_doc::{DocEntry, settings_doc};
@@ -134,8 +135,15 @@ pub fn parse_settings(raw: &str) -> Settings {
         codex: of(Agent::Codex),
         pi: of(Agent::Pi),
         opencode: of(Agent::Opencode),
-        unparseable: doc.roots.is_none(),
+        unparseable: doc.roots.is_none() && !is_object_without_roots(raw),
     }
+}
+
+/// A JSON object with no `roots` key, such as the `{}` the settings editor
+/// writes when no roots are set: no overrides, nothing to warn about.
+fn is_object_without_roots(raw: &str) -> bool {
+    JsValue::parse(text::trim(raw))
+        .is_some_and(|v| v.as_obj().is_some_and(|o| o.get("roots").is_none()))
 }
 
 /// First non-empty, trimmed entry of a `PATH`-style list. Splitting on `:`

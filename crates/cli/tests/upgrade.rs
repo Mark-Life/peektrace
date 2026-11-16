@@ -263,8 +263,22 @@ fn version_flag_first_pins_instead_of_printing_the_version() {
 #[test]
 fn same_version_is_already_latest() {
     let s = setup(Mode::Ok);
+    let r = s.run(&["upgrade", "--check", "--version", "cli-v0.0.0-dev"]);
+    assert_eq!(
+        r.out,
+        "peektrace is up to date: installed cli-v0.0.0-dev, requested release cli-v0.0.0-dev.\n"
+    );
+}
+
+/// The final release sorts above the dev build of the same core.
+#[test]
+fn final_release_is_newer_than_its_dev_build() {
+    let s = setup(Mode::Ok);
     let r = s.run(&["upgrade", "--check", "--version", "cli-v0.0.0"]);
-    assert_eq!(r.out, "peektrace is up to date (cli-v0.0.0-dev).\n");
+    assert_eq!(
+        r.out,
+        "A newer version (cli-v0.0.0) is available — run 'peektrace upgrade'\n"
+    );
 }
 
 /// TS "skips the delta path outside a compiled binary": Rust has no delta

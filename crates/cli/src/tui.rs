@@ -83,7 +83,7 @@ pub fn run(p: Prepared, _ctx: &Context) -> anyhow::Result<()> {
     let cfg = Config {
         url,
         authed,
-        color: ColorMode::detect(|k| std::env::var(k).ok()),
+        color: ColorMode::detect(|k| std::env::var_os(k).map(|v| v.to_string_lossy().into_owned())),
         now: Arc::new(now_ms),
     };
     otel::hold();

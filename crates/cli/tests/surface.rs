@@ -175,6 +175,10 @@ fn root_help_lists_every_command_compactly() {
     ] {
         let r = h.run(args);
         assert_eq!(r.code, 0, "{args:?}");
+        assert!(
+            !r.out.contains('\x1b'),
+            "piped help has no colour: {args:?}"
+        );
         let text = strip_ansi(&r.out);
         assert!(text.contains("Peektrace"), "{args:?}");
         assert!(text.contains("GLOBAL OPTIONS"), "{args:?}");

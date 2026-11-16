@@ -23,7 +23,7 @@ pub struct Cli {
     #[arg(long = "read-only", global = true)]
     pub read_only: bool,
 
-    /// Log Effect spans to stderr (or set `PEEKTRACE_OTEL`)
+    /// Print span timings to stderr (or set `PEEKTRACE_OTEL`)
     #[arg(long, global = true)]
     pub otel: bool,
 

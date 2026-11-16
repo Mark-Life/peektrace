@@ -1,6 +1,8 @@
 //! `peektrace doctor`: write a redacted bundle of recent telemetry events
 //! for support. Nothing leaves the machine until the user emails the file.
 
+mod identity;
+
 use std::io;
 use std::path::Path;
 use std::sync::LazyLock;
@@ -14,6 +16,7 @@ use regex::Regex;
 
 use crate::args::DoctorArgs;
 use crate::ls::{UserError, parse_limit};
+use identity::Identity;
 
 const SCHEMA: &str = "peektrace-report/v1";
 const UNREADABLE_ATTR: &str = "sessions.unreadable";
@@ -69,22 +72,25 @@ fn credential_key(key: Option<&str>) -> bool {
     key.is_some_and(|k| CRED_KEY.as_ref().is_some_and(|re| re.is_match(k)))
 }
 
-/// Every string redacted; values under a credential-like key also lose
-/// bare high-entropy tokens. Array items take the array's key.
-pub fn redact_json(v: &JsValue, key: Option<&str>) -> JsValue {
+/// Every string redacted and stripped of home dir and user name; values
+/// under a credential-like key also lose bare high-entropy tokens. Array
+/// items take the array's key.
+pub fn redact_json(v: &JsValue, key: Option<&str>, id: &Identity) -> JsValue {
     match v {
         JsValue::Str(s) => {
-            let base = redact_text(s);
+            let base = id.scrub(&redact_text(s));
             JsValue::Str(if credential_key(key) {
                 redact_high_entropy(&base)
             } else {
-                base.into_owned()
+                base
             })
         }
-        JsValue::Arr(items) => JsValue::Arr(items.iter().map(|i| redact_json(i, key)).collect()),
+        JsValue::Arr(items) => {
+            JsValue::Arr(items.iter().map(|i| redact_json(i, key, id)).collect())
+        }
         JsValue::Obj(o) => JsValue::Obj(JsObject::from_entries(
             o.entries()
-                .map(|(k, val)| (k.to_owned(), redact_json(val, Some(k)))),
+                .map(|(k, val)| (id.scrub(k), redact_json(val, Some(k), id))),
         )),
         other => other.clone(),
     }
@@ -101,7 +107,7 @@ pub fn last_unreadable_count(events: &[JsValue]) -> f64 {
 }
 
 /// The bundle text and the count of events in it.
-pub fn bundle(events: &[JsValue], generated_at: f64) -> String {
+pub fn bundle(events: &[JsValue], generated_at: f64, id: &Identity) -> String {
     #[expect(clippy::cast_precision_loss, reason = "row counts fit f64")]
     let count = events.len() as f64;
     let o = JsObject::from_entries([
@@ -110,7 +116,7 @@ pub fn bundle(events: &[JsValue], generated_at: f64) -> String {
         ("count".to_owned(), JsValue::Num(count)),
         (
             "events".to_owned(),
-            JsValue::Arr(events.iter().map(|e| redact_json(e, None)).collect()),
+            JsValue::Arr(events.iter().map(|e| redact_json(e, None, id)).collect()),
         ),
     ]);
     JsValue::Obj(o).stringify(true)
@@ -149,14 +155,20 @@ pub struct DoctorEnv<'a> {
     /// `PEEKTRACE_DIR` as set, or `None`.
     pub peektrace_dir: Option<&'a str>,
     pub home: &'a str,
+    /// `home` with symlinks resolved, when that differs.
+    pub real_home: Option<&'a str>,
+    /// `$USER` and `$USERNAME`, scrubbed from the bundle with the home dir.
+    pub user_names: [Option<&'a str>; 2],
     pub now_ms: f64,
 }
 
 /// Run `doctor` and return its stdout lines.
 pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserError> {
     let last = parse_limit(&args.last)?;
+    let homes: Vec<&str> = std::iter::once(env.home).chain(env.real_home).collect();
+    let id = Identity::new(&homes, &env.user_names);
     let open_failed = |reason: String| {
-        UserError::Invalid(format!("Could not open the telemetry store: {reason}"))
+        UserError::Invalid(id.scrub(&format!("Could not open the telemetry store: {reason}")))
     };
     let dir = store::dir_of(env.peektrace_dir, env.home).map_err(|e| open_failed(e.to_string()))?;
     peektrace_telemetry::wait_ready(peektrace_telemetry::exit_wait());
@@ -166,7 +178,7 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
         .and_then(|s| s.recent(limit, args.interesting_only))
         .map_err(|e| open_failed(e.to_string()))?;
     let events: Vec<JsValue> = rows.iter().filter_map(|r| event::decode(r)).collect();
-    let text = bundle(&events, env.now_ms);
+    let text = bundle(&events, env.now_ms, &id);
     let dir_text = env.peektrace_dir.map_or_else(
         || PathStyle::NATIVE.join(&[env.home, ".peektrace"]),
         str::to_owned,
@@ -179,10 +191,10 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
         ])
     });
     std::fs::write(Path::new(&path), text)
-        .map_err(|e| UserError::Invalid(write_error(&path, &e)))?;
+        .map_err(|e| UserError::Invalid(id.scrub(&write_error(&path, &e))))?;
     let unreadable = last_unreadable_count(&events);
     Ok(
-        std::iter::once(format!("Wrote {} events → {path}", events.len()))
+        std::iter::once(id.scrub(&format!("Wrote {} events → {path}", events.len())))
             .chain((unreadable > 0.0).then(|| unreadable_line(unreadable)))
             .chain(std::iter::once(
                 "Email this file to 108@mark-life.com".to_owned(),
@@ -196,12 +208,20 @@ pub fn run_here(args: &DoctorArgs) -> Result<Vec<String>, UserError> {
     let home = std::env::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let peektrace_dir = std::env::var_os("PEEKTRACE_DIR").map(|d| d.to_string_lossy().into_owned());
+    let real_home = std::fs::canonicalize(&home)
+        .ok()
+        .map(|h| h.to_string_lossy().into_owned())
+        .filter(|h| *h != home);
+    let var = |k| std::env::var_os(k).map(|d| d.to_string_lossy().into_owned());
+    let peektrace_dir = var("PEEKTRACE_DIR");
+    let (user, username) = (var("USER"), var("USERNAME"));
     run(
         args,
         &DoctorEnv {
             peektrace_dir: peektrace_dir.as_deref(),
             home: &home,
+            real_home: real_home.as_deref(),
+            user_names: [user.as_deref(), username.as_deref()],
             now_ms: crate::otel::now_ms(),
         },
     )
@@ -238,7 +258,7 @@ mod tests {
 
     fn redacted(src: &str) -> String {
         JsValue::parse(src)
-            .map(|v| redact_json(&v, None).stringify(false))
+            .map(|v| redact_json(&v, None, &Identity::new(&[], &[])).stringify(false))
             .unwrap_or_default()
     }
 
@@ -270,9 +290,32 @@ mod tests {
     #[test]
     fn bundle_shape() {
         assert_eq!(
-            bundle(&[], 5.0),
+            bundle(&[], 5.0, &Identity::new(&[], &[])),
             "{\n  \"schema\": \"peektrace-report/v1\",\n  \"generatedAt\": 5,\n  \"count\": 0,\n  \"events\": []\n}"
         );
+    }
+
+    #[test]
+    fn bundle_hides_home_and_user_in_every_string() {
+        let src = r#"{"attributes":{"path":"/home/zed/.claude/projects/-home-zed-app/s.jsonl","slug":"-home-zed-app","argv":"sessions ls /home/zed","/home/zed/k":1},"code":{"stacktrace":"at f (/home/zed/src/a.rs:1)"},"by":"zedd"}"#;
+        let ev = JsValue::parse(src).unwrap_or(JsValue::Null);
+        let out = bundle(
+            &[ev],
+            1.0,
+            &Identity::new(&["/home/zed"], &[Some("zedd"), None]),
+        );
+        assert!(!out.contains("/home/zed"), "{out}");
+        assert!(!out.contains("zed"), "{out}");
+        for want in [
+            r#""path": "~/.claude/projects/-home-<user>-app/s.jsonl""#,
+            r#""slug": "-home-<user>-app""#,
+            r#""argv": "sessions ls ~""#,
+            r#""~/k": 1"#,
+            r#""stacktrace": "at f (~/src/a.rs:1)""#,
+            r#""by": "<user>""#,
+        ] {
+            assert!(out.contains(want), "{want} in {out}");
+        }
     }
 
     #[test]
