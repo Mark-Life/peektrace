@@ -32,22 +32,6 @@ export const ProseBody = ({
   </div>
 );
 
-/** One event's body, or `empty` in italics when it has none; an image event
- *  shows the image above its marker text. */
-export const EventBody = (props: {
-  readonly className?: string;
-  readonly e: TimelineEvent;
-  readonly empty?: string;
-}) =>
-  props.e.images && props.e.images.length > 0 ? (
-    <div className="flex flex-col gap-1.5">
-      <EventImages e={props.e} />
-      <EventText {...props} />
-    </div>
-  ) : (
-    <EventText {...props} />
-  );
-
 const EventText = ({
   className,
   e,
@@ -78,3 +62,19 @@ const EventText = ({
     </CodeBlock>
   );
 };
+
+/** One event's body, or `empty` in italics when it has none; an image event
+ *  shows the image above its marker text. */
+export const EventBody = (props: {
+  readonly className?: string;
+  readonly e: TimelineEvent;
+  readonly empty?: string;
+}) =>
+  props.e.images && props.e.images.length > 0 ? (
+    <div className="flex flex-col gap-1.5">
+      <EventImages e={props.e} />
+      <EventText {...props} />
+    </div>
+  ) : (
+    <EventText {...props} />
+  );

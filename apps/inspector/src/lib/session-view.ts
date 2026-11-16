@@ -5,6 +5,7 @@
  * left. Layout, sort and filters are shared across sessions instead (see
  * `history-prefs.ts`). Kept out of the URL to keep deep links clean.
  */
+import { Predicate } from "effect";
 import { useCallback, useMemo } from "react";
 
 import { useLocalStorage } from "./use-local-storage";
@@ -52,22 +53,23 @@ export const subagentCollapseId = (id: string) => `subagent:${id}`;
  *  filling any missing/wrong-typed field from the default and dropping unknown
  *  ones (e.g. the old per-session filters). Guards against stale schemas and
  *  hand-edited storage so the detail view never sees a bad shape. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- parses untrusted localStorage JSON; this is the boundary
 export const normalizeView = (parsed: unknown): SessionViewState => {
-  if (typeof parsed !== "object" || parsed === null) {
+  if (!Predicate.isObject(parsed)) {
     return DEFAULT_SESSION_VIEW;
   }
 
-  const raw = parsed as Partial<Record<keyof SessionViewState, unknown>>;
+  const expanded =
+    "expanded" in parsed && Array.isArray(parsed.expanded)
+      ? parsed.expanded.filter(Predicate.isString)
+      : DEFAULT_SESSION_VIEW.expanded;
 
-  return {
-    expanded: Array.isArray(raw.expanded)
-      ? raw.expanded.filter((x): x is string => typeof x === "string")
-      : DEFAULT_SESSION_VIEW.expanded,
-    redacted:
-      typeof raw.redacted === "boolean"
-        ? raw.redacted
-        : DEFAULT_SESSION_VIEW.redacted,
-  };
+  const redacted =
+    "redacted" in parsed && Predicate.isBoolean(parsed.redacted)
+      ? parsed.redacted
+      : DEFAULT_SESSION_VIEW.redacted;
+
+  return { expanded, redacted };
 };
 
 /** Typed accessor over one session's persisted view. */

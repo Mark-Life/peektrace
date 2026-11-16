@@ -27,7 +27,7 @@ export const bodyKey = (e: EventRow) => ("bodyId" in e ? e.bodyId : e.body);
 
 /** `eventBadgeLabel` of a whole event or an index row: it reads only the
  *  kind, tool name, prompt origin and attachment type, which rows carry. */
-export const badgeOf = (e: EventRow) => eventBadgeLabel(e as TimelineEvent);
+export const badgeOf = (e: EventRow) => eventBadgeLabel(e);
 
 /** Body length in UTF-16 units, as `body.length` counts it. */
 export const bodyLength = (e: EventRow) =>
@@ -105,7 +105,7 @@ export const laneOf = (e: EventRow): ChatLane => {
 export const chipLabel = (e: EventRow): string => {
   const prefix = FILE_TITLE_PREFIXES.find((p) => e.title.startsWith(p));
 
-  if (prefix) {
+  if (prefix !== undefined && prefix !== "") {
     return e.title.slice(prefix.length);
   }
 
@@ -151,11 +151,11 @@ const resultFor = <E extends EventRow>(
 ) => {
   const id = call.e.toolUseId;
 
-  if (!id) {
+  if (id === undefined || id === "") {
     return null;
   }
 
-  for (let i = from; i < rows.length; i++) {
+  for (let i = from; i < rows.length; i += 1) {
     const row = rows[i];
 
     if (row && row.e.kind === "tool-result" && row.e.toolUseId === id) {
@@ -166,12 +166,17 @@ const resultFor = <E extends EventRow>(
   return null;
 };
 
+interface NodeStep<E extends EventRow> {
+  readonly consumed: number | null;
+  readonly node: ChatNode<E>;
+}
+
 /** The node one standalone row becomes, plus the result it swallowed. */
 const nodeForRow = <E extends EventRow>(
   rows: readonly TranscriptRowRef<E>[],
   i: number,
   row: TranscriptRowRef<E>
-): { readonly consumed: number | null; readonly node: ChatNode<E> } => {
+): NodeStep<E> => {
   const { e } = row;
 
   if (e.kind === "tool-call") {
@@ -295,9 +300,9 @@ export const chatIdsOf = (
     }
   }
 
-  return rows
-    .filter(({ pos }) => !consumed.has(pos))
-    .map(({ pos }) => chatCollapseId(pos));
+  return rows.flatMap(({ pos }) =>
+    consumed.has(pos) ? [] : [chatCollapseId(pos)]
+  );
 };
 
 /** The node that shows tool call `id`: its card, whether the call itself or

@@ -10,9 +10,9 @@
  * Window, agent and the open drill key all ride the hash, so any view here is a
  * link someone else can open.
  */
-import type { Atom } from "@effect-atom/atom-react";
 import { useAtomValue } from "@effect-atom/atom-react";
-import type { Result } from "@effect-atom/atom-react";
+// oxlint-disable-next-line import/no-duplicates, eslint/no-duplicate-imports -- type-only import kept separate: the type-specifier-style rule forbids inline `type`
+import type { Atom, Result } from "@effect-atom/atom-react";
 import type {
   AgentId,
   DrillResult,
@@ -98,6 +98,10 @@ const SectionHead = ({
   </div>
 );
 
+const openDrill = (table: DrillTable, key: string) => {
+  setHashParam("drill", `${table}:${key}`);
+};
+
 /** The screen for one loaded report. */
 const ReportView = ({
   agent,
@@ -119,10 +123,6 @@ const ReportView = ({
   readonly rescanning: boolean;
 }) => {
   const [showAllFindings, setShowAllFindings] = useState(false);
-
-  const openDrill = (table: DrillTable, key: string) => {
-    setHashParam("drill", `${table}:${key}`);
-  };
 
   const keyOf = (table: DrillTable) =>
     drill?.table === table ? drill.key : null;
@@ -189,8 +189,8 @@ const ReportView = ({
         <SectionHead by="sessions spanned, then calls" title="What fails" />
         <p className="text-muted-foreground text-xs">
           A row says a call printed a failure — never that something broke.
-          Flagged counts the calls that set the agent's own error flag; the gap
-          between it and Calls is what an error panel alone would miss.
+          Flagged counts the calls that set the agent&apos;s own error flag; the
+          gap between it and Calls is what an error panel alone would miss.
         </p>
         <FailTable
           onSelect={(key) => {

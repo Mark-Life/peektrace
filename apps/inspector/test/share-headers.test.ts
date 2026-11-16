@@ -53,21 +53,24 @@ test("an added optional field counts as a change", () => {
 });
 
 test("added, removed and reordered headers", () => {
-  const prev = [header("a"), header("b"), header("c")];
+  const a = header("a");
+  const b = header("b");
+  const c = header("c");
+  const prev = [a, b, c];
   const added = shareHeaders(prev, [...reload(prev), header("d")]);
   expect(added).toHaveLength(4);
   expect(added.slice(0, 3)).toEqual(prev);
-  expect(added[0]).toBe(prev[0]);
+  expect(added[0]).toBe(a);
 
-  const removed = shareHeaders(prev, reload([prev[0], prev[2]]));
+  const removed = shareHeaders(prev, reload([a, c]));
   expect(removed).toHaveLength(2);
-  expect(removed[0]).toBe(prev[0]);
-  expect(removed[1]).toBe(prev[2]);
+  expect(removed[0]).toBe(a);
+  expect(removed[1]).toBe(c);
 
-  const reordered = shareHeaders(prev, reload([prev[2], prev[0], prev[1]]));
+  const reordered = shareHeaders(prev, reload([c, a, b]));
   expect(reordered).not.toBe(prev);
   expect(reordered.map((h) => h.id)).toEqual(["c", "a", "b"]);
-  expect(reordered[0]).toBe(prev[2]);
+  expect(reordered[0]).toBe(c);
 });
 
 test("the shared atom notifies nobody on an equal refresh", () => {
@@ -80,7 +83,13 @@ test("the shared atom notifies nobody on an equal refresh", () => {
   const shared = sharedHeadersAtom(source);
   const registry = Registry.make();
   const seen: Result.Result<readonly SessionHeader[]>[] = [];
-  registry.subscribe(shared, (r) => seen.push(r), { immediate: true });
+  registry.subscribe(
+    shared,
+    (r) => {
+      seen.push(r);
+    },
+    { immediate: true }
+  );
   expect(seen).toHaveLength(1);
 
   registry.set(source, Result.success(first, { waiting: true }));
@@ -91,7 +100,7 @@ test("the shared atom notifies nobody on an equal refresh", () => {
   grown[0] = header("a", { messageCount: 9 });
   registry.set(source, Result.success(grown));
   expect(seen).toHaveLength(2);
-  const last = seen[1];
+  const [, last] = seen;
 
   if (!(last && Result.isSuccess(last))) {
     throw new Error("expected a success");

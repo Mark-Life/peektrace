@@ -80,11 +80,11 @@ export const memoryProjectOptions = ({
     .map((slug) => {
       const lastActive = active.get(slug);
 
-      return {
-        label: label.get(slug) ?? slug,
-        slug,
-        ...(lastActive === undefined ? {} : { lastActive }),
-      };
+      const name = label.get(slug) ?? slug;
+
+      return lastActive === undefined
+        ? { label: name, slug }
+        : { label: name, lastActive, slug };
     })
-    .sort(byRecency);
+    .toSorted(byRecency);
 };

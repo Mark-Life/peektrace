@@ -55,7 +55,7 @@ const Row = ({
         <span className="truncate font-medium">{row.label}</span>
         <span className="text-muted-foreground shrink-0 font-mono">
           {row.valueText ?? row.value.toLocaleString()}
-          {row.secondary ? (
+          {row.secondary !== undefined && row.secondary !== "" ? (
             <span className="text-muted-foreground/70 ml-2">
               {row.secondary}
             </span>
@@ -68,7 +68,7 @@ const Row = ({
           style={{ width: `${widthOf(row.value, max)}%` }}
         />
       </div>
-      {row.note ? (
+      {row.note !== undefined && row.note !== "" ? (
         <p className="text-muted-foreground text-xs">{row.note}</p>
       ) : null}
     </>

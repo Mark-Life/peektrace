@@ -1,3 +1,9 @@
+import type {
+  GrowthSeries,
+  HistoryPageMeta,
+  TimelineEvent,
+  TurnSnapshot,
+} from "@workspace/view-core/api-types.gen";
 /** Paging the session history: which events the drawn rows need, how to
  *  fetch them, and turning index rows back into whole events once they are
  *  here.
@@ -8,12 +14,7 @@
  * Rows spread over the transcript (a size sort, scattered search hits) get
  * only their own events, in short runs.
  */
-import type {
-  GrowthSeries,
-  HistoryPageMeta,
-  TimelineEvent,
-  TurnSnapshot,
-} from "@workspace/view-core/api-types.gen";
+import { Array as Arr, Order } from "effect";
 
 import type {
   ChatNode,
@@ -85,8 +86,9 @@ export const pageOf = (pos: number, size = PAGE_SIZE) => Math.floor(pos / size);
 
 /** Sorted unique page numbers of `positions`. */
 export const pagesFor = (positions: Iterable<number>, size = PAGE_SIZE) =>
-  [...new Set(Array.from(positions, (p) => pageOf(p, size)))].sort(
-    (x, y) => x - y
+  Arr.sort(
+    [...new Set(Array.from(positions, (p) => pageOf(p, size)))],
+    Order.number
   );
 
 /** Event positions a chat node or table row draws. */
@@ -97,24 +99,21 @@ export const positionsOf = (
     return [n.pos];
   }
 
-  switch (n.type) {
-    case "message":
-    case "band":
-    case "notice": {
-      return [n.row.pos];
-    }
-    case "tool": {
-      return [n.call?.pos, n.result?.pos].filter(
-        (p): p is number => p !== undefined
-      );
-    }
-    case "run": {
-      return n.items.map((i) => i.pos);
-    }
-    default: {
-      return [];
-    }
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
+    return [n.row.pos];
   }
+
+  if (n.type === "tool") {
+    return [n.call?.pos, n.result?.pos].filter(
+      (p): p is number => p !== undefined
+    );
+  }
+
+  if (n.type === "run") {
+    return n.items.map((i) => i.pos);
+  }
+
+  return [];
 };
 
 /** Pages the drawn rows need, plus `prefetch` pages past each end, inside
@@ -133,7 +132,7 @@ const neededPages = ({
 }) => {
   const count = Math.ceil(total / size);
   const pages = pagesFor(drawn, size).filter((p) => p < count);
-  const first = pages[0];
+  const [first] = pages;
   const last = pages.at(-1);
 
   if (first === undefined || last === undefined) {
@@ -142,13 +141,14 @@ const neededPages = ({
 
   const extra: number[] = [];
 
-  for (let i = 1; i <= prefetch; i++) {
+  for (let i = 1; i <= prefetch; i += 1) {
     extra.push(first - i, last + i);
   }
 
-  return [
-    ...new Set([...pages, ...extra.filter((p) => p >= 0 && p < count)]),
-  ].sort((x, y) => x - y);
+  return Arr.sort(
+    [...new Set([...pages, ...extra.filter((p) => p >= 0 && p < count)])],
+    Order.number
+  );
 };
 
 /** Rows drawn in event order need their pages and `prefetch` more each
@@ -166,11 +166,12 @@ export const neededBodies = ({
   readonly size?: number;
   readonly total: number;
 }): Needed => {
-  const rows = [...new Set(drawn)]
-    .filter((p) => p >= 0 && p < total)
-    .sort((x, y) => x - y);
+  const rows = Arr.sort(
+    [...new Set(drawn)].filter((p) => p >= 0 && p < total),
+    Order.number
+  );
 
-  const first = rows[0];
+  const [first] = rows;
   const last = rows.at(-1);
 
   if (first === undefined || last === undefined) {
@@ -203,7 +204,7 @@ const runsOf = (
   const gapFits = (from: number, to: number) => {
     let sum = 0;
 
-    for (let p = from + 1; p < to && sum <= budget; p++) {
+    for (let p = from + 1; p < to && sum <= budget; p += 1) {
       sum += bodyLen(p) + ROW_COST;
     }
 
@@ -296,9 +297,10 @@ export const storeBodies = (
 ): BodyCache => {
   if (f.kind === "run") {
     const rows = new Map(cache.rows);
-    page.events.forEach((event, i) => {
+
+    for (const [i, event] of page.events.entries()) {
       rows.set(f.offset + i, { event, rev: page.rev });
-    });
+    }
 
     return { pages: cache.pages, rows };
   }
@@ -365,46 +367,40 @@ const build = (
   n: ChatNode<EventRow>,
   at: (pos: number) => TimelineEvent | null
 ): ChatNode | null => {
-  switch (n.type) {
-    case "message":
-    case "band":
-    case "notice": {
-      const row = hydrateRow(n.row, at);
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
+    const row = hydrateRow(n.row, at);
 
-      return row === null ? null : { row, type: n.type };
-    }
+    return row === null ? null : { row, type: n.type };
+  }
 
-    case "tool": {
-      const call = n.call === null ? null : hydrateRow(n.call, at);
-      const result = n.result === null ? null : hydrateRow(n.result, at);
+  if (n.type === "tool") {
+    const call = n.call === null ? null : hydrateRow(n.call, at);
+    const result = n.result === null ? null : hydrateRow(n.result, at);
 
-      const missing =
-        (n.call !== null && call === null) ||
-        (n.result !== null && result === null);
+    const missing =
+      (n.call !== null && call === null) ||
+      (n.result !== null && result === null);
 
-      return missing ? null : { call, result, type: "tool" };
-    }
+    return missing ? null : { call, result, type: "tool" };
+  }
 
-    case "run": {
-      const items: RunItem[] = [];
+  if (n.type === "run") {
+    const items: RunItem[] = [];
 
-      for (const item of n.items) {
-        const e = wholeOf(item, at);
+    for (const item of n.items) {
+      const e = wholeOf(item, at);
 
-        if (e === null) {
-          return null;
-        }
-
-        items.push({ e, pos: item.pos, repeat: item.repeat });
+      if (e === null) {
+        return null;
       }
 
-      return { items, type: "run" };
+      items.push({ e, pos: item.pos, repeat: item.repeat });
     }
 
-    default: {
-      return n;
-    }
+    return { items, type: "run" };
   }
+
+  return n;
 };
 
 /** Hydrated results kept per index node or row, with the events they used. */
@@ -413,8 +409,8 @@ export type HydrateCache = WeakMap<
   { readonly events: readonly (TimelineEvent | null)[]; readonly out: unknown }
 >;
 
-const cached = <I extends ChatNode<EventRow> | TranscriptRowRef<EventRow>, O>(
-  item: I,
+const cached = <O>(
+  item: ChatNode<EventRow> | TranscriptRowRef<EventRow>,
   at: (pos: number) => TimelineEvent | null,
   cache: HydrateCache,
   make: () => O
@@ -427,6 +423,8 @@ const cached = <I extends ChatNode<EventRow> | TranscriptRowRef<EventRow>, O>(
     held.events.length === events.length &&
     held.events.every((e, i) => e === events[i])
   ) {
+    // SAFETY: each item's cache entry is written only by `make` for that same item, so `out` has type O.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the WeakMap erases O; each entry is written and read by the same call site
     return held.out as O;
   }
 
@@ -453,7 +451,7 @@ export const hydrator = (
 };
 
 /** Column `col` at row `i`; every column has one value per snapshot. */
-const cell = (col: readonly number[], i: number) => col[i] as number;
+const cell = (col: readonly number[], i: number) => col[i] ?? 0;
 
 /** The snapshots the growth chart draws, rebuilt from the growth columns. */
 export const snapshotsOf = (

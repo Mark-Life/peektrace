@@ -22,15 +22,19 @@ const NOTE = "px-3 py-2 text-muted-foreground text-xs";
 /** Natural size of an image, known once the browser has decoded it. */
 const useNaturalSize = (src: string) => {
   const [size, setSize] = useState<{ h: number; w: number } | null>(null);
+
   useEffect(() => {
     const probe = new Image();
-    probe.onload = () => {
+
+    const onLoad = () => {
       setSize({ h: probe.naturalHeight, w: probe.naturalWidth });
     };
+
+    probe.addEventListener("load", onLoad);
     probe.src = src;
 
     return () => {
-      probe.onload = null;
+      probe.removeEventListener("load", onLoad);
     };
   }, [src]);
 
@@ -70,18 +74,16 @@ const Picture = ({
 /** An object URL for `blob`, revoked when it changes or on unmount. */
 const useObjectUrl = (blob: Blob | null) => {
   const [url, setUrl] = useState<string | null>(null);
+
   useEffect(() => {
-    if (blob === null) {
-      setUrl(null);
-
-      return;
-    }
-
-    const made = URL.createObjectURL(blob);
+    const made = blob === null ? null : URL.createObjectURL(blob);
+    // oxlint-disable-next-line react/set-state-in-effect -- the object URL is an external resource created and revoked with the effect
     setUrl(made);
 
     return () => {
-      URL.revokeObjectURL(made);
+      if (made !== null) {
+        URL.revokeObjectURL(made);
+      }
     };
   }, [blob]);
 

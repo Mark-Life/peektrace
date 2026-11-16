@@ -41,6 +41,12 @@ export const HEALTH_LABEL: Record<Zone, string> = {
   warn: "Degrading",
 };
 
+/** Divisor for the midpoint between a threshold and 1. */
+const HALF = 2;
+
+/** Default clip length for `firstLine`. */
+const FIRST_LINE_MAX = 160;
+
 /**
  * Classify a context-fill fraction into a health zone. The warn/bad boundary
  * sits at 0.75 by default but is pushed above the dumb-zone threshold when it is
@@ -53,7 +59,8 @@ export const zoneOf = ({
   readonly frac: number;
   readonly dumbZone: number;
 }): Zone => {
-  const warn = dumbZone < WARN_THRESHOLD ? WARN_THRESHOLD : (1 + dumbZone) / 2;
+  const warn =
+    dumbZone < WARN_THRESHOLD ? WARN_THRESHOLD : (1 + dumbZone) / HALF;
 
   if (frac < dumbZone) {
     return "ok";
@@ -110,7 +117,7 @@ export const fmtBytes = (n: number): string => {
 /** First line of a string, clipped to `max` chars. */
 export const firstLine = ({
   text,
-  max = 160,
+  max = FIRST_LINE_MAX,
 }: {
   readonly text: string;
   readonly max?: number;

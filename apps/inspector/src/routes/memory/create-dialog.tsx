@@ -185,7 +185,7 @@ export const CreateDialog = ({
               value={body}
             />
           </div>
-          {error ? (
+          {error !== undefined && error !== "" ? (
             <p className="text-sm text-red-400" data-testid="create-error">
               {error}
             </p>
@@ -204,7 +204,9 @@ export const CreateDialog = ({
           <Button
             data-testid="create-submit"
             disabled={busy || name.length === 0 || project === undefined}
-            onClick={submit}
+            onClick={() => {
+              void submit();
+            }}
             type="button"
           >
             {busy ? "Creating…" : "Create memory"}

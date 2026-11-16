@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import nodePath from "node:path";
 
 import { changelogSection, latestRelease } from "./changelog";
 
@@ -38,8 +38,8 @@ See [guide](docs/guide.md) and [site](https://example.com) and [top](#top).
 - desktop
 `;
 
-const REPO_CHANGELOG = join(import.meta.dir, "../../CHANGELOG.md");
-const SCRIPT = join(import.meta.dir, "release-notes.ts");
+const REPO_CHANGELOG = nodePath.join(import.meta.dir, "../../CHANGELOG.md");
+const SCRIPT = nodePath.join(import.meta.dir, "release-notes.ts");
 
 describe("changelogSection", () => {
   test("returns a middle section with subheadings and fenced headings", () => {
@@ -154,7 +154,10 @@ const run = (args: string[], repo?: string) => {
   const { GITHUB_REPOSITORY: _repo, ...env } = process.env;
 
   return Bun.spawnSync([process.execPath, SCRIPT, ...args], {
-    env: repo ? { ...env, GITHUB_REPOSITORY: repo } : env,
+    env:
+      repo !== undefined && repo !== ""
+        ? { ...env, GITHUB_REPOSITORY: repo }
+        : env,
   });
 };
 
@@ -185,10 +188,10 @@ describe("release-notes script", () => {
   });
 
   test("uses GITHUB_REPOSITORY for rewritten links", () => {
-    const dir = mkdtempSync(join(tmpdir(), "release-notes-"));
+    const dir = mkdtempSync(nodePath.join(tmpdir(), "release-notes-"));
 
     try {
-      const file = join(dir, "CHANGELOG.md");
+      const file = nodePath.join(dir, "CHANGELOG.md");
       writeFileSync(file, "## cli-v1.0.0\n[`a.md`](a.md)\n");
       const result = run(["cli-v1.0.0", file], "acme/widget");
       expect(result.stdout.toString().trim()).toBe(

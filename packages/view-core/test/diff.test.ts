@@ -8,14 +8,17 @@ import { describe, expect, test } from "bun:test";
 
 import { diffLines } from "../src/diff";
 
-const shape = (before: string, after: string) =>
+const lineLabels = (before: string, after: string) =>
   diffLines(before, after).rows.map((r) =>
     r.kind === "gap" ? `gap:${r.count}` : `${r.kind}:${r.text}`
   );
 
+const long = (n: number, mark = "") =>
+  Array.from({ length: n }, (_, i) => `line ${i}${mark}`).join("\n");
+
 describe("aligning a before/after pair", () => {
   test("a changed line leaves its neighbours as context", () => {
-    expect(shape("a\nb\nc", "a\nB\nc")).toEqual([
+    expect(lineLabels("a\nb\nc", "a\nB\nc")).toEqual([
       "ctx:a",
       "del:b",
       "add:B",
@@ -38,22 +41,19 @@ describe("aligning a before/after pair", () => {
   });
 
   test("an insertion adds without removing anything", () => {
-    expect(shape("a\nb", "a\nx\nb")).toEqual(["ctx:a", "add:x", "ctx:b"]);
+    expect(lineLabels("a\nb", "a\nx\nb")).toEqual(["ctx:a", "add:x", "ctx:b"]);
   });
 
   test("writing into emptiness is all additions", () => {
-    expect(shape("", "a\nb")).toEqual(["add:a", "add:b"]);
+    expect(lineLabels("", "a\nb")).toEqual(["add:a", "add:b"]);
   });
 
   test("identical text has nothing to show", () => {
-    expect(shape("a\nb", "a\nb")).toEqual(["gap:2"]);
+    expect(lineLabels("a\nb", "a\nb")).toEqual(["gap:2"]);
   });
 });
 
 describe("keeping a long diff readable", () => {
-  const long = (n: number, mark = "") =>
-    Array.from({ length: n }, (_, i) => `line ${i}${mark}`).join("\n");
-
   test("unchanged stretches collapse to one counted gap", () => {
     const before = long(20);
     const after = before.replace("line 10", "line 10 changed");

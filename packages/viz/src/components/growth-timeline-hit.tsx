@@ -25,6 +25,9 @@ export type GrowthSnapshot = Pick<
 /** Gap between the guide line and its label, in viewBox px. */
 const LABEL_GAP = 6;
 
+/** Divisor for the plot midpoint. */
+const HALF = 2;
+
 /** Label baseline below the plot top, in viewBox px. */
 const LABEL_DROP = 12;
 
@@ -107,7 +110,7 @@ export const TimelineHitLayer = ({
 
   const snap = hover >= 0 ? snaps[hover] : undefined;
   const hx = snap ? x(hover) : 0;
-  const rightHalf = hx > left + plotW / 2;
+  const rightHalf = hx > left + plotW / HALF;
 
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: a pointer-only shortcut; the dumb-zone and peak markers are the keyboard path

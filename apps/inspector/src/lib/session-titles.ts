@@ -13,17 +13,18 @@ import type { SessionTitles } from "./stats-format";
 const NO_TITLES: SessionTitles = new Map();
 
 /** `agent:id` to title, for every listed session that has one. */
-export const sessionTitlesAtom = Atom.map(
-  sessionsListAtom,
-  (result): SessionTitles => {
+export const sessionTitlesAtom = sessionsListAtom.pipe(
+  Atom.map((result): SessionTitles => {
     if (!Result.isSuccess(result)) {
       return NO_TITLES;
     }
 
     return new Map(
       result.value.flatMap((h) =>
-        h.title ? [[titleKey(h.agent, h.id), h.title] as const] : []
+        h.title !== undefined && h.title !== ""
+          ? [[titleKey(h.agent, h.id), h.title] as const]
+          : []
       )
     );
-  }
+  })
 );

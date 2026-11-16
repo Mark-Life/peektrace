@@ -1,6 +1,7 @@
 /** Settled versions: reloads wait for quiet, never starve under continuous
  *  writes, and hold while live updates are paused. */
 import { expect, test } from "bun:test";
+import { setTimeout as wait } from "node:timers/promises";
 
 import { Atom, Registry } from "@effect-atom/atom-react";
 
@@ -37,12 +38,16 @@ const setup = () => {
   const settled = settledAtom({ paused, source, timing });
   const registry = Registry.make();
   const seen: number[] = [];
-  registry.subscribe(settled, (v) => seen.push(v), { immediate: true });
+  registry.subscribe(
+    settled,
+    (v) => {
+      seen.push(v);
+    },
+    { immediate: true }
+  );
 
   return { paused, registry, seen, source };
 };
-
-const wait = async (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 test("a burst of bumps emits once, with the latest value", async () => {
   const { registry, seen, source } = setup();
@@ -57,8 +62,9 @@ test("a burst of bumps emits once, with the latest value", async () => {
 test("continuous bumps still emit by maxWait", async () => {
   const { registry, seen, source } = setup();
 
-  for (let v = 1; v <= 10; v++) {
+  for (let v = 1; v <= 10; v += 1) {
     registry.set(source, v);
+    // oxlint-disable-next-line eslint/no-await-in-loop -- bumps must arrive one interval apart
     await wait(10);
   }
 

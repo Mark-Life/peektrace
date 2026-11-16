@@ -32,9 +32,6 @@ import {
   ArrowUpIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
-  MessagesSquareIcon,
-  ShieldAlertIcon,
-  TableIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RefObject } from "react";
@@ -70,6 +67,11 @@ import { indexTools } from "../../lib/tool-event";
 import { useSearchQuery, useSearchStepper } from "../../lib/use-history-search";
 import type { RevealHit } from "../../lib/use-history-search";
 import { HiddenNote } from "./hidden-note";
+import {
+  LayoutToggle,
+  RedactionBanner,
+  RedactionOffBadge,
+} from "./history-chrome";
 import { HistorySearch } from "./history-search";
 import { Subagents } from "./subagents";
 import { TranscriptChat } from "./transcript-chat";
@@ -91,18 +93,6 @@ const NO_HITS: readonly string[] = [];
 
 const sameNumbers = (x: readonly number[], y: readonly number[]) =>
   x.length === y.length && x.every((n, i) => n === y[i]);
-
-/** Keeps the warning in sight once the banner has scrolled away. */
-const RedactionOffBadge = ({ redacted }: { readonly redacted: boolean }) =>
-  redacted ? null : (
-    <span
-      className="border-destructive/60 bg-destructive/15 text-destructive inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium"
-      data-testid="sticky-redaction-off"
-    >
-      <ShieldAlertIcon className="size-3.5" />
-      Redaction off
-    </span>
-  );
 
 /** Full history section with filters, redaction banner, and subagent drill-down. */
 export const SessionHistory = ({
@@ -141,7 +131,16 @@ export const SessionHistory = ({
 }) => {
   const { redacted } = view.state;
   const prefs = useHistoryPrefs();
-  const { kind, sort, mode } = prefs;
+
+  const {
+    kind,
+    sort,
+    mode,
+    setKind: handleKind,
+    setMode: handleMode,
+    setSort: handleSort,
+  } = prefs;
+
   const { query, deferredQuery, setQuery } = useSearchQuery(sid);
   const events = index.rows;
 
@@ -275,7 +274,7 @@ export const SessionHistory = ({
 
   const clearFilters = () => {
     setQuery("");
-    prefs.setKind("all");
+    handleKind("all");
   };
 
   // Bulk expand lives in the URL (`?expand=all`) so an all-open view is a
@@ -309,6 +308,8 @@ export const SessionHistory = ({
     allIdsRef.current = allIds;
   }, [allIds]);
 
+  const { setExpanded, toggleExpanded } = view;
+
   const onToggle = useCallback(
     (id: string, open: boolean) => {
       if (expandAll) {
@@ -317,22 +318,22 @@ export const SessionHistory = ({
         }
 
         // Collapsing one while all-open: materialize the rest, drop the flag.
-        view.setExpanded(allIdsRef.current.filter((x) => x !== id));
+        setExpanded(allIdsRef.current.filter((x) => x !== id));
         setHashParam("expand", null);
 
         return;
       }
 
-      view.toggleExpanded(id, open);
+      toggleExpanded(id, open);
     },
-    [expandAll, view.setExpanded, view.toggleExpanded]
+    [expandAll, setExpanded, toggleExpanded]
   );
 
   // The search filters the list, so every drawn card is a hit. The mounted
   // layout fills `revealHit`, since only it knows where a hit's row sits.
   const revealHit = useRef<RevealHit>(null);
 
-  const search = useSearchStepper({
+  const stepper = useSearchStepper({
     hits: searching ? transcriptIds : NO_HITS,
     isOpen,
     onToggle,
@@ -340,6 +341,15 @@ export const SessionHistory = ({
     resetKey: query,
     reveal: revealHit,
   });
+
+  const {
+    containerRef: searchContainerRef,
+    count: searchCount,
+    current: searchCurrent,
+    isOpen: isSearchOpen,
+    onStep: handleStep,
+    onToggle: handleToggle,
+  } = stepper;
 
   const allOpen =
     expandAll ||
@@ -351,11 +361,11 @@ export const SessionHistory = ({
   const [bulkKey, setBulkKey] = useState(0);
 
   const toggleAll = () => {
-    setBulkKey((k) => k + 1);
+    setBulkKey((n) => n + 1);
 
     if (allOpen) {
       setHashParam("expand", null);
-      view.setExpanded([]);
+      setExpanded([]);
     } else {
       setHashParam("expand", "all");
     }
@@ -392,29 +402,7 @@ export const SessionHistory = ({
         </div>
       </div>
 
-      <div
-        className={cn(
-          "text-destructive flex items-center gap-2 rounded-md border px-3 py-2 text-xs",
-          redacted
-            ? "border-destructive/30 bg-destructive/5"
-            : "border-destructive/60 bg-destructive/15 font-medium"
-        )}
-        data-testid="redaction-banner"
-      >
-        <ShieldAlertIcon className="size-4 shrink-0" />
-        {redacted ? (
-          <span>
-            Secrets are redacted by default. This transcript may still contain
-            sensitive data, and images are shown as recorded — review before
-            sharing.
-          </span>
-        ) : (
-          <span data-testid="redaction-off">
-            Redaction is OFF — the raw transcript (including secrets) is shown.
-            Do not share.
-          </span>
-        )}
-      </div>
+      <RedactionBanner redacted={redacted} />
 
       <div
         className="border-border bg-background/95 @container top-0 z-20 -mx-1 flex flex-wrap items-center gap-2 border-b px-1 py-2 backdrop-blur [@media(min-height:500px)]:sticky"
@@ -422,17 +410,17 @@ export const SessionHistory = ({
         ref={setBar}
       >
         <HistorySearch
-          count={search.count}
-          current={search.current}
+          count={searchCount}
+          current={searchCurrent}
           onClear={() => {
             setQuery("");
           }}
           onQuery={setQuery}
-          onStep={search.onStep}
+          onStep={handleStep}
           pending={stale}
           query={query}
         />
-        <Select onValueChange={prefs.setKind} value={kind}>
+        <Select onValueChange={handleKind} value={kind}>
           <SelectTrigger
             className="w-36 @2xl:w-40"
             data-testid="history-kind-filter"
@@ -447,34 +435,7 @@ export const SessionHistory = ({
             ))}
           </SelectContent>
         </Select>
-        <fieldset
-          aria-label="Transcript layout"
-          className="border-border ml-auto flex items-center gap-0.5 rounded-md border p-0.5"
-          data-testid="history-layout-toggle"
-        >
-          <Button
-            data-testid="history-layout-chat"
-            onClick={() => {
-              prefs.setMode("chat");
-            }}
-            size="sm"
-            variant={mode === "chat" ? "secondary" : "ghost"}
-          >
-            <MessagesSquareIcon className="size-3.5" />
-            Chat
-          </Button>
-          <Button
-            data-testid="history-layout-table"
-            onClick={() => {
-              prefs.setMode("table");
-            }}
-            size="sm"
-            variant={mode === "table" ? "secondary" : "ghost"}
-          >
-            <TableIcon className="size-3.5" />
-            Table
-          </Button>
-        </fieldset>
+        <LayoutToggle mode={mode} onMode={handleMode} />
         {allIds.length > 0 ? (
           <Button
             aria-label={expandLabel}
@@ -512,7 +473,7 @@ export const SessionHistory = ({
       <div
         aria-busy={stale}
         className={cn("transition-opacity", stale && "opacity-70")}
-        ref={search.containerRef}
+        ref={searchContainerRef}
       >
         {mode === "chat" ? (
           <TranscriptChat
@@ -522,12 +483,12 @@ export const SessionHistory = ({
             bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
             eventAt={eventAt}
-            isOpen={search.isOpen}
+            isOpen={isSearchOpen}
             jump={jump}
             landing={landing}
             marks={marks}
             onDrawn={onDrawn}
-            onToggle={search.onToggle}
+            onToggle={handleToggle}
             queryActive={searching}
             revealHit={revealHit}
             rows={visible}
@@ -541,13 +502,13 @@ export const SessionHistory = ({
             bulkKey={bulkKey}
             crossEvtIdx={crossEvtIdx}
             eventAt={eventAt}
-            isOpen={search.isOpen}
+            isOpen={isSearchOpen}
             jump={jump}
             jumpIndex={jumpIndex}
             landing={landing}
             onDrawn={onDrawn}
-            onSort={prefs.setSort}
-            onToggle={search.onToggle}
+            onSort={handleSort}
+            onToggle={handleToggle}
             revealHit={revealHit}
             rows={visible}
             sort={sort}

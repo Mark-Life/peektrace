@@ -1,11 +1,11 @@
 /** Builds the npm wrapper README from the root README. Pure. */
 
 const REPO = "Mark-Life/peektrace";
-const CUT_HEADING = /^# Develop\s*$/m;
-const IMAGE_LINE = /^\s*!\[[^\]]*\]\([^)]*\)\s*$/gm;
-const TRAILING_RULE = /\n*---$/;
-const LEADING_DOT_SLASH = /^\.?\//;
-const RELATIVE_LINK = /\]\((?!https?:|#|mailto:)([^)\s]+)\)/g;
+const CUT_HEADING = /^# Develop\s*$/mu;
+const IMAGE_LINE = /^\s*!\[[^\]]*\]\([^)]*\)\s*$/gmu;
+const TRAILING_RULE = /\n*---$/u;
+const LEADING_DOT_SLASH = /^\.?\//u;
+const RELATIVE_LINK = /\]\((?!https?:|#|mailto:)(?<path>[^)\s]+)\)/gu;
 
 /**
  * Keep the root README from the top up to `# Develop`, drop image lines
@@ -23,7 +23,7 @@ export const npmReadme = (rootMd: string, ref: string) => {
       (_m, path: string) =>
         `](https://github.com/${REPO}/blob/${ref}/${path.replace(LEADING_DOT_SLASH, "")})`
     )
-    .replaceAll(/\n{3,}/g, "\n\n")
+    .replaceAll(/\n{3,}/gu, "\n\n")
     .trimEnd()
     .replace(TRAILING_RULE, "");
 

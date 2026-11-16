@@ -136,7 +136,12 @@ const DetailRow = ({
             ))}
           </div>
         ) : null}
-        <LinkedBody entry={entry} onNavigate={actions.onNavigate} />
+        <LinkedBody
+          entry={entry}
+          onNavigate={(slug) => {
+            actions.onNavigate(slug);
+          }}
+        />
       </div>
     </TableCell>
   </TableRow>
@@ -293,7 +298,7 @@ export const BrowseTable = ({
               >
                 <TableCell className="font-medium">{titleOf(entry)}</TableCell>
                 <TableCell>
-                  {entry.type ? (
+                  {entry.type !== undefined && entry.type !== "" ? (
                     <Badge className="capitalize" variant="secondary">
                       {entry.type}
                     </Badge>

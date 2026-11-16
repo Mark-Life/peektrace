@@ -40,6 +40,9 @@ const DAY_OPTIONS = [
   QUARTER_DAYS,
 ] as const;
 
+/** Length of the `YYYY-MM-DD` prefix of an ISO stamp. */
+const ISO_DATE_LENGTH = 10;
+
 /** The agent filter value that means "every agent with a parser". */
 const ALL_AGENTS = "all";
 
@@ -47,14 +50,17 @@ const ALL_AGENTS = "all";
 export const daysOf = (raw: string | null): number => {
   const parsed = Number(raw);
 
-  return DAY_OPTIONS.includes(parsed as (typeof DAY_OPTIONS)[number])
+  return DAY_OPTIONS.some((option) => option === parsed)
     ? parsed
     : DEFAULT_DAYS;
 };
 
+const isAgentId = (value: string | null): value is AgentId =>
+  AGENT_IDS.some((id) => id === value);
+
 /** Read the agent filter out of a hash param. */
 export const agentOf = (raw: string | null): AgentId | null =>
-  AGENT_IDS.includes(raw as AgentId) ? (raw as AgentId) : null;
+  isAgentId(raw) ? raw : null;
 
 /** Window, agent and rescan. All three ride the hash, so a view is a link. */
 const Controls = ({
@@ -92,7 +98,7 @@ const Controls = ({
     </Select>
     <Select
       onValueChange={(v) => {
-        onAgent(v === ALL_AGENTS ? null : (v as AgentId));
+        onAgent(isAgentId(v) ? v : null);
       }}
       value={agent ?? ALL_AGENTS}
     >
@@ -173,9 +179,10 @@ export const ReportHeader = ({
         </div>
       </div>
       <p className="text-muted-foreground text-xs">
-        {report.window.fromIso.slice(0, 10)} →{" "}
-        {report.window.toIso.slice(0, 10)} · generated {at(report.generatedAt)}{" "}
-        · {report.schemaVersion} · detector v{report.detectorVersion}
+        {report.window.fromIso.slice(0, ISO_DATE_LENGTH)} →{" "}
+        {report.window.toIso.slice(0, ISO_DATE_LENGTH)} · generated{" "}
+        {at(report.generatedAt)} · {report.schemaVersion} · detector v
+        {report.detectorVersion}
       </p>
       <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         <ShieldCheckIcon className="size-3.5 shrink-0" />

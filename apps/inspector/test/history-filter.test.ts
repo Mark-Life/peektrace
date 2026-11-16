@@ -16,10 +16,10 @@ const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   ...over,
 });
 
-describe("rowIndexOfCall", () => {
-  const refs = (events: readonly TimelineEvent[]) =>
-    events.map((e, pos) => ({ e, pos }));
+const refs = (events: readonly TimelineEvent[]) =>
+  events.map((e, pos) => ({ e, pos }));
 
+describe("rowIndexOfCall", () => {
   const paired = refs([
     evt({ kind: "user-prompt" }),
     evt({ kind: "tool-result", toolUseId: "a" }),

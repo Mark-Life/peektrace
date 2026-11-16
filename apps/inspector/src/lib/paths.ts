@@ -1,4 +1,4 @@
-const TRAILING_SEPARATORS = /[\\/]+$/;
+const TRAILING_SEPARATORS = /[\\/]+$/u;
 
 const isSeparator = (char: string | undefined) => char === "/" || char === "\\";
 

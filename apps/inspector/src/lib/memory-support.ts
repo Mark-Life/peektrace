@@ -42,13 +42,11 @@ export const memorySupportSummary = (caps: readonly Capability[]) => {
 
   const supported = namesAt("supported");
 
-  const others = OTHER_LEVELS.map(({ level, label }) => ({
-    label,
-    names: namesAt(level),
-  }))
-    .filter(({ names }) => names.length > 0)
-    .map(({ label, names }) => ` ${label}: ${names}.`)
-    .join("");
+  const others = OTHER_LEVELS.flatMap(({ level, label }) => {
+    const names = namesAt(level);
+
+    return names.length > 0 ? [` ${label}: ${names}.`] : [];
+  }).join("");
 
   return `Memory editing: ${supported.length > 0 ? supported : "no agent yet"}.${others}`;
 };

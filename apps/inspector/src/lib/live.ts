@@ -15,6 +15,7 @@
  */
 import type { WatchVersions } from "@workspace/view-core/api-types.gen";
 import { Effect } from "effect";
+import { constVoid } from "effect/Function";
 
 import { apiGet, apiUrl } from "./api";
 
@@ -38,12 +39,12 @@ type LiveMessage =
 
 /** The `BroadcastChannel` surface `startLive` uses. */
 export interface LiveChannel {
-  addEventListener(
+  addEventListener: (
     type: "message",
     fn: (event: MessageEvent<LiveMessage>) => void
-  ): void;
-  close(): void;
-  postMessage(message: LiveMessage): void;
+  ) => void;
+  close: () => void;
+  postMessage: (message: LiveMessage) => void;
 }
 
 /** Cross-tab sharing: a lock picks the leader, a channel relays. */
@@ -65,15 +66,19 @@ const defaultShare = (): LiveShare | undefined => {
   const Channel = globalThis.BroadcastChannel;
 
   if (locks === undefined || Channel === undefined) {
-    return;
+    return undefined;
   }
 
   return { channel: () => new Channel(LIVE_CHANNEL), locks };
 };
 
+/** Swallows a failure the caller does not act on. */
+const ignore = constVoid;
+
 const defaultDeps = (): LiveDeps => ({
   EventSource: globalThis.EventSource,
-  poll: async () => Effect.runPromise(apiGet<WatchVersions>("/api/watch")),
+  poll: async () =>
+    await Effect.runPromise(apiGet<WatchVersions>("/api/watch")),
   share: defaultShare(),
 });
 
@@ -85,18 +90,23 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
   const startPolling = (recovering: boolean) => {
     let pending = recovering;
 
-    const tick = () => {
-      deps.poll().then(
-        (versions) => {
-          handlers.onVersions(versions);
+    const poll = async () => {
+      const versions = await deps.poll().catch(ignore);
 
-          if (pending) {
-            pending = false;
-            handlers.onReconnect();
-          }
-        },
-        () => {}
-      );
+      if (versions === undefined) {
+        return;
+      }
+
+      handlers.onVersions(versions);
+
+      if (pending) {
+        pending = false;
+        handlers.onReconnect();
+      }
+    };
+
+    const tick = () => {
+      void poll();
     };
 
     tick();
@@ -116,9 +126,11 @@ const follow = (handlers: LiveHandlers, deps: LiveDeps) => {
       failures = 0;
     });
     es.addEventListener("versions", (event) => {
-      handlers.onVersions(
-        JSON.parse((event as MessageEvent<string>).data) as WatchVersions
-      );
+      // SAFETY: the server sends each `versions` event as the JSON of a `WatchVersions`.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- JSON.parse is typed `any`
+      const versions = JSON.parse(String(event.data)) as WatchVersions;
+
+      handlers.onVersions(versions);
 
       if (recovering) {
         recovering = false;
@@ -165,27 +177,35 @@ const shared = (handlers: LiveHandlers, deps: LiveDeps, share: LiveShare) => {
   const relay: LiveHandlers = {
     onReconnect: () => {
       handlers.onReconnect();
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- BroadcastChannel takes no target origin
       channel.postMessage({ _tag: "Reconnect" });
     },
     onVersions: (versions) => {
       handlers.onVersions(versions);
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- BroadcastChannel takes no target origin
       channel.postMessage({ _tag: "Versions", versions });
     },
   };
 
   // The leader relays only changes, so a new follower reads the versions now.
-  deps.poll().then(handlers.onVersions, () => {});
+  const syncNow = async () => {
+    const versions = await deps.poll().catch(ignore);
+
+    if (versions !== undefined) {
+      handlers.onVersions(versions);
+    }
+  };
+
+  void syncNow();
   share.locks
-    .request(
-      LIVE_LOCK,
-      { signal: abort.signal },
-      async () =>
-        new Promise<void>((resolve) => {
-          release = resolve;
-          stopFollow = follow(relay, deps);
-        })
-    )
-    .catch(() => {});
+    .request(LIVE_LOCK, { signal: abort.signal }, async () => {
+      // oxlint-disable-next-line promise/avoid-new -- the lock is held until `release` settles this promise
+      await new Promise<void>((resolve) => {
+        release = resolve;
+        stopFollow = follow(relay, deps);
+      });
+    })
+    .catch(ignore);
 
   return () => {
     abort.abort();

@@ -2,18 +2,21 @@
 import type { SessionCost } from "./api-types.gen";
 
 const CENT = 0.005;
+const USD_DECIMALS = 2;
 
 /** An estimated USD figure: `~$1.23`, or `<$0.01` below half a cent. */
 export const fmtUsd = (n: number) =>
-  n > 0 && n < CENT ? "<$0.01" : `~$${n.toFixed(2)}`;
+  n > 0 && n < CENT ? "<$0.01" : `~$${n.toFixed(USD_DECIMALS)}`;
 
 /** Notes that qualify a session cost: subagents share, unpriced models, unreadable subagents. */
 const costNotes = (cost: SessionCost) => [
-  ...(cost.subagentsUsd ? [`subagents ${fmtUsd(cost.subagentsUsd)}`] : []),
-  ...(cost.unpricedModels?.length
+  ...(cost.subagentsUsd !== undefined && cost.subagentsUsd !== 0
+    ? [`subagents ${fmtUsd(cost.subagentsUsd)}`]
+    : []),
+  ...(cost.unpricedModels !== undefined && cost.unpricedModels.length > 0
     ? [`unpriced: ${cost.unpricedModels.join(", ")}`]
     : []),
-  ...(cost.unreadableSubagents
+  ...(cost.unreadableSubagents !== undefined && cost.unreadableSubagents !== 0
     ? [`${cost.unreadableSubagents} subagent(s) unreadable`]
     : []),
 ];

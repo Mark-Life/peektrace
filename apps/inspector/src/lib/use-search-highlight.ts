@@ -67,11 +67,21 @@ export const firstHitIn = ({
   return card;
 };
 
-/** Text nodes under `root` in DOM order, skipping the subtree of `skip`. */
-function* textNodes(root: HTMLElement, skip: HTMLElement | null = null) {
+const noCleanup = () => {
+  // nothing was set up
+};
+
+/** Text nodes under `root` in DOM order, skipping the subtree of `skip`.
+ *
+ * @yields {Node} each text node, in document order.
+ */
+const textNodes = function* textNodes(
+  root: HTMLElement,
+  skip: HTMLElement | null = null
+) {
   const walker = document.createTreeWalker(
     root,
-    // biome-ignore lint/suspicious/noBitwiseOperators: NodeFilter flags
+    // oxlint-disable-next-line eslint/no-bitwise -- NodeFilter whatToShow is a bit mask
     NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
     {
       acceptNode: (node) => {
@@ -89,7 +99,7 @@ function* textNodes(root: HTMLElement, skip: HTMLElement | null = null) {
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
     yield node;
   }
-}
+};
 
 const toHighlight = (
   ranges: readonly {
@@ -145,7 +155,7 @@ export const useSearchHighlight = ({
     const needle = query.toLowerCase();
 
     if (container === null || needle.length === 0) {
-      return;
+      return noCleanup;
     }
 
     const reg = registry();

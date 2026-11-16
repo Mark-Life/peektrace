@@ -86,6 +86,7 @@ export const HistorySearch = ({
     const action = searchKeyAction({
       isComposing: e.nativeEvent.isComposing,
       key: e.key,
+      // oxlint-disable-next-line typescript/no-deprecated -- Safari reports the IME commit Enter only as keyCode 229
       keyCode: e.keyCode,
       shiftKey: e.shiftKey,
     });
@@ -136,7 +137,7 @@ export const HistorySearch = ({
           </button>
         ) : null}
       </div>
-      <span
+      <output
         aria-busy={pending}
         aria-live="polite"
         className={cn(
@@ -144,10 +145,9 @@ export const HistorySearch = ({
           label === "" && "sr-only"
         )}
         data-testid="history-match-count"
-        role="status"
       >
         {label}
-      </span>
+      </output>
       {active ? (
         <>
           <Button

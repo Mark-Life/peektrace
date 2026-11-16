@@ -11,15 +11,25 @@ import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
 
 import { eventBadgeLabel, isUserAuthored } from "../src/lib/event-labels";
 
-const attachment = (attachmentType?: string): TimelineEvent => ({
-  body: "…",
-  index: 3,
-  kind: "attachment",
-  preview: "…",
-  title: "attachment",
-  tokensEst: 12,
-  ...(attachmentType === undefined ? {} : { attachmentType }),
-});
+const attachment = (attachmentType?: string): TimelineEvent => {
+  const base: TimelineEvent = {
+    body: "…",
+    index: 3,
+    kind: "attachment",
+    preview: "…",
+    title: "attachment",
+    tokensEst: 12,
+  };
+
+  return attachmentType === undefined ? base : { ...base, attachmentType };
+};
+
+const prompt = (promptOrigin?: TimelineEvent["promptOrigin"]) =>
+  isUserAuthored(
+    promptOrigin === undefined
+      ? { kind: "user-prompt" }
+      : { kind: "user-prompt", promptOrigin }
+  );
 
 describe("eventBadgeLabel", () => {
   test("an attachment badges as its type, underscores as spaces", () => {
@@ -56,27 +66,12 @@ describe("eventBadgeLabel", () => {
   });
 
   test("an event carrying neither badges as its kind", () => {
-    expect(
-      eventBadgeLabel({
-        body: "hi",
-        index: 1,
-        kind: "assistant-text",
-        preview: "hi",
-        title: "Assistant",
-        tokensEst: 1,
-      })
-    ).toBe("assistant-text");
+    expect(eventBadgeLabel({ kind: "assistant-text" })).toBe("assistant-text");
   });
 });
 
 describe("isUserAuthored", () => {
   test("only prompts a person sent are the user's", () => {
-    const prompt = (promptOrigin?: TimelineEvent["promptOrigin"]) =>
-      isUserAuthored({
-        kind: "user-prompt",
-        ...(promptOrigin === undefined ? {} : { promptOrigin }),
-      });
-
     expect((["human", "sdk", "command"] as const).every((o) => prompt(o))).toBe(
       true
     );

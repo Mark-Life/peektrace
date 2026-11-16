@@ -1,15 +1,16 @@
 /** npm package metadata shared by `build-npm.ts` and its tests. */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import nodePath from "node:path";
 
-const HELP_RS = join(import.meta.dir, "../../crates/cli/src/help.rs");
-const DESCRIPTION_RE = /pub const DESCRIPTION: &str = "([^"]+)";/;
+const HELP_RS = nodePath.join(import.meta.dir, "../../crates/cli/src/help.rs");
+const DESCRIPTION_RE = /pub const DESCRIPTION: &str = "(?<text>[^"]+)";/u;
 
 /** The one-line description the CLI prints in `--help`. */
 const readDescription = () => {
-  const found = DESCRIPTION_RE.exec(readFileSync(HELP_RS, "utf-8"))?.[1];
+  const found = DESCRIPTION_RE.exec(readFileSync(HELP_RS, "utf-8"))?.groups
+    ?.text;
 
-  if (!found) {
+  if (found === undefined || found === "") {
     throw new Error(`No DESCRIPTION const in ${HELP_RS}`);
   }
 

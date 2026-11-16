@@ -18,6 +18,8 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { CAT_META } from "@workspace/view-core/constants.gen";
 
+import { STACK_ORDER } from "../lib/session-format";
+
 const TURN_COUNT = 75;
 const PEAK_TURN_INDEX = 69;
 const CONTEXT_WINDOW = 1_000_000;
@@ -65,11 +67,9 @@ const START_SLICES: BudgetSlices = {
   unattributed: 2000,
 };
 
-const BUDGET_KEYS = Object.keys(PEAK_SLICES) as readonly BudgetKey[];
-
 /** Sum every category of a slice map — by construction, the turn's context. */
 const sumSlices = (s: BudgetSlices) =>
-  BUDGET_KEYS.reduce((total, key) => total + s[key], 0);
+  STACK_ORDER.reduce((total, key) => total + s[key], 0);
 
 const START_TOTAL = sumSlices(START_SLICES);
 const PEAK_TOTAL = sumSlices(PEAK_SLICES);
@@ -107,13 +107,15 @@ const CTX_ANCHORS: readonly CtxAnchor[] = [
 ];
 
 /** Turn indexes whose snapshot shows a compaction drop (turns 26 and 48). */
-const COMPACTION_TURNS = CTX_ANCHORS.filter((a) => a.cliff).map((a) => a.turn);
+const COMPACTION_TURNS = CTX_ANCHORS.flatMap((a) =>
+  a.cliff === true ? [a.turn] : []
+);
 
 /** Context tokens at a turn, linearly interpolated between the control points. */
 const ctxTargetAt = (turnIndex: number) => {
   const last = CTX_ANCHORS.at(-1) ?? { ctx: START_TOTAL, turn: 0 };
 
-  for (let i = 0; i < CTX_ANCHORS.length - 1; i++) {
+  for (let i = 0; i < CTX_ANCHORS.length - 1; i += 1) {
     const from = CTX_ANCHORS[i] ?? last;
     const to = CTX_ANCHORS[i + 1] ?? last;
 
@@ -286,7 +288,7 @@ const toolPair = (args: {
       preview: `${tool}(${path})`,
       requestId,
       title: `${tool} ${path}`,
-      tokensEst: vary({ size: SIZES.toolCall, seed }),
+      tokensEst: vary({ seed, size: SIZES.toolCall }),
       toolName: tool,
       toolUseId,
       ts,
@@ -298,7 +300,7 @@ const toolPair = (args: {
       preview: `${path} — ${matches} matches`,
       requestId,
       title: `Result: ${tool}`,
-      tokensEst: vary({ size: SIZES.toolResult, seed }),
+      tokensEst: vary({ seed, size: SIZES.toolResult }),
       toolName: tool,
       toolUseId,
       ts,
@@ -327,7 +329,7 @@ const turnEvents = (
             preview: prompt,
             requestId,
             title: "User",
-            tokensEst: vary({ size: SIZES.prompt, seed: turnIndex }),
+            tokensEst: vary({ seed: turnIndex, size: SIZES.prompt }),
             ts,
           },
         ] as const)
@@ -338,7 +340,7 @@ const turnEvents = (
       preview: rationale,
       requestId,
       title: "Thinking",
-      tokensEst: vary({ size: SIZES.thinking, seed: turnIndex }),
+      tokensEst: vary({ seed: turnIndex, size: SIZES.thinking }),
       ts,
     },
     ...toolPair({ slot: 0, turnIndex }),
@@ -349,7 +351,7 @@ const turnEvents = (
       preview: summary,
       requestId,
       title: "Assistant",
-      tokensEst: vary({ size: SIZES.text, seed: turnIndex }),
+      tokensEst: vary({ seed: turnIndex, size: SIZES.text }),
       ts,
     },
   ];
@@ -449,7 +451,7 @@ const SNAPSHOTS: readonly TurnSnapshot[] = TURN_INDEXES.map((i) => ({
 }));
 
 /** The peak-turn budget: every category, with core's own labels and colors. */
-const BUDGET = BUDGET_KEYS.map((key) => ({
+const BUDGET = STACK_ORDER.map((key) => ({
   key,
   ...CAT_META[key],
   tokens: PEAK_SLICES[key],
@@ -492,32 +494,32 @@ export const MOCK_SESSION: AnalyzedSession = {
   models: [MODEL],
   onDiskContextFiles: [
     {
+      bytes: 6820,
       label: "CLAUDE.md",
       path: "/Users/dev/.claude/CLAUDE.md",
-      bytes: 6820,
-      tokensEst: 1740,
       scope: "global",
+      tokensEst: 1740,
     },
     {
+      bytes: 14_960,
       label: "CLAUDE.md",
       path: `${CWD}/CLAUDE.md`,
-      bytes: 14_960,
-      tokensEst: 3810,
       scope: "project",
+      tokensEst: 3810,
     },
     {
+      bytes: 29_594,
       label: "MEMORY.md",
       path: "/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/memory/MEMORY.md",
-      bytes: 29_594,
-      tokensEst: 7420,
       scope: "memory",
+      tokensEst: 7420,
     },
     {
+      bytes: 3940,
       label: "session-parsing.md",
       path: "/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/memory/session-parsing.md",
-      bytes: 3940,
-      tokensEst: 990,
       scope: "memory",
+      tokensEst: 990,
     },
   ],
   path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}.jsonl`,
@@ -530,31 +532,31 @@ export const MOCK_SESSION: AnalyzedSession = {
   startedAt: tsAt(0),
   subagents: [
     {
-      id: "sub_01",
       agentType: "code-reviewer",
       description: "Review the dedupe key change",
-      toolUseId: "toolu_042",
+      id: "sub_01",
       path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-01.jsonl`,
-      turns: 9,
       peakContextTokens: 86_400,
+      toolUseId: "toolu_042",
+      turns: 9,
     },
     {
-      id: "sub_02",
       agentType: "test-writer",
       description: "Cover the partial-batch failure path",
-      toolUseId: "toolu_078",
+      id: "sub_02",
       path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-02.jsonl`,
-      turns: 14,
       peakContextTokens: 132_900,
+      toolUseId: "toolu_078",
+      turns: 14,
     },
     {
-      id: "sub_03",
       agentType: "explorer",
       description: "Trace the migration lock",
-      toolUseId: "toolu_121",
+      id: "sub_03",
       path: `/Users/dev/.claude/projects/-Users-dev-code-acme-ingest/${SESSION_ID}-sub-03.jsonl`,
-      turns: 6,
       peakContextTokens: 61_200,
+      toolUseId: "toolu_121",
+      turns: 6,
     },
   ],
   systemOverheadTokens: PEAK_SLICES.system_tools,

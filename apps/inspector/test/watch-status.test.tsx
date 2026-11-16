@@ -16,20 +16,21 @@ const render = (mode: LiveMode, syncing = false) =>
   );
 
 const HIDDEN_SYNCING_LABEL =
-  /aria-hidden="true"[^>]*><span[^>]*>syncing<\/span>/;
+  /aria-hidden="true"[^>]*><span[^>]*>syncing<\/span>/u;
 
 const WAITING_LIVE_REGION =
-  /aria-live="polite"[^>]*role="status"[^>]*>paused · updates waiting</;
+  /aria-live="polite"[^>]*role="status"[^>]*>paused · updates waiting</u;
 
-const DESCRIBED_BY = /aria-describedby="([^"]+)"/;
+const DESCRIBED_BY = /aria-describedby="(?<id>[^"]+)"/u;
 
 /** Text of the element the toggle's `aria-describedby` points at. */
 const describedBy = (html: string) => {
-  const id = DESCRIBED_BY.exec(html)?.[1];
+  const id = DESCRIBED_BY.exec(html)?.groups?.id;
 
   return id === undefined
     ? undefined
-    : new RegExp(`id="${id}"[^>]*>([^<]*)<`).exec(html)?.[1];
+    : new RegExp(`id="${id}"[^>]*>(?<text>[^<]*)<`, "u").exec(html)?.groups
+        ?.text;
 };
 
 test("live: the toggle is not pressed and the label is hidden", () => {

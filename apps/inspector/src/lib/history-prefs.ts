@@ -43,24 +43,37 @@ export const DEFAULT_HISTORY_PREFS: HistoryPrefs = {
 /** `localStorage` key for the shared history prefs. */
 export const HISTORY_PREFS_KEY = "peektrace:historyPrefs";
 
+/** The fields a stored value may carry, each still untrusted. */
+interface StoredPrefs {
+  readonly kind?: unknown;
+  readonly mode?: unknown;
+  readonly sort?: unknown;
+}
+
+const isStoredPrefs = (u: unknown): u is StoredPrefs =>
+  typeof u === "object" && u !== null;
+
+const isText = (u: unknown): u is string => typeof u === "string";
+
 /** Coerce an untrusted stored value into valid prefs, field by field. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- this function is the parser for the raw `localStorage` payload
 export const normalizeHistoryPrefs = (parsed: unknown): HistoryPrefs => {
-  if (typeof parsed !== "object" || parsed === null) {
+  if (!isStoredPrefs(parsed)) {
     return DEFAULT_HISTORY_PREFS;
   }
 
-  const raw = parsed as Partial<Record<keyof HistoryPrefs, unknown>>;
-
   return {
-    kind: typeof raw.kind === "string" ? raw.kind : DEFAULT_HISTORY_PREFS.kind,
-    mode: transcriptModeOf(raw.mode) ?? DEFAULT_HISTORY_PREFS.mode,
-    sort: historySortOf(raw.sort),
+    kind: isText(parsed.kind) ? parsed.kind : DEFAULT_HISTORY_PREFS.kind,
+    mode: transcriptModeOf(parsed.mode) ?? DEFAULT_HISTORY_PREFS.mode,
+    sort: historySortOf(parsed.sort),
   };
 };
 
 /** A real browser window. Test renderers can leave a bare `window` global behind. */
 const hasStorage = () =>
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- probes the host environment, not input data
   typeof window !== "undefined" &&
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- probes the host environment, not input data
   typeof window.addEventListener === "function";
 
 const readPrefs = () => {
@@ -102,13 +115,19 @@ export const getHistoryPrefs = () => {
   return current;
 };
 
+const PREF_KEYS = [
+  "kind",
+  "mode",
+  "sort",
+] as const satisfies readonly (keyof HistoryPrefs)[];
+
 /** Merge a patch into the prefs, persist it, and notify every reader. */
 export const updateHistoryPrefs = (patch: Partial<HistoryPrefs>) => {
   const prev = getHistoryPrefs();
   const next = { ...prev, ...patch };
 
   if (
-    (Object.keys(next) as (keyof HistoryPrefs)[]).every((k) =>
+    PREF_KEYS.every((k) =>
       k === "sort" ? sameSort(next.sort, prev.sort) : next[k] === prev[k]
     )
   ) {

@@ -51,7 +51,9 @@ const DetailRow = ({
               text={prompt({ key: row.key, table: "time" })}
             />
           </div>
-          {note ? <p className="text-xs">{note}</p> : null}
+          {note !== null && note !== "" ? (
+            <p className="text-xs">{note}</p>
+          ) : null}
           {row.bgRuns > 0 ? (
             <p className="text-muted-foreground text-xs">
               backgrounded: {n(row.bgRuns)} runs, {hms(row.bgSec)} charged

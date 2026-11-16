@@ -5,27 +5,30 @@ const loc = { hash: "" };
 let replaces = 0;
 
 const win = {
-  addEventListener: () => undefined,
+  addEventListener: () => {},
   dispatchEvent: () => true,
   history: {
-    replaceState: (_: unknown, __: string, hash: string) => {
+    replaceState: (_: null, __: string, hash: string) => {
       replaces += 1;
       loc.hash = hash;
     },
   },
   location: loc,
-  removeEventListener: () => undefined,
+  removeEventListener: () => {},
 };
 
 // bun runs every test file in one process: put back what was there before.
-const hadWindow = "window" in globalThis;
-const prevWindow = Reflect.get(globalThis, "window");
+const prevWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 
-Object.assign(globalThis, { window: win });
+Object.defineProperty(globalThis, "window", {
+  configurable: true,
+  value: win,
+  writable: true,
+});
 
 afterAll(() => {
-  if (hadWindow) {
-    Object.assign(globalThis, { window: prevWindow });
+  if (prevWindow) {
+    Object.defineProperty(globalThis, "window", prevWindow);
   } else {
     Reflect.deleteProperty(globalThis, "window");
   }
@@ -114,7 +117,7 @@ test("a stats row link is the hash opening it from stats writes", () => {
 test("setHashParams writes every change in one replace", () => {
   setHashParams({ agent: null, from: "2026-01-02", model: "m-1", q: null });
   expect(replaces).toBe(1);
-  expect(loc.hash).toBe("#/sessions?model=m-1&from=2026-01-02");
+  expect(loc.hash).toBe("#/sessions?from=2026-01-02&model=m-1");
 });
 
 test("an unchanged hash is not written again", () => {

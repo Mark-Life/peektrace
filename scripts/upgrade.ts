@@ -47,6 +47,8 @@ for (const step of steps) {
   console.log(`>> ${step.name}`);
   console.log("=".repeat(SEPARATOR_WIDTH));
 
+  // Steps run one after another: each may abort the run.
+  // oxlint-disable-next-line no-await-in-loop -- sequential by design
   const result = await step.command().nothrow();
 
   if (result.exitCode === 0) {

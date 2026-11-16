@@ -190,13 +190,13 @@ const ChatBubbleBody = ({
         className={cn("flex flex-col", LANE_WIDTH[lane])}
         data-kind={e.kind}
         data-lane={lane}
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-testid="history-event"
         id={collapseId}
       >
         <div className={cn(META, lane === "user" && "justify-end")}>
           <span>{e.kind === "user-prompt" ? "user" : "assistant"}</span>
-          {e.promptSource ? (
+          {e.promptSource !== undefined && e.promptSource !== "" ? (
             <Badge
               className="h-4 px-1"
               title="Claude Code promptSource: how this prompt reached the session"
@@ -206,7 +206,7 @@ const ChatBubbleBody = ({
             </Badge>
           ) : null}
           {e.tokensEst ? <span>· {tokenLabel(e, fmt)} tok</span> : null}
-          {e.isSidechain ? (
+          {e.isSidechain === true ? (
             <Badge className="h-4" variant="secondary">
               sidechain
             </Badge>
@@ -281,7 +281,7 @@ const ChatThinkingBody = ({
       className={cn("flex flex-col gap-1", LANE_WIDTH[lane])}
       data-kind={e.kind}
       data-lane={lane}
-      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-sidechain={e.isSidechain === true ? "true" : "false"}
       data-testid="history-event"
       id={collapseId}
     >
@@ -386,16 +386,21 @@ export const ChatTurnRule = ({
     <span aria-hidden="true" className="bg-border h-px flex-1" />
     <span>
       turn {turn} · {model}
-      {effort ? ` · ${effort} effort` : ""} · ctx {fmtK(tokens)}{" "}
+      {effort !== undefined && effort !== "" ? ` · ${effort} effort` : ""} · ctx{" "}
+      {fmtK(tokens)}{" "}
       <span className={ZONE_CLASSES[zoneOf({ dumbZone, frac: ctxFrac })].text}>
         ({fmtPct(ctxFrac)})
       </span>{" "}
       · out {fmtK(outputTokens)}
-      {thinkingTokens ? ` (${fmtK(thinkingTokens)} thinking)` : ""}
-      {webSearches
+      {thinkingTokens !== undefined && thinkingTokens !== 0
+        ? ` (${fmtK(thinkingTokens)} thinking)`
+        : ""}
+      {webSearches !== undefined && webSearches !== 0
         ? ` · ${plural(webSearches, "web search", "web searches")}`
         : ""}
-      {webFetches ? ` · ${plural(webFetches, "web fetch", "web fetches")}` : ""}
+      {webFetches !== undefined && webFetches !== 0
+        ? ` · ${plural(webFetches, "web fetch", "web fetches")}`
+        : ""}
     </span>
     <span aria-hidden="true" className="bg-border h-px flex-1" />
   </h3>

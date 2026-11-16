@@ -10,11 +10,11 @@ import {
 } from "../src/components/growth-timeline";
 import { MOCK_SESSION } from "../src/mock/session";
 
-const LEGEND = /<div class="flex flex-wrap gap-3 text-xs">.*?<\/div>/;
-const SVG = /<svg[\s\S]*<\/svg>/;
-const PLOT_BOX = /<div class="w-full" style="[^"]*"><\/div>/;
-const BUSY = / aria-busy="true"/;
-const TEST_ID = / data-testid="[^"]*"/;
+const LEGEND = /<div class="flex flex-wrap gap-3 text-xs">.*?<\/div>/u;
+const SVG = /<svg[\s\S]*<\/svg>/u;
+const PLOT_BOX = /<div class="w-full" style="[^"]*"><\/div>/u;
+const BUSY = / aria-busy="true"/u;
+const TEST_ID = / data-testid="[^"]*"/u;
 
 /** Markup with the plot itself (the SVG or its placeholder box) cut out. */
 const frameOf = (html: string) =>

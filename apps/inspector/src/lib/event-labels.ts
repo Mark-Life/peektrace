@@ -2,9 +2,16 @@
  * these (`sessions::labels`) for the TUI and session export.
  */
 import type {
+  ContextEdit,
   PromptOrigin,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
+/** The event fields the badge reads; index rows carry them too. */
+export type BadgeSource = Pick<
+  TimelineEvent,
+  "attachmentType" | "kind" | "promptOrigin" | "toolName"
+>;
 
 /**
  * The badge label for one transcript row: the tool name when there is one, else
@@ -16,7 +23,7 @@ import type {
  * than looked up, so a type Claude starts writing tomorrow reads as words on the
  * day it appears instead of collapsing to `attachment`.
  */
-export const eventBadgeLabel = (e: TimelineEvent): string => {
+export const eventBadgeLabel = (e: BadgeSource): string => {
   if (e.toolName !== undefined) {
     return e.toolName;
   }
@@ -39,35 +46,25 @@ export const eventBadgeLabel = (e: TimelineEvent): string => {
   return type === "" ? e.kind : type.replaceAll("_", " ");
 };
 
+const CONTEXT_EDIT_TAGS = { removed: "removed", replaced: "edited" } as const;
+
 /** Short tag for an event a later context edit changed, else undefined. */
-export const contextEditTag = (e: TimelineEvent) => {
-  switch (e.contextEdit?.status) {
-    case "removed": {
-      return "removed";
-    }
-    case "replaced": {
-      return "edited";
-    }
-    default: {
-      return;
-    }
-  }
-};
+export const contextEditTag = (e: TimelineEvent) =>
+  e.contextEdit === undefined
+    ? undefined
+    : CONTEXT_EDIT_TAGS[e.contextEdit.status];
 
-/** One-paragraph explanation of a context edit, with the original text when kept. */
-export const contextEditNote = (e: TimelineEvent) => {
-  const edit = e.contextEdit;
+const MULTIPLE_EDITS = 2;
 
-  if (!edit) {
-    return;
-  }
-
+const describeContextEdit = (edit: ContextEdit) => {
   const lines = [...(edit.steps ?? []), edit].map((s) => s.atIndex + 1);
-  const first = lines[0];
+  const [first] = lines;
+
+  const plural = lines.length > MULTIPLE_EDITS ? "s" : "";
 
   const earlier =
     lines.length > 1
-      ? ` Earlier edit${lines.length > 2 ? "s" : ""} at line${lines.length > 2 ? "s" : ""} ${lines.slice(0, -1).join(", ")}.`
+      ? ` Earlier edit${plural} at line${plural} ${lines.slice(0, -1).join(", ")}.`
       : "";
 
   if (edit.status === "removed") {
@@ -81,7 +78,12 @@ export const contextEditNote = (e: TimelineEvent) => {
     : `${head} (~${edit.originalTokensEst} tok):\n\n${edit.original}`;
 };
 
+/** One-paragraph explanation of a context edit, with the original text when kept. */
+export const contextEditNote = (e: TimelineEvent) =>
+  e.contextEdit === undefined ? undefined : describeContextEdit(e.contextEdit);
+
 const MS_PER_SECOND = 1000;
+const SHORT_SECONDS = 10;
 
 /** Thinking time as a short label: `850ms`, `4.2s`, `73s`. */
 export const fmtThinkingMs = (ms: number) => {
@@ -91,7 +93,7 @@ export const fmtThinkingMs = (ms: number) => {
 
   const s = ms / MS_PER_SECOND;
 
-  return s < 10 ? `${s.toFixed(1)}s` : `${Math.round(s)}s`;
+  return s < SHORT_SECONDS ? `${s.toFixed(1)}s` : `${Math.round(s)}s`;
 };
 
 /** What to say about a thinking block whose text the transcript did not keep. */

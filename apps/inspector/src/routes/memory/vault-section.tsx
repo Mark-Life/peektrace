@@ -121,7 +121,11 @@ export const VaultSection = ({
         <EditDialog
           entry={editing}
           onDone={onRefresh}
-          onOpenChange={(o) => !o && setEditing(undefined)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setEditing(undefined);
+            }
+          }}
           open={Boolean(editing)}
           project={vault.slug}
         />
@@ -130,7 +134,11 @@ export const VaultSection = ({
         <DeleteDialog
           entry={deleting}
           onDone={onRefresh}
-          onOpenChange={(o) => !o && setDeleting(undefined)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setDeleting(undefined);
+            }
+          }}
           open={Boolean(deleting)}
           project={vault.slug}
         />

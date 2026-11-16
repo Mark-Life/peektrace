@@ -66,7 +66,7 @@ export const resolveJump = (
       return { kind: "compaction" };
     }
 
-    const ti = a.compactionTurns[0];
+    const [ti] = a.compactionTurns;
 
     return ti === undefined ? null : { kind: "turn", turn: ti + 1 };
   }
@@ -106,9 +106,9 @@ const planIndexOfTurn = (plan: readonly ChatNode<EventRow>[], n: number) => {
   const exact = plan.findIndex((x) => x.type === "turn" && x.turn === n);
 
   const at =
-    exact !== -1
-      ? exact
-      : plan.findIndex((x) => x.type === "turn" && x.turn >= n);
+    exact === -1
+      ? plan.findIndex((x) => x.type === "turn" && x.turn >= n)
+      : exact;
 
   return at > 0 && plan[at - 1]?.type === "dumbzone" ? at - 1 : at;
 };

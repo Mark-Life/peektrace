@@ -21,7 +21,7 @@ type QueryValue = string | number | undefined;
 
 export type Query = Readonly<Record<string, QueryValue>>;
 
-const TRAILING_SLASH = /\/$/;
+const TRAILING_SLASH = /\/$/u;
 
 /** Same-origin by default; override to target a remote `peektrace serve`. */
 export const BASE_URL = (import.meta.env.VITE_PEEKTRACE_BASE_URL ?? "").replace(
@@ -58,8 +58,12 @@ const isApiErrorBody = (u: unknown): u is { readonly error: ApiError } =>
   u !== null &&
   "error" in u &&
   typeof u.error === "object" &&
-  (u as { error: { _tag?: unknown } | null }).error !== null &&
-  typeof (u as { error: { _tag?: unknown } }).error._tag === "string";
+  u.error !== null &&
+  "_tag" in u.error &&
+  typeof u.error._tag === "string";
+
+const isNonEmptyText = (u: unknown): u is string =>
+  typeof u === "string" && u !== "";
 
 const isJson = (res: Response) =>
   (res.headers.get("content-type") ?? "").startsWith("application/json");
@@ -68,33 +72,42 @@ const isJson = (res: Response) =>
 const failureOf = (res: Response) =>
   Effect.tryPromise({
     catch: () => transport(`HTTP ${res.status}`, res.status),
-    try: async () => (isJson(res) ? res.json() : res.text()),
-  }).pipe(
-    Effect.flatMap((body: unknown) =>
-      Effect.fail<ApiFailure>(
-        isApiErrorBody(body)
-          ? body.error
-          : transport(
-              typeof body === "string" && body !== ""
-                ? body
-                : `HTTP ${res.status}`,
-              res.status
-            )
-      )
-    )
-  );
+    try: async (): Promise<ApiFailure> => {
+      const fallback = `HTTP ${res.status}`;
+
+      if (isJson(res)) {
+        const body: unknown = await res.json();
+
+        if (isApiErrorBody(body)) {
+          return body.error;
+        }
+
+        return transport(isNonEmptyText(body) ? body : fallback, res.status);
+      }
+
+      const text = await res.text();
+
+      return transport(text === "" ? fallback : text, res.status);
+    },
+  }).pipe(Effect.flatMap((failure) => Effect.fail(failure)));
 
 const send = (url: string, init: RequestInit) =>
   Effect.tryPromise({
     catch: (e) => transport(e instanceof Error ? e.message : String(e)),
     try: async (signal) =>
-      fetch(url, { ...init, credentials: "same-origin", signal }),
+      await fetch(url, { ...init, credentials: "same-origin", signal }),
   });
 
 const readJson = <A>(res: Response) =>
   Effect.tryPromise({
     catch: () => transport("unexpected response", res.status),
-    try: async () => res.json() as Promise<A>,
+    try: async () => {
+      const body: unknown = await res.json();
+
+      // SAFETY: the caller names the route's response type; the server answers 2xx with that JSON shape.
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- generic response type is chosen by the caller per route
+      return body as A;
+    },
   });
 
 /** `GET` a JSON route. */
@@ -110,12 +123,13 @@ export const apiGet = <A>(
 export const apiSend = <A>(
   method: "POST" | "PUT" | "PATCH" | "DELETE",
   path: string,
-  body?: unknown
+  // oxlint-disable-next-line anti-slop/no-object-parameters -- payloads are caller-owned interfaces of varying shape, only JSON-serialized here
+  body?: object
 ): Effect.Effect<A, ApiFailure> =>
   send(apiUrl(path), {
+    body: body === undefined ? undefined : JSON.stringify(body),
     headers: { accept: "application/json", "content-type": "application/json" },
     method,
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   }).pipe(
     Effect.flatMap((res) => (res.ok ? readJson<A>(res) : failureOf(res)))
   );
@@ -130,7 +144,7 @@ export const apiBlob = (
       res.ok
         ? Effect.tryPromise({
             catch: () => transport("unexpected response", res.status),
-            try: async () => res.blob(),
+            try: async () => await res.blob(),
           })
         : failureOf(res)
     )

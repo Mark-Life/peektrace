@@ -97,10 +97,10 @@ export const LinkGraphTanstack = ({
 
     const settled = forceLayout(nodes, edges, {
       forces: [
-        { type: "link", distance: FORCES.linkDistance },
-        { type: "manyBody", strength: FORCES.manyBody },
+        { distance: FORCES.linkDistance, type: "link" },
+        { strength: FORCES.manyBody, type: "manyBody" },
         { type: "center" },
-        { type: "collide", radius: FORCES.collide },
+        { radius: FORCES.collide, type: "collide" },
       ],
       iterations: FORCES.iterations,
       nodeKey: "id",
@@ -126,42 +126,42 @@ export const LinkGraphTanstack = ({
       margin: 0,
       marks: [
         link(resolvedEdges, {
-          x1: "x1",
-          y1: "y1",
-          x2: "x2",
-          y2: "y2",
           key: (e) => `${e.source}->${e.target}`,
           stroke: "currentColor",
           strokeOpacity: 0.4,
           strokeWidth: 1,
+          x1: "x1",
+          x2: "x2",
+          y1: "y1",
+          y2: "y2",
         }),
         link(danglingEdges, {
-          x1: "x1",
-          y1: "y1",
-          x2: "x2",
-          y2: "y2",
           key: (e) => `${e.source}->${e.target}`,
           stroke: "rgb(239 68 68)",
+          strokeDasharray: "4 3",
           strokeOpacity: 0.6,
           strokeWidth: 1,
-          strokeDasharray: "4 3",
+          x1: "x1",
+          x2: "x2",
+          y1: "y1",
+          y2: "y2",
         }),
         dot(settled.nodes, {
-          x: "x",
-          y: "y",
-          key: "id",
-          r: (n) => NODE_MIN_R + (n.bytes / maxBytes) * NODE_R_RANGE,
           color: (n) => (n.inIndex ? "indexed" : "unindexed"),
           fillOpacity: 0.7,
-        }),
-        text(settled.nodes, {
+          key: "id",
+          r: (n) => NODE_MIN_R + (n.bytes / maxBytes) * NODE_R_RANGE,
           x: "x",
           y: "y",
+        }),
+        text(settled.nodes, {
+          dy: LABEL_DY,
+          fillOpacity: 0.7,
+          fontSize: LABEL_FONT,
           key: "id",
           text: "id",
-          dy: LABEL_DY,
-          fontSize: LABEL_FONT,
-          fillOpacity: 0.7,
+          x: "x",
+          y: "y",
         }),
       ],
       x: { scale: scaleLinear().domain(settled.xDomain) },
@@ -191,7 +191,7 @@ export const LinkGraphTanstack = ({
               // so a node click has to be narrowed out of the link rows.
               const datum = point?.datum;
 
-              if (datum && "id" in datum && typeof datum.id === "string") {
+              if (datum && "id" in datum) {
                 onSelect(datum.id);
               }
             }

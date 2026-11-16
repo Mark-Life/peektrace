@@ -56,8 +56,8 @@ const lcsTable = (before: string[], after: string[]) => {
   const width = after.length + 1;
   const table = new Int32Array((before.length + 1) * width);
 
-  for (let i = before.length - 1; i >= 0; i--) {
-    for (let j = after.length - 1; j >= 0; j--) {
+  for (let i = before.length - 1; i >= 0; i -= 1) {
+    for (let j = after.length - 1; j >= 0; j -= 1) {
       const here = i * width + j;
       table[here] =
         before[i] === after[j]
@@ -82,24 +82,24 @@ const alignRows = (before: string[], after: string[]): DiffRow[] => {
 
     if (a === b) {
       rows.push({ kind: "ctx", newNo: j + 1, oldNo: i + 1, text: a });
-      i++;
-      j++;
+      i += 1;
+      j += 1;
     } else if (
       (table[(i + 1) * width + j] ?? 0) >= (table[i * width + j + 1] ?? 0)
     ) {
       rows.push({ kind: "del", oldNo: i + 1, text: a });
-      i++;
+      i += 1;
     } else {
       rows.push({ kind: "add", newNo: j + 1, text: b });
-      j++;
+      j += 1;
     }
   }
 
-  for (; i < before.length; i++) {
+  for (; i < before.length; i += 1) {
     rows.push({ kind: "del", oldNo: i + 1, text: before[i] ?? "" });
   }
 
-  for (; j < after.length; j++) {
+  for (; j < after.length; j += 1) {
     rows.push({ kind: "add", newNo: j + 1, text: after[j] ?? "" });
   }
 
@@ -109,15 +109,16 @@ const alignRows = (before: string[], after: string[]): DiffRow[] => {
 /** Indexes of rows worth showing: every change, plus `CONTEXT` either side. */
 const nearAChange = (rows: readonly DiffRow[]) => {
   const keep = new Set<number>();
-  rows.forEach((row, i) => {
+
+  for (const [i, row] of rows.entries()) {
     if (row.kind === "ctx") {
-      return;
+      continue;
     }
 
-    for (let k = i - CONTEXT; k <= i + CONTEXT; k++) {
+    for (let k = i - CONTEXT; k <= i + CONTEXT; k += 1) {
       keep.add(k);
     }
-  });
+  }
 
   return keep;
 };
@@ -127,7 +128,8 @@ const withGaps = (rows: readonly DiffRow[]): DiffRow[] => {
   const keep = nearAChange(rows);
   const out: DiffRow[] = [];
   let skipped = 0;
-  rows.forEach((row, i) => {
+
+  for (const [i, row] of rows.entries()) {
     if (keep.has(i)) {
       if (skipped > 0) {
         out.push({ count: skipped, kind: "gap", text: "" });
@@ -136,11 +138,11 @@ const withGaps = (rows: readonly DiffRow[]): DiffRow[] => {
 
       out.push(row);
 
-      return;
+      continue;
     }
 
-    skipped++;
-  });
+    skipped += 1;
+  }
 
   if (skipped > 0) {
     out.push({ count: skipped, kind: "gap", text: "" });

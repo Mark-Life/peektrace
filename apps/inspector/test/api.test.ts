@@ -1,5 +1,5 @@
 /** The `/api` fetch client: typed JSON errors and transport failures. */
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
 
 import type {
   HistoryPage,
@@ -9,20 +9,19 @@ import { Effect, Either } from "effect";
 
 import { apiGet, apiPath, apiUrl } from "../src/lib/api";
 
-const realFetch = globalThis.fetch;
+const fetchSpy = spyOn(globalThis, "fetch");
 
 const answer = (body: string, status: number, type: string) => {
-  globalThis.fetch = (async () =>
-    Promise.resolve(
-      new Response(body, { headers: { "content-type": type }, status })
-    )) as unknown as typeof fetch;
+  fetchSpy.mockResolvedValue(
+    new Response(body, { headers: { "content-type": type }, status })
+  );
 };
 
 const run = async (path: string) =>
-  Effect.runPromise(Effect.either(apiGet(path)));
+  await Effect.runPromise(Effect.either(apiGet(path)));
 
 afterEach(() => {
-  globalThis.fetch = realFetch;
+  fetchSpy.mockReset();
 });
 
 describe("apiGet", () => {
@@ -60,8 +59,7 @@ describe("apiGet", () => {
   });
 
   test("a network fault becomes a TransportError", async () => {
-    globalThis.fetch = (async () =>
-      Promise.reject(new Error("offline"))) as unknown as typeof fetch;
+    fetchSpy.mockRejectedValue(new Error("offline"));
     expect(await run("/api/server")).toEqual(
       Either.left({ _tag: "TransportError", message: "offline" })
     );

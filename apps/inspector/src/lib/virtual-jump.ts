@@ -90,6 +90,10 @@ const focusTarget = (el: HTMLElement, selectors: readonly string[]) => {
   return el;
 };
 
+const nothingHeld = () => {
+  // nothing to hold yet
+};
+
 /**
  * Scroll item `index` to `align`, wait until it is drawn, then place it and
  * move focus into it, so keyboard and screen-reader users are not left at
@@ -119,9 +123,7 @@ export const landAt = ({
   const start = performance.now();
   let raf = 0;
 
-  let unsettle = () => {
-    // nothing to hold yet
-  };
+  let unsettle = nothingHeld;
 
   const land = () => {
     const item = drawnAt(list, index);
@@ -135,11 +137,14 @@ export const landAt = ({
     }
 
     const target =
-      (anchor ? item.querySelector<HTMLElement>(anchor) : null) ?? item;
+      (anchor !== undefined && anchor !== ""
+        ? item.querySelector<HTMLElement>(anchor)
+        : null) ?? item;
 
     const place = () => {
       target.scrollIntoView({ block: align });
     };
+
     place();
     focusTarget(target, focusIn).focus({ preventScroll: true });
 
@@ -228,9 +233,10 @@ export const useVirtualJump = ({
       index < 0 ||
       !list.current
     ) {
-      return;
+      return nothingHeld;
     }
 
+    // oxlint-disable-next-line react/immutability -- `done` is a caller-owned ref, written on purpose
     done.current = target;
     let landed = false;
 

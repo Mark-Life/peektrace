@@ -133,5 +133,6 @@ export const ResultView = <A, E>({
     return <>{children(result.value)}</>;
   }
 
+  // oxlint-disable-next-line react/jsx-no-useless-fragment -- wraps a ReactNode so the component returns an element, not a possible Promise
   return <>{pending ?? <DefaultPending />}</>;
 };

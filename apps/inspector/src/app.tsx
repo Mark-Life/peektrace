@@ -13,37 +13,43 @@ import { AppShell } from "./components/app-shell";
 import { useRoute } from "./lib/routes";
 import { SessionsRoute } from "./routes/sessions-route";
 
-const CapabilitiesRoute = lazy(async () =>
-  import("./routes/capabilities-route").then((m) => ({
-    default: m.CapabilitiesRoute,
-  }))
-);
+const CapabilitiesRoute = lazy(async () => {
+  const m = await import("./routes/capabilities-route");
 
-const MemoryRoute = lazy(async () =>
-  import("./routes/memory-route").then((m) => ({ default: m.MemoryRoute }))
-);
+  return { default: m.CapabilitiesRoute };
+});
 
-const SettingsRoute = lazy(async () =>
-  import("./routes/settings-route").then((m) => ({ default: m.SettingsRoute }))
-);
+const MemoryRoute = lazy(async () => {
+  const m = await import("./routes/memory-route");
 
-const StatsRoute = lazy(async () =>
-  import("./routes/stats-route").then((m) => ({ default: m.StatsRoute }))
-);
+  return { default: m.MemoryRoute };
+});
+
+const SettingsRoute = lazy(async () => {
+  const m = await import("./routes/settings-route");
+
+  return { default: m.SettingsRoute };
+});
+
+const StatsRoute = lazy(async () => {
+  const m = await import("./routes/stats-route");
+
+  return { default: m.StatsRoute };
+});
 
 /** Toasts are a response to a mutation, never part of the first paint, and
  *  `sonner` is ~32 KB — so the host mounts itself once the entry has run. */
-const Toaster = lazy(async () =>
-  import("@workspace/ui/components/sonner").then((m) => ({
-    default: m.Toaster,
-  }))
-);
+const Toaster = lazy(async () => {
+  const m = await import("@workspace/ui/components/sonner");
+
+  return { default: m.Toaster };
+});
 
 /** Holds the content region's height while a section chunk arrives. */
 const RouteFallback = () => (
-  <div aria-busy="true" className="h-64" role="status">
+  <output aria-busy="true" className="block h-64">
     <span className="sr-only">Loading section…</span>
-  </div>
+  </output>
 );
 
 /** Resolve the active section to its screen. */

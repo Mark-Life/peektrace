@@ -43,6 +43,7 @@ export const useRevealHit = ({
       // nothing scheduled yet
     };
 
+    // oxlint-disable-next-line react/immutability -- `reveal` is a caller-owned ref, written on purpose
     reveal.current = (id, onDrawn) => {
       cancel();
       const index = indexOf(id);

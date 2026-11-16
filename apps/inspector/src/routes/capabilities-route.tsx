@@ -148,7 +148,11 @@ const CellSheet = ({
   readonly onClose: () => void;
 }) => (
   <Sheet
-    onOpenChange={(open) => (open ? null : onClose())}
+    onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}
     open={Boolean(selection)}
   >
     <SheetContent data-testid="cap-cell-sheet">

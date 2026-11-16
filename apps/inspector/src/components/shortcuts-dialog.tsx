@@ -44,9 +44,9 @@ export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
         <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {group}
         </h3>
-        {GROUP_NOTE[group] ? (
+        {GROUP_NOTE[group] === undefined || GROUP_NOTE[group] === "" ? null : (
           <p className="text-muted-foreground text-xs">{GROUP_NOTE[group]}</p>
-        ) : null}
+        )}
         <dl className="flex flex-col">
           {SHORTCUTS.filter((s) => s.group === group).map((s) => (
             <div

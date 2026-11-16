@@ -11,11 +11,8 @@ import {
   sortRows,
 } from "../src/lib/history-sort";
 
-const row = (
-  pos: number,
-  over: Partial<TimelineEvent> = {}
-): { e: TimelineEvent; pos: number } => ({
-  e: {
+const row = (pos: number, over: Partial<TimelineEvent> = {}) => {
+  const e: TimelineEvent = {
     body: "",
     index: pos,
     kind: "assistant-text",
@@ -23,9 +20,10 @@ const row = (
     title: "",
     tokensEst: 0,
     ...over,
-  },
-  pos,
-});
+  };
+
+  return { e, pos };
+};
 
 const ROWS = [
   row(0, { kind: "user-prompt", tokensEst: 10 }),

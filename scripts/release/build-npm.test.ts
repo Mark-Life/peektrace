@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import nodePath from "node:path";
 
 import { pickTargets, stage } from "./build-npm";
 import { TARGETS, variantName } from "./npm-meta";
@@ -19,7 +19,7 @@ const README = "# Peektrace\n\nUse it.\n\n# Develop\n\ndev only\n";
 const dirs: string[] = [];
 
 const scratch = () => {
-  const dir = mkdtempSync(join(tmpdir(), "build-npm-"));
+  const dir = mkdtempSync(nodePath.join(tmpdir(), "build-npm-"));
   dirs.push(dir);
 
   return dir;
@@ -35,17 +35,18 @@ const assetsDir = (targets: readonly Target[] = TARGETS) => {
   const dir = scratch();
 
   for (const t of targets) {
-    writeFileSync(join(dir, t.asset), `bin ${t.asset}`);
+    writeFileSync(nodePath.join(dir, t.asset), `bin ${t.asset}`);
   }
 
   return dir;
 };
 
-const readJson = (path: string) => JSON.parse(readFileSync(path, "utf-8"));
+const expectJson = (path: string) =>
+  expect(JSON.parse(readFileSync(path, "utf-8")));
 
 describe("stage", () => {
   test("stages every variant and a wrapper pinning them", () => {
-    const out = join(scratch(), "dist-npm");
+    const out = nodePath.join(scratch(), "dist-npm");
     stage({
       assets: assetsDir(),
       out,
@@ -53,39 +54,35 @@ describe("stage", () => {
       targets: TARGETS,
       version: "1.2.3",
     });
-    const wrapper = readJson(join(out, "peektrace/package.json"));
-    expect(wrapper.version).toBe("1.2.3");
-    expect(Object.keys(wrapper.optionalDependencies).sort()).toEqual(
-      TARGETS.map(variantName).sort()
-    );
-    expect(Object.values(wrapper.optionalDependencies)).toEqual(
-      TARGETS.map(() => "1.2.3")
+    const wrapper = expectJson(nodePath.join(out, "peektrace/package.json"));
+    wrapper.toHaveProperty("version", "1.2.3");
+    wrapper.toHaveProperty(
+      "optionalDependencies",
+      Object.fromEntries(TARGETS.map((t) => [variantName(t), "1.2.3"]))
     );
     expect(
-      readFileSync(join(out, "peektrace/README.md"), "utf-8")
+      readFileSync(nodePath.join(out, "peektrace/README.md"), "utf-8")
     ).not.toContain("dev only");
-    const win = join(out, "@peektrace/cli-win32-x64");
-    expect(readFileSync(join(win, "bin/peektrace.exe"), "utf-8")).toBe(
+    const win = nodePath.join(out, "@peektrace/cli-win32-x64");
+    expect(readFileSync(nodePath.join(win, "bin/peektrace.exe"), "utf-8")).toBe(
       "bin peektrace-windows-x64.exe"
     );
-    const mac = join(out, "@peektrace/cli-darwin-arm64");
-    expect(readJson(join(mac, "package.json"))).toMatchObject({
+    const mac = nodePath.join(out, "@peektrace/cli-darwin-arm64");
+    expectJson(nodePath.join(mac, "package.json")).toMatchObject({
       cpu: ["arm64"],
       name: "@peektrace/cli-darwin-arm64",
       os: ["darwin"],
       version: "1.2.3",
     });
-    expect(statSync(join(mac, "bin/peektrace")).mode % 0o1000).toBe(0o755);
+    expect(statSync(nodePath.join(mac, "bin/peektrace")).mode % 0o1000).toBe(
+      0o755
+    );
   });
 
   test("a subset stages only those variants", () => {
     const [host] = pickTargets("linux-arm64");
 
-    if (!host) {
-      throw new Error("no target");
-    }
-
-    const out = join(scratch(), "dist-npm");
+    const out = nodePath.join(scratch(), "dist-npm");
     stage({
       assets: assetsDir([host]),
       out,
@@ -94,13 +91,15 @@ describe("stage", () => {
       version: "0.1.0",
     });
     expect(
-      existsSync(join(out, "@peektrace/cli-linux-arm64/bin/peektrace"))
+      existsSync(nodePath.join(out, "@peektrace/cli-linux-arm64/bin/peektrace"))
     ).toBe(true);
-    expect(existsSync(join(out, "@peektrace/cli-darwin-arm64"))).toBe(false);
+    expect(existsSync(nodePath.join(out, "@peektrace/cli-darwin-arm64"))).toBe(
+      false
+    );
   });
 
   test("fails on a missing binary or a bad version", () => {
-    const out = join(scratch(), "dist-npm");
+    const out = nodePath.join(scratch(), "dist-npm");
     const base = { out, readme: README, targets: TARGETS };
     expect(() =>
       stage({ ...base, assets: scratch(), version: "1.0.0" })

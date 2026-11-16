@@ -20,7 +20,8 @@ import type {
   SessionSummary,
 } from "@workspace/view-core/api-types.gen";
 import { Effect } from "effect";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { constVoid } from "effect/Function";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { apiGet, apiPath } from "./api";
 import type { Query } from "./api";
@@ -219,9 +220,14 @@ export const useBodyPages = ({
     readonly cache: BodyCache;
   }>({ cache: EMPTY_BODIES, key });
 
-  const cache = state.key === key ? state.cache : EMPTY_BODIES;
+  // Bodies past the page count are dropped from state too, so they never
+  // come back if the session grows again.
+  const cache = trimBodies(
+    state.key === key ? state.cache : EMPTY_BODIES,
+    hashes.length
+  );
 
-  if (state.key !== key) {
+  if (state.key !== key || state.cache !== cache) {
     setState({ cache, key });
   }
 
@@ -232,10 +238,13 @@ export const useBodyPages = ({
   const failed = useRef(new Set<string>());
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const latest = useRef({ hashes, k, onStale, rev });
-  latest.current = { hashes, k, onStale, rev };
+
+  useLayoutEffect(() => {
+    latest.current = { hashes, k, onStale, rev };
+  });
+
   const [tick, setTick] = useState(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: another session or redaction aborts the requests of the last one
   useEffect(
     () => () => {
       for (const { c } of inflight.current.values()) {
@@ -251,19 +260,13 @@ export const useBodyPages = ({
       timers.current.clear();
       failed.current.clear();
     },
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- another session or redaction aborts the requests of the last one
     [key]
   );
 
   useEffect(() => {
     if (tick < 0) {
       return;
-    }
-
-    if (trimBodies(cache, hashes.length) !== cache) {
-      setState((s) => ({
-        cache: trimBodies(s.cache, hashes.length),
-        key: s.key,
-      }));
     }
 
     abortUnwanted(inflight.current, needed);
@@ -300,7 +303,7 @@ export const useBodyPages = ({
       const c = new AbortController();
       inflight.current.set(fk, { c, f });
 
-      const done = () => {
+      const finish = () => {
         if (inflight.current.get(fk)?.c === c) {
           inflight.current.delete(fk);
           setTick((t) => t + 1);
@@ -312,52 +315,69 @@ export const useBodyPages = ({
         ...boundsOf(f),
       });
 
-      Effect.runPromise(ask, { signal: c.signal }).then(
-        (page) => {
-          if (inflight.current.get(fk)?.c !== c) {
-            return;
+      const onPage = (page: HistoryPage) => {
+        if (inflight.current.get(fk)?.c !== c) {
+          return;
+        }
+
+        const now = latest.current;
+
+        if (answersSummary(f, page, now)) {
+          setState((s) =>
+            s.key === key ? { cache: storeBodies(s.cache, f, page), key } : s
+          );
+        } else {
+          for (const u of unitsOf(f)) {
+            stale.current.add(`${u.key}:${u.expect}`);
           }
 
-          const now = latest.current;
+          now.onStale();
+        }
 
-          if (answersSummary(f, page, now)) {
-            setState((s) =>
-              s.key === key ? { cache: storeBodies(s.cache, f, page), key } : s
-            );
-          } else {
-            for (const u of unitsOf(f)) {
-              stale.current.add(`${u.key}:${u.expect}`);
-            }
+        finish();
+      };
 
-            now.onStale();
+      const onFailure = () => {
+        if (!c.signal.aborted) {
+          const units = unitsOf(f).map((u) => u.key);
+
+          for (const u of units) {
+            failed.current.add(u);
           }
 
-          done();
-        },
-        () => {
-          if (!c.signal.aborted) {
-            const units = unitsOf(f).map((u) => u.key);
+          const t = setTimeout(() => {
+            timers.current.delete(t);
 
             for (const u of units) {
-              failed.current.add(u);
+              failed.current.delete(u);
             }
 
-            const t = setTimeout(() => {
-              timers.current.delete(t);
+            setTick((n) => n + 1);
+          }, RETRY_MS);
 
-              for (const u of units) {
-                failed.current.delete(u);
-              }
-
-              setTick((n) => n + 1);
-            }, RETRY_MS);
-
-            timers.current.add(t);
-          }
-
-          done();
+          timers.current.add(t);
         }
-      );
+
+        finish();
+      };
+
+      const request = async () => {
+        let page: HistoryPage | undefined;
+
+        try {
+          page = await Effect.runPromise(ask, { signal: c.signal });
+        } catch {
+          page = undefined;
+        }
+
+        if (page === undefined) {
+          onFailure();
+        } else {
+          onPage(page);
+        }
+      };
+
+      void request();
     }
   }, [needed, hashes, rev, bodyLen, cache, k, key, tick]);
 
@@ -426,7 +446,7 @@ export const useHistorySearch = ({
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (query === "" || attempt < 0) {
-      return;
+      return constVoid;
     }
 
     const held = cache.current.get(want);
@@ -434,7 +454,7 @@ export const useHistorySearch = ({
     if (held) {
       setAnswer({ hits: held, query, session });
 
-      return;
+      return constVoid;
     }
 
     const c = new AbortController();
@@ -445,21 +465,28 @@ export const useHistorySearch = ({
       q: query,
     });
 
-    Effect.runPromise(ask, { signal: c.signal }).then(
-      (r) => {
-        const hits = new Set(r.positions);
-        cache.current.set(want, hits);
-        setAnswer({ hits, query, session });
-      },
-      () => {
+    const request = async () => {
+      let r: HistorySearchResult | undefined;
+
+      try {
+        r = await Effect.runPromise(ask, { signal: c.signal });
+      } catch {
         // The last answer stays meanwhile.
         if (!c.signal.aborted) {
           retry = setTimeout(() => {
             setAttempt((n) => n + 1);
           }, RETRY_MS);
         }
+
+        return;
       }
-    );
+
+      const hits = new Set(r.positions);
+      cache.current.set(want, hits);
+      setAnswer({ hits, query, session });
+    };
+
+    void request();
 
     return () => {
       c.abort();

@@ -5,10 +5,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { StatsPending } from "../src/routes/stats/stats-pending";
 
-const EMPTY_STATUS = /<p role="status"><\/p>/;
-const HIDDEN_COUNTER = /<span aria-hidden="true"[^>]*>0 s<\/span>/;
-const COUNTER_15 = /data-testid="stats-elapsed">15 s<\/span>/;
-const SKELETON = /data-slot="skeleton"/g;
+const EMPTY_STATUS = /<output><\/output>/u;
+const HIDDEN_COUNTER = /<span aria-hidden="true"[^>]*>0 s<\/span>/u;
+const COUNTER_15 = /data-testid="stats-elapsed">15 s<\/span>/u;
+const SKELETON = /data-slot="skeleton"/gu;
 
 test("pending stats mount an empty status region and hide the ticking counter", () => {
   const html = renderToStaticMarkup(<StatsPending since={Date.now()} />);

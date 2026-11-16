@@ -32,16 +32,18 @@ export type SessionOverview = Omit<
 const ID_PREFIX = 8;
 
 /** Display label per transcript provider. */
-const PROVIDER_LABEL: Record<string, string> = {
-  "claude-code": "Claude Code",
-  codex: "Codex",
-  opencode: "OpenCode",
-  pi: "Pi",
-};
+const PROVIDER_LABEL: ReadonlyMap<string, string> = new Map([
+  ["claude-code", "Claude Code"],
+  ["codex", "Codex"],
+  ["opencode", "OpenCode"],
+  ["pi", "Pi"],
+]);
 
 /** The session's display name: its title, else the harness that produced it. */
 export const analyzedTitle = (a: Pick<AnalyzedSession, "provider" | "title">) =>
-  a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`;
+  a.title !== undefined && a.title !== ""
+    ? a.title
+    : `${PROVIDER_LABEL.get(a.provider) ?? a.provider} session`;
 
 /** A single metadata cell. */
 const Meta = ({
@@ -72,7 +74,7 @@ const CostValue = ({
 }) => {
   const { total, notes } = costSummary(
     cost,
-    PROVIDER_LABEL[provider] ?? provider
+    PROVIDER_LABEL.get(provider) ?? provider
   );
 
   return (
@@ -197,7 +199,7 @@ export const VerdictHeader = ({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Badge data-testid="session-provider" variant="outline">
-            {PROVIDER_LABEL[a.provider] ?? a.provider}
+            {PROVIDER_LABEL.get(a.provider) ?? a.provider}
           </Badge>
           <Badge
             className={cn("text-sm", ZONE_CLASSES[zone].text)}
@@ -287,7 +289,9 @@ export const VerdictHeader = ({
             {a.webFetchRequests} web fetch(es)
           </Badge>
         ) : null}
-        {a.gitBranch ? <Badge variant="secondary">{a.gitBranch}</Badge> : null}
+        {a.gitBranch !== undefined && a.gitBranch !== "" ? (
+          <Badge variant="secondary">{a.gitBranch}</Badge>
+        ) : null}
       </div>
     </section>
   );

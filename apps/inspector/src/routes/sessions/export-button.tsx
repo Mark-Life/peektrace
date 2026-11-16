@@ -33,22 +33,30 @@ export const ExportButtons = ({ k }: { readonly k: SessionKey }) => {
 
   const run = (format: ExportFormat) => {
     setBusy(format);
-    Effect.runPromise(Effect.either(exportOf(k, format)))
-      .then((r) => {
-        if (r._tag === "Right") {
-          download(r.right, exportName(k.id, format));
-        } else {
-          const e = r.left;
 
-          const why =
-            e._tag === "TransportError" ? e.message : wireErrorMessage(e);
+    const program = Effect.either(exportOf(k, format)).pipe(
+      Effect.tap((r) =>
+        Effect.sync(() => {
+          if (r._tag === "Right") {
+            download(r.right, exportName(k.id, format));
+          } else {
+            const e = r.left;
 
-          toast.error(`Export failed: ${why}`);
-        }
-      })
-      .finally(() => {
-        setBusy(null);
-      });
+            const why =
+              e._tag === "TransportError" ? e.message : wireErrorMessage(e);
+
+            toast.error(`Export failed: ${why}`);
+          }
+        })
+      ),
+      Effect.ensuring(
+        Effect.sync(() => {
+          setBusy(null);
+        })
+      )
+    );
+
+    void Effect.runPromise(program);
   };
 
   return (

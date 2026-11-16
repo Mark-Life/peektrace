@@ -1,13 +1,3 @@
-/** Loaded artifacts.
- *
- * On-disk instruction files (agent instruction files and memory, sizes from disk, with a
- * "trim me" hint when heavy). The biggest single events live in the full history
- * table instead, where the Tokens column sorts every event by size.
- */
-import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
-
-type Artifacts = Pick<AnalyzedSession, "onDiskContextFiles">;
-
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Table,
@@ -17,7 +7,16 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
+/** Loaded artifacts.
+ *
+ * On-disk instruction files (agent instruction files and memory, sizes from disk, with a
+ * "trim me" hint when heavy). The biggest single events live in the full history
+ * table instead, where the Tokens column sorts every event by size.
+ */
+import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { fmt, fmtBytes } from "@workspace/viz/lib/session-format";
+
+type Artifacts = Pick<AnalyzedSession, "onDiskContextFiles">;
 
 /** Heavy instruction-file threshold (tokens) that triggers a trim hint. */
 const TRIM_HINT_TOKENS = 5000;

@@ -22,7 +22,8 @@ import {
   SparklesIcon,
   WrenchIcon,
 } from "lucide-react";
-import { useState } from "react";
+import type { LucideIcon } from "lucide-react";
+import { createElement, useState } from "react";
 import type { ReactNode } from "react";
 
 import { chipLabel } from "../../lib/chat-lane";
@@ -49,11 +50,11 @@ const CATEGORY_ICONS = {
   reminder: BellIcon,
   skills: SparklesIcon,
   tools: WrenchIcon,
-} as const satisfies Record<LoadedCategory, unknown>;
+} as const satisfies Record<LoadedCategory, LucideIcon>;
 
 /** The icon for one chip: its budget category, or a paperclip when unclassified. */
 export const chipIcon = (category?: LoadedCategory) =>
-  category ? CATEGORY_ICONS[category] : PaperclipIcon;
+  category === undefined ? PaperclipIcon : CATEGORY_ICONS[category];
 
 const CHIP =
   "group/chip h-6 cursor-pointer gap-1.5 px-2 font-mono text-[11px] hover:bg-muted";
@@ -72,7 +73,6 @@ const ContextChip = ({
   readonly onToggle: (id: string, open: boolean) => void;
 }) => {
   const id = chatCollapseId(pos);
-  const Icon = itemIcon(e);
 
   return (
     <Badge asChild variant="outline">
@@ -81,7 +81,7 @@ const ContextChip = ({
         className={CHIP}
         data-kind={e.kind}
         data-lane="center"
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-state="closed"
         data-testid="chat-chip"
         id={id}
@@ -91,7 +91,7 @@ const ContextChip = ({
         title={e.attachmentType ?? e.kind}
         type="button"
       >
-        <Icon className="size-3 shrink-0" />
+        {createElement(itemIcon(e), { className: "size-3 shrink-0" })}
         <span className="max-w-56 truncate">{chipLabel(e)}</span>
         <ContextEditBadge className="h-4 px-1" e={e} />
         {eventTokens(e).tokens >= TOKEN_CHIP_FLOOR ? (
@@ -116,7 +116,6 @@ const ContextCard = ({
   readonly onToggle: (id: string, open: boolean) => void;
 }) => {
   const id = chatCollapseId(pos);
-  const Icon = itemIcon(e);
 
   return (
     <section
@@ -128,7 +127,7 @@ const ContextCard = ({
         className="border-primary/30 bg-primary/10 hover:bg-primary/15 flex w-full items-center gap-2 border-b px-2.5 py-1.5 text-left text-xs"
         data-kind={e.kind}
         data-lane="center"
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-state="open"
         data-testid="chat-chip"
         id={id}
@@ -138,11 +137,13 @@ const ContextCard = ({
         title="Collapse"
         type="button"
       >
-        <Icon className="text-primary size-3.5 shrink-0" />
+        {createElement(itemIcon(e), {
+          className: "text-primary size-3.5 shrink-0",
+        })}
         <span className="min-w-0 truncate font-mono font-medium">
           {chipLabel(e)}
         </span>
-        {e.attachmentType ? (
+        {e.attachmentType !== undefined && e.attachmentType !== "" ? (
           <Badge className="h-4 px-1 font-mono" variant="outline">
             {e.attachmentType}
           </Badge>
@@ -223,10 +224,13 @@ export const chipWindow = ({
 }) => {
   const { folded, visible } = foldRepeats({ ...args, showRepeats: showAll });
 
-  const lastOpened = visible.reduce(
-    (last, item, i) => (args.opened(item) ? i : last),
-    -1
-  );
+  let lastOpened = -1;
+
+  for (const [i, item] of visible.entries()) {
+    if (args.opened(item)) {
+      lastOpened = i;
+    }
+  }
 
   const expanded =
     showAll || args.allOpen || args.forceExpand || lastOpened >= CHIP_LIMIT;

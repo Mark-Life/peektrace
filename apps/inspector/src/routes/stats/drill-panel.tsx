@@ -253,7 +253,11 @@ export const DrillPanel = ({
   readonly title: string;
 }) => (
   <Sheet
-    onOpenChange={(open) => (open ? null : onClose())}
+    onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}
     open={atom !== null}
   >
     <SheetContent className="w-full sm:max-w-xl" data-testid="stats-drill">

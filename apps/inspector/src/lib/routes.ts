@@ -20,11 +20,17 @@ export const ROUTES = [
 /** A routable section id. */
 export type RouteId = (typeof ROUTES)[number];
 
+const isRouteId = (value: string): value is RouteId =>
+  ROUTES.some((route) => route === value);
+
 /** Default section when the hash is empty or unrecognized. */
 const DEFAULT_ROUTE: RouteId = "sessions";
 
 /** Leading `#` and optional `/` of a hash, stripped before parsing the body. */
-const HASH_PREFIX = /^#\/?/;
+const HASH_PREFIX = /^#\/?/u;
+
+/** A hash body reads as `section` and `query`; anything after a second `?` is dropped. */
+const HASH_PARTS = 2;
 
 /** Parsed hash: which section + its query params. */
 export interface HashLocation {
@@ -81,11 +87,8 @@ const parseHash = (): HashLocation => {
   }
 
   const body = raw.replace(HASH_PREFIX, "");
-  const [head, tail] = body.split("?", 2) as [string, string | undefined];
-
-  const section = (ROUTES as readonly string[]).includes(head)
-    ? (head as RouteId)
-    : DEFAULT_ROUTE;
+  const [head = "", tail] = body.split("?", HASH_PARTS);
+  const section = isRouteId(head) ? head : DEFAULT_ROUTE;
 
   const loc: HashLocation = {
     params: new URLSearchParams(tail ?? ""),
@@ -123,7 +126,7 @@ const replaceHash = (hash: string) => {
   window.history.replaceState(null, "", hash);
 
   const event =
-    typeof HashChangeEvent === "function"
+    "HashChangeEvent" in globalThis
       ? new HashChangeEvent("hashchange")
       : new Event("hashchange");
 

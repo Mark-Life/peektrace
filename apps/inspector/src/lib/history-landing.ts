@@ -12,13 +12,17 @@ import type { HistoryJump } from "./history-jump";
  *  step with the toolbar's `[@media(min-height:500px)]:sticky`. */
 const STICKY_MEDIA = "(min-height: 500px)";
 
+const noCleanup = () => {
+  // nothing to undo
+};
+
 /** Height of `bar` while it sticks to the pane top; 0 when it does not
  *  stick, so a jump has nothing to land below. */
 export const useStickyHeight = (bar: HTMLElement | null) => {
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
     if (!bar) {
-      return;
+      return noCleanup;
     }
 
     const media = window.matchMedia(STICKY_MEDIA);
@@ -53,13 +57,13 @@ export const useStickyHeight = (bar: HTMLElement | null) => {
 export const useScrollPadding = (root: HTMLElement | null, px: number) => {
   useEffect(() => {
     if (!root) {
-      return;
+      return noCleanup;
     }
 
-    root.style.scrollPaddingTop = `${px}px`;
+    root.style.setProperty("scroll-padding-top", `${px}px`);
 
     return () => {
-      root.style.scrollPaddingTop = "";
+      root.style.setProperty("scroll-padding-top", "");
     };
   }, [root, px]);
 };
@@ -88,10 +92,11 @@ export const useSubagentsJump = ({
       return;
     }
 
+    // oxlint-disable-next-line react/immutability -- `done` is a caller-owned ref that records the jump already landed
     done.current = key;
     box.scrollIntoView({ block: "start" });
     const heading = box.querySelector<HTMLElement>("h3") ?? box;
-    heading.tabIndex = -1;
+    heading.setAttribute("tabindex", "-1");
     heading.focus({ preventScroll: true });
   }, [key, done, section]);
 };

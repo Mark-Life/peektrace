@@ -23,22 +23,28 @@ afterEach(() => {
 /** Count fetches of each path. */
 const countFetches = () => {
   const paths: string[] = [];
-  globalThis.fetch = (async (input: string | URL | Request) => {
+
+  const mockFetch = async (input: string | URL | Request) => {
     const url = input instanceof Request ? input.url : String(input);
     paths.push(new URL(url, "http://localhost").pathname);
+    await Promise.resolve();
 
-    return Promise.resolve(
-      new Response(EMPTY_VAULTS, {
-        headers: { "content-type": "application/json" },
-        status: 200,
-      })
-    );
-  }) as unknown as typeof fetch;
+    return new Response(EMPTY_VAULTS, {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: realFetch.preconnect,
+  });
 
   return paths;
 };
 
-const tick = async () => new Promise((r) => setTimeout(r, 20));
+const tick = async () => {
+  await Bun.sleep(20);
+};
 
 /** The registry wiring `useWatchRefresh` does: a settled bump past the
  *  mounted value refreshes the vaults. */

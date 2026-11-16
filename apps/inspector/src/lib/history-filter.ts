@@ -11,5 +11,5 @@ export const rowIndexOfCall = (
     ({ e }) => e.kind === "tool-call" && e.toolUseId === id
   );
 
-  return call !== -1 ? call : rows.findIndex(({ e }) => e.toolUseId === id);
+  return call === -1 ? rows.findIndex(({ e }) => e.toolUseId === id) : call;
 };

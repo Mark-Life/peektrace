@@ -62,14 +62,15 @@ export const EditDialog = ({
     setBusy(true);
     setError(undefined);
 
+    const base = {
+      body,
+      frontmatter: { description, type },
+      name: entry.slug,
+      project,
+    };
+
     const exit = await update({
-      payload: {
-        body,
-        frontmatter: { description, type },
-        name: entry.slug,
-        project,
-        ...(guard ? { expectedMtime: entry.mtimeMs } : {}),
-      },
+      payload: guard ? { ...base, expectedMtime: entry.mtimeMs } : base,
     });
 
     setBusy(false);
@@ -129,7 +130,9 @@ export const EditDialog = ({
               <Button
                 data-testid="cas-overwrite"
                 disabled={busy}
-                onClick={async () => send(false)}
+                onClick={() => {
+                  void send(false);
+                }}
                 variant="destructive"
               >
                 Overwrite
@@ -176,7 +179,7 @@ export const EditDialog = ({
                 value={body}
               />
             </div>
-            {error ? (
+            {error !== undefined && error !== "" ? (
               <p className="text-sm text-red-400" data-testid="edit-error">
                 {error}
               </p>
@@ -197,7 +200,9 @@ export const EditDialog = ({
             <Button
               data-testid="edit-submit"
               disabled={busy}
-              onClick={async () => send(true)}
+              onClick={() => {
+                void send(true);
+              }}
               type="button"
             >
               {busy ? "Saving…" : "Save changes"}

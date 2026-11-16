@@ -24,6 +24,9 @@ const HATCHED = new Set(["system_tools", "unattributed"]);
 /** Hide the slice label when its share is below this percent (too narrow). */
 const LABEL_MIN_PCT = 6;
 
+/** Decimal places for window percentages under 1%. */
+const SMALL_PCT_DIGITS = 2;
+
 /** CSS background for a slice (hatch overlay for inferred categories). */
 const sliceBg = (key: string, color: string): string =>
   HATCHED.has(key)
@@ -118,7 +121,7 @@ export const BudgetBar = ({
                   {fmt(s.tokens)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {pctWin.toFixed(pctWin < 1 ? 2 : 1)}%
+                  {pctWin.toFixed(pctWin < 1 ? SMALL_PCT_DIGITS : 1)}%
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {pctCtx.toFixed(1)}%

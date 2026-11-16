@@ -269,10 +269,10 @@ export const MOCK_INDEX_BUDGET: IndexBudget = {
  * {@link MOCK_GRAPH}'s nodes. `unknown` is the key core uses for files with no
  * `type` in their frontmatter.
  */
-export const MOCK_TYPE_COUNTS: Readonly<Record<string, number>> = {
+export const MOCK_TYPE_COUNTS = {
   feedback: 1,
   project: 3,
   reference: 3,
   unknown: 1,
   user: 1,
-};
+} as const;

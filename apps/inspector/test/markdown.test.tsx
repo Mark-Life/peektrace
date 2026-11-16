@@ -38,7 +38,9 @@ describe("raw HTML", () => {
 describe("links", () => {
   test("executable and data URLs lose their link but keep the label", () => {
     for (const href of [
+      // oxlint-disable-next-line no-script-url -- hostile href under test
       "javascript:alert(1)",
+      // oxlint-disable-next-line no-script-url -- hostile href under test
       "JaVaScRiPt:alert(1)",
       "java\tscript:alert(1)",
       "data:text/html,<b>x</b>",

@@ -34,7 +34,7 @@ export const watchVersionsAtom = Atom.make<WatchVersions>({
 /** One scope's version as a plain number. Equal values never reach
  *  subscribers. */
 const versionAtom = (scope: keyof WatchVersions) =>
-  Atom.map(watchVersionsAtom, (v) => v[scope]);
+  Atom.readable((get) => get(watchVersionsAtom)[scope]);
 
 /** Memory-scope version: bumps when a memory `.md` changes on disk. */
 const memoryVersionAtom = versionAtom("memory");

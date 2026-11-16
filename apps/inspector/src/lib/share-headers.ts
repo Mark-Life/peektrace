@@ -12,10 +12,12 @@ import { Option } from "effect";
 
 /** Field-by-field equality. Every `SessionHeader` field is a primitive. */
 const sameHeader = (a: SessionHeader, b: SessionHeader) => {
-  const keys = Object.keys(a) as (keyof SessionHeader)[];
+  const fields = Object.entries(a);
+  const other: Readonly<Record<string, SessionHeader[keyof SessionHeader]>> = b;
 
   return (
-    keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k])
+    fields.length === Object.keys(b).length &&
+    fields.every(([k, v]) => other[k] === v)
   );
 };
 

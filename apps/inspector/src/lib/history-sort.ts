@@ -4,6 +4,8 @@
  * the turn gutter and deep links survive a re-sort. Ties fall back to
  * transcript order, so equal keys read in the order they happened.
  */
+import { Array as Arr, Order, Predicate } from "effect";
+
 import { badgeOf } from "./chat-lane";
 import type { EventRow, TranscriptRowRef } from "./chat-lane";
 import { eventTokens } from "./event-tokens";
@@ -24,31 +26,33 @@ export interface HistorySort {
 /** Transcript order, first event on top. */
 export const DEFAULT_HISTORY_SORT: HistorySort = { dir: "asc", key: "order" };
 
-const SORT_KEYS: readonly HistorySortKey[] = new Set([
+const SORT_KEYS = new Set<string>([
   "order",
   "type",
   "tokens",
-]);
+] as const satisfies readonly HistorySortKey[]);
 
-const isSortKey = (v: unknown): v is HistorySortKey => SORT_KEYS.has(v);
+const isSortKey = (v: string): v is HistorySortKey => SORT_KEYS.has(v);
 
 /** Coerce a stored sort; the old `"size"` value becomes tokens, biggest first. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- parses untrusted localStorage JSON; this is the boundary
 export const historySortOf = (raw: unknown): HistorySort => {
   if (raw === "size") {
     return { dir: "desc", key: "tokens" };
   }
 
-  if (typeof raw !== "object" || raw === null) {
+  if (
+    !Predicate.isObject(raw) ||
+    !("key" in raw) ||
+    !Predicate.isString(raw.key) ||
+    !isSortKey(raw.key)
+  ) {
     return DEFAULT_HISTORY_SORT;
   }
 
-  const { key, dir } = raw as Partial<Record<keyof HistorySort, unknown>>;
+  const dir = "dir" in raw && raw.dir === "desc" ? "desc" : "asc";
 
-  if (!isSortKey(key)) {
-    return DEFAULT_HISTORY_SORT;
-  }
-
-  return { dir: dir === "desc" ? "desc" : "asc", key };
+  return { dir, key: raw.key };
 };
 
 export const sameSort = (x: HistorySort, y: HistorySort) =>
@@ -70,25 +74,23 @@ export const nextSort = (current: HistorySort, key: HistorySortKey) => {
 };
 
 const compareKey = (key: HistorySortKey) => {
-  switch (key) {
-    case "tokens": {
-      return (x: Row, y: Row) =>
-        eventTokens(x.e).tokens - eventTokens(y.e).tokens;
-    }
-    case "type": {
-      return (x: Row, y: Row) => badgeOf(x.e).localeCompare(badgeOf(y.e));
-    }
-    default: {
-      return (x: Row, y: Row) => x.pos - y.pos;
-    }
+  if (key === "tokens") {
+    return (x: Row, y: Row) =>
+      eventTokens(x.e).tokens - eventTokens(y.e).tokens;
   }
+
+  if (key === "type") {
+    return (x: Row, y: Row) => badgeOf(x.e).localeCompare(badgeOf(y.e));
+  }
+
+  return (x: Row, y: Row) => x.pos - y.pos;
 };
 
 /** Rows in the requested order; ties keep transcript order. Never mutates. */
 export const sortRows = <R extends Row>(
   rows: readonly R[],
   sort: HistorySort
-) => {
+): readonly R[] => {
   if (sameSort(sort, DEFAULT_HISTORY_SORT)) {
     return rows;
   }
@@ -96,5 +98,12 @@ export const sortRows = <R extends Row>(
   const cmp = compareKey(sort.key);
   const sign = sort.dir === "asc" ? 1 : -1;
 
-  return [...rows].sort((x, y) => sign * cmp(x, y) || x.pos - y.pos);
+  return Arr.sort(
+    rows,
+    Order.make<R>((x, y) => {
+      const byKey = sign * cmp(x, y);
+
+      return Order.number(byKey === 0 ? x.pos - y.pos : byKey, 0);
+    })
+  );
 };

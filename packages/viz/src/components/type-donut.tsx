@@ -18,13 +18,15 @@ import { Chart } from "@tanstack/react-charts/tooltip";
 import { useMemo } from "react";
 
 /** Stable colour per memory type; core emits `unknown` for untyped entries. */
-const TYPE_COLORS: Record<string, string> = {
-  feedback: "var(--chart-2)",
-  project: "var(--chart-3)",
-  reference: "var(--chart-4)",
-  unknown: "var(--chart-5)",
-  user: "var(--chart-1)",
-};
+const TYPE_COLORS: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    feedback: "var(--chart-2)",
+    project: "var(--chart-3)",
+    reference: "var(--chart-4)",
+    unknown: "var(--chart-5)",
+    user: "var(--chart-1)",
+  })
+);
 
 /** Rendered size of the donut square, in pixels. */
 const SIZE = 140;
@@ -55,7 +57,7 @@ export const TypeDonut = ({
         .filter(([, n]) => n > 0)
         .map(([type, count]) => ({
           count,
-          fill: TYPE_COLORS[type] ?? "var(--chart-5)",
+          fill: TYPE_COLORS.get(type) ?? "var(--chart-5)",
           type,
         })),
     [typeCounts]
@@ -70,14 +72,14 @@ export const TypeDonut = ({
         },
         marks: [
           polar({
-            radiusRatio: 1,
             marks: [
-              radialArc(pie(data, { value: "count", gapAngle: GAP_ANGLE }), {
-                innerRadius: ({ radius }) => radius * INNER_RATIO,
+              radialArc(pie(data, { gapAngle: GAP_ANGLE, value: "count" }), {
                 color: "type",
+                innerRadius: ({ radius }) => radius * INNER_RATIO,
                 key: "type",
               }),
             ],
+            radiusRatio: 1,
           }),
         ],
         tooltip: {

@@ -18,6 +18,7 @@ import type {
 
 import type { FindingFormat } from "../src/lib/stats-findings";
 import { statsPrompt } from "../src/lib/stats-prompts";
+import { report as emptyReport } from "./stats-report-fixture";
 
 const FORMAT: FindingFormat = {
   count: (value) => value.toLocaleString("en-US"),
@@ -47,21 +48,21 @@ const sample = (over: Partial<SampleRef>): SampleRef => ({
 });
 
 /** A line that ends at its colon: a header with nothing under it. */
-const DANGLING_HEADER = /: $/m;
+const DANGLING_HEADER = /: $/mu;
 
 const FIRING: RuleCheck = {
   advice: "if it keeps firing: setopt nonomatch in ~/.zshenv",
   callsSince: { main: 1000, nested: 2000 },
   hitsSince: { main: 3, nested: 40 },
-  matches: [{ path: "~/.claude/CLAUDE.md", line: 101, excerpt: "Quote globs" }],
+  matches: [{ excerpt: "Quote globs", line: 101, path: "~/.claude/CLAUDE.md" }],
   per1kSince: { main: 3, nested: 20 },
   sinceIso: "2026-10-01T00:00:00.000Z",
 };
 
 const causeRow = (over: Partial<CauseRow>): CauseRow => ({
   cause: "zsh-glob-flag",
-  details: [{ value: "*.ts", hits: 1196 }],
-  diffs: [{ from: "--include=*.ts", to: "--include='*.ts'", pairs: 145 }],
+  details: [{ hits: 1196, value: "*.ts" }],
+  diffs: [{ from: "--include=*.ts", pairs: 145, to: "--include='*.ts'" }],
   failing: true,
   fix: "quote the glob",
   flagged: 35,
@@ -117,48 +118,49 @@ const timeRow = (over: Partial<TimeRow>): TimeRow => ({
   ...over,
 });
 
-const report = (over: Partial<StatsReport>): StatsReport =>
-  ({
-    causes: [],
-    corpus: {
-      agents: { claude: 1821 },
-      bashCalls: 35_625,
-      bashSec: 74_825,
-      humanWaitSec: 0,
-      kinds: { main: 401, subagent: 163, "workflow-agent": 1257 },
-      projects: 132,
-      sessions: 1821,
-      toolCalls: 38_749,
-      toolSec: 81_062,
-      transcripts: 1821,
-    },
-    fails: [],
-    paths: { [SUB]: PATH },
-    time: [],
-    waiting: {
-      bgDeclaredSec: 14_608,
-      bgRuns: 307,
-      bgSec: 2688,
-      byShape: [
-        { key: "loop-poll", calls: 207, totalSec: 8956, share: 0.1 },
-        { key: "watcher", calls: 0, totalSec: 0, share: 0 },
-      ],
-      calls: 643,
-      medianSec: 4,
-      p95Sec: 87,
-      projects: 35,
-      samples: [],
-      sessions: 197,
-      share: 0.5,
-      totalSec: 13_196,
-    },
-    window: {
-      days: 30,
-      fromIso: "2026-09-21T17:48:33.960Z",
-      toIso: "2026-10-21T17:48:33.960Z",
-    },
-    ...over,
-  }) as StatsReport;
+const report = (over: Partial<StatsReport>): StatsReport => ({
+  ...emptyReport({ fails: [], time: [] }),
+  causes: [],
+  corpus: {
+    agents: { claude: 1821 },
+    bashCalls: 35_625,
+    bashSec: 74_825,
+    humanWaitSec: 0,
+    kinds: { main: 401, subagent: 163, "workflow-agent": 1257 },
+    projects: 132,
+    sessions: 1821,
+    toolCalls: 38_749,
+    toolSec: 81_062,
+    transcripts: 1821,
+  },
+  fails: [],
+  paths: { [SUB]: PATH },
+  time: [],
+  waiting: {
+    bgDeclaredSec: 14_608,
+    bgRuns: 307,
+    bgSec: 2688,
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated API type
+    byShape: [
+      { calls: 207, key: "loop-poll", share: 0.1, totalSec: 8956 },
+      { calls: 0, key: "watcher", share: 0, totalSec: 0 },
+    ],
+    calls: 643,
+    medianSec: 4,
+    p95Sec: 87,
+    projects: 35,
+    samples: [],
+    sessions: 197,
+    share: 0.5,
+    totalSec: 13_196,
+  },
+  window: {
+    days: 30,
+    fromIso: "2026-09-21T17:48:33.960Z",
+    toIso: "2026-10-21T17:48:33.960Z",
+  },
+  ...over,
+});
 
 const prompt = (
   r: StatsReport,
@@ -336,8 +338,8 @@ describe("a cause prompt", () => {
   };
 
   const row = causeRow({
-    rule: FIRING,
     pairSamples: [pair],
+    rule: FIRING,
     // The paired call repeats in `samples`; it is named once.
     samples: [
       sample({}),

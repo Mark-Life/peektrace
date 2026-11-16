@@ -27,6 +27,7 @@ const useElapsedSeconds = (since: number) => {
 const useMounted = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- the post-mount flip is the point: live regions announce only text added after they exist
     setMounted(true);
   }, []);
 
@@ -53,11 +54,11 @@ export const StatsPending = ({ since }: { readonly since: number }) => {
           <Skeleton className="h-7 w-72" />
         </div>
         <div className="text-muted-foreground flex items-baseline gap-2 text-sm">
-          <p role="status">
+          <output>
             {announce
               ? "Reading transcripts. The first pass parses every file and can take about 20 s; later passes read the cache."
               : null}
-          </p>
+          </output>
           <span
             aria-hidden="true"
             className="shrink-0 font-mono text-xs tabular-nums"

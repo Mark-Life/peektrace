@@ -13,7 +13,11 @@ import type { GraphData } from "@workspace/view-core/api-types.gen";
 /** SVG viewbox size + circle radius for the ring layout. */
 const SIZE = 320;
 const RADIUS = 120;
-const CENTER = SIZE / 2;
+
+/** Divisor for halves: the ring's centre and the quarter-turn start offset. */
+const HALF = 2;
+
+const CENTER = SIZE / HALF;
 
 /** Node radius scales from this minimum across this range by byte size. */
 const NODE_MIN_R = 5;
@@ -37,13 +41,14 @@ const MAX_WIDTH_CEILING = 480;
 export const layout = (slugs: readonly string[]) => {
   const positions = new Map<string, { x: number; y: number }>();
   const n = Math.max(1, slugs.length);
-  slugs.forEach((slug, i) => {
-    const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+
+  for (const [i, slug] of slugs.entries()) {
+    const angle = (i / n) * Math.PI * HALF - Math.PI / HALF;
     positions.set(slug, {
       x: CENTER + RADIUS * Math.cos(angle),
       y: CENTER + RADIUS * Math.sin(angle),
     });
-  });
+  }
 
   return positions;
 };
@@ -77,6 +82,7 @@ export const LinkGraph = ({
       aria-label="Memory link graph"
       className="h-auto w-full"
       data-testid="link-graph"
+      // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- svg has no img tag equivalent
       role="img"
       style={{ maxWidth: Math.min(maxWidth, MAX_WIDTH_CEILING) }}
       viewBox={`0 0 ${SIZE} ${SIZE}`}
@@ -113,6 +119,7 @@ export const LinkGraph = ({
         }
 
         const r = nodeRadius(node.bytes, maxBytes);
+
         const select = onSelect
           ? () => {
               onSelect(node.slug);

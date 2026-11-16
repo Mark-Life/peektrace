@@ -44,7 +44,7 @@ describe("NoSessions", () => {
     expect(html).toContain("~/.codex/sessions");
     expect(html).toContain("/srv/opencode");
     expect(html).not.toContain(`${HOME}/`);
-    expect(html.match(/data-testid="root-missing"/g)).toHaveLength(1);
+    expect(html.match(/data-testid="root-missing"/gu)).toHaveLength(1);
     expect(html).toContain('href="#/settings"');
     expect(html).toContain("looked for transcripts in these folders:");
   });

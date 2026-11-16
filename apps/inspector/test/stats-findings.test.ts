@@ -14,6 +14,7 @@ import { describe, expect, test } from "bun:test";
 import type {
   CauseRow,
   FailRow,
+  RuleCheck,
   StatsReport,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
@@ -28,9 +29,10 @@ import {
   timeSpread,
 } from "../src/lib/stats-findings";
 import type { FindingFormat } from "../src/lib/stats-findings";
+import { report as emptyReport } from "./stats-report-fixture";
 
 const FORMAT: FindingFormat = {
-  count: (value) => String(value),
+  count: String,
   hms: (sec) => `${sec}s`,
   pct: (share) => `${share * 100}%`,
   // Bracketed, so a test sees the token count took this path, not count().
@@ -101,13 +103,15 @@ const report = (over: {
   readonly causes?: readonly CauseRow[];
   readonly fails?: readonly FailRow[];
   readonly time?: readonly TimeRow[];
-}): StatsReport =>
-  ({
+}): StatsReport => {
+  const base = emptyReport({ fails: over.fails ?? [], time: over.time ?? [] });
+
+  return {
+    ...base,
     causes: over.causes ?? [],
-    corpus: { bashSec: over.bashSec ?? 100 },
-    fails: over.fails ?? [],
-    time: over.time ?? [],
-  }) as unknown as StatsReport;
+    corpus: { ...base.corpus, bashSec: over.bashSec ?? 100 },
+  };
+};
 
 describe("findingsOf", () => {
   test("a named rule leads, then a measured note, then the time rows", () => {
@@ -207,29 +211,29 @@ describe("cause findings", () => {
   });
 
   test("a rule already present and still firing says so instead of the fix", () => {
-    const row = causeRow({
-      rule: {
-        advice: "setopt nonomatch",
-        callsSince: { main: 100, nested: 100 },
-        hitsSince: { main: 1, nested: 9 },
-        matches: [
-          {
-            path: "~/.claude/CLAUDE.md",
-            line: 100,
-            excerpt: "Quote globs",
-          },
-        ],
-        per1kSince: { main: 10, nested: 90 },
-        sinceIso: "2026-08-01T00:00:00.000Z",
-      },
-    });
+    const rule: RuleCheck = {
+      advice: "setopt nonomatch",
+      callsSince: { main: 100, nested: 100 },
+      hitsSince: { main: 1, nested: 9 },
+      matches: [
+        {
+          excerpt: "Quote globs",
+          line: 100,
+          path: "~/.claude/CLAUDE.md",
+        },
+      ],
+      per1kSince: { main: 10, nested: 90 },
+      sinceIso: "2026-08-01T00:00:00.000Z",
+    };
+
+    const row = causeRow({ rule });
 
     expect(causeNote(row)).toBe(
       "rule in ~/.claude/CLAUDE.md:100 · still firing main 10/1k, sub 90/1k since 2026-08-01: setopt nonomatch"
     );
     expect(
       ruleLine({
-        ...(row.rule ?? (null as never)),
+        ...rule,
         callsSince: { main: 0, nested: 100 },
       })
     ).toBe(
@@ -237,7 +241,7 @@ describe("cause findings", () => {
     );
     expect(
       ruleLine({
-        ...(row.rule ?? (null as never)),
+        ...rule,
         hitsSince: { main: 0, nested: 0 },
       })
     ).toBe("rule in ~/.claude/CLAUDE.md:100 · quiet since 2026-08-01");
@@ -245,7 +249,7 @@ describe("cause findings", () => {
     // Changed on the last day: nothing measured yet, which is not "quiet".
     const fresh = causeRow({
       rule: {
-        ...(row.rule ?? null),
+        ...rule,
         advice: "if it keeps firing: setopt nonomatch",
         callsSince: { main: 0, nested: 0 },
         hitsSince: { main: 0, nested: 0 },
@@ -295,7 +299,7 @@ describe("rateText", () => {
       advice: "a",
       callsSince: { main: 10, nested: 4000 },
       hitsSince: { main: 0, nested: 1 },
-      matches: [{ path: "~/.claude/CLAUDE.md", line: 1, excerpt: "x" }],
+      matches: [{ excerpt: "x", line: 1, path: "~/.claude/CLAUDE.md" }],
       per1kSince: { main: 0, nested: 0.25 },
       sinceIso: "2026-08-01T00:00:00.000Z",
     });

@@ -1,3 +1,8 @@
+import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
+import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
+import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+import type { LineDiff } from "@workspace/view-core/diff";
+import { diffLines } from "@workspace/view-core/diff";
 /** Shaping `tool-call` / `tool-result` events for the AI Elements tool rows.
  *
  * Kept separate from the JSX so the interesting part — pairing a call with its
@@ -6,13 +11,23 @@
  * `TimelineEvent.body`/`preview`, which the server has already redacted, so no
  * rendering path added here can reach around the redaction toggle.
  */
-import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
-import type { CodeBlockLanguage } from "@workspace/ui/lib/highlighter";
-import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
-import type { LineDiff } from "@workspace/view-core/diff";
-import { diffLines } from "@workspace/view-core/diff";
+import { Predicate } from "effect";
 
 import { FILE_TITLE_PREFIXES } from "./chat-lane";
+
+/** A parsed JSON document: what `JSON.parse` yields for a tool payload. */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | JsonObject;
+
+/** A parsed JSON object. */
+export interface JsonObject {
+  readonly [key: string]: JsonValue;
+}
 
 /** Text shown when an event carries no body at all. */
 export const EMPTY_BODY = "(no content)";
@@ -88,36 +103,46 @@ const PROSE_ARGS = new Set([
 
 /** Language for an unnamed payload arg, guessed from the file it edits. */
 const BY_EXTENSION = [
-  [/\.(ts|tsx|js|jsx|mts|cts)$/, "typescript"],
-  [/\.json[c5]?$/, "json"],
-  [/\.(md|mdx)$/, "markdown"],
-  [/\.(sh|bash|zsh)$/, "bash"],
+  [/\.(?:ts|tsx|js|jsx|mts|cts)$/u, "typescript"],
+  [/\.json[c5]?$/u, "json"],
+  [/\.(?:md|mdx)$/u, "markdown"],
+  [/\.(?:sh|bash|zsh)$/u, "bash"],
 ] as const satisfies readonly (readonly [RegExp, CodeBlockLanguage])[];
 
 const SUMMARY_CAP = 200;
-const WHITESPACE = /\s+/g;
+const WHITESPACE = /\s+/gu;
+const JSON_INDENT = 2;
 
-const parseJson = (s: string): unknown => {
+const parseJson = (s: string): JsonValue | undefined => {
   try {
-    return JSON.parse(s);
+    // SAFETY: JSON.parse only produces JSON values.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- JSON.parse is typed `any`; its output is always valid JSON
+    return JSON.parse(s) as JsonValue;
   } catch {
-    return;
+    return undefined;
   }
 };
 
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === "object" && v !== null && !Array.isArray(v);
+const isRecord = (v: JsonValue | undefined): v is JsonObject =>
+  Predicate.isRecord(v);
+
+const isJsonArray = (v: JsonValue | undefined): v is readonly JsonValue[] =>
+  Array.isArray(v);
+
+/** True when an optional id carries a value. */
+const hasId = (id: string | undefined): id is string =>
+  id !== undefined && id !== "";
 
 /** Join `{ type: "text", text }` blocks (standard tool_result content). */
-const textFromBlocks = (v: unknown): string | null => {
-  if (!Array.isArray(v)) {
+const textFromBlocks = (v: JsonValue): string | null => {
+  if (!isJsonArray(v)) {
     return null;
   }
 
   const texts = v
     .filter(
       (b): b is { text: string } =>
-        isRecord(b) && b.type === "text" && typeof b.text === "string"
+        isRecord(b) && b.type === "text" && Predicate.isString(b.text)
     )
     .map((b) => b.text);
 
@@ -132,30 +157,32 @@ export const oneLine = (s: string): string => {
 };
 
 /** A string arg is a payload when it is named as one or spans several lines. */
-const isPayload = ([key, value]: readonly [string, unknown]) =>
-  typeof value === "string" &&
-  (PRIMARY_ARGS.some(([k]) => k === key) || value.includes("\n"));
+const isPayload = (entry: [string, JsonValue]): entry is [string, string] => {
+  const [key, value] = entry;
 
-const filePathOf = (input: Record<string, unknown>) =>
-  typeof input.file_path === "string" ? input.file_path : "";
+  return (
+    Predicate.isString(value) &&
+    (PRIMARY_ARGS.some(([k]) => k === key) || value.includes("\n"))
+  );
+};
+
+const filePathOf = (input: JsonObject) =>
+  Predicate.isString(input.file_path) ? input.file_path : "";
 
 /** Args that name a file, whatever the tool calls them. */
 const PATH_ARGS = ["file_path", "path", "notebook_path", "filename"];
 
 /** A payload is prose when its arg is named as prose and is not a file's
  *  content: `# comment` in a Python file must not turn into a heading. */
-const isProse = (key: string, input: Record<string, unknown>) =>
-  PROSE_ARGS.has(key) && !PATH_ARGS.some((k) => typeof input[k] === "string");
+const isProse = (key: string, input: JsonObject) =>
+  PROSE_ARGS.has(key) && !PATH_ARGS.some((k) => Predicate.isString(input[k]));
 
 /** Guess a highlight language from a file path, so a chat attachment chip opens
  *  a `.md` as markdown and a `.ts` as TypeScript instead of everything as text. */
 export const languageOfPath = (path: string): CodeBlockLanguage =>
   BY_EXTENSION.find(([ext]) => ext.test(path))?.[1] ?? "text";
 
-const languageOf = (
-  key: string,
-  input: Record<string, unknown>
-): CodeBlockLanguage => {
+const languageOf = (key: string, input: JsonObject): CodeBlockLanguage => {
   const named = PRIMARY_ARGS.find(([k]) => k === key);
 
   if (named) {
@@ -168,25 +195,28 @@ const languageOf = (
 /** The args an edit tool carries its replacement in — `Edit` and its batch form. */
 const EDIT_KEYS = new Set(["old_string", "new_string", "edits"]);
 
-const replacementIn = (v: unknown) =>
+const replacementIn = (v: JsonValue) =>
   isRecord(v) &&
-  typeof v.old_string === "string" &&
-  typeof v.new_string === "string"
+  Predicate.isString(v.old_string) &&
+  Predicate.isString(v.new_string)
     ? { newCode: v.new_string, oldCode: v.old_string }
     : null;
 
 /** Every replacement in a call: one for `Edit`, one per entry for its batch form. */
-const replacements = (input: Record<string, unknown>) => {
-  const batch = Array.isArray(input.edits)
+const replacements = (input: JsonObject) => {
+  const batch = isJsonArray(input.edits)
     ? input.edits.map(replacementIn).filter((r) => r !== null)
     : [];
+
   const single = replacementIn(input);
+
   return single ? [single, ...batch] : batch;
 };
 
-const editPanes = (input: Record<string, unknown>): DiffPane[] => {
+const editPanes = (input: JsonObject): DiffPane[] => {
   const edits = replacements(input);
   const language = languageOf("", input);
+
   return edits.map((edit, i) => ({
     ...edit,
     diff: diffLines(edit.oldCode, edit.newCode),
@@ -197,13 +227,11 @@ const editPanes = (input: Record<string, unknown>): DiffPane[] => {
 };
 
 /** `src/lib/a.ts +3 −1` — what the edit touched, for the collapsed row. */
-const editSummary = (
-  panes: readonly DiffPane[],
-  input: Record<string, unknown>
-) => {
+const editSummary = (panes: readonly DiffPane[], input: JsonObject) => {
   const added = panes.reduce((n, p) => n + p.diff.added, 0);
   const removed = panes.reduce((n, p) => n + p.diff.removed, 0);
   const name = filePathOf(input).split("/").at(-1) ?? "";
+
   return `${name} +${added} −${removed}`.trim();
 };
 
@@ -212,6 +240,7 @@ export const paneText = (pane: ToolPane | undefined) => {
   if (pane?.type === "code") {
     return pane.code;
   }
+
   return pane?.type === "prose" ? pane.text : undefined;
 };
 
@@ -224,6 +253,7 @@ export const paneText = (pane: ToolPane | undefined) => {
  */
 export const callView = (e: TimelineEvent): ToolCallView => {
   const input = parseJson(e.body);
+
   if (!isRecord(input)) {
     return {
       panes: [
@@ -237,7 +267,9 @@ export const callView = (e: TimelineEvent): ToolCallView => {
       summary: e.preview,
     };
   }
+
   const diffs = editPanes(input);
+
   const args = Object.entries(input).filter(
     ([key]) => !(diffs.length > 0 && EDIT_KEYS.has(key))
   );
@@ -262,9 +294,9 @@ export const callView = (e: TimelineEvent): ToolCallView => {
     ...diffs,
     ...payloads.map(([key, value]): ToolPane =>
       isProse(key, input)
-        ? { label: key, text: String(value), type: "prose" }
+        ? { label: key, text: value, type: "prose" }
         : {
-            code: String(value),
+            code: value,
             label: key,
             language: languageOf(key, input),
             type: "code",
@@ -276,14 +308,14 @@ export const callView = (e: TimelineEvent): ToolCallView => {
 
   if (rest.length > 0) {
     panes.push({
-      code: JSON.stringify(Object.fromEntries(rest), null, 2),
+      code: JSON.stringify(Object.fromEntries(rest), null, JSON_INDENT),
       label: "Other parameters",
       language: "json",
       type: "code",
     });
   }
 
-  const first = panes[0];
+  const [first] = panes;
 
   return {
     panes,
@@ -294,8 +326,8 @@ export const callView = (e: TimelineEvent): ToolCallView => {
   };
 };
 
-const jsonPane = (v: unknown) => ({
-  code: JSON.stringify(v, null, 2),
+const jsonPane = (v: JsonValue) => ({
+  code: JSON.stringify(v, null, JSON_INDENT),
   language: "json" as const,
   type: "code" as const,
 });
@@ -318,7 +350,7 @@ export const resultPane = (e: TimelineEvent): ResultPane => {
   if (text !== null) {
     const inner = parseJson(text);
 
-    return typeof inner === "object" && inner !== null
+    return Predicate.isObject(inner)
       ? jsonPane(inner)
       : { text, type: "prose" };
   }
@@ -350,7 +382,7 @@ export const indexTools = (a: {
   const results = new Map<string, ToolFields>();
 
   for (const e of a.events) {
-    if (!e.toolUseId) {
+    if (!hasId(e.toolUseId)) {
       continue;
     }
 
@@ -367,22 +399,24 @@ export const indexTools = (a: {
 /** A call is `unanswered` when the transcript ends (or is cut) before its result. */
 export const toolState = (e: ToolFields, tools: ToolIndex): ToolState => {
   if (e.kind === "tool-result") {
-    return e.isError ? "error" : "completed";
+    return e.isError === true ? "error" : "completed";
   }
 
-  const result = e.toolUseId ? tools.results.get(e.toolUseId) : undefined;
+  const result = hasId(e.toolUseId)
+    ? tools.results.get(e.toolUseId)
+    : undefined;
 
   if (!result) {
     return "unanswered";
   }
 
-  return result.isError ? "error" : "completed";
+  return result.isError === true ? "error" : "completed";
 };
 
 /** Results carry no tool name of their own; borrow it from the paired call. */
 export const toolNameOf = (e: ToolFields, tools: ToolIndex): string =>
   e.toolName ??
-  (e.toolUseId ? tools.calls.get(e.toolUseId)?.toolName : undefined) ??
+  (hasId(e.toolUseId) ? tools.calls.get(e.toolUseId)?.toolName : undefined) ??
   "tool";
 
 /** Whether an event kind gets the AI Elements tool treatment. */
@@ -396,9 +430,10 @@ export const bodyView = (
 ): Omit<CodePane, "code" | "label"> | { readonly type: "prose" } => {
   const prefix = FILE_TITLE_PREFIXES.find((p) => e.title.startsWith(p));
 
-  const language = prefix
-    ? languageOfPath(e.title.slice(prefix.length))
-    : "markdown";
+  const language =
+    prefix !== undefined && prefix !== ""
+      ? languageOfPath(e.title.slice(prefix.length))
+      : "markdown";
 
   return language === "markdown"
     ? { type: "prose" }

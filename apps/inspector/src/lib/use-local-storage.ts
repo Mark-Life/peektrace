@@ -3,6 +3,7 @@
  * All storage access is guarded so the UI still works (just unpersisted) when
  * `window`/`localStorage` is unavailable or throws (SSR, private mode, quota).
  */
+import { Predicate } from "effect";
 import { useCallback, useState } from "react";
 
 /** Read + JSON-parse a stored value, falling back on any failure. `normalize`
@@ -11,6 +12,7 @@ import { useCallback, useState } from "react";
 const readStored = <T>(
   key: string,
   fallback: T,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- JSON.parse output is the untrusted boundary `normalize` exists to validate
   normalize: (parsed: unknown) => T
 ): T => {
   if (typeof window === "undefined") {
@@ -27,41 +29,45 @@ const readStored = <T>(
 };
 
 /** JSON-serialize + write a value, swallowing any failure. */
-const writeStored = <T>(key: string, value: T) => {
+const writeStored = (key: string, serialize: () => string) => {
   if (typeof window === "undefined") {
     return;
   }
 
   try {
-    window.localStorage.setItem(key, JSON.stringify(value));
+    window.localStorage.setItem(key, serialize());
   } catch {
     // Private mode / quota — degrade to in-memory (unpersisted) state.
   }
 };
+
+/** True when `update` is an updater function rather than a plain value. */
+const isUpdater = <T>(update: T | ((prev: T) => T)): update is (prev: T) => T =>
+  Predicate.isFunction(update);
 
 /**
  * Reactive `localStorage` value. Reads once lazily on mount (from the given
  * `key`) and writes through on every set. The returned setter accepts either a
  * next value or an updater `(prev) => next`, mirroring `useState`. Pass
  * `normalize` to coerce a parsed-but-wrong-shape stored value back to a safe
- * `T`; it defaults to trusting the parsed value.
+ * `T`.
  */
 export const useLocalStorage = <T>(
   key: string,
   fallback: T,
-  normalize: (parsed: unknown) => T = (parsed) => parsed as T
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- JSON.parse output is the untrusted boundary `normalize` exists to validate
+  normalize: (parsed: unknown) => T
 ) => {
   const [value, setValue] = useState<T>(() =>
     readStored(key, fallback, normalize)
   );
 
   const set = useCallback(
-    (next: T | ((prev: T) => T)) => {
+    (update: T | ((prev: T) => T)) => {
       setValue((prev) => {
-        const resolved =
-          typeof next === "function" ? (next as (prev: T) => T)(prev) : next;
+        const resolved = isUpdater(update) ? update(prev) : update;
 
-        writeStored(key, resolved);
+        writeStored(key, () => JSON.stringify(resolved));
 
         return resolved;
       });

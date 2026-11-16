@@ -118,7 +118,7 @@ const Band = ({
       <div
         data-kind={e.kind}
         data-lane="center"
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-testid="history-event"
         id={id}
       >
@@ -266,7 +266,11 @@ const ChatNodeViewBody = ({
         activeMark={activeMark}
         call={n.call?.e ?? null}
         collapseId={id}
-        marks={(toolUseId ? marks.get(toolUseId) : null) ?? NO_MARKS}
+        marks={
+          (toolUseId !== undefined && toolUseId !== ""
+            ? marks.get(toolUseId)
+            : null) ?? NO_MARKS
+        }
         name={toolNameOf(anchor.e, tools)}
         onToggle={onToggle}
         open={isOpen(id)}
@@ -357,8 +361,8 @@ export const TranscriptChat = ({
   readonly tools: ToolIndex;
   readonly turns: readonly number[];
 }) => {
-  const cache = useRef<HydrateCache>(new WeakMap());
-  const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
+  const cache = useMemo<HydrateCache>(() => new WeakMap(), []);
+  const hydrate = useMemo(() => hydrator(eventAt, cache), [cache, eventAt]);
 
   const plan = useMemo(
     () => buildChatPlan({ crossEvtIdx, rows, turns }),

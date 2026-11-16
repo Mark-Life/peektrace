@@ -23,15 +23,44 @@ import {
   visibleBranch,
 } from "../src/routes/sessions/session-list-model";
 
-const header = (over: Partial<SessionHeader> = {}): SessionHeader => ({
-  agent: "claude",
-  id: "s-1",
-  messageCount: 3,
-  path: "/home/dev/code/app/s-1.jsonl",
-  project: "-home-dev-code-app",
-  sizeBytes: 512,
-  ...over,
-});
+const header = (over: Partial<SessionHeader> = {}): SessionHeader => {
+  const base = {
+    agent: "claude",
+    id: "s-1",
+    messageCount: 3,
+    path: "/home/dev/code/app/s-1.jsonl",
+    project: "-home-dev-code-app",
+    sizeBytes: 512,
+    ...over,
+  } satisfies Partial<SessionHeader>;
+
+  // SAFETY: the helpers under test treat a missing `updatedAt` as an undated session; tests feed that case on purpose.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the declared header type requires `updatedAt`
+  return base as SessionHeader;
+};
+
+const ids = (hs: readonly SessionHeader[]) => hs.map((h) => h.id);
+
+const isoAt = (ms: number) => new Date(ms).toISOString();
+
+// Local-midnight dates, as the day picker hands them over.
+const localDay = (d: number) => new Date(2026, 10, d);
+
+/** Filters encoded the way the list writes them, then read back. */
+const roundTrip = (f: Parameters<typeof filtersToParams>[0]) => {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(filtersToParams(f))) {
+    if (value !== null) {
+      params.set(key, value);
+    }
+  }
+
+  return {
+    back: filtersFromParams(new URLSearchParams(params.toString())),
+    params,
+  };
+};
 
 describe("projectLabel", () => {
   test("uses the last folder of a POSIX cwd", () => {
@@ -129,8 +158,6 @@ describe("visibleBranch", () => {
 });
 
 describe("sortByRecent", () => {
-  const ids = (hs: readonly SessionHeader[]) => hs.map((h) => h.id);
-
   test("orders by updatedAt over startedAt", () => {
     const old = header({
       id: "old-start",
@@ -197,29 +224,30 @@ describe("sortByRecent", () => {
 
 describe("isLive", () => {
   const now = Date.parse("2026-06-01T12:00:00Z");
-  const at = (ms: number) => new Date(ms).toISOString();
 
   test("is live just inside the window", () => {
-    expect(isLive(header({ updatedAt: at(now - LIVE_MS + 1000) }), now)).toBe(
-      true
-    );
+    expect(
+      isLive(header({ updatedAt: isoAt(now - LIVE_MS + 1000) }), now)
+    ).toBe(true);
   });
 
   test("is not live just outside the window", () => {
-    expect(isLive(header({ updatedAt: at(now - LIVE_MS - 1000) }), now)).toBe(
+    expect(
+      isLive(header({ updatedAt: isoAt(now - LIVE_MS - 1000) }), now)
+    ).toBe(false);
+  });
+
+  test("tolerates a small skew but not a stamp far in the future", () => {
+    expect(
+      isLive(header({ updatedAt: isoAt(now + SKEW_MS - 1000) }), now)
+    ).toBe(true);
+    expect(isLive(header({ updatedAt: isoAt(now + 3_600_000) }), now)).toBe(
       false
     );
   });
 
-  test("tolerates a small skew but not a stamp far in the future", () => {
-    expect(isLive(header({ updatedAt: at(now + SKEW_MS - 1000) }), now)).toBe(
-      true
-    );
-    expect(isLive(header({ updatedAt: at(now + 3_600_000) }), now)).toBe(false);
-  });
-
   test("falls back to startedAt, and is never live without a time", () => {
-    expect(isLive(header({ startedAt: at(now - 1000) }), now)).toBe(true);
+    expect(isLive(header({ startedAt: isoAt(now - 1000) }), now)).toBe(true);
     expect(isLive(header(), now)).toBe(false);
   });
 });
@@ -257,13 +285,19 @@ describe("matches", () => {
 });
 
 describe("date range", () => {
-  // Local-midnight dates, as the day picker hands them over.
-  const day = (d: number) => new Date(2026, 10, d);
-
   const spanning = header({
     startedAt: "2026-11-01T09:00:00Z",
     updatedAt: "2026-11-03T10:00:00Z",
   });
+
+  const on = (from: number, to?: number) =>
+    matches(spanning, {
+      ...NO_FILTERS,
+      range: {
+        from: localDay(from),
+        to: to === undefined ? undefined : localDay(to),
+      },
+    });
 
   test("lists every day from start to last activity", () => {
     expect(activeDays(spanning)).toEqual([
@@ -297,12 +331,6 @@ describe("date range", () => {
   });
 
   test("matches any day the session was active on", () => {
-    const on = (from: number, to?: number) =>
-      matches(spanning, {
-        ...NO_FILTERS,
-        range: { from: day(from), to: to === undefined ? undefined : day(to) },
-      });
-
     expect(on(1)).toBe(true);
     expect(on(2)).toBe(true);
     expect(on(3)).toBe(true);
@@ -323,22 +351,6 @@ describe("date range", () => {
 });
 
 describe("filters in the hash", () => {
-  /** Filters encoded the way the list writes them, then read back. */
-  const roundTrip = (f: Parameters<typeof filtersToParams>[0]) => {
-    const params = new URLSearchParams();
-
-    for (const [key, value] of Object.entries(filtersToParams(f))) {
-      if (value !== null) {
-        params.set(key, value);
-      }
-    }
-
-    return {
-      back: filtersFromParams(new URLSearchParams(params.toString())),
-      params,
-    };
-  };
-
   test("defaults stay out of the URL", () => {
     expect(
       Object.values(filtersToParams(NO_FILTERS)).every((v) => v === null)
@@ -445,7 +457,7 @@ describe("filters in the hash", () => {
 });
 
 describe("hidingFilters", () => {
-  const h = header({ agent: "claude" as SessionHeader["agent"], model: "m-1" });
+  const h = header({ agent: "claude", model: "m-1" });
 
   test("is empty when the session passes every filter", () => {
     expect(hidingFilters(h, NO_FILTERS)).toEqual({});

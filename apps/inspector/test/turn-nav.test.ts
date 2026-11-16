@@ -27,6 +27,21 @@ const events = [
 ];
 
 const rows = events.map((e, pos) => ({ e, pos }));
+
+const reversed = <T>(xs: readonly T[]) => {
+  const out: T[] = [];
+
+  for (let i = xs.length - 1; i >= 0; i -= 1) {
+    const x = xs[i];
+
+    if (x !== undefined) {
+      out.push(x);
+    }
+  }
+
+  return out;
+};
+
 const turns = [1, 1, 2, 2, 2, 3];
 
 describe("chatTurnStops", () => {
@@ -49,7 +64,7 @@ describe("tableTurnStops", () => {
   });
 
   test("descending order still has a stop per run", () => {
-    const desc = [...rows].reverse();
+    const desc = reversed(rows);
     expect(
       tableTurnStops({ rows: desc, sort: { dir: "desc", key: "order" }, turns })
     ).toEqual([0, 1, 4]);

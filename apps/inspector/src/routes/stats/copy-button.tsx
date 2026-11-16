@@ -24,7 +24,7 @@ const legacyCopy = (text: string): boolean => {
   area.select();
 
   try {
-    // Deprecated, yet the only copy an insecure context still allows.
+    // oxlint-disable-next-line typescript/no-deprecated -- the only copy an insecure context still allows
     return document.execCommand("copy");
   } catch {
     return false;
@@ -37,13 +37,19 @@ const legacyCopy = (text: string): boolean => {
   }
 };
 
-const writeText = async (text: string): Promise<boolean> =>
-  navigator.clipboard === undefined
-    ? Promise.resolve(legacyCopy(text))
-    : navigator.clipboard.writeText(text).then(
-        () => true,
-        () => legacyCopy(text)
-      );
+const writeText = async (text: string) => {
+  if (navigator.clipboard === undefined) {
+    return legacyCopy(text);
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+
+    return true;
+  } catch {
+    return legacyCopy(text);
+  }
+};
 
 export const CopyButton = ({
   describe,
@@ -66,16 +72,15 @@ export const CopyButton = ({
     }
   }, [state]);
 
-  const copy = () => {
-    writeText(text).then((ok) => {
-      setState(ok ? "copied" : "failed");
+  const copy = async () => {
+    const ok = await writeText(text);
+    setState(ok ? "copied" : "failed");
 
-      if (ok) {
-        setTimeout(() => {
-          setState("idle");
-        }, COPIED_MS);
-      }
-    });
+    if (ok) {
+      setTimeout(() => {
+        setState("idle");
+      }, COPIED_MS);
+    }
   };
 
   const icon = {
@@ -92,7 +97,9 @@ export const CopyButton = ({
         aria-label={describe}
         className="h-6 shrink-0 gap-1 px-2 text-xs"
         data-testid={testId}
-        onClick={copy}
+        onClick={() => {
+          void copy();
+        }}
         size="sm"
         title={describe ?? text}
         variant="outline"

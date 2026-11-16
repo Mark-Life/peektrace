@@ -88,7 +88,9 @@ export const DeleteDialog = ({
           <Button
             data-testid="delete-confirm"
             disabled={busy}
-            onClick={confirm}
+            onClick={() => {
+              void confirm();
+            }}
             variant="destructive"
           >
             {busy ? "Deleting…" : "Delete"}

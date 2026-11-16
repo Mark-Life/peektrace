@@ -199,11 +199,12 @@ export const SettingsEditor = ({
   const send = async (guard: boolean) => {
     setBusy(true);
 
+    const assembled = assemble(rows);
+
     const exit = await save({
-      payload: {
-        settings: assemble(rows),
-        ...(guard ? { expectedMtime: mtimeMs } : {}),
-      },
+      payload: guard
+        ? { expectedMtime: mtimeMs, settings: assembled }
+        : { settings: assembled },
     });
 
     setBusy(false);
@@ -250,7 +251,7 @@ export const SettingsEditor = ({
           <AlertTitle>Read-only server</AlertTitle>
           <AlertDescription>
             <p>
-              <ReadOnlyReason /> Settings can't be saved from here.
+              <ReadOnlyReason /> Settings can&apos;t be saved from here.
             </p>
           </AlertDescription>
         </Alert>
@@ -290,7 +291,9 @@ export const SettingsEditor = ({
               <Button
                 data-testid="settings-cas-overwrite"
                 disabled={busy}
-                onClick={async () => send(false)}
+                onClick={() => {
+                  void send(false);
+                }}
                 type="button"
                 variant="destructive"
               >
@@ -317,7 +320,9 @@ export const SettingsEditor = ({
           <Button
             data-testid="settings-save"
             disabled={busy}
-            onClick={async () => send(true)}
+            onClick={() => {
+              void send(true);
+            }}
             type="button"
           >
             <SaveIcon />

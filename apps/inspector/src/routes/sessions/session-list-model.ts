@@ -55,16 +55,17 @@ export const NO_FILTERS: Filters = {
 };
 
 /** Shape of a calendar day key. */
-const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}$/u;
+
+/** Non-empty string; `undefined`, `null` and `""` are not. */
+const hasText = (value: string | null | undefined): value is string =>
+  value !== undefined && value !== null && value !== "";
 
 /** A `YYYY-MM-DD` hash value as a local day, or `undefined` if malformed or
  * not a real calendar day (`2026-02-31` would otherwise roll into March). */
 const dayParam = (value: string | null) => {
-  if (value === null || !DAY_KEY.test(value)) {
-    return;
-  }
-
-  const day = fromDayKey(value);
+  const day =
+    value !== null && DAY_KEY.test(value) ? fromDayKey(value) : undefined;
 
   return day && toDayKey(day) === value ? day : undefined;
 };
@@ -74,8 +75,8 @@ const dayParam = (value: string | null) => {
 const rangeFromParams = (params: URLSearchParams): DateRange | undefined => {
   const from = dayParam(params.get("from"));
 
-  if (!from) {
-    return;
+  if (from === undefined) {
+    return from;
   }
 
   const to = dayParam(params.get("to")) ?? from;
@@ -94,16 +95,24 @@ const FILTER_KEY = {
 } as const satisfies Record<Exclude<keyof Filters, "range">, ListKey>;
 
 /** The string filter names, in hash key order. */
-const STRING_FILTERS = Object.keys(FILTER_KEY) as (keyof typeof FILTER_KEY)[];
+const STRING_FILTERS = [
+  "query",
+  "agent",
+  "project",
+  "branch",
+  "model",
+  "source",
+] as const satisfies readonly (keyof typeof FILTER_KEY)[];
 
 /** Filters read from hash params; a missing or empty key is the default. */
 export const filtersFromParams = (params: URLSearchParams): Filters => ({
   ...NO_FILTERS,
   ...Object.fromEntries(
-    STRING_FILTERS.map((name) => [
-      name,
-      params.get(FILTER_KEY[name]) || NO_FILTERS[name],
-    ])
+    STRING_FILTERS.map((name) => {
+      const value = params.get(FILTER_KEY[name]);
+
+      return [name, hasText(value) ? value : NO_FILTERS[name]];
+    })
   ),
   range: rangeFromParams(params),
 });
@@ -115,7 +124,7 @@ const orNull = (value: string, fallback: string) =>
 /** The `from`/`to` hash values of a range; `to` only when it is a later day. */
 const rangeToParams = (range: DateRange | undefined) => {
   const from = range?.from ? toDayKey(range.from) : null;
-  const to = from && range?.to ? toDayKey(range.to) : null;
+  const to = from !== null && range?.to ? toDayKey(range.to) : null;
 
   return { from, to: to !== null && from !== null && to > from ? to : null };
 };
@@ -123,8 +132,8 @@ const rangeToParams = (range: DateRange | undefined) => {
 /** Hash params for the filters in `f`; only the keys present in `f` are set. */
 export const filtersToParams = (
   f: Partial<Filters>
-): Partial<Record<ListKey, string | null>> => ({
-  ...Object.fromEntries(
+): Partial<Record<ListKey, string | null>> => {
+  const facets = Object.fromEntries(
     STRING_FILTERS.flatMap((name) => {
       const value = f[name];
 
@@ -132,9 +141,10 @@ export const filtersToParams = (
         ? []
         : [[FILTER_KEY[name], orNull(value, NO_FILTERS[name])]];
     })
-  ),
-  ...("range" in f ? rangeToParams(f.range) : {}),
-});
+  );
+
+  return "range" in f ? { ...facets, ...rangeToParams(f.range) } : facets;
+};
 
 /** A filter option: `value` is matched against the header, `label` is shown. */
 export interface FilterOption {
@@ -154,30 +164,43 @@ export const distinct = (
   headers: readonly SessionHeader[],
   pick: (h: SessionHeader) => string | undefined
 ): readonly string[] =>
-  [...new Set(headers.map(pick).filter((v): v is string => Boolean(v)))].sort();
+  [
+    ...new Set(
+      headers.flatMap((h) => {
+        const value = pick(h);
+
+        return hasText(value) ? [value] : [];
+      })
+    ),
+  ].toSorted();
+
+/** Length of the `YYYY-MM-DD` head of an ISO timestamp. */
+const ISO_DAY_LENGTH = 10;
 
 /** `YYYY-MM-DD` of an ISO timestamp, or `""` when it does not start with a
  * real calendar day. */
 const dayOf = (iso: string | undefined) => {
-  const day = iso?.slice(0, 10) ?? "";
+  const day = iso?.slice(0, ISO_DAY_LENGTH) ?? "";
 
   return DAY_KEY.test(day) && !Number.isNaN(Date.parse(day)) ? day : "";
 };
 
 /** Captures `YYYY`-`MM`-`DD`T`HH:MM` from the head of an ISO timestamp. */
-const ISO_STAMP = /^\d{4}-(\d{2})-(\d{2})T(\d{2}:\d{2})/;
+const ISO_STAMP = /^\d{4}-(?<month>\d{2})-(?<day>\d{2})T(?<time>\d{2}:\d{2})/u;
 
 /** `Jul 9, 08:18` of an ISO timestamp, or `"—"`. Read off the string rather than
  * `Date`-parsed, so the rendered wall-clock matches what the transcript recorded. */
 export const fmtStamp = (iso: string | undefined) => {
-  const parts = iso?.match(ISO_STAMP);
-  const month = parts ? MONTHS[Number(parts[1]) - 1] : undefined;
+  const groups = iso?.match(ISO_STAMP)?.groups;
 
-  if (!(parts && month)) {
+  const month =
+    groups === undefined ? undefined : MONTHS[Number(groups.month) - 1];
+
+  if (groups === undefined || month === undefined) {
     return "—";
   }
 
-  return `${month} ${Number(parts[2])}, ${parts[3]}`;
+  return `${month} ${Number(groups.day)}, ${groups.time}`;
 };
 
 /** Tooltip for the row stamp: the shown time is the last activity, so name it
@@ -187,12 +210,12 @@ export const stampTitle = (
 ) => {
   const last = h.updatedAt ?? h.startedAt;
 
-  if (!last) {
+  if (!hasText(last)) {
     return "unknown time";
   }
 
   const started =
-    h.startedAt && h.startedAt !== last
+    hasText(h.startedAt) && h.startedAt !== last
       ? ` · started ${fmtStamp(h.startedAt)}`
       : "";
 
@@ -202,22 +225,22 @@ export const stampTitle = (
 /** The row's headline: the transcript title, else the harness that produced it
  * (`Codex session`), as the detail header names untitled sessions. */
 export const titleOf = (h: SessionHeader) =>
-  h.title || `${AGENT_LABEL[h.agent] ?? h.agent} session`;
+  hasText(h.title) ? h.title : `${AGENT_LABEL[h.agent] ?? h.agent} session`;
 
 /** Either path separator. */
-const PATH_SEP = /[\\/]/;
+const PATH_SEP = /[\\/]/u;
 
 /** Non-empty path segments, split on either separator. */
 const segments = (path: string) => path.split(PATH_SEP).filter(Boolean);
 
 /** The folder the session ran in (last segment of `cwd`), else the stored slug. */
 export const projectLabel = (h: Pick<SessionHeader, "cwd" | "project">) =>
-  (h.cwd ? segments(h.cwd).at(-1) : undefined) ?? h.project;
+  (hasText(h.cwd) ? segments(h.cwd).at(-1) : undefined) ?? h.project;
 
 /** The project facet key: the folder the session ran in, else the stored slug.
  * Harnesses encode the slug differently, so `cwd` groups them per folder. */
 export const projectKey = (h: Pick<SessionHeader, "cwd" | "project">) =>
-  h.cwd || h.project;
+  hasText(h.cwd) ? h.cwd : h.project;
 
 /** Labels with more than one owner in `labels`. */
 const collisions = (labels: readonly string[]) => {
@@ -230,6 +253,9 @@ const collisions = (labels: readonly string[]) => {
 
   return dup;
 };
+
+/** Trailing path segments shown for a folder name shared by two folders. */
+const PARENT_SEGMENTS = 2;
 
 /** Project filter options, one per folder across every harness. Folder names
  * shared by two folders get their parent folder too; still-equal labels fall
@@ -255,7 +281,9 @@ export const projectOptions = (
 
     return {
       label:
-        short.has(label) && h.cwd ? segments(h.cwd).slice(-2).join("/") : label,
+        short.has(label) && hasText(h.cwd)
+          ? segments(h.cwd).slice(-PARENT_SEGMENTS).join("/")
+          : label,
       value,
     };
   });
@@ -264,12 +292,12 @@ export const projectOptions = (
 
   return first
     .map((o) => (long.has(o.label) ? { ...o, label: o.value } : o))
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .toSorted((a, b) => a.label.localeCompare(b.label));
 };
 
 /** The branch worth showing on a row: none for an empty or detached `HEAD`. */
 export const visibleBranch = (branch: string | undefined) =>
-  branch && branch !== "HEAD" ? branch : undefined;
+  hasText(branch) && branch !== "HEAD" ? branch : undefined;
 
 /** Epoch ms of an ISO stamp; 0 if missing or unparseable. */
 const msOf = (iso: string | undefined) => {
@@ -297,7 +325,7 @@ export const sortByRecent = <
 ) =>
   headers
     .map((h) => ({ h, key: recentKey(h, now) }))
-    .sort((a, b) => b.key - a.key || a.h.id.localeCompare(b.h.id))
+    .toSorted((a, b) => b.key - a.key || a.h.id.localeCompare(b.h.id))
     .map(({ h }) => h);
 
 /** Predicate: the session wrote a line within `LIVE_MS` of `now`. */
@@ -316,14 +344,9 @@ const activeSpan = (h: Pick<SessionHeader, "startedAt" | "updatedAt">) => {
   const start = dayOf(h.startedAt);
   const end = dayOf(h.updatedAt);
   const from = start || end;
-
-  if (!from) {
-    return;
-  }
-
   const to = end || start;
 
-  return { from, to: to < from ? from : to };
+  return from ? { from, to: to < from ? from : to } : undefined;
 };
 
 const DAY_MS = 86_400_000;
@@ -333,7 +356,9 @@ const MAX_SPAN_DAYS = 366;
 
 /** `YYYY-MM-DD` of the day after `day`, stepped in UTC so no zone shifts it. */
 const nextDay = (day: string) =>
-  new Date(Date.parse(`${day}T00:00:00Z`) + DAY_MS).toISOString().slice(0, 10);
+  new Date(Date.parse(`${day}T00:00:00Z`) + DAY_MS)
+    .toISOString()
+    .slice(0, ISO_DAY_LENGTH);
 
 /** Every `YYYY-MM-DD` the session was active on, oldest first. */
 export const activeDays = (
@@ -413,11 +438,20 @@ export const matches = (h: SessionHeader, f: Filters) => {
 /** The filters that hide `h`, each set back to its default; empty when `h`
  * passes. Every filter is checked on its own, so the rest stay as they are. */
 export const hidingFilters = (h: SessionHeader, f: Filters) => {
-  const names = [...STRING_FILTERS, "range"] as const;
+  const hides = (name: keyof Filters) =>
+    !matches(h, { ...NO_FILTERS, [name]: f[name] });
 
-  return Object.fromEntries(
-    names
-      .filter((name) => !matches(h, { ...NO_FILTERS, [name]: f[name] }))
-      .map((name) => [name, NO_FILTERS[name]])
-  ) as Partial<Filters>;
+  const hidden: { -readonly [K in keyof Filters]?: Filters[K] } = {};
+
+  for (const name of STRING_FILTERS) {
+    if (hides(name)) {
+      hidden[name] = NO_FILTERS[name];
+    }
+  }
+
+  if (hides("range")) {
+    hidden.range = NO_FILTERS.range;
+  }
+
+  return hidden;
 };

@@ -41,6 +41,7 @@ export const report = (args: {
     bgDeclaredSec: 0,
     bgRuns: 0,
     bgSec: 0,
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated API type
     byShape: [],
     calls: 0,
     medianSec: 0,

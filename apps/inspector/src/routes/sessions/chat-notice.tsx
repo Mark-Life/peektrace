@@ -39,13 +39,17 @@ const ORIGIN_ICON: Record<PromptOrigin, LucideIcon> = {
 };
 
 /** Every leaf `<tag>value</tag>` of a task notification, in order. */
-const LEAF_TAG = /<([a-z][\w-]*)>([^<]*)<\/\1>/g;
+const LEAF_TAG = /<(?<tag>[a-z][\w-]*)>(?<value>[^<]*)<\/\k<tag>>/gu;
 
 /** The fields of a task notification, or an empty list when it has none. */
 export const notificationFields = (body: string) =>
-  [...body.matchAll(LEAF_TAG)]
-    .map((m) => ({ at: m.index, tag: m[1] ?? "", value: (m[2] ?? "").trim() }))
-    .filter((f) => f.value !== "");
+  [...body.matchAll(LEAF_TAG)].flatMap((m) => {
+    const value = (m.groups?.value ?? "").trim();
+
+    return value === ""
+      ? []
+      : [{ at: m.index, tag: m.groups?.tag ?? "", value }];
+  });
 
 /** A task notification is tagged fields, not prose: show them as a table. */
 const NoticeBody = ({ e }: { readonly e: TimelineEvent }) => {
@@ -88,7 +92,7 @@ const ChatNoticeBody = ({
         data-kind={e.kind}
         data-lane="center"
         data-origin={e.promptOrigin ?? ""}
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-testid="history-event"
         id={collapseId}
       >
@@ -113,7 +117,7 @@ const ChatNoticeBody = ({
             {e.preview}
           </span>
           <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px]">
-            {e.promptSource ? (
+            {e.promptSource !== undefined && e.promptSource !== "" ? (
               <Badge
                 className="h-4 px-1"
                 title="Claude Code promptSource"
@@ -123,7 +127,7 @@ const ChatNoticeBody = ({
               </Badge>
             ) : null}
             <ContextEditBadge className="h-4" e={e} />
-            {e.tokensEst ? `${tokenLabel(e, fmtK)} tok` : null}
+            {e.tokensEst === 0 ? null : `${tokenLabel(e, fmtK)} tok`}
           </span>
         </button>
         {open ? (

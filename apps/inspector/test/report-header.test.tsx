@@ -7,23 +7,23 @@ import { ReportHeader } from "../src/routes/stats/report-header";
 import { report } from "./stats-report-fixture";
 
 const RESCAN_BUSY =
-  /data-testid="stats-rescan"[^>]*\sdisabled=""|\sdisabled=""[^>]*data-testid="stats-rescan"/;
+  /data-testid="stats-rescan"[^>]*\sdisabled=""|\sdisabled=""[^>]*data-testid="stats-rescan"/u;
+
+const header = (rescanning: boolean) =>
+  renderToStaticMarkup(
+    <ReportHeader
+      agent={null}
+      days={30}
+      onAgent={() => {}}
+      onDays={() => {}}
+      onRescan={() => {}}
+      prompt={null}
+      report={report({ fails: [], time: [] })}
+      rescanning={rescanning}
+    />
+  );
 
 test("a rescan in flight disables the button and says so", () => {
-  const header = (rescanning: boolean) =>
-    renderToStaticMarkup(
-      <ReportHeader
-        agent={null}
-        days={30}
-        onAgent={() => {}}
-        onDays={() => {}}
-        onRescan={() => {}}
-        prompt={null}
-        report={report({ fails: [], time: [] })}
-        rescanning={rescanning}
-      />
-    );
-
   expect(header(false)).toContain("Rescan</button>");
   expect(header(false)).not.toMatch(RESCAN_BUSY);
   expect(header(true)).toContain("Rescanning…");

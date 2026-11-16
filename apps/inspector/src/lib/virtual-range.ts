@@ -5,6 +5,9 @@
  * can sit outside the contiguous on-screen run, and is then drawn on its own.
  */
 
+const LAST = -1;
+const BEFORE_LAST = -2;
+
 /** `indexes` (ascending) plus `keep`, still ascending. */
 export const keepIndex = ({
   count,
@@ -19,7 +22,11 @@ export const keepIndex = ({
     return [...indexes];
   }
 
-  return [...indexes, keep].sort((a, b) => a - b);
+  return [
+    ...indexes.filter((i) => i < keep),
+    keep,
+    ...indexes.filter((i) => i > keep),
+  ];
 };
 
 /** Split ascending items into the contiguous run and at most one stray item
@@ -27,15 +34,14 @@ export const keepIndex = ({
 export const splitPinned = <T extends { readonly index: number }>(
   items: readonly T[]
 ) => {
-  const first = items[0];
-  const second = items[1];
+  const [first, second] = items;
 
   if (first && second && second.index !== first.index + 1) {
     return { flow: items.slice(1), pinned: [first] };
   }
 
-  const last = items.at(-1);
-  const beforeLast = items.at(-2);
+  const last = items.at(LAST);
+  const beforeLast = items.at(BEFORE_LAST);
 
   if (last && beforeLast && last.index !== beforeLast.index + 1) {
     return { flow: items.slice(0, -1), pinned: [last] };

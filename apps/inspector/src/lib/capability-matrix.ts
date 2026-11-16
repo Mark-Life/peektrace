@@ -29,8 +29,13 @@ export const LEVEL_GLOSS: Record<Support["level"], string> = {
   unsupported: "Not applicable / no plan.",
 };
 
-/** Legend order: the `LEVEL_STYLES` keys. */
-export const LEVELS = Object.keys(LEVEL_STYLES) as Support["level"][];
+/** Legend order: most to least supported. */
+export const LEVELS: readonly Support["level"][] = [
+  "supported",
+  "partial",
+  "planned",
+  "unsupported",
+];
 
 /** Group capabilities by their `group` field, preserving first-seen order. */
 export const groupBy = (caps: readonly Capability[]) => {

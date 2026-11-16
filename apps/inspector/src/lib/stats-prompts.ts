@@ -44,6 +44,9 @@ const TOP_TIME = 4;
 /** Sample calls a row prompt names; the drill command lists the rest. */
 const SAMPLES_SHOWN = 3;
 
+/** Length of the `YYYY-MM-DD` prefix of an ISO timestamp. */
+const DATE_LENGTH = 10;
+
 const GOAL =
   "Goal: make my coding agents faster and cheaper: fewer model round trips, less compute and waiting, fewer failed tool calls.";
 
@@ -58,11 +61,11 @@ const KIND_WHERE: Record<CauseKind, string> = {
   workflow: "workflow or subagent prompt",
 };
 
-const CAUSE_PREFIX = /^cause:/;
-const MS_SUFFIX = /\.\d+Z$/;
+const CAUSE_PREFIX = /^cause:/u;
+const MS_SUFFIX = /\.\d+Z$/u;
 
 /** Core's advice opens with the condition a firing rule already meets. */
-const KEEPS_FIRING = /^if it keeps firing:\s*/;
+const KEEPS_FIRING = /^if it keeps firing:\s*/u;
 
 /** Where the report came from: the agent it was scoped to, and the
  * `peektrace serve` URL when it was read remotely. */
@@ -125,6 +128,8 @@ const sampleLines = (args: {
   ];
 };
 
+const idOf = (s: SampleRef) => `${s.sid}#${s.seq}`;
+
 /** A row's samples, retry pairs first, each call once. */
 const samplesBlock = (args: {
   readonly pairs: CauseRow["pairSamples"];
@@ -132,7 +137,6 @@ const samplesBlock = (args: {
   readonly samples: readonly SampleRef[];
 }): readonly string[] => {
   const { pairs, paths, samples } = args;
-  const idOf = (s: SampleRef) => `${s.sid}#${s.seq}`;
   const paired = new Set(pairs.map((p) => idOf(p.failed)));
 
   const lines = [
@@ -160,21 +164,23 @@ const ruleAsk = (row: CauseRow): readonly string[] => {
 
   const line = `- ${ruleLine(row.rule)}`;
 
-  switch (ruleState(row.rule)) {
-    case "firing": {
-      return [
-        line,
-        `  The rule is in memory yet still fires: find why it isn't followed and fix it in a way that doesn't depend on the agent remembering (e.g. ${row.rule.advice.replace(KEEPS_FIRING, "")}).`,
-      ];
-    }
-    case "unmeasured": {
-      return [line, `  ${capitalized(row.rule.advice)}.`];
-    }
-    default: {
-      return [line];
-    }
+  const state = ruleState(row.rule);
+
+  if (state === "firing") {
+    return [
+      line,
+      `  The rule is in memory yet still fires: find why it isn't followed and fix it in a way that doesn't depend on the agent remembering (e.g. ${row.rule.advice.replace(KEEPS_FIRING, "")}).`,
+    ];
   }
+
+  if (state === "unmeasured") {
+    return [line, `  ${capitalized(row.rule.advice)}.`];
+  }
+
+  return [line];
 };
+
+const listed = (items: readonly string[]) => items.join(" · ");
 
 const causePrompt = (args: {
   readonly f: FindingFormat;
@@ -183,7 +189,6 @@ const causePrompt = (args: {
   readonly scope: Scope;
 }): readonly string[] => {
   const { f, report, row, scope } = args;
-  const listed = (items: readonly string[]) => items.join(" · ");
 
   // A rule already in memory leaves the fix's home open: that is the question.
   const where =
@@ -240,7 +245,8 @@ const waitLines = (
 ): readonly string[] => {
   const w = report.waiting;
 
-  const shapes = w.byShape
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `byShape` is the generated API field name
+  const waitKinds = w.byShape
     .filter((s) => s.calls > 0)
     .map((s) => `${s.key} ${f.count(s.calls)} calls ${f.hms(s.totalSec)}`)
     .join(" · ");
@@ -248,7 +254,7 @@ const waitLines = (
   return w.calls === 0
     ? []
     : [
-        `- shapes: ${shapes}; ${f.count(w.bgRuns)} backgrounded, declaring ${f.hms(w.bgDeclaredSec)} of sleep`,
+        `- shapes: ${waitKinds}; ${f.count(w.bgRuns)} backgrounded, declaring ${f.hms(w.bgDeclaredSec)} of sleep`,
       ];
 };
 
@@ -280,27 +286,23 @@ const rowBody = (args: {
 }): readonly string[] | null => {
   const { f, report, scope, target } = args;
 
-  switch (target.table) {
-    case "cause": {
-      const row = report.causes.find(
-        (r) => r.key === target.key || causeId(r) === target.key
-      );
+  if (target.table === "cause") {
+    const row = report.causes.find(
+      (r) => r.key === target.key || causeId(r) === target.key
+    );
 
-      return row === undefined ? null : causePrompt({ f, report, row, scope });
-    }
-
-    case "fail": {
-      const row = report.fails.find((r) => r.key === target.key);
-
-      return row === undefined ? null : failPrompt({ f, report, row, scope });
-    }
-
-    default: {
-      const row = report.time.find((r) => r.key === target.key);
-
-      return row === undefined ? null : timePrompt({ f, report, row, scope });
-    }
+    return row === undefined ? null : causePrompt({ f, report, row, scope });
   }
+
+  if (target.table === "fail") {
+    const row = report.fails.find((r) => r.key === target.key);
+
+    return row === undefined ? null : failPrompt({ f, report, row, scope });
+  }
+
+  const row = report.time.find((r) => r.key === target.key);
+
+  return row === undefined ? null : timePrompt({ f, report, row, scope });
 };
 
 /** A header line and its rows, or nothing when the table has no rows. */
@@ -358,7 +360,7 @@ const reportBody = (args: {
     .map((r) => `${r.key} ${f.hms(r.totalSec)} (${f.pct(r.share)})`);
 
   return [
-    `Data (${report.window.fromIso.slice(0, 10)} → ${report.window.toIso.slice(0, 10)}):`,
+    `Data (${report.window.fromIso.slice(0, DATE_LENGTH)} → ${report.window.toIso.slice(0, DATE_LENGTH)}):`,
     `- corpus: ${f.count(c.transcripts)} transcripts (${f.count(main)} main, ${f.count(c.transcripts - main)} subagent), ${f.count(c.projects)} projects, ${f.count(c.toolCalls)} tool calls, ${f.hms(c.bashSec)} shell time`,
     ...(pairs > 0
       ? [

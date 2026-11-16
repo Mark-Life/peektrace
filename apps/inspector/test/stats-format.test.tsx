@@ -10,6 +10,7 @@ import { expect, test } from "bun:test";
 import type {
   CauseRow,
   FailRow,
+  RuleCheck,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -196,8 +197,8 @@ test("a drill link names the call to scroll to", () => {
 
 const causeRow = (over: Partial<CauseRow>): CauseRow => ({
   cause: "zsh-glob-flag",
-  details: [{ value: "*.ts", hits: 1191 }],
-  diffs: [{ from: "--include=*.ts", to: "--include='*.ts'", pairs: 135 }],
+  details: [{ hits: 1191, value: "*.ts" }],
+  diffs: [{ from: "--include=*.ts", pairs: 135, to: "--include='*.ts'" }],
   failing: true,
   fix: "quote every glob passed as a flag value",
   flagged: 34,
@@ -222,15 +223,15 @@ const causeRow = (over: Partial<CauseRow>): CauseRow => ({
   ...over,
 });
 
-const FIRING: CauseRow["rule"] = {
+const FIRING: RuleCheck = {
   advice: "setopt nonomatch in ~/.zshenv",
   callsSince: { main: 1348, nested: 7765 },
   hitsSince: { main: 42, nested: 442 },
   matches: [
     {
-      path: "~/.claude/CLAUDE.md",
-      line: 100,
       excerpt: "Quote globs",
+      line: 100,
+      path: "~/.claude/CLAUDE.md",
     },
   ],
   per1kSince: { main: 31.16, nested: 56.92 },
@@ -259,7 +260,7 @@ test("a cause finding leads, ahead of the fail rows", () => {
 });
 
 test("a rule already present says so, with its rate since the edit", () => {
-  expect(ruleLine(FIRING ?? (null as never))).toBe(
+  expect(ruleLine(FIRING)).toBe(
     "rule in ~/.claude/CLAUDE.md:100 · still firing main 31/1k, sub 57/1k since 2026-10-15"
   );
 });
@@ -324,7 +325,8 @@ test("the cause table renders its rows, and the open one shows the rule check", 
   expect(html).toContain('data-testid="cause-split"');
   expect(html).toContain("hits main 125 / sub 1,363");
   expect(html).toContain("context re-read 32.3M");
-  expect(html).toContain("--include=*.ts → --include=&#x27;*.ts&#x27; (135)"); // The split column says it counts hits, and the detail's rate names its
+  expect(html).toContain("--include=*.ts → --include=&#x27;*.ts&#x27; (135)");
+  // The split column says it counts hits, and the detail's rate names its
   // window, apart from the rule line's rate since the file changed.
   expect(html).toContain("Hits main / sub");
   expect(html).toContain("per 1k calls in this window main 26 / sub 53");
@@ -347,7 +349,8 @@ test("a phone reads each cause row as one wrapped summary line", () => {
 });
 
 /** The class list of a finding's impact span, from static markup. */
-const IMPACT_CLASS = /<span class="([^"]*)" data-testid="stats-finding-impact"/;
+const IMPACT_CLASS =
+  /<span class="(?<cls>[^"]*)" data-testid="stats-finding-impact"/u;
 
 test("a finding's impact wraps instead of running past the card", () => {
   const html = renderToStaticMarkup(
@@ -364,12 +367,12 @@ test("a finding's impact wraps instead of running past the card", () => {
   );
 
   const impact = IMPACT_CLASS.exec(html);
-  expect(impact?.[1]).toContain("min-w-0");
-  expect(impact?.[1]).not.toContain("shrink-0");
+  expect(impact?.groups?.cls).toContain("min-w-0");
+  expect(impact?.groups?.cls).not.toContain("shrink-0");
 });
 
 /** The accessible name of each prompt button in static markup. */
-const PROMPT_LABEL = /aria-label="(Copy prompt: investigate [^"]*)"/g;
+const PROMPT_LABEL = /aria-label="(?<label>Copy prompt: investigate [^"]*)"/gu;
 
 test("every open row and the header copy an agent prompt, each named for its row", () => {
   const cause = causeRow({ rule: FIRING });
@@ -432,7 +435,7 @@ test("every open row and the header copy an agent prompt, each named for its row
     expect(html).toContain(`data-testid="${id}"`);
   }
 
-  expect([...html.matchAll(PROMPT_LABEL)].map((m) => m[1])).toEqual([
+  expect([...html.matchAll(PROMPT_LABEL)].map((m) => m.groups?.label)).toEqual([
     "Copy prompt: investigate this report",
     "Copy prompt: investigate unquoted glob in a flag value",
     "Copy prompt: investigate error TS####",

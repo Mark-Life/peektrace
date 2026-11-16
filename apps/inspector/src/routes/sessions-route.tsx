@@ -38,11 +38,11 @@ import { SessionList } from "./sessions/session-list";
  *  heaviest leaves on this route — the forensic charts and the `@tanstack/highlight`
  *  tokenizer behind the transcript's code blocks. Splitting it keeps the rail,
  *  which is what an empty hash actually paints, off both. */
-const SessionDetail = lazy(async () =>
-  import("./sessions/session-detail").then((m) => ({
-    default: m.SessionDetail,
-  }))
-);
+const SessionDetail = lazy(async () => {
+  const m = await import("./sessions/session-detail");
+
+  return { default: m.SessionDetail };
+});
 
 /** Matches `ResultView`'s pending skeleton, which is what replaces it a beat
  *  later while `sessions.analyze` is in flight. */
@@ -106,13 +106,19 @@ const useNarrowFocusHandoff = ({
     const active = document.activeElement;
     const lost = active === null || active === document.body;
 
-    if (selected !== null && (lost || list.current?.contains(active))) {
+    if (
+      selected !== null &&
+      (lost || list.current?.contains(active) === true)
+    ) {
       detail.current?.focus();
 
       return;
     }
 
-    if (selected === null && (lost || detail.current?.contains(active))) {
+    if (
+      selected === null &&
+      (lost || detail.current?.contains(active) === true)
+    ) {
       list.current
         ?.querySelector<HTMLElement>('[data-session-id][tabindex="0"]')
         ?.focus();
@@ -127,6 +133,7 @@ export const SessionsRoute = () => {
   const selected = useSelectedSessionId();
   // A subagent opens through its parent, which is what the rail lists.
   const parent = useHashParam("parent");
+  const hasSelection = selected !== null && selected !== "";
   const listPane = useRef<HTMLDivElement>(null);
   const detailPane = useRef<HTMLElement>(null);
   useNarrowFocusHandoff({ detail: detailPane, list: listPane, selected });
@@ -144,7 +151,7 @@ export const SessionsRoute = () => {
               <div
                 className={cn(
                   "md:sticky md:top-6 md:max-h-[calc(100dvh-5.75rem)] md:w-80 md:shrink-0 md:scrollbar-gutter-stable md:self-start md:overflow-y-auto md:pr-1",
-                  selected ? "hidden md:block" : "block"
+                  hasSelection ? "hidden md:block" : "block"
                 )}
                 ref={listPane}
               >
@@ -157,13 +164,13 @@ export const SessionsRoute = () => {
                 aria-label="Session detail"
                 className={cn(
                   "min-w-0 flex-1 outline-none",
-                  selected ? "block" : "hidden md:block"
+                  hasSelection ? "block" : "hidden md:block"
                 )}
                 id={SESSION_DETAIL_ID}
                 ref={detailPane}
                 tabIndex={-1}
               >
-                {selected ? (
+                {selected !== null && selected !== "" ? (
                   <Suspense fallback={<DetailFallback />}>
                     <SessionDetail
                       id={selected}

@@ -16,16 +16,20 @@ export interface Row {
 export type RowsByAgent = Record<AgentId, Row[]>;
 
 /** Seed the editable per-agent rows from the loaded settings. */
-export const seedRows = (settings: PeektraceSettings): RowsByAgent =>
-  Object.fromEntries(
-    AGENT_IDS.map((agent) => [
-      agent,
-      (settings.roots?.[agent] ?? []).map((entry) => ({
-        label: entry.label ?? "",
-        path: entry.path,
-      })),
-    ])
-  ) as RowsByAgent;
+export const seedRows = (settings: PeektraceSettings): RowsByAgent => {
+  const rowsOf = (agent: AgentId) =>
+    (settings.roots?.[agent] ?? []).map((entry) => ({
+      label: entry.label ?? "",
+      path: entry.path,
+    }));
+
+  return {
+    claude: rowsOf("claude"),
+    codex: rowsOf("codex"),
+    opencode: rowsOf("opencode"),
+    pi: rowsOf("pi"),
+  };
+};
 
 /** Collapse the editable rows back into a `PeektraceSettings` (drop empties). */
 export const assemble = (rows: RowsByAgent): PeektraceSettings => {

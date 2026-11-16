@@ -163,7 +163,7 @@ export const useListSearch = () => {
     const target =
       own && own.offsetParent !== null
         ? own
-        : document.querySelector(`#${HISTORY_SEARCH_ID}`);
+        : document.querySelector<HTMLElement>(`#${HISTORY_SEARCH_ID}`);
 
     target?.focus();
   });

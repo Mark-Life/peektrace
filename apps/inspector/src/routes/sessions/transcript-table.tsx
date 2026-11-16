@@ -148,6 +148,7 @@ const ToolEventRowBody = ({
   const onOpenChange = (next: boolean) => {
     onToggle(collapseId, next);
   };
+
   const view = e.kind === "tool-call" ? callView(e) : null;
   const result = view ? null : resultPane(e);
 
@@ -156,7 +157,7 @@ const ToolEventRowBody = ({
       className="rounded-none border-0 border-b"
       data-collapse-id={collapseId}
       data-kind={e.kind}
-      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-sidechain={e.isSidechain === true ? "true" : "false"}
       data-testid="history-event"
       data-tool-use-id={e.toolUseId}
       onOpenChange={onOpenChange}
@@ -173,7 +174,7 @@ const ToolEventRowBody = ({
         name={name}
         state={state}
       >
-        {e.isSidechain ? (
+        {e.isSidechain === true ? (
           <Badge className="shrink-0" variant="secondary">
             sidechain
           </Badge>
@@ -224,7 +225,7 @@ const EventRowBody = ({
       className="border-border border-b"
       data-collapse-id={collapseId}
       data-kind={e.kind}
-      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-sidechain={e.isSidechain === true ? "true" : "false"}
       data-testid="history-event"
       onOpenChange={onOpenChange}
       open={open}
@@ -235,7 +236,7 @@ const EventRowBody = ({
         <Badge className="shrink-0" variant="outline">
           {eventBadgeLabel(e)}
         </Badge>
-        {e.isSidechain ? (
+        {e.isSidechain === true ? (
           <Badge className="shrink-0" variant="secondary">
             sidechain
           </Badge>
@@ -422,8 +423,8 @@ export const TranscriptTable = ({
   );
 
   useTurnNav({ list, stops });
-  const cache = useRef<HydrateCache>(new WeakMap());
-  const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
+  const cache = useMemo<HydrateCache>(() => new WeakMap(), []);
+  const hydrate = useMemo(() => hydrator(eventAt, cache), [cache, eventAt]);
 
   const onRange = useCallback(
     (first: number, last: number) =>

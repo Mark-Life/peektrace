@@ -177,82 +177,82 @@ export const GrowthTimelineTanstack = ({
       marks: [
         // dumb-zone danger band
         rect([{ x1: 1, x2: lastTurn, y1: dz, y2: win }], {
+          fill: "rgb(248 81 73)",
+          fillOpacity: 0.1,
+          inset: 0,
           x1: "x1",
           x2: "x2",
           y1: "y1",
           y2: "y2",
-          fill: "rgb(248 81 73)",
-          fillOpacity: 0.1,
-          inset: 0,
         }),
         // stacked areas, floor → top by STACK_ORDER
         areaY(slices, {
-          x: "turn",
-          y: "tokens",
-          z: "key",
           fill: (r: SliceRow) => CAT_META[r.key].color,
           fillOpacity: AREA_OPACITY,
           layout: stack({ order: [...STACK_ORDER] }),
+          x: "turn",
+          y: "tokens",
+          z: "key",
         }),
         // hatch overlay for inferred slices, stacked identically so the
         // geometry lines up with the flat fills underneath
         areaY(hatched, {
-          x: "turn",
-          y: "tokens",
-          z: "key",
           fill: `url(#${hatchId})`,
           fillOpacity: 1,
           layout: stack({ order: [...STACK_ORDER] }),
+          x: "turn",
+          y: "tokens",
+          z: "key",
         }),
         // dumb-zone boundary
         ruleY([dz], {
           stroke: "rgb(248 81 73)",
-          strokeOpacity: 0.7,
           strokeDasharray: "4 3",
+          strokeOpacity: 0.7,
         }),
         text(dumbZoneLabel, {
-          x: "x",
-          y: "y",
-          text: "label",
           anchor: "end",
           dy: OFF.label,
           fill: "rgb(248 113 113)",
           fontSize: FONT.annotation,
+          text: "label",
+          x: "x",
+          y: "y",
         }),
         // 200K ghost ceiling
         ...(ceilingLabel.length > 0
           ? [
               ruleY([CEIL_200K], {
                 stroke: "currentColor",
-                strokeOpacity: 0.25,
                 strokeDasharray: "2 4",
+                strokeOpacity: 0.25,
               }),
               text(ceilingLabel, {
-                x: "x",
-                y: "y",
-                text: "label",
                 anchor: "start",
                 dy: OFF.label,
                 fillOpacity: 0.7,
                 fontSize: FONT.small,
+                text: "label",
+                x: "x",
+                y: "y",
               }),
             ]
           : []),
         // true-total silhouette
         lineY(totals, {
-          x: "turn",
-          y: "ctx",
           stroke: "currentColor",
           strokeOpacity: 0.85,
           strokeWidth: 1.5,
+          x: "turn",
+          y: "ctx",
         }),
         // compaction cliffs
         ruleX(
           a.compactionTurns.map((t) => t + 1),
           {
             stroke: "rgb(210 153 34)",
-            strokeOpacity: 0.9,
             strokeDasharray: "3 2",
+            strokeOpacity: 0.9,
           }
         ),
         // dumb-zone first crossing
@@ -262,36 +262,36 @@ export const GrowthTimelineTanstack = ({
                 stroke: "rgb(248 81 73)",
                 strokeOpacity: 0.9,
               }),
-              dot(cross, { x: "x", y: "y", r: 4, fill: "#f85149" }),
+              dot(cross, { fill: "#f85149", r: 4, x: "x", y: "y" }),
               text(cross, {
-                x: "x",
-                y: "y",
-                text: "label",
                 anchor: "start",
                 dy: OFF.crossLabel,
                 fill: "rgb(248 113 113)",
                 fontSize: FONT.small,
+                text: "label",
+                x: "x",
+                y: "y",
               }),
             ]
           : []),
         // peak marker
-        dot(peak, { x: "x", y: "y", r: PEAK_R, fill: "currentColor" }),
+        dot(peak, { fill: "currentColor", r: PEAK_R, x: "x", y: "y" }),
         text(peak, {
-          x: "x",
-          y: "y",
-          text: "label",
           dy: OFF.peakLabel,
           fill: "currentColor",
           fontSize: FONT.annotation,
+          text: "label",
+          x: "x",
+          y: "y",
         }),
         // per-turn dots, radius growing with output tokens
         dot(totals, {
-          x: "turn",
-          y: "ctx",
-          r: (t: TotalRow) =>
-            Math.min(DOT.maxR, DOT.baseR + t.outputTokens / DOT.tokensPerPx),
           fill: "currentColor",
           fillOpacity: 0.9,
+          r: (t: TotalRow) =>
+            Math.min(DOT.maxR, DOT.baseR + t.outputTokens / DOT.tokensPerPx),
+          x: "turn",
+          y: "ctx",
         }),
       ],
       x: {

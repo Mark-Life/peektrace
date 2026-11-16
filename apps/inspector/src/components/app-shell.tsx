@@ -83,7 +83,7 @@ const PAGE_ITEMS: readonly NavItem[] = [
   },
 ];
 
-const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(true|false)/;
+const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(?<state>true|false)/u;
 
 /** Content header: section title, the sidebar toggle, the sync dot and the
  *  read-only badge. */
@@ -99,7 +99,7 @@ const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
 
 /** Persisted open/closed state, written by `SidebarProvider` as a cookie. */
 const readSidebarCookie = () =>
-  SIDEBAR_COOKIE.exec(document.cookie)?.[1] !== "false";
+  SIDEBAR_COOKIE.exec(document.cookie)?.groups?.state !== "false";
 
 /** Footer row: theme toggle and the shortcuts sheet, left-aligned when
  *  expanded, stacked and centred on the icon rail. */

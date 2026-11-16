@@ -48,6 +48,9 @@ const OFF = {
 /** Cap the number of x-axis ticks so they never crowd. */
 const MAX_X_TICKS = 10;
 
+/** Divisor for the plot midpoint. */
+const HALF = 2;
+
 /**
  * Width the timeline geometry is drawn for, in CSS px. Rendering the SVG at
  * this width maps 1 viewBox unit to 1 px, so labels and hairlines land at their
@@ -76,8 +79,14 @@ const buildAreas = ({
   readonly y: (tok: number) => number;
 }) => {
   const n = snaps.length;
-  let running = new Array<number>(n).fill(0);
-  const areas: { key: string; d: string; color: string; hatch: boolean }[] = [];
+  let running = Array.from({ length: n }, () => 0);
+
+  const areas: {
+    key: (typeof STACK_ORDER)[number];
+    d: string;
+    color: string;
+    hatch: boolean;
+  }[] = [];
 
   for (const key of STACK_ORDER) {
     const lower = [...running];
@@ -85,7 +94,7 @@ const buildAreas = ({
     const top = upper.map((v, i) => `${x(i).toFixed(1)} ${y(v).toFixed(1)}`);
     let d = `M ${top.join(" L ")}`;
 
-    for (let i = n - 1; i >= 0; i--) {
+    for (let i = n - 1; i >= 0; i -= 1) {
       d += ` L ${x(i).toFixed(1)} ${y(lower[i] ?? 0).toFixed(1)}`;
     }
 
@@ -207,7 +216,8 @@ export const GrowthTimeline = ({
     return <GrowthEmpty />;
   }
 
-  const x = (i: number) => (n <= 1 ? L + plotW / 2 : L + (i / (n - 1)) * plotW);
+  const x = (i: number) =>
+    n <= 1 ? L + plotW / HALF : L + (i / (n - 1)) * plotW;
 
   const y = (tok: number) =>
     T + plotH - (Math.min(Math.max(tok, 0), win) / win) * plotH;
@@ -318,7 +328,7 @@ export const GrowthTimeline = ({
             fillOpacity={ar.hatch ? AREA_OPACITY.hatch : AREA_OPACITY.flat}
             key={ar.key}
           >
-            <title>{CAT_META[ar.key as keyof typeof CAT_META].label}</title>
+            <title>{CAT_META[ar.key].label}</title>
           </path>
         ))}
         {areas

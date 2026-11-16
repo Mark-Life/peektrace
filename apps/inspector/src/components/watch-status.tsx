@@ -128,16 +128,23 @@ export const WatchStatus = () => {
   const [paused, setPaused] = useAtom(livePausedAtom);
   const waiting = useAtomValue(liveWaitingAtom);
   const [syncing, setSyncing] = useState(false);
+  const [seen, setSeen] = useState(0);
+
+  if (bumps !== seen) {
+    setSeen(bumps);
+
+    if (bumps !== 0) {
+      setSyncing(true);
+    }
+  }
 
   useEffect(() => {
-    if (bumps === 0) {
-      return;
-    }
-
-    setSyncing(true);
-    const id = setTimeout(() => {
-      setSyncing(false);
-    }, FLASH_MS);
+    const id =
+      bumps === 0
+        ? undefined
+        : setTimeout(() => {
+            setSyncing(false);
+          }, FLASH_MS);
 
     return () => {
       clearTimeout(id);

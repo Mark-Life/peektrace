@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { SessionList } from "../src/routes/sessions/session-list";
 
 const COUNT = 500;
-const FLEX_WRAP = /\bflex-wrap\b/;
+const FLEX_WRAP = /\bflex-wrap\b/u;
 
 const header = (i: number): SessionHeader => {
   const cwd = `/home/dev/code/app-${i % 4}`;
@@ -40,7 +40,7 @@ const html = renderToStaticMarkup(
   <SessionList headers={headers} selectedId={null} />
 );
 
-const rowTags = html.match(/<a[^>]*data-testid="session-row"[^>]*>/g) ?? [];
+const rowTags = html.match(/<a[^>]*data-testid="session-row"[^>]*>/gu) ?? [];
 const rowCount = rowTags.length;
 
 describe("SessionList over 500 sessions", () => {

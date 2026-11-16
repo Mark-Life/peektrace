@@ -5,6 +5,7 @@ import { expect, test } from "bun:test";
 
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import type {
+  Provider,
   SampleRef,
   SessionHeader,
 } from "@workspace/view-core/api-types.gen";
@@ -28,6 +29,7 @@ const header: SessionHeader = {
   project: "demo-project",
   sizeBytes: 1024,
   title: "Synthetic session",
+  updatedAt: "2026-01-01T00:00:00Z",
 };
 
 const sample: SampleRef = {
@@ -125,6 +127,10 @@ test("the route label titles the tab until a page overrides it, in any order", (
   }
 });
 
+// SAFETY: a newer server can send a provider this UI does not know; the label falls back to the raw id.
+// oxlint-disable-next-line anti-slop/no-chained-type-assertions, typescript/no-unsafe-type-assertion -- forces a value outside the `Provider` union
+const unknownProvider = "other-agent" as unknown as Provider;
+
 test("analyzedTitle uses the title, else names the harness", () => {
   expect(
     analyzedTitle({ provider: "claude-code", title: "Synthetic session" })
@@ -132,7 +138,7 @@ test("analyzedTitle uses the title, else names the harness", () => {
   expect(analyzedTitle({ provider: "claude-code", title: "" })).toBe(
     "Claude Code session"
   );
-  expect(analyzedTitle({ provider: "other-agent", title: "" })).toBe(
+  expect(analyzedTitle({ provider: unknownProvider, title: "" })).toBe(
     "other-agent session"
   );
 });

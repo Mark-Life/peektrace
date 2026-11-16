@@ -9,7 +9,7 @@ export const HiddenNote = ({
   readonly hidden: "call" | "jump" | false;
   readonly onClear: () => void;
 }) =>
-  hidden ? (
+  hidden === false ? null : (
     <div
       className="border-border bg-muted/40 flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-xs"
       data-testid={`history-${hidden}-hidden`}
@@ -28,4 +28,4 @@ export const HiddenNote = ({
         Clear filters
       </Button>
     </div>
-  ) : null;
+  );

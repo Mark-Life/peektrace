@@ -95,7 +95,7 @@ export const causeImpact = (row: CauseRow, f: FindingFormat): string => {
 
 /** `~/.claude/CLAUDE.md:100`: where the first matching memory line sits. */
 const rulePlace = (rule: RuleCheck): string => {
-  const where = rule.matches[0];
+  const [where] = rule.matches;
 
   return where === undefined ? "memory" : `${where.path}:${where.line}`;
 };
@@ -113,6 +113,9 @@ export const ruleState = (
 
   return rule.hitsSince.main + rule.hitsSince.nested === 0 ? "quiet" : "firing";
 };
+
+/** Characters in the `YYYY-MM-DD` prefix of an ISO timestamp. */
+const ISO_DAY_LENGTH = 10;
 
 /** Rates at or above this print as whole numbers. */
 const RATE_WHOLE = 10;
@@ -143,20 +146,18 @@ export const rateText = (rate: number, hits: number): string => {
  * calls since the rule appeared.
  */
 export const ruleLine = (rule: RuleCheck): string => {
-  const day = rule.sinceIso?.slice(0, 10) ?? null;
+  const day = rule.sinceIso?.slice(0, ISO_DAY_LENGTH) ?? null;
   const since = day === null ? "" : ` since ${day}`;
   const place = `rule in ${rulePlace(rule)}`;
 
-  switch (ruleState(rule)) {
-    case "unmeasured": {
-      return `${place} · not measured yet${day === null ? "" : ` (added ${day})`}`;
-    }
-    case "quiet": {
-      return `${place} · quiet${since}`;
-    }
-    default: {
-      break;
-    }
+  const state = ruleState(rule);
+
+  if (state === "unmeasured") {
+    return `${place} · not measured yet${day === null ? "" : ` (added ${day})`}`;
+  }
+
+  if (state === "quiet") {
+    return `${place} · quiet${since}`;
   }
 
   const sides = [

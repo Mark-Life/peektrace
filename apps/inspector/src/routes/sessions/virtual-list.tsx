@@ -80,6 +80,11 @@ const watchAbove = (
   };
 };
 
+/** Effect cleanup for the branches that subscribed to nothing. */
+const NO_CLEANUP = () => {
+  // nothing to release
+};
+
 /** Where the list starts inside the scroll pane's content, kept current as
  *  anything above it (verdict, timeline, banners) changes height. */
 const useScrollMargin = (
@@ -89,7 +94,7 @@ const useScrollMargin = (
   const [margin, setMargin] = useState(0);
   useLayoutEffect(() => {
     if (!(root && list)) {
-      return;
+      return NO_CLEANUP;
     }
 
     const update = () => {
@@ -116,7 +121,7 @@ const useFocusedKey = (list: HTMLElement | null) => {
   const [focused, setFocused] = useState<string | null>(null);
   useEffect(() => {
     if (!list) {
-      return;
+      return NO_CLEANUP;
     }
 
     const onIn = (ev: FocusEvent) => {
@@ -245,6 +250,7 @@ export const VirtualList = <T,>({
     [focused]
   );
 
+  // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual returns unmemoizable functions; only used in this component
   const v = useVirtualizer<HTMLElement, HTMLLIElement>({
     count,
     enabled: virtual,

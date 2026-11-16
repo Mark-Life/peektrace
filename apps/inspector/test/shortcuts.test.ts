@@ -2,7 +2,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import path from "node:path";
 
 import {
   ariaKeys,
@@ -155,7 +155,7 @@ describe("shortcutAllowed", () => {
 
   test("isTypingTarget ignores non-elements", () => {
     expect(isTypingTarget(null)).toBe(false);
-    expect(isTypingTarget({ addEventListener: () => {} })).toBe(false);
+    expect(isTypingTarget(new EventTarget())).toBe(false);
     expect(isTypingTarget({ tagName: "BUTTON" })).toBe(false);
   });
 });
@@ -174,21 +174,21 @@ describe("labels", () => {
   });
 });
 
-const TS_FILE = /\.tsx?$/;
+const TS_FILE = /\.tsx?$/u;
 
 const sources = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
-    const path = join(dir, d.name);
+    const full = path.join(dir, d.name);
 
     if (d.isDirectory()) {
-      return sources(path);
+      return sources(full);
     }
 
-    return TS_FILE.test(d.name) ? [readFileSync(path, "utf-8")] : [];
+    return TS_FILE.test(d.name) ? [readFileSync(full, "utf-8")] : [];
   });
 
 test("every shortcut the app handles has a handler that names it", () => {
-  const src = sources(join(import.meta.dir, "../src")).join("\n");
+  const src = sources(path.join(import.meta.dir, "../src")).join("\n");
   const ids = SHORTCUTS.map((s) => s.id);
   expect(new Set(ids).size).toBe(ids.length);
   const reader = { builtin: null, global: "useShortcut", list: "has" };

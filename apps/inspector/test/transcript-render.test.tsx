@@ -35,7 +35,7 @@ import {
 import { indexRowsOf } from "./history-rows";
 
 /** The table list carrying an inline style (spacer or fixed height). */
-const STYLED_TABLE_LIST = /data-testid="table-transcript"[^>]*style=/;
+const STYLED_TABLE_LIST = /data-testid="table-transcript"[^>]*style=/u;
 
 const evt = (over: Partial<TimelineEvent> & { readonly index: number }) => ({
   body: "",
@@ -151,7 +151,7 @@ const SESSION = {
   peakCacheReadTokens: 0,
   peakContextTokens: 0,
   peakTurnIndex: 0,
-  provider: "claude" as const,
+  provider: "claude-code" as const,
   sessionId: "s",
   snapshots: [],
   subagents: [],
@@ -161,10 +161,12 @@ const SESSION = {
   turnCount: 2,
   turns: [turn({ requestId: "r1" }), turn({ requestId: "r2" })],
   userMessageCount: 2,
+  webFetchRequests: 0,
+  webSearchRequests: 0,
 } satisfies AnalyzedSession;
 
-const ROWS = EVENTS.map((e, pos) => ({ e, pos })).filter(
-  ({ e }) => e.kind !== "system"
+const ROWS = EVENTS.flatMap((e, pos) =>
+  e.kind === "system" ? [] : [{ e, pos }]
 );
 
 /** `row.turn` shape: 1-based turn per event position, 0 before the first. */
@@ -179,10 +181,14 @@ const TURNS = EVENTS.map((e) => {
 /** No stats markers: the transcript renders the same with or without them. */
 const NO_MARKS: ToolMarks = new Map();
 const LANDING = { done: { current: null } };
+const REVEAL_HIT = { current: null };
 
 const noop = () => {
   // collapse state is not exercised by a static render
 };
+
+const keysOf = (html: string) =>
+  [...html.matchAll(/data-key="(?<key>[^"]+)"/gu)].map((m) => m.groups?.key);
 
 const countOf = (html: string, needle: string) => html.split(needle).length - 1;
 
@@ -277,6 +283,7 @@ const renderChat = (open: boolean) =>
       marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
+      revealHit={REVEAL_HIT}
       rows={ROWS}
       stickyHeight={0}
       tools={indexTools(SESSION)}
@@ -285,14 +292,16 @@ const renderChat = (open: boolean) =>
   );
 
 const controlled = (html: string) =>
-  [...html.matchAll(/aria-controls="(chat:[^"]+)"/g)].map(([, id]) => id ?? "");
+  [...html.matchAll(/aria-controls="(?<id>chat:[^"]+)"/gu)].map(
+    (m) => m.groups?.id ?? ""
+  );
 
 test("collapsed chat toggles say closed and point at no missing panel", () => {
   const html = renderChat(false);
   expect(html).not.toContain('aria-expanded="true"');
 
   const toggles = (
-    html.match(/<button [^>]*aria-expanded="false"[^>]*>/g) ?? []
+    html.match(/<button [^>]*aria-expanded="false"[^>]*>/gu) ?? []
   )
     .filter((tag) => !tag.includes('data-slot="collapsible-trigger"'))
     .filter((tag) => !tag.includes('data-testid="chat-chip"'));
@@ -308,8 +317,8 @@ test("expanded chat toggles say open and each controls a rendered panel", () => 
   const html = renderChat(true);
   expect(html).not.toContain('aria-expanded="false"');
   const ids = controlled(html);
-  expect(ids.toSorted()).toEqual(
-    [2, 9, 10, 13, 14, 15].map((pos) => `chat:${pos}:body`).toSorted()
+  expect(new Set(ids)).toEqual(
+    new Set([2, 9, 10, 13, 14, 15].map((pos) => `chat:${pos}:body`))
   );
 
   for (const id of ids) {
@@ -319,7 +328,7 @@ test("expanded chat toggles say open and each controls a rendered panel", () => 
 
 test("expanded chat code blocks wrap instead of scrolling sideways", () => {
   const html = chatHtml({ open: true });
-  const pres = html.match(/<pre class="[^"]*"/g) ?? [];
+  const pres = html.match(/<pre class="[^"]*"/gu) ?? [];
   expect(pres.length).toBeGreaterThan(0);
 
   for (const pre of pres) {
@@ -354,6 +363,7 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       marks={NO_MARKS}
       onToggle={noop}
       queryActive={false}
+      revealHit={REVEAL_HIT}
       rows={ROWS}
       stickyHeight={0}
       tools={indexTools(SESSION)}
@@ -376,6 +386,7 @@ test("both transcripts mount as lists before the page has scrolled", () => {
       landing={LANDING}
       onSort={noop}
       onToggle={noop}
+      revealHit={REVEAL_HIT}
       rows={ROWS}
       sort={DEFAULT_HISTORY_SORT}
       stickyHeight={0}
@@ -406,6 +417,7 @@ test("token sort shows window share, hides the divider, marks the header", () =>
       landing={LANDING}
       onSort={noop}
       onToggle={noop}
+      revealHit={REVEAL_HIT}
       rows={ROWS}
       sort={{ dir: "desc", key: "tokens" }}
       stickyHeight={0}
@@ -429,6 +441,7 @@ test("empty filters read the same in both layouts", () => {
     jump: null,
     landing: LANDING,
     onToggle: noop,
+    revealHit: REVEAL_HIT,
     rows: [],
     stickyHeight: 0,
     tools: indexTools(SESSION),
@@ -446,7 +459,12 @@ test("empty filters read the same in both layouts", () => {
   );
 
   const table = renderToStaticMarkup(
-    <TranscriptTable {...props} onSort={noop} sort={DEFAULT_HISTORY_SORT} />
+    <TranscriptTable
+      {...props}
+      jumpIndex={-1}
+      onSort={noop}
+      sort={DEFAULT_HISTORY_SORT}
+    />
   );
 
   expect(chat).toContain("No events match the filters.");
@@ -480,9 +498,22 @@ const SUMMARY = {
   ...SESSION,
   compactionTurns: [1],
   snapshots: [0, 1].map((turnIndex) => ({
+    cacheReadTokens: 0,
     ctx: 40_000,
+    model: "claude-opus-4",
     outputTokens: 0,
-    slices: {},
+    slices: {
+      assistant_text: 0,
+      files: 0,
+      listings: 0,
+      memory: 0,
+      other: 0,
+      prompts: 0,
+      system_tools: 0,
+      thinking: 0,
+      tool_results: 0,
+      unattributed: 0,
+    },
     turnIndex,
   })),
   subagents: [
@@ -586,9 +617,10 @@ test("a failed tool card keeps its badges out of the preview row", () => {
       marks={marks}
       onToggle={noop}
       queryActive={false}
-      rows={events
-        .map((e, pos) => ({ e, pos }))
-        .filter(({ e }) => e.kind !== "system")}
+      revealHit={REVEAL_HIT}
+      rows={events.flatMap((e, pos) =>
+        e.kind === "system" ? [] : [{ e, pos }]
+      )}
       stickyHeight={0}
       tools={indexTools(a)}
       turns={TURNS}
@@ -612,13 +644,11 @@ test("a failed tool card keeps its badges out of the preview row", () => {
 test("rows whose page has not arrived draw as placeholders under the same keys", () => {
   const index = indexRowsOf(EVENTS, TURNS);
 
-  const indexRows = ROWS.map(({ pos }) => ({
-    e: index[pos] ?? ROWS[0]?.e,
-    pos,
-  }));
+  const indexRows = ROWS.flatMap(({ pos }) => {
+    const e = index[pos] ?? ROWS[0]?.e;
 
-  const keysOf = (html: string) =>
-    [...html.matchAll(/data-key="([^"]+)"/g)].map(([, k]) => k);
+    return e === undefined ? [] : [{ e, pos }];
+  });
 
   const props = {
     a: SESSION,
@@ -628,6 +658,7 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
     jump: null,
     landing: LANDING,
     onToggle: noop,
+    revealHit: REVEAL_HIT,
     stickyHeight: 0,
     tools: indexTools(SESSION),
     turns: TURNS,
@@ -645,6 +676,7 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
         eventAt={eventAt}
         marks={NO_MARKS}
         queryActive={false}
+        revealHit={REVEAL_HIT}
         rows={rows}
       />
     );
@@ -667,7 +699,9 @@ test("rows whose page has not arrived draw as placeholders under the same keys",
       <TranscriptTable
         {...props}
         eventAt={eventAt}
+        jumpIndex={-1}
         onSort={noop}
+        revealHit={REVEAL_HIT}
         rows={rows}
         sort={DEFAULT_HISTORY_SORT}
       />

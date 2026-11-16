@@ -4,6 +4,12 @@
  * answer; this file only supplies how a number is spelled in a browser. The
  * Rust TUI and native app keep a port of the same sentences (`stats::findings`).
  */
+import type {
+  AgentId,
+  SampleRef,
+  StatsReport,
+  TimeRow,
+} from "@workspace/view-core/api-types.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 
 import {
@@ -20,13 +26,6 @@ export type { Finding } from "./stats-findings";
 
 export { ruleLine, suggestedRules } from "./stats-findings";
 
-import type {
-  AgentId,
-  SampleRef,
-  StatsReport,
-  TimeRow,
-} from "@workspace/view-core/api-types.gen";
-
 const SEC_PER_MIN = 60;
 const SEC_PER_HOUR = 3600;
 const PERCENT = 100;
@@ -34,21 +33,26 @@ const PERCENT = 100;
 /** Decimals a share keeps once it is a percentage. */
 const PCT_DIGITS = 2;
 
+/** Under this many seconds a duration keeps two decimals. */
+const SUB_TEN_SECONDS = 10;
+const FRACTION_DIGITS = 2;
+const PAD_WIDTH = 2;
+
 /** `4h12m`, `3m07s`, `0.42s` — never a bare float of 15,000 seconds. */
 export const hms = (sec: number): string => {
   if (sec < SEC_PER_MIN) {
-    return `${sec.toFixed(sec < 10 ? 2 : 0)}s`;
+    return `${sec.toFixed(sec < SUB_TEN_SECONDS ? FRACTION_DIGITS : 0)}s`;
   }
 
   if (sec < SEC_PER_HOUR) {
     const m = Math.floor(sec / SEC_PER_MIN);
 
-    return `${m}m${String(Math.round(sec - m * SEC_PER_MIN)).padStart(2, "0")}s`;
+    return `${m}m${String(Math.round(sec - m * SEC_PER_MIN)).padStart(PAD_WIDTH, "0")}s`;
   }
 
   const h = Math.floor(sec / SEC_PER_HOUR);
 
-  return `${h}h${String(Math.floor((sec - h * SEC_PER_HOUR) / SEC_PER_MIN)).padStart(2, "0")}m`;
+  return `${h}h${String(Math.floor((sec - h * SEC_PER_HOUR) / SEC_PER_MIN)).padStart(PAD_WIDTH, "0")}m`;
 };
 
 /** A 0-1 share as a percentage string. */
@@ -133,6 +137,7 @@ const TITLE_MAX = 40;
 
 /** A title cut to `TITLE_MAX` chars, with an ellipsis. */
 const clip = (title: string) => {
+  // oxlint-disable-next-line typescript/no-misused-spread -- counting code points, not UTF-16 units, is the point
   const chars = [...title];
 
   return chars.length > TITLE_MAX
@@ -142,9 +147,9 @@ const clip = (title: string) => {
 
 /** A title on one line, or null when it says nothing. */
 const cleanTitle = (title: string | undefined) => {
-  const flat = title?.replaceAll(/\s+/g, " ").trim();
+  const flat = title?.replaceAll(/\s+/gu, " ").trim();
 
-  return flat ? flat : null;
+  return flat === undefined || flat === "" ? null : flat;
 };
 
 /** What a sample's chip says: the session title, else `project/id`. `id` is
@@ -163,8 +168,8 @@ export const chipLabelOf = (
 
   return {
     ...chip,
-    id: title ? chip.session : null,
-    label: title ? clip(title) : fallback,
+    id: title === null ? null : chip.session,
+    label: title === null ? fallback : clip(title),
   };
 };
 

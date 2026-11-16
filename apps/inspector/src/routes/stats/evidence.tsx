@@ -28,16 +28,16 @@ const Figure = ({
   </div>
 );
 
-export const shapeRows = (panel: WaitPanel): readonly RankRow[] =>
-  panel.byShape.map((shape) => ({
-    key: shape.key,
-    label: shape.key,
-    secondary: `${n(shape.calls)} calls · ${pct(shape.share)}`,
-    value: shape.totalSec,
-    valueText: hms(shape.totalSec),
+export const parkedRows = (panel: WaitPanel): readonly RankRow[] =>
+  panel.byShape.map((parked) => ({
+    key: parked.key,
+    label: parked.key,
+    secondary: `${n(parked.calls)} calls · ${pct(parked.share)}`,
+    value: parked.totalSec,
+    valueText: hms(parked.totalSec),
   }));
 
-/** Where the parked seconds went, by the shape that parked them. */
+/** Where the parked seconds went, by the parked that parked them. */
 export const Waiting = ({ panel }: { readonly panel: WaitPanel }) => (
   <section className="flex flex-col gap-3" data-testid="stats-waiting">
     <div className="flex flex-wrap gap-6">
@@ -48,7 +48,7 @@ export const Waiting = ({ panel }: { readonly panel: WaitPanel }) => (
       <Figure label="median" value={hms(panel.medianSec)} />
       <Figure label="p95" value={hms(panel.p95Sec)} />
     </div>
-    <RankBar max={panel.totalSec} rows={shapeRows(panel)} />
+    <RankBar max={panel.totalSec} rows={parkedRows(panel)} />
     {panel.bgRuns > 0 ? (
       <p className="text-muted-foreground text-xs">
         {n(panel.bgRuns)} backgrounded waits are charged {hms(panel.bgSec)}{" "}

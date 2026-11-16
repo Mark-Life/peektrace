@@ -13,20 +13,20 @@ const failed = (waiting = false) =>
 
 const render = (args: {
   readonly result: Result.Result<string, string>;
-  readonly onRetry?: () => void;
+  readonly handleRetry?: () => void;
 }) =>
   renderToStaticMarkup(
-    <ResultView onRetry={args.onRetry} result={args.result}>
+    <ResultView onRetry={args.handleRetry} result={args.result}>
       {(value) => <p>{value}</p>}
     </ResultView>
   );
 
 const noop = () => {};
-const DISABLED = /<button[^>]*\sdisabled=""/;
+const DISABLED = /<button[^>]*\sdisabled=""/u;
 
 describe("ResultView retry", () => {
   test("a failure with onRetry shows an enabled Retry button", () => {
-    const html = render({ onRetry: noop, result: failed() });
+    const html = render({ handleRetry: noop, result: failed() });
     expect(html).toContain('data-testid="result-error"');
     expect(html).toContain('data-testid="result-retry"');
     expect(html).toContain("Retry");
@@ -40,13 +40,13 @@ describe("ResultView retry", () => {
   });
 
   test("a failure being refetched disables the button", () => {
-    const html = render({ onRetry: noop, result: failed(true) });
+    const html = render({ handleRetry: noop, result: failed(true) });
     expect(html).toMatch(DISABLED);
     expect(html).toContain("Retrying…");
   });
 
   test("a success renders the value and no Retry", () => {
-    const html = render({ onRetry: noop, result: Result.success("ok") });
+    const html = render({ handleRetry: noop, result: Result.success("ok") });
     expect(html).toBe("<p>ok</p>");
   });
 });
@@ -63,7 +63,11 @@ describe("withLastSuccess", () => {
   });
 
   test("a failure with no earlier success still shows the error", () => {
-    const html = render({ onRetry: noop, result: withLastSuccess(failed()) });
+    const html = render({
+      handleRetry: noop,
+      result: withLastSuccess(failed()),
+    });
+
     expect(html).toContain('data-testid="result-error"');
   });
 });

@@ -21,6 +21,7 @@ const header = (id: string, startedAt: string): SessionHeader => ({
   sizeBytes: 1024,
   startedAt,
   title: `Session ${id}`,
+  updatedAt: startedAt,
 });
 
 const HEADERS = [
@@ -29,10 +30,10 @@ const HEADERS = [
   header("s3", "2026-01-03T10:00:00Z"),
 ];
 
-const LIST_ITEM = /<li[\s>]/g;
-const SKIP = /data-testid="skip-link"/g;
-const TAB_STOP = /<a[^>]*tabindex="0"[^>]*>/g;
-const ROW = /data-testid="session-row"/g;
+const LIST_ITEM = /<li[\s>]/gu;
+const SKIP = /data-testid="skip-link"/gu;
+const TAB_STOP = /<a[^>]*tabindex="0"[^>]*>/gu;
+const ROW = /data-testid="session-row"/gu;
 
 const renderList = (selectedId: string | null) =>
   renderToStaticMarkup(

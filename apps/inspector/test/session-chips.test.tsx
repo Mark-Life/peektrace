@@ -107,7 +107,7 @@ test("SessionLinksView shows one button and a count for same-parent samples", ()
     />
   );
 
-  expect(html.match(/data-testid="stats-session-link"/g)).toHaveLength(1);
+  expect(html.match(/data-testid="stats-session-link"/gu)).toHaveLength(1);
   expect(html).toContain("Fix the test");
   expect(html).toContain("×3");
 });
@@ -148,7 +148,7 @@ test("a folded chip offers one target per sample", () => {
     <SampleTargets detector={null} samples={samples} />
   );
 
-  expect(html.match(/data-testid="stats-session-target"/g)).toHaveLength(3);
+  expect(html.match(/data-testid="stats-session-target"/gu)).toHaveLength(3);
 
   for (const s of samples) {
     expect(html).toContain(s.sid);

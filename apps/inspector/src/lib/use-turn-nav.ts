@@ -17,10 +17,10 @@ export const useTurnNav = ({
   readonly list: RefObject<VirtualListHandle | null>;
   readonly stops: readonly number[];
 }) => {
-  const cancel = useRef<() => void>(() => {});
+  const cancel = useRef<(() => void) | null>(null);
   useEffect(
     () => () => {
-      cancel.current();
+      cancel.current?.();
     },
     []
   );
@@ -38,7 +38,7 @@ export const useTurnNav = ({
       return;
     }
 
-    cancel.current();
+    cancel.current?.();
     cancel.current = landAt({
       align: "start",
       focusIn: ["[data-turn-stop]", "button"],

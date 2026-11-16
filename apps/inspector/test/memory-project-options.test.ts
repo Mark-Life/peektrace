@@ -1,6 +1,8 @@
 /** Project picker options: Claude-only, deduped, server labels, recency order. */
 import { describe, expect, test } from "bun:test";
 
+import type { SessionHeader } from "@workspace/view-core/api-types.gen";
+
 import { memoryProjectOptions } from "../src/routes/memory/project-options";
 
 const PREFIX = "-home-dev-code-";
@@ -11,7 +13,16 @@ const header = (
   project: string,
   updatedAt?: string,
   agent: "claude" | "codex" | "pi" | "opencode" = "claude"
-) => ({ agent, project, ...(updatedAt ? { updatedAt } : {}) });
+) => {
+  const base = { agent, project };
+
+  const dated =
+    updatedAt === undefined || updatedAt === "" ? base : { ...base, updatedAt };
+
+  // SAFETY: the picker treats a missing `updatedAt` as an undated project; the test feeds that case on purpose.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the declared header type requires `updatedAt`
+  return dated as Pick<SessionHeader, "agent" | "project" | "updatedAt">;
+};
 
 describe("memoryProjectOptions", () => {
   test("empty input gives no options", () => {
