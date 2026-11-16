@@ -3,7 +3,7 @@
 //! ordering. The IO-free parts live in `peektrace_js`, shared with the
 //! wasm build of the app.
 
-pub use peektrace_js::{json, json_out, num, text, units, value};
+pub use peektrace_js::{inspector, json, json_out, num, text, units, value};
 
 pub mod os;
 pub mod regex;

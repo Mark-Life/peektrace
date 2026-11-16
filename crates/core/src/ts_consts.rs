@@ -201,12 +201,6 @@ fn generated() -> String {
             ),
         ),
         constant(
-            "Calls after a failure within which a similar success counts as its retry.",
-            "RETRY_WINDOW",
-            &whole(RETRY_WINDOW),
-            None,
-        ),
-        constant(
             "Bumped when a detector's rule changes.",
             "DETECTOR_VERSION",
             &whole(DETECTOR_VERSION),

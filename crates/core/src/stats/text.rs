@@ -10,9 +10,10 @@ use super::accumulate::DrillTable;
 use super::findings::{
     FindingFormat, findings_with, rule_line, suggested_rule_of, suggested_rules, time_note_with,
 };
-use super::format::{count, web};
+use super::format::count;
 use super::prompts::{PromptTarget, stats_prompt_with};
 use super::report::StatsReport;
+use crate::js::inspector::{fmt_k, hms, pct};
 use crate::js::json_out::Writer;
 use crate::model::Agent;
 
@@ -20,13 +21,13 @@ impl FindingFormat {
     /// The inspector's spelling: `39.6K` tokens, `0.42s`, `15.71%`.
     pub const INSPECTOR: Self = Self {
         count,
-        hms: web::hms,
-        pct: web::pct,
-        tokens: web::tokens,
+        hms,
+        pct,
+        tokens: fmt_k,
     };
 }
 
-pub const fn wire_table(t: DrillTable) -> WireTable {
+const fn wire_table(t: DrillTable) -> WireTable {
     match t {
         DrillTable::Cause => WireTable::Cause,
         DrillTable::Fail => WireTable::Fail,

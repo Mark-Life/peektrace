@@ -10,11 +10,14 @@ import type {
   RuleCheck,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
+import { fmtK } from "@workspace/viz/lib/session-format";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import spelling from "../../../tests/fixtures/stats/number-spelling.json";
 import { markedSessionHash } from "../src/lib/routes";
 import {
   hms,
+  pct,
   projectTail,
   promptsOf,
   rateText,
@@ -60,11 +63,22 @@ const timeRow = (
   ...over,
 });
 
-test("seconds read as a duration, never as a bare float", () => {
-  expect(hms(0.4)).toBe("0.40s");
-  expect(hms(42)).toBe("42s");
-  expect(hms(187)).toBe("3m07s");
-  expect(hms(18_277)).toBe("5h04m");
+/** Cases `peektrace_js::inspector` spells the same way, for core's text. */
+const cases = (rows: readonly (readonly (number | string)[])[]) =>
+  rows.map(([input, want]) => [Number(input), String(want)] as const);
+
+test("cells spell numbers as core spells them in its text", () => {
+  for (const [sec, want] of cases(spelling.hms)) {
+    expect(hms(sec)).toBe(want);
+  }
+
+  for (const [share, want] of cases(spelling.pct)) {
+    expect(pct(share)).toBe(want);
+  }
+
+  for (const [value, want] of cases(spelling.fmtK)) {
+    expect(fmtK(value)).toBe(want);
+  }
 });
 
 test("projectTail keeps short slugs and cuts long ones at a dash", () => {

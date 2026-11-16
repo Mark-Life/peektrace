@@ -35,9 +35,7 @@ pub struct DrillAsk {
 
 /// Core's text for a report: findings, rules, prompts and notes. The web
 /// build reads it from the API; the desktop app builds it in process.
-pub use peektrace_protocol::stats_text::{
-    Finding as FindingView, StatsPrompts as Prompts, StatsText,
-};
+pub use peektrace_protocol::stats_text::{Finding, StatsText};
 
 /// Calls within which a similar call counts as a retry (core `RETRY_WINDOW`).
 pub const RETRY_WINDOW: f64 = 3.0;

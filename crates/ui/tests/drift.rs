@@ -224,33 +224,3 @@ fn in_process_replies_are_the_server_wire_bodies() {
         .map(LoadError::Api)
     );
 }
-
-#[test]
-fn stats_cell_numbers_match_cores_text_numbers() {
-    use peektrace_core::stats::format::web;
-    use peektrace_ui::model::format::fmt_k;
-    use peektrace_ui::model::stats::format::{hms, pct};
-    for x in [
-        -1.0,
-        0.0,
-        0.4,
-        9.995,
-        10.0,
-        59.6,
-        60.0,
-        119.6,
-        187.0,
-        3599.6,
-        3600.0,
-        18_277.0,
-        950.4,
-        1000.0,
-        39_600.0,
-        2e6,
-        32_313_906.0,
-    ] {
-        assert_eq!(web::hms(x), hms(x), "hms {x}");
-        assert_eq!(web::pct(x / 1e4), pct(x / 1e4), "pct {x}");
-        assert_eq!(web::tokens(x), fmt_k(x), "tokens {x}");
-    }
-}

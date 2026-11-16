@@ -199,9 +199,6 @@ export const CAUSES = {
   }
 } as const satisfies Record<CauseId, { readonly kind: CauseKind; readonly label: string; readonly fix: string | null; readonly failing: boolean }>;
 
-/** Calls after a failure within which a similar success counts as its retry. */
-export const RETRY_WINDOW = 3 as const;
-
 /** Bumped when a detector's rule changes. */
 export const DETECTOR_VERSION = 2 as const;
 

@@ -9,7 +9,7 @@ use rune::{El, col, row, spacer, text};
 use super::copy::{copy_button, prompt_button};
 use super::links::links;
 use super::{LIST_TREE, V, amber, muted, outline_badge, secondary_badge, small_button};
-use crate::model::stats::FindingView;
+use crate::model::stats::Finding;
 use crate::model::stats::rows::{VISIBLE_FINDINGS, show_more, table_name};
 use crate::state::Ui;
 use crate::theme::ty;
@@ -33,7 +33,7 @@ pub fn samples_of<'a>(r: &'a StatsReportView, table: DrillTable, key: &str) -> &
     found.map_or(&[], Vec::as_slice)
 }
 
-fn card(v: &V<'_>, f: &FindingView, layer: &mut Vec<El>) -> El {
+fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
     let t = v.t;
     let id = format!("{}:{}", table_name(f.table), f.key);
     let mut head = row()

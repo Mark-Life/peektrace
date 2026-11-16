@@ -1,6 +1,7 @@
 //! Number, size and health formatting shared by the session views, with the
 //! JavaScript rounding the web inspector uses.
 
+pub use peektrace_js::inspector::fmt_k;
 use peektrace_js::num::{js_round, to_fixed, to_js_string};
 
 const MILLION: f64 = 1_000_000.0;
@@ -76,21 +77,6 @@ fn grouped(n: f64) -> String {
 /// Thousands-separated rounded integer: `1,234,567`.
 pub fn fmt(n: f64) -> String {
     grouped(js_round(n))
-}
-
-/// Compact: `1.2K`, `1M`; whole thousands and millions drop the decimal.
-pub fn fmt_k(n: f64) -> String {
-    let scaled = |unit: f64, suffix: &str| {
-        let digits = u32::from(n % unit != 0.0);
-        format!("{}{suffix}", to_fixed(n / unit, digits))
-    };
-    if n >= MILLION {
-        scaled(MILLION, "M")
-    } else if n >= THOUSAND {
-        scaled(THOUSAND, "K")
-    } else {
-        to_js_string(js_round(n))
-    }
 }
 
 /// Percent: one decimal under 10%, else a whole number.
