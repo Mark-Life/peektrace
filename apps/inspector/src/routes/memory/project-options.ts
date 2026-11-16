@@ -25,17 +25,22 @@ const lastActiveBySlug = (
   headers: readonly Pick<SessionHeader, "agent" | "project" | "updatedAt">[]
 ) => {
   const out = new Map<string, string | undefined>();
+
   for (const h of headers) {
     if (h.agent !== "claude") {
       continue;
     }
+
     const prev = out.get(h.project);
+
     const next =
       prev === undefined || (h.updatedAt !== undefined && h.updatedAt > prev)
         ? h.updatedAt
         : prev;
+
     out.set(h.project, next);
   }
+
   return out;
 };
 
@@ -45,11 +50,14 @@ const byRecency = (a: ProjectOption, b: ProjectOption) => {
     if (a.lastActive === undefined) {
       return 1;
     }
+
     if (b.lastActive === undefined) {
       return -1;
     }
+
     return a.lastActive > b.lastActive ? -1 : 1;
   }
+
   return a.label.localeCompare(b.label);
 };
 
@@ -67,14 +75,16 @@ export const memoryProjectOptions = ({
   const active = lastActiveBySlug(headers);
   const label = new Map(labels.map((l) => [l.slug, l.project]));
   const slugs = [...new Set([...active.keys(), ...label.keys()])];
+
   return slugs
     .map((slug) => {
       const lastActive = active.get(slug);
-      return {
-        slug,
-        label: label.get(slug) ?? slug,
-        ...(lastActive === undefined ? {} : { lastActive }),
-      };
+
+      const name = label.get(slug) ?? slug;
+
+      return lastActive === undefined
+        ? { label: name, slug }
+        : { label: name, lastActive, slug };
     })
-    .sort(byRecency);
+    .toSorted(byRecency);
 };

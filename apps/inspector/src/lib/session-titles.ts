@@ -5,22 +5,26 @@
  * every chip fall back to `project/id`.
  */
 import { Atom, Result } from "@effect-atom/atom-react";
+
 import { sessionsListAtom } from "./atoms";
-import { type SessionTitles, titleKey } from "./stats-format";
+import { titleKey } from "./stats-format";
+import type { SessionTitles } from "./stats-format";
 
 const NO_TITLES: SessionTitles = new Map();
 
 /** `agent:id` to title, for every listed session that has one. */
-export const sessionTitlesAtom = Atom.map(
-  sessionsListAtom,
-  (result): SessionTitles => {
+export const sessionTitlesAtom = sessionsListAtom.pipe(
+  Atom.map((result): SessionTitles => {
     if (!Result.isSuccess(result)) {
       return NO_TITLES;
     }
+
     return new Map(
       result.value.flatMap((h) =>
-        h.title ? [[titleKey(h.agent, h.id), h.title] as const] : []
+        h.title !== undefined && h.title !== ""
+          ? [[titleKey(h.agent, h.id), h.title] as const]
+          : []
       )
     );
-  }
+  })
 );

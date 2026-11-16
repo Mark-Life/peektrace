@@ -7,6 +7,7 @@ import {
 import { Markdown } from "@workspace/ui/components/ai-elements/markdown";
 import { cn } from "@workspace/ui/lib/utils";
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import { bodyView, EMPTY_BODY } from "../../lib/tool-event";
 import { EventImages } from "./event-images";
 
@@ -22,7 +23,7 @@ export const ProseBody = ({
 }) => (
   <div
     className={cn(
-      "relative rounded-md border bg-background px-3 py-2 text-xs leading-relaxed",
+      "bg-background relative rounded-md border px-3 py-2 text-xs leading-relaxed",
       className
     )}
   >
@@ -30,6 +31,37 @@ export const ProseBody = ({
     <Markdown className="pr-8" text={text} />
   </div>
 );
+
+const EventText = ({
+  className,
+  e,
+  empty = EMPTY_BODY,
+}: {
+  readonly className?: string;
+  readonly e: TimelineEvent;
+  readonly empty?: string;
+}) => {
+  if (e.body.trim().length === 0) {
+    return (
+      <p className={cn("text-muted-foreground italic", className)}>{empty}</p>
+    );
+  }
+
+  const view = bodyView(e);
+
+  return view.type === "prose" ? (
+    <ProseBody className={className} text={e.body} />
+  ) : (
+    <CodeBlock
+      className={className}
+      code={e.body}
+      language={view.language}
+      wrap
+    >
+      <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
+    </CodeBlock>
+  );
+};
 
 /** One event's body, or `empty` in italics when it has none; an image event
  *  shows the image above its marker text. */
@@ -46,32 +78,3 @@ export const EventBody = (props: {
   ) : (
     <EventText {...props} />
   );
-
-const EventText = ({
-  className,
-  e,
-  empty = EMPTY_BODY,
-}: {
-  readonly className?: string;
-  readonly e: TimelineEvent;
-  readonly empty?: string;
-}) => {
-  if (e.body.trim().length === 0) {
-    return (
-      <p className={cn("text-muted-foreground italic", className)}>{empty}</p>
-    );
-  }
-  const view = bodyView(e);
-  return view.type === "prose" ? (
-    <ProseBody className={className} text={e.body} />
-  ) : (
-    <CodeBlock
-      className={className}
-      code={e.body}
-      language={view.language}
-      wrap
-    >
-      <CodeBlockCopyButton className="absolute top-2 right-2 z-10" />
-    </CodeBlock>
-  );
-};

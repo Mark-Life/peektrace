@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@workspace/ui/components/popover";
 import { LockIcon } from "lucide-react";
+
 import { serverInfoAtom } from "../lib/atoms";
 
 /** The reason under a "Read-only server" title, flags marked up as code. */
@@ -21,9 +22,11 @@ export const ReadOnlyReason = () => (
  * so touch and keyboard users can open the reason too. */
 export const ReadOnlyBadge = () => {
   const info = useAtomValue(serverInfoAtom);
+
   if (!(Result.isSuccess(info) && info.value.readOnly)) {
     return null;
   }
+
   return (
     <Popover>
       <PopoverTrigger asChild>

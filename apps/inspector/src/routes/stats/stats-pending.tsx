@@ -10,9 +10,15 @@ const TICK_MS = 1000;
 const useElapsedSeconds = (since: number) => {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, TICK_MS);
+
+    return () => {
+      clearInterval(id);
+    };
   }, []);
+
   return Math.max(0, Math.floor((now - since) / TICK_MS));
 };
 
@@ -20,7 +26,11 @@ const useElapsedSeconds = (since: number) => {
  * announces text added after it exists, so the note is filled in late. */
 const useMounted = () => {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    // oxlint-disable-next-line react/set-state-in-effect -- the post-mount flip is the point: live regions announce only text added after they exist
+    setMounted(true);
+  }, []);
+
   return mounted;
 };
 
@@ -35,6 +45,7 @@ const TableBlock = () => (
 export const StatsPending = ({ since }: { readonly since: number }) => {
   const seconds = useElapsedSeconds(since);
   const announce = useMounted();
+
   return (
     <div className="flex flex-col gap-8" data-testid="stats-pending">
       <div className="flex flex-col gap-2">
@@ -42,12 +53,12 @@ export const StatsPending = ({ since }: { readonly since: number }) => {
           <Skeleton className="h-5 w-full max-w-md" />
           <Skeleton className="h-7 w-72" />
         </div>
-        <div className="flex items-baseline gap-2 text-muted-foreground text-sm">
-          <p role="status">
+        <div className="text-muted-foreground flex items-baseline gap-2 text-sm">
+          <output>
             {announce
               ? "Reading transcripts. The first pass parses every file and can take about 20 s; later passes read the cache."
               : null}
-          </p>
+          </output>
           <span
             aria-hidden="true"
             className="shrink-0 font-mono text-xs tabular-nums"

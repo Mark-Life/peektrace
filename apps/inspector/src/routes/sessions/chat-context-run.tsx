@@ -22,12 +22,12 @@ import {
   SparklesIcon,
   WrenchIcon,
 } from "lucide-react";
-import { type ReactNode, useState } from "react";
-import {
-  chipLabel,
-  type RunItem,
-  type TranscriptRowRef,
-} from "../../lib/chat-lane";
+import type { LucideIcon } from "lucide-react";
+import { createElement, useState } from "react";
+import type { ReactNode } from "react";
+
+import { chipLabel } from "../../lib/chat-lane";
+import type { RunItem, TranscriptRowRef } from "../../lib/chat-lane";
 import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import { chatCollapseId } from "../../lib/session-view";
 import { ContextEditBadge, ContextEditNote } from "./context-edit-mark";
@@ -50,11 +50,11 @@ const CATEGORY_ICONS = {
   reminder: BellIcon,
   skills: SparklesIcon,
   tools: WrenchIcon,
-} as const satisfies Record<LoadedCategory, unknown>;
+} as const satisfies Record<LoadedCategory, LucideIcon>;
 
 /** The icon for one chip: its budget category, or a paperclip when unclassified. */
 export const chipIcon = (category?: LoadedCategory) =>
-  category ? CATEGORY_ICONS[category] : PaperclipIcon;
+  category === undefined ? PaperclipIcon : CATEGORY_ICONS[category];
 
 const CHIP =
   "group/chip h-6 cursor-pointer gap-1.5 px-2 font-mono text-[11px] hover:bg-muted";
@@ -73,7 +73,7 @@ const ContextChip = ({
   readonly onToggle: (id: string, open: boolean) => void;
 }) => {
   const id = chatCollapseId(pos);
-  const Icon = itemIcon(e);
+
   return (
     <Badge asChild variant="outline">
       <button
@@ -81,15 +81,17 @@ const ContextChip = ({
         className={CHIP}
         data-kind={e.kind}
         data-lane="center"
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-state="closed"
         data-testid="chat-chip"
         id={id}
-        onClick={() => onToggle(id, true)}
+        onClick={() => {
+          onToggle(id, true);
+        }}
         title={e.attachmentType ?? e.kind}
         type="button"
       >
-        <Icon className="size-3 shrink-0" />
+        {createElement(itemIcon(e), { className: "size-3 shrink-0" })}
         <span className="max-w-56 truncate">{chipLabel(e)}</span>
         <ContextEditBadge className="h-4 px-1" e={e} />
         {eventTokens(e).tokens >= TOKEN_CHIP_FLOOR ? (
@@ -114,36 +116,40 @@ const ContextCard = ({
   readonly onToggle: (id: string, open: boolean) => void;
 }) => {
   const id = chatCollapseId(pos);
-  const Icon = itemIcon(e);
+
   return (
     <section
-      className="w-full overflow-hidden rounded-md border border-primary/40 bg-background"
+      className="border-primary/40 bg-background w-full overflow-hidden rounded-md border"
       data-testid="chat-chip-card"
     >
       <button
         aria-expanded
-        className="flex w-full items-center gap-2 border-primary/30 border-b bg-primary/10 px-2.5 py-1.5 text-left text-xs hover:bg-primary/15"
+        className="border-primary/30 bg-primary/10 hover:bg-primary/15 flex w-full items-center gap-2 border-b px-2.5 py-1.5 text-left text-xs"
         data-kind={e.kind}
         data-lane="center"
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-state="open"
         data-testid="chat-chip"
         id={id}
-        onClick={() => onToggle(id, false)}
+        onClick={() => {
+          onToggle(id, false);
+        }}
         title="Collapse"
         type="button"
       >
-        <Icon className="size-3.5 shrink-0 text-primary" />
-        <span className="min-w-0 truncate font-medium font-mono">
+        {createElement(itemIcon(e), {
+          className: "text-primary size-3.5 shrink-0",
+        })}
+        <span className="min-w-0 truncate font-mono font-medium">
           {chipLabel(e)}
         </span>
-        {e.attachmentType ? (
+        {e.attachmentType !== undefined && e.attachmentType !== "" ? (
           <Badge className="h-4 px-1 font-mono" variant="outline">
             {e.attachmentType}
           </Badge>
         ) : null}
         <ContextEditBadge className="h-4 px-1" e={e} />
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px]">
           {tokenLabel(e, fmtK)} tok
           <ChevronUpIcon className="size-3.5" />
         </span>
@@ -165,16 +171,19 @@ export const segmentsOf = (
   open: (item: TranscriptRowRef) => boolean
 ): Segment[] => {
   const out: Segment[] = [];
+
   for (const item of items) {
     const last = out.at(-1);
+
     if (open(item)) {
-      out.push({ type: "card", item });
+      out.push({ item, type: "card" });
     } else if (last?.type === "chips") {
       last.items.push(item);
     } else {
-      out.push({ type: "chips", items: [item] });
+      out.push({ items: [item], type: "chips" });
     }
   }
+
   return out;
 };
 
@@ -199,7 +208,9 @@ export const foldRepeats = ({
     allOpen ||
     forceExpand ||
     items.some((item) => item.repeat && opened(item));
+
   const visible = reveal ? items : items.filter((item) => !item.repeat);
+
   return { folded: items.length - visible.length, visible };
 };
 
@@ -212,13 +223,20 @@ export const chipWindow = ({
   readonly showAll: boolean;
 }) => {
   const { folded, visible } = foldRepeats({ ...args, showRepeats: showAll });
-  const lastOpened = visible.reduce(
-    (last, item, i) => (args.opened(item) ? i : last),
-    -1
-  );
+
+  let lastOpened = -1;
+
+  for (const [i, item] of visible.entries()) {
+    if (args.opened(item)) {
+      lastOpened = i;
+    }
+  }
+
   const expanded =
     showAll || args.allOpen || args.forceExpand || lastOpened >= CHIP_LIMIT;
+
   const shown = expanded ? visible : visible.slice(0, CHIP_LIMIT);
+
   return { folded, hidden: visible.length - shown.length, shown };
 };
 
@@ -247,6 +265,7 @@ export const ChatContextRun = ({
 }) => {
   const [showAll, setShowAll] = useState(false);
   const opened = (item: TranscriptRowRef) => isOpen(chatCollapseId(item.pos));
+
   const { folded, hidden, shown } = chipWindow({
     allOpen,
     forceExpand,
@@ -254,8 +273,10 @@ export const ChatContextRun = ({
     opened,
     showAll,
   });
+
   const tokens = items.reduce((n, { e }) => n + eventTokens(e).tokens, 0);
   const segments = segmentsOf(shown, opened);
+
   const extras =
     folded > 0 || hidden > 0 ? (
       <>
@@ -264,7 +285,9 @@ export const ChatContextRun = ({
             <button
               className={`${CHIP} text-muted-foreground`}
               data-testid="chat-chip-unchanged"
-              onClick={() => setShowAll(true)}
+              onClick={() => {
+                setShowAll(true);
+              }}
               title="Same as earlier in this session"
               type="button"
             >
@@ -276,7 +299,9 @@ export const ChatContextRun = ({
           <Badge asChild variant="outline">
             <button
               className={CHIP}
-              onClick={() => setShowAll(true)}
+              onClick={() => {
+                setShowAll(true);
+              }}
               type="button"
             >
               +{hidden} more
@@ -288,7 +313,7 @@ export const ChatContextRun = ({
 
   return (
     <div className="flex w-full flex-col gap-1.5" data-testid="chat-chip-run">
-      <p className="text-center text-[10px] text-muted-foreground">
+      <p className="text-muted-foreground text-center text-[10px]">
         +{items.length} items loaded ·{" "}
         {items.every(({ e }) => eventTokens(e).measured) ? "" : "~"}
         {fmtK(tokens)} tok

@@ -1,8 +1,10 @@
 /** Session rail helpers: labels, ordering and the live window. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
 import { addToRange } from "react-day-picker";
+
 import {
   activeDays,
   filtersFromParams,
@@ -21,15 +23,44 @@ import {
   visibleBranch,
 } from "../src/routes/sessions/session-list-model";
 
-const header = (over: Partial<SessionHeader> = {}): SessionHeader => ({
-  id: "s-1",
-  path: "/home/dev/code/app/s-1.jsonl",
-  agent: "claude" as SessionHeader["agent"],
-  project: "-home-dev-code-app",
-  messageCount: 3,
-  sizeBytes: 512,
-  ...over,
-});
+const header = (over: Partial<SessionHeader> = {}): SessionHeader => {
+  const base = {
+    agent: "claude",
+    id: "s-1",
+    messageCount: 3,
+    path: "/home/dev/code/app/s-1.jsonl",
+    project: "-home-dev-code-app",
+    sizeBytes: 512,
+    ...over,
+  } satisfies Partial<SessionHeader>;
+
+  // SAFETY: the helpers under test treat a missing `updatedAt` as an undated session; tests feed that case on purpose.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the declared header type requires `updatedAt`
+  return base as SessionHeader;
+};
+
+const ids = (hs: readonly SessionHeader[]) => hs.map((h) => h.id);
+
+const isoAt = (ms: number) => new Date(ms).toISOString();
+
+// Local-midnight dates, as the day picker hands them over.
+const localDay = (d: number) => new Date(2026, 10, d);
+
+/** Filters encoded the way the list writes them, then read back. */
+const roundTrip = (f: Parameters<typeof filtersToParams>[0]) => {
+  const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(filtersToParams(f))) {
+    if (value !== null) {
+      params.set(key, value);
+    }
+  }
+
+  return {
+    back: filtersFromParams(new URLSearchParams(params.toString())),
+    params,
+  };
+};
 
 describe("projectLabel", () => {
   test("uses the last folder of a POSIX cwd", () => {
@@ -65,15 +96,16 @@ describe("projectOptions", () => {
       { cwd: "/home/dev/code/api", project: "p-api" },
       { cwd: "/home/dev/code/api", project: "p-api" },
     ]);
+
     expect(options).toEqual([
-      { value: "/home/dev/code/api", label: "api" },
-      { value: "/home/dev/code/web", label: "web" },
+      { label: "api", value: "/home/dev/code/api" },
+      { label: "web", value: "/home/dev/code/web" },
     ]);
   });
 
   test("falls back to the slug when cwd is missing", () => {
     expect(projectOptions([{ project: "p-web" }])).toEqual([
-      { value: "p-web", label: "p-web" },
+      { label: "p-web", value: "p-web" },
     ]);
   });
 
@@ -82,7 +114,8 @@ describe("projectOptions", () => {
       { cwd: "/w/acme/app", project: "-w-acme-app" },
       { cwd: "/w/acme/app", project: "app" },
     ]);
-    expect(options).toEqual([{ value: "/w/acme/app", label: "app" }]);
+
+    expect(options).toEqual([{ label: "app", value: "/w/acme/app" }]);
   });
 
   test("adds the parent folder when two folders share a name", () => {
@@ -91,10 +124,11 @@ describe("projectOptions", () => {
       { cwd: "/home/dev/two/app", project: "p-two" },
       { cwd: "/home/dev/code/web", project: "p-web" },
     ]);
+
     expect(options).toEqual([
-      { value: "/home/dev/one/app", label: "one/app" },
-      { value: "/home/dev/two/app", label: "two/app" },
-      { value: "/home/dev/code/web", label: "web" },
+      { label: "one/app", value: "/home/dev/one/app" },
+      { label: "two/app", value: "/home/dev/two/app" },
+      { label: "web", value: "/home/dev/code/web" },
     ]);
   });
 
@@ -103,9 +137,10 @@ describe("projectOptions", () => {
       { cwd: "/a/one/app", project: "p-a" },
       { cwd: "/b/one/app", project: "p-b" },
     ]);
+
     expect(options).toEqual([
-      { value: "/a/one/app", label: "/a/one/app" },
-      { value: "/b/one/app", label: "/b/one/app" },
+      { label: "/a/one/app", value: "/a/one/app" },
+      { label: "/b/one/app", value: "/b/one/app" },
     ]);
   });
 });
@@ -123,29 +158,31 @@ describe("visibleBranch", () => {
 });
 
 describe("sortByRecent", () => {
-  const ids = (hs: readonly SessionHeader[]) => hs.map((h) => h.id);
-
   test("orders by updatedAt over startedAt", () => {
     const old = header({
       id: "old-start",
       startedAt: "2026-01-01T00:00:00Z",
       updatedAt: "2026-03-01T00:00:00Z",
     });
+
     const fresh = header({
       id: "new-start",
       startedAt: "2026-02-01T00:00:00Z",
       updatedAt: "2026-02-01T00:10:00Z",
     });
+
     expect(ids(sortByRecent([fresh, old]))).toEqual(["old-start", "new-start"]);
   });
 
   test("compares instants across offset forms", () => {
     const utc = header({ id: "utc", updatedAt: "2026-05-01T10:30:00Z" });
+
     // 11:00+02:00 is 09:00Z, so it is older
     const offset = header({
       id: "offset",
       updatedAt: "2026-05-01T11:00:00+02:00",
     });
+
     expect(ids(sortByRecent([offset, utc]))).toEqual(["utc", "offset"]);
   });
 
@@ -162,11 +199,13 @@ describe("sortByRecent", () => {
 
   test("does not pin a future-dated session to the top", () => {
     const now = Date.parse("2026-06-01T12:00:00Z");
+
     const future = header({
       id: "future",
       startedAt: "2026-01-01T00:00:00Z",
       updatedAt: "2099-01-01T00:00:00Z",
     });
+
     const recent = header({ id: "recent", updatedAt: "2026-06-01T11:59:00Z" });
     const lost = header({ id: "lost", updatedAt: "2099-01-01T00:00:00Z" });
     expect(ids(sortByRecent([lost, future, recent], now))).toEqual([
@@ -185,39 +224,40 @@ describe("sortByRecent", () => {
 
 describe("isLive", () => {
   const now = Date.parse("2026-06-01T12:00:00Z");
-  const at = (ms: number) => new Date(ms).toISOString();
 
   test("is live just inside the window", () => {
-    expect(isLive(header({ updatedAt: at(now - LIVE_MS + 1000) }), now)).toBe(
-      true
-    );
+    expect(
+      isLive(header({ updatedAt: isoAt(now - LIVE_MS + 1000) }), now)
+    ).toBe(true);
   });
 
   test("is not live just outside the window", () => {
-    expect(isLive(header({ updatedAt: at(now - LIVE_MS - 1000) }), now)).toBe(
+    expect(
+      isLive(header({ updatedAt: isoAt(now - LIVE_MS - 1000) }), now)
+    ).toBe(false);
+  });
+
+  test("tolerates a small skew but not a stamp far in the future", () => {
+    expect(
+      isLive(header({ updatedAt: isoAt(now + SKEW_MS - 1000) }), now)
+    ).toBe(true);
+    expect(isLive(header({ updatedAt: isoAt(now + 3_600_000) }), now)).toBe(
       false
     );
   });
 
-  test("tolerates a small skew but not a stamp far in the future", () => {
-    expect(isLive(header({ updatedAt: at(now + SKEW_MS - 1000) }), now)).toBe(
-      true
-    );
-    expect(isLive(header({ updatedAt: at(now + 3_600_000) }), now)).toBe(false);
-  });
-
   test("falls back to startedAt, and is never live without a time", () => {
-    expect(isLive(header({ startedAt: at(now - 1000) }), now)).toBe(true);
+    expect(isLive(header({ startedAt: isoAt(now - 1000) }), now)).toBe(true);
     expect(isLive(header(), now)).toBe(false);
   });
 });
 
 describe("matches", () => {
   const h = header({
-    id: "abc123",
-    title: "Fix the parser",
     gitBranch: "HEAD",
+    id: "abc123",
     model: "model-a",
+    title: "Fix the parser",
   });
 
   test("passes with no filters", () => {
@@ -245,12 +285,19 @@ describe("matches", () => {
 });
 
 describe("date range", () => {
-  // Local-midnight dates, as the day picker hands them over.
-  const day = (d: number) => new Date(2026, 10, d);
   const spanning = header({
     startedAt: "2026-11-01T09:00:00Z",
     updatedAt: "2026-11-03T10:00:00Z",
   });
+
+  const on = (from: number, to?: number) =>
+    matches(spanning, {
+      ...NO_FILTERS,
+      range: {
+        from: localDay(from),
+        to: to === undefined ? undefined : localDay(to),
+      },
+    });
 
   test("lists every day from start to last activity", () => {
     expect(activeDays(spanning)).toEqual([
@@ -284,11 +331,6 @@ describe("date range", () => {
   });
 
   test("matches any day the session was active on", () => {
-    const on = (from: number, to?: number) =>
-      matches(spanning, {
-        ...NO_FILTERS,
-        range: { from: day(from), to: to === undefined ? undefined : day(to) },
-      });
     expect(on(1)).toBe(true);
     expect(on(2)).toBe(true);
     expect(on(3)).toBe(true);
@@ -309,20 +351,6 @@ describe("date range", () => {
 });
 
 describe("filters in the hash", () => {
-  /** Filters encoded the way the list writes them, then read back. */
-  const roundTrip = (f: Parameters<typeof filtersToParams>[0]) => {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(filtersToParams(f))) {
-      if (value !== null) {
-        params.set(key, value);
-      }
-    }
-    return {
-      params,
-      back: filtersFromParams(new URLSearchParams(params.toString())),
-    };
-  };
-
   test("defaults stay out of the URL", () => {
     expect(
       Object.values(filtersToParams(NO_FILTERS)).every((v) => v === null)
@@ -332,14 +360,15 @@ describe("filters in the hash", () => {
 
   test("every facet survives a round trip", () => {
     const f = {
-      query: "fix auth & retry",
       agent: "codex",
-      project: "/work/app",
       branch: "feat/x",
       model: "m-1",
-      source: "box",
+      project: "/work/app",
+      query: "fix auth & retry",
       range: { from: new Date(2026, 0, 2), to: new Date(2026, 0, 9) },
+      source: "box",
     };
+
     const { params, back } = roundTrip(f);
     expect(params.get("q")).toBe("fix auth & retry");
     expect(params.get("from")).toBe("2026-01-02");
@@ -349,10 +378,12 @@ describe("filters in the hash", () => {
 
   test("a one-day range writes only from", () => {
     const day = new Date(2026, 2, 4);
+
     const { params, back } = roundTrip({
       ...NO_FILTERS,
       range: { from: day, to: day },
     });
+
     expect(params.get("to")).toBeNull();
     expect(back.range).toEqual({ from: day, to: day });
   });
@@ -366,10 +397,12 @@ describe("filters in the hash", () => {
 
   test("clicking the picked day again clears the range after a round trip", () => {
     const day = new Date(2026, 0, 5);
+
     const picked = roundTrip({
       ...NO_FILTERS,
       range: addToRange(day, undefined),
     }).back.range;
+
     expect(addToRange(day, picked)).toBeUndefined();
   });
 
@@ -424,7 +457,7 @@ describe("filters in the hash", () => {
 });
 
 describe("hidingFilters", () => {
-  const h = header({ agent: "claude" as SessionHeader["agent"], model: "m-1" });
+  const h = header({ agent: "claude", model: "m-1" });
 
   test("is empty when the session passes every filter", () => {
     expect(hidingFilters(h, NO_FILTERS)).toEqual({});

@@ -1,45 +1,46 @@
 import { describe, expect, test } from "bun:test";
+
 import { tildePath } from "../src/lib/paths";
 
 const HOME = "/home/dev";
 
 describe("tildePath", () => {
   test("collapses the exact home dir", () => {
-    expect(tildePath({ path: HOME, home: HOME })).toBe("~");
+    expect(tildePath({ home: HOME, path: HOME })).toBe("~");
   });
 
   test("collapses a child path", () => {
-    expect(tildePath({ path: `${HOME}/.claude/projects`, home: HOME })).toBe(
+    expect(tildePath({ home: HOME, path: `${HOME}/.claude/projects` })).toBe(
       "~/.claude/projects"
     );
   });
 
   test("leaves a sibling dir sharing the prefix", () => {
-    expect(tildePath({ path: "/home/devx/.claude", home: HOME })).toBe(
+    expect(tildePath({ home: HOME, path: "/home/devx/.claude" })).toBe(
       "/home/devx/.claude"
     );
   });
 
   test("leaves a path outside home", () => {
-    expect(tildePath({ path: "/var/data/sessions", home: HOME })).toBe(
+    expect(tildePath({ home: HOME, path: "/var/data/sessions" })).toBe(
       "/var/data/sessions"
     );
   });
 
   test("tolerates a trailing slash on home and an empty home", () => {
-    expect(tildePath({ path: `${HOME}/.pi`, home: `${HOME}/` })).toBe("~/.pi");
-    expect(tildePath({ path: "/a/b", home: "" })).toBe("/a/b");
+    expect(tildePath({ home: `${HOME}/`, path: `${HOME}/.pi` })).toBe("~/.pi");
+    expect(tildePath({ home: "", path: "/a/b" })).toBe("/a/b");
   });
 
   test("collapses Windows paths with backslash separators", () => {
     const home = "C:\\Users\\dev";
-    expect(tildePath({ path: `${home}\\.claude\\projects`, home })).toBe(
+    expect(tildePath({ home, path: `${home}\\.claude\\projects` })).toBe(
       "~\\.claude\\projects"
     );
-    expect(tildePath({ path: `${home}\\.pi`, home: `${home}\\` })).toBe(
+    expect(tildePath({ home: `${home}\\`, path: `${home}\\.pi` })).toBe(
       "~\\.pi"
     );
-    expect(tildePath({ path: "C:\\Users\\devx", home })).toBe(
+    expect(tildePath({ home, path: "C:\\Users\\devx" })).toBe(
       "C:\\Users\\devx"
     );
   });

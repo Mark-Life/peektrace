@@ -11,6 +11,7 @@ import type {
   HistoryRow,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
 import { eventBadgeLabel, isUserAuthored } from "./event-labels";
 import { chatCollapseId } from "./session-view";
 
@@ -26,7 +27,7 @@ export const bodyKey = (e: EventRow) => ("bodyId" in e ? e.bodyId : e.body);
 
 /** `eventBadgeLabel` of a whole event or an index row: it reads only the
  *  kind, tool name, prompt origin and attachment type, which rows carry. */
-export const badgeOf = (e: EventRow) => eventBadgeLabel(e as TimelineEvent);
+export const badgeOf = (e: EventRow) => eventBadgeLabel(e);
 
 /** Body length in UTF-16 units, as `body.length` counts it. */
 export const bodyLength = (e: EventRow) =>
@@ -41,8 +42,9 @@ export interface TranscriptRowRef<E extends EventRow = TimelineEvent> {
 
 /** A chip of a context run. `repeat` is set when an earlier chip of the same
  *  identity already carried this exact body, so the chat can fold it. */
-export interface RunItem<E extends EventRow = TimelineEvent>
-  extends TranscriptRowRef<E> {
+export interface RunItem<
+  E extends EventRow = TimelineEvent,
+> extends TranscriptRowRef<E> {
   readonly repeat: boolean;
 }
 
@@ -81,8 +83,10 @@ export const laneOf = (e: EventRow): ChatLane => {
     if (e.isSidechain === true) {
       return "agent";
     }
+
     return isUserAuthored(e) ? "user" : "center";
   }
+
   if (
     e.kind === "assistant-text" ||
     e.kind === "assistant-thinking" ||
@@ -91,6 +95,7 @@ export const laneOf = (e: EventRow): ChatLane => {
   ) {
     return "agent";
   }
+
   return "center";
 };
 
@@ -99,9 +104,11 @@ export const laneOf = (e: EventRow): ChatLane => {
  *  title, else the same badge word the table would print. */
 export const chipLabel = (e: EventRow): string => {
   const prefix = FILE_TITLE_PREFIXES.find((p) => e.title.startsWith(p));
-  if (prefix) {
+
+  if (prefix !== undefined && prefix !== "") {
     return e.title.slice(prefix.length);
   }
+
   return e.title.trim().length > 0 ? e.title : badgeOf(e);
 };
 
@@ -114,10 +121,13 @@ export const chatCollapseIdOf = (n: ChatNode<EventRow>): string | null => {
   if (n.type === "message" || n.type === "band" || n.type === "notice") {
     return chatCollapseId(n.row.pos);
   }
+
   if (n.type === "tool") {
     const pos = n.call?.pos ?? n.result?.pos;
+
     return pos === undefined ? null : chatCollapseId(pos);
   }
+
   return null;
 };
 
@@ -140,46 +150,61 @@ const resultFor = <E extends EventRow>(
   call: TranscriptRowRef<E>
 ) => {
   const id = call.e.toolUseId;
-  if (!id) {
+
+  if (id === undefined || id === "") {
     return null;
   }
-  for (let i = from; i < rows.length; i++) {
+
+  for (let i = from; i < rows.length; i += 1) {
     const row = rows[i];
+
     if (row && row.e.kind === "tool-result" && row.e.toolUseId === id) {
       return row;
     }
   }
+
   return null;
 };
+
+interface NodeStep<E extends EventRow> {
+  readonly consumed: number | null;
+  readonly node: ChatNode<E>;
+}
 
 /** The node one standalone row becomes, plus the result it swallowed. */
 const nodeForRow = <E extends EventRow>(
   rows: readonly TranscriptRowRef<E>[],
   i: number,
   row: TranscriptRowRef<E>
-): { readonly consumed: number | null; readonly node: ChatNode<E> } => {
+): NodeStep<E> => {
   const { e } = row;
+
   if (e.kind === "tool-call") {
     const result = resultFor(rows, i + 1, row);
+
     return {
       consumed: result?.pos ?? null,
-      node: { type: "tool", call: row, result },
+      node: { call: row, result, type: "tool" },
     };
   }
+
   if (e.kind === "tool-result") {
-    return { consumed: null, node: { type: "tool", call: null, result: row } };
+    return { consumed: null, node: { call: null, result: row, type: "tool" } };
   }
+
   if (
     e.kind === "compaction" ||
     e.kind === "summary" ||
     e.kind === "system-prompt"
   ) {
-    return { consumed: null, node: { type: "band", row } };
+    return { consumed: null, node: { row, type: "band" } };
   }
+
   if (laneOf(e) === "center") {
-    return { consumed: null, node: { type: "notice", row } };
+    return { consumed: null, node: { row, type: "notice" } };
   }
-  return { consumed: null, node: { type: "message", row } };
+
+  return { consumed: null, node: { row, type: "message" } };
 };
 
 /**
@@ -204,26 +229,31 @@ export const buildChatPlan = <E extends EventRow>({
 
   const flush = () => {
     if (run.length > 0) {
-      nodes.push({ type: "run", items: [...run] });
+      nodes.push({ items: [...run], type: "run" });
       run.length = 0;
     }
   };
 
   for (const [i, row] of rows.entries()) {
     const { e, pos } = row;
+
     if (consumed.has(pos)) {
       continue;
     }
+
     if (crossEvtIdx >= 0 && pos === crossEvtIdx) {
       flush();
       nodes.push({ type: "dumbzone" });
     }
+
     const turn = turns[pos] ?? 0;
+
     if (turn > 0 && turn !== lastTurn) {
       flush();
-      nodes.push({ type: "turn", turn });
+      nodes.push({ turn, type: "turn" });
       lastTurn = turn;
     }
+
     if (isChip(e)) {
       const identity = chipIdentity(e);
       const isImage = e.attachmentType === "image" || e.images !== undefined;
@@ -234,14 +264,19 @@ export const buildChatPlan = <E extends EventRow>({
       lastBody.set(identity, bodyKey(e));
       continue;
     }
+
     flush();
     const next = nodeForRow(rows, i, row);
+
     if (next.consumed !== null) {
       consumed.add(next.consumed);
     }
+
     nodes.push(next.node);
   }
+
   flush();
+
   return nodes;
 };
 
@@ -252,18 +287,22 @@ export const chatIdsOf = (
   rows: readonly TranscriptRowRef<EventRow>[]
 ): readonly string[] => {
   const consumed = new Set<number>();
+
   for (const [i, row] of rows.entries()) {
     if (row.e.kind !== "tool-call") {
       continue;
     }
+
     const result = resultFor(rows, i + 1, row);
+
     if (result) {
       consumed.add(result.pos);
     }
   }
-  return rows
-    .filter(({ pos }) => !consumed.has(pos))
-    .map(({ pos }) => chatCollapseId(pos));
+
+  return rows.flatMap(({ pos }) =>
+    consumed.has(pos) ? [] : [chatCollapseId(pos)]
+  );
 };
 
 /** The node that shows tool call `id`: its card, whether the call itself or
@@ -286,12 +325,15 @@ const baseKeyOf = (n: ChatNode<EventRow>) => {
   if (n.type === "message" || n.type === "band" || n.type === "notice") {
     return `n${n.row.pos}`;
   }
+
   if (n.type === "tool") {
     return `n${n.call?.pos ?? n.result?.pos ?? "?"}`;
   }
+
   if (n.type === "run") {
     return `run${n.items[0]?.pos ?? "?"}`;
   }
+
   return n.type === "turn" ? `turn${n.turn}` : "dumbzone";
 };
 
@@ -299,10 +341,12 @@ const baseKeyOf = (n: ChatNode<EventRow>) => {
  *  draws its rule twice; the repeat gets a numbered suffix. */
 export const chatNodeKeys = (plan: readonly ChatNode<EventRow>[]) => {
   const seen = new Map<string, number>();
+
   return plan.map((n) => {
     const base = baseKeyOf(n);
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
+
     return count === 0 ? base : `${base}~${count}`;
   });
 };

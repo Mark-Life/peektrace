@@ -10,10 +10,10 @@ import type {
 const BYTES_PER_KB = 1024;
 
 /** Splits a body into text + `[[wikilink]]` tokens. */
-const WIKILINK_SPLIT = /(\[\[[^\]]+\]\])/g;
+const WIKILINK_SPLIT = /(?<wikilink>\[\[[^\]]+\]\])/gu;
 
 /** Matches a single `[[wikilink]]` token. */
-const WIKILINK_TOKEN = /^\[\[([^\]]+)\]\]$/;
+const WIKILINK_TOKEN = /^\[\[(?<target>[^\]]+)\]\]$/u;
 
 /** Sortable column keys. */
 export type SortKey = "title" | "type" | "size" | "mtime" | "inIndex" | "links";
@@ -23,8 +23,10 @@ export const matchesQuery = (entry: MemoryEntry, q: string) => {
   if (q.length === 0) {
     return true;
   }
+
   const hay =
     `${entry.slug} ${entry.name ?? ""} ${entry.description ?? ""} ${entry.body}`.toLowerCase();
+
   return hay.includes(q.toLowerCase());
 };
 
@@ -60,8 +62,8 @@ export const visibleVaults = ({
   all.vaults
     .filter((v) => scope === "all" || v.slug === scope)
     .map((vault) => ({
+      entries: filterEntries({ query, type, vault }),
       vault,
-      entries: filterEntries({ vault, query, type }),
     }))
     .filter(({ entries }) =>
       query.length === 0 && type === "all" ? true : entries.length > 0
@@ -79,23 +81,18 @@ export const fmtDate = (iso: string) => new Date(iso).toLocaleString();
 /** A memory's display title: frontmatter name → slug. */
 export const titleOf = (e: MemoryEntry) => e.name ?? e.slug;
 
+const COMPARATORS: Record<SortKey, (a: MemoryEntry, b: MemoryEntry) => number> =
+  {
+    inIndex: (a, b) => Number(a.inIndex) - Number(b.inIndex),
+    links: (a, b) => a.links.length - b.links.length,
+    mtime: (a, b) => a.mtimeMs - b.mtimeMs,
+    size: (a, b) => a.size - b.size,
+    title: (a, b) => titleOf(a).localeCompare(titleOf(b)),
+    type: (a, b) => (a.type ?? "").localeCompare(b.type ?? ""),
+  };
+
 /** Compare two entries by the active sort key. */
-export const compareBy = (key: SortKey) => (a: MemoryEntry, b: MemoryEntry) => {
-  switch (key) {
-    case "title":
-      return titleOf(a).localeCompare(titleOf(b));
-    case "type":
-      return (a.type ?? "").localeCompare(b.type ?? "");
-    case "size":
-      return a.size - b.size;
-    case "mtime":
-      return a.mtimeMs - b.mtimeMs;
-    case "inIndex":
-      return Number(a.inIndex) - Number(b.inIndex);
-    default:
-      return a.links.length - b.links.length;
-  }
-};
+export const compareBy = (key: SortKey) => COMPARATORS[key];
 
 /** Sort ascending, then reverse for a descending column. */
 export const sortEntries = (
@@ -103,8 +100,9 @@ export const sortEntries = (
   sort: SortKey,
   asc: boolean
 ) => {
-  const arr = [...entries].sort(compareBy(sort));
-  return asc ? arr : arr.reverse();
+  const arr = entries.toSorted(compareBy(sort));
+
+  return asc ? arr : arr.toReversed();
 };
 
 /** One piece of a body: text, or a wikilink and the slug it opens. */
@@ -116,12 +114,16 @@ export type BodyPart =
  * entry's links, else its lower-cased text. */
 export const bodyParts = (entry: MemoryEntry): BodyPart[] => {
   const targets = new Map(entry.links.map((l) => [l.rawTarget, l.targetSlug]));
+
   return entry.body.split(WIKILINK_SPLIT).map((part) => {
-    const m = part.match(WIKILINK_TOKEN);
-    if (m?.[1]) {
-      const raw = m[1];
+    const m = WIKILINK_TOKEN.exec(part);
+
+    const raw = m?.groups?.target;
+
+    if (raw !== undefined && raw !== "") {
       return { link: part, slug: targets.get(raw) ?? raw.toLowerCase() };
     }
+
     return { text: part };
   });
 };

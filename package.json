@@ -1,45 +1,49 @@
 {
-  "overrides": {
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "effect": "3.21.4"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "2.4.15",
-    "@types/bun": "^1.3.14",
-    "@workspace/typescript-config": "workspace:*",
-    "bun-types": "^1.3.14",
-    "husky": "^9.1.7",
-    "tsrs": "^0.23.0-ts7.1.0-beta",
-    "typescript": "6.0.3",
-    "ultracite": "7.7.0"
-  },
   "name": "peektrace-workspace",
-  "scripts": {
-    "build": "bun run --filter=inspector build",
-    "dev": "bun run --filter=inspector dev",
-    "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
-    "tui": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- tui",
-    "lint": "bun run check",
-    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit -p scripts",
-    "format": "bun run fix",
-    "check": "bunx --bun ultracite check",
-    "fix": "bunx --bun ultracite fix",
-    "prepare": "husky",
-    "upgrade": "bun run scripts/upgrade.ts"
-  },
   "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
   "workspaces": {
     "packages": [
       "apps/*",
       "packages/*"
     ]
   },
-  "private": true,
-  "license": "MIT",
-  "packageManager": "bun@1.3.14",
+  "type": "module",
+  "scripts": {
+    "build": "bun run --filter=inspector build",
+    "dev": "bun run --filter=inspector dev",
+    "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
+    "tui": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- tui",
+    "lint": "bun run check",
+    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit --fast -p scripts",
+    "format": "bun run fix",
+    "check": "bunx --bun ultracite check --type-aware",
+    "fix": "bunx --bun ultracite fix --type-aware",
+    "prepare": "husky",
+    "upgrade": "bun run scripts/upgrade.ts"
+  },
+  "devDependencies": {
+    "@oxlint/plugins": "1.90.0",
+    "@types/bun": "^1.3.14",
+    "@workspace/typescript-config": "workspace:*",
+    "bun-types": "^1.3.14",
+    "husky": "^9.1.7",
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
+    "oxlint-tsgolint": "7.0.2005",
+    "tsrs": "0.25.0-ts7.1.0-beta",
+    "typescript": "7.0.2",
+    "ultracite": "8.1.1"
+  },
+  "overrides": {
+    "effect": "3.21.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
   "engines": {
-    "node": ">=20.9.0",
-    "bun": ">=1.3.0"
-  }
+    "bun": ">=1.3.0",
+    "node": ">=20.9.0"
+  },
+  "packageManager": "bun@1.3.14"
 }

@@ -17,8 +17,10 @@ import {
 import type { ProjectLabel } from "@workspace/view-core/api-types.gen";
 import { PlusIcon } from "lucide-react";
 import { useMemo } from "react";
+
 import { sessionsListAtom } from "../../lib/atoms";
-import { memoryProjectOptions, type ProjectOption } from "./project-options";
+import { memoryProjectOptions } from "./project-options";
+import type { ProjectOption } from "./project-options";
 
 const FIELD_ID = "mem-project";
 
@@ -33,6 +35,7 @@ const placeholderFor = ({
   if (loading) {
     return "Loading projects…";
   }
+
   return count === 0 ? "No Claude projects found" : "Choose a project";
 };
 
@@ -48,14 +51,16 @@ export const ProjectPicker = ({
 }) => {
   const result = useAtomValue(sessionsListAtom);
   const headers = Result.isSuccess(result) ? result.value : undefined;
+
   const options = useMemo(
     () => memoryProjectOptions({ headers: headers ?? [], labels }),
     [headers, labels]
   );
+
   const loading =
     options.length === 0 && headers === undefined && !Result.isFailure(result);
 
-  const placeholder = placeholderFor({ loading, count: options.length });
+  const placeholder = placeholderFor({ count: options.length, loading });
 
   return (
     <div className="grid gap-1.5">
@@ -64,6 +69,7 @@ export const ProjectPicker = ({
         disabled={options.length === 0}
         onValueChange={(slug) => {
           const picked = options.find((o) => o.slug === slug);
+
           if (picked) {
             onChange(picked);
           }
@@ -86,7 +92,7 @@ export const ProjectPicker = ({
         </SelectContent>
       </Select>
       {Result.isFailure(result) && options.length === 0 ? (
-        <p className="text-red-400 text-xs" data-testid="create-project-error">
+        <p className="text-xs text-red-400" data-testid="create-project-error">
           Could not load the session list.
         </p>
       ) : null}

@@ -1,6 +1,7 @@
 /** Keeping a focused block mounted when it scrolls off screen. */
 
 import { describe, expect, test } from "bun:test";
+
 import { keepIndex, splitPinned } from "../src/lib/virtual-range";
 
 const items = (indexes: readonly number[]) =>

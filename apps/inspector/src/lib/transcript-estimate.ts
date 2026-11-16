@@ -5,12 +5,8 @@
  * scrollbar honest and the page from jumping when a block is finally measured.
  * Heights are in CSS pixels and include the gap below each chat block.
  */
-import {
-  bodyLength,
-  type ChatNode,
-  chatCollapseIdOf,
-  type EventRow,
-} from "./chat-lane";
+import { bodyLength, chatCollapseIdOf } from "./chat-lane";
+import type { ChatNode, EventRow } from "./chat-lane";
 
 /** Space below each chat block, as a class on each chat item and in pixels. */
 export const CHAT_ITEM_CLASS = "pb-3";
@@ -22,8 +18,10 @@ const LINE = 20;
 
 /** `max-h-48`, the clamp a long collapsed bubble sits behind. */
 const CLAMPED_BODY = 192;
+
 /** `max-h-[28rem]`, the cap on an opened bubble, band or notice body. */
 const OPENED_BODY = 448;
+
 /** `max-h-96`, the cap on an opened tool card or table row. */
 const OPENED_TOOL = 384;
 
@@ -46,9 +44,11 @@ const openedBody = (n: ChatNode<EventRow>) => {
   if (n.type === "tool") {
     return OPENED_TOOL;
   }
+
   if (n.type === "message" || n.type === "band" || n.type === "notice") {
     return textHeight(bodyLength(n.row.e), OPENED_BODY);
   }
+
   return n.type === "run" ? OPENED_BODY : 0;
 };
 
@@ -72,6 +72,7 @@ export const estimateChatNode = ({
 }) => {
   const id = chatCollapseIdOf(n);
   const open = id === null ? allOpen && n.type === "run" : isOpen(id);
+
   return HEADER[n.type] + (open ? openedBody(n) : collapsedBody(n)) + CHAT_GAP;
 };
 

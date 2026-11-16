@@ -15,31 +15,38 @@ export const AGENT_COLUMNS = [
 
 /** Tailwind classes per support level. */
 export const LEVEL_STYLES: Record<Support["level"], string> = {
-  supported: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   partial: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   planned: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+  supported: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   unsupported: "bg-muted text-muted-foreground border-border",
 };
 
 /** Plain-language gloss per support level (shown in the legend + drawer). */
 export const LEVEL_GLOSS: Record<Support["level"], string> = {
-  supported: "Built and working today.",
   partial: "Partially built — some paths work.",
   planned: "On the roadmap, not yet built.",
+  supported: "Built and working today.",
   unsupported: "Not applicable / no plan.",
 };
 
-/** Legend order: the `LEVEL_STYLES` keys. */
-export const LEVELS = Object.keys(LEVEL_STYLES) as Support["level"][];
+/** Legend order: most to least supported. */
+export const LEVELS: readonly Support["level"][] = [
+  "supported",
+  "partial",
+  "planned",
+  "unsupported",
+];
 
 /** Group capabilities by their `group` field, preserving first-seen order. */
 export const groupBy = (caps: readonly Capability[]) => {
   const groups = new Map<string, Capability[]>();
+
   for (const cap of caps) {
     const bucket = groups.get(cap.group) ?? [];
     bucket.push(cap);
     groups.set(cap.group, bucket);
   }
+
   return [...groups.entries()];
 };
 

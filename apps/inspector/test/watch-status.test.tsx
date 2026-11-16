@@ -1,35 +1,36 @@
 /** The header's live toggle states: one fixed name, pressed when paused, and a
  *  live-region description that says when changes are held back. */
 import { expect, test } from "bun:test";
+
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import type { LiveMode } from "../src/components/watch-status";
 import { WatchStatusView } from "../src/components/watch-status";
 
 const render = (mode: LiveMode, syncing = false) =>
   renderToStaticMarkup(
     <TooltipProvider>
-      <WatchStatusView
-        mode={mode}
-        onToggle={() => undefined}
-        syncing={syncing}
-      />
+      <WatchStatusView mode={mode} onToggle={() => {}} syncing={syncing} />
     </TooltipProvider>
   );
 
 const HIDDEN_SYNCING_LABEL =
-  /aria-hidden="true"[^>]*><span[^>]*>syncing<\/span>/;
-const WAITING_LIVE_REGION =
-  /aria-live="polite"[^>]*role="status"[^>]*>paused · updates waiting</;
+  /aria-hidden="true"[^>]*><span[^>]*>syncing<\/span>/u;
 
-const DESCRIBED_BY = /aria-describedby="([^"]+)"/;
+const WAITING_LIVE_REGION =
+  /aria-live="polite"[^>]*role="status"[^>]*>paused · updates waiting</u;
+
+const DESCRIBED_BY = /aria-describedby="(?<id>[^"]+)"/u;
 
 /** Text of the element the toggle's `aria-describedby` points at. */
 const describedBy = (html: string) => {
-  const id = html.match(DESCRIBED_BY)?.[1];
+  const id = DESCRIBED_BY.exec(html)?.groups?.id;
+
   return id === undefined
     ? undefined
-    : html.match(new RegExp(`id="${id}"[^>]*>([^<]*)<`))?.[1];
+    : new RegExp(`id="${id}"[^>]*>(?<text>[^<]*)<`, "u").exec(html)?.groups
+        ?.text;
 };
 
 test("live: the toggle is not pressed and the label is hidden", () => {

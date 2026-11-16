@@ -28,10 +28,13 @@ import {
   MessagesSquareIcon,
   SettingsIcon,
 } from "lucide-react";
-import { type ComponentType, type ReactNode, useState } from "react";
+import { useState } from "react";
+import type { ComponentType, ReactNode } from "react";
+
 import { useDocumentTitle } from "../lib/document-title";
 import { MAIN_CONTENT_ID } from "../lib/landmarks";
-import { navigate, type RouteId, useRoute } from "../lib/routes";
+import { navigate, useRoute } from "../lib/routes";
+import type { RouteId } from "../lib/routes";
 import { ScrollRootContext } from "../lib/scroll-root";
 import { ThemeToggle, useThemeShortcut } from "../lib/theme";
 import { ReadOnlyBadge } from "./read-only";
@@ -50,44 +53,44 @@ interface NavItem {
 /** The sections, in display order. */
 const NAV_ITEMS: readonly NavItem[] = [
   {
+    hint: "Context debug",
+    icon: MessagesSquareIcon,
     id: "sessions",
     label: "Sessions",
-    icon: MessagesSquareIcon,
-    hint: "Context debug",
   },
   {
+    hint: "What fails, what costs time",
+    icon: ActivityIcon,
     id: "stats",
     label: "Stats",
-    icon: ActivityIcon,
-    hint: "What fails, what costs time",
   },
-  { id: "memory", label: "Memory", icon: DatabaseIcon, hint: "All projects" },
+  { hint: "All projects", icon: DatabaseIcon, id: "memory", label: "Memory" },
   {
+    hint: "Agent roots",
+    icon: SettingsIcon,
     id: "settings",
     label: "Settings",
-    icon: SettingsIcon,
-    hint: "Agent roots",
   },
 ];
 
 /** Pages reached by a link, not the rail; they still title the header. */
 const PAGE_ITEMS: readonly NavItem[] = [
   {
+    hint: "Support matrix",
+    icon: LayoutGridIcon,
     id: "capabilities",
     label: "Capabilities",
-    icon: LayoutGridIcon,
-    hint: "Support matrix",
   },
 ];
 
-const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(true|false)/;
+const SIDEBAR_COOKIE = /(?:^|;\s*)sidebar_state=(?<state>true|false)/u;
 
 /** Content header: section title, the sidebar toggle, the sync dot and the
  *  read-only badge. */
 const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
-  <header className="flex h-11 shrink-0 items-center gap-2 border-border border-b px-3">
+  <header className="border-border flex h-11 shrink-0 items-center gap-2 border-b px-3">
     <SidebarTrigger className="-ml-1" />
-    <span className="font-medium text-sm">{active?.label}</span>
+    <span className="text-sm font-medium">{active?.label}</span>
     <span className="text-muted-foreground text-xs">{active?.hint}</span>
     <WatchStatus />
     <ReadOnlyBadge />
@@ -96,12 +99,13 @@ const ShellHeader = ({ active }: { readonly active?: NavItem }) => (
 
 /** Persisted open/closed state, written by `SidebarProvider` as a cookie. */
 const readSidebarCookie = () =>
-  document.cookie.match(SIDEBAR_COOKIE)?.[1] !== "false";
+  SIDEBAR_COOKIE.exec(document.cookie)?.groups?.state !== "false";
 
 /** Footer row: theme toggle and the shortcuts sheet, left-aligned when
  *  expanded, stacked and centred on the icon rail. */
 const ShellFooter = ({ onHelp }: { readonly onHelp: () => void }) => {
   const collapsed = useSidebar().state === "collapsed";
+
   return (
     <div
       className={cn(
@@ -118,13 +122,16 @@ const ShellFooter = ({ onHelp }: { readonly onHelp: () => void }) => {
 /** The shell: collapsible sidebar + a scrollable content region. */
 export const AppShell = ({ children }: { readonly children: ReactNode }) => {
   const route = useRoute();
+
   const active = [...NAV_ITEMS, ...PAGE_ITEMS].find(
     (item) => item.id === route
   );
+
   const [scrollRoot, setScrollRoot] = useState<HTMLElement | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   useThemeShortcut();
   useDocumentTitle(active?.label ?? null);
+
   return (
     <SidebarProvider
       className="h-dvh min-h-0"
@@ -134,12 +141,12 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
       <Sidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex h-8 items-center gap-2 overflow-hidden group-data-[collapsible=icon]:justify-center">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/15 font-bold text-primary text-xs">
+            <div className="bg-primary/15 text-primary flex size-8 shrink-0 items-center justify-center rounded-md text-xs font-bold">
               P
             </div>
             <div className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate font-semibold text-sm">Peektrace</span>
-              <span className="truncate text-muted-foreground text-xs">
+              <span className="truncate text-sm font-semibold">Peektrace</span>
+              <span className="text-muted-foreground truncate text-xs">
                 Agent session inspector
               </span>
             </div>
@@ -155,11 +162,13 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
                       aria-label={item.label}
                       className="group-data-[collapsible=icon]:justify-center"
                       isActive={route === item.id}
-                      onClick={() => navigate(item.id)}
+                      onClick={() => {
+                        navigate(item.id);
+                      }}
                       tooltip={`${item.label} · ${item.hint}`}
                     >
                       <item.icon className="size-4 shrink-0" />
-                      <span className="truncate font-medium text-sm group-data-[collapsible=icon]:hidden">
+                      <span className="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">
                         {item.label}
                       </span>
                     </SidebarMenuButton>
@@ -170,14 +179,18 @@ export const AppShell = ({ children }: { readonly children: ReactNode }) => {
           </SidebarGroup>
         </SidebarContent>
         <SidebarFooter>
-          <ShellFooter onHelp={() => setHelpOpen(true)} />
+          <ShellFooter
+            onHelp={() => {
+              setHelpOpen(true);
+            }}
+          />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="min-w-0 overflow-hidden">
         <ShellHeader active={active} />
         <div
-          className="scrollbar-gutter-stable min-h-0 flex-1 overflow-y-auto outline-none"
+          className="min-h-0 flex-1 scrollbar-gutter-stable overflow-y-auto outline-none"
           id={MAIN_CONTENT_ID}
           ref={setScrollRoot}
           tabIndex={-1}

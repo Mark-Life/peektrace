@@ -21,44 +21,53 @@ import type { DateRange } from "react-day-picker";
  *  rail is the first thing the app paints. The popover only mounts its content
  *  when opened, so the chunk is fetched the first time someone filters by date;
  *  the type-only `DateRange` import above is erased and costs nothing. */
-const Calendar = lazy(() =>
-  import("@workspace/ui/components/calendar").then((m) => ({
-    default: m.Calendar,
-  }))
-);
+const Calendar = lazy(async () => {
+  const m = await import("@workspace/ui/components/calendar");
+
+  return { default: m.Calendar };
+});
 
 /** Reserves the calendar's footprint so the popover doesn't resize on load. */
 const CalendarFallback = () => (
-  <div aria-busy="true" className="size-64" role="status">
+  <output aria-busy="true" className="block size-64">
     <span className="sr-only">Loading calendar…</span>
-  </div>
+  </output>
 );
 
+const PAD_WIDTH = 2;
+
 /** Zero-padded to two digits. */
-const pad = (n: number): string => String(n).padStart(2, "0");
+const pad = (n: number): string => String(n).padStart(PAD_WIDTH, "0");
 
 /** Local-calendar `YYYY-MM-DD` of a `Date` — never UTC, so no midnight drift. */
 export const toDayKey = (d: Date): string =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
+/** A number that is present and neither `0` nor `NaN`. */
+const isSet = (n: number | undefined): n is number =>
+  n !== undefined && n !== 0 && !Number.isNaN(n);
+
 /** `YYYY-MM-DD` back to a local midnight `Date`, or `undefined` if unparseable. */
 export const fromDayKey = (key: string): Date | undefined => {
   const [y, m, d] = key.split("-").map(Number);
-  return y && m && d ? new Date(y, m - 1, d) : undefined;
+
+  return isSet(y) && isSet(m) && isSet(d) ? new Date(y, m - 1, d) : undefined;
 };
 
 /** `Jul 9` in the user's locale. */
 const fmtDay = (d: Date): string =>
-  d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 
 /** The trigger's label: the picked span, one day, or the unconstrained default. */
 const rangeLabel = (range: DateRange | undefined): string => {
   if (!range?.from) {
     return "Date: all";
   }
+
   if (!range.to || toDayKey(range.to) === toDayKey(range.from)) {
     return fmtDay(range.from);
   }
+
   return `${fmtDay(range.from)} – ${fmtDay(range.to)}`;
 };
 
@@ -73,8 +82,17 @@ export const DateRangeFilter = ({
   readonly range: DateRange | undefined;
   readonly onChange: (range: DateRange | undefined) => void;
 }) => {
-  const first = days[0] ? fromDayKey(days[0]) : undefined;
-  const last = days.at(-1) ? fromDayKey(days.at(-1) as string) : undefined;
+  const [firstKey] = days;
+  const lastKey = days.at(-1);
+
+  const first =
+    firstKey !== undefined && firstKey !== ""
+      ? fromDayKey(firstKey)
+      : undefined;
+
+  const last =
+    lastKey !== undefined && lastKey !== "" ? fromDayKey(lastKey) : undefined;
+
   const selected = Boolean(range?.from);
 
   return (
@@ -97,9 +115,11 @@ export const DateRangeFilter = ({
         {selected ? (
           <Button
             aria-label="Clear date filter"
-            className="absolute top-1/2 right-1 size-6 -translate-y-1/2 text-muted-foreground"
+            className="text-muted-foreground absolute top-1/2 right-1 size-6 -translate-y-1/2"
             data-testid="session-filter-date-clear"
-            onClick={() => onChange(undefined)}
+            onClick={() => {
+              onChange(undefined);
+            }}
             size="icon"
             variant="ghost"
           >
@@ -114,7 +134,7 @@ export const DateRangeFilter = ({
             defaultMonth={range?.from ?? last}
             disabled={
               first && last
-                ? { before: first, after: last }
+                ? { after: last, before: first }
                 : { before: new Date(0) }
             }
             endMonth={last}

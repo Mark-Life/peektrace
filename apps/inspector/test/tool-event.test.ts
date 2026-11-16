@@ -18,23 +18,28 @@
  * dedupes via `@vitejs/plugin-react`). Typecheck and the Vite build cover the JSX.
  */
 import { describe, expect, test } from "bun:test";
+
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
 import {
   bodyView,
   callView,
   indexTools,
   isToolEvent,
   resultPane,
-  type ToolPane,
   toolNameOf,
   toolState,
 } from "../src/lib/tool-event";
+import type { ToolPane } from "../src/lib/tool-event";
 import analyses from "./fixtures/tool-event/analyses.json";
 
-const fixture = analyses as unknown as Record<
+// SAFETY: the Rust server writes this JSON from `AnalyzedSession`, and
+// `inspector_fixture.rs` fails when it goes stale.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- JSON import is wider than the generated types
+const fixture = analyses as Record<
   "golden" | "goldenRaw" | "outcomes",
   AnalyzedSession
 >;
@@ -45,10 +50,74 @@ const golden = () => fixture.golden;
 /** A transcript built to hit the outcomes the golden fixture has no example of. */
 const outcomes = () => fixture.outcomes;
 
-const eventAt = (a: AnalyzedSession, useId: string, kind: string) =>
-  a.events.find(
-    (e) => e.toolUseId === useId && e.kind === kind
-  ) as TimelineEvent;
+const eventAt = (a: AnalyzedSession, useId: string, kind: string) => {
+  const found = a.events.find((e) => e.toolUseId === useId && e.kind === kind);
+
+  if (found === undefined) {
+    throw new Error(`no ${kind} event for ${useId}`);
+  }
+
+  return found;
+};
+
+const bashCall = () => eventAt(outcomes(), "call-ok", "tool-call");
+
+/** The first pane's code, for the panes a test expects to be a code pane. */
+const codeAt = (panes: readonly ToolPane[], i: number) => {
+  const pane = panes[i];
+
+  return pane?.type === "code" ? pane.code : "";
+};
+
+const editCall = () => eventAt(outcomes(), "call-edit", "tool-call");
+
+const callWith = (input: Record<string, string>): TimelineEvent => ({
+  body: JSON.stringify(input),
+  index: 0,
+  kind: "tool-call",
+  preview: "",
+  title: "tool_use",
+  tokensEst: 0,
+});
+
+/** Every string a pane puts on screen, whichever kind of pane it is. */
+const paneText = (p: ToolPane) => {
+  if (p.type === "code") {
+    return [p.code];
+  }
+
+  if (p.type === "prose") {
+    return [p.text];
+  }
+
+  return [p.oldCode, p.newCode, ...p.diff.rows.map((r) => r.text)];
+};
+
+const resultText = (e: TimelineEvent) => {
+  const pane = resultPane(e);
+
+  return pane.type === "code" ? pane.code : pane.text;
+};
+
+const attachment = (title: string): TimelineEvent => ({
+  body: "x",
+  index: 0,
+  kind: "attachment",
+  preview: "",
+  title,
+  tokensEst: 0,
+});
+
+/** Every string this module would put on screen for a session. */
+const rendered = (a: AnalyzedSession): string =>
+  a.events
+    .filter(isToolEvent)
+    .flatMap((e) =>
+      e.kind === "tool-call"
+        ? [callView(e).summary, ...callView(e).panes.flatMap(paneText)]
+        : [e.preview, resultText(e)]
+    )
+    .join("\n");
 
 describe("pairing calls with results", () => {
   test("a result borrows the tool name its own event never records", () => {
@@ -62,15 +131,17 @@ describe("pairing calls with results", () => {
   test("an unpaired event still names something renderable", () => {
     const a = outcomes();
     const tools = indexTools(a);
+
     const orphan: TimelineEvent = {
+      body: "",
       index: 0,
       kind: "tool-result",
-      title: "tool_result",
       preview: "",
-      body: "",
+      title: "tool_result",
       tokensEst: 0,
       toolUseId: "nothing-matches-this",
     };
+
     expect(toolNameOf(orphan, tools)).toBe("tool");
   });
 
@@ -95,14 +166,6 @@ describe("pairing calls with results", () => {
 });
 
 describe("shaping a call's arguments", () => {
-  const bashCall = () => eventAt(outcomes(), "call-ok", "tool-call");
-
-  /** The first pane's code, for the panes a test expects to be a code pane. */
-  const codeAt = (panes: readonly ToolPane[], i: number) => {
-    const pane = panes[i];
-    return pane?.type === "code" ? pane.code : "";
-  };
-
   test("unwraps the payload arg so its newlines survive", () => {
     const { panes } = callView(bashCall());
     expect(panes[0]).toEqual({
@@ -127,8 +190,6 @@ describe("shaping a call's arguments", () => {
     expect(callView(bashCall()).summary).toBe("bun test echo done");
   });
 
-  const editCall = () => eventAt(outcomes(), "call-edit", "tool-call");
-
   test("an edit becomes a diff, not two blocks to compare by eye", () => {
     const { panes } = callView(editCall());
     expect(panes.map((p) => p.label)).toEqual(["Edit", "Other parameters"]);
@@ -150,19 +211,11 @@ describe("shaping a call's arguments", () => {
     expect(edit?.type === "diff" && edit.language).toBe("typescript");
   });
 
-  const callWith = (input: Record<string, unknown>): TimelineEvent => ({
-    body: JSON.stringify(input),
-    index: 0,
-    kind: "tool-call",
-    preview: "",
-    title: "tool_use",
-    tokensEst: 0,
-  });
-
   test("a free-text arg, like a subagent prompt, renders as prose", () => {
     const { panes, summary } = callView(
       callWith({ description: "Survey", prompt: "# Task\n\n- read the code" })
     );
+
     expect(panes[0]).toEqual({
       label: "prompt",
       text: "# Task\n\n- read the code",
@@ -183,6 +236,7 @@ describe("shaping a call's arguments", () => {
     const { panes } = callView(
       callWith({ content: "# not a heading\nx = 1", file_path: "/a/b.py" })
     );
+
     expect(panes[0]).toMatchObject({ language: "text", type: "code" });
   });
 
@@ -199,6 +253,7 @@ describe("shaping a call's arguments", () => {
       const { panes } = callView(
         callWith({ content: "# x\ny", [key]: "a.py" })
       );
+
       expect(panes[0]?.type).toBe("code");
     }
   });
@@ -207,6 +262,7 @@ describe("shaping a call's arguments", () => {
     const { panes, summary } = callView(
       eventAt(outcomes(), "call-multi", "tool-call")
     );
+
     expect(panes.map((p) => p.label)).toEqual([
       "Edit 1",
       "Edit 2",
@@ -247,6 +303,7 @@ describe("shaping a result", () => {
       title: "tool_result",
       tokensEst: 0,
     };
+
     expect(resultPane(blocks)).toEqual({
       text: "## Report\n\nall good",
       type: "prose",
@@ -262,6 +319,7 @@ describe("shaping a result", () => {
       title: "tool_result",
       tokensEst: 0,
     };
+
     expect(resultPane(blocks)).toEqual({
       code: '{\n  "items": [\n    1,\n    2\n  ]\n}',
       language: "json",
@@ -280,53 +338,29 @@ describe("shaping a result", () => {
       title: "web_search result",
       tokensEst: 0,
     };
+
     expect(resultPane(hits)).toEqual({ text: hits.body, type: "prose" });
     // OpenCode stamps every event with its turn's requestId.
-    const shell = { ...hits, serverTool: undefined, body: "a.md\nb.md" };
+    const shell = { ...hits, body: "a.md\nb.md", serverTool: undefined };
     expect(resultPane(shell).type).toBe("code");
   });
 
   test("an empty body says so instead of rendering nothing", () => {
     const empty: TimelineEvent = {
+      body: "",
       index: 0,
       kind: "tool-result",
-      title: "tool_result",
       preview: "",
-      body: "",
+      title: "tool_result",
       tokensEst: 0,
     };
+
     expect(resultPane(empty)).toMatchObject({ code: "(no content)" });
   });
 });
 
 describe("redaction reaches every pane", () => {
   const SECRET = "sk-ant-api03-AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJ1234";
-
-  /** Every string a pane puts on screen, whichever kind of pane it is. */
-  const paneText = (p: ToolPane) => {
-    if (p.type === "code") {
-      return [p.code];
-    }
-    if (p.type === "prose") {
-      return [p.text];
-    }
-    return [p.oldCode, p.newCode, ...p.diff.rows.map((r) => r.text)];
-  };
-  const resultText = (e: TimelineEvent) => {
-    const pane = resultPane(e);
-    return pane.type === "code" ? pane.code : pane.text;
-  };
-
-  /** Every string this module would put on screen for a session. */
-  const rendered = (a: AnalyzedSession): string =>
-    a.events
-      .filter(isToolEvent)
-      .flatMap((e) =>
-        e.kind === "tool-call"
-          ? [callView(e).summary, ...callView(e).panes.flatMap(paneText)]
-          : [e.preview, resultText(e)]
-      )
-      .join("\n");
 
   test("nothing rendered from a redacted session contains the secret", () => {
     expect(rendered(golden())).not.toContain(SECRET);
@@ -338,15 +372,6 @@ describe("redaction reaches every pane", () => {
 });
 
 describe("choosing how an event body renders", () => {
-  const attachment = (title: string): TimelineEvent => ({
-    body: "x",
-    index: 0,
-    kind: "attachment",
-    preview: "",
-    title,
-    tokensEst: 0,
-  });
-
   test("injected instructions render as Markdown", () => {
     expect(bodyView(attachment("skills_instructions"))).toEqual({
       type: "prose",

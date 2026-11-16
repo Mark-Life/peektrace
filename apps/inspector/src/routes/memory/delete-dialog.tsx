@@ -18,6 +18,7 @@ import type { MemoryEntry } from "@workspace/view-core/api-types.gen";
 import { Exit } from "effect";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { deleteMemoryAtom } from "../../lib/memory-atoms";
 import { wireErrorMessage, wireErrorOf } from "../../lib/wire-error";
 
@@ -40,10 +41,12 @@ export const DeleteDialog = ({
 
   const confirm = async () => {
     setBusy(true);
-    const exit = await del({ payload: { project, name: entry.slug } });
+    const exit = await del({ payload: { name: entry.slug, project } });
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
-      const dangling = exit.value.dangling;
+      const { dangling } = exit.value;
+
       if (dangling.length > 0) {
         toast.warning(
           `Deleted ${entry.slug} — ${dangling.length} reference${
@@ -58,10 +61,13 @@ export const DeleteDialog = ({
       } else {
         toast.success(`Deleted ${entry.slug}`);
       }
+
       onDone();
       onOpenChange(false);
+
       return;
     }
+
     const err = wireErrorOf(exit);
     toast.error(err ? wireErrorMessage(err) : "Delete failed.");
   };
@@ -82,7 +88,9 @@ export const DeleteDialog = ({
           <Button
             data-testid="delete-confirm"
             disabled={busy}
-            onClick={confirm}
+            onClick={() => {
+              void confirm();
+            }}
             variant="destructive"
           >
             {busy ? "Deleting…" : "Delete"}

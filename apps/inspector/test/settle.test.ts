@@ -1,7 +1,10 @@
 /** Settled versions: reloads wait for quiet, never starve under continuous
  *  writes, and hold while live updates are paused. */
 import { expect, test } from "bun:test";
+import { setTimeout as wait } from "node:timers/promises";
+
 import { Atom, Registry } from "@effect-atom/atom-react";
+
 import { settleDelay, settledAtom } from "../src/lib/settle";
 
 const timing = { maxWait: 60, wait: 20 };
@@ -17,10 +20,12 @@ test("settleDelay waits for quiet after the last bump", () => {
 
 test("settleDelay is capped by maxWait under continuous bumps", () => {
   const t = { maxWait: 4000, wait: 1500 };
+
   // A bump every second: the trailing deadline keeps moving, maxWait does not.
   const delays = [1000, 2000, 3000].map((now) =>
     settleDelay({ firstPendingAt: 0, lastBumpAt: now, now }, t)
   );
+
   expect(delays).toEqual([1500, 1500, 1000]);
   expect(
     settleDelay({ firstPendingAt: 0, lastBumpAt: 5000, now: 5000 }, t)
@@ -33,11 +38,16 @@ const setup = () => {
   const settled = settledAtom({ paused, source, timing });
   const registry = Registry.make();
   const seen: number[] = [];
-  registry.subscribe(settled, (v) => seen.push(v), { immediate: true });
+  registry.subscribe(
+    settled,
+    (v) => {
+      seen.push(v);
+    },
+    { immediate: true }
+  );
+
   return { paused, registry, seen, source };
 };
-
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 test("a burst of bumps emits once, with the latest value", async () => {
   const { registry, seen, source } = setup();
@@ -51,10 +61,13 @@ test("a burst of bumps emits once, with the latest value", async () => {
 
 test("continuous bumps still emit by maxWait", async () => {
   const { registry, seen, source } = setup();
-  for (let v = 1; v <= 10; v++) {
+
+  for (let v = 1; v <= 10; v += 1) {
     registry.set(source, v);
+    // oxlint-disable-next-line eslint/no-await-in-loop -- bumps must arrive one interval apart
     await wait(10);
   }
+
   // 100 ms of bumps every 10 ms: a trailing-only debounce would not have fired.
   expect(seen.length).toBeGreaterThan(1);
   expect(seen[1]).toBeLessThan(10);

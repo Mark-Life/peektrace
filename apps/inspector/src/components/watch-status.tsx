@@ -20,6 +20,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import { PauseIcon, PlayIcon } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+
 import {
   livePausedAtom,
   liveWaitingAtom,
@@ -42,6 +43,7 @@ const liveMode = (paused: boolean, waiting: boolean) => {
   if (!paused) {
     return "live";
   }
+
   return waiting ? "waiting" : "paused";
 };
 
@@ -63,9 +65,10 @@ export const WatchStatusView = ({
   const paused = mode !== "live";
   const labelId = useId();
   const Icon = paused ? PlayIcon : PauseIcon;
+
   return (
     <div
-      className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs"
+      className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 text-xs"
       data-live={mode}
       data-syncing={syncing ? "true" : "false"}
       data-testid="watch-status"
@@ -78,7 +81,7 @@ export const WatchStatusView = ({
           aria-hidden="true"
           className={cn(
             "size-1.5 rounded-full transition-colors duration-500",
-            paused && "border border-muted-foreground",
+            paused && "border-muted-foreground border",
             !paused && syncing ? "bg-primary" : "bg-transparent"
           )}
         />
@@ -125,20 +128,35 @@ export const WatchStatus = () => {
   const [paused, setPaused] = useAtom(livePausedAtom);
   const waiting = useAtomValue(liveWaitingAtom);
   const [syncing, setSyncing] = useState(false);
+  const [seen, setSeen] = useState(0);
+
+  if (bumps !== seen) {
+    setSeen(bumps);
+
+    if (bumps !== 0) {
+      setSyncing(true);
+    }
+  }
 
   useEffect(() => {
-    if (bumps === 0) {
-      return;
-    }
-    setSyncing(true);
-    const id = setTimeout(() => setSyncing(false), FLASH_MS);
-    return () => clearTimeout(id);
+    const id =
+      bumps === 0
+        ? undefined
+        : setTimeout(() => {
+            setSyncing(false);
+          }, FLASH_MS);
+
+    return () => {
+      clearTimeout(id);
+    };
   }, [bumps]);
 
   return (
     <WatchStatusView
       mode={liveMode(paused, waiting)}
-      onToggle={() => setPaused((p) => !p)}
+      onToggle={() => {
+        setPaused((p) => !p);
+      }}
       syncing={syncing}
     />
   );

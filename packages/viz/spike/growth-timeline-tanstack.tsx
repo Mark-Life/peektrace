@@ -44,6 +44,7 @@ import type {
   BudgetKey,
 } from "@workspace/view-core/api-types.gen";
 import { useId, useMemo } from "react";
+
 import {
   CAT_META,
   fmtK,
@@ -53,21 +54,29 @@ import {
 
 /** Slices core infers rather than measures; drawn with a hatch overlay. */
 const HATCHED = new Set<BudgetKey>(["system_tools", "unattributed"]);
+
 /** Ghost ceiling line drawn for 200K-window models when the window is larger. */
 const CEIL_200K = 200_000;
+
 /** Rendered chart height in CSS px, and the SSR/pre-measure width. */
 const HEIGHT = 440;
 const INITIAL_WIDTH = 1000;
+
 /** Fill opacity for the stacked areas, matching the original. */
 const AREA_OPACITY = 0.82;
+
 /** Per-turn dot sizing: radius caps at `maxR`, growing with output tokens. */
-const DOT = { maxR: 4, baseR: 1, tokensPerPx: 6000 } as const;
+const DOT = { baseR: 1, maxR: 4, tokensPerPx: 6000 } as const;
+
 /** Peak marker radius, in px. */
 const PEAK_R = 5;
+
 /** Label offsets in px, applied to `text` marks after scaling. */
-const OFF = { label: -8, crossLabel: 14, peakLabel: -12 } as const;
+const OFF = { crossLabel: 14, label: -8, peakLabel: -12 } as const;
+
 /** Font sizes matching the original's 10/11px axis and annotation text. */
 const FONT = { annotation: 11, small: 10 } as const;
+
 /** Y-axis gridlines, evenly spaced as fractions of the context window. */
 const GRID_INTERVALS = 4;
 
@@ -106,6 +115,7 @@ export const GrowthTimelineTanstack = ({
   // The chart scopes its own resource IDs; this app-owned pattern must do the
   // same or two timelines on one page would collide.
   const hatchId = useId();
+
   const definition = useMemo(() => {
     const snaps = a.snapshots;
     const n = snaps.length;
@@ -116,127 +126,133 @@ export const GrowthTimelineTanstack = ({
 
     const slices: SliceRow[] = snaps.flatMap((s, i) =>
       STACK_ORDER.map((key) => ({
-        turn: i + 1,
         key,
         tokens: s.slices[key] ?? 0,
+        turn: i + 1,
       }))
     );
+
     const totals: TotalRow[] = snaps.map((s, i) => ({
-      turn: i + 1,
       ctx: s.ctx,
       outputTokens: s.outputTokens,
+      turn: i + 1,
     }));
+
     const hatched = slices.filter((r) => HATCHED.has(r.key));
 
     const dumbZoneLabel: Label[] = [
       {
+        label: `DUMB ZONE · ${Math.round(a.dumbZoneFraction * PERCENT)}% = ${fmtK(dz)}`,
         x: lastTurn,
         y: dz,
-        label: `DUMB ZONE · ${Math.round(a.dumbZoneFraction * PERCENT)}% = ${fmtK(dz)}`,
       },
     ];
+
     const ceilingLabel: Label[] =
       win > CEIL_200K
-        ? [{ x: 1, y: CEIL_200K, label: "200K-model ceiling" }]
+        ? [{ label: "200K-model ceiling", x: 1, y: CEIL_200K }]
         : [];
+
     const peak: Label[] = [
       {
+        label: `peak ${fmtK(a.peakContextTokens)}`,
         x: a.peakTurnIndex + 1,
         y: a.peakContextTokens,
-        label: `peak ${fmtK(a.peakContextTokens)}`,
       },
     ];
+
     const cross: Label[] =
       a.dumbZoneCrossTurn >= 0
         ? [
             {
+              label: `entered @ turn ${a.dumbZoneCrossTurn + 1}`,
               x: a.dumbZoneCrossTurn + 1,
               y: snaps[a.dumbZoneCrossTurn]?.ctx ?? 0,
-              label: `entered @ turn ${a.dumbZoneCrossTurn + 1}`,
             },
           ]
         : [];
 
     return defineChart({
+      clip: true,
       marks: [
         // dumb-zone danger band
         rect([{ x1: 1, x2: lastTurn, y1: dz, y2: win }], {
+          fill: "rgb(248 81 73)",
+          fillOpacity: 0.1,
+          inset: 0,
           x1: "x1",
           x2: "x2",
           y1: "y1",
           y2: "y2",
-          fill: "rgb(248 81 73)",
-          fillOpacity: 0.1,
-          inset: 0,
         }),
         // stacked areas, floor → top by STACK_ORDER
         areaY(slices, {
-          x: "turn",
-          y: "tokens",
-          z: "key",
           fill: (r: SliceRow) => CAT_META[r.key].color,
           fillOpacity: AREA_OPACITY,
           layout: stack({ order: [...STACK_ORDER] }),
+          x: "turn",
+          y: "tokens",
+          z: "key",
         }),
         // hatch overlay for inferred slices, stacked identically so the
         // geometry lines up with the flat fills underneath
         areaY(hatched, {
-          x: "turn",
-          y: "tokens",
-          z: "key",
           fill: `url(#${hatchId})`,
           fillOpacity: 1,
           layout: stack({ order: [...STACK_ORDER] }),
+          x: "turn",
+          y: "tokens",
+          z: "key",
         }),
         // dumb-zone boundary
         ruleY([dz], {
           stroke: "rgb(248 81 73)",
-          strokeOpacity: 0.7,
           strokeDasharray: "4 3",
+          strokeOpacity: 0.7,
         }),
         text(dumbZoneLabel, {
-          x: "x",
-          y: "y",
-          text: "label",
           anchor: "end",
           dy: OFF.label,
           fill: "rgb(248 113 113)",
           fontSize: FONT.annotation,
+          text: "label",
+          x: "x",
+          y: "y",
         }),
         // 200K ghost ceiling
         ...(ceilingLabel.length > 0
           ? [
               ruleY([CEIL_200K], {
                 stroke: "currentColor",
-                strokeOpacity: 0.25,
                 strokeDasharray: "2 4",
+                strokeOpacity: 0.25,
               }),
               text(ceilingLabel, {
-                x: "x",
-                y: "y",
-                text: "label",
                 anchor: "start",
                 dy: OFF.label,
                 fillOpacity: 0.7,
                 fontSize: FONT.small,
+                text: "label",
+                x: "x",
+                y: "y",
               }),
             ]
           : []),
         // true-total silhouette
         lineY(totals, {
-          x: "turn",
-          y: "ctx",
           stroke: "currentColor",
           strokeOpacity: 0.85,
           strokeWidth: 1.5,
+          x: "turn",
+          y: "ctx",
         }),
         // compaction cliffs
         ruleX(
           a.compactionTurns.map((t) => t + 1),
           {
             stroke: "rgb(210 153 34)",
-            strokeOpacity: 0.9,
             strokeDasharray: "3 2",
+            strokeOpacity: 0.9,
           }
         ),
         // dumb-zone first crossing
@@ -246,48 +262,47 @@ export const GrowthTimelineTanstack = ({
                 stroke: "rgb(248 81 73)",
                 strokeOpacity: 0.9,
               }),
-              dot(cross, { x: "x", y: "y", r: 4, fill: "#f85149" }),
+              dot(cross, { fill: "#f85149", r: 4, x: "x", y: "y" }),
               text(cross, {
-                x: "x",
-                y: "y",
-                text: "label",
                 anchor: "start",
                 dy: OFF.crossLabel,
                 fill: "rgb(248 113 113)",
                 fontSize: FONT.small,
+                text: "label",
+                x: "x",
+                y: "y",
               }),
             ]
           : []),
         // peak marker
-        dot(peak, { x: "x", y: "y", r: PEAK_R, fill: "currentColor" }),
+        dot(peak, { fill: "currentColor", r: PEAK_R, x: "x", y: "y" }),
         text(peak, {
-          x: "x",
-          y: "y",
-          text: "label",
           dy: OFF.peakLabel,
           fill: "currentColor",
           fontSize: FONT.annotation,
+          text: "label",
+          x: "x",
+          y: "y",
         }),
         // per-turn dots, radius growing with output tokens
         dot(totals, {
-          x: "turn",
-          y: "ctx",
-          r: (t: TotalRow) =>
-            Math.min(DOT.maxR, DOT.baseR + t.outputTokens / DOT.tokensPerPx),
           fill: "currentColor",
           fillOpacity: 0.9,
+          r: (t: TotalRow) =>
+            Math.min(DOT.maxR, DOT.baseR + t.outputTokens / DOT.tokensPerPx),
+          x: "turn",
+          y: "ctx",
         }),
       ],
       x: {
-        scale: scaleLinear().domain([1, lastTurn]),
         axis: { ticks: { format: (v: number) => String(Math.round(v)) } },
+        scale: scaleLinear().domain([1, lastTurn]),
       },
       y: {
-        scale: scaleLinear().domain([0, win]),
-        grid: true,
         axis: { ticks: { count: GRID_INTERVALS, format: fmtK } },
+        grid: true,
+        scale: scaleLinear().domain([0, win]),
       },
-      clip: true,
     });
   }, [a, hatchId]);
 
@@ -301,11 +316,11 @@ export const GrowthTimelineTanstack = ({
 
   return (
     <section
-      className="flex flex-col gap-2 rounded-lg border border-border p-4"
+      className="border-border flex flex-col gap-2 rounded-lg border p-4"
       data-testid="growth-timeline-tanstack"
     >
       <div>
-        <h2 className="font-semibold text-base">Context growth timeline</h2>
+        <h2 className="text-base font-semibold">Context growth timeline</h2>
       </div>
 
       {/* TanStack Charts has no pattern resource; the hatch fill referenced by

@@ -3,15 +3,16 @@
  * No Bun or Node APIs.
  */
 
-const HEADING = /^## (\S+)(?:\s+[—–-]\s+(\d{4}-\d{2}-\d{2}))?/;
-const NEWLINE = /\r?\n/;
-const LEADING_DOT_SLASH = /^\.?\//;
-const STARTS_WITH_DIGIT = /^\d/;
+const HEADING = /^## (?<tag>\S+)(?:\s+[—–-]\s+(?<date>\d{4}-\d{2}-\d{2}))?/u;
+const NEWLINE = /\r?\n/u;
+const LEADING_DOT_SLASH = /^\.?\//u;
+const STARTS_WITH_DIGIT = /^\d/u;
 const HEADING_PREFIX = "## ";
-const FENCE = /^\s*(`{3,}|~{3,})/;
-const INLINE_CODE = /`[^`]*`/g;
+const FENCE = /^\s*(?<marker>`{3,}|~{3,})/u;
+const INLINE_CODE = /`[^`]*`/gu;
+
 const RELATIVE_LINK =
-  /(!?)\[([^\]]*)\]\((?!https?:|#|mailto:|\/\/)([^)\s]+)\)/g;
+  /(?<bang>!?)\[(?<text>[^\]]*)\]\((?!https?:|#|mailto:|\/\/)(?<path>[^)\s]+)\)/gu;
 
 interface Heading {
   readonly date: string | undefined;
@@ -26,15 +27,20 @@ interface Fence {
 
 /** Next fence state after `text`: opens on a marker, closes on a matching one. */
 const nextFence = (text: string, fence: Fence | undefined) => {
-  const marker = FENCE.exec(text)?.[1];
-  if (!marker) {
+  const marker = FENCE.exec(text)?.groups?.marker;
+
+  if (marker === undefined || marker === "") {
     return fence;
   }
+
   const next = { char: marker[0] ?? "", size: marker.length };
+
   if (!fence) {
     return next;
   }
+
   const closes = next.char === fence.char && next.size >= fence.size;
+
   return closes ? undefined : fence;
 };
 
@@ -42,22 +48,27 @@ const nextFence = (text: string, fence: Fence | undefined) => {
 const headings = (lines: readonly string[]): readonly Heading[] => {
   const found: Heading[] = [];
   let fence: Fence | undefined;
-  lines.forEach((text, line) => {
+
+  for (const [line, text] of lines.entries()) {
     const wasFenced = fence !== undefined;
     fence = nextFence(text, fence);
+
     if (wasFenced || fence !== undefined) {
-      return;
+      continue;
     }
+
     if (!text.startsWith(HEADING_PREFIX)) {
-      return;
+      continue;
     }
+
     const match = HEADING.exec(text);
     found.push({
+      date: match?.groups?.date,
       line,
-      tag: match?.[1] ?? text.slice(HEADING_PREFIX.length).trim(),
-      date: match?.[2],
+      tag: match?.groups?.tag ?? text.slice(HEADING_PREFIX.length).trim(),
     });
-  });
+  }
+
   return found;
 };
 
@@ -70,7 +81,8 @@ const absolutizeLine = (line: string, { repoUrl, tag }: ChangelogLinks) => {
   const spans = [...line.matchAll(INLINE_CODE)].map(
     (match) => [match.index, match.index + match[0].length] as const
   );
-  return line.replace(
+
+  return line.replaceAll(
     RELATIVE_LINK,
     (whole, bang: string, text: string, path: string, offset: number) =>
       spans.some(([from, to]) => offset >= from && offset < to)
@@ -82,11 +94,13 @@ const absolutizeLine = (line: string, { repoUrl, tag }: ChangelogLinks) => {
 /** Rewrites relative links outside code fences and inline code spans. */
 const absolutizeLinks = (body: string, links: ChangelogLinks) => {
   let fence: Fence | undefined;
+
   return body
     .split(NEWLINE)
     .map((line) => {
       const wasFenced = fence !== undefined;
       fence = nextFence(line, fence);
+
       return wasFenced || fence !== undefined
         ? line
         : absolutizeLine(line, links);
@@ -107,25 +121,33 @@ export const changelogSection = (
   const all = headings(lines);
   const index = all.findIndex((heading) => heading.tag === tag);
   const start = all[index];
+
   if (!start) {
-    return;
+    return start;
   }
+
   const end = all[index + 1]?.line ?? lines.length;
+
   const body = lines
     .slice(start.line + 1, end)
     .join("\n")
     .trim();
+
   return links ? absolutizeLinks(body, { ...links, tag }) : body;
 };
 
 /** First released heading (`## cli-vX.Y.Z — date`); skips `Unreleased`. */
 export const latestRelease = (markdown: string, prefix = "cli-v") => {
-  for (const { tag, date } of headings(markdown.split(NEWLINE))) {
-    if (
-      tag.startsWith(prefix) &&
-      STARTS_WITH_DIGIT.test(tag.slice(prefix.length))
-    ) {
-      return { tag, version: tag.slice(prefix.length), date };
+  const found = headings(markdown.split(NEWLINE)).find(
+    ({ tag }) =>
+      tag.startsWith(prefix) && STARTS_WITH_DIGIT.test(tag.slice(prefix.length))
+  );
+
+  return (
+    found && {
+      date: found.date,
+      tag: found.tag,
+      version: found.tag.slice(prefix.length),
     }
-  }
+  );
 };

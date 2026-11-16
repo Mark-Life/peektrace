@@ -11,6 +11,7 @@ import {
 import { Skeleton } from "@workspace/ui/components/skeleton";
 import type { ServerInfo } from "@workspace/view-core/api-types.gen";
 import { MessagesSquareIcon } from "lucide-react";
+
 import { RootRow } from "../../components/root-row";
 import { AGENT_LABEL } from "../../lib/agent-label";
 import { RetryButton } from "../../lib/result-view";
@@ -71,7 +72,7 @@ export const NoSessions = ({
         />
       ) : null}
       <a
-        className="text-sm underline underline-offset-3 hover:text-foreground"
+        className="hover:text-foreground text-sm underline underline-offset-3"
         data-testid="sessions-settings-link"
         href="#/settings"
       >
@@ -83,5 +84,6 @@ export const NoSessions = ({
 
 export const NoSessionsFromServer = () => {
   const { info, refresh } = useLiveServerInfo();
+
   return <NoSessions info={withLastSuccess(info)} onRetry={refresh} />;
 };

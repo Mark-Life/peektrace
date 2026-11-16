@@ -1,29 +1,29 @@
 /** Settings: default scanned folder per agent and the read-only form. */
 import { describe, expect, test } from "bun:test";
+
 import type { ServerInfo } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { SettingsEditor } from "../src/routes/settings-route";
 
 const HOME = "/home/dev";
 
 const info = (readOnly: boolean): ServerInfo => ({
-  readOnly,
-  userHome: HOME,
   agents: [
     {
       agent: "claude",
       roots: [
         {
-          isDefault: true,
-          home: `${HOME}/.claude`,
-          path: `${HOME}/.claude/projects`,
           exists: true,
+          home: `${HOME}/.claude`,
+          isDefault: true,
+          path: `${HOME}/.claude/projects`,
         },
         {
-          isDefault: false,
-          home: `${HOME}/work/.claude`,
-          path: `${HOME}/work/.claude/projects`,
           exists: true,
+          home: `${HOME}/work/.claude`,
+          isDefault: false,
+          path: `${HOME}/work/.claude/projects`,
         },
       ],
     },
@@ -31,14 +31,16 @@ const info = (readOnly: boolean): ServerInfo => ({
       agent: "codex",
       roots: [
         {
-          isDefault: true,
-          home: `${HOME}/.codex`,
-          path: `${HOME}/.codex/sessions`,
           exists: false,
+          home: `${HOME}/.codex`,
+          isDefault: true,
+          path: `${HOME}/.codex/sessions`,
         },
       ],
     },
   ],
+  readOnly,
+  userHome: HOME,
 });
 
 const render = (readOnly: boolean) =>
@@ -52,20 +54,20 @@ const render = (readOnly: boolean) =>
   );
 
 const FIELDSET_DISABLED =
-  /<fieldset aria-describedby="settings-readonly"[^>]*disabled=""/;
+  /<fieldset aria-describedby="settings-readonly"[^>]*disabled=""/u;
 
 describe("SettingsEditor", () => {
   test("shows each default as a config dir, like the extra rows take", () => {
     const html = render(false);
     expect(html).toContain("~/.peektrace/settings.json");
     expect(html).toContain(
-      '<code class="min-w-0 break-all text-muted-foreground">~/.claude</code>'
+      '<code class="text-muted-foreground min-w-0 break-all">~/.claude</code>'
     );
     expect(html).toContain("scans <code>~/.claude/projects</code>");
     expect(html).toContain("scans <code>~/.codex/sessions</code>");
     expect(html).not.toContain("~/work/.claude/projects");
-    expect(html.match(/data-testid="settings-default-root"/g)).toHaveLength(2);
-    expect(html.match(/data-testid="root-missing"/g)).toHaveLength(1);
+    expect(html.match(/data-testid="settings-default-root"/gu)).toHaveLength(2);
+    expect(html.match(/data-testid="root-missing"/gu)).toHaveLength(1);
     expect(html).not.toContain(`${HOME}/`);
   });
 

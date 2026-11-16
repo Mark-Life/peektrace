@@ -10,6 +10,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { costSummary } from "@workspace/view-core/cost";
 import type { ReactNode } from "react";
+
 import {
   fmt,
   fmtK,
@@ -31,16 +32,18 @@ export type SessionOverview = Omit<
 const ID_PREFIX = 8;
 
 /** Display label per transcript provider. */
-const PROVIDER_LABEL: Record<string, string> = {
-  "claude-code": "Claude Code",
-  codex: "Codex",
-  pi: "Pi",
-  opencode: "OpenCode",
-};
+const PROVIDER_LABEL: ReadonlyMap<string, string> = new Map([
+  ["claude-code", "Claude Code"],
+  ["codex", "Codex"],
+  ["opencode", "OpenCode"],
+  ["pi", "Pi"],
+]);
 
 /** The session's display name: its title, else the harness that produced it. */
 export const analyzedTitle = (a: Pick<AnalyzedSession, "provider" | "title">) =>
-  a.title || `${PROVIDER_LABEL[a.provider] ?? a.provider} session`;
+  a.title !== undefined && a.title !== ""
+    ? a.title
+    : `${PROVIDER_LABEL.get(a.provider) ?? a.provider} session`;
 
 /** A single metadata cell. */
 const Meta = ({
@@ -50,11 +53,11 @@ const Meta = ({
   readonly k: string;
   readonly children: ReactNode;
 }) => (
-  <div className="min-w-0 rounded-md border border-border bg-card px-3 py-2">
-    <div className="truncate text-muted-foreground text-xs uppercase tracking-wide">
+  <div className="border-border bg-card min-w-0 rounded-md border px-3 py-2">
+    <div className="text-muted-foreground truncate text-xs tracking-wide uppercase">
       {k}
     </div>
-    <div className="wrap-anywhere mt-0.5 text-sm">{children}</div>
+    <div className="mt-0.5 text-sm wrap-anywhere">{children}</div>
   </div>
 );
 
@@ -71,8 +74,9 @@ const CostValue = ({
 }) => {
   const { total, notes } = costSummary(
     cost,
-    PROVIDER_LABEL[provider] ?? provider
+    PROVIDER_LABEL.get(provider) ?? provider
   );
+
   return (
     <span
       data-testid="session-cost"
@@ -109,14 +113,16 @@ const JumpChip = ({
     <Badge
       asChild
       className={cn(
-        "min-h-6 cursor-pointer hover:bg-muted focus-visible:outline-none",
+        "hover:bg-muted min-h-6 cursor-pointer focus-visible:outline-none",
         className
       )}
       variant="outline"
     >
       <button
         data-testid={testId}
-        onClick={() => onJump(jump)}
+        onClick={() => {
+          onJump(jump);
+        }}
         title={hint}
         type="button"
       >
@@ -133,21 +139,22 @@ const JumpChip = ({
 /** The peak gauge track: fill width = peak fraction, dumb-zone tick overlaid. */
 const PeakGauge = ({ a }: { readonly a: SessionOverview }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
-  const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
+  const zone = zoneOf({ dumbZone: a.dumbZoneFraction, frac });
+
   return (
     <div className="flex flex-col gap-1" data-testid="peak-gauge">
-      <div className="relative h-4 overflow-hidden rounded-full bg-muted">
+      <div className="bg-muted relative h-4 overflow-hidden rounded-full">
         <div
           className={cn("h-full", ZONE_CLASSES[zone].fill)}
           style={{ width: `${Math.min(PERCENT, frac * PERCENT).toFixed(1)}%` }}
         />
         <div
-          className="absolute top-0 h-full w-0.5 bg-foreground/70"
+          className="bg-foreground/70 absolute top-0 h-full w-0.5"
           style={{ left: `${(a.dumbZoneFraction * PERCENT).toFixed(0)}%` }}
           title={`dumb zone ${Math.round(a.dumbZoneFraction * PERCENT)}%`}
         />
       </div>
-      <div className="flex justify-between text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex justify-between text-xs">
         <span data-testid="peak-tokens">peak {fmt(a.peakContextTokens)}</span>
         <span>
           {fmtPct(frac)} of {fmt(a.contextWindow)}
@@ -168,20 +175,22 @@ export const VerdictHeader = ({
   readonly onJump?: (j: SessionJump) => void;
 }) => {
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
-  const zone = zoneOf({ frac, dumbZone: a.dumbZoneFraction });
+  const zone = zoneOf({ dumbZone: a.dumbZoneFraction, frac });
+
   const cacheFrac = a.peakContextTokens
     ? a.peakCacheReadTokens / a.peakContextTokens
     : 0;
+
   return (
     <section
-      className="@container flex flex-col gap-4 rounded-lg border border-border p-3 md:p-4"
+      className="border-border @container flex flex-col gap-4 rounded-lg border p-3 md:p-4"
       data-testid="verdict-header"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <div className="font-semibold text-lg">{analyzedTitle(a)}</div>
+          <div className="text-lg font-semibold">{analyzedTitle(a)}</div>
           <div
-            className="truncate font-mono text-muted-foreground text-xs"
+            className="text-muted-foreground truncate font-mono text-xs"
             title={a.cwd ?? undefined}
           >
             {a.sessionId.slice(0, ID_PREFIX)} · {a.models.join(", ")} ·{" "}
@@ -190,7 +199,7 @@ export const VerdictHeader = ({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Badge data-testid="session-provider" variant="outline">
-            {PROVIDER_LABEL[a.provider] ?? a.provider}
+            {PROVIDER_LABEL.get(a.provider) ?? a.provider}
           </Badge>
           <Badge
             className={cn("text-sm", ZONE_CLASSES[zone].text)}
@@ -204,7 +213,7 @@ export const VerdictHeader = ({
 
       <PeakGauge a={a} />
 
-      <div className="grid @4xl:grid-cols-6 @lg:grid-cols-3 grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 @lg:grid-cols-3 @4xl:grid-cols-6">
         <Meta k="Peak context">
           <span className={ZONE_CLASSES[zone].text}>
             {fmt(a.peakContextTokens)}
@@ -280,7 +289,9 @@ export const VerdictHeader = ({
             {a.webFetchRequests} web fetch(es)
           </Badge>
         ) : null}
-        {a.gitBranch ? <Badge variant="secondary">{a.gitBranch}</Badge> : null}
+        {a.gitBranch !== undefined && a.gitBranch !== "" ? (
+          <Badge variant="secondary">{a.gitBranch}</Badge>
+        ) : null}
       </div>
     </section>
   );

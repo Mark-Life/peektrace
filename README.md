@@ -320,8 +320,8 @@ and the Vite dev server side by side; see
 | `cargo fmt --all` | Rust format |
 | `bun run dev` | Vite dev server for the web UI |
 | `bun run build` | Build the web UI |
-| `bun run typecheck` | `tsrs --noEmit` per package |
-| `bun run check` | Lint and format check (Ultracite / Biome) |
+| `bun run typecheck` | `tsrs --noEmit --fast` per package, tests included |
+| `bun run check` | Type-aware lint and format check (Ultracite: oxlint + anti-slop, oxfmt) |
 | `bun run fix` | Auto-fix lint and formatting |
 | `bun test` | TS tests: web UI helpers and release scripts |
 
@@ -337,10 +337,10 @@ bunx shadcn@latest add button -c packages/ui
 ## Editor setup
 
 Open the repo in VS Code or Cursor and accept the recommended extensions
-(`.vscode/extensions.json`): Biome as the default formatter, Tailwind
-IntelliSense inside `cn` / `cva` / `tv`, the Bun debugger, and Pretty TypeScript
-Errors. Format-on-save, import organization and lint auto-fix run through Biome
-on every save; `.editorconfig` covers other editors.
+(`.vscode/extensions.json`): Oxc as the default formatter and linter, the
+TypeScript 7 native preview, Tailwind IntelliSense inside `cn` / `cva` / `tv`,
+the Bun debugger, and Pretty TypeScript Errors. Format-on-save and lint auto-fix
+run through Oxc on every save; `.editorconfig` covers other editors.
 
 ## Release
 

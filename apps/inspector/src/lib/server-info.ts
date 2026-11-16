@@ -4,6 +4,7 @@
 import { Result, useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
 import { Option } from "effect";
 import { useEffect, useRef } from "react";
+
 import { serverInfoAtom } from "./atoms";
 import { settledSessionsVersionAtom, useOnVersionBump } from "./watch-atoms";
 
@@ -19,6 +20,7 @@ export const useFreshServerInfo = () => {
       refresh();
     }
   }, [refresh]);
+
   return { info, refresh };
 };
 
@@ -27,6 +29,7 @@ export const useFreshServerInfo = () => {
 export const useLiveServerInfo = () => {
   const fresh = useFreshServerInfo();
   useOnVersionBump(useAtomValue(settledSessionsVersionAtom), fresh.refresh);
+
   return fresh;
 };
 

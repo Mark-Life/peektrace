@@ -2,7 +2,9 @@
  *  next tick, a refresh of the vaults refetches `/api/memory`, and a paused
  *  view holds the bump back until resumed. */
 import { afterEach, expect, test } from "bun:test";
+
 import { Registry } from "@effect-atom/atom-react";
+
 import { allVaultsAtom } from "../src/lib/atoms";
 import {
   livePausedAtom,
@@ -21,20 +23,28 @@ afterEach(() => {
 /** Count fetches of each path. */
 const countFetches = () => {
   const paths: string[] = [];
-  globalThis.fetch = ((input: string | URL | Request) => {
+
+  const mockFetch = async (input: string | URL | Request) => {
     const url = input instanceof Request ? input.url : String(input);
     paths.push(new URL(url, "http://localhost").pathname);
-    return Promise.resolve(
-      new Response(EMPTY_VAULTS, {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      })
-    );
-  }) as unknown as typeof fetch;
+    await Promise.resolve();
+
+    return new Response(EMPTY_VAULTS, {
+      headers: { "content-type": "application/json" },
+      status: 200,
+    });
+  };
+
+  globalThis.fetch = Object.assign(mockFetch, {
+    preconnect: realFetch.preconnect,
+  });
+
   return paths;
 };
 
-const tick = () => new Promise((r) => setTimeout(r, 20));
+const tick = async () => {
+  await Bun.sleep(20);
+};
 
 /** The registry wiring `useWatchRefresh` does: a settled bump past the
  *  mounted value refreshes the vaults. */
@@ -46,17 +56,20 @@ const watch = () => {
     settledMemoryVersionAtom,
     (v) => {
       settled.push(v);
+
       if (v > 0) {
         registry.refresh(allVaultsAtom);
       }
     },
     { immediate: true }
   );
+
   return { registry, settled };
 };
 
-const bump = (registry: Registry.Registry, memory: number) =>
+const bump = (registry: Registry.Registry, memory: number) => {
   registry.set(watchVersionsAtom, { memory, sessions: 0 });
+};
 
 test("a memory bump settles once and refetches the vaults", async () => {
   const paths = countFetches();

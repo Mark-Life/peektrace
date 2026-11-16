@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { join } from "node:path";
+import { readFileSync } from "node:fs";
+import nodePath from "node:path";
+
 import { npmReadme } from "./npm-readme";
 
-const RELATIVE_MD_LINK = /\]\((?!https?:|#)/;
+const RELATIVE_MD_LINK = /\]\((?!https?:|#)/u;
 const REF = "cli-v0.0.0-test";
 
 describe("npmReadme (synthetic input)", () => {
@@ -18,6 +20,7 @@ describe("npmReadme (synthetic input)", () => {
     "dev only",
     "",
   ].join("\n");
+
   const out = npmReadme(input, REF);
 
   test("cuts at Develop", () => {
@@ -40,10 +43,12 @@ describe("npmReadme (synthetic input)", () => {
   });
 });
 
-describe("npmReadme (root README)", async () => {
-  const root = await Bun.file(
-    join(import.meta.dirname, "../../README.md")
-  ).text();
+describe("npmReadme (root README)", () => {
+  const root = readFileSync(
+    nodePath.join(import.meta.dirname, "../../README.md"),
+    "utf-8"
+  );
+
   const out = npmReadme(root, REF);
 
   test("has no repo-relative links or images", () => {

@@ -6,6 +6,7 @@
  * still fires asks why instead of suggesting the same line again.
  */
 import { describe, expect, test } from "bun:test";
+
 import type {
   CauseRow,
   FailRow,
@@ -14,8 +15,10 @@ import type {
   StatsReport,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
+
 import type { FindingFormat } from "../src/lib/stats-findings";
 import { statsPrompt } from "../src/lib/stats-prompts";
+import { report as emptyReport } from "./stats-report-fixture";
 
 const FORMAT: FindingFormat = {
   count: (value) => value.toLocaleString("en-US"),
@@ -32,131 +35,132 @@ const PARENT = "92ea6c7d-b251-4d46-af59-c5772244e477";
 const PATH = `/home/me/.claude/projects/-home-me-work/${PARENT}/subagents/${SUB}.jsonl`;
 
 const sample = (over: Partial<SampleRef>): SampleRef => ({
-  sid: SUB,
   agent: "claude",
-  project: "-home-me-work",
   kind: "subagent",
+  line: 'grep -rn "x" --include=*.ts .',
   parent: PARENT,
+  project: "-home-me-work",
   seq: 18,
+  sid: SUB,
   toolUseId: "toolu_01",
   ts: "2026-10-15T07:46:55.123Z",
-  line: 'grep -rn "x" --include=*.ts .',
   ...over,
 });
 
 /** A line that ends at its colon: a header with nothing under it. */
-const DANGLING_HEADER = /: $/m;
+const DANGLING_HEADER = /: $/mu;
 
 const FIRING: RuleCheck = {
-  matches: [{ path: "~/.claude/CLAUDE.md", line: 101, excerpt: "Quote globs" }],
-  sinceIso: "2026-10-01T00:00:00.000Z",
-  hitsSince: { main: 3, nested: 40 },
-  callsSince: { main: 1000, nested: 2000 },
-  per1kSince: { main: 3, nested: 20 },
   advice: "if it keeps firing: setopt nonomatch in ~/.zshenv",
+  callsSince: { main: 1000, nested: 2000 },
+  hitsSince: { main: 3, nested: 40 },
+  matches: [{ excerpt: "Quote globs", line: 101, path: "~/.claude/CLAUDE.md" }],
+  per1kSince: { main: 3, nested: 20 },
+  sinceIso: "2026-10-01T00:00:00.000Z",
 };
 
 const causeRow = (over: Partial<CauseRow>): CauseRow => ({
-  key: "cause:zsh-glob-flag",
   cause: "zsh-glob-flag",
+  details: [{ hits: 1196, value: "*.ts" }],
+  diffs: [{ from: "--include=*.ts", pairs: 145, to: "--include='*.ts'" }],
+  failing: true,
+  fix: "quote the glob",
+  flagged: 35,
+  hits: 1492,
+  hitsBy: { main: 125, nested: 1367 },
+  key: "cause:zsh-glob-flag",
   kind: "rule",
   label: "unquoted glob in a flag value",
-  fix: "quote the glob",
-  failing: true,
-  hits: 1492,
-  flagged: 35,
-  hitsBy: { main: 125, nested: 1367 },
+  pairSamples: [],
   pairs: 678,
   pairsBy: { main: 41, nested: 637 },
-  retrySessions: 552,
-  sessions: 913,
-  projects: 4,
-  retrySec: 2698,
-  secMeasured: 678,
-  retryCtxTokens: 32_000,
-  tokensMeasured: 678,
   per1k: { main: 25, nested: 44 },
-  details: [{ value: "*.ts", hits: 1196 }],
-  diffs: [{ from: "--include=*.ts", to: "--include='*.ts'", pairs: 145 }],
+  projects: 4,
+  retryCtxTokens: 32_000,
+  retrySec: 2698,
+  retrySessions: 552,
   rule: null,
   samples: [],
-  pairSamples: [],
+  secMeasured: 678,
+  sessions: 913,
+  tokensMeasured: 678,
   ...over,
 });
 
 const failRow = (over: Partial<FailRow>): FailRow => ({
+  detector: "piped-exit-code",
+  flagged: 0,
   key: "scan:tsc",
   label: "error TS####",
-  where: "Bash exit 0",
-  rows: 206,
-  sessions: 137,
-  projects: 2,
-  flagged: 0,
   note: "186 of 206 pipe into head/tail/grep",
-  detector: "piped-exit-code",
+  projects: 2,
+  rows: 206,
   samples: [],
+  sessions: 137,
+  where: "Bash exit 0",
   ...over,
 });
 
 const timeRow = (over: Partial<TimeRow>): TimeRow => ({
-  key: "wait/poll",
-  label: "waiting",
-  runs: 643,
-  coPresentRuns: 0,
-  totalSec: 13_196,
-  share: 0.5,
-  medianSec: 4,
-  p95Sec: 87,
-  cappedRuns: 0,
-  cappedSec: 0,
   bgRuns: 0,
   bgSec: 0,
+  cappedRuns: 0,
+  cappedSec: 0,
+  coPresentRuns: 0,
+  key: "wait/poll",
+  label: "waiting",
+  medianSec: 4,
+  p95Sec: 87,
+  runs: 643,
   samples: [],
+  share: 0.5,
+  totalSec: 13_196,
   ...over,
 });
 
-const report = (over: Partial<StatsReport>): StatsReport =>
-  ({
-    window: {
-      days: 30,
-      fromIso: "2026-09-21T17:48:33.960Z",
-      toIso: "2026-10-21T17:48:33.960Z",
-    },
-    corpus: {
-      transcripts: 1821,
-      sessions: 1821,
-      projects: 132,
-      toolCalls: 38_749,
-      bashCalls: 35_625,
-      bashSec: 74_825,
-      toolSec: 81_062,
-      humanWaitSec: 0,
-      kinds: { main: 401, subagent: 163, "workflow-agent": 1257 },
-      agents: { claude: 1821 },
-    },
-    causes: [],
-    fails: [],
-    time: [],
-    waiting: {
-      calls: 643,
-      totalSec: 13_196,
-      share: 0.5,
-      sessions: 197,
-      projects: 35,
-      medianSec: 4,
-      p95Sec: 87,
-      byShape: [
-        { key: "loop-poll", calls: 207, totalSec: 8956, share: 0.1 },
-        { key: "watcher", calls: 0, totalSec: 0, share: 0 },
-      ],
-      bgRuns: 307,
-      bgSec: 2688,
-      bgDeclaredSec: 14_608,
-      samples: [],
-    },
-    paths: { [SUB]: PATH },
-    ...over,
-  }) as StatsReport;
+const report = (over: Partial<StatsReport>): StatsReport => ({
+  ...emptyReport({ fails: [], time: [] }),
+  causes: [],
+  corpus: {
+    agents: { claude: 1821 },
+    bashCalls: 35_625,
+    bashSec: 74_825,
+    humanWaitSec: 0,
+    kinds: { main: 401, subagent: 163, "workflow-agent": 1257 },
+    projects: 132,
+    sessions: 1821,
+    toolCalls: 38_749,
+    toolSec: 81_062,
+    transcripts: 1821,
+  },
+  fails: [],
+  paths: { [SUB]: PATH },
+  time: [],
+  waiting: {
+    bgDeclaredSec: 14_608,
+    bgRuns: 307,
+    bgSec: 2688,
+    // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- field name of the generated API type
+    byShape: [
+      { calls: 207, key: "loop-poll", share: 0.1, totalSec: 8956 },
+      { calls: 0, key: "watcher", share: 0, totalSec: 0 },
+    ],
+    calls: 643,
+    medianSec: 4,
+    p95Sec: 87,
+    projects: 35,
+    samples: [],
+    sessions: 197,
+    share: 0.5,
+    totalSec: 13_196,
+  },
+  window: {
+    days: 30,
+    fromIso: "2026-09-21T17:48:33.960Z",
+    toIso: "2026-10-21T17:48:33.960Z",
+  },
+  ...over,
+});
 
 const prompt = (
   r: StatsReport,
@@ -168,11 +172,11 @@ describe("the report prompt", () => {
     causes: [
       causeRow({ rule: FIRING }),
       causeRow({
-        key: "cause:output-too-large",
         cause: "output-too-large",
         failing: false,
+        key: "cause:output-too-large",
       }),
-      causeRow({ key: "cause:sleep-blocked", cause: "sleep-blocked", hits: 0 }),
+      causeRow({ cause: "sleep-blocked", hits: 0, key: "cause:sleep-blocked" }),
     ],
     fails: [
       failRow({}),
@@ -180,9 +184,10 @@ describe("the report prompt", () => {
     ],
     time: [
       timeRow({}),
-      timeRow({ key: "git", label: "git", totalSec: 9060, share: 0.12 }),
+      timeRow({ key: "git", label: "git", share: 0.12, totalSec: 9060 }),
     ],
   });
+
   const text = prompt(r, { table: "report" });
 
   test("leads with the goal and stays on one screen", () => {
@@ -224,11 +229,13 @@ describe("the report prompt", () => {
     expect(text).toContain(
       "rules in memory but still firing: zsh-glob-flag (rule in ~/.claude/CLAUDE.md:101 · still firing"
     );
+
     const quiet = {
       ...FIRING,
       hitsSince: { main: 0, nested: 0 },
       per1kSince: { main: 0, nested: 0 },
     };
+
     expect(
       prompt(report({ causes: [causeRow({ rule: quiet })] }), {
         table: "report",
@@ -255,6 +262,7 @@ describe("the report prompt", () => {
       }),
       { table: "report" }
     );
+
     expect(unmeasured).toContain(
       "- rules in memory, still-firing rate not measured yet: zsh-glob-flag"
     );
@@ -271,6 +279,7 @@ describe("the report prompt", () => {
       }),
       { table: "report" }
     );
+
     expect(empty).not.toContain("- causes");
     expect(empty).not.toContain("- failures");
     expect(empty).not.toContain("- shell time");
@@ -286,12 +295,14 @@ describe("the report prompt", () => {
     expect(text).toContain(
       "- a row's calls: peektrace stats drill --days 30 --cause <id> --json"
     );
+
     const scoped = statsPrompt({
       agent: "codex",
       format: FORMAT,
       report: r,
       target: { table: "report" },
     });
+
     expect(scoped).toContain("(last 30 days, codex)");
     expect(scoped).toContain("peektrace stats --days 30 --agent codex --json");
   });
@@ -303,6 +314,7 @@ describe("the report prompt", () => {
       report: r,
       target: { table: "report" },
     });
+
     expect(remote).toContain(
       "(last 30 days, all agents; read from http://box:7777: transcript paths are on that host)"
     );
@@ -319,31 +331,33 @@ describe("a cause prompt", () => {
   const pair = {
     failed: sample({}),
     retry: sample({
+      line: "grep -rn \"x\" --include='*.ts' .",
       seq: 19,
       toolUseId: "toolu_02",
-      line: "grep -rn \"x\" --include='*.ts' .",
     }),
   };
+
   const row = causeRow({
-    rule: FIRING,
     pairSamples: [pair],
+    rule: FIRING,
     // The paired call repeats in `samples`; it is named once.
     samples: [
       sample({}),
       sample({
-        sid: "lost",
+        line: "ls *.md",
         parent: null,
         seq: 3,
+        sid: "lost",
         toolUseId: null,
         ts: null,
-        line: "ls *.md",
       }),
     ],
   });
+
   const r = report({ causes: [row] });
 
   test("is the goal, then the row's data, the samples and the drill command", () => {
-    expect(prompt(r, { table: "cause", key: "zsh-glob-flag" })).toBe(
+    expect(prompt(r, { key: "zsh-glob-flag", table: "cause" })).toBe(
       [
         "Goal: make my coding agents faster and cheaper: fewer model round trips, less compute and waiting, fewer failed tool calls.",
         "Below is measured data for one pattern from peektrace (last 30 days, all agents). Read the sample transcripts to confirm it and find its root cause. Propose concrete changes to my environment (shell config, installed tools, hooks), AGENTS.md/CLAUDE.md, skills or prompts that prevent it. Rank by impact; show exact edits; don't apply until I confirm.",
@@ -369,32 +383,35 @@ describe("a cause prompt", () => {
   });
 
   test("the full key finds the same row", () => {
-    expect(prompt(r, { table: "cause", key: "cause:zsh-glob-flag" })).toBe(
-      prompt(r, { table: "cause", key: "zsh-glob-flag" })
+    expect(prompt(r, { key: "cause:zsh-glob-flag", table: "cause" })).toBe(
+      prompt(r, { key: "zsh-glob-flag", table: "cause" })
     );
   });
 
   test("a rule cause no memory file states says so; an env cause does not", () => {
     const none = prompt(report({ causes: [causeRow({})] }), {
-      table: "cause",
       key: "zsh-glob-flag",
+      table: "cause",
     });
+
     expect(none).toContain("- rule: none in AGENTS.md/CLAUDE.md");
     expect(none).toContain(
       "- cause: zsh-glob-flag · fix lives in: memory file (AGENTS.md/CLAUDE.md)"
     );
+
     const env = prompt(
       report({
         causes: [
           causeRow({
-            kind: "env",
-            key: "cause:command-not-found",
             cause: "command-not-found",
+            key: "cause:command-not-found",
+            kind: "env",
           }),
         ],
       }),
-      { table: "cause", key: "command-not-found" }
+      { key: "command-not-found", table: "cause" }
     );
+
     expect(env).toContain("fix lives in: host environment");
     expect(env).not.toContain("- rule");
   });
@@ -412,8 +429,9 @@ describe("a cause prompt", () => {
           }),
         ],
       }),
-      { table: "cause", key: "zsh-glob-flag" }
+      { key: "zsh-glob-flag", table: "cause" }
     );
+
     expect(fresh).toContain(
       "not measured yet (added 2026-10-01)\n  If it keeps firing: setopt nonomatch in ~/.zshenv."
     );
@@ -425,21 +443,21 @@ describe("a cause prompt", () => {
       statsPrompt({
         format: FORMAT,
         report: r,
-        target: { table: "cause", key: "nope" },
+        target: { key: "nope", table: "cause" },
       })
     ).toBeNull();
     expect(
       statsPrompt({
         format: FORMAT,
         report: r,
-        target: { table: "fail", key: "nope" },
+        target: { key: "nope", table: "fail" },
       })
     ).toBeNull();
     expect(
       statsPrompt({
         format: FORMAT,
         report: r,
-        target: { table: "time", key: "test" },
+        target: { key: "test", table: "time" },
       })
     ).toBeNull();
   });
@@ -454,10 +472,11 @@ describe("fail and time prompts", () => {
         ],
       }),
       {
-        table: "fail",
         key: "scan:tsc",
+        table: "fail",
       }
     );
+
     expect(text).toContain("Pattern: error TS#### (Bash exit 0)");
     expect(text).toContain("- key: scan:tsc · detector: piped-exit-code");
     expect(text).toContain(
@@ -476,10 +495,11 @@ describe("fail and time prompts", () => {
     const text = prompt(
       report({ time: [timeRow({ cappedRuns: 8, cappedSec: 2880 })] }),
       {
-        table: "time",
         key: "wait/poll",
+        table: "time",
       }
     );
+
     expect(text).toContain(
       "- job: wait/poll · 13196s · 50% of shell time · 643 runs · median 4s, p95 87s"
     );

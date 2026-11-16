@@ -1,8 +1,10 @@
 /** ResultView failure branch: optional Retry button and its busy state. */
 import { describe, expect, test } from "bun:test";
+
 import { Result } from "@effect-atom/atom-react";
 import { Cause, Option } from "effect";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { ResultView } from "../src/lib/result-view";
 import { withLastSuccess } from "../src/lib/server-info";
 
@@ -11,20 +13,20 @@ const failed = (waiting = false) =>
 
 const render = (args: {
   readonly result: Result.Result<string, string>;
-  readonly onRetry?: () => void;
+  readonly handleRetry?: () => void;
 }) =>
   renderToStaticMarkup(
-    <ResultView onRetry={args.onRetry} result={args.result}>
+    <ResultView onRetry={args.handleRetry} result={args.result}>
       {(value) => <p>{value}</p>}
     </ResultView>
   );
 
-const noop = () => undefined;
-const DISABLED = /<button[^>]*\sdisabled=""/;
+const noop = () => {};
+const DISABLED = /<button[^>]*\sdisabled=""/u;
 
 describe("ResultView retry", () => {
   test("a failure with onRetry shows an enabled Retry button", () => {
-    const html = render({ result: failed(), onRetry: noop });
+    const html = render({ handleRetry: noop, result: failed() });
     expect(html).toContain('data-testid="result-error"');
     expect(html).toContain('data-testid="result-retry"');
     expect(html).toContain("Retry");
@@ -38,13 +40,13 @@ describe("ResultView retry", () => {
   });
 
   test("a failure being refetched disables the button", () => {
-    const html = render({ result: failed(true), onRetry: noop });
+    const html = render({ handleRetry: noop, result: failed(true) });
     expect(html).toMatch(DISABLED);
     expect(html).toContain("Retrying…");
   });
 
   test("a success renders the value and no Retry", () => {
-    const html = render({ result: Result.success("ok"), onRetry: noop });
+    const html = render({ handleRetry: noop, result: Result.success("ok") });
     expect(html).toBe("<p>ok</p>");
   });
 });
@@ -54,13 +56,18 @@ describe("withLastSuccess", () => {
     const refetchFailed = Result.failure<string, string>(Cause.fail("boom"), {
       previousSuccess: Option.some(Result.success("ok")),
     });
+
     expect(render({ result: withLastSuccess(refetchFailed) })).toBe(
       "<p>ok</p>"
     );
   });
 
   test("a failure with no earlier success still shows the error", () => {
-    const html = render({ result: withLastSuccess(failed()), onRetry: noop });
+    const html = render({
+      handleRetry: noop,
+      result: withLastSuccess(failed()),
+    });
+
     expect(html).toContain('data-testid="result-error"');
   });
 });

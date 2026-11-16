@@ -5,7 +5,7 @@ The app is Rust (`crates/`): the `peektrace` CLI, server, TUI and the Rune nativ
 - Run: `cargo run -p peektrace-cli -- serve` (debug build serves `apps/inspector/dist` from disk; build it with `bun run --filter=inspector build`). `bun run serve` builds the UI, then runs a release build.
 - UI with hot reload: the server above with `--no-open --port 4321`, plus `bun run dev` (Vite proxies `/api` to it).
 - Rust checks: `cargo fmt --all --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`. The Rune app crates are outside default-members: add `-p peektrace-ui -p peektrace-app`.
-- TS checks: `bun run typecheck`, `bun run check`, `bun test`.
+- TS checks: `bun run typecheck`, `bun run check`, `bun test`. `check` is type-aware oxlint (Ultracite core + react + anti-slop presets, `oxlint.config.ts`) plus oxfmt (`oxfmt.config.ts`); `bun run fix` applies both.
 - Fixtures the Rust tests read live in `tests/fixtures`.
 - Git hooks (husky): pre-commit runs `ultracite fix` on staged TS/JS and `cargo fmt --all` when `.rs` files are staged; pre-push runs the CI clippy commands when the pushed commits touch Rust (plus the Rune crates when `crates/ui` or `crates/app` change).
 - Build cache: `kache` (`cargo install kache --locked`, then `kache init`) wraps rustc on each machine and restores crate outputs across worktrees, so each worktree keeps its own `target/`. CI uses `kunobi-ninja/kache-action`.
@@ -15,7 +15,7 @@ When writing or reviewing TypeScript/full-stack code, follow the `quality-code` 
 
 
 ## Typecheck
-Typecheck with `bun run typecheck` (per-package `tsrs --noEmit`, the Rust TypeScript 7 port from oxc-project/tsrs; `typescript` stays installed for editors and tooling). Never run `tsc -b` or bare `tsc` — build/emit mode writes `.js`/`.d.ts`/`.d.ts.map` next to sources and pollutes the tree; stale emitted `*.test.js` then get double-run by `bun test`. The base tsconfig sets `noEmit`, but build mode (`-b`) bypasses it. This repo never builds via tsc (the inspector builds with Vite; Bun runs the scripts directly).
+Typecheck with `bun run typecheck` (per-package `tsrs --noEmit --fast`, the Rust TypeScript 7 port from oxc-project/tsrs; `typescript` stays installed for editors and tooling). Never run `tsc -b` or bare `tsc` — build/emit mode writes `.js`/`.d.ts`/`.d.ts.map` next to sources and pollutes the tree; stale emitted `*.test.js` then get double-run by `bun test`. The base tsconfig sets `noEmit`, but build mode (`-b`) bypasses it. This repo never builds via tsc (the inspector builds with Vite; Bun runs the scripts directly).
 
 ## Local Effect Source
 Two Effect checkouts are cloned locally for reference (we're mid-transition, so both matter):

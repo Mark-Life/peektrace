@@ -4,7 +4,9 @@
  * then the drawn element is found and placed precisely, since its real height
  * can differ from the guess the first scroll used.
  */
-import { type RefObject, useEffect } from "react";
+import { useEffect } from "react";
+import type { RefObject } from "react";
+
 import type { VirtualListHandle } from "./virtual-range";
 
 /** How long to wait for the target to be drawn after the first scroll; its
@@ -14,6 +16,7 @@ const MAX_WAIT_MS = 3000;
 /** The drawn item at `index` once its content is in, else null. */
 const drawnAt = (list: RefObject<VirtualListHandle | null>, index: number) => {
   const item = list.current?.elementAt(index) ?? null;
+
   return item === null || item.querySelector("[data-pending]") !== null
     ? null
     : item;
@@ -36,28 +39,38 @@ const settle = (card: HTMLElement, place: () => void) => {
   let want = card.getBoundingClientRect().top;
   let frames = 0;
   let raf = 0;
+
   const stop = () => {
     cancelAnimationFrame(raf);
+
     for (const t of TAKEOVER) {
       window.removeEventListener(t, stop, true);
     }
   };
+
   const tick = () => {
     frames += 1;
+
     if (!card.isConnected || frames > SETTLE_FRAMES) {
       stop();
+
       return;
     }
+
     if (Math.abs(card.getBoundingClientRect().top - want) > 1) {
       place();
       want = card.getBoundingClientRect().top;
     }
+
     raf = requestAnimationFrame(tick);
   };
+
   for (const t of TAKEOVER) {
     window.addEventListener(t, stop, { capture: true, passive: true });
   }
+
   raf = requestAnimationFrame(tick);
+
   return stop;
 };
 
@@ -66,12 +79,19 @@ const settle = (card: HTMLElement, place: () => void) => {
 const focusTarget = (el: HTMLElement, selectors: readonly string[]) => {
   for (const selector of selectors) {
     const found = el.querySelector<HTMLElement>(selector);
+
     if (found) {
       return found;
     }
   }
+
   el.tabIndex = -1;
+
   return el;
+};
+
+const nothingHeld = () => {
+  // nothing to hold yet
 };
 
 /**
@@ -102,28 +122,41 @@ export const landAt = ({
   list.current?.scrollToIndex(index, align);
   const start = performance.now();
   let raf = 0;
-  let unsettle = () => {
-    // nothing to hold yet
-  };
+
+  let unsettle = nothingHeld;
+
   const land = () => {
     const item = drawnAt(list, index);
+
     if (!item) {
       if (performance.now() - start < MAX_WAIT_MS) {
         raf = requestAnimationFrame(land);
       }
+
       return;
     }
+
     const target =
-      (anchor ? item.querySelector<HTMLElement>(anchor) : null) ?? item;
-    const place = () => target.scrollIntoView({ block: align });
+      (anchor !== undefined && anchor !== ""
+        ? item.querySelector<HTMLElement>(anchor)
+        : null) ?? item;
+
+    const place = () => {
+      target.scrollIntoView({ block: align });
+    };
+
     place();
     focusTarget(target, focusIn).focus({ preventScroll: true });
+
     if (hold) {
       unsettle = settle(target, place);
     }
+
     onLand?.();
   };
+
   raf = requestAnimationFrame(land);
+
   return () => {
     cancelAnimationFrame(raf);
     unsettle();
@@ -147,18 +180,26 @@ export const revealAt = ({
   list.current?.scrollToIndex(index, "center");
   const start = performance.now();
   let raf = 0;
+
   const tick = () => {
     const item = drawnAt(list, index);
+
     if (item) {
       onDrawn(item);
+
       return;
     }
+
     if (performance.now() - start < MAX_WAIT_MS) {
       raf = requestAnimationFrame(tick);
     }
   };
+
   raf = requestAnimationFrame(tick);
-  return () => cancelAnimationFrame(raf);
+
+  return () => {
+    cancelAnimationFrame(raf);
+  };
 };
 
 /**
@@ -192,10 +233,13 @@ export const useVirtualJump = ({
       index < 0 ||
       !list.current
     ) {
-      return;
+      return nothingHeld;
     }
+
+    // oxlint-disable-next-line react/immutability -- `done` is a caller-owned ref, written on purpose
     done.current = target;
     let landed = false;
+
     const cancel = landAt({
       align,
       anchor: "[data-tool-use-id]",
@@ -207,6 +251,7 @@ export const useVirtualJump = ({
         landed = true;
       },
     });
+
     return () => {
       cancel();
       // A jump cut short (the list changed or the view swapped) runs again.

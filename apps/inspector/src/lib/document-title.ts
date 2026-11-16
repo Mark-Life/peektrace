@@ -16,6 +16,7 @@ let parts: TitleParts = { base: null, override: null };
 
 const apply = () => {
   const label = parts.override ?? parts.base;
+
   if (label !== null && typeof document !== "undefined") {
     document.title = pageTitle(label);
   }
@@ -33,7 +34,9 @@ export const setTitleOverride = (override: string | null) => {
 
 /** Name the current route; used by the shell. */
 export const useDocumentTitle = (label: string | null) => {
-  useEffect(() => setTitleBase(label), [label]);
+  useEffect(() => {
+    setTitleBase(label);
+  }, [label]);
 };
 
 /** Name the page more precisely than its route while mounted; `null` defers
@@ -41,6 +44,9 @@ export const useDocumentTitle = (label: string | null) => {
 export const useTitleOverride = (label: string | null) => {
   useEffect(() => {
     setTitleOverride(label);
-    return () => setTitleOverride(null);
+
+    return () => {
+      setTitleOverride(null);
+    };
   }, [label]);
 };

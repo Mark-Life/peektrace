@@ -10,55 +10,71 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import nodePath from "node:path";
 
-const ROOT = join(import.meta.dir, "..", "..");
-const PIN = /anomalyco\/rune", rev = "([0-9a-f]{40})"/;
-const NAME = /^name = "([^"]+)"/m;
-const VERSION = /^version = "([^"]+)"/m;
-const SOURCE = /^source = "([^"]+)"/m;
+const ROOT = nodePath.join(import.meta.dir, "..", "..");
+const PIN = /anomalyco\/rune", rev = "(?<rev>[0-9a-f]{40})"/u;
+const NAME = /^name = "(?<name>[^"]+)"/mu;
+const VERSION = /^version = "(?<version>[^"]+)"/mu;
+const SOURCE = /^source = "(?<source>[^"]+)"/mu;
+
 /** Length of the short rev cargo names a checkout dir after. */
 const SHORT_REV = 7;
 const dryRun = process.argv.includes("--dry-run");
 
 const pinnedRev = () => {
-  const toml = readFileSync(join(ROOT, "Cargo.toml"), "utf8");
-  const rev = toml.match(PIN)?.[1];
-  if (!rev) {
+  const toml = readFileSync(nodePath.join(ROOT, "Cargo.toml"), "utf-8");
+  const rev = PIN.exec(toml)?.groups?.rev;
+
+  if (rev === undefined || rev === "") {
     throw new Error("no anomalyco/rune rev in Cargo.toml");
   }
+
   return rev;
 };
 
 /** name -> versions from the registry, per lock. */
 const registryVersions = (lock: string) => {
   const out = new Map<string, string[]>();
+
   for (const block of lock.split("[[package]]").slice(1)) {
-    const name = block.match(NAME)?.[1];
-    const version = block.match(VERSION)?.[1];
-    const source = block.match(SOURCE)?.[1] ?? "";
-    if (name && version && source.startsWith("registry+")) {
+    const name = NAME.exec(block)?.groups?.name;
+    const version = VERSION.exec(block)?.groups?.version;
+    const source = SOURCE.exec(block)?.groups?.source ?? "";
+
+    if (
+      name !== undefined &&
+      name !== "" &&
+      version !== undefined &&
+      version !== "" &&
+      source.startsWith("registry+")
+    ) {
       out.set(name, [...(out.get(name) ?? []), version]);
     }
   }
+
   return out;
 };
 
 const runeLock = (rev: string) => {
-  const base = join(
-    process.env.CARGO_HOME ?? join(homedir(), ".cargo"),
+  const base = nodePath.join(
+    process.env.CARGO_HOME ?? nodePath.join(homedir(), ".cargo"),
     "git",
     "checkouts"
   );
+
   const short = rev.slice(0, SHORT_REV);
+
   for (const dir of readdirSync(base).filter((d) => d.startsWith("rune-"))) {
-    const path = join(base, dir, short, "Cargo.lock");
+    const path = nodePath.join(base, dir, short, "Cargo.lock");
+
     try {
-      return readFileSync(path, "utf8");
+      return readFileSync(path, "utf-8");
     } catch {
       // not this checkout
     }
   }
+
   throw new Error(
     `Rune checkout ${short} not found under ${base}; run cargo fetch`
   );
@@ -86,9 +102,11 @@ const nonRuneCrates = () => {
     ],
     { cwd: ROOT, stderr: "inherit" }
   );
+
   if (r.exitCode !== 0) {
     throw new Error("cargo tree failed");
   }
+
   return new Set(
     r.stdout
       .toString()
@@ -98,34 +116,49 @@ const nonRuneCrates = () => {
 };
 
 const rev = pinnedRev();
+
 const shared = nonRuneCrates();
-const ours = registryVersions(readFileSync(join(ROOT, "Cargo.lock"), "utf8"));
+
+const ours = registryVersions(
+  readFileSync(nodePath.join(ROOT, "Cargo.lock"), "utf-8")
+);
+
 const theirs = registryVersions(runeLock(rev));
-const moves = [...ours]
-  .flatMap(([name, vs]) => {
-    const t = theirs.get(name);
-    return !shared.has(name) &&
-      vs.length === 1 &&
-      t?.length === 1 &&
-      vs[0] !== t[0]
-      ? [{ name, from: vs[0] as string, to: t[0] as string }]
-      : [];
-  })
-  .sort((a, b) => a.name.localeCompare(b.name));
+
+const differing = [...ours].flatMap(([name, vs]) => {
+  const [from, extraOurs] = vs;
+  const [to, extraTheirs] = theirs.get(name) ?? [];
+
+  return !shared.has(name) &&
+    from !== undefined &&
+    extraOurs === undefined &&
+    to !== undefined &&
+    extraTheirs === undefined &&
+    from !== to
+    ? [{ from, name, to }]
+    : [];
+});
+
+const moves = differing.toSorted((a, b) => a.name.localeCompare(b.name));
 
 let failed = 0;
+
 for (const m of moves) {
   const args = ["update", "-p", `${m.name}@${m.from}`, "--precise", m.to];
   console.log(`${m.name} ${m.from} -> ${m.to}`);
+
   if (dryRun) {
     continue;
   }
+
   const r = Bun.spawnSync(["cargo", ...args], { cwd: ROOT, stderr: "pipe" });
+
   if (r.exitCode !== 0) {
-    failed++;
+    failed += 1;
     console.log(`  skipped: ${r.stderr.toString().trim().split("\n").at(-1)}`);
   }
 }
+
 console.log(
   `${moves.length} differ, ${moves.length - failed} pinned, ${failed} skipped`
 );

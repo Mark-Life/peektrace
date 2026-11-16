@@ -2,17 +2,18 @@
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import path from "node:path";
+
 import {
   ariaKeys,
   isTypingTarget,
-  type KeyEventLike,
   keyLabel,
   keyOf,
   matchesShortcut,
   SHORTCUTS,
   shortcutAllowed,
 } from "../src/lib/shortcuts";
+import type { KeyEventLike } from "../src/lib/shortcuts";
 
 const press = (over: Partial<KeyEventLike> = {}): KeyEventLike => ({
   altKey: false,
@@ -22,32 +23,32 @@ const press = (over: Partial<KeyEventLike> = {}): KeyEventLike => ({
   key: "j",
   metaKey: false,
   shiftKey: false,
-  target: { tagName: "BODY", closest: () => null },
+  target: { closest: () => null, tagName: "BODY" },
   ...over,
 });
 
 describe("keyOf", () => {
   test("Latin keys read as typed, letters lowercased", () => {
     expect(keyOf(press())).toBe("j");
-    expect(keyOf(press({ key: "D", code: "KeyD", shiftKey: true }))).toBe("d");
-    expect(keyOf(press({ key: "ArrowDown", code: "ArrowDown" }))).toBe(
+    expect(keyOf(press({ code: "KeyD", key: "D", shiftKey: true }))).toBe("d");
+    expect(keyOf(press({ code: "ArrowDown", key: "ArrowDown" }))).toBe(
       "ArrowDown"
     );
   });
 
   test("a Cyrillic layout falls back to the physical key", () => {
-    expect(keyOf(press({ key: "о", code: "KeyJ" }))).toBe("j");
-    expect(keyOf(press({ key: "в", code: "KeyD" }))).toBe("d");
-    expect(keyOf(press({ key: "х", code: "BracketLeft" }))).toBe("[");
-    expect(keyOf(press({ key: "ъ", code: "BracketRight" }))).toBe("]");
+    expect(keyOf(press({ code: "KeyJ", key: "о" }))).toBe("j");
+    expect(keyOf(press({ code: "KeyD", key: "в" }))).toBe("d");
+    expect(keyOf(press({ code: "BracketLeft", key: "х" }))).toBe("[");
+    expect(keyOf(press({ code: "BracketRight", key: "ъ" }))).toBe("]");
   });
 
   test("? is the shifted slash", () => {
-    expect(keyOf(press({ key: "?", code: "Slash", shiftKey: true }))).toBe("?");
-    expect(matchesShortcut("help", press({ key: "?", code: "Slash" }))).toBe(
+    expect(keyOf(press({ code: "Slash", key: "?", shiftKey: true }))).toBe("?");
+    expect(matchesShortcut("help", press({ code: "Slash", key: "?" }))).toBe(
       true
     );
-    expect(matchesShortcut("search", press({ key: "/", code: "Slash" }))).toBe(
+    expect(matchesShortcut("search", press({ code: "Slash", key: "/" }))).toBe(
       true
     );
   });
@@ -55,44 +56,44 @@ describe("keyOf", () => {
 
 describe("layouts that type other characters on the bound keys", () => {
   test("Russian: the Slash key types . and , but still reads / and ?", () => {
-    expect(keyOf(press({ key: ".", code: "Slash" }))).toBe("/");
-    expect(keyOf(press({ key: ",", code: "Slash", shiftKey: true }))).toBe("?");
-    expect(matchesShortcut("search", press({ key: ".", code: "Slash" }))).toBe(
+    expect(keyOf(press({ code: "Slash", key: "." }))).toBe("/");
+    expect(keyOf(press({ code: "Slash", key: ",", shiftKey: true }))).toBe("?");
+    expect(matchesShortcut("search", press({ code: "Slash", key: "." }))).toBe(
       true
     );
   });
 
   test("German: BracketRight types + but reads ]", () => {
-    expect(keyOf(press({ key: "+", code: "BracketRight" }))).toBe("]");
+    expect(keyOf(press({ code: "BracketRight", key: "+" }))).toBe("]");
   });
 
   test("a bound character typed elsewhere wins over the physical key", () => {
-    expect(keyOf(press({ key: "]", code: "Digit6" }))).toBe("]");
-    expect(keyOf(press({ key: "/", code: "Digit7", shiftKey: true }))).toBe(
+    expect(keyOf(press({ code: "Digit6", key: "]" }))).toBe("]");
+    expect(keyOf(press({ code: "Digit7", key: "/", shiftKey: true }))).toBe(
       "/"
     );
   });
 
   test("Dvorak: a letter on the Slash key stays a letter", () => {
-    expect(keyOf(press({ key: "z", code: "Slash" }))).toBe("z");
-    expect(keyOf(press({ key: "Z", code: "Slash", shiftKey: true }))).toBe("z");
-    expect(matchesShortcut("search", press({ key: "z", code: "Slash" }))).toBe(
+    expect(keyOf(press({ code: "Slash", key: "z" }))).toBe("z");
+    expect(keyOf(press({ code: "Slash", key: "Z", shiftKey: true }))).toBe("z");
+    expect(matchesShortcut("search", press({ code: "Slash", key: "z" }))).toBe(
       false
     );
-    expect(matchesShortcut("help", press({ key: "Z", code: "Slash" }))).toBe(
+    expect(matchesShortcut("help", press({ code: "Slash", key: "Z" }))).toBe(
       false
     );
   });
 
   test("an unbound character off the remapped keys reads as typed", () => {
-    expect(keyOf(press({ key: ".", code: "Period" }))).toBe(".");
+    expect(keyOf(press({ code: "Period", key: "." }))).toBe(".");
   });
 });
 
 describe("shortcutAllowed", () => {
   test("a plain key on the page runs", () => {
     expect(shortcutAllowed(press())).toBe(true);
-    expect(shortcutAllowed(press({ shiftKey: true, key: "?" }))).toBe(true);
+    expect(shortcutAllowed(press({ key: "?", shiftKey: true }))).toBe(true);
   });
 
   test("modifier chords belong to the browser and the OS", () => {
@@ -118,13 +119,14 @@ describe("shortcutAllowed", () => {
   test("Mac Option that types a bound key runs, other Option chords do not", () => {
     const option = (key: string, code: string) =>
       press({ altKey: true, code, key });
+
     expect(shortcutAllowed(option("]", "Digit6"), true)).toBe(true);
     expect(shortcutAllowed(option("[", "Digit5"), true)).toBe(true);
     expect(shortcutAllowed(option("∂", "KeyD"), true)).toBe(false);
     expect(shortcutAllowed(option("]", "Digit6"), false)).toBe(false);
     expect(
       shortcutAllowed(
-        press({ altKey: true, ctrlKey: true, code: "Digit6", key: "]" }),
+        press({ altKey: true, code: "Digit6", ctrlKey: true, key: "]" }),
         true
       )
     ).toBe(false);
@@ -132,24 +134,28 @@ describe("shortcutAllowed", () => {
 
   test("a handled event, a field, or a popup owns the key", () => {
     expect(shortcutAllowed(press({ defaultPrevented: true }))).toBe(false);
+
     for (const tagName of ["INPUT", "TEXTAREA", "SELECT"]) {
       expect(shortcutAllowed(press({ target: { tagName } }))).toBe(false);
     }
+
     expect(
       shortcutAllowed(
-        press({ target: { tagName: "DIV", isContentEditable: true } })
+        press({ target: { isContentEditable: true, tagName: "DIV" } })
       )
     ).toBe(false);
+
     const inPopup = {
-      tagName: "DIV",
       closest: (s: string) => s.includes("listbox"),
+      tagName: "DIV",
     };
+
     expect(shortcutAllowed(press({ target: inPopup }))).toBe(false);
   });
 
   test("isTypingTarget ignores non-elements", () => {
     expect(isTypingTarget(null)).toBe(false);
-    expect(isTypingTarget({ addEventListener: () => undefined })).toBe(false);
+    expect(isTypingTarget(new EventTarget())).toBe(false);
     expect(isTypingTarget({ tagName: "BUTTON" })).toBe(false);
   });
 });
@@ -168,25 +174,30 @@ describe("labels", () => {
   });
 });
 
-const TS_FILE = /\.tsx?$/;
+const TS_FILE = /\.tsx?$/u;
 
 const sources = (dir: string): string[] =>
   readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
-    const path = join(dir, d.name);
+    const full = path.join(dir, d.name);
+
     if (d.isDirectory()) {
-      return sources(path);
+      return sources(full);
     }
-    return TS_FILE.test(d.name) ? [readFileSync(path, "utf8")] : [];
+
+    return TS_FILE.test(d.name) ? [readFileSync(full, "utf-8")] : [];
   });
 
 test("every shortcut the app handles has a handler that names it", () => {
-  const src = sources(join(import.meta.dir, "../src")).join("\n");
+  const src = sources(path.join(import.meta.dir, "../src")).join("\n");
   const ids = SHORTCUTS.map((s) => s.id);
   expect(new Set(ids).size).toBe(ids.length);
   const reader = { builtin: null, global: "useShortcut", list: "has" };
+
   const missing = SHORTCUTS.filter((s) => {
     const call = reader[s.scope];
+
     return call !== null && !src.includes(`${call}("${s.id}"`);
   }).map((s) => s.id);
+
   expect(missing).toEqual([]);
 });

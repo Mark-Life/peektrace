@@ -1,22 +1,19 @@
 /** Paging the history: which bodies drawn rows need, how they are fetched
  *  and stored, and index rows turned back into whole events. */
 import { describe, expect, test } from "bun:test";
+
 import type {
   GrowthSeries,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
+
+import { buildChatPlan } from "../src/lib/chat-lane";
+import type { ChatNode, EventRow } from "../src/lib/chat-lane";
 import {
-  buildChatPlan,
-  type ChatNode,
-  type EventRow,
-} from "../src/lib/chat-lane";
-import {
-  type BodyCache,
   EMPTY_BODIES,
   hydrator,
   mergeRow,
   missingFetches,
-  type Needed,
   neededBodies,
   pageOf,
   pagesFor,
@@ -25,6 +22,7 @@ import {
   storeBodies,
   trimBodies,
 } from "../src/lib/history-pages";
+import type { BodyCache, Needed } from "../src/lib/history-pages";
 import { indexRowsOf } from "./history-rows";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
@@ -48,6 +46,16 @@ const EVENTS: readonly TimelineEvent[] = [
 ];
 
 const ROWS = indexRowsOf(EVENTS, [1, 1, 1, 1, 1, 1, 2]);
+
+const at = <T>(list: readonly T[], i: number): T => {
+  const item = list[i];
+
+  if (item === undefined) {
+    throw new Error(`no item at ${i}`);
+  }
+
+  return item;
+};
 
 const pages = (size: number, held: readonly number[]): BodyCache => ({
   pages: new Map(
@@ -79,6 +87,7 @@ describe("positionsOf", () => {
     rows: ROWS.map((e, pos) => ({ e, pos })),
     turns: ROWS.map((r) => r.turn),
   });
+
   const byType = (type: ChatNode["type"]) =>
     plan.filter((n) => n.type === type).map(positionsOf);
 
@@ -91,15 +100,16 @@ describe("positionsOf", () => {
   });
 
   test("a table row is its own position", () => {
-    expect(positionsOf({ e: ROWS[3] as EventRow, pos: 3 })).toEqual([3]);
+    expect(positionsOf({ e: at(ROWS, 3), pos: 3 })).toEqual([3]);
   });
 
   test("a tool card with no call is its result", () => {
     const n: ChatNode<EventRow> = {
       call: null,
-      result: { e: EVENTS[3] as TimelineEvent, pos: 3 },
+      result: { e: at(EVENTS, 3), pos: 3 },
       type: "tool",
     };
+
     expect(positionsOf(n)).toEqual([3]);
   });
 });
@@ -143,53 +153,57 @@ describe("neededBodies", () => {
   });
 });
 
-describe("missingFetches", () => {
-  const plan = (
-    needed: Needed,
-    {
-      bodyLen = () => 10_000,
-      cache = EMPTY_BODIES,
-      skip = () => false,
-    }: {
-      readonly bodyLen?: (pos: number) => number;
-      readonly cache?: BodyCache;
-      readonly skip?: (n: number) => boolean;
-    } = {}
-  ) =>
-    missingFetches({
-      bodyLen,
-      cache,
-      hashes: ["h0", "h1", "h2"],
-      needed,
-      rev: "r2",
-      size: 3,
-      skipPage: skip,
-      skipRow: skip,
-    });
+const fetchPlan = (
+  needed: Needed,
+  {
+    bodyLen = () => 10_000,
+    cache = EMPTY_BODIES,
+    skip = () => false,
+  }: {
+    readonly bodyLen?: (pos: number) => number;
+    readonly cache?: BodyCache;
+    readonly skip?: (n: number) => boolean;
+  } = {}
+) =>
+  missingFetches({
+    bodyLen,
+    cache,
+    hashes: ["h0", "h1", "h2"],
+    needed,
+    rev: "r2",
+    size: 3,
+    skipPage: skip,
+    skipRow: skip,
+  });
 
+describe("missingFetches", () => {
   test("pages not held at the summary's hash", () => {
     const cache = pages(3, [0, 1]);
+
     const held = {
       ...cache,
       pages: new Map(cache.pages).set(1, { events: [], hash: "old" }),
     };
-    expect(plan({ pages: [0, 1, 2], rows: [] }, { cache: held })).toEqual([
+
+    expect(fetchPlan({ pages: [0, 1, 2], rows: [] }, { cache: held })).toEqual([
       { hash: "h1", kind: "page", page: 1 },
       { hash: "h2", kind: "page", page: 2 },
     ]);
-    expect(plan({ pages: [1, 2], rows: [] }, { skip: (p) => p === 1 })).toEqual(
-      [{ hash: "h2", kind: "page", page: 2 }]
-    );
+    expect(
+      fetchPlan({ pages: [1, 2], rows: [] }, { skip: (p) => p === 1 })
+    ).toEqual([{ hash: "h2", kind: "page", page: 2 }]);
   });
 
   test("spread rows fetch runs; cheap gaps join, big ones split", () => {
     const needed = { pages: [], rows: [0, 2, 6] };
-    expect(plan(needed)).toEqual([
+    expect(fetchPlan(needed)).toEqual([
       { kind: "run", limit: 1, offset: 0, rev: "r2" },
       { kind: "run", limit: 1, offset: 2, rev: "r2" },
       { kind: "run", limit: 1, offset: 6, rev: "r2" },
     ]);
-    expect(plan(needed, { bodyLen: (p) => (p === 1 ? 10 : 10_000) })).toEqual([
+    expect(
+      fetchPlan(needed, { bodyLen: (p) => (p === 1 ? 10 : 10_000) })
+    ).toEqual([
       { kind: "run", limit: 3, offset: 0, rev: "r2" },
       { kind: "run", limit: 1, offset: 6, rev: "r2" },
     ]);
@@ -199,51 +213,60 @@ describe("missingFetches", () => {
     const cache: BodyCache = {
       pages: pages(3, [1]).pages,
       rows: new Map([
-        [0, { event: EVENTS[0] as TimelineEvent, rev: "r2" }],
-        [6, { event: EVENTS[6] as TimelineEvent, rev: "r1" }],
+        [0, { event: at(EVENTS, 0), rev: "r2" }],
+        [6, { event: at(EVENTS, 6), rev: "r1" }],
       ]),
     };
+
     expect(
-      plan({ pages: [], rows: [0, 4, 6, 7] }, { cache, skip: (p) => p === 7 })
+      fetchPlan(
+        { pages: [], rows: [0, 4, 6, 7] },
+        { cache, skip: (p) => p === 7 }
+      )
     ).toEqual([{ kind: "run", limit: 1, offset: 6, rev: "r2" }]);
   });
 });
 
-describe("storeBodies and trimBodies", () => {
-  const answer = (events: readonly TimelineEvent[], rev = "r") => ({
-    events,
-    hash: "h",
-    rev,
-  });
+const pageAnswer = (events: readonly TimelineEvent[], rev = "r") => ({
+  events,
+  hash: "h",
+  rev,
+});
 
+describe("storeBodies and trimBodies", () => {
   test("a run stores its rows; a page drops the rows it holds", () => {
     const run = storeBodies(
       EMPTY_BODIES,
       { kind: "run", limit: 2, offset: 4, rev: "r" },
-      answer(EVENTS.slice(4, 6)),
+      pageAnswer(EVENTS.slice(4, 6)),
       3
     );
+
     expect(mergeRow(4, run, 3)).toBe(EVENTS[4] ?? null);
     expect(mergeRow(5, run, 3)).toBe(EVENTS[5] ?? null);
     expect(mergeRow(3, run, 3)).toBeNull();
+
     const page = storeBodies(
       run,
       { hash: "h", kind: "page", page: 1 },
-      answer(EVENTS.slice(3, 6)),
+      pageAnswer(EVENTS.slice(3, 6)),
       3
     );
+
     expect([...page.rows.keys()]).toEqual([]);
     expect(mergeRow(3, page, 3)).toBe(EVENTS[3] ?? null);
   });
 
   test("a row fetched after its page wins", () => {
     const newer = evt({ body: "newer" });
+
     const both = storeBodies(
       pages(3, [0]),
       { kind: "run", limit: 1, offset: 1, rev: "r" },
-      answer([newer]),
+      pageAnswer([newer]),
       3
     );
+
     expect(mergeRow(1, both, 3)).toBe(newer);
     expect(mergeRow(0, both, 3)).toBe(EVENTS[0] ?? null);
   });
@@ -252,9 +275,10 @@ describe("storeBodies and trimBodies", () => {
     const cache = storeBodies(
       pages(3, [0, 1, 2]),
       { kind: "run", limit: 1, offset: 6, rev: "r" },
-      answer([evt()]),
+      pageAnswer([evt()]),
       3
     );
+
     const trimmed = trimBodies(cache, 2, 3);
     expect([...trimmed.pages.keys()]).toEqual([0, 1]);
     expect([...trimmed.rows.keys()]).toEqual([]);
@@ -276,10 +300,13 @@ describe("mergeRow and hydrator", () => {
       rows: ROWS.map((e, pos) => ({ e, pos })),
       turns: ROWS.map(() => 0),
     });
+
     const tool = plan.find((n) => n.type === "tool");
+
     if (!tool) {
       throw new Error("no tool node");
     }
+
     const half = pages(3, [0]);
     const partial = hydrator((pos) => mergeRow(pos, half, 3));
     expect(partial.node(tool)).toBeNull();
@@ -287,8 +314,8 @@ describe("mergeRow and hydrator", () => {
     const h = hydrator((pos) => mergeRow(pos, full, 3));
     const whole = h.node(tool);
     expect(whole).toEqual({
-      call: { e: EVENTS[2] as TimelineEvent, pos: 2 },
-      result: { e: EVENTS[3] as TimelineEvent, pos: 3 },
+      call: { e: at(EVENTS, 2), pos: 2 },
+      result: { e: at(EVENTS, 3), pos: 3 },
       type: "tool",
     });
     // Same events, same node: memoized views see no change.
@@ -297,9 +324,9 @@ describe("mergeRow and hydrator", () => {
 
   test("a whole event needs no page", () => {
     const h = hydrator(undefined);
-    const row = { e: EVENTS[1] as TimelineEvent, pos: 1 };
+    const row = { e: at(EVENTS, 1), pos: 1 };
     expect(h.row(row)).toEqual(row);
-    expect(h.row({ e: ROWS[1] as EventRow, pos: 1 })).toBeNull();
+    expect(h.row({ e: at(ROWS, 1), pos: 1 })).toBeNull();
   });
 });
 

@@ -1,4 +1,4 @@
-const TRAILING_SEPARATORS = /[\\/]+$/;
+const TRAILING_SEPARATORS = /[\\/]+$/u;
 
 const isSeparator = (char: string | undefined) => char === "/" || char === "\\";
 
@@ -12,12 +12,15 @@ export const tildePath = ({
   readonly home: string;
 }) => {
   const base = home.replace(TRAILING_SEPARATORS, "");
+
   if (base === "") {
     return path;
   }
+
   if (path === base) {
     return "~";
   }
+
   return path.startsWith(base) && isSeparator(path[base.length])
     ? `~${path.slice(base.length)}`
     : path;

@@ -1,3 +1,9 @@
+import type {
+  GrowthSeries,
+  HistoryPageMeta,
+  TimelineEvent,
+  TurnSnapshot,
+} from "@workspace/view-core/api-types.gen";
 /** Paging the session history: which events the drawn rows need, how to
  *  fetch them, and turning index rows back into whole events once they are
  *  here.
@@ -8,12 +14,8 @@
  * Rows spread over the transcript (a size sort, scattered search hits) get
  * only their own events, in short runs.
  */
-import type {
-  GrowthSeries,
-  HistoryPageMeta,
-  TimelineEvent,
-  TurnSnapshot,
-} from "@workspace/view-core/api-types.gen";
+import { Array as Arr, Order } from "effect";
+
 import type {
   ChatNode,
   EventRow,
@@ -38,6 +40,7 @@ const SPREAD_PAGES = 2;
 
 /** Body UTF-16 units a run may fetch between two drawn rows to join them. */
 const JOIN_BUDGET = 4096;
+
 /** What an event costs beyond its body (title, preview, fields), in the
  *  same units. */
 const ROW_COST = 256;
@@ -83,8 +86,9 @@ export const pageOf = (pos: number, size = PAGE_SIZE) => Math.floor(pos / size);
 
 /** Sorted unique page numbers of `positions`. */
 export const pagesFor = (positions: Iterable<number>, size = PAGE_SIZE) =>
-  [...new Set(Array.from(positions, (p) => pageOf(p, size)))].sort(
-    (x, y) => x - y
+  Arr.sort(
+    [...new Set(Array.from(positions, (p) => pageOf(p, size)))],
+    Order.number
   );
 
 /** Event positions a chat node or table row draws. */
@@ -94,20 +98,22 @@ export const positionsOf = (
   if (!("type" in n)) {
     return [n.pos];
   }
-  switch (n.type) {
-    case "message":
-    case "band":
-    case "notice":
-      return [n.row.pos];
-    case "tool":
-      return [n.call?.pos, n.result?.pos].filter(
-        (p): p is number => p !== undefined
-      );
-    case "run":
-      return n.items.map((i) => i.pos);
-    default:
-      return [];
+
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
+    return [n.row.pos];
   }
+
+  if (n.type === "tool") {
+    return [n.call?.pos, n.result?.pos].filter(
+      (p): p is number => p !== undefined
+    );
+  }
+
+  if (n.type === "run") {
+    return n.items.map((i) => i.pos);
+  }
+
+  return [];
 };
 
 /** Pages the drawn rows need, plus `prefetch` pages past each end, inside
@@ -126,18 +132,23 @@ const neededPages = ({
 }) => {
   const count = Math.ceil(total / size);
   const pages = pagesFor(drawn, size).filter((p) => p < count);
-  const first = pages[0];
+  const [first] = pages;
   const last = pages.at(-1);
+
   if (first === undefined || last === undefined) {
     return pages;
   }
+
   const extra: number[] = [];
-  for (let i = 1; i <= prefetch; i++) {
+
+  for (let i = 1; i <= prefetch; i += 1) {
     extra.push(first - i, last + i);
   }
-  return [
-    ...new Set([...pages, ...extra.filter((p) => p >= 0 && p < count)]),
-  ].sort((x, y) => x - y);
+
+  return Arr.sort(
+    [...new Set([...pages, ...extra.filter((p) => p >= 0 && p < count)])],
+    Order.number
+  );
 };
 
 /** Rows drawn in event order need their pages and `prefetch` more each
@@ -155,17 +166,22 @@ export const neededBodies = ({
   readonly size?: number;
   readonly total: number;
 }): Needed => {
-  const rows = [...new Set(drawn)]
-    .filter((p) => p >= 0 && p < total)
-    .sort((x, y) => x - y);
-  const first = rows[0];
+  const rows = Arr.sort(
+    [...new Set(drawn)].filter((p) => p >= 0 && p < total),
+    Order.number
+  );
+
+  const [first] = rows;
   const last = rows.at(-1);
+
   if (first === undefined || last === undefined) {
     return NOTHING_NEEDED;
   }
+
   const spread =
     last - first + 1 > rows.length * SPREAD &&
     pagesFor(rows, size).length > SPREAD_PAGES;
+
   return spread
     ? { pages: [], rows }
     : { pages: neededPages({ drawn: rows, prefetch, size, total }), rows: [] };
@@ -187,14 +203,19 @@ const runsOf = (
 ) => {
   const gapFits = (from: number, to: number) => {
     let sum = 0;
-    for (let p = from + 1; p < to && sum <= budget; p++) {
+
+    for (let p = from + 1; p < to && sum <= budget; p += 1) {
       sum += bodyLen(p) + ROW_COST;
     }
+
     return sum <= budget;
   };
+
   const runs: { offset: number; limit: number }[] = [];
+
   for (const pos of positions) {
     const run = runs.at(-1);
+
     if (
       run !== undefined &&
       pos - run.offset < max &&
@@ -205,6 +226,7 @@ const runsOf = (
       runs.push({ limit: 1, offset: pos });
     }
   }
+
   return runs;
 };
 
@@ -239,21 +261,28 @@ export const missingFetches = ({
 }): BodyFetch[] => {
   const current = (page: number) =>
     hashes[page] !== undefined && cache.pages.get(page)?.hash === hashes[page];
+
   const pages = needed.pages.flatMap((page): BodyFetch[] => {
     const hash = hashes[page];
+
     return hash === undefined || current(page) || skipPage(page)
       ? []
       : [{ hash, kind: "page", page }];
   });
+
   const rows = needed.rows.filter(
     (pos) =>
       cache.rows.get(pos)?.rev !== rev &&
       !current(pageOf(pos, size)) &&
       !skipRow(pos)
   );
-  const runs = runsOf(rows, { bodyLen }).map(
-    (r): BodyFetch => ({ ...r, kind: "run", rev })
-  );
+
+  const runs = runsOf(rows, { bodyLen }).map((r): BodyFetch => ({
+    ...r,
+    kind: "run",
+    rev,
+  }));
+
   return [...pages, ...runs];
 };
 
@@ -268,13 +297,17 @@ export const storeBodies = (
 ): BodyCache => {
   if (f.kind === "run") {
     const rows = new Map(cache.rows);
-    page.events.forEach((event, i) => {
+
+    for (const [i, event] of page.events.entries()) {
       rows.set(f.offset + i, { event, rev: page.rev });
-    });
+    }
+
     return { pages: cache.pages, rows };
   }
+
   const from = f.page * size;
   const inPage = (pos: number) => pos >= from && pos < from + size;
+
   return {
     pages: new Map(cache.pages).set(f.page, {
       events: page.events,
@@ -296,6 +329,7 @@ export const trimBodies = (
   const end = pageCount * size;
   const pagesOut = [...cache.pages.keys()].some((p) => p >= pageCount);
   const rowsOut = [...cache.rows.keys()].some((p) => p >= end);
+
   return pagesOut || rowsOut
     ? {
         pages: new Map([...cache.pages].filter(([p]) => p < pageCount)),
@@ -325,6 +359,7 @@ const hydrateRow = (
   at: (pos: number) => TimelineEvent | null
 ): TranscriptRowRef | null => {
   const e = wholeOf(row, at);
+
   return e === null ? null : { e, pos: row.pos };
 };
 
@@ -332,35 +367,40 @@ const build = (
   n: ChatNode<EventRow>,
   at: (pos: number) => TimelineEvent | null
 ): ChatNode | null => {
-  switch (n.type) {
-    case "message":
-    case "band":
-    case "notice": {
-      const row = hydrateRow(n.row, at);
-      return row === null ? null : { type: n.type, row };
-    }
-    case "tool": {
-      const call = n.call === null ? null : hydrateRow(n.call, at);
-      const result = n.result === null ? null : hydrateRow(n.result, at);
-      const missing =
-        (n.call !== null && call === null) ||
-        (n.result !== null && result === null);
-      return missing ? null : { type: "tool", call, result };
-    }
-    case "run": {
-      const items: RunItem[] = [];
-      for (const item of n.items) {
-        const e = wholeOf(item, at);
-        if (e === null) {
-          return null;
-        }
-        items.push({ e, pos: item.pos, repeat: item.repeat });
-      }
-      return { type: "run", items };
-    }
-    default:
-      return n;
+  if (n.type === "message" || n.type === "band" || n.type === "notice") {
+    const row = hydrateRow(n.row, at);
+
+    return row === null ? null : { row, type: n.type };
   }
+
+  if (n.type === "tool") {
+    const call = n.call === null ? null : hydrateRow(n.call, at);
+    const result = n.result === null ? null : hydrateRow(n.result, at);
+
+    const missing =
+      (n.call !== null && call === null) ||
+      (n.result !== null && result === null);
+
+    return missing ? null : { call, result, type: "tool" };
+  }
+
+  if (n.type === "run") {
+    const items: RunItem[] = [];
+
+    for (const item of n.items) {
+      const e = wholeOf(item, at);
+
+      if (e === null) {
+        return null;
+      }
+
+      items.push({ e, pos: item.pos, repeat: item.repeat });
+    }
+
+    return { items, type: "run" };
+  }
+
+  return n;
 };
 
 /** Hydrated results kept per index node or row, with the events they used. */
@@ -369,23 +409,28 @@ export type HydrateCache = WeakMap<
   { readonly events: readonly (TimelineEvent | null)[]; readonly out: unknown }
 >;
 
-const cached = <I extends ChatNode<EventRow> | TranscriptRowRef<EventRow>, O>(
-  item: I,
+const cached = <O>(
+  item: ChatNode<EventRow> | TranscriptRowRef<EventRow>,
   at: (pos: number) => TimelineEvent | null,
   cache: HydrateCache,
   make: () => O
 ): O => {
   const events = positionsOf(item).map(at);
   const held = cache.get(item);
+
   if (
     held !== undefined &&
     held.events.length === events.length &&
     held.events.every((e, i) => e === events[i])
   ) {
+    // SAFETY: each item's cache entry is written only by `make` for that same item, so `out` has type O.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- the WeakMap erases O; each entry is written and read by the same call site
     return held.out as O;
   }
+
   const out = make();
   cache.set(item, { events, out });
+
   return out;
 };
 
@@ -397,6 +442,7 @@ export const hydrator = (
   cache: HydrateCache = new WeakMap()
 ) => {
   const at = eventAt ?? (() => null);
+
   return {
     node: (n: ChatNode<EventRow>) => cached(n, at, cache, () => build(n, at)),
     row: (r: TranscriptRowRef<EventRow>) =>
@@ -405,26 +451,27 @@ export const hydrator = (
 };
 
 /** Column `col` at row `i`; every column has one value per snapshot. */
-const cell = (col: readonly number[], i: number) => col[i] as number;
+const cell = (col: readonly number[], i: number) => col[i] ?? 0;
 
 /** The snapshots the growth chart draws, rebuilt from the growth columns. */
 export const snapshotsOf = (
   g: Pick<GrowthSeries, "snapshots">
 ): Pick<TurnSnapshot, "ctx" | "outputTokens" | "slices" | "turnIndex">[] => {
   const { ctx, outputTokens, slices: s, turnIndex } = g.snapshots;
+
   return turnIndex.map((t, i) => ({
     ctx: cell(ctx, i),
     outputTokens: cell(outputTokens, i),
     slices: {
-      system_tools: cell(s.system_tools, i),
+      assistant_text: cell(s.assistant_text, i),
+      files: cell(s.files, i),
       listings: cell(s.listings, i),
       memory: cell(s.memory, i),
-      files: cell(s.files, i),
-      prompts: cell(s.prompts, i),
-      tool_results: cell(s.tool_results, i),
-      assistant_text: cell(s.assistant_text, i),
-      thinking: cell(s.thinking, i),
       other: cell(s.other, i),
+      prompts: cell(s.prompts, i),
+      system_tools: cell(s.system_tools, i),
+      thinking: cell(s.thinking, i),
+      tool_results: cell(s.tool_results, i),
       unattributed: cell(s.unattributed, i),
     },
     turnIndex: t,

@@ -17,6 +17,7 @@ import { Skeleton } from "@workspace/ui/components/skeleton";
 import { Cause } from "effect";
 import { RotateCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
+
 import { wireErrorMessage, wireErrorOfCause } from "./wire-error";
 
 /** Default skeleton shown while a query is in its initial (no-data) load. */
@@ -71,6 +72,7 @@ const FailureView = ({
   readonly retrying: boolean;
 }) => {
   const wire = wireErrorOfCause(cause);
+
   return (
     <Alert data-testid="result-error" variant="destructive">
       <AlertTitle>
@@ -80,13 +82,13 @@ const FailureView = ({
         {wire ? (
           <p className="text-sm">{wireErrorMessage(wire)}</p>
         ) : (
-          <pre className="whitespace-pre-wrap break-words text-xs">
+          <pre className="text-xs break-words whitespace-pre-wrap">
             {Cause.pretty(cause)}
           </pre>
         )}
         {onRetry ? (
           <RetryButton
-            className="mt-2 text-foreground"
+            className="text-foreground mt-2"
             onRetry={onRetry}
             retrying={retrying}
             testId="result-retry"
@@ -122,6 +124,7 @@ export const ResultView = <A, E>({
       />
     );
   }
+
   if (Result.isSuccess(result)) {
     // A refetch over data already on screen renders that data and nothing else:
     // no wrapper, no pulse, no remount. `result.waiting` is reported by the
@@ -129,5 +132,7 @@ export const ResultView = <A, E>({
     // once per agent write is what made it unreadable.
     return <>{children(result.value)}</>;
   }
+
+  // oxlint-disable-next-line react/jsx-no-useless-fragment -- wraps a ReactNode so the component returns an element, not a possible Promise
   return <>{pending ?? <DefaultPending />}</>;
 };

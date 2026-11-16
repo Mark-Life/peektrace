@@ -1,10 +1,12 @@
 /** History search: what a query matches, stepping through hits, the counter. */
 import { expect, test } from "bun:test";
+
 import type {
   AnalyzedSession,
   TimelineEvent,
 } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import {
   matchLabel,
   rangesIn,
@@ -52,6 +54,7 @@ const EVENTS = [
   }),
   evt({ body: "done", index: 4, preview: "done", title: "done" }),
 ];
+
 /** What `/history/search` answers for "zephyr" (matching and case folding
  *  are tested on the Rust side): the system event too. */
 const ZEPHYR = new Set([0, 2, 3]);
@@ -172,12 +175,14 @@ test("ranges across nodes keep DOM order and stop at the cap", () => {
 
 test("ranges read lazily: nodes past the cap are never visited", () => {
   const seen: number[] = [];
-  function* nodes() {
+
+  const nodes = function* nodes() {
     for (let i = 0; i < 5; i += 1) {
       seen.push(i);
       yield { nodeValue: "zephyr" };
     }
-  }
+  };
+
   expect(rangesIn({ max: 2, needle: "zephyr", nodes: nodes() })).toHaveLength(
     2
   );
@@ -192,24 +197,24 @@ const bar = (over: {
 }) =>
   renderToStaticMarkup(
     <HistorySearch
-      onClear={() => undefined}
-      onQuery={() => undefined}
-      onStep={() => undefined}
+      onClear={() => {}}
+      onQuery={() => {}}
+      onStep={() => {}}
       pending={false}
       {...over}
     />
   );
 
-const EMPTY_COUNT = /data-testid="history-match-count"[^>]*><\/span>/;
+const EMPTY_COUNT = /data-testid="history-match-count"[^>]*><\/output>/u;
 
 /** The opening tag of the element with `testid`. */
 const tagOf = (html: string, testid: string) =>
-  html.match(new RegExp(`<[^>]*data-testid="${testid}"[^>]*>`))?.[0] ?? "";
+  new RegExp(`<[^>]*data-testid="${testid}"[^>]*>`, "u").exec(html)?.[0] ?? "";
 
 test("an active query announces its position in a polite live region", () => {
   const html = bar({ count: 3, current: 1, query: "line" });
   expect(html).toContain('aria-live="polite"');
-  expect(html).toContain('role="status"');
+  expect(html).toContain("<output");
   expect(html).toContain('data-testid="history-match-count"');
   expect(html).toContain("2 of 3");
   expect(html).toContain('aria-label="Next match"');
@@ -260,7 +265,7 @@ const session = (events: readonly TimelineEvent[]) =>
     peakCacheReadTokens: 0,
     peakContextTokens: 0,
     peakTurnIndex: 0,
-    provider: "claude" as const,
+    provider: "claude-code" as const,
     sessionId: "s",
     snapshots: [],
     subagents: [],
@@ -270,6 +275,8 @@ const session = (events: readonly TimelineEvent[]) =>
     turnCount: 0,
     turns: [],
     userMessageCount: 0,
+    webFetchRequests: 0,
+    webSearchRequests: 0,
   }) satisfies AnalyzedSession;
 
 const KEY = { isComposing: false, keyCode: 0, shiftKey: false };
@@ -299,40 +306,51 @@ test("the query clears when another session opens, and stays for the same one", 
 test("a history view renders unfiltered with an empty search box", () => {
   const view = {
     isExpanded: () => false,
-    setExpanded: () => undefined,
-    setRedacted: () => undefined,
+    setExpanded: () => {},
+    setRedacted: () => {},
     state: DEFAULT_SESSION_VIEW,
-    toggleExpanded: () => undefined,
+    toggleExpanded: () => {},
   };
+
   const a = session([
     evt({ body: "alpha", index: 0, preview: "alpha", title: "alpha" }),
     evt({ body: "beta", index: 1, preview: "beta", title: "beta" }),
   ]);
+
   const { events, snapshots: _s, turns: _t, ...rest } = a;
+
   // Whole events stand in for index rows: a row that carries its body draws
   // without waiting for a page.
-  const rows = events.map((e, pos) => ({
+  const indexRows = events.map((e, pos) => ({
     ...e,
     bodyId: pos,
     bodyLen: e.body.length,
     turn: 0,
   }));
+
   const history = {
     growth: "g",
     index: "i",
     pageSize: 100,
     pages: ["p"],
     rev: "r",
-    total: rows.length,
+    total: indexRows.length,
   };
+
   const html = renderToStaticMarkup(
     <SessionHistory
       growth={null}
-      index={{ crossEvent: -1, hash: "i", rev: "r", rows, total: rows.length }}
+      index={{
+        crossEvent: -1,
+        hash: "i",
+        rev: "r",
+        rows: indexRows,
+        total: indexRows.length,
+      }}
       k={{ id: "s-fresh", parent: null, redact: true }}
       landing={{ done: { current: null } }}
-      onStale={() => undefined}
-      onSummary={() => undefined}
+      onStale={() => {}}
+      onSummary={() => {}}
       req={null}
       s={{ ...rest, history }}
       sectionRef={{ current: null }}
@@ -341,6 +359,7 @@ test("a history view renders unfiltered with an empty search box", () => {
       view={view}
     />
   );
+
   expect(html).toContain("alpha");
   expect(html).toContain("beta");
   expect(html).toContain('value=""');

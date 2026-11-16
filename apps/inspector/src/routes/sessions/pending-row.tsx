@@ -4,7 +4,7 @@
 export const PendingRow = ({ height }: { readonly height: number }) => (
   <div
     aria-busy="true"
-    className="rounded-md bg-muted/30"
+    className="bg-muted/30 rounded-md"
     data-pending=""
     data-testid="history-pending"
     style={{ height: Math.max(height, 0) }}

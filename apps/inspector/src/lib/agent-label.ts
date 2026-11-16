@@ -4,6 +4,6 @@ import type { AgentId } from "@workspace/view-core/api-types.gen";
 export const AGENT_LABEL: Record<AgentId, string> = {
   claude: "Claude",
   codex: "Codex",
-  pi: "Pi",
   opencode: "OpenCode",
+  pi: "Pi",
 };

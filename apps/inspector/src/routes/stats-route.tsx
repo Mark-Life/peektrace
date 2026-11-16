@@ -10,8 +10,9 @@
  * Window, agent and the open drill key all ride the hash, so any view here is a
  * link someone else can open.
  */
-import type { Atom } from "@effect-atom/atom-react";
-import { type Result, useAtomValue } from "@effect-atom/atom-react";
+import { useAtomValue } from "@effect-atom/atom-react";
+// oxlint-disable-next-line import/no-duplicates, eslint/no-duplicate-imports -- type-only import kept separate: the type-specifier-style rule forbids inline `type`
+import type { Atom, Result } from "@effect-atom/atom-react";
 import type {
   AgentId,
   DrillResult,
@@ -20,6 +21,7 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { RETRY_WINDOW } from "@workspace/view-core/constants.gen";
 import { useState } from "react";
+
 import type { ApiFailure } from "../lib/api";
 import { ResultView } from "../lib/result-view";
 import { setHashParam, useHashParam } from "../lib/routes";
@@ -50,16 +52,19 @@ export const parseDrill = (raw: string | null): DrillTarget | null => {
   if (raw === null) {
     return null;
   }
+
   const cut = raw.indexOf(":");
-  const table = cut < 0 ? "" : raw.slice(0, cut);
-  const key = cut < 0 ? "" : raw.slice(cut + 1);
+  const table = cut === -1 ? "" : raw.slice(0, cut);
+  const key = cut === -1 ? "" : raw.slice(cut + 1);
+
   const known =
     table === "cause" ||
     table === "fail" ||
     table === "time" ||
     table === "cluster" ||
     table === "wait";
-  return known && key.length > 0 ? { table, key } : null;
+
+  return known && key.length > 0 ? { key, table } : null;
 };
 
 /** The detector id of the row a drill came from, so the sessions it opens are
@@ -71,9 +76,11 @@ export const detectorOf = (
   if (drill?.table === "cause") {
     return report.causes.find((row) => row.key === drill.key)?.cause ?? null;
   }
+
   if (drill?.table !== "fail") {
     return null;
   }
+
   return report.fails.find((row) => row.key === drill.key)?.detector ?? null;
 };
 
@@ -86,10 +93,14 @@ const SectionHead = ({
   readonly title: string;
 }) => (
   <div className="flex flex-wrap items-baseline gap-2">
-    <h2 className="font-semibold text-base">{title}</h2>
+    <h2 className="text-base font-semibold">{title}</h2>
     <span className="text-muted-foreground text-xs">ranked by {by}</span>
   </div>
 );
+
+const openDrill = (table: DrillTable, key: string) => {
+  setHashParam("drill", `${table}:${key}`);
+};
 
 /** The screen for one loaded report. */
 const ReportView = ({
@@ -112,18 +123,23 @@ const ReportView = ({
   readonly rescanning: boolean;
 }) => {
   const [showAllFindings, setShowAllFindings] = useState(false);
-  const openDrill = (table: DrillTable, key: string) =>
-    setHashParam("drill", `${table}:${key}`);
+
   const keyOf = (table: DrillTable) =>
     drill?.table === table ? drill.key : null;
+
   const prompt = promptsOf(report, agent);
+
   return (
     <>
       <ReportHeader
         agent={agent}
         days={days}
-        onAgent={(next) => setHashParam("agent", next)}
-        onDays={(next) => setHashParam("days", String(next))}
+        onAgent={(next) => {
+          setHashParam("agent", next);
+        }}
+        onDays={(next) => {
+          setHashParam("days", String(next));
+        }}
         onRescan={onRescan}
         prompt={prompt({ table: "report" })}
         report={report}
@@ -138,7 +154,9 @@ const ReportView = ({
         <Findings
           findings={findingsOf(report)}
           onDrill={openDrill}
-          onShowAll={() => setShowAllFindings(true)}
+          onShowAll={() => {
+            setShowAllFindings(true);
+          }}
           prompt={prompt}
           showAll={showAllFindings}
           suggested={suggestedRules(report)}
@@ -158,7 +176,9 @@ const ReportView = ({
           added to the other.
         </p>
         <CauseTable
-          onSelect={(key) => openDrill("cause", key)}
+          onSelect={(key) => {
+            openDrill("cause", key);
+          }}
           prompt={prompt}
           rows={report.causes}
           selectedKey={keyOf("cause")}
@@ -169,11 +189,13 @@ const ReportView = ({
         <SectionHead by="sessions spanned, then calls" title="What fails" />
         <p className="text-muted-foreground text-xs">
           A row says a call printed a failure — never that something broke.
-          Flagged counts the calls that set the agent's own error flag; the gap
-          between it and Calls is what an error panel alone would miss.
+          Flagged counts the calls that set the agent&apos;s own error flag; the
+          gap between it and Calls is what an error panel alone would miss.
         </p>
         <FailTable
-          onSelect={(key) => openDrill("fail", key)}
+          onSelect={(key) => {
+            openDrill("fail", key);
+          }}
           prompt={prompt}
           rows={report.fails}
           selectedKey={keyOf("fail")}
@@ -188,7 +210,9 @@ const ReportView = ({
           Tools that wait on a human are out of the denominator.
         </p>
         <TimeTable
-          onSelect={(key) => openDrill("time", key)}
+          onSelect={(key) => {
+            openDrill("time", key);
+          }}
           prompt={prompt}
           rows={report.time}
           selectedKey={keyOf("time")}
@@ -203,7 +227,9 @@ const ReportView = ({
       <section className="flex flex-col gap-3">
         <SectionHead by="rows, then sessions spanned" title="Error clusters" />
         <Clusters
-          onSelect={(key) => openDrill("cluster", key)}
+          onSelect={(key) => {
+            openDrill("cluster", key);
+          }}
           rows={report.clusters}
           selectedKey={keyOf("cluster")}
         />
@@ -212,7 +238,9 @@ const ReportView = ({
       <DrillPanel
         atom={drillAtom}
         detector={detectorOf(report, drill)}
-        onClose={() => setHashParam("drill", null)}
+        onClose={() => {
+          setHashParam("drill", null);
+        }}
         onPage={onPage}
         title={drill === null ? "" : drill.key}
       />
@@ -234,10 +262,12 @@ export const StatsRoute = () => {
   const [page, setPage] = useState({ id: "", offset: 0 });
   const drillId = drill === null ? "" : `${drill.table}:${drill.key}`;
   const offset = page.id === drillId ? page.offset : 0;
+
   const drillAtom = useStatsDrill(
     drill === null ? null : { ...drill, offset },
     scope
   );
+
   return (
     <div className="flex flex-col gap-8" data-testid="stats-route">
       <ResultView
@@ -251,7 +281,9 @@ export const StatsRoute = () => {
             days={days}
             drill={drill}
             drillAtom={drillAtom}
-            onPage={(next) => setPage({ id: drillId, offset: next })}
+            onPage={(next) => {
+              setPage({ id: drillId, offset: next });
+            }}
             onRescan={rescan}
             report={value}
             rescanning={report.waiting}

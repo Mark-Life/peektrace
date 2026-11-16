@@ -27,14 +27,15 @@ import {
   XIcon,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
+
 import {
   bodyParts,
   fmtDate,
   fmtSize,
-  type SortKey,
   sortEntries,
   titleOf,
 } from "./memory-model";
+import type { SortKey } from "./memory-model";
 
 /** A click handler set shared by every row. */
 interface RowActions {
@@ -53,8 +54,9 @@ const LinkedBody = ({
   readonly onNavigate: (slug: string) => void;
 }) => {
   const parts = bodyParts(entry);
+
   return (
-    <div className="whitespace-pre-wrap font-mono text-xs leading-relaxed">
+    <div className="font-mono text-xs leading-relaxed whitespace-pre-wrap">
       {parts.map((part, i) => {
         if ("link" in part) {
           return (
@@ -62,13 +64,16 @@ const LinkedBody = ({
               className="text-sky-400 underline decoration-dotted hover:text-sky-300"
               // biome-ignore lint/suspicious/noArrayIndexKey: body is static per render
               key={i}
-              onClick={() => onNavigate(part.slug)}
+              onClick={() => {
+                onNavigate(part.slug);
+              }}
               type="button"
             >
               {part.link}
             </button>
           );
         }
+
         // biome-ignore lint/suspicious/noArrayIndexKey: body is static per render
         return <Fragment key={i}>{part.text}</Fragment>;
       })}
@@ -94,14 +99,18 @@ const DetailRow = ({
           {actions.canWrite ? (
             <div className="flex gap-2">
               <Button
-                onClick={() => actions.onEdit(entry)}
+                onClick={() => {
+                  actions.onEdit(entry);
+                }}
                 size="sm"
                 variant="outline"
               >
                 <PencilIcon className="size-3.5" /> Edit
               </Button>
               <Button
-                onClick={() => actions.onDelete(entry)}
+                onClick={() => {
+                  actions.onDelete(entry);
+                }}
                 size="sm"
                 variant="outline"
               >
@@ -115,9 +124,11 @@ const DetailRow = ({
             <span className="text-muted-foreground">Links:</span>
             {entry.links.map((l) => (
               <button
-                className="rounded border border-border px-1.5 py-0.5 font-mono text-sky-400 hover:bg-muted"
+                className="border-border hover:bg-muted rounded border px-1.5 py-0.5 font-mono text-sky-400"
                 key={`${l.targetSlug}:${l.line}`}
-                onClick={() => actions.onNavigate(l.targetSlug)}
+                onClick={() => {
+                  actions.onNavigate(l.targetSlug);
+                }}
                 type="button"
               >
                 {l.rawTarget}
@@ -125,7 +136,12 @@ const DetailRow = ({
             ))}
           </div>
         ) : null}
-        <LinkedBody entry={entry} onNavigate={actions.onNavigate} />
+        <LinkedBody
+          entry={entry}
+          onNavigate={(slug) => {
+            actions.onNavigate(slug);
+          }}
+        />
       </div>
     </TableCell>
   </TableRow>
@@ -157,8 +173,10 @@ const SortHead = ({
 }) => (
   <TableHead className={className}>
     <button
-      className="inline-flex items-center gap-1 hover:text-foreground"
-      onClick={() => onSort(col)}
+      className="hover:text-foreground inline-flex items-center gap-1"
+      onClick={() => {
+        onSort(col);
+      }}
       type="button"
     >
       {label}
@@ -213,7 +231,7 @@ export const BrowseTable = ({
   }
 
   return (
-    <div className="rounded-lg border border-border" data-testid="browse-table">
+    <div className="border-border rounded-lg border" data-testid="browse-table">
       <Table>
         <TableHeader>
           <TableRow>
@@ -274,11 +292,13 @@ export const BrowseTable = ({
                   expanded === entry.slug && "bg-muted/40"
                 )}
                 data-testid="memory-row"
-                onClick={() => toggle(entry.slug)}
+                onClick={() => {
+                  toggle(entry.slug);
+                }}
               >
                 <TableCell className="font-medium">{titleOf(entry)}</TableCell>
                 <TableCell>
-                  {entry.type ? (
+                  {entry.type !== undefined && entry.type !== "" ? (
                     <Badge className="capitalize" variant="secondary">
                       {entry.type}
                     </Badge>
@@ -286,20 +306,20 @@ export const BrowseTable = ({
                     <span className="text-muted-foreground text-xs">—</span>
                   )}
                 </TableCell>
-                <TableCell className="hidden max-w-[24ch] truncate text-muted-foreground text-sm md:table-cell">
+                <TableCell className="text-muted-foreground hidden max-w-[24ch] truncate text-sm md:table-cell">
                   {entry.description ?? "—"}
                 </TableCell>
                 <TableCell className="text-right font-mono text-xs">
                   {fmtSize(entry.size)}
                 </TableCell>
-                <TableCell className="hidden text-muted-foreground text-xs lg:table-cell">
+                <TableCell className="text-muted-foreground hidden text-xs lg:table-cell">
                   {fmtDate(entry.mtime)}
                 </TableCell>
                 <TableCell>
                   {entry.inIndex ? (
                     <CheckIcon className="size-4 text-emerald-400" />
                   ) : (
-                    <XIcon className="size-4 text-muted-foreground" />
+                    <XIcon className="text-muted-foreground size-4" />
                   )}
                 </TableCell>
                 <TableCell className="text-right font-mono text-xs">

@@ -1,7 +1,9 @@
 /** Finding a tool call among the visible history rows. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import { rowIndexOfCall } from "../src/lib/history-filter";
 
 const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
@@ -14,9 +16,10 @@ const evt = (over: Partial<TimelineEvent> = {}): TimelineEvent => ({
   ...over,
 });
 
+const refs = (events: readonly TimelineEvent[]) =>
+  events.map((e, pos) => ({ e, pos }));
+
 describe("rowIndexOfCall", () => {
-  const refs = (events: readonly TimelineEvent[]) =>
-    events.map((e, pos) => ({ e, pos }));
   const paired = refs([
     evt({ kind: "user-prompt" }),
     evt({ kind: "tool-result", toolUseId: "a" }),
@@ -32,6 +35,7 @@ describe("rowIndexOfCall", () => {
       evt({ kind: "user-prompt" }),
       evt({ kind: "tool-result", toolUseId: "a" }),
     ]);
+
     expect(rowIndexOfCall(resultOnly, "a")).toBe(1);
   });
 

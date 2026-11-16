@@ -1,23 +1,23 @@
 {
   "name": "@workspace/viz",
   "version": "0.0.0",
-  "type": "module",
   "private": true,
   "license": "MIT",
-  "scripts": {
-    "typecheck": "tsrs --noEmit"
-  },
+  "type": "module",
   "exports": {
     "./components/*": "./src/components/*.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./mock/*": "./src/mock/*.ts"
   },
+  "scripts": {
+    "typecheck": "tsrs --noEmit --fast"
+  },
   "dependencies": {
     "@tanstack/charts": "0.7.2",
     "@tanstack/charts-scales": "0.7.2",
     "@tanstack/react-charts": "0.7.2",
-    "@workspace/view-core": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "@workspace/view-core": "workspace:*",
     "effect": "latest",
     "lucide-react": "^1.16.0",
     "react": "19.2.8",
@@ -27,7 +27,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "^6.0.3"
+    "typescript": "7.0.2"
   },
   "overrides": {
     "@types/react": "19.2.14",

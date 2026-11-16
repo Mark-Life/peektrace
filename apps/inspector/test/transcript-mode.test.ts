@@ -1,5 +1,6 @@
 /** A hash `view` overrides the stored layout; anything unknown is ignored. */
 import { expect, test } from "bun:test";
+
 import {
   resolveTranscriptMode,
   transcriptModeOf,

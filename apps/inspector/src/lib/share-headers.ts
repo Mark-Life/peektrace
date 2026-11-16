@@ -12,9 +12,12 @@ import { Option } from "effect";
 
 /** Field-by-field equality. Every `SessionHeader` field is a primitive. */
 const sameHeader = (a: SessionHeader, b: SessionHeader) => {
-  const keys = Object.keys(a) as (keyof SessionHeader)[];
+  const fields = Object.entries(a);
+  const other: Readonly<Record<string, SessionHeader[keyof SessionHeader]>> = b;
+
   return (
-    keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k])
+    fields.length === Object.keys(b).length &&
+    fields.every(([k, v]) => other[k] === v)
   );
 };
 
@@ -26,13 +29,18 @@ export const shareHeaders = (
   if (prev.length === 0) {
     return next;
   }
+
   const byId = new Map(prev.map((h) => [h.id, h]));
+
   const shared = next.map((h) => {
     const old = byId.get(h.id);
+
     return old !== undefined && sameHeader(old, h) ? old : h;
   });
+
   const unchanged =
     shared.length === prev.length && shared.every((h, i) => h === prev[i]);
+
   return unchanged ? prev : shared;
 };
 
@@ -46,16 +54,20 @@ export const sharedHeadersAtom = <E>(
 ) =>
   Atom.readable((get) => {
     const result = get(source);
+
     if (!Result.isSuccess(result)) {
       return result;
     }
+
     const prev = get
       .self<Result.Result<readonly SessionHeader[], E>>()
       .pipe(
         Option.filter(Result.isSuccess),
         Option.match({ onNone: () => [], onSome: (r) => r.value })
       );
+
     const headers = shareHeaders(prev, result.value);
+
     return Result.success<readonly SessionHeader[], E>(headers, {
       timestamp: result.timestamp,
     });

@@ -10,25 +10,29 @@
  */
 
 import { describe, expect, test } from "bun:test";
+
 import type {
   CauseRow,
   FailRow,
+  RuleCheck,
   StatsReport,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { NO_RULE } from "@workspace/view-core/constants.gen";
+
 import {
   causeNote,
-  type FindingFormat,
   findingsOf,
   rateText,
   ruleLine,
   timeNote,
   timeSpread,
 } from "../src/lib/stats-findings";
+import type { FindingFormat } from "../src/lib/stats-findings";
+import { report as emptyReport } from "./stats-report-fixture";
 
 const FORMAT: FindingFormat = {
-  count: (value) => String(value),
+  count: String,
   hms: (sec) => `${sec}s`,
   pct: (share) => `${share * 100}%`,
   // Bracketed, so a test sees the token count took this path, not count().
@@ -36,61 +40,61 @@ const FORMAT: FindingFormat = {
 };
 
 const failRow = (over: Partial<FailRow>): FailRow => ({
+  detector: null,
+  flagged: 0,
   key: "k",
   label: "label",
-  where: "Bash",
-  rows: 10,
-  sessions: 5,
-  projects: 2,
-  flagged: 0,
   note: null,
-  detector: null,
+  projects: 2,
+  rows: 10,
   samples: [],
+  sessions: 5,
+  where: "Bash",
   ...over,
 });
 
 const timeRow = (over: Partial<TimeRow>): TimeRow => ({
-  key: "test",
-  label: "tests",
-  runs: 10,
-  coPresentRuns: 12,
-  totalSec: 3600,
-  share: 0.5,
-  medianSec: 1,
-  p95Sec: 9,
-  cappedRuns: 0,
-  cappedSec: 0,
   bgRuns: 0,
   bgSec: 0,
+  cappedRuns: 0,
+  cappedSec: 0,
+  coPresentRuns: 12,
+  key: "test",
+  label: "tests",
+  medianSec: 1,
+  p95Sec: 9,
+  runs: 10,
   samples: [],
+  share: 0.5,
+  totalSec: 3600,
   ...over,
 });
 
 const causeRow = (over: Partial<CauseRow>): CauseRow => ({
-  key: "cause:zsh-glob-flag",
   cause: "zsh-glob-flag",
-  kind: "rule",
-  label: "unquoted glob in a flag value",
-  fix: "quote the glob",
-  failing: true,
-  hits: 40,
-  flagged: 2,
-  hitsBy: { main: 10, nested: 30 },
-  pairs: 12,
-  pairsBy: { main: 2, nested: 10 },
-  retrySessions: 11,
-  sessions: 30,
-  projects: 3,
-  retrySec: 50,
-  secMeasured: 12,
-  retryCtxTokens: 900,
-  tokensMeasured: 12,
-  per1k: { main: 1, nested: 2 },
   details: [],
   diffs: [],
+  failing: true,
+  fix: "quote the glob",
+  flagged: 2,
+  hits: 40,
+  hitsBy: { main: 10, nested: 30 },
+  key: "cause:zsh-glob-flag",
+  kind: "rule",
+  label: "unquoted glob in a flag value",
+  pairSamples: [],
+  pairs: 12,
+  pairsBy: { main: 2, nested: 10 },
+  per1k: { main: 1, nested: 2 },
+  projects: 3,
+  retryCtxTokens: 900,
+  retrySec: 50,
+  retrySessions: 11,
   rule: null,
   samples: [],
-  pairSamples: [],
+  secMeasured: 12,
+  sessions: 30,
+  tokensMeasured: 12,
   ...over,
 });
 
@@ -99,13 +103,15 @@ const report = (over: {
   readonly causes?: readonly CauseRow[];
   readonly fails?: readonly FailRow[];
   readonly time?: readonly TimeRow[];
-}): StatsReport =>
-  ({
-    corpus: { bashSec: over.bashSec ?? 100 },
+}): StatsReport => {
+  const base = emptyReport({ fails: over.fails ?? [], time: over.time ?? [] });
+
+  return {
+    ...base,
     causes: over.causes ?? [],
-    fails: over.fails ?? [],
-    time: over.time ?? [],
-  }) as unknown as StatsReport;
+    corpus: { ...base.corpus, bashSec: over.bashSec ?? 100 },
+  };
+};
 
 describe("findingsOf", () => {
   test("a named rule leads, then a measured note, then the time rows", () => {
@@ -113,14 +119,15 @@ describe("findingsOf", () => {
       fails: [
         failRow({ key: "plain", note: "printed a failure", sessions: 9 }),
         failRow({
+          detector: "zsh-equals-abort",
           key: "named",
           note: "quote the separator",
-          detector: "zsh-equals-abort",
         }),
         failRow({ key: "quiet", note: null }),
       ],
       time: [timeRow({ cappedRuns: 3, cappedSec: 60 })],
     });
+
     expect(findingsOf(r, FORMAT).map((f) => f.key)).toEqual([
       "named",
       "plain",
@@ -138,6 +145,7 @@ describe("findingsOf", () => {
       fails: [failRow({ note: "printed a failure", sessions: 9 })],
       time: [timeRow({ cappedRuns: 3, cappedSec: 60 })],
     });
+
     const [fail, time] = findingsOf(r, FORMAT);
     expect(fail?.impact).toBe("9 sessions");
     expect(time?.impact).toBe("3600s");
@@ -149,13 +157,14 @@ describe("cause findings", () => {
     const r = report({
       causes: [
         causeRow({}),
-        causeRow({ key: "cause:pkill-self-kill", cause: "pkill-self-kill" }),
+        causeRow({ cause: "pkill-self-kill", key: "cause:pkill-self-kill" }),
       ],
       fails: [
-        failRow({ key: "named", note: "x", detector: "piped-exit-code" }),
+        failRow({ detector: "piped-exit-code", key: "named", note: "x" }),
       ],
       time: [timeRow({ cappedRuns: 3, cappedSec: 60 })],
     });
+
     expect(findingsOf(r, FORMAT).map((f) => [f.table, f.key])).toEqual([
       ["cause", "cause:zsh-glob-flag"],
       ["cause", "cause:pkill-self-kill"],
@@ -179,6 +188,7 @@ describe("cause findings", () => {
       report({ causes: [causeRow({ retrySec: 0, secMeasured: 0 })] }),
       FORMAT
     );
+
     expect(finding?.impact).toBe(
       "12 retries (main 2 / sub 10) · <900> ctx tokens re-read"
     );
@@ -188,40 +198,42 @@ describe("cause findings", () => {
     const r = report({
       causes: [
         causeRow({
-          key: "cause:unclassified:Bash",
           cause: "unclassified",
-          kind: "none",
           fix: null,
+          key: "cause:unclassified:Bash",
+          kind: "none",
         }),
       ],
     });
+
     expect(findingsOf(r, FORMAT)).toHaveLength(0);
     expect(NO_RULE).toBe("no rule to suggest");
   });
 
   test("a rule already present and still firing says so instead of the fix", () => {
-    const row = causeRow({
-      rule: {
-        matches: [
-          {
-            path: "~/.claude/CLAUDE.md",
-            line: 100,
-            excerpt: "Quote globs",
-          },
-        ],
-        sinceIso: "2026-08-01T00:00:00.000Z",
-        hitsSince: { main: 1, nested: 9 },
-        callsSince: { main: 100, nested: 100 },
-        per1kSince: { main: 10, nested: 90 },
-        advice: "setopt nonomatch",
-      },
-    });
+    const rule: RuleCheck = {
+      advice: "setopt nonomatch",
+      callsSince: { main: 100, nested: 100 },
+      hitsSince: { main: 1, nested: 9 },
+      matches: [
+        {
+          excerpt: "Quote globs",
+          line: 100,
+          path: "~/.claude/CLAUDE.md",
+        },
+      ],
+      per1kSince: { main: 10, nested: 90 },
+      sinceIso: "2026-08-01T00:00:00.000Z",
+    };
+
+    const row = causeRow({ rule });
+
     expect(causeNote(row)).toBe(
       "rule in ~/.claude/CLAUDE.md:100 · still firing main 10/1k, sub 90/1k since 2026-08-01: setopt nonomatch"
     );
     expect(
       ruleLine({
-        ...(row.rule ?? (null as never)),
+        ...rule,
         callsSince: { main: 0, nested: 100 },
       })
     ).toBe(
@@ -229,20 +241,22 @@ describe("cause findings", () => {
     );
     expect(
       ruleLine({
-        ...(row.rule ?? (null as never)),
+        ...rule,
         hitsSince: { main: 0, nested: 0 },
       })
     ).toBe("rule in ~/.claude/CLAUDE.md:100 · quiet since 2026-08-01");
+
     // Changed on the last day: nothing measured yet, which is not "quiet".
     const fresh = causeRow({
       rule: {
-        ...(row.rule ?? (null as never)),
-        hitsSince: { main: 0, nested: 0 },
-        callsSince: { main: 0, nested: 0 },
-        per1kSince: { main: 0, nested: 0 },
+        ...rule,
         advice: "if it keeps firing: setopt nonomatch",
+        callsSince: { main: 0, nested: 0 },
+        hitsSince: { main: 0, nested: 0 },
+        per1kSince: { main: 0, nested: 0 },
       },
     });
+
     expect(causeNote(fresh)).toBe(
       "rule in ~/.claude/CLAUDE.md:100 · not measured yet (added 2026-08-01): if it keeps firing: setopt nonomatch"
     );
@@ -280,14 +294,16 @@ describe("rateText", () => {
 
   test("a side with hits never reads 0/1k", () => {
     expect(rateText(0, 1)).toBe("<0.01");
+
     const line = ruleLine({
-      matches: [{ path: "~/.claude/CLAUDE.md", line: 1, excerpt: "x" }],
-      sinceIso: "2026-08-01T00:00:00.000Z",
-      hitsSince: { main: 0, nested: 1 },
-      callsSince: { main: 10, nested: 4000 },
-      per1kSince: { main: 0, nested: 0.25 },
       advice: "a",
+      callsSince: { main: 10, nested: 4000 },
+      hitsSince: { main: 0, nested: 1 },
+      matches: [{ excerpt: "x", line: 1, path: "~/.claude/CLAUDE.md" }],
+      per1kSince: { main: 0, nested: 0.25 },
+      sinceIso: "2026-08-01T00:00:00.000Z",
     });
+
     expect(line).toContain("still firing main 0/1k, sub 0.25/1k");
   });
 });

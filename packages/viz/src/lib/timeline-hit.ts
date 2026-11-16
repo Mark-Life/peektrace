@@ -19,10 +19,13 @@ export const snapIndexAtX = ({
   if (n <= 0) {
     return -1;
   }
+
   if (n === 1 || plotW <= 0) {
     return 0;
   }
+
   const frac = Math.min(Math.max((px - left) / plotW, 0), 1);
+
   return Math.round(frac * (n - 1));
 };
 

@@ -1,46 +1,50 @@
 /** Empty session list: scanned folders per agent and a Settings link. */
 import { describe, expect, test } from "bun:test";
+
 import { Result } from "@effect-atom/atom-react";
 import type { ServerInfo } from "@workspace/view-core/api-types.gen";
 import { Cause } from "effect";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { NoSessions } from "../src/routes/sessions/no-sessions";
 
 const HOME = "/home/dev";
 
 const root = (path: string, exists = true) => ({
-  isDefault: true,
-  home: path,
-  path,
   exists,
+  home: path,
+  isDefault: true,
+  path,
 });
 
 const INFO: ServerInfo = {
-  readOnly: false,
-  userHome: HOME,
   agents: [
     { agent: "claude", roots: [root(`${HOME}/.claude/projects`)] },
     { agent: "codex", roots: [root(`${HOME}/.codex/sessions`, false)] },
     { agent: "pi", roots: [root(`${HOME}/.pi/agent/sessions`)] },
     { agent: "opencode", roots: [root("/srv/opencode")] },
   ],
+  readOnly: false,
+  userHome: HOME,
 };
 
 const render = (info: Result.Result<ServerInfo, unknown>) =>
-  renderToStaticMarkup(<NoSessions info={info} onRetry={() => undefined} />);
+  renderToStaticMarkup(<NoSessions info={info} onRetry={() => {}} />);
 
 describe("NoSessions", () => {
   test("lists every agent's folder with ~ paths and a Settings link", () => {
     const html = render(Result.success(INFO));
     expect(html).toContain("No sessions found");
+
     for (const label of ["Claude", "Codex", "Pi", "OpenCode"]) {
       expect(html).toContain(`>${label}</span>`);
     }
+
     expect(html).toContain("~/.claude/projects");
     expect(html).toContain("~/.codex/sessions");
     expect(html).toContain("/srv/opencode");
     expect(html).not.toContain(`${HOME}/`);
-    expect(html.match(/data-testid="root-missing"/g)).toHaveLength(1);
+    expect(html.match(/data-testid="root-missing"/gu)).toHaveLength(1);
     expect(html).toContain('href="#/settings"');
     expect(html).toContain("looked for transcripts in these folders:");
   });

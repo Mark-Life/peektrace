@@ -8,9 +8,11 @@ import {
 import { MoonIcon, SunIcon } from "lucide-react";
 import { ThemeProvider as NextThemeProvider, useTheme } from "next-themes";
 import type { ReactNode } from "react";
+
 import { ShortcutKeys } from "./shortcut-keys";
 import { ariaKeys, useShortcut } from "./shortcuts";
-import { type Appearance, nextThemePress } from "./theme-modes";
+import { nextThemePress } from "./theme-modes";
+import type { Appearance } from "./theme-modes";
 
 /**
  * Wrap the app in `next-themes`. Default to the OS preference, but honor an
@@ -32,8 +34,8 @@ export const ThemeProvider = ({
 );
 
 const ICONS: Record<Appearance, typeof SunIcon> = {
-  light: SunIcon,
   dark: MoonIcon,
+  light: SunIcon,
 };
 
 /** What the next flip shows, and a `flip` that applies it. The flip goes
@@ -44,7 +46,13 @@ const useThemeFlip = () => {
   // so both appearances are already known on the first render.
   const { resolvedTheme, systemTheme, setTheme } = useTheme();
   const { appearance, store } = nextThemePress({ resolvedTheme, systemTheme });
-  return { appearance, flip: () => setTheme(store) };
+
+  return {
+    appearance,
+    flip: () => {
+      setTheme(store);
+    },
+  };
 };
 
 /** Binds the `theme` shortcut. Call it from a component that is always

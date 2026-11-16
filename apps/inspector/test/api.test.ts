@@ -1,25 +1,27 @@
 /** The `/api` fetch client: typed JSON errors and transport failures. */
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, spyOn, test } from "bun:test";
+
 import type {
   HistoryPage,
   SessionSummary,
 } from "@workspace/view-core/api-types.gen";
 import { Effect, Either } from "effect";
+
 import { apiGet, apiPath, apiUrl } from "../src/lib/api";
 
-const realFetch = globalThis.fetch;
+const fetchSpy = spyOn(globalThis, "fetch");
 
 const answer = (body: string, status: number, type: string) => {
-  globalThis.fetch = (() =>
-    Promise.resolve(
-      new Response(body, { status, headers: { "content-type": type } })
-    )) as unknown as typeof fetch;
+  fetchSpy.mockResolvedValue(
+    new Response(body, { headers: { "content-type": type }, status })
+  );
 };
 
-const run = (path: string) => Effect.runPromise(Effect.either(apiGet(path)));
+const run = async (path: string) =>
+  await Effect.runPromise(Effect.either(apiGet(path)));
 
 afterEach(() => {
-  globalThis.fetch = realFetch;
+  fetchSpy.mockReset();
 });
 
 describe("apiGet", () => {
@@ -57,8 +59,7 @@ describe("apiGet", () => {
   });
 
   test("a network fault becomes a TransportError", async () => {
-    globalThis.fetch = (() =>
-      Promise.reject(new Error("offline"))) as unknown as typeof fetch;
+    fetchSpy.mockRejectedValue(new Error("offline"));
     expect(await run("/api/server")).toEqual(
       Either.left({ _tag: "TransportError", message: "offline" })
     );
@@ -83,9 +84,11 @@ describe("paged session routes", () => {
       200,
       "application/json"
     );
+
     const summary = await Effect.runPromise(
       apiGet<SessionSummary>(apiPath("sessions", "s", "summary"))
     );
+
     expect(summary.history.pages).toEqual(["a", "b"]);
     expect(summary.history.total).toBe(101);
     answer(
@@ -93,12 +96,14 @@ describe("paged session routes", () => {
       200,
       "application/json"
     );
+
     const page = await Effect.runPromise(
       apiGet<HistoryPage>(apiPath("sessions", "s", "history"), {
         limit: 100,
         offset: 100,
       })
     );
+
     expect(page.hash).toBe(summary.history.pages[1] ?? "");
     expect(page.events.map((e) => e.body)).toEqual(["x"]);
   });

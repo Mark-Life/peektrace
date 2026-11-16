@@ -8,6 +8,7 @@ import type {
   SettingsResult,
   SettingsUpdate,
 } from "@workspace/view-core/api-types.gen";
+
 import { apiSend } from "./api";
 
 export const updateSettingsAtom = Atom.fn(

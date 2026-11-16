@@ -21,11 +21,13 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { AgentId, StatsReport } from "@workspace/view-core/api-types.gen";
 import { AGENT_IDS } from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
+
 import { at, hms, n } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 
 const WEEK_DAYS = 7;
 const MONTH_DAYS = 30;
+
 /** The window the service uses when the caller names none. */
 const DEFAULT_DAYS = 60;
 const QUARTER_DAYS = 90;
@@ -38,20 +40,27 @@ const DAY_OPTIONS = [
   QUARTER_DAYS,
 ] as const;
 
+/** Length of the `YYYY-MM-DD` prefix of an ISO stamp. */
+const ISO_DATE_LENGTH = 10;
+
 /** The agent filter value that means "every agent with a parser". */
 const ALL_AGENTS = "all";
 
 /** Read the window out of a hash param, falling back to the service default. */
 export const daysOf = (raw: string | null): number => {
   const parsed = Number(raw);
-  return DAY_OPTIONS.includes(parsed as (typeof DAY_OPTIONS)[number])
+
+  return DAY_OPTIONS.some((option) => option === parsed)
     ? parsed
     : DEFAULT_DAYS;
 };
 
+const isAgentId = (value: string | null): value is AgentId =>
+  AGENT_IDS.some((id) => id === value);
+
 /** Read the agent filter out of a hash param. */
 export const agentOf = (raw: string | null): AgentId | null =>
-  AGENT_IDS.includes(raw as AgentId) ? (raw as AgentId) : null;
+  isAgentId(raw) ? raw : null;
 
 /** Window, agent and rescan. All three ride the hash, so a view is a link. */
 const Controls = ({
@@ -70,7 +79,12 @@ const Controls = ({
   readonly rescanning: boolean;
 }) => (
   <div className="flex flex-wrap items-center gap-2">
-    <Select onValueChange={(v) => onDays(Number(v))} value={String(days)}>
+    <Select
+      onValueChange={(v) => {
+        onDays(Number(v));
+      }}
+      value={String(days)}
+    >
       <SelectTrigger className="w-32" data-testid="stats-days">
         <SelectValue />
       </SelectTrigger>
@@ -83,7 +97,9 @@ const Controls = ({
       </SelectContent>
     </Select>
     <Select
-      onValueChange={(v) => onAgent(v === ALL_AGENTS ? null : (v as AgentId))}
+      onValueChange={(v) => {
+        onAgent(isAgentId(v) ? v : null);
+      }}
       value={agent ?? ALL_AGENTS}
     >
       <SelectTrigger className="w-36" data-testid="stats-agent">
@@ -137,6 +153,7 @@ export const ReportHeader = ({
   readonly report: StatsReport;
 }) => {
   const { corpus } = report;
+
   return (
     <header className="flex flex-col gap-3" data-testid="stats-header">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -162,17 +179,18 @@ export const ReportHeader = ({
         </div>
       </div>
       <p className="text-muted-foreground text-xs">
-        {report.window.fromIso.slice(0, 10)} →{" "}
-        {report.window.toIso.slice(0, 10)} · generated {at(report.generatedAt)}{" "}
-        · {report.schemaVersion} · detector v{report.detectorVersion}
+        {report.window.fromIso.slice(0, ISO_DATE_LENGTH)} →{" "}
+        {report.window.toIso.slice(0, ISO_DATE_LENGTH)} · generated{" "}
+        {at(report.generatedAt)} · {report.schemaVersion} · detector v
+        {report.detectorVersion}
       </p>
-      <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
         <ShieldCheckIcon className="size-3.5 shrink-0" />
         Command text, error signatures and cluster labels are redacted before
         they are stored or shown.
       </div>
       <Collapsible>
-        <CollapsibleTrigger className="text-left text-muted-foreground text-xs underline decoration-dotted">
+        <CollapsibleTrigger className="text-muted-foreground text-left text-xs underline decoration-dotted">
           {n(report.caveats.length)} caveats travel with these numbers
           {report.skipped.length > 0
             ? ` · ${n(report.skipped.length)} files skipped`
@@ -180,7 +198,7 @@ export const ReportHeader = ({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <ul
-            className="mt-2 flex list-disc flex-col gap-1 pl-4 text-muted-foreground text-xs"
+            className="text-muted-foreground mt-2 flex list-disc flex-col gap-1 pl-4 text-xs"
             data-testid="stats-caveats"
           >
             {report.caveats.map((caveat) => (

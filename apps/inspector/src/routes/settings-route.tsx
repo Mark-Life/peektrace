@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { ReadOnlyReason } from "../components/read-only";
 import { RootRow } from "../components/root-row";
 import { AGENT_LABEL } from "../lib/agent-label";
@@ -54,13 +55,8 @@ import { ResultView } from "../lib/result-view";
 import { navigate } from "../lib/routes";
 import { useFreshServerInfo, withLastSuccess } from "../lib/server-info";
 import { updateSettingsAtom } from "../lib/settings-atoms";
-import {
-  assemble,
-  defaultRoots,
-  type Row,
-  type RowsByAgent,
-  seedRows,
-} from "../lib/settings-form";
+import { assemble, defaultRoots, seedRows } from "../lib/settings-form";
+import type { Row, RowsByAgent } from "../lib/settings-form";
 import { wireErrorMessage, wireErrorOf } from "../lib/wire-error";
 
 /** Per-agent card: a list of extra roots with add/remove + path/label inputs. */
@@ -78,11 +74,17 @@ const AgentRoots = ({
   readonly rows: Row[];
   readonly onChange: (rows: Row[]) => void;
 }) => {
-  const setRow = (index: number, patch: Partial<Row>) =>
+  const setRow = (index: number, patch: Partial<Row>) => {
     onChange(rows.map((r, i) => (i === index ? { ...r, ...patch } : r)));
-  const removeRow = (index: number) =>
+  };
+
+  const removeRow = (index: number) => {
     onChange(rows.filter((_, i) => i !== index));
-  const addRow = () => onChange([...rows, { path: "", label: "" }]);
+  };
+
+  const addRow = () => {
+    onChange([...rows, { label: "", path: "" }]);
+  };
 
   return (
     <Card data-testid={`settings-agent-${agent}`}>
@@ -104,7 +106,7 @@ const AgentRoots = ({
             testId="settings-default-root"
           >
             <span className="text-muted-foreground text-xs">
-              scans <code>{tildePath({ path: defaultRoot.path, home })}</code>
+              scans <code>{tildePath({ home, path: defaultRoot.path })}</code>
             </span>
           </RootRow>
         ) : null}
@@ -122,7 +124,9 @@ const AgentRoots = ({
                 <Input
                   data-testid={`settings-path-${agent}-${index}`}
                   id={`${agent}-path-${index}`}
-                  onChange={(e) => setRow(index, { path: e.target.value })}
+                  onChange={(e) => {
+                    setRow(index, { path: e.target.value });
+                  }}
                   placeholder="~/work/.claude"
                   value={row.path}
                 />
@@ -132,7 +136,9 @@ const AgentRoots = ({
                 <Input
                   data-testid={`settings-label-${agent}-${index}`}
                   id={`${agent}-label-${index}`}
-                  onChange={(e) => setRow(index, { label: e.target.value })}
+                  onChange={(e) => {
+                    setRow(index, { label: e.target.value });
+                  }}
                   placeholder="work"
                   value={row.label}
                 />
@@ -140,7 +146,9 @@ const AgentRoots = ({
               <Button
                 aria-label="Remove root"
                 data-testid={`settings-remove-${agent}-${index}`}
-                onClick={() => removeRow(index)}
+                onClick={() => {
+                  removeRow(index);
+                }}
                 size="icon"
                 type="button"
                 variant="ghost"
@@ -190,28 +198,37 @@ export const SettingsEditor = ({
   // `guard` on → CAS on the loaded mtime; off → force-overwrite a conflict.
   const send = async (guard: boolean) => {
     setBusy(true);
+
+    const assembled = assemble(rows);
+
     const exit = await save({
-      payload: {
-        settings: assemble(rows),
-        ...(guard ? { expectedMtime: mtimeMs } : {}),
-      },
+      payload: guard
+        ? { expectedMtime: mtimeMs, settings: assembled }
+        : { settings: assembled },
     });
+
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
       setConflict(false);
       toast.success("Settings saved", {
         description: "Restart `peektrace serve` to apply to the session list.",
       });
       refresh();
+
       return;
     }
+
     const err = wireErrorOf(exit);
+
     if (err?._tag === "FileChangedError") {
       // Keep the edits mounted so the user can reload or overwrite — never
       // silently discard what they typed.
       setConflict(true);
+
       return;
     }
+
     toast.error(err ? wireErrorMessage(err) : "Save failed.");
   };
 
@@ -221,7 +238,7 @@ export const SettingsEditor = ({
         <InfoIcon />
         <AlertTitle>Changes apply after a restart</AlertTitle>
         <AlertDescription>
-          Saved to <code>{tildePath({ path, home })}</code>. The running server
+          Saved to <code>{tildePath({ home, path })}</code>. The running server
           scans the roots it read at startup, so restart{" "}
           <code>peektrace serve</code> for new roots to appear in the session
           list.
@@ -234,7 +251,7 @@ export const SettingsEditor = ({
           <AlertTitle>Read-only server</AlertTitle>
           <AlertDescription>
             <p>
-              <ReadOnlyReason /> Settings can't be saved from here.
+              <ReadOnlyReason /> Settings can&apos;t be saved from here.
             </p>
           </AlertDescription>
         </Alert>
@@ -263,7 +280,9 @@ export const SettingsEditor = ({
             <div className="flex justify-end gap-2">
               <Button
                 data-testid="settings-cas-reload"
-                onClick={() => refresh()}
+                onClick={() => {
+                  refresh();
+                }}
                 type="button"
                 variant="outline"
               >
@@ -272,7 +291,9 @@ export const SettingsEditor = ({
               <Button
                 data-testid="settings-cas-overwrite"
                 disabled={busy}
-                onClick={() => send(false)}
+                onClick={() => {
+                  void send(false);
+                }}
                 type="button"
                 variant="destructive"
               >
@@ -288,7 +309,9 @@ export const SettingsEditor = ({
             defaultRoot={defaults.get(agent)}
             home={home}
             key={agent}
-            onChange={(next) => setRows((prev) => ({ ...prev, [agent]: next }))}
+            onChange={(next) => {
+              setRows((prev) => ({ ...prev, [agent]: next }));
+            }}
             rows={rows[agent]}
           />
         ))}
@@ -297,7 +320,9 @@ export const SettingsEditor = ({
           <Button
             data-testid="settings-save"
             disabled={busy}
-            onClick={() => send(true)}
+            onClick={() => {
+              void send(true);
+            }}
             type="button"
           >
             <SaveIcon />
@@ -314,10 +339,11 @@ export const SettingsRoute = () => {
   const result = useAtomValue(settingsAtom);
   const { info: infoResult, refresh: retryInfo } = useFreshServerInfo();
   const retry = useAtomRefresh(settingsAtom);
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4">
       <div>
-        <h1 className="font-semibold text-lg">Settings</h1>
+        <h1 className="text-lg font-semibold">Settings</h1>
         <p className="text-muted-foreground text-sm">
           Point peektrace at extra agent config dirs — e.g. a separate work
           account — to scan them in parallel.
@@ -346,7 +372,9 @@ export const SettingsRoute = () => {
         <CardContent>
           <Button
             data-testid="settings-capabilities"
-            onClick={() => navigate("capabilities")}
+            onClick={() => {
+              navigate("capabilities");
+            }}
             type="button"
             variant="outline"
           >

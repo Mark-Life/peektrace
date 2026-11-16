@@ -11,8 +11,8 @@ import {
   Tool,
   ToolContent,
   ToolHeader,
-  type ToolState,
 } from "@workspace/ui/components/ai-elements/tool";
+import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Collapsible,
@@ -25,25 +25,21 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { fmt, PERCENT } from "@workspace/viz/lib/session-format";
 import { ChevronRightIcon, CornerDownLeftIcon } from "lucide-react";
-import { memo, type RefObject, useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
+import type { RefObject } from "react";
+
 import type {
   EventRow as AnyEvent,
   TranscriptRowRef,
 } from "../../lib/chat-lane";
 import { eventBadgeLabel, thinkingNote } from "../../lib/event-labels";
 import { eventTokens, tokenLabel } from "../../lib/event-tokens";
-import {
-  alignOf,
-  type HistoryJump,
-  type JumpLanding,
-} from "../../lib/history-jump";
-import { type HydrateCache, hydrator } from "../../lib/history-pages";
-import {
-  type HistorySort,
-  type HistorySortKey,
-  isForwardOrder,
-  nextSort,
-} from "../../lib/history-sort";
+import { alignOf } from "../../lib/history-jump";
+import type { HistoryJump, JumpLanding } from "../../lib/history-jump";
+import { hydrator } from "../../lib/history-pages";
+import type { HydrateCache } from "../../lib/history-pages";
+import { isForwardOrder, nextSort } from "../../lib/history-sort";
+import type { HistorySort, HistorySortKey } from "../../lib/history-sort";
 import { eventCollapseId } from "../../lib/session-view";
 import type { ToolIndex } from "../../lib/tool-event";
 import {
@@ -57,7 +53,8 @@ import {
 import { estimateTableRow } from "../../lib/transcript-estimate";
 import { sameEvent } from "../../lib/transcript-row";
 import { tableTurnStops } from "../../lib/turn-nav";
-import { type RevealHit, useRevealHit } from "../../lib/use-history-search";
+import { useRevealHit } from "../../lib/use-history-search";
+import type { RevealHit } from "../../lib/use-history-search";
 import { useTurnNav } from "../../lib/use-turn-nav";
 import { useVirtualJump } from "../../lib/virtual-jump";
 import type { VirtualListHandle } from "../../lib/virtual-range";
@@ -74,7 +71,7 @@ const PCT_DECIMALS = 2;
 
 /** Turn-number gutter, shared by every transcript row. */
 const TurnGutter = ({ turn }: { readonly turn: number }) => (
-  <span className="w-8 shrink-0 font-mono text-muted-foreground text-xs">
+  <span className="text-muted-foreground w-8 shrink-0 font-mono text-xs">
     t{turn}
   </span>
 );
@@ -88,9 +85,10 @@ const TokenCount = ({
   readonly share?: number | undefined;
 }) => {
   const { tokens, measured } = eventTokens(e);
+
   return (
     <span
-      className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
+      className="text-muted-foreground ml-auto shrink-0 font-mono text-xs"
       title={measured ? "measured from usage" : "estimated (chars/4)"}
     >
       {tokens ? tokenLabel(e, fmt) : ""}
@@ -147,38 +145,42 @@ const ToolEventRowBody = ({
   state,
   turn,
 }: ToolRowProps) => {
-  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
+  const onOpenChange = (next: boolean) => {
+    onToggle(collapseId, next);
+  };
+
   const view = e.kind === "tool-call" ? callView(e) : null;
   const result = view ? null : resultPane(e);
+
   return (
     <Tool
       className="rounded-none border-0 border-b"
       data-collapse-id={collapseId}
       data-kind={e.kind}
-      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-sidechain={e.isSidechain === true ? "true" : "false"}
       data-testid="history-event"
       data-tool-use-id={e.toolUseId}
       onOpenChange={onOpenChange}
       open={open}
     >
       <ToolHeader
-        className="px-2 py-1.5 text-sm hover:bg-muted/40"
+        className="hover:bg-muted/40 px-2 py-1.5 text-sm"
         icon={
           view ? undefined : (
-            <CornerDownLeftIcon className="size-3.5 shrink-0 text-muted-foreground" />
+            <CornerDownLeftIcon className="text-muted-foreground size-3.5 shrink-0" />
           )
         }
         lead={<TurnGutter turn={turn} />}
         name={name}
         state={state}
       >
-        {e.isSidechain ? (
+        {e.isSidechain === true ? (
           <Badge className="shrink-0" variant="secondary">
             sidechain
           </Badge>
         ) : null}
         <ContextEditBadge e={e} />
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="text-muted-foreground truncate text-xs">
           {(view ? view.summary : e.preview) || "(empty)"}
         </span>
         <TokenCount e={e} share={share} />
@@ -211,32 +213,36 @@ const EventRowBody = ({
   onToggle,
   share,
 }: EventRowProps) => {
-  const onOpenChange = (next: boolean) => onToggle(collapseId, next);
+  const onOpenChange = (next: boolean) => {
+    onToggle(collapseId, next);
+  };
+
   const emptyText =
     e.kind === "assistant-thinking" ? thinkingNote(e) : EMPTY_BODY;
+
   return (
     <Collapsible
       className="border-border border-b"
       data-collapse-id={collapseId}
       data-kind={e.kind}
-      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-sidechain={e.isSidechain === true ? "true" : "false"}
       data-testid="history-event"
       onOpenChange={onOpenChange}
       open={open}
     >
-      <CollapsibleTrigger className="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-muted/40 [&[data-state=open]>svg]:rotate-90">
-        <ChevronRightIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform" />
+      <CollapsibleTrigger className="hover:bg-muted/40 flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm [&[data-state=open]>svg]:rotate-90">
+        <ChevronRightIcon className="text-muted-foreground size-3.5 shrink-0 transition-transform" />
         <TurnGutter turn={turn} />
         <Badge className="shrink-0" variant="outline">
           {eventBadgeLabel(e)}
         </Badge>
-        {e.isSidechain ? (
+        {e.isSidechain === true ? (
           <Badge className="shrink-0" variant="secondary">
             sidechain
           </Badge>
         ) : null}
         <ContextEditBadge e={e} />
-        <span className="truncate text-muted-foreground text-xs">
+        <span className="text-muted-foreground truncate text-xs">
           {e.preview || "(empty)"}
         </span>
         <TokenCount e={e} share={share} />
@@ -265,7 +271,7 @@ export type TableSession = Pick<
 /** The dumb-zone notice, drawn above the row where the session crossed it. */
 const DumbZoneDivider = ({ a }: { readonly a: TableSession }) => (
   <div
-    className="bg-red-500/15 px-3 py-1.5 text-center font-medium text-red-300 text-xs"
+    className="bg-red-500/15 px-3 py-1.5 text-center text-xs font-medium text-red-300"
     data-testid="dumbzone-divider"
   >
     entered dumb zone — {Math.round(a.dumbZoneFraction * PERCENT)}% (
@@ -296,6 +302,7 @@ const TableRowViewBody = ({
   readonly turn: number;
 }) => {
   const id = eventCollapseId(pos);
+
   return (
     <>
       {divider ? <DumbZoneDivider a={a} /> : null}
@@ -381,21 +388,26 @@ export const TranscriptTable = ({
   const showShare = sort.key === "tokens";
   // The divider marks a point in time, so it only reads right in forward order.
   const showDivider = isForwardOrder(sort);
+
   const shareOf = (e: AnyEvent) =>
     showShare && a.contextWindow > 0
       ? eventTokens(e).tokens / a.contextWindow
       : undefined;
+
   const dividerAt = (pos: number) => showDivider && pos === crossEvtIdx;
 
   const keys = useMemo(
     () => rows.map(({ e, pos }) => `${e.index}-${pos}`),
     [rows]
   );
+
   const list = useRef<VirtualListHandle>(null);
+
   const indexOfHit = useCallback(
     (id: string) => rows.findIndex(({ pos }) => eventCollapseId(pos) === id),
     [rows]
   );
+
   useRevealHit({ indexOf: indexOfHit, list, reveal: revealHit });
   useVirtualJump({
     align: jump ? alignOf(jump.target) : "start",
@@ -404,18 +416,22 @@ export const TranscriptTable = ({
     list,
     target: jump?.key ?? null,
   });
+
   const stops = useMemo(
     () => tableTurnStops({ rows, sort, turns }),
     [rows, sort, turns]
   );
+
   useTurnNav({ list, stops });
-  const cache = useRef<HydrateCache>(new WeakMap());
-  const hydrate = useMemo(() => hydrator(eventAt, cache.current), [eventAt]);
+  const cache = useMemo<HydrateCache>(() => new WeakMap(), []);
+  const hydrate = useMemo(() => hydrator(eventAt, cache), [cache, eventAt]);
+
   const onRange = useCallback(
     (first: number, last: number) =>
       onDrawn?.(rows.slice(first, last + 1).map(({ pos }) => pos)),
     [rows, onDrawn]
   );
+
   const estimate = ({ pos }: TranscriptRowRef<AnyEvent>) =>
     estimateTableRow({
       divider: dividerAt(pos),
@@ -423,9 +439,11 @@ export const TranscriptTable = ({
     });
 
   return (
-    <div className="rounded-md border border-border">
+    <div className="border-border rounded-md border">
       <SortHeader
-        onSort={(key: HistorySortKey) => onSort(nextSort(sort, key))}
+        onSort={(key: HistorySortKey) => {
+          onSort(nextSort(sort, key));
+        }}
         sort={sort}
       />
       <VirtualList
@@ -437,6 +455,7 @@ export const TranscriptTable = ({
         ref={list}
         render={(row) => {
           const full = hydrate.row(row);
+
           return full === null ? (
             <PendingRow height={estimate(row)} />
           ) : (
@@ -456,7 +475,7 @@ export const TranscriptTable = ({
         testId="table-transcript"
       />
       {rows.length === 0 ? (
-        <p className="px-3 py-6 text-center text-muted-foreground text-sm">
+        <p className="text-muted-foreground px-3 py-6 text-center text-sm">
           No events match the filters.
         </p>
       ) : null}

@@ -1,13 +1,8 @@
 /** Keyboard reach for the session rail: the rows are one Tab stop, arrows and
  * j / k move between them, `/` jumps to search and ↓ leaves it for the rows. */
-import {
-  type FocusEvent,
-  type KeyboardEvent,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { FocusEvent, KeyboardEvent } from "react";
+
 import { HISTORY_SEARCH_ID } from "../../lib/landmarks";
 import { focusAfterSelect, rovingStop, stepIndex } from "../../lib/roving";
 import { keyOf, shortcutAllowed, useShortcut } from "../../lib/shortcuts";
@@ -42,12 +37,14 @@ export const useListRoving = ({
   const [focusedId, setFocusedId] = useState<string | null>(null);
   // Opening a session from anywhere makes it the stop; closing one keeps it.
   const [seenSelected, setSeenSelected] = useState(selectedId);
+
   if (seenSelected !== selectedId) {
     setSeenSelected(selectedId);
     setFocusedId(
       focusAfterSelect({ previous: seenSelected, selected: selectedId })
     );
   }
+
   const stop = rovingStop({ focusedId, ids, selectedId });
   /** Focus sits on a row, or sat on one that a filter or reload removed. */
   const inside = useRef(false);
@@ -65,9 +62,11 @@ export const useListRoving = ({
 
   useLayoutEffect(() => {
     const id = pending.current;
+
     if (id === null) {
       return;
     }
+
     pending.current = null;
     focusEl(rowEl(group.current, id));
   });
@@ -76,14 +75,19 @@ export const useListRoving = ({
     if (focusedId === null) {
       return;
     }
+
     const index = ids.indexOf(focusedId);
-    if (index >= 0) {
+
+    if (index !== -1) {
       lastIndex.current = index;
+
       return;
     }
+
     const active = document.activeElement;
     const lost = active === null || active === document.body;
     const next = ids[Math.min(lastIndex.current, ids.length - 1)];
+
     if (inside.current && lost && next !== undefined) {
       setFocusedId(next);
       const el = rowEl(group.current, next);
@@ -94,24 +98,30 @@ export const useListRoving = ({
 
   const onKeyDown = (ev: KeyboardEvent) => {
     const id = rowIdOf(ev.target);
+
     if (id === null || !shortcutAllowed(ev.nativeEvent)) {
       return;
     }
+
     const next = stepIndex({
       count: ids.length,
       index: ids.indexOf(id),
       key: keyOf(ev),
     });
+
     const nextId = next === null ? undefined : ids[next];
+
     if (nextId === undefined) {
       return;
     }
+
     ev.preventDefault();
     focusRow(nextId);
   };
 
   const onFocus = (ev: FocusEvent) => {
     const id = rowIdOf(ev.target);
+
     if (id !== null) {
       inside.current = true;
       setFocusedId(id);
@@ -139,6 +149,7 @@ export const useListSearch = () => {
 
   const onSearchKeyDown = (ev: KeyboardEvent) => {
     const row = root.current?.querySelector<HTMLElement>(ROW_STOP);
+
     if (ev.key === "ArrowDown" && row) {
       ev.preventDefault();
       focusEl(row);
@@ -148,10 +159,12 @@ export const useListSearch = () => {
   useShortcut("search", () => {
     // The rail is hidden while a session is open on a narrow screen.
     const own = search.current;
+
     const target =
       own && own.offsetParent !== null
         ? own
-        : document.getElementById(HISTORY_SEARCH_ID);
+        : document.querySelector<HTMLElement>(`#${HISTORY_SEARCH_ID}`);
+
     target?.focus();
   });
 

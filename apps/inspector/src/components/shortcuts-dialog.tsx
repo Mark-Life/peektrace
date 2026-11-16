@@ -13,14 +13,15 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 import { KeyboardIcon } from "lucide-react";
+
 import { ShortcutKeys } from "../lib/shortcut-keys";
 import {
   ariaKeys,
   isMacPlatform,
   SHORTCUTS,
-  type Shortcut,
   useShortcut,
 } from "../lib/shortcuts";
+import type { Shortcut } from "../lib/shortcuts";
 
 export const GROUPS: readonly Shortcut["group"][] = [
   "Sessions",
@@ -40,16 +41,16 @@ export const ShortcutsList = ({ mac }: { readonly mac: boolean }) => (
   <div className="flex flex-col gap-4" data-testid="shortcuts-list">
     {GROUPS.map((group) => (
       <section aria-label={group} className="flex flex-col gap-1" key={group}>
-        <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
           {group}
         </h3>
-        {GROUP_NOTE[group] ? (
+        {GROUP_NOTE[group] === undefined || GROUP_NOTE[group] === "" ? null : (
           <p className="text-muted-foreground text-xs">{GROUP_NOTE[group]}</p>
-        ) : null}
+        )}
         <dl className="flex flex-col">
           {SHORTCUTS.filter((s) => s.group === group).map((s) => (
             <div
-              className="flex items-center justify-between gap-4 border-border border-b py-1.5 text-sm last:border-b-0"
+              className="border-border flex items-center justify-between gap-4 border-b py-1.5 text-sm last:border-b-0"
               data-shortcut={s.id}
               key={s.id}
             >
@@ -73,7 +74,10 @@ export const ShortcutsDialog = ({
   readonly onOpenChange: (open: boolean) => void;
   readonly open: boolean;
 }) => {
-  useShortcut("help", () => onOpenChange(true));
+  useShortcut("help", () => {
+    onOpenChange(true);
+  });
+
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">

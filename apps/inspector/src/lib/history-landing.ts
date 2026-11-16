@@ -2,7 +2,9 @@
  *  which jumps and keyboard focus land below, and the subagents section, which
  *  sits outside the virtual list.
  */
-import { type RefObject, useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+import type { RefObject } from "react";
+
 import type { HistoryJump } from "./history-jump";
 
 /** The toolbar sticks only on screens at least this tall; on a short one (a
@@ -10,32 +12,42 @@ import type { HistoryJump } from "./history-jump";
  *  step with the toolbar's `[@media(min-height:500px)]:sticky`. */
 const STICKY_MEDIA = "(min-height: 500px)";
 
+const noCleanup = () => {
+  // nothing to undo
+};
+
 /** Height of `bar` while it sticks to the pane top; 0 when it does not
  *  stick, so a jump has nothing to land below. */
 export const useStickyHeight = (bar: HTMLElement | null) => {
   const [height, setHeight] = useState(0);
   useLayoutEffect(() => {
     if (!bar) {
-      return;
+      return noCleanup;
     }
+
     const media = window.matchMedia(STICKY_MEDIA);
     let box = bar.getBoundingClientRect().height;
+
     const update = () => {
       const next = media.matches ? Math.round(box) : 0;
       setHeight((prev) => (prev === next ? prev : next));
     };
+
     const resize = new ResizeObserver(([entry]) => {
       box = entry?.borderBoxSize[0]?.blockSize ?? box;
       update();
     });
+
     resize.observe(bar);
     media.addEventListener("change", update);
     update();
+
     return () => {
       resize.disconnect();
       media.removeEventListener("change", update);
     };
   }, [bar]);
+
   return height;
 };
 
@@ -45,11 +57,13 @@ export const useStickyHeight = (bar: HTMLElement | null) => {
 export const useScrollPadding = (root: HTMLElement | null, px: number) => {
   useEffect(() => {
     if (!root) {
-      return;
+      return noCleanup;
     }
-    root.style.scrollPaddingTop = `${px}px`;
+
+    root.style.setProperty("scroll-padding-top", `${px}px`);
+
     return () => {
-      root.style.scrollPaddingTop = "";
+      root.style.setProperty("scroll-padding-top", "");
     };
   }, [root, px]);
 };
@@ -69,16 +83,20 @@ export const useSubagentsJump = ({
     if (key === null || done.current === key) {
       return;
     }
+
     const box = section.current?.querySelector<HTMLElement>(
       '[data-testid="subagents"]'
     );
+
     if (!box) {
       return;
     }
+
+    // oxlint-disable-next-line react/immutability -- `done` is a caller-owned ref that records the jump already landed
     done.current = key;
     box.scrollIntoView({ block: "start" });
     const heading = box.querySelector<HTMLElement>("h3") ?? box;
-    heading.tabIndex = -1;
+    heading.setAttribute("tabindex", "-1");
     heading.focus({ preventScroll: true });
   }, [key, done, section]);
 };

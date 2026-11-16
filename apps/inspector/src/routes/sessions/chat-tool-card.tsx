@@ -9,8 +9,8 @@ import {
   Tool,
   ToolContent,
   ToolHeader,
-  type ToolState,
 } from "@workspace/ui/components/ai-elements/tool";
+import type { ToolState } from "@workspace/ui/components/ai-elements/tool";
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type {
@@ -22,6 +22,7 @@ import { CAUSES } from "@workspace/view-core/constants.gen";
 import { fmt, fmtK } from "@workspace/viz/lib/session-format";
 import { CornerDownLeftIcon } from "lucide-react";
 import { memo } from "react";
+
 import { tokenLabel } from "../../lib/event-tokens";
 import { callView, resultPane } from "../../lib/tool-event";
 import { sameToolPair } from "../../lib/transcript-row";
@@ -46,25 +47,26 @@ interface ChatToolCardProps {
 
 /** What a cause marker says: where its fix lives. */
 const CAUSE_MARK: Record<CauseKind, string> = {
-  rule: "rule",
   env: "env",
-  workflow: "workflow",
   none: "error",
+  rule: "rule",
+  workflow: "workflow",
 };
 
 /** Short glyph text per detector. The badge says what was printed, never that
  *  something broke — a silent failure is a failure the exit code did not
  *  report, which is not the same claim. */
-const MARK_TEXT: Record<string, string> = {
-  ...Object.fromEntries(
-    Object.entries(CAUSES).map(([id, spec]) => [id, CAUSE_MARK[spec.kind]])
-  ),
-  retry: "retry",
-  "piped-exit-code": "silent fail",
-  "silent-fail": "silent fail",
-  capped: "capped",
-  repeat: "repeat",
-};
+const MARK_TEXT = new Map<string, string>([
+  ...Object.entries(CAUSES).map(([id, spec]): [string, string] => [
+    id,
+    CAUSE_MARK[spec.kind],
+  ]),
+  ["capped", "capped"],
+  ["piped-exit-code", "silent fail"],
+  ["repeat", "repeat"],
+  ["retry", "retry"],
+  ["silent-fail", "silent fail"],
+]);
 
 /** One stats marker, tinted amber and never red: a marked call is not an error
  *  the agent reported, and the error tint already means that. */
@@ -85,7 +87,7 @@ const MarkBadge = ({
     title={mark.label}
     variant="outline"
   >
-    {MARK_TEXT[mark.detector] ?? mark.detector}
+    {MARK_TEXT.get(mark.detector) ?? mark.detector}
   </Badge>
 );
 
@@ -111,6 +113,48 @@ const rawBoth = (call: TimelineEvent | null, result: TimelineEvent | null) =>
     .filter((s) => s !== null)
     .join("\n\n");
 
+/** The badges after the tool name: provenance, context edits and stats marks. */
+const HeaderBadges = ({
+  activeMark,
+  anchor,
+  call,
+  marks,
+  result,
+}: Pick<ChatToolCardProps, "activeMark" | "call" | "marks" | "result"> & {
+  readonly anchor: TimelineEvent | null;
+}) => (
+  <>
+    {call ? null : (
+      <Badge className="shrink-0" variant="outline">
+        result only
+      </Badge>
+    )}
+    {anchor?.isSidechain === true ? (
+      <Badge className="shrink-0" variant="secondary">
+        sidechain
+      </Badge>
+    ) : null}
+    <ContextEditBadge e={result?.contextEdit ? result : call} />
+    {marks.map((mark) => (
+      <MarkBadge
+        active={activeMark === mark.detector}
+        key={`${mark.detector}:${mark.seq}`}
+        mark={mark}
+      />
+    ))}
+  </>
+);
+
+/** The one-line summary of the call, or the result's preview for a lone result. */
+const summaryText = (
+  view: ReturnType<typeof callView> | null,
+  result: TimelineEvent | null
+) => {
+  const text = (view ? view.summary : result?.preview) ?? "";
+
+  return text === "" ? "(empty)" : text;
+};
+
 const ChatToolCardBody = ({
   activeMark,
   call,
@@ -126,6 +170,7 @@ const ChatToolCardBody = ({
   const out = result ? resultPane(result) : null;
   const anchor = call ?? result;
   const cost = costPair(call, result);
+
   return (
     <ChatRow lane="agent" sidechain={anchor?.isSidechain === true}>
       <Tool
@@ -136,50 +181,41 @@ const ChatToolCardBody = ({
         data-kind={call ? "tool-call" : "tool-result"}
         data-lane="agent"
         data-paired={call && result ? "true" : "false"}
-        data-sidechain={anchor?.isSidechain ? "true" : "false"}
+        data-sidechain={anchor?.isSidechain === true ? "true" : "false"}
         data-testid="history-event"
         data-tool-use-id={anchor?.toolUseId ?? undefined}
         id={collapseId}
-        onOpenChange={(next: boolean) => onToggle(collapseId, next)}
+        onOpenChange={(next: boolean) => {
+          onToggle(collapseId, next);
+        }}
         open={open}
       >
         <ToolHeader
-          className="flex-wrap px-3 py-2 text-sm hover:bg-muted/40"
+          className="hover:bg-muted/40 flex-wrap px-3 py-2 text-sm"
           icon={
             call ? undefined : (
-              <CornerDownLeftIcon className="size-3.5 shrink-0 text-muted-foreground" />
+              <CornerDownLeftIcon className="text-muted-foreground size-3.5 shrink-0" />
             )
           }
           name={name}
           state={state}
         >
-          {call ? null : (
-            <Badge className="shrink-0" variant="outline">
-              result only
-            </Badge>
-          )}
-          {anchor?.isSidechain ? (
-            <Badge className="shrink-0" variant="secondary">
-              sidechain
-            </Badge>
-          ) : null}
-          <ContextEditBadge e={result?.contextEdit ? result : call} />
-          {marks.map((mark) => (
-            <MarkBadge
-              active={activeMark === mark.detector}
-              key={`${mark.detector}:${mark.seq}`}
-              mark={mark}
-            />
-          ))}
+          <HeaderBadges
+            activeMark={activeMark}
+            anchor={anchor}
+            call={call}
+            marks={marks}
+            result={result}
+          />
           <span
-            className="flex min-w-0 @md:flex-1 @md:basis-0 basis-full items-center gap-2 @md:pl-0 pl-5.5"
+            className="flex min-w-0 basis-full items-center gap-2 pl-5.5 @md:flex-1 @md:basis-0 @md:pl-0"
             data-testid="tool-summary"
           >
-            <span className="min-w-0 truncate text-muted-foreground text-xs">
-              {(view ? view.summary : result?.preview) || "(empty)"}
+            <span className="text-muted-foreground min-w-0 truncate text-xs">
+              {summaryText(view, result)}
             </span>
             <span
-              className="ml-auto shrink-0 font-mono text-muted-foreground text-xs"
+              className="text-muted-foreground ml-auto shrink-0 font-mono text-xs"
               title={cost.title}
             >
               {cost.short}

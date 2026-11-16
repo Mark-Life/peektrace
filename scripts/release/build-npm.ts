@@ -10,7 +10,7 @@
  *
  *   peektrace/                    the unscoped wrapper: shim, postinstall, README,
  *                                 optionalDependencies pinning every variant
- *   @peektrace/cli-<platform>-<arch>/
+ *   `@peektrace/cli-<platform>-<arch>/`
  *     package.json                os/cpu-filtered, so npm installs only the host's
  *     bin/peektrace[.exe]
  *
@@ -29,33 +29,49 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import nodePath from "node:path";
 import { parseArgs } from "node:util";
+
 import {
   binaryName,
   DESCRIPTION,
   KEYWORDS,
   TARGETS,
-  type Target,
   targetKey,
   variantName,
 } from "./npm-meta";
+import type { Target } from "./npm-meta";
 import { npmReadme } from "./npm-readme";
 
-const NPM_SRC = join(import.meta.dir, "npm");
-const ROOT = resolve(import.meta.dir, "../..");
-const ROOT_README = join(ROOT, "README.md");
+const NPM_SRC = nodePath.join(import.meta.dir, "npm");
+const ROOT = nodePath.resolve(import.meta.dir, "../..");
+const ROOT_README = nodePath.join(ROOT, "README.md");
 const REPO_URL = "https://github.com/Mark-Life/peektrace";
+
 /** rwxr-xr-x, so `npx` and global installs can exec the bin on unix. */
 const EXECUTABLE_MODE = 0o755;
+
+const JSON_INDENT = 2;
+
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly JsonValue[]
+  | { readonly [key: string]: JsonValue };
+
+const present = (value: string | undefined): value is string =>
+  value !== undefined && value !== "";
+
 const SEMVER =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$/;
+  /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 
 const commonMeta = {
-  homepage: `${REPO_URL}#readme`,
   bugs: { url: `${REPO_URL}/issues` },
-  repository: { type: "git", url: `git+${REPO_URL}.git` },
+  homepage: `${REPO_URL}#readme`,
   license: "MIT",
+  repository: { type: "git", url: `git+${REPO_URL}.git` },
 } as const;
 
 export interface StageOptions {
@@ -66,57 +82,65 @@ export interface StageOptions {
   readonly version: string;
 }
 
-const writeJson = (path: string, value: unknown) =>
-  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+const writeJson = (path: string, value: JsonValue) => {
+  writeFileSync(path, `${JSON.stringify(value, null, JSON_INDENT)}\n`);
+};
 
 const stageVariant = (t: Target, { assets, out, version }: StageOptions) => {
-  const source = join(assets, t.asset);
+  const source = nodePath.join(assets, t.asset);
+
   if (!existsSync(source)) {
     throw new Error(`Missing release binary ${source}`);
   }
-  const pkgDir = join(out, variantName(t));
-  mkdirSync(join(pkgDir, "bin"), { recursive: true });
-  const dest = join(pkgDir, "bin", binaryName(t));
+
+  const pkgDir = nodePath.join(out, variantName(t));
+  mkdirSync(nodePath.join(pkgDir, "bin"), { recursive: true });
+  const dest = nodePath.join(pkgDir, "bin", binaryName(t));
   cpSync(source, dest);
   chmodSync(dest, EXECUTABLE_MODE);
-  writeJson(join(pkgDir, "package.json"), {
-    name: variantName(t),
-    version,
-    description: `${DESCRIPTION} (${targetKey(t)} binary)`,
-    os: [t.platform],
+  writeJson(nodePath.join(pkgDir, "package.json"), {
     cpu: [t.arch],
+    description: `${DESCRIPTION} (${targetKey(t)} binary)`,
     files: ["bin"],
+    name: variantName(t),
+    os: [t.platform],
+    version,
     ...commonMeta,
   });
+
   return pkgDir;
 };
 
 const stageWrapper = ({ out, readme, version }: StageOptions) => {
-  const pkgDir = join(out, "peektrace");
+  const pkgDir = nodePath.join(out, "peektrace");
   mkdirSync(pkgDir, { recursive: true });
-  writeJson(join(pkgDir, "package.json"), {
-    name: "peektrace",
-    version,
+  writeJson(nodePath.join(pkgDir, "package.json"), {
     description: DESCRIPTION,
     keywords: [...KEYWORDS],
+    name: "peektrace",
+    version,
     ...commonMeta,
-    type: "commonjs",
     bin: { peektrace: "./peektrace.js" },
-    scripts: { postinstall: "node postinstall.js" },
+    engines: { node: ">=20" },
     files: ["peektrace.js", "postinstall.js", "README.md"],
     optionalDependencies: Object.fromEntries(
       TARGETS.map((t) => [variantName(t), version])
     ),
-    engines: { node: ">=20" },
+    scripts: { postinstall: "node postinstall.js" },
+    type: "commonjs",
   });
-  const shim = join(pkgDir, "peektrace.js");
-  cpSync(join(NPM_SRC, "peektrace.js"), shim);
+  const shim = nodePath.join(pkgDir, "peektrace.js");
+  cpSync(nodePath.join(NPM_SRC, "peektrace.js"), shim);
   chmodSync(shim, EXECUTABLE_MODE);
-  cpSync(join(NPM_SRC, "postinstall.js"), join(pkgDir, "postinstall.js"));
+  cpSync(
+    nodePath.join(NPM_SRC, "postinstall.js"),
+    nodePath.join(pkgDir, "postinstall.js")
+  );
   writeFileSync(
-    join(pkgDir, "README.md"),
+    nodePath.join(pkgDir, "README.md"),
     npmReadme(readme, `cli-v${version}`)
   );
+
   return pkgDir;
 };
 
@@ -125,23 +149,28 @@ export const stage = (options: StageOptions) => {
   if (!SEMVER.test(options.version)) {
     throw new Error(`Not a semver version: ${options.version}`);
   }
-  rmSync(options.out, { recursive: true, force: true });
+
+  rmSync(options.out, { force: true, recursive: true });
   mkdirSync(options.out, { recursive: true });
   const variants = options.targets.map((t) => stageVariant(t, options));
+
   return { variants, wrapper: stageWrapper(options) };
 };
 
 /** The `--targets` list as targets; every target when empty. */
 export const pickTargets = (list: string | undefined) => {
-  if (!list) {
+  if (!present(list)) {
     return TARGETS;
   }
+
   return list.split(",").map((key) => {
     const found = TARGETS.find((t) => targetKey(t) === key.trim());
+
     if (!found) {
       const known = TARGETS.map(targetKey).join(", ");
       throw new Error(`Unknown target ${key} (known: ${known})`);
     }
+
     return found;
   });
 };
@@ -149,25 +178,28 @@ export const pickTargets = (list: string | undefined) => {
 const main = () => {
   const { values } = parseArgs({
     options: {
-      version: { type: "string" },
       assets: { type: "string" },
-      out: { type: "string", default: join(ROOT, "dist-npm") },
+      out: { default: nodePath.join(ROOT, "dist-npm"), type: "string" },
       targets: { type: "string" },
+      version: { type: "string" },
     },
   });
-  if (!(values.version && values.assets)) {
+
+  if (!(present(values.version) && present(values.assets))) {
     console.error(
       "usage: build-npm.ts --version <semver> --assets <dir> [--out <dir>] [--targets a,b]"
     );
     process.exit(1);
   }
+
   const staged = stage({
-    version: values.version,
-    assets: resolve(values.assets),
-    out: resolve(values.out),
+    assets: nodePath.resolve(values.assets),
+    out: nodePath.resolve(values.out),
+    readme: readFileSync(ROOT_README, "utf-8"),
     targets: pickTargets(values.targets),
-    readme: readFileSync(ROOT_README, "utf8"),
+    version: values.version,
   });
+
   for (const dir of [...staged.variants, staged.wrapper]) {
     console.log(`Staged ${dir}`);
   }

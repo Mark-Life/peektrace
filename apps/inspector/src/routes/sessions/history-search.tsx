@@ -11,7 +11,9 @@ import { Button } from "@workspace/ui/components/button";
 import { Input } from "@workspace/ui/components/input";
 import { cn } from "@workspace/ui/lib/utils";
 import { ChevronDownIcon, ChevronUpIcon, XIcon } from "lucide-react";
-import { type KeyboardEvent, useRef } from "react";
+import { useRef } from "react";
+import type { KeyboardEvent } from "react";
+
 import type { StepDir } from "../../lib/history-search";
 import { matchLabel } from "../../lib/history-search";
 import {
@@ -42,9 +44,11 @@ export const searchKeyAction = (e: {
   if (e.isComposing || e.keyCode === IME_KEY_CODE) {
     return null;
   }
+
   if (e.key === "Enter") {
     return e.shiftKey ? "prev" : "next";
   }
+
   return e.key === "Escape" ? "clear" : null;
 };
 
@@ -72,19 +76,24 @@ export const HistorySearch = ({
   const active = query.length > 0;
   const canStep = active && !pending && count > 0;
   const label = active && !pending ? matchLabel({ count, current }) : "";
+
   const clear = () => {
     onClear();
     inputRef.current?.focus();
   };
+
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     const action = searchKeyAction({
       isComposing: e.nativeEvent.isComposing,
       key: e.key,
+      // oxlint-disable-next-line typescript/no-deprecated -- Safari reports the IME commit Enter only as keyCode 229
       keyCode: e.keyCode,
       shiftKey: e.shiftKey,
     });
+
     if (action === "next" || action === "prev") {
       e.preventDefault();
+
       if (canStep) {
         onStep(action === "prev" ? -1 : 1);
       }
@@ -93,6 +102,7 @@ export const HistorySearch = ({
       onClear();
     }
   };
+
   return (
     <div
       className="flex w-full items-center gap-1 sm:w-auto"
@@ -106,7 +116,9 @@ export const HistorySearch = ({
           aria-label="Search history"
           className="pr-8 [&::-webkit-search-cancel-button]:hidden"
           data-testid="history-search"
-          onChange={(e) => onQuery(e.target.value)}
+          onChange={(e) => {
+            onQuery(e.target.value);
+          }}
           onKeyDown={onKeyDown}
           placeholder="Search history…"
           ref={inputRef}
@@ -116,7 +128,7 @@ export const HistorySearch = ({
         {active ? (
           <button
             aria-label="Clear search"
-            className="absolute top-1/2 right-0.5 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground absolute top-1/2 right-0.5 -translate-y-1/2 rounded p-1"
             data-testid="history-search-clear"
             onClick={clear}
             type="button"
@@ -125,25 +137,26 @@ export const HistorySearch = ({
           </button>
         ) : null}
       </div>
-      <span
+      <output
         aria-busy={pending}
         aria-live="polite"
         className={cn(
-          "shrink-0 whitespace-nowrap text-muted-foreground text-xs tabular-nums",
+          "text-muted-foreground shrink-0 text-xs whitespace-nowrap tabular-nums",
           label === "" && "sr-only"
         )}
         data-testid="history-match-count"
-        role="status"
       >
         {label}
-      </span>
+      </output>
       {active ? (
         <>
           <Button
             aria-label="Previous match"
             data-testid="history-search-prev"
             disabled={!canStep}
-            onClick={() => onStep(-1)}
+            onClick={() => {
+              onStep(-1);
+            }}
             size="icon-sm"
             variant="ghost"
           >
@@ -153,7 +166,9 @@ export const HistorySearch = ({
             aria-label="Next match"
             data-testid="history-search-next"
             disabled={!canStep}
-            onClick={() => onStep(1)}
+            onClick={() => {
+              onStep(1);
+            }}
             size="icon-sm"
             variant="ghost"
           >

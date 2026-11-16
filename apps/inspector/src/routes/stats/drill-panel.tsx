@@ -21,18 +21,16 @@ import {
   SheetTitle,
 } from "@workspace/ui/components/sheet";
 import type { DrillHit, DrillResult } from "@workspace/view-core/api-types.gen";
-import { type UIEvent, useState } from "react";
+import { useState } from "react";
+import type { UIEvent } from "react";
+
 import type { ApiFailure } from "../../lib/api";
 import { ResultView } from "../../lib/result-view";
 import { markedSessionHash } from "../../lib/routes";
 import { sessionTitlesAtom } from "../../lib/session-titles";
 import { DRILL_PAGE } from "../../lib/stats-atoms";
-import {
-  chipLabelOf,
-  hms,
-  n,
-  type SessionTitles,
-} from "../../lib/stats-format";
+import { chipLabelOf, hms, n } from "../../lib/stats-format";
+import type { SessionTitles } from "../../lib/stats-format";
 
 /** One open drill, as the sheet reads it. */
 type DrillAtom = Atom.Atom<Result.Result<DrillResult, ApiFailure>>;
@@ -46,6 +44,7 @@ const NEAR_END = 240;
 /** The hit's session: the title with project and short id, else `project/id`. */
 export const drillLabel = (hit: DrillHit, titles: SessionTitles) => {
   const chip = chipLabelOf(hit, titles);
+
   return chip.id === null
     ? chip.label
     : `${chip.label} · ${chip.project}/${chip.id}`;
@@ -64,12 +63,12 @@ const Hit = ({
 }) => (
   <div className="flex flex-col gap-1" data-testid="drill-hit">
     <a
-      className="flex w-full flex-col gap-1 rounded-md border border-border px-2 py-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring/30"
+      className="border-border hover:bg-muted/50 focus-visible:ring-ring/30 flex w-full flex-col gap-1 rounded-md border px-2 py-1.5 text-left outline-none focus-visible:ring-2"
       href={markedSessionHash({
-        id: hit.sid,
-        parent: hit.parent,
-        mark: detector ?? "",
         call: hit.toolUseId,
+        id: hit.sid,
+        mark: detector ?? "",
+        parent: hit.parent,
       })}
       title={`${hit.project} · ${hit.parent ?? hit.sid}`}
     >
@@ -85,19 +84,19 @@ const Hit = ({
             failed
           </Badge>
         ) : null}
-        <span className="ml-auto shrink-0 font-mono text-muted-foreground">
+        <span className="text-muted-foreground ml-auto shrink-0 font-mono">
           {hit.durSec === null ? "—" : hms(hit.durSec)}
         </span>
       </div>
-      <code className="wrap-break-word whitespace-pre-wrap text-muted-foreground text-xs">
+      <code className="text-muted-foreground text-xs wrap-break-word whitespace-pre-wrap">
         {hit.line}
       </code>
       {hit.pairLine === null ? null : (
-        <code className="wrap-break-word whitespace-pre-wrap text-xs">
+        <code className="text-xs wrap-break-word whitespace-pre-wrap">
           → {hit.pairLine}
         </code>
       )}
-      <span className="wrap-break-word font-mono text-muted-foreground/70 text-xs">
+      <span className="text-muted-foreground/70 font-mono text-xs wrap-break-word">
         {drillLabel(hit, titles)} · {hit.kind} · {hit.ts ?? "no timestamp"}
       </span>
     </a>
@@ -111,10 +110,10 @@ const Hit = ({
         <a
           data-testid="drill-retry"
           href={markedSessionHash({
-            id: hit.sid,
-            parent: hit.parent,
-            mark: "retry",
             call: hit.pairToolUseId,
+            id: hit.sid,
+            mark: "retry",
+            parent: hit.parent,
           })}
         >
           Open the retry
@@ -134,6 +133,7 @@ const PageNote = ({
 }) => {
   const next = result.offset + result.hits.length;
   const left = result.total - next;
+
   return (
     <div className="flex flex-wrap items-center gap-2 pt-1">
       <p className="text-muted-foreground text-xs">
@@ -142,7 +142,9 @@ const PageNote = ({
       {left > 0 ? (
         <Button
           className="h-6 px-2 text-xs"
-          onClick={() => onPage(next)}
+          onClick={() => {
+            onPage(next);
+          }}
           size="sm"
           variant="outline"
         >
@@ -152,7 +154,9 @@ const PageNote = ({
       {result.offset > 0 ? (
         <Button
           className="h-6 px-2 text-xs"
-          onClick={() => onPage(Math.max(0, result.offset - DRILL_PAGE))}
+          onClick={() => {
+            onPage(Math.max(0, result.offset - DRILL_PAGE));
+          }}
           size="sm"
           variant="ghost"
         >
@@ -176,13 +180,16 @@ const Hits = ({
   const titles = useAtomValue(sessionTitlesAtom);
   const [shown, setShown] = useState(STEP);
   const visible = result.hits.slice(0, shown);
+
   const onScroll = (event: UIEvent<HTMLDivElement>) => {
     const el = event.currentTarget;
     const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_END;
+
     if (atEnd && shown < result.hits.length) {
       setShown(shown + STEP);
     }
   };
+
   return (
     <div
       className="min-h-0 flex-1 overflow-y-auto"
@@ -216,6 +223,7 @@ const DrillBody = ({
 }) => {
   const result = useAtomValue(atom);
   const retry = useAtomRefresh(atom);
+
   return (
     <ResultView onRetry={retry} result={result}>
       {(value) => (
@@ -245,7 +253,11 @@ export const DrillPanel = ({
   readonly title: string;
 }) => (
   <Sheet
-    onOpenChange={(open) => (open ? null : onClose())}
+    onOpenChange={(open) => {
+      if (!open) {
+        onClose();
+      }
+    }}
     open={atom !== null}
   >
     <SheetContent className="w-full sm:max-w-xl" data-testid="stats-drill">

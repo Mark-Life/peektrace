@@ -6,12 +6,15 @@
  * and a fail count is never added to a second.
  */
 import { expect, test } from "bun:test";
+
 import type {
   CauseRow,
   FailRow,
+  RuleCheck,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { markedSessionHash } from "../src/lib/routes";
 import {
   findingsOf,
@@ -100,6 +103,7 @@ test("findings lead with the cheapest fix, then each table's own impact", () => 
       time: [timeRow({ cappedRuns: 4, cappedSec: 300, key: "test" })],
     })
   );
+
   expect(findings.map((f) => f.key)).toEqual([
     "detect:zsh-equals-abort",
     "scan:tsc",
@@ -133,16 +137,17 @@ const SUBAGENT = "agent-aac481ccea1ab4b5a";
 
 test("a subagent chip names its parent session and says subagent", () => {
   const chip = sessionChip({
+    parent: PARENT,
     project: "-Users-andrey-Code-jetbrains-thinkrail",
     sid: SUBAGENT,
-    parent: PARENT,
   });
+
   expect(chip).toEqual({
     project: "…thinkrail",
     session: "3f2a1b4c",
     subagent: true,
   });
-  expect(sessionChip({ project: "p", sid: PARENT, parent: null })).toEqual({
+  expect(sessionChip({ parent: null, project: "p", sid: PARENT })).toEqual({
     project: "p",
     session: "3f2a1b4c",
     subagent: false,
@@ -153,16 +158,17 @@ test("a subagent link opens the subagent through its parent", () => {
   const params = new URLSearchParams(
     markedSessionHash({
       id: SUBAGENT,
-      parent: PARENT,
       mark: "piped-exit-code",
+      parent: PARENT,
     }).split("?")[1]
   );
+
   expect(params.get("id")).toBe(SUBAGENT);
   expect(params.get("parent")).toBe(PARENT);
   expect(params.get("mark")).toBe("piped-exit-code");
   expect(params.get("view")).toBe("chat");
   expect(
-    markedSessionHash({ id: PARENT, parent: null, mark: "" }).includes(
+    markedSessionHash({ id: PARENT, mark: "", parent: null }).includes(
       "parent="
     )
   ).toBe(false);
@@ -171,16 +177,18 @@ test("a subagent link opens the subagent through its parent", () => {
 test("a drill link names the call to scroll to", () => {
   const params = new URLSearchParams(
     markedSessionHash({
-      id: PARENT,
-      parent: null,
-      mark: "retry",
       call: "toolu_42",
+      id: PARENT,
+      mark: "retry",
+      parent: null,
     }).split("?")[1]
   );
+
   expect(params.get("call")).toBe("toolu_42");
+
   for (const call of [undefined, null]) {
     expect(
-      markedSessionHash({ id: PARENT, parent: null, mark: "", call }).includes(
+      markedSessionHash({ call, id: PARENT, mark: "", parent: null }).includes(
         "call="
       )
     ).toBe(false);
@@ -188,46 +196,46 @@ test("a drill link names the call to scroll to", () => {
 });
 
 const causeRow = (over: Partial<CauseRow>): CauseRow => ({
-  key: "cause:zsh-glob-flag",
   cause: "zsh-glob-flag",
+  details: [{ hits: 1191, value: "*.ts" }],
+  diffs: [{ from: "--include=*.ts", pairs: 135, to: "--include='*.ts'" }],
+  failing: true,
+  fix: "quote every glob passed as a flag value",
+  flagged: 34,
+  hits: 1488,
+  hitsBy: { main: 125, nested: 1363 },
+  key: "cause:zsh-glob-flag",
   kind: "rule",
   label: "unquoted glob in a flag value",
-  fix: "quote every glob passed as a flag value",
-  failing: true,
-  hits: 1488,
-  flagged: 34,
-  hitsBy: { main: 125, nested: 1363 },
+  pairSamples: [],
   pairs: 675,
   pairsBy: { main: 41, nested: 634 },
-  retrySessions: 550,
-  sessions: 914,
-  projects: 4,
-  retrySec: 2660,
-  secMeasured: 675,
-  retryCtxTokens: 32_313_906,
-  tokensMeasured: 675,
   per1k: { main: 25.8, nested: 53.1 },
-  details: [{ value: "*.ts", hits: 1191 }],
-  diffs: [{ from: "--include=*.ts", to: "--include='*.ts'", pairs: 135 }],
+  projects: 4,
+  retryCtxTokens: 32_313_906,
+  retrySec: 2660,
+  retrySessions: 550,
   rule: null,
   samples: [],
-  pairSamples: [],
+  secMeasured: 675,
+  sessions: 914,
+  tokensMeasured: 675,
   ...over,
 });
 
-const FIRING: CauseRow["rule"] = {
+const FIRING: RuleCheck = {
+  advice: "setopt nonomatch in ~/.zshenv",
+  callsSince: { main: 1348, nested: 7765 },
+  hitsSince: { main: 42, nested: 442 },
   matches: [
     {
-      path: "~/.claude/CLAUDE.md",
-      line: 100,
       excerpt: "Quote globs",
+      line: 100,
+      path: "~/.claude/CLAUDE.md",
     },
   ],
-  sinceIso: "2026-10-15T19:06:47.272Z",
-  hitsSince: { main: 42, nested: 442 },
-  callsSince: { main: 1348, nested: 7765 },
   per1kSince: { main: 31.16, nested: 56.92 },
-  advice: "setopt nonomatch in ~/.zshenv",
+  sinceIso: "2026-10-15T19:06:47.272Z",
 };
 
 /** A report with no row to prompt for: buttons that need one render nothing. */
@@ -241,6 +249,7 @@ test("a cause finding leads, ahead of the fail rows", () => {
       time: [],
     })
   );
+
   expect(findings.map((f) => [f.table, f.key])).toEqual([
     ["cause", "cause:zsh-glob-flag"],
     ["fail", "scan:tsc"],
@@ -251,7 +260,7 @@ test("a cause finding leads, ahead of the fail rows", () => {
 });
 
 test("a rule already present says so, with its rate since the edit", () => {
-  expect(ruleLine(FIRING ?? (null as never))).toBe(
+  expect(ruleLine(FIRING)).toBe(
     "rule in ~/.claude/CLAUDE.md:100 · still firing main 31/1k, sub 57/1k since 2026-10-15"
   );
 });
@@ -261,34 +270,37 @@ test("suggested rules skip causes a memory file already states", () => {
     causes: [
       causeRow({}),
       causeRow({
-        key: "cause:zsh-equals-abort",
         cause: "zsh-equals-abort",
-        rule: FIRING,
         fix: "quote ===",
+        key: "cause:zsh-equals-abort",
+        rule: FIRING,
       }),
       causeRow({
-        key: "cause:command-not-found",
         cause: "command-not-found",
-        kind: "env",
         fix: "install jq",
+        key: "cause:command-not-found",
+        kind: "env",
       }),
     ],
     fails: [],
     time: [],
   });
+
   expect(suggestedRules(r)).toEqual([
     "quote every glob passed as a flag value",
   ]);
+
   const html = renderToStaticMarkup(
     <Findings
       findings={findingsOf(r)}
-      onDrill={() => undefined}
-      onShowAll={() => undefined}
+      onDrill={() => {}}
+      onShowAll={() => {}}
       prompt={promptsOf(r, null)}
       showAll={false}
       suggested={suggestedRules(r)}
     />
   );
+
   expect(html).toContain('data-testid="stats-copy-all"');
   expect(html).toContain('data-testid="finding-copy"');
   expect(html).toContain('data-testid="finding-prompt"');
@@ -298,12 +310,13 @@ test("suggested rules skip causes a memory file already states", () => {
 test("the cause table renders its rows, and the open one shows the rule check", () => {
   const html = renderToStaticMarkup(
     <CauseTable
-      onSelect={() => undefined}
+      onSelect={() => {}}
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey="cause:zsh-glob-flag"
     />
   );
+
   expect(html).toContain('data-testid="cause-row"');
   expect(html).toContain('data-testid="cause-detail"');
   expect(html).toContain("still firing main 31/1k, sub 57/1k");
@@ -312,7 +325,8 @@ test("the cause table renders its rows, and the open one shows the rule check", 
   expect(html).toContain('data-testid="cause-split"');
   expect(html).toContain("hits main 125 / sub 1,363");
   expect(html).toContain("context re-read 32.3M");
-  expect(html).toContain("--include=*.ts → --include=&#x27;*.ts&#x27; (135)"); // The split column says it counts hits, and the detail's rate names its
+  expect(html).toContain("--include=*.ts → --include=&#x27;*.ts&#x27; (135)");
+  // The split column says it counts hits, and the detail's rate names its
   // window, apart from the rule line's rate since the file changed.
   expect(html).toContain("Hits main / sub");
   expect(html).toContain("per 1k calls in this window main 26 / sub 53");
@@ -321,12 +335,13 @@ test("the cause table renders its rows, and the open one shows the rule check", 
 test("a phone reads each cause row as one wrapped summary line", () => {
   const html = renderToStaticMarkup(
     <CauseTable
-      onSelect={() => undefined}
+      onSelect={() => {}}
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey={null}
     />
   );
+
   expect(html).toContain('data-testid="cause-narrow"');
   expect(html).toContain(
     "1,488 hits · 675 retries in 550 sessions · 44m20s · 32.3M ctx re-read"
@@ -334,7 +349,8 @@ test("a phone reads each cause row as one wrapped summary line", () => {
 });
 
 /** The class list of a finding's impact span, from static markup. */
-const IMPACT_CLASS = /<span class="([^"]*)" data-testid="stats-finding-impact"/;
+const IMPACT_CLASS =
+  /<span class="(?<cls>[^"]*)" data-testid="stats-finding-impact"/u;
 
 test("a finding's impact wraps instead of running past the card", () => {
   const html = renderToStaticMarkup(
@@ -342,39 +358,43 @@ test("a finding's impact wraps instead of running past the card", () => {
       findings={findingsOf(
         report({ causes: [causeRow({})], fails: [], time: [] })
       )}
-      onDrill={() => undefined}
-      onShowAll={() => undefined}
+      onDrill={() => {}}
+      onShowAll={() => {}}
       prompt={NO_PROMPT}
       showAll={false}
       suggested={[]}
     />
   );
-  const impact = html.match(IMPACT_CLASS);
-  expect(impact?.[1]).toContain("min-w-0");
-  expect(impact?.[1]).not.toContain("shrink-0");
+
+  const impact = IMPACT_CLASS.exec(html);
+  expect(impact?.groups?.cls).toContain("min-w-0");
+  expect(impact?.groups?.cls).not.toContain("shrink-0");
 });
 
 /** The accessible name of each prompt button in static markup. */
-const PROMPT_LABEL = /aria-label="(Copy prompt: investigate [^"]*)"/g;
+const PROMPT_LABEL = /aria-label="(?<label>Copy prompt: investigate [^"]*)"/gu;
 
 test("every open row and the header copy an agent prompt, each named for its row", () => {
   const cause = causeRow({ rule: FIRING });
+
   const fail = failRow({
     key: "scan:tsc",
     label: "error TS####",
     note: "pipes",
   });
+
   const time = timeRow({ key: "test", label: "tests" });
   const r = report({ causes: [cause], fails: [fail], time: [time] });
   const prompt = promptsOf(r, null);
+
   const html = [
     renderToStaticMarkup(
       <ReportHeader
         agent={null}
         days={30}
-        onAgent={() => undefined}
-        onDays={() => undefined}
-        onRescan={() => undefined}
+        onAgent={() => {}}
+        onDays={() => {}}
+        onRescan={() => {}}
         prompt={prompt({ table: "report" })}
         report={r}
         rescanning={false}
@@ -382,7 +402,7 @@ test("every open row and the header copy an agent prompt, each named for its row
     ),
     renderToStaticMarkup(
       <CauseTable
-        onSelect={() => undefined}
+        onSelect={() => {}}
         prompt={prompt}
         rows={[cause]}
         selectedKey={cause.key}
@@ -390,7 +410,7 @@ test("every open row and the header copy an agent prompt, each named for its row
     ),
     renderToStaticMarkup(
       <FailTable
-        onSelect={() => undefined}
+        onSelect={() => {}}
         prompt={prompt}
         rows={[fail]}
         selectedKey={fail.key}
@@ -398,13 +418,14 @@ test("every open row and the header copy an agent prompt, each named for its row
     ),
     renderToStaticMarkup(
       <TimeTable
-        onSelect={() => undefined}
+        onSelect={() => {}}
         prompt={prompt}
         rows={[time]}
         selectedKey={time.key}
       />
     ),
   ].join("");
+
   for (const id of [
     "stats-prompt",
     "cause-prompt",
@@ -413,7 +434,8 @@ test("every open row and the header copy an agent prompt, each named for its row
   ]) {
     expect(html).toContain(`data-testid="${id}"`);
   }
-  expect([...html.matchAll(PROMPT_LABEL)].map((m) => m[1])).toEqual([
+
+  expect([...html.matchAll(PROMPT_LABEL)].map((m) => m.groups?.label)).toEqual([
     "Copy prompt: investigate this report",
     "Copy prompt: investigate unquoted glob in a flag value",
     "Copy prompt: investigate error TS####",
@@ -427,12 +449,13 @@ test("every open row and the header copy an agent prompt, each named for its row
 test("a closed row renders no prompt button", () => {
   const html = renderToStaticMarkup(
     <FailTable
-      onSelect={() => undefined}
+      onSelect={() => {}}
       prompt={() => "Goal: x"}
       rows={[failRow({ key: "scan:tsc" })]}
       selectedKey={null}
     />
   );
+
   expect(html).not.toContain('data-testid="fail-prompt"');
 });
 
@@ -453,8 +476,9 @@ test("session titles never reach the copied prompts", () => {
       },
     ],
   });
+
   const rep = report({ fails: [fail], time: [] });
-  const prompt = promptsOf(rep, null)({ table: "fail", key: "scan:tsc" });
+  const prompt = promptsOf(rep, null)({ key: "scan:tsc", table: "fail" });
   expect(prompt).toContain("scan:tsc");
   expect(prompt).not.toContain("Fix the test");
 });

@@ -1,6 +1,7 @@
 /** Roving tabindex for a list: one row is the Tab stop, the arrow keys (and
  * j / k) move focus between rows. */
-import { type ShortcutId, shortcutOf } from "./shortcuts";
+import { shortcutOf } from "./shortcuts";
+import type { ShortcutId } from "./shortcuts";
 
 /** The id that gets `tabIndex=0`: the focused row while it is still listed,
  *  else the selected row, else the first. */
@@ -16,9 +17,11 @@ export const rovingStop = ({
   if (focusedId !== null && ids.includes(focusedId)) {
     return focusedId;
   }
+
   if (selectedId !== null && ids.includes(selectedId)) {
     return selectedId;
   }
+
   return ids[0] ?? null;
 };
 
@@ -49,18 +52,24 @@ export const stepIndex = ({
   if (count === 0) {
     return null;
   }
+
   const last = count - 1;
+
   if (has("listDown", key)) {
     return Math.min(index + 1, last);
   }
+
   if (has("listUp", key)) {
     return Math.max(index - 1, 0);
   }
+
   if (has("listFirst", key)) {
     return 0;
   }
+
   if (has("listLast", key)) {
     return last;
   }
+
   return null;
 };

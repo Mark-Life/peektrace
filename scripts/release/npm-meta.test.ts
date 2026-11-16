@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+
 import { DESCRIPTION, KEYWORDS, TARGETS, variantName } from "./npm-meta";
 
 describe("npm metadata", () => {
@@ -8,8 +9,10 @@ describe("npm metadata", () => {
     }
   });
   test("keywords cover every agent", () => {
+    const keywords: readonly string[] = KEYWORDS;
+
     for (const k of ["codex", "pi", "opencode", "context-window"]) {
-      expect(KEYWORDS).toContain(k as (typeof KEYWORDS)[number]);
+      expect(keywords).toContain(k);
     }
   });
   test("variants are scoped", () => {

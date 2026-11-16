@@ -5,14 +5,15 @@
     "declaration": false,
     "declarationMap": false,
     "composite": false,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    "types": ["bun"],
     "strictNullChecks": true,
     "paths": {
       "@workspace/ui/*": ["../ui/src/*"],
       "@workspace/view-core/*": ["../view-core/src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "test", "spike"],
   "exclude": ["node_modules", "dist"]
 }

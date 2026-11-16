@@ -8,55 +8,70 @@
  */
 import { TooltipProvider } from "@workspace/ui/components/tooltip";
 import { lazy, Suspense } from "react";
+
 import { AppShell } from "./components/app-shell";
 import { useRoute } from "./lib/routes";
 import { SessionsRoute } from "./routes/sessions-route";
 
-const CapabilitiesRoute = lazy(() =>
-  import("./routes/capabilities-route").then((m) => ({
-    default: m.CapabilitiesRoute,
-  }))
-);
-const MemoryRoute = lazy(() =>
-  import("./routes/memory-route").then((m) => ({ default: m.MemoryRoute }))
-);
-const SettingsRoute = lazy(() =>
-  import("./routes/settings-route").then((m) => ({ default: m.SettingsRoute }))
-);
-const StatsRoute = lazy(() =>
-  import("./routes/stats-route").then((m) => ({ default: m.StatsRoute }))
-);
+const CapabilitiesRoute = lazy(async () => {
+  const m = await import("./routes/capabilities-route");
+
+  return { default: m.CapabilitiesRoute };
+});
+
+const MemoryRoute = lazy(async () => {
+  const m = await import("./routes/memory-route");
+
+  return { default: m.MemoryRoute };
+});
+
+const SettingsRoute = lazy(async () => {
+  const m = await import("./routes/settings-route");
+
+  return { default: m.SettingsRoute };
+});
+
+const StatsRoute = lazy(async () => {
+  const m = await import("./routes/stats-route");
+
+  return { default: m.StatsRoute };
+});
 
 /** Toasts are a response to a mutation, never part of the first paint, and
  *  `sonner` is ~32 KB — so the host mounts itself once the entry has run. */
-const Toaster = lazy(() =>
-  import("@workspace/ui/components/sonner").then((m) => ({
-    default: m.Toaster,
-  }))
-);
+const Toaster = lazy(async () => {
+  const m = await import("@workspace/ui/components/sonner");
+
+  return { default: m.Toaster };
+});
 
 /** Holds the content region's height while a section chunk arrives. */
 const RouteFallback = () => (
-  <div aria-busy="true" className="h-64" role="status">
+  <output aria-busy="true" className="block h-64">
     <span className="sr-only">Loading section…</span>
-  </div>
+  </output>
 );
 
 /** Resolve the active section to its screen. */
 const Screen = () => {
   const route = useRoute();
+
   if (route === "capabilities") {
     return <CapabilitiesRoute />;
   }
+
   if (route === "sessions") {
     return <SessionsRoute />;
   }
+
   if (route === "settings") {
     return <SettingsRoute />;
   }
+
   if (route === "stats") {
     return <StatsRoute />;
   }
+
   return <MemoryRoute />;
 };
 

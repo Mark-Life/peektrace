@@ -32,6 +32,7 @@ import { Exit } from "effect";
 import { AlertTriangleIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
+
 import { updateMemoryAtom } from "../../lib/memory-atoms";
 import { wireErrorMessage, wireErrorOf } from "../../lib/wire-error";
 
@@ -60,27 +61,36 @@ export const EditDialog = ({
   const send = async (guard: boolean) => {
     setBusy(true);
     setError(undefined);
+
+    const base = {
+      body,
+      frontmatter: { description, type },
+      name: entry.slug,
+      project,
+    };
+
     const exit = await update({
-      payload: {
-        project,
-        name: entry.slug,
-        frontmatter: { description, type },
-        body,
-        ...(guard ? { expectedMtime: entry.mtimeMs } : {}),
-      },
+      payload: guard ? { ...base, expectedMtime: entry.mtimeMs } : base,
     });
+
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
       toast.success(`Saved ${entry.slug}`);
       onDone();
       onOpenChange(false);
+
       return;
     }
+
     const err = wireErrorOf(exit);
+
     if (err?._tag === "FileChangedError") {
       setConflict(true);
+
       return;
     }
+
     setError(err ? wireErrorMessage(err) : "Save failed.");
   };
 
@@ -120,7 +130,9 @@ export const EditDialog = ({
               <Button
                 data-testid="cas-overwrite"
                 disabled={busy}
-                onClick={() => send(false)}
+                onClick={() => {
+                  void send(false);
+                }}
                 variant="destructive"
               >
                 Overwrite
@@ -134,7 +146,9 @@ export const EditDialog = ({
               <Input
                 data-testid="edit-description"
                 id="edit-desc"
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value);
+                }}
                 value={description}
               />
             </div>
@@ -159,12 +173,14 @@ export const EditDialog = ({
                 className="min-h-40 font-mono text-xs"
                 data-testid="edit-body"
                 id="edit-body"
-                onChange={(e) => setBody(e.target.value)}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                }}
                 value={body}
               />
             </div>
-            {error ? (
-              <p className="text-red-400 text-sm" data-testid="edit-error">
+            {error !== undefined && error !== "" ? (
+              <p className="text-sm text-red-400" data-testid="edit-error">
                 {error}
               </p>
             ) : null}
@@ -173,7 +189,9 @@ export const EditDialog = ({
         {conflict ? null : (
           <DialogFooter>
             <Button
-              onClick={() => onOpenChange(false)}
+              onClick={() => {
+                onOpenChange(false);
+              }}
               type="button"
               variant="ghost"
             >
@@ -182,7 +200,9 @@ export const EditDialog = ({
             <Button
               data-testid="edit-submit"
               disabled={busy}
-              onClick={() => send(true)}
+              onClick={() => {
+                void send(true);
+              }}
               type="button"
             >
               {busy ? "Saving…" : "Save changes"}

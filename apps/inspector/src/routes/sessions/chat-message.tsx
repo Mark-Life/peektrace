@@ -24,8 +24,11 @@ import {
   zoneOf,
 } from "@workspace/viz/lib/session-format";
 import { BrainIcon, ChevronRightIcon } from "lucide-react";
-import { memo, type ReactNode, useState } from "react";
-import { type ChatLane, needsClamp } from "../../lib/chat-lane";
+import { memo, useState } from "react";
+import type { ReactNode } from "react";
+
+import { needsClamp } from "../../lib/chat-lane";
+import type { ChatLane } from "../../lib/chat-lane";
 import { fmtThinkingMs, thinkingNote } from "../../lib/event-labels";
 import { eventTokens, tokenLabel } from "../../lib/event-tokens";
 import { chatPanelId, disclosureProps } from "../../lib/session-view";
@@ -71,6 +74,7 @@ const clampClass = ({
   if (!clamps) {
     return "";
   }
+
   return open ? OPENED : CLAMPED;
 };
 
@@ -132,10 +136,16 @@ const RawButton = ({
  *  Only for surfaces that mount it when already open — see `RawButton`. */
 export const RawToggle = ({ body }: { readonly body: string }) => {
   const [raw, setRaw] = useState(false);
+
   return (
     <div className="flex flex-col gap-1">
       <div className="flex">
-        <RawButton onClick={() => setRaw(!raw)} raw={raw} />
+        <RawButton
+          onClick={() => {
+            setRaw(!raw);
+          }}
+          raw={raw}
+        />
       </div>
       {raw ? (
         <CodeBlock
@@ -173,19 +183,20 @@ const ChatBubbleBody = ({
   const hasBody = e.body.trim().length > 0;
   const clamps = needsClamp(e);
   const [raw, setRaw] = useState(false);
+
   return (
     <ChatRow lane={lane} sidechain={e.isSidechain === true}>
       <div
         className={cn("flex flex-col", LANE_WIDTH[lane])}
         data-kind={e.kind}
         data-lane={lane}
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-testid="history-event"
         id={collapseId}
       >
         <div className={cn(META, lane === "user" && "justify-end")}>
           <span>{e.kind === "user-prompt" ? "user" : "assistant"}</span>
-          {e.promptSource ? (
+          {e.promptSource !== undefined && e.promptSource !== "" ? (
             <Badge
               className="h-4 px-1"
               title="Claude Code promptSource: how this prompt reached the session"
@@ -195,7 +206,7 @@ const ChatBubbleBody = ({
             </Badge>
           ) : null}
           {e.tokensEst ? <span>· {tokenLabel(e, fmt)} tok</span> : null}
-          {e.isSidechain ? (
+          {e.isSidechain === true ? (
             <Badge className="h-4" variant="secondary">
               sidechain
             </Badge>
@@ -207,14 +218,21 @@ const ChatBubbleBody = ({
               aria-expanded={open}
               className={META_BUTTON}
               data-testid="chat-show-all"
-              onClick={() => onToggle(collapseId, !open)}
+              onClick={() => {
+                onToggle(collapseId, !open);
+              }}
               size="xs"
               variant="ghost"
             >
               {open ? "Show less" : "Show all"}
             </Button>
           ) : null}
-          <RawButton onClick={() => setRaw(!raw)} raw={raw} />
+          <RawButton
+            onClick={() => {
+              setRaw(!raw);
+            }}
+            raw={raw}
+          />
         </div>
         <ContextEditNote e={e} />
         {raw ? (
@@ -263,15 +281,17 @@ const ChatThinkingBody = ({
       className={cn("flex flex-col gap-1", LANE_WIDTH[lane])}
       data-kind={e.kind}
       data-lane={lane}
-      data-sidechain={e.isSidechain ? "true" : "false"}
+      data-sidechain={e.isSidechain === true ? "true" : "false"}
       data-testid="history-event"
       id={collapseId}
     >
       <button
-        className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-border border-dashed px-3 py-1.5 text-muted-foreground text-xs italic hover:bg-muted/30"
+        className="border-border text-muted-foreground hover:bg-muted/30 flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-dashed px-3 py-1.5 text-xs italic"
         data-state={open ? "open" : "closed"}
         {...disclosureProps(chatPanelId(collapseId), open)}
-        onClick={() => onToggle(collapseId, !open)}
+        onClick={() => {
+          onToggle(collapseId, !open);
+        }}
         type="button"
       >
         <ChevronRightIcon
@@ -288,7 +308,7 @@ const ChatThinkingBody = ({
         <div className="flex flex-col gap-1" id={chatPanelId(collapseId)}>
           <div
             className={cn(
-              "rounded-md bg-muted/30 px-3 py-2 text-muted-foreground text-xs",
+              "bg-muted/30 text-muted-foreground rounded-md px-3 py-2 text-xs",
               OPENED
             )}
           >
@@ -358,25 +378,30 @@ export const ChatTurnRule = ({
   readonly webSearches: number | undefined;
 }) => (
   <h3
-    className="flex items-center gap-2 rounded-sm py-1 text-[11px] text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    className="text-muted-foreground focus-visible:ring-ring flex items-center gap-2 rounded-sm py-1 text-[11px] outline-none focus-visible:ring-2"
     data-testid="chat-turn-rule"
     data-turn-stop=""
     tabIndex={-1}
   >
-    <span aria-hidden="true" className="h-px flex-1 bg-border" />
+    <span aria-hidden="true" className="bg-border h-px flex-1" />
     <span>
       turn {turn} · {model}
-      {effort ? ` · ${effort} effort` : ""} · ctx {fmtK(tokens)}{" "}
+      {effort !== undefined && effort !== "" ? ` · ${effort} effort` : ""} · ctx{" "}
+      {fmtK(tokens)}{" "}
       <span className={ZONE_CLASSES[zoneOf({ dumbZone, frac: ctxFrac })].text}>
         ({fmtPct(ctxFrac)})
       </span>{" "}
       · out {fmtK(outputTokens)}
-      {thinkingTokens ? ` (${fmtK(thinkingTokens)} thinking)` : ""}
-      {webSearches
+      {thinkingTokens !== undefined && thinkingTokens !== 0
+        ? ` (${fmtK(thinkingTokens)} thinking)`
+        : ""}
+      {webSearches !== undefined && webSearches !== 0
         ? ` · ${plural(webSearches, "web search", "web searches")}`
         : ""}
-      {webFetches ? ` · ${plural(webFetches, "web fetch", "web fetches")}` : ""}
+      {webFetches !== undefined && webFetches !== 0
+        ? ` · ${plural(webFetches, "web fetch", "web fetches")}`
+        : ""}
     </span>
-    <span aria-hidden="true" className="h-px flex-1 bg-border" />
+    <span aria-hidden="true" className="bg-border h-px flex-1" />
   </h3>
 );

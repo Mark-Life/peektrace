@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import type { RunItem, TranscriptRowRef } from "../src/lib/chat-lane";
 import {
   chipWindow,
@@ -7,11 +9,19 @@ import {
   segmentsOf,
 } from "../src/routes/sessions/chat-context-run";
 
-const row = (pos: number) =>
-  ({ e: {} as TimelineEvent, pos }) as TranscriptRowRef;
+const EVENT: TimelineEvent = {
+  body: "",
+  index: 0,
+  kind: "assistant-text",
+  preview: "",
+  title: "",
+  tokensEst: 0,
+};
+
+const row = (pos: number): TranscriptRowRef => ({ e: EVENT, pos });
 
 /** A run's items in order, with `open` positions split out as cards. */
-const shape = (open: number[]) =>
+const segmentLabels = (open: number[]) =>
   segmentsOf([0, 1, 2, 3, 4, 5].map(row), (r) => open.includes(r.pos)).map(
     (s) =>
       s.type === "card"
@@ -20,21 +30,24 @@ const shape = (open: number[]) =>
   );
 
 test("a closed run is one row of chips", () => {
-  expect(shape([])).toEqual(["0,1,2,3,4,5"]);
+  expect(segmentLabels([])).toEqual(["0,1,2,3,4,5"]);
 });
 
 test("an opened chip splits the run around it, keeping the order", () => {
-  expect(shape([3])).toEqual(["0,1,2", "[3]", "4,5"]);
-  expect(shape([1, 3])).toEqual(["0", "[1]", "2", "[3]", "4,5"]);
+  expect(segmentLabels([3])).toEqual(["0,1,2", "[3]", "4,5"]);
+  expect(segmentLabels([1, 3])).toEqual(["0", "[1]", "2", "[3]", "4,5"]);
 });
 
 test("adjacent and edge cards leave no empty chip rows", () => {
-  expect(shape([0, 1])).toEqual(["[0]", "[1]", "2,3,4,5"]);
-  expect(shape([5])).toEqual(["0,1,2,3,4", "[5]"]);
+  expect(segmentLabels([0, 1])).toEqual(["[0]", "[1]", "2,3,4,5"]);
+  expect(segmentLabels([5])).toEqual(["0,1,2,3,4", "[5]"]);
 });
 
-const item = (pos: number, repeat: boolean) =>
-  ({ e: {} as TimelineEvent, pos, repeat }) as RunItem;
+const item = (pos: number, repeat: boolean): RunItem => ({
+  e: EVENT,
+  pos,
+  repeat,
+});
 
 const fold = (over: Partial<Parameters<typeof foldRepeats>[0]> = {}) =>
   foldRepeats({
@@ -75,7 +88,8 @@ test("an opened fresh chip does not reveal repeats", () => {
   expect(fold({ opened: (r) => r.pos === 0 }).folded).toBe(2);
 });
 
-const runOf = (flags: string) => [...flags].map((c, i) => item(i, c === "R"));
+const runOf = (flags: string) =>
+  Array.from(flags, (c, i) => item(i, c === "R"));
 
 const windowOf = (flags: string, showAll: boolean) => {
   const { folded, hidden, shown } = chipWindow({
@@ -85,6 +99,7 @@ const windowOf = (flags: string, showAll: boolean) => {
     opened: () => false,
     showAll,
   });
+
   return { folded, hidden, shown: shown.map((r) => r.pos) };
 };
 

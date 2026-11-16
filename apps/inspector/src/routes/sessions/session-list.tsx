@@ -7,11 +7,8 @@
  * When nothing matches, an `Empty` offers a one-click filter reset.
  */
 
-import {
-  defaultRangeExtractor,
-  type Range,
-  useVirtualizer,
-} from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual";
+import type { Range } from "@tanstack/react-virtual";
 import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
@@ -51,6 +48,7 @@ import {
   useMemo,
   useState,
 } from "react";
+
 import { AGENT_LABEL } from "../../lib/agent-label";
 import {
   sessionHash,
@@ -65,8 +63,6 @@ import {
   activeCount,
   activeDays,
   distinct,
-  type FilterOption,
-  type Filters,
   filtersFromParams,
   filtersToParams,
   fmtStamp,
@@ -81,31 +77,44 @@ import {
   titleOf,
   visibleBranch,
 } from "./session-list-model";
+import type { FilterOption, Filters } from "./session-list-model";
 import { useListRoving, useListSearch } from "./use-list-roving";
 
 /** Per-harness chip tint, so a rail of mixed sessions is scannable at a glance.
  * Unknown agents fall through to the plain `outline` badge. */
-const AGENT_BADGE: Record<string, string> = {
-  claude:
+const AGENT_BADGE = new Map([
+  [
+    "claude",
     "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300",
-  codex: "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  pi: "border-cyan-500/25 bg-slate-500/10 text-cyan-700 dark:text-cyan-300",
-  opencode:
+  ],
+  [
+    "codex",
+    "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+  ],
+  [
+    "opencode",
     "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
-};
+  ],
+  ["pi", "border-cyan-500/25 bg-slate-500/10 text-cyan-700 dark:text-cyan-300"],
+]);
 
 /** Fixed row height in rem, so rows grow with the browser font size; must
  * match `ROW_HEIGHT_CLASS`. */
 const ROW_REM = 3.75;
 const ROW_HEIGHT_CLASS = "h-[3.75rem]";
+
 /** Root font size assumed on the server and when it cannot be read. */
 const DEFAULT_ROOT_PX = 16;
+
 /** Space between rows in px. */
 const GAP_PX = 4;
+
 /** Rows mounted beyond each edge of the viewport. */
 const OVERSCAN = 8;
+
 /** Viewport assumed before the first measure (and on the server). */
-const INITIAL_RECT = { width: 320, height: 800 };
+const INITIAL_RECT = { height: 800, width: 320 };
+
 /** How often the live markers are re-evaluated. */
 const NOW_TICK_MS = 30_000;
 
@@ -114,21 +123,24 @@ const rootFontPx = () => {
   if (typeof document === "undefined") {
     return DEFAULT_ROOT_PX;
   }
+
+  // oxlint-disable-next-line unicorn/prefer-number-coercion -- computed style is "16px", Number() would be NaN
   const px = Number.parseFloat(
     getComputedStyle(document.documentElement).fontSize
   );
+
   return Number.isFinite(px) && px > 0 ? px : DEFAULT_ROOT_PX;
 };
 
 const toOptions = (values: readonly string[]): readonly FilterOption[] =>
-  values.map((v) => ({ value: v, label: v }));
+  values.map((v) => ({ label: v, value: v }));
 
 /** `options`, plus `value` itself when a shared link names one not loaded here,
  * so the trigger shows it instead of going blank. */
 const withCurrent = (options: readonly FilterOption[], value: string) =>
   value === ANY || options.some((o) => o.value === value)
     ? options
-    : [...options, { value, label: value }];
+    : [...options, { label: value, value }];
 
 /** A labelled filter `Select` over `all` + the option values. */
 const FilterSelect = ({
@@ -166,105 +178,107 @@ const ROW_KEYS = (["listDown", "listUp", "listFirst", "listLast"] as const)
 /** One two-line session row; full values show as native tooltips on hover.
  *  Memoized: list reloads keep unchanged headers as the same objects, and
  *  moving the Tab stop re-renders only the two rows it touches. */
-const SessionRow = memo(
-  ({
-    h,
-    active,
-    hintId,
-    href,
-    live,
-    tabbable,
-  }: {
-    readonly h: SessionHeader;
-    readonly active: boolean;
-    /** Id of the hint that says how to move between rows. */
-    readonly hintId: string;
-    /** The session's hash, with the list filters kept. */
-    readonly href: string;
-    readonly live: boolean;
-    /** The list's one Tab stop. */
-    readonly tabbable: boolean;
-  }) => {
-    const title = titleOf(h);
-    const stamp = h.updatedAt ?? h.startedAt;
-    const branch = visibleBranch(h.gitBranch);
-    return (
-      // Layout classes go on `Item` so they merge over its defaults; the
-      // `asChild` slot only concatenates the child's classes.
-      <Item
-        asChild
-        className={cn(
-          ROW_HEIGHT_CLASS,
-          "flex-col flex-nowrap items-stretch justify-center gap-1 py-1.5 text-left",
-          active
-            ? "border-primary/40 bg-primary/10 [a]:hover:bg-primary/10"
-            : "hover:bg-muted focus-visible:bg-muted"
-        )}
-        size="sm"
-        variant="outline"
+// oxlint-disable-next-line eslint/prefer-arrow-callback -- named function expression gives the memo a display name
+const SessionRow = memo(function SessionRow({
+  h,
+  active,
+  hintId,
+  href,
+  live,
+  tabbable,
+}: {
+  readonly h: SessionHeader;
+  readonly active: boolean;
+  /** Id of the hint that says how to move between rows. */
+  readonly hintId: string;
+  /** The session's hash, with the list filters kept. */
+  readonly href: string;
+  readonly live: boolean;
+  /** The list's one Tab stop. */
+  readonly tabbable: boolean;
+}) {
+  const title = titleOf(h);
+  const stamp = h.updatedAt ?? h.startedAt;
+  const branch = visibleBranch(h.gitBranch);
+
+  return (
+    // Layout classes go on `Item` so they merge over its defaults; the
+    // `asChild` slot only concatenates the child's classes.
+    <Item
+      asChild
+      className={cn(
+        ROW_HEIGHT_CLASS,
+        "flex-col flex-nowrap items-stretch justify-center gap-1 py-1.5 text-left",
+        active
+          ? "border-primary/40 bg-primary/10 [a]:hover:bg-primary/10"
+          : "hover:bg-muted focus-visible:bg-muted"
+      )}
+      size="sm"
+      variant="outline"
+    >
+      <a
+        aria-current={active ? "page" : undefined}
+        aria-describedby={hintId}
+        aria-keyshortcuts={ROW_KEYS}
+        data-session-id={h.id}
+        data-testid="session-row"
+        href={href}
+        tabIndex={tabbable ? 0 : -1}
       >
-        <a
-          aria-current={active ? "page" : undefined}
-          aria-describedby={hintId}
-          aria-keyshortcuts={ROW_KEYS}
-          data-session-id={h.id}
-          data-testid="session-row"
-          href={href}
-          tabIndex={tabbable ? 0 : -1}
-        >
-          <span className="flex min-w-0 items-center gap-2">
-            {live ? (
-              <span
-                aria-label="Live"
-                className="size-2 shrink-0 rounded-full bg-emerald-500"
-                data-testid="session-live"
-                role="img"
-                title="Live: wrote a line in the last 5 min"
-              />
-            ) : null}
+        <span className="flex min-w-0 items-center gap-2">
+          {live ? (
+            // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a labelled dot, not an image
             <span
-              className="min-w-0 flex-1 truncate font-medium text-sm"
-              title={title}
-            >
-              {title}
-            </span>
-            <span
-              className="shrink-0 text-muted-foreground tabular-nums"
-              title={stampTitle(h)}
-            >
-              {fmtStamp(stamp)}
-            </span>
+              aria-label="Live"
+              className="size-2 shrink-0 rounded-full bg-emerald-500"
+              data-testid="session-live"
+              // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a labelled dot, not an image
+              role="img"
+              title="Live: wrote a line in the last 5 min"
+            />
+          ) : null}
+          <span
+            className="min-w-0 flex-1 truncate text-sm font-medium"
+            title={title}
+          >
+            {title}
           </span>
-          <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-            <Badge className={cn(AGENT_BADGE[h.agent])} variant="outline">
-              {AGENT_LABEL[h.agent] ?? h.agent}
-            </Badge>
-            {h.sourceLabel ? (
-              <Badge variant="secondary">{h.sourceLabel}</Badge>
-            ) : null}
-            <span
-              className="min-w-0 max-w-1/2 shrink-0 truncate"
-              title={h.cwd ?? h.project}
-            >
-              {projectLabel(h)}
-            </span>
-            {branch ? (
-              <span className="min-w-0 truncate font-mono" title={branch}>
-                {branch}
-              </span>
-            ) : null}
-            <span
-              className="ml-auto shrink-0 whitespace-nowrap tabular-nums"
-              title={`${fmtBytes(h.sizeBytes)} · ${h.model ?? h.id}`}
-            >
-              {h.messageCount} msgs
-            </span>
+          <span
+            className="text-muted-foreground shrink-0 tabular-nums"
+            title={stampTitle(h)}
+          >
+            {fmtStamp(stamp)}
           </span>
-        </a>
-      </Item>
-    );
-  }
-);
+        </span>
+        <span className="text-muted-foreground flex min-w-0 items-center gap-2">
+          <Badge className={cn(AGENT_BADGE.get(h.agent))} variant="outline">
+            {AGENT_LABEL[h.agent] ?? h.agent}
+          </Badge>
+          {h.sourceLabel !== undefined && h.sourceLabel !== "" ? (
+            <Badge variant="secondary">{h.sourceLabel}</Badge>
+          ) : null}
+          <span
+            className="max-w-1/2 min-w-0 shrink-0 truncate"
+            title={h.cwd ?? h.project}
+          >
+            {projectLabel(h)}
+          </span>
+          {branch !== undefined && branch !== "" ? (
+            <span className="min-w-0 truncate font-mono" title={branch}>
+              {branch}
+            </span>
+          ) : null}
+          <span
+            className="ml-auto shrink-0 whitespace-nowrap tabular-nums"
+            title={`${fmtBytes(h.sizeBytes)} · ${h.model ?? h.id}`}
+          >
+            {h.messageCount} msgs
+          </span>
+        </span>
+      </a>
+    </Item>
+  );
+});
 
 /** Shown when every session is filtered out; the action clears all facets. */
 const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
@@ -296,9 +310,15 @@ const NoMatches = ({ onReset }: { readonly onReset: () => void }) => (
 const useNow = (ms: number) => {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(id);
+    const id = setInterval(() => {
+      setNow(Date.now());
+    }, ms);
+
+    return () => {
+      clearInterval(id);
+    };
   }, [ms]);
+
   return now;
 };
 
@@ -306,11 +326,15 @@ const useNow = (ms: number) => {
 const scrollParentOf = (el: HTMLElement) => {
   for (let p = el.parentElement; p; p = p.parentElement) {
     const overflow = getComputedStyle(p).overflowY;
+
     if (overflow === "auto" || overflow === "scroll") {
       return p;
     }
   }
-  return document.scrollingElement as HTMLElement | null;
+
+  const root = document.scrollingElement;
+
+  return root instanceof HTMLElement ? root : null;
 };
 
 /** The element that scrolls the list and the list's offset inside it. Which
@@ -320,37 +344,52 @@ const scrollParentOf = (el: HTMLElement) => {
 const useScrollParent = (ref: RefObject<HTMLElement | null>) => {
   const [scroller, setScroller] = useState<HTMLElement | null>(null);
   const [margin, setMargin] = useState(0);
+
   const measure = useEffectEvent(() => {
     const el = ref.current;
+
     if (!el || el.offsetParent === null) {
       return;
     }
+
     const parent = scrollParentOf(el);
     setScroller(parent);
+
     if (parent) {
       const next =
         el.getBoundingClientRect().top -
         parent.getBoundingClientRect().top +
         parent.scrollTop;
+
       setMargin((prev) => (Math.abs(prev - next) < 1 ? prev : next));
     }
   });
+
   useLayoutEffect(() => {
     measure();
-    const onResize = () => measure();
+
+    const onResize = () => {
+      measure();
+    };
+
     window.addEventListener("resize", onResize);
+
     const observer = new ResizeObserver(onResize);
     const wrapper = ref.current?.parentElement;
+
     if (wrapper) {
       observer.observe(wrapper);
     }
+
     observer.observe(document.body);
+
     return () => {
       window.removeEventListener("resize", onResize);
       observer.disconnect();
     };
   }, [ref]);
-  return { scroller, margin };
+
+  return { margin, scroller };
 };
 
 /** Only the rows in view (plus overscan), absolutely placed in a full-height
@@ -368,42 +407,49 @@ const VirtualRows = ({
   const list = useListParams();
   const roving = useListRoving({ ids, selectedId });
   const hintId = useId();
-  const ref = roving.group.ref;
+  const { ref } = roving.group;
   const { scroller, margin } = useScrollParent(ref);
   const now = useNow(NOW_TICK_MS);
-  const [rowPx] = useState(() => ROW_REM * rootFontPx() + GAP_PX);
+  const rowPx = useMemo(() => ROW_REM * rootFontPx() + GAP_PX, []);
   const stopIndex = roving.stop === null ? -1 : ids.indexOf(roving.stop);
+
   const rangeExtractor = useCallback(
     (range: Range) => {
       const indexes = defaultRangeExtractor(range);
+
       return stopIndex < 0 || indexes.includes(stopIndex)
         ? indexes
-        : [...indexes, stopIndex].sort((a, b) => a - b);
+        : [...indexes, stopIndex].toSorted((a, b) => a - b);
     },
     [stopIndex]
   );
+
+  // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual returns unmemoizable functions; only used in this component
   const virtualizer = useVirtualizer({
     count: rows.length,
-    getScrollElement: () => scroller,
     estimateSize: () => rowPx,
     getItemKey: (i) => rows[i]?.id ?? i,
+    getScrollElement: () => scroller,
+    initialRect: INITIAL_RECT,
     overscan: OVERSCAN,
     rangeExtractor,
     scrollMargin: margin,
-    initialRect: INITIAL_RECT,
   });
 
   const revealSelected = useEffectEvent((id: string) => {
     if (ref.current?.offsetParent === null) {
       return;
     }
+
     const index = rows.findIndex((h) => h.id === id);
-    if (index >= 0) {
+
+    if (index !== -1) {
       virtualizer.scrollToIndex(index, { align: "auto" });
     }
   });
+
   useEffect(() => {
-    if (selectedId && scroller) {
+    if (selectedId !== null && selectedId !== "" && scroller) {
       revealSelected(selectedId);
     }
   }, [selectedId, scroller]);
@@ -421,6 +467,7 @@ const VirtualRows = ({
       >
         {virtualizer.getVirtualItems().map((v) => {
           const h = rows[v.index];
+
           return h ? (
             <li
               className="absolute inset-x-0 top-0"
@@ -443,18 +490,22 @@ const VirtualRows = ({
   );
 };
 
+const patchFilters = (next: Partial<Filters>) => {
+  setHashParams(filtersToParams(next));
+};
+
 /** The list filters, read from and written to the hash so they survive
  * reload, Back and leaving the section. Writes replace the history entry and
  * touch only the keys being changed. */
 const useListFilters = () => {
   const query = useListQuery();
+
   const filters = useMemo(
     () => filtersFromParams(new URLSearchParams(query)),
     [query]
   );
-  const patch = (next: Partial<Filters>) =>
-    setHashParams(filtersToParams(next));
-  return [filters, patch] as const;
+
+  return [filters, patchFilters] as const;
 };
 
 /** Wait after the last keystroke before writing the search to the hash:
@@ -466,24 +517,34 @@ const SEARCH_WRITE_MS = 250;
 const useSearchDraft = (stored: string, write: (query: string) => void) => {
   const [draft, setDraft] = useState(stored);
   const [seen, setSeen] = useState(stored);
+
   if (stored !== seen) {
     setSeen(stored);
     setDraft(stored);
   }
+
   const onWrite = useEffectEvent(write);
   useEffect(() => {
-    if (draft === stored) {
-      return;
-    }
-    const id = setTimeout(() => onWrite(draft), SEARCH_WRITE_MS);
-    return () => clearTimeout(id);
+    const id =
+      draft === stored
+        ? undefined
+        : setTimeout(() => {
+            onWrite(draft);
+          }, SEARCH_WRITE_MS);
+
+    return () => {
+      clearTimeout(id);
+    };
   }, [draft, stored]);
+
   const flush = (value: string) => {
     setDraft(value);
+
     if (value !== stored) {
       write(value);
     }
   };
+
   return [draft, setDraft, flush] as const;
 };
 
@@ -496,42 +557,53 @@ const SessionListView = ({
   readonly selectedId: string | null;
 }) => {
   const [stored, patch] = useListFilters();
-  const [draft, setDraft, flush] = useSearchDraft(stored.query, (query) =>
-    patch({ query })
-  );
+
+  const [draft, setDraft, flush] = useSearchDraft(stored.query, (query) => {
+    patch({ query });
+  });
+
   const filters = useMemo(() => ({ ...stored, query: draft }), [stored, draft]);
+
   const reset = () => {
     setDraft(NO_FILTERS.query);
     patch(NO_FILTERS);
   };
+
   const set =
     <K extends keyof Filters>(key: K) =>
-    (v: Filters[K]) =>
+    (v: Filters[K]) => {
       patch({ [key]: v });
+    };
 
   const agents = useMemo(
     () => toOptions(distinct(headers, (h) => h.agent)),
     [headers]
   );
+
   const projects = useMemo(() => projectOptions(headers), [headers]);
+
   const branches = useMemo(
     () => toOptions(distinct(headers, (h) => h.gitBranch)),
     [headers]
   );
+
   const models = useMemo(
     () => toOptions(distinct(headers, (h) => h.model)),
     [headers]
   );
+
   const sources = useMemo(
     () => toOptions(distinct(headers, (h) => h.sourceLabel)),
     [headers]
   );
+
   const days = useMemo(
-    () => [...new Set(headers.flatMap(activeDays))].sort(),
+    () => [...new Set(headers.flatMap(activeDays))].toSorted(),
     [headers]
   );
 
   const sorted = useMemo(() => sortByRecent(headers), [headers]);
+
   const rows = useMemo(
     () => sorted.filter((h) => matches(h, filters)),
     [sorted, filters]
@@ -546,19 +618,24 @@ const SessionListView = ({
   const selectedKey = headers.some((h) => h.id === selectedId)
     ? selectedId
     : null;
+
   const unhide = useEffectEvent((id: string) => {
     const h = headers.find((x) => x.id === id);
     const fix = h ? hidingFilters(h, filters) : {};
+
     if (Object.keys(fix).length === 0) {
       return;
     }
+
     if (fix.query !== undefined) {
       setDraft(fix.query);
     }
+
     patch(fix);
   });
+
   useEffect(() => {
-    if (selectedKey) {
+    if (selectedKey !== null && selectedKey !== "") {
       unhide(selectedKey);
     }
   }, [selectedKey]);
@@ -577,16 +654,23 @@ const SessionListView = ({
           aria-keyshortcuts={ariaKeys("search")}
           aria-label="Search sessions"
           data-testid="session-search"
-          onBlur={() => flush(draft)}
-          onChange={(e) => setDraft(e.target.value)}
+          onBlur={() => {
+            flush(draft);
+          }}
+          onChange={(e) => {
+            setDraft(e.target.value);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               flush(draft);
+
               return;
             }
+
             search.onSearchKeyDown(e);
           }}
           placeholder="Search by title…"
+          // oxlint-disable-next-line react/refs -- ref object from the hook, attached not read
           ref={search.search}
           value={filters.query}
         />
@@ -595,7 +679,9 @@ const SessionListView = ({
             <InputGroupButton
               aria-label="Clear search"
               data-testid="session-search-clear"
-              onClick={() => flush("")}
+              onClick={() => {
+                flush("");
+              }}
               size="icon-xs"
             >
               <XIcon />
@@ -649,7 +735,7 @@ const SessionListView = ({
         />
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-1 text-muted-foreground text-xs">
+      <div className="text-muted-foreground flex items-center justify-between gap-2 px-1 text-xs">
         <span>
           {rows.length} {rows.length === 1 ? "session" : "sessions"}
         </span>

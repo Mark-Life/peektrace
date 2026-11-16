@@ -18,18 +18,22 @@ import { Chart } from "@tanstack/react-charts/tooltip";
 import { useMemo } from "react";
 
 /** Stable colour per memory type; core emits `unknown` for untyped entries. */
-const TYPE_COLORS: Record<string, string> = {
-  user: "var(--chart-1)",
-  feedback: "var(--chart-2)",
-  project: "var(--chart-3)",
-  reference: "var(--chart-4)",
-  unknown: "var(--chart-5)",
-};
+const TYPE_COLORS: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    feedback: "var(--chart-2)",
+    project: "var(--chart-3)",
+    reference: "var(--chart-4)",
+    unknown: "var(--chart-5)",
+    user: "var(--chart-1)",
+  })
+);
 
 /** Rendered size of the donut square, in pixels. */
 const SIZE = 140;
+
 /** Inner radius as a fraction of the outer, giving the 40/70 ring. */
 const INNER_RATIO = 0.57;
+
 /** Radians of empty space between slices. The `--chart-N` tokens are five
  * lightness steps of one hue, so adjacent slices need a seam to read apart. */
 const GAP_ANGLE = 0.03;
@@ -52,9 +56,9 @@ export const TypeDonut = ({
       Object.entries(typeCounts)
         .filter(([, n]) => n > 0)
         .map(([type, count]) => ({
-          type,
           count,
-          fill: TYPE_COLORS[type] ?? "var(--chart-5)",
+          fill: TYPE_COLORS.get(type) ?? "var(--chart-5)",
+          type,
         })),
     [typeCounts]
   );
@@ -62,25 +66,25 @@ export const TypeDonut = ({
   const definition = useMemo(
     () =>
       defineChart({
-        marks: [
-          polar({
-            radiusRatio: 1,
-            marks: [
-              radialArc(pie(data, { value: "count", gapAngle: GAP_ANGLE }), {
-                innerRadius: ({ radius }) => radius * INNER_RATIO,
-                color: "type",
-                key: "type",
-              }),
-            ],
-          }),
-        ],
         color: {
           domain: data.map((d) => d.type),
           range: data.map((d) => d.fill),
         },
+        marks: [
+          polar({
+            marks: [
+              radialArc(pie(data, { gapAngle: GAP_ANGLE, value: "count" }), {
+                color: "type",
+                innerRadius: ({ radius }) => radius * INNER_RATIO,
+                key: "type",
+              }),
+            ],
+            radiusRatio: 1,
+          }),
+        ],
         tooltip: {
-          use: tooltip,
           format: (point) => `${point.datum.type}: ${point.datum.count}`,
+          use: tooltip,
         },
       }),
     [data]
@@ -111,7 +115,7 @@ export const TypeDonut = ({
               style={{ background: d.fill }}
             />
             <span className="capitalize">{d.type}</span>
-            <span className="font-mono text-muted-foreground">{d.count}</span>
+            <span className="text-muted-foreground font-mono">{d.count}</span>
           </li>
         ))}
       </ul>

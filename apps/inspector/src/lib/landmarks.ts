@@ -7,7 +7,7 @@ export const HISTORY_SEARCH_ID = "history-search";
 /** Focus a landmark by id. Skip links are buttons, not `#id` anchors: the
  *  hash is the router, and an anchor would replace the open session. */
 export const focusLandmark = (id: string) => {
-  const el = document.getElementById(id);
+  const el = document.querySelector<HTMLElement>(`#${id}`);
   el?.focus({ preventScroll: true });
   el?.scrollIntoView({ block: "start" });
 };

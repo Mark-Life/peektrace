@@ -17,10 +17,11 @@ import {
   BellIcon,
   ChevronRightIcon,
   CogIcon,
-  type LucideIcon,
   TerminalIcon,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { memo } from "react";
+
 import { tokenLabel } from "../../lib/event-tokens";
 import { chatPanelId, disclosureProps } from "../../lib/session-view";
 import { sameChatRow } from "../../lib/transcript-row";
@@ -38,27 +39,33 @@ const ORIGIN_ICON: Record<PromptOrigin, LucideIcon> = {
 };
 
 /** Every leaf `<tag>value</tag>` of a task notification, in order. */
-const LEAF_TAG = /<([a-z][\w-]*)>([^<]*)<\/\1>/g;
+const LEAF_TAG = /<(?<tag>[a-z][\w-]*)>(?<value>[^<]*)<\/\k<tag>>/gu;
 
 /** The fields of a task notification, or an empty list when it has none. */
 export const notificationFields = (body: string) =>
-  [...body.matchAll(LEAF_TAG)]
-    .map((m) => ({ at: m.index, tag: m[1] ?? "", value: (m[2] ?? "").trim() }))
-    .filter((f) => f.value !== "");
+  [...body.matchAll(LEAF_TAG)].flatMap((m) => {
+    const value = (m.groups?.value ?? "").trim();
+
+    return value === ""
+      ? []
+      : [{ at: m.index, tag: m.groups?.tag ?? "", value }];
+  });
 
 /** A task notification is tagged fields, not prose: show them as a table. */
 const NoticeBody = ({ e }: { readonly e: TimelineEvent }) => {
   const fields =
     e.promptOrigin === "task-notification" ? notificationFields(e.body) : [];
+
   if (fields.length === 0) {
     return <EventBody className="max-h-[28rem] overflow-auto" e={e} />;
   }
+
   return (
-    <dl className="grid max-h-[28rem] grid-cols-[max-content_1fr] gap-x-3 gap-y-1 overflow-auto rounded-md border bg-background px-3 py-2 font-mono text-[11px]">
+    <dl className="bg-background grid max-h-[28rem] grid-cols-[max-content_1fr] gap-x-3 gap-y-1 overflow-auto rounded-md border px-3 py-2 font-mono text-[11px]">
       {fields.map(({ at, tag, value }) => (
         <div className="contents" key={at}>
           <dt className="text-muted-foreground">{tag.replaceAll("_", " ")}</dt>
-          <dd className="min-w-0 whitespace-pre-wrap break-words">{value}</dd>
+          <dd className="min-w-0 break-words whitespace-pre-wrap">{value}</dd>
         </div>
       ))}
     </dl>
@@ -77,14 +84,15 @@ const ChatNoticeBody = ({
   readonly open: boolean;
 }) => {
   const Icon = ORIGIN_ICON[e.promptOrigin ?? "harness"];
+
   return (
     <div className="flex w-full justify-center">
       <div
-        className="w-full max-w-2xl rounded-md border border-border border-dashed bg-muted/30 px-3 py-2 text-xs"
+        className="border-border bg-muted/30 w-full max-w-2xl rounded-md border border-dashed px-3 py-2 text-xs"
         data-kind={e.kind}
         data-lane="center"
         data-origin={e.promptOrigin ?? ""}
-        data-sidechain={e.isSidechain ? "true" : "false"}
+        data-sidechain={e.isSidechain === true ? "true" : "false"}
         data-testid="history-event"
         id={collapseId}
       >
@@ -92,22 +100,24 @@ const ChatNoticeBody = ({
           className="flex w-full min-w-0 items-center gap-1.5 text-left"
           data-state={open ? "open" : "closed"}
           {...disclosureProps(chatPanelId(collapseId), open)}
-          onClick={() => onToggle(collapseId, !open)}
+          onClick={() => {
+            onToggle(collapseId, !open);
+          }}
           type="button"
         >
           <ChevronRightIcon
             className={cn(
-              "size-3 shrink-0 text-muted-foreground transition-transform",
+              "text-muted-foreground size-3 shrink-0 transition-transform",
               open && "rotate-90"
             )}
           />
-          <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+          <Icon className="text-muted-foreground size-3.5 shrink-0" />
           <span className="shrink-0 font-medium">{e.title}</span>
-          <span className="min-w-0 truncate text-muted-foreground">
+          <span className="text-muted-foreground min-w-0 truncate">
             {e.preview}
           </span>
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-            {e.promptSource ? (
+          <span className="text-muted-foreground ml-auto flex shrink-0 items-center gap-1.5 font-mono text-[10px]">
+            {e.promptSource !== undefined && e.promptSource !== "" ? (
               <Badge
                 className="h-4 px-1"
                 title="Claude Code promptSource"
@@ -117,7 +127,7 @@ const ChatNoticeBody = ({
               </Badge>
             ) : null}
             <ContextEditBadge className="h-4" e={e} />
-            {e.tokensEst ? `${tokenLabel(e, fmtK)} tok` : null}
+            {e.tokensEst === 0 ? null : `${tokenLabel(e, fmtK)} tok`}
           </span>
         </button>
         {open ? (

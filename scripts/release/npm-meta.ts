@@ -1,16 +1,19 @@
 /** npm package metadata shared by `build-npm.ts` and its tests. */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import nodePath from "node:path";
 
-const HELP_RS = join(import.meta.dir, "../../crates/cli/src/help.rs");
-const DESCRIPTION_RE = /pub const DESCRIPTION: &str = "([^"]+)";/;
+const HELP_RS = nodePath.join(import.meta.dir, "../../crates/cli/src/help.rs");
+const DESCRIPTION_RE = /pub const DESCRIPTION: &str = "(?<text>[^"]+)";/u;
 
 /** The one-line description the CLI prints in `--help`. */
 const readDescription = () => {
-  const found = DESCRIPTION_RE.exec(readFileSync(HELP_RS, "utf8"))?.[1];
-  if (!found) {
+  const found = DESCRIPTION_RE.exec(readFileSync(HELP_RS, "utf-8"))?.groups
+    ?.text;
+
+  if (found === undefined || found === "") {
     throw new Error(`No DESCRIPTION const in ${HELP_RS}`);
   }
+
   return found;
 };
 
@@ -40,11 +43,11 @@ export interface Target {
 
 /** The platforms shipped as `@peektrace/cli-<platform>-<arch>` packages. */
 export const TARGETS = [
-  { platform: "darwin", arch: "arm64", asset: "peektrace-darwin-arm64" },
-  { platform: "darwin", arch: "x64", asset: "peektrace-darwin-x64" },
-  { platform: "linux", arch: "x64", asset: "peektrace-linux-x64" },
-  { platform: "linux", arch: "arm64", asset: "peektrace-linux-arm64" },
-  { platform: "win32", arch: "x64", asset: "peektrace-windows-x64.exe" },
+  { arch: "arm64", asset: "peektrace-darwin-arm64", platform: "darwin" },
+  { arch: "x64", asset: "peektrace-darwin-x64", platform: "darwin" },
+  { arch: "x64", asset: "peektrace-linux-x64", platform: "linux" },
+  { arch: "arm64", asset: "peektrace-linux-arm64", platform: "linux" },
+  { arch: "x64", asset: "peektrace-windows-x64.exe", platform: "win32" },
 ] as const satisfies readonly Target[];
 
 /** `<platform>-<arch>`, the key `--targets` takes. */

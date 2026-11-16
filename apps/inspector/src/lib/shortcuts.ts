@@ -5,7 +5,7 @@
  * the window, `list` keys are handled by the session list while a row has
  * focus, and `builtin` keys belong to a ui primitive and are only documented.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
 export interface Shortcut {
   readonly group: "General" | "Sessions" | "Transcript";
@@ -19,80 +19,80 @@ export interface Shortcut {
 
 export const SHORTCUTS = [
   {
+    group: "Sessions",
     id: "listDown",
     keys: ["j", "ArrowDown"],
     label: "Next session",
-    group: "Sessions",
     scope: "list",
   },
   {
+    group: "Sessions",
     id: "listUp",
     keys: ["k", "ArrowUp"],
     label: "Previous session",
-    group: "Sessions",
     scope: "list",
   },
   {
+    group: "Sessions",
     id: "listFirst",
     keys: ["Home"],
     label: "First session",
-    group: "Sessions",
     scope: "list",
   },
   {
+    group: "Sessions",
     id: "listLast",
     keys: ["End"],
     label: "Last session",
-    group: "Sessions",
     scope: "list",
   },
   {
+    group: "Sessions",
     id: "listOpen",
     keys: ["Enter"],
     label: "Open the focused session",
-    group: "Sessions",
     scope: "builtin",
   },
   {
+    group: "Sessions",
     id: "search",
     keys: ["/"],
     label: "Focus search",
-    group: "Sessions",
     scope: "global",
   },
   {
+    group: "Transcript",
     id: "prevTurn",
     keys: ["["],
     label: "Previous turn",
-    group: "Transcript",
     scope: "global",
   },
   {
+    group: "Transcript",
     id: "nextTurn",
     keys: ["]"],
     label: "Next turn",
-    group: "Transcript",
     scope: "global",
   },
   {
+    group: "General",
     id: "theme",
     keys: ["d"],
     label: "Switch light / dark theme",
-    group: "General",
     scope: "global",
   },
   {
+    group: "General",
     id: "sidebar",
     keys: ["Mod+b"],
     label: "Collapse or expand the sidebar",
-    group: "General",
     scope: "builtin",
   },
   {
+    group: "General",
     id: "help",
     keys: ["?"],
     label: "Show keyboard shortcuts",
-    group: "General",
     scope: "global",
   },
 ] as const satisfies readonly Shortcut[];
@@ -107,26 +107,31 @@ export type GlobalShortcutId = Extract<
 
 export const shortcutOf = (id: ShortcutId): Shortcut => {
   const found = SHORTCUTS.find((s) => s.id === id);
+
   if (!found) {
     throw new Error(`unknown shortcut ${id}`);
   }
+
   return found;
 };
 
-const KEY_LABEL: Record<string, string> = {
-  ArrowDown: "↓",
-  ArrowUp: "↑",
-};
+const KEY_LABEL = new Map([
+  ["ArrowDown", "↓"],
+  ["ArrowUp", "↑"],
+]);
 
 /** How one key reads on a keycap, e.g. `Mod+b` as `⌘B` or `Ctrl+B`. */
 export const keyLabel = ({ key, mac }: { key: string; mac: boolean }) => {
   const mod = key.startsWith("Mod+");
   const base = mod ? key.slice("Mod+".length) : key;
+
   const shown =
-    KEY_LABEL[base] ?? (base.length === 1 ? base.toUpperCase() : base);
+    KEY_LABEL.get(base) ?? (base.length === 1 ? base.toUpperCase() : base);
+
   if (!mod) {
     return shown;
   }
+
   return mac ? `⌘${shown}` : `Ctrl+${shown}`;
 };
 
@@ -136,7 +141,7 @@ export const ariaKeys = (id: ShortcutId) =>
     .keys.map((k) => k.replace("Mod+", "Control+"))
     .join(" ");
 
-const APPLE = /Mac|iPhone|iPad/;
+const APPLE = /Mac|iPhone|iPad/u;
 
 export const isMacPlatform = () =>
   typeof navigator !== "undefined" &&
@@ -152,18 +157,18 @@ export interface KeyEventLike {
   readonly key: string;
   readonly metaKey: boolean;
   readonly shiftKey: boolean;
-  readonly target: unknown;
+  readonly target: KeyTarget;
 }
 
 /** Physical keys read when the layout types a character no shortcut binds. */
-const CODE_KEY: Record<string, readonly [string, string]> = {
-  BracketLeft: ["[", "{"],
-  BracketRight: ["]", "}"],
-  Slash: ["/", "?"],
-};
+const CODE_KEY = new Map<string, readonly [string, string]>([
+  ["BracketLeft", ["[", "{"]],
+  ["BracketRight", ["]", "}"]],
+  ["Slash", ["/", "?"]],
+]);
 
-const ASCII = /^[ -~]$/;
-const ALNUM = /^[a-z0-9]$/;
+const ASCII = /^[ -~]$/u;
+const ALNUM = /^[a-z0-9]$/u;
 
 /** Single characters some shortcut is bound to. */
 const BOUND = new Set<string>(
@@ -179,40 +184,52 @@ export const keyOf = (ev: Pick<KeyEventLike, "code" | "key" | "shiftKey">) => {
   if (ev.key.length !== 1) {
     return ev.key;
   }
+
   const typed = ASCII.test(ev.key) ? ev.key.toLowerCase() : null;
+
   if (typed !== null && (BOUND.has(typed) || ALNUM.test(typed))) {
     return typed;
   }
-  const pair = CODE_KEY[ev.code];
+
+  const pair = CODE_KEY.get(ev.code);
+
   if (pair) {
     return ev.shiftKey ? pair[1] : pair[0];
   }
+
   if (typed !== null) {
     return typed;
   }
+
   if (ev.code.startsWith("Key") && ev.code.length === "KeyA".length) {
     return ev.code.slice("Key".length).toLowerCase();
   }
+
   return ev.key;
 };
 
 /** An element as far as the guards need it. */
 interface ElementLike {
-  readonly closest?: (selector: string) => unknown;
+  readonly closest?: (selector: string) => object | boolean | null;
   readonly isContentEditable?: boolean;
   readonly tagName?: string;
 }
 
-const asElement = (target: unknown): ElementLike | null =>
-  typeof target === "object" && target !== null && "tagName" in target
-    ? (target as ElementLike)
-    : null;
+/** What a key event reports as its target: a DOM node or a test stand-in. */
+export type KeyTarget = ElementLike | EventTarget | null;
+
+const isElementLike = (target: KeyTarget): target is ElementLike =>
+  target !== null && "tagName" in target;
+
+const asElement = (target: KeyTarget) =>
+  isElementLike(target) ? target : null;
 
 const TYPING_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT"]);
 
 /** True when focus is inside a field where typing should win over shortcuts. */
-export const isTypingTarget = (target: unknown) => {
+export const isTypingTarget = (target: KeyTarget) => {
   const el = asElement(target);
+
   return (
     el !== null &&
     (TYPING_TAGS.has(el.tagName ?? "") || el.isContentEditable === true)
@@ -229,19 +246,25 @@ const KEY_OWNERS =
 export const shortcutAllowed = (ev: KeyEventLike, mac = isMacPlatform()) => {
   const altGraph = ev.getModifierState?.("AltGraph") === true;
   const option = mac && ev.altKey && !ev.ctrlKey && BOUND.has(ev.key);
+
   if (ev.metaKey || ((ev.ctrlKey || ev.altKey) && !(altGraph || option))) {
     return false;
   }
+
   if (ev.defaultPrevented || isTypingTarget(ev.target)) {
     return false;
   }
+
   const el = asElement(ev.target);
-  return !el?.closest?.(KEY_OWNERS);
+
+  const owner = el?.closest?.(KEY_OWNERS);
+
+  return owner === undefined || owner === null || owner === false;
 };
 
 /** Whether `ev` presses one of the shortcut's keys. */
 export const matchesShortcut = (id: ShortcutId, ev: KeyEventLike) =>
-  (shortcutOf(id).keys as readonly string[]).includes(keyOf(ev));
+  shortcutOf(id).keys.includes(keyOf(ev));
 
 /**
  * Run `handler` when the shortcut's key is pressed anywhere, unless typing or
@@ -254,16 +277,25 @@ export const useShortcut = (
   handler: (ev: KeyboardEvent) => void
 ) => {
   const latest = useRef(handler);
-  latest.current = handler;
+
+  useLayoutEffect(() => {
+    latest.current = handler;
+  });
+
   useEffect(() => {
     const onKeyDown = (ev: KeyboardEvent) => {
       if (!(shortcutAllowed(ev) && matchesShortcut(id, ev))) {
         return;
       }
+
       ev.preventDefault();
       latest.current(ev);
     };
+
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [id]);
 };

@@ -16,31 +16,12 @@ import { defineConfig } from "vite";
  */
 const API_TARGET = process.env.PEEKTRACE_API_TARGET ?? "http://127.0.0.1:4321";
 
-const EFFECT_RE = /node_modules\/(effect|@effect|@effect-atom)\//;
-const REACT_RE = /node_modules\/(react|react-dom|scheduler)\//;
+const EFFECT_RE = /node_modules\/(?:effect|@effect|@effect-atom)\//u;
+const REACT_RE = /node_modules\/(?:react|react-dom|scheduler)\//u;
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    // Workspace packages carry their own `react` dependency, so a version drift
-    // between them and this app resolves to two React copies. The second one
-    // has a null dispatcher and every hook call throws at render time.
-    dedupe: ["react", "react-dom"],
-  },
-  server: {
-    proxy: {
-      "/api": {
-        target: API_TARGET,
-        changeOrigin: true,
-        // The server only accepts its own origin; the dev origin differs.
-        configure: (proxy) => {
-          proxy.on("proxyReq", (req) => req.removeHeader("origin"));
-        },
-      },
-    },
-  },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
         // Split the two heavy, rarely-changing vendor trees every route needs
         // out of the app chunk, so a small UI edit doesn't bust their caches.
@@ -56,19 +37,44 @@ export default defineConfig({
         // it and hoists a shared one into the entry.
         manualChunks: (id) => {
           if (!id.includes("node_modules")) {
-            return;
+            return null;
           }
+
           if (EFFECT_RE.test(id)) {
             return "vendor-effect";
           }
+
           if (REACT_RE.test(id)) {
             return "vendor-react";
           }
+
           if (id.includes("node_modules/lucide-react/")) {
             return "vendor-icons";
           }
-          return;
+
+          return null;
         },
+      },
+    },
+  },
+  plugins: [react(), tailwindcss()],
+  resolve: {
+    // Workspace packages carry their own `react` dependency, so a version drift
+    // between them and this app resolves to two React copies. The second one
+    // has a null dispatcher and every hook call throws at render time.
+    dedupe: ["react", "react-dom"],
+  },
+  server: {
+    proxy: {
+      "/api": {
+        changeOrigin: true,
+        // The server only accepts its own origin; the dev origin differs.
+        configure: (proxy) => {
+          proxy.on("proxyReq", (req) => {
+            req.removeHeader("origin");
+          });
+        },
+        target: API_TARGET,
       },
     },
   },

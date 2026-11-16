@@ -6,6 +6,7 @@ import {
   ToolOutput,
   ToolProse,
 } from "@workspace/ui/components/ai-elements/tool";
+
 import type { ResultPane, ToolPane } from "../../lib/tool-event";
 
 /** One pane of a tool call's arguments. */
@@ -21,9 +22,11 @@ export const ToolPaneView = ({ pane }: { readonly pane: ToolPane }) => {
       />
     );
   }
+
   if (pane.type === "prose") {
     return <ToolProse label={pane.label} text={pane.text} />;
   }
+
   return (
     <ToolInput code={pane.code} label={pane.label} language={pane.language} />
   );

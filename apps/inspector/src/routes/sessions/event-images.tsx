@@ -12,6 +12,7 @@ import type {
 } from "@workspace/view-core/api-types.gen";
 import { Cause, Effect } from "effect";
 import { useEffect, useMemo, useState } from "react";
+
 import { apiBlob, apiPath } from "../../lib/api";
 import { useTranscriptSource } from "../../lib/transcript-source";
 
@@ -21,15 +22,22 @@ const NOTE = "px-3 py-2 text-muted-foreground text-xs";
 /** Natural size of an image, known once the browser has decoded it. */
 const useNaturalSize = (src: string) => {
   const [size, setSize] = useState<{ h: number; w: number } | null>(null);
+
   useEffect(() => {
     const probe = new Image();
-    probe.onload = () =>
+
+    const onLoad = () => {
       setSize({ h: probe.naturalHeight, w: probe.naturalWidth });
+    };
+
+    probe.addEventListener("load", onLoad);
     probe.src = src;
+
     return () => {
-      probe.onload = null;
+      probe.removeEventListener("load", onLoad);
     };
   }, [src]);
+
   return size;
 };
 
@@ -44,9 +52,11 @@ const Picture = ({
   readonly src: string;
 }) => {
   const size = useNaturalSize(src);
+
   if (!size) {
     return <span className={NOTE}>Decoding image…</span>;
   }
+
   return (
     <img
       alt={alt}
@@ -64,15 +74,19 @@ const Picture = ({
 /** An object URL for `blob`, revoked when it changes or on unmount. */
 const useObjectUrl = (blob: Blob | null) => {
   const [url, setUrl] = useState<string | null>(null);
+
   useEffect(() => {
-    if (blob === null) {
-      setUrl(null);
-      return;
-    }
-    const made = URL.createObjectURL(blob);
+    const made = blob === null ? null : URL.createObjectURL(blob);
+    // oxlint-disable-next-line react/set-state-in-effect -- the object URL is an external resource created and revoked with the effect
     setUrl(made);
-    return () => URL.revokeObjectURL(made);
+
+    return () => {
+      if (made !== null) {
+        URL.revokeObjectURL(made);
+      }
+    };
   }, [blob]);
+
   return url;
 };
 
@@ -85,6 +99,7 @@ const EventImage = ({
 }) => {
   const source = useTranscriptSource();
   const [full, setFull] = useState(false);
+
   const atom = useMemo(() => {
     const segments = [
       "sessions",
@@ -94,6 +109,7 @@ const EventImage = ({
       imageRef.block,
       ...(imageRef.item === undefined ? [] : [imageRef.item]),
     ];
+
     // A missing image reads as `null`: the ref names no showable image.
     return Atom.make(
       apiBlob(apiPath(...segments), {
@@ -106,9 +122,11 @@ const EventImage = ({
       )
     );
   }, [source, line, imageRef]);
+
   const result = useAtomValue(atom);
   const blob = Result.isSuccess(result) ? result.value : null;
   const src = useObjectUrl(blob);
+
   if (!Result.isSuccess(result)) {
     return (
       <div className={cn(FRAME, NOTE)} data-testid="event-image-pending">
@@ -118,6 +136,7 @@ const EventImage = ({
       </div>
     );
   }
+
   if (result.value === null) {
     return (
       <div className={cn(FRAME, NOTE)}>
@@ -125,9 +144,11 @@ const EventImage = ({
       </div>
     );
   }
+
   if (src === null) {
     return <span className={NOTE}>Decoding image…</span>;
   }
+
   return (
     <button
       className={cn(
@@ -135,7 +156,9 @@ const EventImage = ({
         "w-fit max-w-full cursor-zoom-in overflow-hidden p-1"
       )}
       data-testid="event-image"
-      onClick={() => setFull(!full)}
+      onClick={() => {
+        setFull(!full);
+      }}
       title={full ? "Shrink" : "Show full size"}
       type="button"
     >
@@ -151,9 +174,11 @@ const EventImage = ({
 /** Every image on `e`'s line, or nothing when it has none or no source. */
 export const EventImages = ({ e }: { readonly e: TimelineEvent }) => {
   const source = useTranscriptSource();
+
   if (!(source && e.images && e.images.length > 0)) {
     return null;
   }
+
   return (
     <div className="flex flex-wrap gap-2" data-testid="event-images">
       {e.images.map((ref) => (

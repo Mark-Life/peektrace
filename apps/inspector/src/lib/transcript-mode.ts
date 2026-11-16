@@ -13,6 +13,7 @@ export type TranscriptMode = "table" | "chat";
 export const DEFAULT_TRANSCRIPT_MODE: TranscriptMode = "chat";
 
 /** Parse an untrusted mode value; anything unknown reads as `null`. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- this is the parser for untrusted stored and hash values
 export const transcriptModeOf = (raw: unknown): TranscriptMode | null =>
   raw === "table" || raw === "chat" ? raw : null;
 

@@ -31,6 +31,7 @@ import { MEMORY_TYPES } from "@workspace/view-core/constants.gen";
 import { Exit } from "effect";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+
 import { createMemoryAtom } from "../../lib/memory-atoms";
 import { wireErrorMessage, wireErrorOf } from "../../lib/wire-error";
 import type { ProjectOption } from "./project-options";
@@ -71,6 +72,7 @@ export const CreateDialog = ({
       setPicked(undefined);
       setError(undefined);
     }
+
     onOpenChange(next);
   };
 
@@ -78,12 +80,16 @@ export const CreateDialog = ({
     if (project === undefined) {
       return;
     }
+
     setBusy(true);
     setError(undefined);
+
     const exit = await create({
-      payload: { project, name, description, type, body },
+      payload: { body, description, name, project, type },
     });
+
     setBusy(false);
+
     if (Exit.isSuccess(exit)) {
       toast.success(`Created ${name}`);
       created.current = target.kind === "pick";
@@ -92,8 +98,10 @@ export const CreateDialog = ({
       setName("");
       setDescription("");
       setBody("");
+
       return;
     }
+
     const err = wireErrorOf(exit);
     setError(err ? wireErrorMessage(err) : "Create failed.");
   };
@@ -130,7 +138,9 @@ export const CreateDialog = ({
             <Input
               data-testid="create-name"
               id="mem-name"
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+              }}
               placeholder="api-conventions"
               value={name}
             />
@@ -140,7 +150,9 @@ export const CreateDialog = ({
             <Input
               data-testid="create-description"
               id="mem-desc"
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => {
+                setDescription(e.target.value);
+              }}
               placeholder="One-line hook for the index"
               value={description}
             />
@@ -166,25 +178,35 @@ export const CreateDialog = ({
               className="min-h-32 font-mono text-xs"
               data-testid="create-body"
               id="mem-body"
-              onChange={(e) => setBody(e.target.value)}
+              onChange={(e) => {
+                setBody(e.target.value);
+              }}
               placeholder="# Title&#10;&#10;Use [[other-memory]] to link."
               value={body}
             />
           </div>
-          {error ? (
-            <p className="text-red-400 text-sm" data-testid="create-error">
+          {error !== undefined && error !== "" ? (
+            <p className="text-sm text-red-400" data-testid="create-error">
               {error}
             </p>
           ) : null}
         </div>
         <DialogFooter>
-          <Button onClick={() => close(false)} type="button" variant="ghost">
+          <Button
+            onClick={() => {
+              close(false);
+            }}
+            type="button"
+            variant="ghost"
+          >
             Cancel
           </Button>
           <Button
             data-testid="create-submit"
             disabled={busy || name.length === 0 || project === undefined}
-            onClick={submit}
+            onClick={() => {
+              void submit();
+            }}
             type="button"
           >
             {busy ? "Creating…" : "Create memory"}

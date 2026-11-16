@@ -9,14 +9,16 @@
  * it opens stays open only while it is the current hit.
  */
 import {
-  type RefObject,
   useCallback,
   useDeferredValue,
   useEffect,
   useRef,
   useState,
 } from "react";
-import { type StepDir, stepHit } from "./history-search";
+import type { RefObject } from "react";
+
+import { stepHit } from "./history-search";
+import type { StepDir } from "./history-search";
 import { cardOf, firstHitIn, useSearchHighlight } from "./use-search-highlight";
 import { revealAt } from "./virtual-jump";
 import type { VirtualListHandle } from "./virtual-range";
@@ -40,13 +42,17 @@ export const useRevealHit = ({
     let cancel = () => {
       // nothing scheduled yet
     };
+
+    // oxlint-disable-next-line react/immutability -- `reveal` is a caller-owned ref, written on purpose
     reveal.current = (id, onDrawn) => {
       cancel();
       const index = indexOf(id);
+
       if (index >= 0) {
         cancel = revealAt({ index, list, onDrawn });
       }
     };
+
     return () => {
       cancel();
       reveal.current = null;
@@ -68,14 +74,17 @@ export const queryStateFor = (state: QueryState, sid: string): QueryState =>
 export const useSearchQuery = (sid: string) => {
   const [state, setState] = useState<QueryState>({ query: "", sid });
   const next = queryStateFor(state, sid);
+
   if (next !== state) {
     setState(next);
   }
-  const setQuery = useCallback(
-    (query: string) => setState((s) => ({ ...s, query })),
-    []
-  );
+
+  const setQuery = useCallback((query: string) => {
+    setState((s) => ({ ...s, query }));
+  }, []);
+
   const deferredQuery = useDeferredValue(next.query);
+
   return { deferredQuery, query: next.query, setQuery };
 };
 
@@ -109,29 +118,40 @@ export const useSearchStepper = ({
   /** The current hit, when it was closed before the step landed on it. */
   const [openedId, setOpenedId] = useState<string | null>(null);
   const [key, setKey] = useState(resetKey);
+
   if (key !== resetKey) {
     setKey(resetKey);
     setCurrentId(null);
     setOpenedId(null);
   }
+
   const current = currentId === null ? -1 : hits.indexOf(currentId);
   const liveId = current < 0 ? null : currentId;
   const liveOpened = liveId !== null && openedId === liveId ? openedId : null;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef(0);
-  useEffect(() => () => cancelAnimationFrame(frameRef.current), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(frameRef.current);
+    },
+    []
+  );
 
   const onStep = (dir: StepDir) => {
     const next = stepHit({ current: liveId, dir, hits });
+
     if (next === null) {
       return;
     }
+
     setOpenedId(isOpen(next) ? null : next);
     setCurrentId(next);
+
     const toHit = () => {
       const container = containerRef.current;
       const card = container === null ? null : cardOf({ container, id: next });
+
       if (card !== null) {
         // Jump like browser find: a smooth scroll is slow over long
         // transcripts and can stop short while skipped cards render.
@@ -141,9 +161,11 @@ export const useSearchStepper = ({
         });
       }
     };
+
     // The step's render commits before the next frame, so the card is open.
     cancelAnimationFrame(frameRef.current);
     const show = reveal.current;
+
     if (show === null) {
       frameRef.current = requestAnimationFrame(toHit);
     } else {
@@ -159,15 +181,18 @@ export const useSearchStepper = ({
   useEffect(() => {
     openedRef.current = liveOpened;
   }, [liveOpened]);
+
   const onToggleOpen = useCallback(
     (id: string, open: boolean) => {
       if (id === openedRef.current) {
         setOpenedId(null);
       }
+
       onToggle(id, open);
     },
     [onToggle]
   );
+
   const isOpenNow = (id: string) => id === liveOpened || isOpen(id);
 
   return {

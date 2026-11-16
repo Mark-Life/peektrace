@@ -1,31 +1,34 @@
 /** Memory page: empty state with a create action, no agent selector. */
 import { describe, expect, test } from "bun:test";
+
 import type { Capability } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
+
 import { Explorer } from "../src/routes/memory/memory-explorer";
 
 const caps = (claude: Capability["perAgent"]["claude"]["level"]) => [
   {
-    id: "memory.crud",
-    group: "memory",
-    title: "Memory CRUD",
     description: "",
+    group: "memory",
+    id: "memory.crud",
     perAgent: {
       claude: { level: claude },
       codex: { level: "planned" },
-      pi: { level: "planned" },
       opencode: { level: "planned" },
+      pi: { level: "planned" },
     },
+    title: "Memory CRUD",
   } satisfies Capability,
 ];
 
-const EMPTY = { projects: [], vaults: [], labels: [] };
+const EMPTY = { labels: [], projects: [], vaults: [] };
 
 describe("Explorer with no memory folders", () => {
   test("offers New memory in… and agent-neutral copy", () => {
     const html = renderToStaticMarkup(
       <Explorer all={EMPTY} caps={caps("supported")} readOnly={false} />
     );
+
     expect(html).toContain('data-testid="memory-empty"');
     expect(html).toContain('data-testid="create-anywhere"');
     expect(html).toContain("No memories yet");
@@ -43,6 +46,7 @@ describe("Explorer with no memory folders", () => {
     const html = renderToStaticMarkup(
       <Explorer all={EMPTY} caps={caps("planned")} readOnly={false} />
     );
+
     expect(html).toContain('data-testid="memory-empty"');
     expect(html).not.toContain('data-testid="create-anywhere"');
     expect(html).not.toContain("Create the first memory");
@@ -57,6 +61,7 @@ describe("Explorer with no memory folders", () => {
     const html = renderToStaticMarkup(
       <Explorer all={EMPTY} caps={caps("supported")} readOnly />
     );
+
     expect(html).not.toContain('data-testid="create-anywhere"');
     expect(html).toContain('data-testid="capability-banner"');
     expect(html).toContain("Read-only server");
@@ -79,9 +84,11 @@ describe("Explorer with memory folders", () => {
         },
       ],
     };
+
     const html = renderToStaticMarkup(
       <Explorer all={all} caps={caps("supported")} readOnly={false} />
     );
+
     expect(html).toContain('data-testid="memory-search"');
     expect(html).toContain('aria-label="Search memories"');
   });

@@ -1,11 +1,8 @@
 /** A shortcut's keycaps, read from the shortcut table. */
 import { Kbd } from "@workspace/ui/components/kbd";
-import {
-  isMacPlatform,
-  keyLabel,
-  type ShortcutId,
-  shortcutOf,
-} from "./shortcuts";
+
+import { isMacPlatform, keyLabel, shortcutOf } from "./shortcuts";
+import type { ShortcutId } from "./shortcuts";
 
 export const ShortcutKeys = ({
   id,

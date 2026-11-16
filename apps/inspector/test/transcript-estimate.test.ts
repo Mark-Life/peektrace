@@ -1,7 +1,9 @@
 /** Guessed block heights: bigger when open, bounded by the CSS caps. */
 
 import { describe, expect, test } from "bun:test";
+
 import type { TimelineEvent } from "@workspace/view-core/api-types.gen";
+
 import type { ChatNode } from "../src/lib/chat-lane";
 import {
   CHAT_GAP,
@@ -25,6 +27,11 @@ const message = (
   kind: TimelineEvent["kind"] = "assistant-text"
 ) => ({ row: { e: evt({ body, kind }), pos: 0 }, type: "message" }) as const;
 
+const RUN: ChatNode = {
+  items: [{ e: evt({ kind: "attachment" }), pos: 3, repeat: false }],
+  type: "run",
+};
+
 const NODES: readonly ChatNode[] = [
   message("short"),
   message("x".repeat(20_000)),
@@ -35,10 +42,10 @@ const NODES: readonly ChatNode[] = [
     type: "tool",
   },
   {
-    row: { e: evt({ kind: "compaction", body: "y".repeat(5000) }), pos: 2 },
+    row: { e: evt({ body: "y".repeat(5000), kind: "compaction" }), pos: 2 },
     type: "band",
   },
-  { items: [{ e: evt({ kind: "attachment" }), pos: 3 }], type: "run" },
+  RUN,
   { turn: 1, type: "turn" },
   { type: "dumbzone" },
 ];
@@ -73,17 +80,18 @@ describe("estimateChatNode", () => {
   });
 
   test("a chip cluster opens only with everything else", () => {
-    const run = NODES[5] as ChatNode;
     const closed = estimateChatNode({
       allOpen: false,
       isOpen: () => true,
-      n: run,
+      n: RUN,
     });
+
     const open = estimateChatNode({
       allOpen: true,
       isOpen: () => false,
-      n: run,
+      n: RUN,
     });
+
     expect(open).toBeGreaterThan(closed);
   });
 });
@@ -104,10 +112,13 @@ describe("index rows", () => {
   test("a row's body length sizes it like the body would", () => {
     const body = "x".repeat(2000);
     const [row] = indexRowsOf([evt({ body })], [0]);
+
     if (!row) {
       throw new Error("no row");
     }
+
     const fromRow = { row: { e: row, pos: 0 }, type: "message" } as const;
+
     for (const open of [false, true]) {
       expect(
         estimateChatNode({ allOpen: open, isOpen: () => open, n: fromRow })

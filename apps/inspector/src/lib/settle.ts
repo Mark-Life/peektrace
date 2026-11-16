@@ -28,10 +28,10 @@ export const settleDelay = (
 ) => Math.max(0, Math.min(lastBumpAt + wait, firstPendingAt + maxWait) - now);
 
 /** Sessions: about one reload per 1.5 s of quiet, and at least every 4 s. */
-export const SESSIONS_SETTLE: SettleTiming = { wait: 1500, maxWait: 4000 };
+export const SESSIONS_SETTLE: SettleTiming = { maxWait: 4000, wait: 1500 };
 
 /** Memory edits are rare and small, so they apply on the next tick. */
-export const MEMORY_SETTLE: SettleTiming = { wait: 0, maxWait: 0 };
+export const MEMORY_SETTLE: SettleTiming = { maxWait: 0, wait: 0 };
 
 /** `source` delayed by `timing`, held back while `paused` is true. */
 export const settledAtom = ({
@@ -57,32 +57,40 @@ export const settledAtom = ({
         timer = undefined;
       }
     };
+
     const flush = () => {
       cancel();
       firstPendingAt = undefined;
       emitted = latest;
       get.setSelf(latest);
     };
+
     const schedule = () => {
       cancel();
+
       if (firstPendingAt === undefined || isPaused) {
         return;
       }
+
       const delay = settleDelay(
-        { now: Date.now(), firstPendingAt, lastBumpAt },
+        { firstPendingAt, lastBumpAt, now: Date.now() },
         timing
       );
+
       timer = setTimeout(flush, delay);
     };
 
     get.addFinalizer(cancel);
     get.subscribe(source, (value) => {
       latest = value;
+
       if (value === emitted) {
         firstPendingAt = undefined;
         cancel();
+
         return;
       }
+
       const now = Date.now();
       firstPendingAt ??= now;
       lastBumpAt = now;
@@ -93,12 +101,17 @@ export const settledAtom = ({
       if (next === isPaused) {
         return;
       }
+
       isPaused = next;
+
       if (!isPaused && firstPendingAt !== undefined) {
         flush();
+
         return;
       }
+
       schedule();
     });
+
     return emitted;
   });

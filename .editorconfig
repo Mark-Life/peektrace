@@ -1,5 +1,5 @@
 # https://editorconfig.org
-# Mirrors the Biome formatter (see biome.jsonc) for non-VS-Code editors.
+# Mirrors the Oxfmt formatter (see oxfmt.config.ts) for non-VS-Code editors.
 root = true
 
 [*]

@@ -12,6 +12,7 @@ import type {
   SettingsResult,
 } from "@workspace/view-core/api-types.gen";
 import { Effect } from "effect";
+
 import { apiGet } from "./api";
 import { sharedHeadersAtom } from "./share-headers";
 

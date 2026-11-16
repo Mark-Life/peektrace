@@ -10,15 +10,16 @@ import {
   AlertTitle,
 } from "@workspace/ui/components/alert";
 import { LockIcon } from "lucide-react";
+
 import { ReadOnlyReason } from "../../components/read-only";
 
 /** Map a support level to a short verdict phrase. */
-const VERDICT: Record<string, string> = {
-  planned: "planned",
-  partial: "partial",
-  unsupported: "not supported",
-  supported: "supported",
-};
+const VERDICT = new Map([
+  ["partial", "partial"],
+  ["planned", "planned"],
+  ["supported", "supported"],
+  ["unsupported", "not supported"],
+]);
 
 /** Render the blocked verdict. */
 export const CapabilityBanner = ({
@@ -37,13 +38,13 @@ export const CapabilityBanner = ({
         <AlertTitle>Read-only server</AlertTitle>
         <AlertDescription>
           <p>
-            <ReadOnlyReason /> Memories can't be edited from here.
+            <ReadOnlyReason /> Memories can&apos;t be edited from here.
           </p>
         </AlertDescription>
       </>
     ) : (
       <>
-        <AlertTitle>Memory editing is {VERDICT[level] ?? level}</AlertTitle>
+        <AlertTitle>Memory editing is {VERDICT.get(level) ?? level}</AlertTitle>
         <AlertDescription>{detail}</AlertDescription>
       </>
     )}

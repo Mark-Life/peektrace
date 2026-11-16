@@ -4,6 +4,7 @@
  * claims in `markdown.tsx` are checked on the rendered markup itself.
  */
 import { describe, expect, test } from "bun:test";
+
 import {
   fenceLanguage,
   MARKDOWN_CHAR_LIMIT,
@@ -19,6 +20,7 @@ describe("raw HTML", () => {
     const out = html(
       '<script>alert(1)</script>\n\n<img src=x onerror="alert(1)">\n\nhi <b onclick="x">b</b>'
     );
+
     expect(out).not.toContain("<script");
     expect(out).not.toContain("<img");
     expect(out).not.toContain("<b ");
@@ -36,7 +38,9 @@ describe("raw HTML", () => {
 describe("links", () => {
   test("executable and data URLs lose their link but keep the label", () => {
     for (const href of [
+      // oxlint-disable-next-line no-script-url -- hostile href under test
       "javascript:alert(1)",
+      // oxlint-disable-next-line no-script-url -- hostile href under test
       "JaVaScRiPt:alert(1)",
       "java\tscript:alert(1)",
       "data:text/html,<b>x</b>",
@@ -80,6 +84,7 @@ describe("blocks", () => {
     const doc = parseTranscriptMarkdown(
       "- step\n\n  ```bash\n  ls\n  ```\n\n> ```json\n> {}\n> ```"
     );
+
     expect(JSON.stringify(doc)).not.toContain('"type":"code"');
     expect(JSON.stringify(doc)).toContain('"tagName":"md-fence"');
   });

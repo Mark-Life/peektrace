@@ -9,25 +9,32 @@
  * GITHUB_REPOSITORY (default: the peektrace repo).
  */
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
+import nodePath from "node:path";
+
 import { changelogSection } from "./changelog";
 
 const DEFAULT_REPO = "Mark-Life/peektrace";
 
-const [tag, file = join(import.meta.dir, "../../CHANGELOG.md")] =
-  process.argv.slice(2);
+/** `process.argv` entries before the user arguments: runtime and script. */
+const ARGV_OFFSET = 2;
 
-if (!tag) {
+const [tag, file = nodePath.join(import.meta.dir, "../../CHANGELOG.md")] =
+  process.argv.slice(ARGV_OFFSET);
+
+if (tag === undefined || tag === "") {
   console.error("usage: release-notes.ts <tag> [changelog-path]");
   process.exit(1);
 }
 
 try {
-  const repo = process.env.GITHUB_REPOSITORY || DEFAULT_REPO;
-  const section = changelogSection(readFileSync(file, "utf8"), tag, {
+  const envRepo = process.env.GITHUB_REPOSITORY;
+  const repo = envRepo === undefined || envRepo === "" ? DEFAULT_REPO : envRepo;
+
+  const section = changelogSection(readFileSync(file, "utf-8"), tag, {
     repoUrl: `https://github.com/${repo}`,
   });
-  if (section) {
+
+  if (section !== undefined && section !== "") {
     process.stdout.write(`${section}\n`);
   }
 } catch (error) {

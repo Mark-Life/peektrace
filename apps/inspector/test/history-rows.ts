@@ -17,10 +17,12 @@ export const indexRowsOf = (
       ts: _t,
       ...rest
     } = e;
+
     const edit =
       contextEdit === undefined
         ? {}
         : { contextEdit: { ...contextEdit, original: undefined } };
+
     return {
       ...rest,
       ...edit,

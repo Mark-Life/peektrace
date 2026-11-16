@@ -20,15 +20,16 @@ import type {
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { DEFAULT_DRILL_PAGE } from "@workspace/view-core/constants.gen";
+
 import {
   causeImpact,
   causeSpread,
-  type FindingFormat,
   ruleLine,
   ruleState,
   timeNote,
   timeSpread,
 } from "./stats-findings";
+import type { FindingFormat } from "./stats-findings";
 
 /** What a prompt is about: the whole report, or one row of one table. */
 export type PromptTarget =
@@ -39,8 +40,12 @@ export type PromptTarget =
 const TOP_CAUSES = 6;
 const TOP_FAILS = 4;
 const TOP_TIME = 4;
+
 /** Sample calls a row prompt names; the drill command lists the rest. */
 const SAMPLES_SHOWN = 3;
+
+/** Length of the `YYYY-MM-DD` prefix of an ISO timestamp. */
+const DATE_LENGTH = 10;
 
 const GOAL =
   "Goal: make my coding agents faster and cheaper: fewer model round trips, less compute and waiting, fewer failed tool calls.";
@@ -50,16 +55,17 @@ const ASK =
 
 /** Where a cause's fix lives, in words an agent reads without the schema. */
 const KIND_WHERE: Record<CauseKind, string> = {
-  rule: "memory file (AGENTS.md/CLAUDE.md)",
   env: "host environment",
-  workflow: "workflow or subagent prompt",
   none: "unknown (unclassified)",
+  rule: "memory file (AGENTS.md/CLAUDE.md)",
+  workflow: "workflow or subagent prompt",
 };
 
-const CAUSE_PREFIX = /^cause:/;
-const MS_SUFFIX = /\.\d+Z$/;
+const CAUSE_PREFIX = /^cause:/u;
+const MS_SUFFIX = /\.\d+Z$/u;
+
 /** Core's advice opens with the condition a firing rule already meets. */
-const KEEPS_FIRING = /^if it keeps firing:\s*/;
+const KEEPS_FIRING = /^if it keeps firing:\s*/u;
 
 /** Where the report came from: the agent it was scoped to, and the
  * `peektrace serve` URL when it was read remotely. */
@@ -107,11 +113,13 @@ const sampleLines = (args: {
   readonly sample: SampleRef;
 }): readonly string[] => {
   const { paths, retry, sample } = args;
+
   const head = [
     sample.ts?.replace(MS_SUFFIX, "Z") ?? null,
     sample.toolUseId,
     paths[sample.sid] ?? `session ${sample.sid}`,
   ].filter((part) => part !== null);
+
   return [
     `- ${head.join(" · ")}`,
     retry === null
@@ -120,6 +128,8 @@ const sampleLines = (args: {
   ];
 };
 
+const idOf = (s: SampleRef) => `${s.sid}#${s.seq}`;
+
 /** A row's samples, retry pairs first, each call once. */
 const samplesBlock = (args: {
   readonly pairs: CauseRow["pairSamples"];
@@ -127,8 +137,8 @@ const samplesBlock = (args: {
   readonly samples: readonly SampleRef[];
 }): readonly string[] => {
   const { pairs, paths, samples } = args;
-  const idOf = (s: SampleRef) => `${s.sid}#${s.seq}`;
   const paired = new Set(pairs.map((p) => idOf(p.failed)));
+
   const lines = [
     ...pairs.map((p) => ({ retry: p.retry, sample: p.failed })),
     ...samples
@@ -137,6 +147,7 @@ const samplesBlock = (args: {
   ]
     .slice(0, SAMPLES_SHOWN)
     .flatMap(({ retry, sample }) => sampleLines({ paths, retry, sample }));
+
   return lines.length === 0
     ? []
     : [pairs.length > 0 ? "Samples (failed → retry):" : "Samples:", ...lines];
@@ -150,19 +161,26 @@ const ruleAsk = (row: CauseRow): readonly string[] => {
   if (row.rule === null) {
     return row.kind === "rule" ? ["- rule: none in AGENTS.md/CLAUDE.md"] : [];
   }
+
   const line = `- ${ruleLine(row.rule)}`;
-  switch (ruleState(row.rule)) {
-    case "firing":
-      return [
-        line,
-        `  The rule is in memory yet still fires: find why it isn't followed and fix it in a way that doesn't depend on the agent remembering (e.g. ${row.rule.advice.replace(KEEPS_FIRING, "")}).`,
-      ];
-    case "unmeasured":
-      return [line, `  ${capitalized(row.rule.advice)}.`];
-    default:
-      return [line];
+
+  const state = ruleState(row.rule);
+
+  if (state === "firing") {
+    return [
+      line,
+      `  The rule is in memory yet still fires: find why it isn't followed and fix it in a way that doesn't depend on the agent remembering (e.g. ${row.rule.advice.replace(KEEPS_FIRING, "")}).`,
+    ];
   }
+
+  if (state === "unmeasured") {
+    return [line, `  ${capitalized(row.rule.advice)}.`];
+  }
+
+  return [line];
 };
+
+const listed = (items: readonly string[]) => items.join(" · ");
 
 const causePrompt = (args: {
   readonly f: FindingFormat;
@@ -171,10 +189,11 @@ const causePrompt = (args: {
   readonly scope: Scope;
 }): readonly string[] => {
   const { f, report, row, scope } = args;
-  const listed = (items: readonly string[]) => items.join(" · ");
+
   // A rule already in memory leaves the fix's home open: that is the question.
   const where =
     row.rule === null ? ` · fix lives in: ${KIND_WHERE[row.kind]}` : "";
+
   return [
     `Pattern: ${row.label}`,
     `- cause: ${causeId(row)}${where}`,
@@ -208,6 +227,7 @@ const failPrompt = (args: {
   readonly scope: Scope;
 }): readonly string[] => {
   const { f, report, row, scope } = args;
+
   return [
     `Pattern: ${row.label} (${row.where})`,
     `- key: ${row.key}${row.detector === null ? "" : ` · detector: ${row.detector}`}`,
@@ -224,14 +244,17 @@ const waitLines = (
   f: FindingFormat
 ): readonly string[] => {
   const w = report.waiting;
-  const shapes = w.byShape
+
+  // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- `byShape` is the generated API field name
+  const waitKinds = w.byShape
     .filter((s) => s.calls > 0)
     .map((s) => `${s.key} ${f.count(s.calls)} calls ${f.hms(s.totalSec)}`)
     .join(" · ");
+
   return w.calls === 0
     ? []
     : [
-        `- shapes: ${shapes}; ${f.count(w.bgRuns)} backgrounded, declaring ${f.hms(w.bgDeclaredSec)} of sleep`,
+        `- shapes: ${waitKinds}; ${f.count(w.bgRuns)} backgrounded, declaring ${f.hms(w.bgDeclaredSec)} of sleep`,
       ];
 };
 
@@ -243,6 +266,7 @@ const timePrompt = (args: {
 }): readonly string[] => {
   const { f, report, row, scope } = args;
   const note = timeNote(row, f);
+
   return [
     `Pattern: shell time charged to ${row.label}`,
     `- job: ${row.key} · ${f.hms(row.totalSec)} · ${timeSpread(row, report.corpus.bashSec, f)} · median ${f.hms(row.medianSec)}, p95 ${f.hms(row.p95Sec)}`,
@@ -261,22 +285,24 @@ const rowBody = (args: {
   readonly target: Exclude<PromptTarget, { table: "report" }>;
 }): readonly string[] | null => {
   const { f, report, scope, target } = args;
-  switch (target.table) {
-    case "cause": {
-      const row = report.causes.find(
-        (r) => r.key === target.key || causeId(r) === target.key
-      );
-      return row === undefined ? null : causePrompt({ f, report, row, scope });
-    }
-    case "fail": {
-      const row = report.fails.find((r) => r.key === target.key);
-      return row === undefined ? null : failPrompt({ f, report, row, scope });
-    }
-    default: {
-      const row = report.time.find((r) => r.key === target.key);
-      return row === undefined ? null : timePrompt({ f, report, row, scope });
-    }
+
+  if (target.table === "cause") {
+    const row = report.causes.find(
+      (r) => r.key === target.key || causeId(r) === target.key
+    );
+
+    return row === undefined ? null : causePrompt({ f, report, row, scope });
   }
+
+  if (target.table === "fail") {
+    const row = report.fails.find((r) => r.key === target.key);
+
+    return row === undefined ? null : failPrompt({ f, report, row, scope });
+  }
+
+  const row = report.time.find((r) => r.key === target.key);
+
+  return row === undefined ? null : timePrompt({ f, report, row, scope });
 };
 
 /** A header line and its rows, or nothing when the table has no rows. */
@@ -296,9 +322,11 @@ const ruleLines = (causes: readonly CauseRow[]): readonly string[] => {
           ]
         : []
     );
+
   const firing = ids("firing");
   const quiet = ids("quiet");
   const unmeasured = ids("unmeasured");
+
   return [
     ...(firing.length > 0 || quiet.length > 0
       ? [
@@ -326,11 +354,13 @@ const reportBody = (args: {
   const pairs = causes.reduce((n, r) => n + r.pairs, 0);
   const sec = causes.reduce((n, r) => n + r.retrySec, 0);
   const ctx = causes.reduce((n, r) => n + r.retryCtxTokens, 0);
+
   const time = report.time
     .slice(0, TOP_TIME)
     .map((r) => `${r.key} ${f.hms(r.totalSec)} (${f.pct(r.share)})`);
+
   return [
-    `Data (${report.window.fromIso.slice(0, 10)} → ${report.window.toIso.slice(0, 10)}):`,
+    `Data (${report.window.fromIso.slice(0, DATE_LENGTH)} → ${report.window.toIso.slice(0, DATE_LENGTH)}):`,
     `- corpus: ${f.count(c.transcripts)} transcripts (${f.count(main)} main, ${f.count(c.transcripts - main)} subagent), ${f.count(c.projects)} projects, ${f.count(c.toolCalls)} tool calls, ${f.hms(c.bashSec)} shell time`,
     ...(pairs > 0
       ? [
@@ -386,11 +416,14 @@ export const statsPrompt = (args: {
   readonly target: PromptTarget;
 }): string | null => {
   const { format: f, report, target } = args;
+
   const scope: Scope = {
     agent: args.agent ?? null,
     remote: args.remote ?? null,
   };
+
   const where = windowLine(report, scope);
+
   if (target.table === "report") {
     return [
       GOAL,
@@ -399,7 +432,9 @@ export const statsPrompt = (args: {
       ...reportBody({ f, report, scope }),
     ].join("\n");
   }
+
   const body = rowBody({ f, report, scope, target });
+
   return body === null
     ? null
     : [

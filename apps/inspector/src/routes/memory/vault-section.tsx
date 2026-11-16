@@ -21,7 +21,9 @@ import { BudgetGauge } from "@workspace/viz/components/budget-gauge";
 import { LinkGraph } from "@workspace/viz/components/link-graph";
 import { TypeDonut } from "@workspace/viz/components/type-donut";
 import { PlusIcon } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
+import type { ReactNode } from "react";
+
 import { BrowseTable } from "./browse-table";
 import { CreateDialog } from "./create-dialog";
 import { DeleteDialog } from "./delete-dialog";
@@ -77,13 +79,15 @@ export const VaultSection = ({
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="font-medium text-sm">
+            <h3 className="text-sm font-medium">
               {entries.length} of {vault.entries.length} memories
             </h3>
             {canWrite ? (
               <Button
                 data-testid="create-open"
-                onClick={() => setCreating(true)}
+                onClick={() => {
+                  setCreating(true);
+                }}
                 size="sm"
               >
                 <PlusIcon className="size-4" /> New memory
@@ -93,8 +97,8 @@ export const VaultSection = ({
           <BrowseTable
             actions={{
               canWrite,
-              onEdit: setEditing,
               onDelete: setDeleting,
+              onEdit: setEditing,
               onNavigate: setHighlight,
             }}
             entries={entries}
@@ -117,7 +121,11 @@ export const VaultSection = ({
         <EditDialog
           entry={editing}
           onDone={onRefresh}
-          onOpenChange={(o) => !o && setEditing(undefined)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setEditing(undefined);
+            }
+          }}
           open={Boolean(editing)}
           project={vault.slug}
         />
@@ -126,7 +134,11 @@ export const VaultSection = ({
         <DeleteDialog
           entry={deleting}
           onDone={onRefresh}
-          onOpenChange={(o) => !o && setDeleting(undefined)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setDeleting(undefined);
+            }
+          }}
           open={Boolean(deleting)}
           project={vault.slug}
         />
