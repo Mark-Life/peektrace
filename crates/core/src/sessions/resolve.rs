@@ -322,7 +322,7 @@ fn build_stub(id: &str, path: String, meta: &JsValue, run: Option<&WorkflowRun>)
     stub
 }
 
-fn is_subagent_file(name: &str) -> bool {
+pub(crate) fn is_subagent_file(name: &str) -> bool {
     name.starts_with("agent-") && name.ends_with(JSONL)
 }
 

@@ -1,5 +1,10 @@
 /** A session cost as display text. The figures come from the server. */
-import type { AgentId, SessionCost, SessionHeader } from "./api-types.gen";
+import type {
+  AgentId,
+  Provider,
+  SessionCost,
+  SessionHeader,
+} from "./api-types.gen";
 
 const CENT = 0.005;
 const USD_DECIMALS = 2;
@@ -35,22 +40,27 @@ export const estimateWarning = ({
 };
 
 /** Display label per transcript provider. */
-const PROVIDER_LABEL: ReadonlyMap<string, string> = new Map([
-  ["claude-code", "Claude Code"],
-  ["codex", "Codex"],
-  ["opencode", "OpenCode"],
-  ["pi", "Pi"],
-]);
+const PROVIDER_LABEL: Readonly<Record<Provider, string>> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+  opencode: "OpenCode",
+  pi: "Pi",
+};
 
-/** The agent's display name for a provider id, else the id itself. */
-export const providerLabel = (provider: string) =>
-  PROVIDER_LABEL.get(provider) ?? provider;
+/**
+ * The agent's display name; a newer server's unknown provider shows its raw
+ * id.
+ */
+export const providerLabel = (provider: Provider) =>
+  // SAFETY: the record covers the union; the lookup can still miss at runtime.
+  // oxlint-disable-next-line typescript/no-unnecessary-condition -- see above
+  PROVIDER_LABEL[provider] ?? provider;
 
 /**
  * The quiet note for the estimate beside a full record. Only Claude Code bills
  * calls its transcript does not log, so only its note says so.
  */
-export const estimateNote = (estimate: number, provider: string) =>
+export const estimateNote = (estimate: number, provider: Provider) =>
   provider === "claude-code"
     ? `Estimate from transcript: ${fmtUsd(estimate)}. Transcripts miss some billed calls.`
     : `Estimate at list price: ${fmtUsd(estimate)}.`;
@@ -59,7 +69,7 @@ export const estimateNote = (estimate: number, provider: string) =>
  * The warning or the quiet note for the estimate beside a full record. Core
  * decides when it warns (`estimateWarning`).
  */
-const estimateLines = (cost: CostFields, provider: string) => {
+const estimateLines = (cost: CostFields, provider: Provider) => {
   const { estimateUsd: estimate, recordedUsd: recorded } = cost;
 
   if (
@@ -112,7 +122,7 @@ const fmtTotal = (cost: CostFields) => {
  * the notes that qualify it led by its source, and beside a full record
  * either a warning (a likely price problem) or a quiet estimate note.
  */
-export const costSummary = (cost: CostFields, provider: string) => ({
+export const costSummary = (cost: CostFields, provider: Provider) => ({
   notes: [
     cost.source === "agent"
       ? `recorded by ${providerLabel(provider)}`
@@ -124,7 +134,7 @@ export const costSummary = (cost: CostFields, provider: string) => ({
 });
 
 /** The provider id of a list row's agent. */
-const PROVIDER_OF: Readonly<Record<AgentId, string>> = {
+const PROVIDER_OF: Readonly<Record<AgentId, Provider>> = {
   claude: "claude-code",
   codex: "codex",
   opencode: "opencode",
@@ -133,8 +143,10 @@ const PROVIDER_OF: Readonly<Record<AgentId, string>> = {
 
 /**
  * A list row's cost, marked as the session detail marks it: `$1.23` when the
- * agent recorded it, `~$1.23` when estimated from tokens. `title` holds the
- * detail's notes. `undefined` when the row has no cost.
+ * agent recorded it, `~$1.23` when estimated from tokens, plus `*` when some
+ * models are unpriced (`—*` when none is). `label` is a short version for
+ * screen readers; `title` holds the source and notes. `undefined` when the row
+ * has no cost.
  */
 export const headerCost = (
   h: Pick<
@@ -143,13 +155,15 @@ export const headerCost = (
   >
 ) => {
   const { costUsd, subagentsUsd, unpricedModels } = h;
+  const unpriced = unpricedModels !== undefined && unpricedModels.length > 0;
+  const recorded = h.costSource === "agent";
 
   const summary =
-    costUsd === undefined
+    costUsd === undefined && !unpriced
       ? undefined
       : costSummary(
           {
-            source: h.costSource ?? "estimate",
+            source: recorded ? "agent" : "estimate",
             subagentsUsd,
             totalUsd: costUsd,
             unpricedModels,
@@ -157,10 +171,18 @@ export const headerCost = (
           PROVIDER_OF[h.agent]
         );
 
+  const amount =
+    costUsd === undefined ? "unknown" : `$${costUsd.toFixed(USD_DECIMALS)}`;
+
+  const label = recorded
+    ? `cost ${amount}, recorded`
+    : `cost about ${amount}, estimated${unpriced ? ", some models unpriced" : ""}`;
+
   return summary === undefined
     ? undefined
     : {
-        text: summary.total,
+        label,
+        text: unpriced ? `${summary.total}*` : summary.total,
         title: `Cost: ${[summary.total, ...summary.notes].join(" · ")}`,
       };
 };

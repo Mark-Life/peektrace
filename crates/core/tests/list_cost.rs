@@ -116,6 +116,14 @@ fn claude_only() -> ListFilter {
     ListFilter {
         agent: Some(Agent::Claude),
         project: None,
+        with_subagent_costs: true,
+    }
+}
+
+/// Every agent, costed as `sessions ls` does.
+fn every_agent() -> ListFilter {
+    ListFilter {
+        with_subagent_costs: true,
         ..ListFilter::default()
     }
 }
@@ -204,7 +212,7 @@ fn fixture_rows_match_the_detail() {
         ..RootsEnv::default()
     };
     let roots = AgentRoots::resolve(&env, &Settings::default());
-    let listing = list_sessions(&roots, &ListFilter::default());
+    let listing = list_sessions(&roots, &every_agent());
     let agents = assert_list_matches_detail(&roots, &listing.headers);
     for agent in [Agent::Claude, Agent::Codex, Agent::Pi] {
         assert!(agents.contains(&agent), "{agent:?}");
@@ -246,7 +254,7 @@ fn pi_rows_match_the_detail_with_and_without_a_record() {
         ..RootsEnv::default()
     };
     let roots = AgentRoots::resolve(&env, &Settings::default());
-    let listing = list_sessions(&roots, &ListFilter::default());
+    let listing = list_sessions(&roots, &every_agent());
     assert_eq!(
         assert_list_matches_detail(&roots, &listing.headers).len(),
         2
@@ -277,7 +285,7 @@ fn opencode_rows_match_the_detail_with_and_without_a_record() {
     }
     drop(db);
     let roots = common::opencode_roots(&path_str(&dir));
-    let listing = list_sessions(&roots, &ListFilter::default());
+    let listing = list_sessions(&roots, &every_agent());
     assert_eq!(
         assert_list_matches_detail(&roots, &listing.headers).len(),
         2
@@ -334,7 +342,7 @@ fn a_list_that_skips_subagents_leaves_their_cost_unknown() {
     claude_session(&slug, "full", &[cost_state("full", T0_MS - 1000, 9.5)]);
     let roots = claude_roots(&projects);
     let filter = ListFilter {
-        skip_subagent_costs: true,
+        with_subagent_costs: false,
         ..claude_only()
     };
     let h = list_sessions(&roots, &filter).headers;

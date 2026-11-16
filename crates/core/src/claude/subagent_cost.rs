@@ -17,6 +17,7 @@ use crate::headers::Outcome;
 use crate::model::{FileStamp, HeaderCost, SessionHeader};
 use crate::sessions::cost::header_cost;
 use crate::sessions::model::TurnsCost;
+use crate::sessions::resolve::is_subagent_file;
 
 /// A subagent file's cost and the stamp it was priced at.
 type Priced = (FileStamp, TurnsCost);
@@ -64,12 +65,7 @@ fn subagent_files(dir: &Path, depth: usize, out: &mut Vec<(PathBuf, FileStamp)>)
             if depth < MAX_DEPTH {
                 subagent_files(&path, depth + 1, out);
             }
-        } else if meta.is_file()
-            && entry
-                .file_name()
-                .to_str()
-                .is_some_and(|n| n.starts_with("agent-") && n.ends_with(".jsonl"))
-        {
+        } else if meta.is_file() && entry.file_name().to_str().is_some_and(is_subagent_file) {
             out.push((path, stamp_of(&meta)));
         }
     }

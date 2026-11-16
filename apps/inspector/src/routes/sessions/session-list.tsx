@@ -245,6 +245,16 @@ const SessionRow = memo(function SessionRow({
           >
             {title}
           </span>
+          {cost === undefined ? null : (
+            <span
+              className="text-muted-foreground shrink-0 whitespace-nowrap tabular-nums"
+              data-testid="session-row-cost"
+              title={cost.title}
+            >
+              <span className="sr-only">{cost.label}</span>
+              <span aria-hidden="true">{cost.text}</span>
+            </span>
+          )}
           <span
             className="text-muted-foreground shrink-0 tabular-nums"
             title={stampTitle(h)}
@@ -276,16 +286,6 @@ const SessionRow = memo(function SessionRow({
           >
             {h.messageCount} msgs
           </span>
-          {cost === undefined ? null : (
-            <span
-              className="shrink-0 whitespace-nowrap tabular-nums"
-              data-testid="session-row-cost"
-              title={cost.title}
-            >
-              <span className="sr-only">{cost.title}</span>
-              <span aria-hidden="true">{cost.text}</span>
-            </span>
-          )}
         </span>
       </a>
     </Item>

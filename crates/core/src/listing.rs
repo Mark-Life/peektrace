@@ -47,9 +47,10 @@ pub struct ListFilter {
     pub agent: Option<Agent>,
     /// Exact project slug; empty means no filter.
     pub project: Option<String>,
-    /// For callers that never show cost: Claude subagent files are not
-    /// read, and a cost they could add to is left unknown.
-    pub skip_subagent_costs: bool,
+    /// Add Claude subagent files to the cost, for callers that show it.
+    /// Without it they are not read, and a cost they could add to is left
+    /// unknown.
+    pub with_subagent_costs: bool,
 }
 
 /// Transcript files of one agent. A Claude or Pi row's project is its slug,
@@ -111,10 +112,10 @@ fn agent_outcomes(
         _ => load(&refs),
     };
     if agent == Agent::Claude {
-        if filter.skip_subagent_costs {
-            claude::drop_pending_costs(&mut outcomes);
-        } else {
+        if filter.with_subagent_costs {
             claude::add_subagent_costs(&mut outcomes, cache.map(|c| &c.subagents), complete);
+        } else {
+            claude::drop_pending_costs(&mut outcomes);
         }
     }
     match agent {

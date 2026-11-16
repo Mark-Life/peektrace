@@ -15,7 +15,6 @@ fn header() -> SessionHeader {
         title: None,
         started_at: None,
         cost_usd: None,
-        cost_source: None,
         source: None,
         source_label: None,
     }

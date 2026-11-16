@@ -12,9 +12,9 @@ describe("cost formatting", () => {
   });
 
   test("costSummary lists only the qualifiers that are set", () => {
-    expect(costSummary({ source: "estimate", totalUsd: 1 }, "X").notes).toEqual(
-      ["estimated from tokens"]
-    );
+    expect(
+      costSummary({ source: "estimate", totalUsd: 1 }, "codex").notes
+    ).toEqual(["estimated from tokens"]);
     expect(
       costSummary(
         {
@@ -36,7 +36,10 @@ describe("cost formatting", () => {
 
   test("costSummary dashes an unpriced total and names an agent's own figure", () => {
     expect(
-      costSummary({ source: "estimate", unpricedModels: ["mystery-a"] }, "X")
+      costSummary(
+        { source: "estimate", unpricedModels: ["mystery-a"] },
+        "codex"
+      )
     ).toEqual({
       estimateNote: undefined,
       notes: ["estimated from tokens", "unpriced: mystery-a"],
@@ -131,6 +134,7 @@ describe("cost formatting", () => {
     expect(
       headerCost({ agent: "claude", costSource: "agent", costUsd: 12.5 })
     ).toEqual({
+      label: "cost $12.50, recorded",
       text: "$12.50",
       title: "Cost: $12.50 · recorded by Claude Code",
     });
@@ -143,9 +147,13 @@ describe("cost formatting", () => {
         unpricedModels: ["mystery"],
       })
     ).toEqual({
-      text: "~$3.00",
+      label: "cost about $3.00, estimated, some models unpriced",
+      text: "~$3.00*",
       title:
         "Cost: ~$3.00 · estimated from tokens · incl. subagents ~$1.00 · unpriced: mystery",
     });
+    expect(headerCost({ agent: "pi", unpricedModels: ["mystery"] })?.text).toBe(
+      "—*"
+    );
   });
 });

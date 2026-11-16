@@ -63,7 +63,7 @@ const CostValue = ({
   provider,
 }: {
   readonly cost: NonNullable<AnalyzedSession["cost"]>;
-  readonly provider: string;
+  readonly provider: AnalyzedSession["provider"];
 }) => {
   const { total, notes, warning, estimateNote } = costSummary(cost, provider);
 

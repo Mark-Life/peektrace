@@ -13,8 +13,6 @@ use crate::sessions::model::{CostParts, Turn};
 
 #[derive(Default)]
 pub(crate) struct Acc {
-    /// Rows seen, objects or not, as the parse indexes them.
-    rows: usize,
     usage: UsageFold,
     /// The model of the calls that follow, as the parse tracks it.
     current_model: Option<String>,
@@ -34,8 +32,7 @@ fn str_field<'a>(v: &'a JsValue, key: &str) -> Option<&'a str> {
 impl Acc {
     /// Fold a row's usage as the parse does: one call per counted
     /// `token_count`, priced at the model the last `turn_context` named.
-    fn usage(&mut self, row: &JsValue, payload: &JsValue, index: usize) {
-        let ts = str_field(row, "timestamp");
+    fn usage(&mut self, row: &JsValue, payload: &JsValue) {
         match str_field(row, "type") {
             Some("session_meta") => self.usage.session_meta(payload),
             Some("turn_context") => {
@@ -45,7 +42,8 @@ impl Acc {
             }
             // Only a fork waiting for its own output needs the events.
             Some("response_item") if self.usage.inherited => {
-                let base = Base { index, ts };
+                // Only the events' kinds are read.
+                let base = Base { index: 0, ts: None };
                 if response_item_events(payload, base)
                     .iter()
                     .any(|e| e.kind.is_output())
@@ -67,7 +65,7 @@ impl Acc {
         }
     }
 
-    fn apply(&mut self, row: &JsValue, index: usize) {
+    fn apply(&mut self, row: &JsValue) {
         if let Some(ts) = str_field(row, "timestamp").filter(|t| !t.is_empty()) {
             self.started_at.get_or_insert_with(|| ts.to_owned());
             self.updated_at = Some(ts.to_owned());
@@ -75,7 +73,7 @@ impl Acc {
         let Some(payload) = plain(row.get("payload")) else {
             return;
         };
-        self.usage(row, payload, index);
+        self.usage(row, payload);
         let ty = defined(row.get("type")).map(|t| js_string(Some(t)));
         let cwd = str_field(payload, "cwd");
         match ty.as_deref() {
@@ -127,12 +125,10 @@ fn last_segment(path: &str) -> &str {
 
 impl RowFold for Acc {
     fn row(&mut self, row: JsValue) {
-        let index = self.rows;
-        self.rows += 1;
         if row.as_obj().is_none() {
             return;
         }
-        self.apply(&row, index);
+        self.apply(&row);
         if is_message(&row) {
             self.messages += 1;
         }

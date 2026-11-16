@@ -62,7 +62,7 @@ pub async fn sessions(State(state): Shared, method: Method, RawQuery(raw): RawQu
                     &ListFilter {
                         agent,
                         project,
-                        ..ListFilter::default()
+                        with_subagent_costs: true,
                     },
                     &state.headers,
                 ))

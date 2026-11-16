@@ -159,7 +159,7 @@ fn fetch(
     let filter = ListFilter {
         agent,
         project: project.map(str::to_owned),
-        ..ListFilter::default()
+        with_subagent_costs: true,
     };
     let listing = match input.headers {
         Some(cache) => list_sessions_cached(&roots, &filter, cache),
