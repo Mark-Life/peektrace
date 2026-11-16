@@ -174,7 +174,7 @@ fn empty(body: &str, v: &V<'_>) -> El {
 
 pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {
     let Some(text) = v.text else {
-        return empty("Findings need the desktop app.", v);
+        return empty("This server sent no finding text.", v);
     };
     let all = &text.findings;
     if all.is_empty() {
