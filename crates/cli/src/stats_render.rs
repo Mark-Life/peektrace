@@ -12,7 +12,7 @@ use peektrace_core::stats::detectors::usage::{UsageBy, UsageTotals};
 use peektrace_core::stats::findings::{
     NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules,
 };
-use peektrace_core::stats::format::{hms, percent, rate_text, tokens};
+use peektrace_core::stats::format::{count, hms, percent, rate_text, tokens};
 use peektrace_core::stats::schema::{DETECTOR_VERSION, Job, STATS_SCHEMA_VERSION};
 use peektrace_core::stats::service::{DrillResult, StatsReport};
 use peektrace_core::stats::usage_service::{UsageReport, zone_of};
@@ -235,6 +235,7 @@ fn wait_line(r: &StatsReport) -> String {
 
 fn header(r: &StatsReport) -> String {
     let c = &r.corpus;
+    let (main, nested) = c.split();
     [
         format!(
             "peektrace stats  {}d window  {} → {}",
@@ -243,12 +244,12 @@ fn header(r: &StatsReport) -> String {
             r.window.to_iso
         ),
         format!(
-            "{} transcripts  {} sessions  {} projects  {} tool calls  {} shell calls  {} shell time",
-            n(c.transcripts),
-            n(c.sessions),
-            n(c.projects),
-            n(c.tool_calls),
-            n(c.bash_calls),
+            "{} sessions + {} subagent runs  {} projects  {} tool calls  {} shell calls  {} shell time",
+            count(main),
+            count(nested),
+            count(c.projects),
+            count(c.tool_calls),
+            count(c.bash_calls),
             hms(c.bash_sec)
         ),
         format!(
@@ -321,7 +322,7 @@ pub fn render_report(r: &StatsReport, pretty: bool, hint: &str) -> String {
         "WHAT COSTS TIME  (ranked by seconds; each command is charged to exactly one job)".to_owned(),
         table(
             &[
-                "JOB", "RUNS", "CO-PRESENT", "TOTAL", "SHARE", "MEDIAN", "P95", "CAPPED", "BG", "FIX", "SEEN IN", "DRILL",
+                "JOB", "RUNS", "IN OTHER JOBS", "TOTAL", "SHARE", "MEDIAN", "P95", "CAPPED", "BG", "FIX", "SEEN IN", "DRILL",
             ],
             &time,
             pretty,

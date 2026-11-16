@@ -188,13 +188,28 @@ fn every_line_is_charged_once() {
 }
 
 #[test]
-fn co_present_counts_sit_beside_attributed_ones() {
+fn co_present_counts_only_lines_charged_to_another_job() {
     let r = run(&CORPUS, None);
     let t = row(&r.rows, Job::Typecheck);
-    assert_eq!((t.runs, t.co_present_runs), (1.0, 2.0));
-    for x in &r.rows {
-        assert!(x.co_present_runs >= x.runs);
-    }
+    assert_eq!((t.runs, t.co_present_runs), (1.0, 1.0));
+    assert_eq!(row(&r.rows, Job::Test).co_present_runs, 0.0);
+    assert_eq!(row(&r.rows, Job::WaitPoll).co_present_runs, 0.0);
+}
+
+#[test]
+fn a_line_is_never_co_present_with_its_own_job() {
+    let r = run(
+        &[
+            ("bun test", 1.0, "s1"),
+            ("bun test && git status", 1.0, "s1"),
+            ("git status", 1.0, "s1"),
+        ],
+        None,
+    );
+    let test = row(&r.rows, Job::Test);
+    let git = row(&r.rows, Job::Git);
+    assert_eq!((test.runs, test.co_present_runs), (2.0, 0.0));
+    assert_eq!((git.runs, git.co_present_runs), (1.0, 1.0));
 }
 
 #[test]

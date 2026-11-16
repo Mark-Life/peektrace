@@ -1,8 +1,9 @@
 /** WHAT COSTS TIME: seconds by job, each command line charged to exactly one.
  *
- * `runs` is the exclusive charge and `co-present` counts the lines that hold the
- * job and were charged to a higher-priority one — printed side by side because
- * counting a line for every job it touches is how a typecheck share doubles.
+ * `runs` is the exclusive charge and "in other jobs" counts the lines that also
+ * run the job but are charged to a higher-priority one — printed side by side
+ * because counting a line for every job it touches is how a typecheck share
+ * doubles.
  * Capped and backgrounded runs are annotations on the row, never their own total.
  * The column is "time", never "time wasted".
  */
@@ -96,7 +97,7 @@ export const TimeTable = ({
             <TableHead className="text-right">Share</TableHead>
             <TableHead className="text-right">Runs</TableHead>
             <TableHead className="hidden text-right lg:table-cell">
-              Co-present
+              In other jobs
             </TableHead>
             <TableHead className="hidden text-right md:table-cell">
               Median

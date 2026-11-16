@@ -251,6 +251,7 @@ fn sessions_analyze(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
             &s.ctx,
             None,
             Some(s.headers),
+            None,
         )
     })?;
     if let Some(n) = out.unreadable {

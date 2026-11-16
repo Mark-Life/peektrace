@@ -112,7 +112,15 @@ export type MemoryFrontmatterPatch = { name?: string, description?: string, type
 
 export type MemoryUpdateBody = { frontmatter?: MemoryFrontmatterPatch, body?: string, expectedMtime?: number, };
 
-export type ApiError = { "_tag": "SessionNotFoundError", id: string, searchedRoot: string, } | { "_tag": "TranscriptParseError", path: string, reason: string, } | { "_tag": "FileChangedError", path: string, reason: FileChangeReason, } | { "_tag": "SettingsWriteError", path: string, reason: string, } | { "_tag": "ImageNotFoundError", id: string, line: number, block: number, item?: number, } | { "_tag": "BadRequestError", reason: string, } | { "_tag": "NotFoundError", path: string, } | { "_tag": "MethodNotAllowedError", method: string, } | { "_tag": "PathOutsideRootError", path: string, roots: ReadonlyArray<string>, } | { "_tag": "CapabilityUnsupportedError", capabilityId: string, agentId: AgentId, } | { "_tag": "MemoryValidationError", reason: string, name?: string, } | { "_tag": "MemoryNotFoundError", project: string, name: string, } | { "_tag": "StatsScanError", reason: string, path?: string, } | { "_tag": "StatsRowNotFoundError", key: string, table: string, };
+export type ApiError = { "_tag": "SessionNotFoundError", id: string, searchedRoot: string, } | { "_tag": "SessionAmbiguousError", id: string, 
+/**
+ * The first few matching ids, sorted.
+ */
+candidates: ReadonlyArray<string>, 
+/**
+ * Every match, listed or not.
+ */
+count: number, } | { "_tag": "TranscriptParseError", path: string, reason: string, } | { "_tag": "FileChangedError", path: string, reason: FileChangeReason, } | { "_tag": "SettingsWriteError", path: string, reason: string, } | { "_tag": "ImageNotFoundError", id: string, line: number, block: number, item?: number, } | { "_tag": "BadRequestError", reason: string, } | { "_tag": "NotFoundError", path: string, } | { "_tag": "MethodNotAllowedError", method: string, } | { "_tag": "PathOutsideRootError", path: string, roots: ReadonlyArray<string>, } | { "_tag": "CapabilityUnsupportedError", capabilityId: string, agentId: AgentId, } | { "_tag": "MemoryValidationError", reason: string, name?: string, } | { "_tag": "MemoryNotFoundError", project: string, name: string, } | { "_tag": "StatsScanError", reason: string, path?: string, } | { "_tag": "StatsRowNotFoundError", key: string, table: string, };
 
 export type ApiErrorBody = { error: ApiError, };
 

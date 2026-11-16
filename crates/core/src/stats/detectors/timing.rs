@@ -257,7 +257,7 @@ impl TimeTable {
             extra.bg_runs += 1.0;
             extra.bg_sec += sec;
         }
-        for job in &b.present {
+        for job in b.present.iter().filter(|j| **j != b.job) {
             self.extras.entry(*job).or_default().co_present_runs += 1.0;
         }
         if self.wanted.as_deref() == Some(b.job.as_str()) {

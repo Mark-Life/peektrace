@@ -4,6 +4,7 @@ use std::io::ErrorKind;
 
 use peektrace_core::js::text;
 use peektrace_core::js::value::JsValue;
+use peektrace_protocol::ambiguous_message;
 use peektrace_server::auth::encode_uri_component;
 
 use crate::ls::UserError;
@@ -253,6 +254,32 @@ fn transport_detail(e: &ureq::Error) -> Transport {
     Transport::Detail(code.to_owned())
 }
 
+/// The text of a `SessionAmbiguousError` object.
+fn ambiguous(e: &JsValue) -> String {
+    let candidates: Vec<String> = e
+        .get("candidates")
+        .and_then(JsValue::as_arr)
+        .map(|a| {
+            a.iter()
+                .filter_map(JsValue::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let shown = u64::try_from(candidates.len()).unwrap_or(u64::MAX);
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "a count"
+    )]
+    let count = e
+        .get("count")
+        .and_then(JsValue::as_num)
+        .map_or(shown, |n| n as u64);
+    let id = peektrace_core::js::value::js_string(e.get("id"));
+    ambiguous_message(&id, &candidates, count)
+}
+
 /// `formatCliError` for an API error object.
 fn format_api_error(e: &JsValue) -> String {
     let f = |k: &str| peektrace_core::js::value::js_string(e.get(k));
@@ -262,6 +289,7 @@ fn format_api_error(e: &JsValue) -> String {
             f("id"),
             f("searchedRoot")
         ),
+        "SessionAmbiguousError" => ambiguous(e),
         "MemoryNotFoundError" => format!(
             "Memory \"{}\" not found in project \"{}\".",
             f("name"),

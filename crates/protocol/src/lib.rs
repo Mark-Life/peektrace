@@ -426,6 +426,15 @@ pub enum ApiError {
         id: String,
         searched_root: String,
     },
+    /// A short id that matches more than one session.
+    SessionAmbiguousError {
+        id: String,
+        /// The first few matching ids, sorted.
+        candidates: Vec<String>,
+        /// Every match, listed or not.
+        #[cfg_attr(test, ts(type = "number"))]
+        count: u64,
+    },
     TranscriptParseError {
         path: String,
         reason: String,
@@ -492,7 +501,7 @@ impl ApiError {
     /// The HTTP status this error is sent with.
     pub const fn status(&self) -> u16 {
         match self {
-            Self::BadRequestError { .. } => 400,
+            Self::BadRequestError { .. } | Self::SessionAmbiguousError { .. } => 400,
             Self::SettingsWriteError { reason, .. } if is_read_only_reason(reason.as_str()) => 403,
             Self::CapabilityUnsupportedError { .. } | Self::PathOutsideRootError { .. } => 403,
             Self::SessionNotFoundError { .. }
@@ -511,6 +520,20 @@ impl ApiError {
             | Self::StatsScanError { .. } => 500,
         }
     }
+}
+
+/// The text for a short id that matches `count` sessions; `candidates`
+/// may list fewer.
+pub fn ambiguous_message(id: &str, candidates: &[String], count: u64) -> String {
+    let listed = candidates.join(", ");
+    let shown = u64::try_from(candidates.len()).unwrap_or(u64::MAX);
+    let listed = match count.saturating_sub(shown) {
+        0 => listed,
+        more => format!("{listed}, and {more} more"),
+    };
+    format!(
+        "Session \"{id}\" is ambiguous: it matches {count} sessions ({listed}). Give more of the id."
+    )
 }
 
 /// Reason the server gives when read-only mode refuses a write.

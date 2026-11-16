@@ -41,9 +41,46 @@ pub fn bytes(n: u64) -> String {
     }
 }
 
-/// First segment of a UUID-like id.
-pub fn short_id(id: &str) -> &str {
-    id.split('-').next().unwrap_or(id)
+/// Fewest characters a printed id keeps.
+const MIN_PREFIX: usize = 8;
+
+/// Characters `a` and `b` share at the start.
+fn common_len(a: &str, b: &str) -> usize {
+    a.chars().zip(b.chars()).take_while(|(x, y)| x == y).count()
+}
+
+/// The shortest prefix of `id` that no other id in `sorted` starts with, at
+/// least [`MIN_PREFIX`] characters. `sorted` holds every id of the listing,
+/// sorted and without repeats. A prefix never ends on a `-`.
+fn unique_prefix<'a>(id: &'a str, sorted: &[&str]) -> &'a str {
+    let at = sorted.partition_point(|s| *s < id);
+    let before = at.checked_sub(1).and_then(|i| sorted.get(i));
+    let after = sorted[at..].iter().find(|s| **s != id);
+    let shared = [before, after]
+        .into_iter()
+        .flatten()
+        .map(|s| common_len(id, s))
+        .max()
+        .unwrap_or(0);
+    let mut keep = (shared + 1).max(MIN_PREFIX);
+    if id.chars().nth(keep - 1) == Some('-') {
+        keep += 1;
+    }
+    id.char_indices()
+        .nth(keep)
+        .map_or(id, |(end, _)| &id[..end])
+}
+
+/// Each of `ids` cut to its shortest prefix unique among `among`. The
+/// resolver searches every session, so a prefix unique in a filtered
+/// listing can still be ambiguous there; it then lists the candidates.
+pub fn unique_prefixes<'a>(ids: impl IntoIterator<Item = &'a str>, among: &[&str]) -> Vec<&'a str> {
+    let mut sorted = among.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    ids.into_iter()
+        .map(|id| unique_prefix(id, &sorted))
+        .collect()
 }
 
 /// A transcript text cell as the terminal gets it: an unpaired surrogate
@@ -52,10 +89,10 @@ pub fn printable(cell: &str) -> String {
     text::to_display(cell).into_owned()
 }
 
-fn row_cells(h: &SessionHeader) -> Vec<String> {
+fn row_cells(h: &SessionHeader, id: &str) -> Vec<String> {
     let star = if h.unpriced_models.is_some() { "*" } else { "" };
     vec![
-        short_id(h.id.as_str()).to_owned(),
+        id.to_owned(),
         h.agent.as_str().to_owned(),
         if h.agent == Agent::Codex {
             printable(h.project.as_str())
@@ -188,9 +225,19 @@ pub fn fit_table(
     }
 }
 
-/// The `sessions ls` table and the notes it adds.
-pub fn session_table(rows: &[SessionHeader], pretty: bool) -> (String, Vec<String>) {
-    let cells: Vec<_> = rows.iter().map(row_cells).collect();
+/// The `sessions ls` table and the notes it adds. Each id prints as its
+/// shortest prefix unique among `among`.
+pub fn session_table(
+    rows: &[SessionHeader],
+    among: &[&str],
+    pretty: bool,
+) -> (String, Vec<String>) {
+    let ids = unique_prefixes(rows.iter().map(|h| h.id.as_str()), among);
+    let cells: Vec<_> = rows
+        .iter()
+        .zip(ids)
+        .map(|(h, id)| row_cells(h, id))
+        .collect();
     let table = table(&HEADERS, &cells, pretty);
     let notes = [
         rows.iter()
@@ -231,6 +278,31 @@ mod tests {
     #[test]
     fn stand_ins_print_as_replacement() {
         assert_eq!(printable("a\u{10FC00}"), "a\u{FFFD}");
+    }
+
+    #[test]
+    fn prints_the_shortest_prefix_unique_in_the_listing() {
+        let among = [
+            "01a0d8c4-1111-7000-8000-000000000001",
+            "01a0d8c4-1111-7000-8000-000000000002",
+            "01a0d8c4-2222-7000-8000-000000000003",
+            "9f8e7d6c-0000-4000-8000-000000000004",
+            "ses_short",
+            "abc",
+            "abcd",
+        ];
+        assert_eq!(
+            unique_prefixes(among, &among),
+            [
+                "01a0d8c4-1111-7000-8000-000000000001",
+                "01a0d8c4-1111-7000-8000-000000000002",
+                "01a0d8c4-2",
+                "9f8e7d6c",
+                "ses_shor",
+                "abc",
+                "abcd",
+            ]
+        );
     }
 
     #[test]

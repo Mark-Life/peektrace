@@ -2,29 +2,29 @@
  ╭─Sessions (1/8)─────────────────────────────╮ ╭─Analysis────────────────────────────────────────────────────────────────────────────────────────────────────╮
  │                                            │ │                                                                                                             │
  │ / fla                                      │ │ ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────╮ │
- │ agent: all · a to cycle                    │ │ │ Fix the flaky build  ● Healthy                                                                          │ │
+ │ agent: all · a to cycle                    │ │ │ Fix the flaky build  ● Degrading                                                                        │ │
  │                                            │ │ │ 22222222 · claude-sonnet-4-5 · /Users/demo/long                                                         │ │
  │ ╭───────────────────────────────────────╮  │ │ │                                                                                                         │ │
  │ │ [Claude] Fix the flaky build          │  │ │ │ ████████████████████████████████████████████████████████                                                │ │
- │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │ │ peak 130,320 · 13% of 1,000,000                                                                         │ │
+ │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │ │ peak 130,320 · 65% of 200,000                                                                           │ │
  │ ╰───────────────────────────────────────╯  │ │ │                                                                                                         │ │
  │                                            │ │ │ Turns          150 · 150 tools · 18,000 out                                                             │ │
  │                                            │ │ │ System + tools 5,710                                                                                    │ │
  │                                            │ │ │ Cost           ~$3.31 · estimated from tokens                                                           │ │
- │                                            │ │ │ Cache / window 100% · 1.0M (assumed)                                                                    │ │
+ │                                            │ │ │ Cache / window 100% · 200.0K (assumed)                                                                  │ │
  │                                            │ │ │                                                                                                         │ │
  │                                            │ │ │ Budget at peak                                                                                          │ │
  │                                            │ │ │ ████████████████████████████████████████████████████████                                                │ │
- │                                            │ │ │ ■ Tool results                                                                             94,720  9.5% │ │
- │                                            │ │ │ ■ Tool schemas & overhead (not in transcript)                                              19,200  1.9% │ │
- │                                            │ │ │ ■ Assistant thinking (retained)                                                             8,484  0.8% │ │
- │                                            │ │ │ ■ System + tool definitions                                                                 5,710  0.6% │ │
- │                                            │ │ │ ■ Assistant text + tool calls                                                               2,196  0.2% │ │
+ │                                            │ │ │ ■ Tool results                                                                              94,720  47% │ │
+ │                                            │ │ │ ■ Tool schemas & overhead (not in transcript)                                              19,200  9.6% │ │
+ │                                            │ │ │ ■ Assistant thinking (retained)                                                             8,484  4.2% │ │
+ │                                            │ │ │ ■ System + tool definitions                                                                 5,710  2.9% │ │
+ │                                            │ │ │ ■ Assistant text + tool calls                                                               2,196  1.1% │ │
  │                                            │ │ ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
  │                                            │ │                                                                                                             │
  │                                            │ │  History   Growth   g toggle                                                                                │
  │                                            │ │                                                                                                             │
- │                                            │ │ Full history  468 events · 0/150 in dumb zone                                        redacted · r to reveal │
+ │                                            │ │ Full history  468 events · 41/150 in dumb zone                                       redacted · r to reveal │
  │                                            │ │  Expand all   Collapse all   Biggest first   enter toggle · s sort · shift+E/C all                          │
  │                                            │ │                                                                                                             │
  │                                            │ │ [t0] [user-prompt] Fix the flaky build and tidy the scripts.                                            ~10 │

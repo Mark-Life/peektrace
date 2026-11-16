@@ -192,8 +192,9 @@ impl Tally {
             self.total_sec += d;
             self.durations.push(d);
         }
-        if !self.sessions.contains(&fact.base.sid) {
-            self.sessions.insert(fact.base.sid.clone());
+        let root = fact.base.root_sid();
+        if !self.sessions.contains(root) {
+            self.sessions.insert(root.to_owned());
         }
         if !self.projects.contains(&fact.base.project) {
             self.projects.insert(fact.base.project.clone());
@@ -304,7 +305,7 @@ impl CorpusTotals {
         match fact {
             Fact::Session(s) => {
                 self.transcripts += 1.0;
-                self.sessions.insert(s.base.sid.clone());
+                self.sessions.insert(s.base.root_sid().to_owned());
                 self.projects.insert(s.base.project.clone());
                 *self
                     .kinds
@@ -350,6 +351,17 @@ impl CorpusTotals {
 }
 
 impl CorpusSummary {
+    /// Sessions (distinct roots, so a main session that started before the
+    /// window still counts), and the subagent and workflow-agent runs.
+    pub fn split(&self) -> (f64, f64) {
+        let main = self
+            .kinds
+            .iter()
+            .find(|(k, _)| k == Kind::Main.as_str())
+            .map_or(0.0, |(_, v)| *v);
+        (self.sessions, self.transcripts - main)
+    }
+
     pub fn write(&self, w: &mut Writer) {
         w.begin_obj();
         for (k, v) in [

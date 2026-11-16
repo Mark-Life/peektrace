@@ -213,10 +213,15 @@ pub fn claude_path(slug: &str, id: &str) -> String {
 
 /// A user line then one assistant turn of `context_tokens`.
 pub fn claude_lines(at: &str, context_tokens: u32, cwd: &str) -> Vec<Value> {
+    claude_model_lines(at, context_tokens, cwd, "claude-opus-4-1")
+}
+
+/// [`claude_lines`] answered by `model`.
+pub fn claude_model_lines(at: &str, context_tokens: u32, cwd: &str, model: &str) -> Vec<Value> {
     vec![
         json!({"type":"user","cwd":cwd,"timestamp":at,"message":{"content":"hello"}}),
         json!({"type":"assistant","cwd":cwd,"timestamp":at,"requestId":"req-1",
-            "message":{"model":"claude-opus-4-1","content":[{"type":"text","text":"hi"}],
+            "message":{"model":model,"content":[{"type":"text","text":"hi"}],
                 "usage":{"input_tokens":context_tokens,"cache_read_input_tokens":0,
                     "cache_creation_input_tokens":0,"output_tokens":10}}}),
     ]

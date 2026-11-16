@@ -205,9 +205,10 @@ const ReportView = ({
       <section className="flex flex-col gap-3">
         <SectionHead by="seconds charged" title="What costs time" />
         <p className="text-muted-foreground text-xs">
-          Each command line is charged to exactly one job; Co-present counts the
-          lines that hold the job and were charged to a higher-priority one.
-          Tools that wait on a human are out of the denominator.
+          Each command line is charged to exactly one job; &ldquo;In other
+          jobs&rdquo; counts the lines that also run the job but are charged to
+          a higher-priority one. Tools that wait on a human are out of the
+          denominator.
         </p>
         <TimeTable
           onSelect={(key) => {

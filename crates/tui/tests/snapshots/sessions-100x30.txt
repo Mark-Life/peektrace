@@ -1,7 +1,7 @@
  Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats        loopback only
  ╭─Sessions (8/8)─────────────────────────────╮ ╭─Analysis────────────────────────────────────────╮
  │                                            │ │                                                 │
- │ / filter (press /)                         │ │ Fix the f…  ● Healthy  peak 130.3K 13% · 150 tu │
+ │ / filter (press /)                         │ │ Fix the f…  ● Degrading  peak 130.3K 65% · 150  │
  │ agent: all · a to cycle                    │ │                                                 │
  │                                            │ │  History   Growth   g toggle                    │
  │ ╭───────────────────────────────────────╮  │ │                                                 │
