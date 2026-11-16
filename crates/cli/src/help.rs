@@ -112,7 +112,9 @@ pub fn color_here() -> bool {
     use std::io::IsTerminal as _;
     use_color(
         std::io::stdout().is_terminal(),
-        std::env::var("NO_COLOR").ok().as_deref(),
+        std::env::var_os("NO_COLOR")
+            .map(|v| v.to_string_lossy().into_owned())
+            .as_deref(),
     )
 }
 
