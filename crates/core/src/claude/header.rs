@@ -477,6 +477,8 @@ mod tests {
         assert_eq!(h.model.as_deref(), Some("claude-opus-5-5"));
         assert_eq!(h.malformed_lines, None);
         assert!(h.cost.usd.is_some_and(f64::is_infinite));
+        let json = crate::sessions::write::headers_json([&h], false);
+        assert!(!json.contains("costUsd") && !json.contains("costSource"));
     }
 
     #[test]

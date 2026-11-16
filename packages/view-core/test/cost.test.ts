@@ -132,6 +132,13 @@ describe("cost formatting", () => {
   test("headerCost marks a list row's cost as the detail does", () => {
     expect(headerCost({ agent: "claude" })).toBeUndefined();
     expect(
+      headerCost({
+        agent: "claude",
+        costSource: "estimate",
+        costUsd: Number.POSITIVE_INFINITY,
+      })
+    ).toBeUndefined();
+    expect(
       headerCost({ agent: "claude", costSource: "agent", costUsd: 12.5 })
     ).toEqual({
       label: "cost $12.50, recorded",

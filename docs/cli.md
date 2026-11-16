@@ -214,7 +214,8 @@ record: Claude Code `cost-state` (subagents included), Pi or OpenCode.
 `~$1.23` is an estimate at API list price over the main transcript,
 its subagents and workflow agents. A `*` means some models have no rate card,
 so the estimate is too low. `--json` adds `costSource` (`agent` or
-`estimate`) and, for an estimate with subagents, `subagentsUsd`.
+`estimate`) and `subagentsUsd`, the estimated subagent share of the total,
+when the total counts one.
 
 | Flag | Effect |
 | --- | --- |

@@ -95,7 +95,7 @@ pub fn estimate_warns(recorded: f64, estimate: f64, unpriced: bool) -> bool {
 /// whole session; a record that already counts subagents gets nothing added.
 /// Otherwise the sum of priced turns, inline sidechain turns and subagents.
 /// `None` when there is nothing to price or report.
-pub fn cost_of(c: &CostParts) -> Option<SessionCost> {
+fn cost_of(c: &CostParts) -> Option<SessionCost> {
     let own = &c.own;
     let subagents_usd = c
         .parts

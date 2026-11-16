@@ -60,7 +60,7 @@ export const providerLabel = (provider: Provider) =>
  * The quiet note for the estimate beside a full record. Only Claude Code bills
  * calls its transcript does not log, so only its note says so.
  */
-export const estimateNote = (estimate: number, provider: Provider) =>
+const estimateNote = (estimate: number, provider: Provider) =>
   provider === "claude-code"
     ? `Estimate from transcript: ${fmtUsd(estimate)}. Transcripts miss some billed calls.`
     : `Estimate at list price: ${fmtUsd(estimate)}.`;
@@ -154,7 +154,11 @@ export const headerCost = (
     "agent" | "costSource" | "costUsd" | "subagentsUsd" | "unpricedModels"
   >
 ) => {
-  const { costUsd, subagentsUsd, unpricedModels } = h;
+  const { subagentsUsd, unpricedModels } = h;
+
+  // Core leaves a non-finite cost out; guard the row against one anyway.
+  const costUsd = Number.isFinite(h.costUsd) ? h.costUsd : undefined;
+
   const unpriced = unpricedModels !== undefined && unpricedModels.length > 0;
   const recorded = h.costSource === "agent";
 

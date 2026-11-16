@@ -40,12 +40,13 @@ pub fn write_header(w: &mut Writer, h: &SessionHeader) {
         w.key("malformedLines").int(int(n));
     }
     let cost = &h.cost;
-    if let Some(c) = cost.usd {
+    // A non-finite estimate (an out-of-range usage line) is left unknown.
+    if let Some(c) = cost.usd.filter(|c| c.is_finite()) {
         w.key("costUsd").num(c);
         w.key("costSource")
             .str(if cost.from_agent { "agent" } else { "estimate" });
     }
-    if let Some(s) = cost.subagents_usd {
+    if let Some(s) = cost.subagents_usd.filter(|s| s.is_finite()) {
         w.key("subagentsUsd").num(s);
     }
     if let Some(m) = &cost.unpriced_models {
