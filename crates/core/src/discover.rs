@@ -3,10 +3,10 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use rayon::prelude::*;
 
+use crate::js::time::file_time_ms;
 use crate::model::{FileStamp, ProjectSlug, SessionFileRef, SessionId, SourceTag};
 use crate::paths::PathStyle;
 use crate::roots::Source;
@@ -16,19 +16,11 @@ const STYLE: PathStyle = PathStyle::NATIVE;
 
 pub(crate) const JSONL: &str = ".jsonl";
 
-/// Milliseconds since the epoch, truncated toward zero like a JS `Date`.
-fn epoch_ms(t: SystemTime) -> i64 {
-    match t.duration_since(UNIX_EPOCH) {
-        Ok(d) => i64::try_from(d.as_millis()).unwrap_or(i64::MAX),
-        Err(e) => -i64::try_from(e.duration().as_millis()).unwrap_or(i64::MAX),
-    }
-}
-
 /// Size and mtime of a stat result. A missing mtime reads as 0.
 fn stamp_of(meta: &fs::Metadata) -> FileStamp {
     FileStamp {
         size_bytes: meta.len(),
-        mtime_ms: meta.modified().map_or(0, epoch_ms),
+        mtime_ms: meta.modified().map_or(0, file_time_ms),
     }
 }
 

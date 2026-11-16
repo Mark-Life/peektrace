@@ -82,7 +82,7 @@ fn read_reason(path: &str, e: &std::io::Error) -> String {
     }
 }
 
-fn load_transcript(agent: Agent, path: &str) -> Result<String, SessionError> {
+pub(crate) fn load_transcript(agent: Agent, path: &str) -> Result<String, SessionError> {
     let span = info_span!(
         "AgentRegistry.loadTranscript",
         agent = agent.as_str(),
