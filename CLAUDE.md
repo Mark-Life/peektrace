@@ -7,6 +7,7 @@ The app is Rust (`crates/`): the `peektrace` CLI, server, TUI and the Rune nativ
 - Rust checks: `cargo fmt --all --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`. The Rune app crates are outside default-members: add `-p peektrace-ui -p peektrace-app`.
 - TS checks: `bun run typecheck`, `bun run check`, `bun test`.
 - Fixtures the Rust tests read live in `tests/fixtures`.
+- Build cache: `kache` (`cargo install kache --locked`, then `kache init`) wraps rustc on each machine and restores crate outputs across worktrees, so each worktree keeps its own `target/`. CI uses `kunobi-ninja/kache-action`.
 
 ## Code Quality
 When writing or reviewing TypeScript/full-stack code, follow the `quality-code` skill (`.agents/skills/quality-code/SKILL.md`). It loads on demand — invoke it for the full standards.

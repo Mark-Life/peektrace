@@ -52,10 +52,12 @@ jobs:
         # rust-toolchain.toml pins the version and components.
         run: rustup toolchain install || rustup show
 
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Build cache (kache)
+        # Compiler cache: restores each crate's rustc output by content
+        # hash. The store persists through the GitHub Actions cache.
+        uses: kunobi-ninja/kache-action@v1
         with:
-          cache-on-failure: true
+          version: v2.1.1
 
       - name: Format
         if: runner.os == 'Linux'
@@ -90,10 +92,12 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install || rustup show
 
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Build cache (kache)
+        # Compiler cache: restores each crate's rustc output by content
+        # hash. The store persists through the GitHub Actions cache.
+        uses: kunobi-ninja/kache-action@v1
         with:
-          cache-on-failure: true
+          version: v2.1.1
 
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
@@ -132,10 +136,12 @@ jobs:
           rustup toolchain install || rustup show
           rustup target add wasm32-unknown-unknown
 
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
+      - name: Build cache (kache)
+        # Compiler cache: restores each crate's rustc output by content
+        # hash. The store persists through the GitHub Actions cache.
+        uses: kunobi-ninja/kache-action@v1
         with:
-          cache-on-failure: true
+          version: v2.1.1
 
       - name: Linux packages
         # xkbcommon and wayland headers for the build; lavapipe (software
