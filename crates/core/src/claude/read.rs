@@ -30,11 +30,15 @@ pub fn read_transcript(reader: impl BufRead, meta: FileMeta) -> io::Result<Loade
 }
 
 /// The cost of a subagent file's turns, folded as a header folds its lines.
+/// Only lines that mention `"assistant"` are parsed, as the session parse
+/// reads a subagent file.
 pub fn subagent_cost(path: &Path) -> io::Result<TurnsCost> {
     let file = File::open(path)?;
     let mut acc = HeaderAcc::default();
     read_lines(BufReader::with_capacity(READ_BUFFER, file), |line| {
-        acc.push_line(line);
+        if line.contains("\"assistant\"") {
+            acc.push_line(line);
+        }
     })?;
     Ok(acc.all_turns_cost())
 }
