@@ -3,12 +3,13 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::{SampleRefView, StatsReportView};
+use peektrace_protocol::stats_text::{EMPTY_FINDINGS, SUGGESTED_NOTE, SUGGESTED_TITLE};
 use rune::{El, col, row, spacer, text};
 
 use super::copy::{copy_button, prompt_button};
 use super::links::links;
 use super::{LIST_TREE, V, amber, muted, outline_badge, secondary_badge, small_button};
-use crate::model::stats::FindingView;
+use crate::model::stats::Finding;
 use crate::model::stats::rows::{VISIBLE_FINDINGS, show_more, table_name};
 use crate::state::Ui;
 use crate::theme::ty;
@@ -32,7 +33,7 @@ pub fn samples_of<'a>(r: &'a StatsReportView, table: DrillTable, key: &str) -> &
     found.map_or(&[], Vec::as_slice)
 }
 
-fn card(v: &V<'_>, f: &FindingView, layer: &mut Vec<El>) -> El {
+fn card(v: &V<'_>, f: &Finding, layer: &mut Vec<El>) -> El {
     let t = v.t;
     let id = format!("{}:{}", table_name(f.table), f.key);
     let mut head = row()
@@ -141,8 +142,8 @@ fn suggested(v: &V<'_>, rules: &[String]) -> Option<El> {
                     .flex_wrap()
                     .gap(8.0)
                     .center_y()
-                    .child(text("Suggested rules").font(ty::SM_MEDIUM).color(t.fg))
-                    .child(muted("lines no CLAUDE.md / AGENTS.md states yet", t))
+                    .child(text(SUGGESTED_TITLE).font(ty::SM_MEDIUM).color(t.fg))
+                    .child(muted(SUGGESTED_NOTE, t))
                     .child(spacer())
                     .child(copy_button(
                         v.s,
@@ -173,14 +174,11 @@ fn empty(body: &str, v: &V<'_>) -> El {
 
 pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {
     let Some(text) = v.text else {
-        return empty("Findings need the desktop app.", v);
+        return empty("This server sent no finding text.", v);
     };
     let all = &text.findings;
     if all.is_empty() {
-        return empty(
-            "No row in this window carries a named fix. The tables below still rank what happened.",
-            v,
-        );
+        return empty(EMPTY_FINDINGS, v);
     }
     let shown = if v.s.stats.show_all {
         all.len()

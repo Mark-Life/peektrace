@@ -21,6 +21,10 @@ use crate::model::stats::chips::{SessionTitles, session_of, title_key};
 use crate::source::LoadError;
 use crate::state::Ui;
 use crate::theme::{Theme, hex_or_grey, ty};
+use peektrace_protocol::stats_text::{
+    CAUSES_SECTION, CLUSTERS_SECTION, FAILS_SECTION, FINDINGS_SECTION, Section, TIME_SECTION,
+    WAITING_SECTION, retry_note,
+};
 
 /// The column's breakpoints: `md` and `lg`.
 pub const MD: f32 = 768.0;
@@ -133,7 +137,12 @@ pub fn small_button(label: impl Into<String>, ghost: bool, t: &Theme) -> Button 
         .control_size(ControlSize::Large)
 }
 
-fn section(key: &str, title: &str, by: &str, body: Vec<El>, t: &Theme) -> El {
+fn section(key: &str, sec: Section, body: Vec<El>, t: &Theme) -> El {
+    let Section {
+        title,
+        ranked_by: by,
+        ..
+    } = sec;
     col()
         .key(key.to_owned())
         .w_full()
@@ -223,64 +232,52 @@ pub fn title_for(s: &Ui, sample: &SampleRefView) -> SessionTitles {
 
 fn report_view(v: &V<'_>, layer: &mut Vec<El>) -> Vec<El> {
     let rescanning = v.s.stats.report().is_some_and(|x| x.loading);
-    let retry_para = format!(
-        "A retry is a failed call followed within {} calls by a similar call of the same tool that succeeded: a round trip a rule or an env fix would have saved. Retry time is the call-to-call gap; context re-read is what the retrying model call carried. Neither is added to the other.",
-        peektrace_js::num::to_js_string(crate::model::stats::RETRY_WINDOW)
-    );
+    let retry_para = retry_note(&peektrace_js::num::to_js_string(
+        crate::model::stats::RETRY_WINDOW,
+    ));
     let t = v.t;
+    let note = |s: Section| s.note.map(|n| muted(n, t));
     vec![
         header::header(v, rescanning, layer),
         section(
             "stats-findings-section",
-            "Flagged findings",
-            "cheapest fix first, then by each table's own impact",
+            FINDINGS_SECTION,
             vec![findings::findings(v, layer)],
             t,
         ),
         section(
             "stats-causes-section",
-            "Avoidable retries",
-            "sessions with a retry, then sessions, then retries",
+            CAUSES_SECTION,
             vec![muted(retry_para, t), causes::table(v, layer)],
             t,
         ),
         section(
             "stats-fails-section",
-            "What fails",
-            "sessions spanned, then calls",
-            vec![
-                muted(
-                    "A row says a call printed a failure — never that something broke. Flagged counts the calls that set the agent's own error flag; the gap between it and Calls is what an error panel alone would miss.",
-                    t,
-                ),
-                fails_time::fails(v, layer),
-            ],
+            FAILS_SECTION,
+            note(FAILS_SECTION)
+                .into_iter()
+                .chain([fails_time::fails(v, layer)])
+                .collect(),
             t,
         ),
         section(
             "stats-time-section",
-            "What costs time",
-            "seconds charged",
-            vec![
-                muted(
-                    "Each command line is charged to exactly one job; “In other jobs” counts the lines that also run the job but are charged to a higher-priority one. Tools that wait on a human are out of the denominator.",
-                    t,
-                ),
-                fails_time::time(v, layer),
-            ],
+            TIME_SECTION,
+            note(TIME_SECTION)
+                .into_iter()
+                .chain([fails_time::time(v, layer)])
+                .collect(),
             t,
         ),
         section(
             "stats-waiting-section",
-            "Waiting",
-            "seconds parked",
+            WAITING_SECTION,
             vec![evidence::waiting(&v.r.waiting, t)],
             t,
         ),
         section(
             "stats-clusters-section",
-            "Error clusters",
-            "rows, then sessions spanned",
+            CLUSTERS_SECTION,
             vec![evidence::clusters(v.s, &v.r.clusters, t)],
             t,
         ),

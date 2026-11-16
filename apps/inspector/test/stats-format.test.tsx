@@ -1,37 +1,34 @@
-/** The two rules the stats screen owns: how a second reads, and what leads.
- *
- * The findings order is the one piece of judgement in the UI, so it is pinned
- * here rather than left to the JSX: a row whose detector names a one-line fix
- * outranks a row that only carries a measured note, which outranks a time row —
- * and a fail count is never added to a second.
+/** How the stats screen spells a table cell, and how it renders the text
+ * core wrote. Which findings lead and what they say is core's, tested there.
  */
 import { expect, test } from "bun:test";
 
 import type {
   CauseRow,
   FailRow,
+  Finding,
   RuleCheck,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
+import { fmtK } from "@workspace/viz/lib/session-format";
 import { renderToStaticMarkup } from "react-dom/server";
 
+import spelling from "../../../tests/fixtures/stats/number-spelling.json";
 import { markedSessionHash } from "../src/lib/routes";
 import {
-  findingsOf,
   hms,
+  pct,
   projectTail,
   promptsOf,
-  ruleLine,
+  rateText,
   sessionChip,
-  suggestedRules,
-  timeNote,
 } from "../src/lib/stats-format";
 import { CauseTable } from "../src/routes/stats/cause-table";
 import { FailTable } from "../src/routes/stats/fail-table";
 import { Findings } from "../src/routes/stats/findings";
 import { ReportHeader } from "../src/routes/stats/report-header";
 import { TimeTable } from "../src/routes/stats/time-table";
-import { report } from "./stats-report-fixture";
+import { report, statsText } from "./stats-report-fixture";
 
 const failRow = (
   over: Partial<FailRow> & { readonly key: string }
@@ -66,54 +63,22 @@ const timeRow = (
   ...over,
 });
 
-test("seconds read as a duration, never as a bare float", () => {
-  expect(hms(0.4)).toBe("0.40s");
-  expect(hms(42)).toBe("42s");
-  expect(hms(187)).toBe("3m07s");
-  expect(hms(18_277)).toBe("5h04m");
-});
+/** Cases `peektrace_js::inspector` spells the same way, for core's text. */
+const cases = (rows: readonly (readonly (number | string)[])[]) =>
+  rows.map(([input, want]) => [Number(input), String(want)] as const);
 
-test("a time row says only what its own columns measured", () => {
-  expect(timeNote(timeRow({ key: "typecheck" }))).toBeNull();
-  expect(
-    timeNote(timeRow({ bgRuns: 3, cappedRuns: 2, cappedSec: 60, key: "test" }))
-  ).toContain("harness ceiling");
-  expect(timeNote(timeRow({ bgRuns: 3, key: "wait/poll" }))).toContain(
-    "backgrounded"
-  );
-});
+test("cells spell numbers as core spells them in its text", () => {
+  for (const [sec, want] of cases(spelling.hms)) {
+    expect(hms(sec)).toBe(want);
+  }
 
-test("findings lead with the cheapest fix, then each table's own impact", () => {
-  const findings = findingsOf(
-    report({
-      fails: [
-        failRow({
-          key: "scan:tsc",
-          note: "555 of 576 pipe into head/tail",
-          sessions: 225,
-        }),
-        failRow({
-          detector: "zsh-equals-abort",
-          key: "detect:zsh-equals-abort",
-          note: 'quote the separator: echo "==="',
-          sessions: 91,
-        }),
-        failRow({ key: "flag:Bash", sessions: 300 }),
-      ],
-      time: [timeRow({ cappedRuns: 4, cappedSec: 300, key: "test" })],
-    })
-  );
+  for (const [share, want] of cases(spelling.pct)) {
+    expect(pct(share)).toBe(want);
+  }
 
-  expect(findings.map((f) => f.key)).toEqual([
-    "detect:zsh-equals-abort",
-    "scan:tsc",
-    "test",
-  ]);
-  // The unnoted flag row outranks both on sessions and is still not a finding:
-  // a finding is a row that carries something to do about it.
-  expect(findings.some((f) => f.key === "flag:Bash")).toBe(false);
-  expect(findings[0]?.impact).toBe("91 sessions");
-  expect(findings.at(-1)?.impact).toBe("1m40s");
+  for (const [value, want] of cases(spelling.fmtK)) {
+    expect(fmtK(value)).toBe(want);
+  }
 });
 
 test("projectTail keeps short slugs and cuts long ones at a dash", () => {
@@ -241,63 +206,50 @@ const FIRING: RuleCheck = {
 /** A report with no row to prompt for: buttons that need one render nothing. */
 const NO_PROMPT = () => null;
 
-test("a cause finding leads, ahead of the fail rows", () => {
-  const findings = findingsOf(
-    report({
-      causes: [causeRow({})],
-      fails: [failRow({ key: "scan:tsc", note: "pipes", sessions: 225 })],
-      time: [],
-    })
-  );
-
-  expect(findings.map((f) => [f.table, f.key])).toEqual([
-    ["cause", "cause:zsh-glob-flag"],
-    ["fail", "scan:tsc"],
-  ]);
-  expect(findings[0]?.impact).toBe(
-    "675 retries (main 41 / sub 634) · 44m20s · 32.3M ctx tokens re-read"
-  );
+test("a per-1k rate keeps two digits and never reads 0 for a side with hits", () => {
+  expect(rateText(31.16, 42)).toBe("31");
+  expect(rateText(4.24, 1)).toBe("4.2");
+  expect(rateText(0.001, 1)).toBe("<0.01");
+  expect(rateText(0, 0)).toBe("0");
 });
 
-test("a rule already present says so, with its rate since the edit", () => {
-  expect(ruleLine(FIRING)).toBe(
-    "rule in ~/.claude/CLAUDE.md:100 · still firing main 31/1k, sub 57/1k since 2026-10-15"
-  );
-});
+/** The rule line core writes for `FIRING`. */
+const FIRING_LINE =
+  "rule in ~/.claude/CLAUDE.md:100 · still firing main 31/1k, sub 57/1k since 2026-10-15";
 
-test("suggested rules skip causes a memory file already states", () => {
-  const r = report({
-    causes: [
-      causeRow({}),
-      causeRow({
-        cause: "zsh-equals-abort",
-        fix: "quote ===",
-        key: "cause:zsh-equals-abort",
-        rule: FIRING,
-      }),
-      causeRow({
-        cause: "command-not-found",
-        fix: "install jq",
-        key: "cause:command-not-found",
-        kind: "env",
-      }),
-    ],
-    fails: [],
-    time: [],
+/** A cause finding as core writes it for `causeRow({})`. */
+const CAUSE_FINDING: Finding = {
+  detector: "zsh-glob-flag",
+  impact: "675 retries (main 41 / sub 634) · 44m20s · 32.3M ctx tokens re-read",
+  key: "cause:zsh-glob-flag",
+  note: "quote every glob passed as a flag value",
+  rule: "quote every glob passed as a flag value",
+  spread: "1,488 hits (34 at exit 0) · 550 sessions with a retry",
+  table: "cause",
+  title: "unquoted glob in a flag value",
+};
+
+test("the findings band renders core's findings and suggested rules", () => {
+  const text = statsText({
+    findings: [CAUSE_FINDING],
+    prompts: {
+      cause: { [CAUSE_FINDING.key]: "Goal: x" },
+      fail: {},
+      report: "Goal: report",
+      time: {},
+    },
+    suggested: ["quote every glob passed as a flag value"],
   });
-
-  expect(suggestedRules(r)).toEqual([
-    "quote every glob passed as a flag value",
-  ]);
 
   const html = renderToStaticMarkup(
     <Findings
-      findings={findingsOf(r)}
+      findings={text.findings}
       onDrill={() => {}}
       onShowAll={() => {}}
-      prompt={promptsOf(r, null)}
+      prompt={promptsOf(text)}
+      samples={() => []}
       showAll={false}
-      suggested={suggestedRules(r)}
+      suggested={text.suggested}
     />
   );
 
@@ -305,6 +257,23 @@ test("suggested rules skip causes a memory file already states", () => {
   expect(html).toContain('data-testid="finding-copy"');
   expect(html).toContain('data-testid="finding-prompt"');
   expect(html).toContain("retries");
+  expect(html).toContain(CAUSE_FINDING.impact);
+});
+
+test("no finding says so in core's words", () => {
+  const html = renderToStaticMarkup(
+    <Findings
+      findings={[]}
+      onDrill={() => {}}
+      onShowAll={() => {}}
+      prompt={NO_PROMPT}
+      samples={() => []}
+      showAll={false}
+      suggested={[]}
+    />
+  );
+
+  expect(html).toContain("No row in this window carries a named fix.");
 });
 
 test("the cause table renders its rows, and the open one shows the rule check", () => {
@@ -314,6 +283,7 @@ test("the cause table renders its rows, and the open one shows the rule check", 
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey="cause:zsh-glob-flag"
+      text={statsText({ ruleLines: { "cause:zsh-glob-flag": FIRING_LINE } })}
     />
   );
 
@@ -339,6 +309,7 @@ test("a phone reads each cause row as one wrapped summary line", () => {
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey={null}
+      text={statsText({ ruleLines: { "cause:zsh-glob-flag": FIRING_LINE } })}
     />
   );
 
@@ -346,6 +317,7 @@ test("a phone reads each cause row as one wrapped summary line", () => {
   expect(html).toContain(
     "1,488 hits · 675 retries in 550 sessions · 44m20s · 32.3M ctx re-read"
   );
+  expect(html).toContain(FIRING_LINE);
 });
 
 /** The class list of a finding's impact span, from static markup. */
@@ -355,12 +327,11 @@ const IMPACT_CLASS =
 test("a finding's impact wraps instead of running past the card", () => {
   const html = renderToStaticMarkup(
     <Findings
-      findings={findingsOf(
-        report({ causes: [causeRow({})], fails: [], time: [] })
-      )}
+      findings={[CAUSE_FINDING]}
       onDrill={() => {}}
       onShowAll={() => {}}
       prompt={NO_PROMPT}
+      samples={() => []}
       showAll={false}
       suggested={[]}
     />
@@ -384,8 +355,19 @@ test("every open row and the header copy an agent prompt, each named for its row
   });
 
   const time = timeRow({ key: "test", label: "tests" });
-  const r = report({ causes: [cause], fails: [fail], time: [time] });
-  const prompt = promptsOf(r, null);
+
+  const text = statsText({
+    prompts: {
+      cause: { [cause.key]: "Goal: cause" },
+      fail: { [fail.key]: "Goal: fail" },
+      report: "Goal: report",
+      time: { [time.key]: "Goal: time" },
+    },
+    ruleLines: { [cause.key]: FIRING_LINE },
+  });
+
+  const r = report({ causes: [cause], fails: [fail], text, time: [time] });
+  const prompt = promptsOf(text);
 
   const html = [
     renderToStaticMarkup(
@@ -406,6 +388,7 @@ test("every open row and the header copy an agent prompt, each named for its row
         prompt={prompt}
         rows={[cause]}
         selectedKey={cause.key}
+        text={text}
       />
     ),
     renderToStaticMarkup(
@@ -422,6 +405,7 @@ test("every open row and the header copy an agent prompt, each named for its row
         prompt={prompt}
         rows={[time]}
         selectedKey={time.key}
+        timeNotes={text.timeNotes}
       />
     ),
   ].join("");
@@ -459,26 +443,15 @@ test("a closed row renders no prompt button", () => {
   expect(html).not.toContain('data-testid="fail-prompt"');
 });
 
-test("session titles never reach the copied prompts", () => {
-  const fail = failRow({
-    key: "scan:tsc",
-    samples: [
-      {
-        agent: "claude",
-        kind: "subagent",
-        line: "Bash: ls",
-        parent: "aaaaaaaa-1111",
-        project: "demo-app",
-        seq: 0,
-        sid: "sub-0",
-        toolUseId: null,
-        ts: null,
-      },
-    ],
-  });
+test("a prompt for a row core wrote none for is null", () => {
+  const prompt = promptsOf(
+    statsText({
+      prompts: { cause: {}, fail: { a: "Goal: a" }, report: "r", time: {} },
+    })
+  );
 
-  const rep = report({ fails: [fail], time: [] });
-  const prompt = promptsOf(rep, null)({ key: "scan:tsc", table: "fail" });
-  expect(prompt).toContain("scan:tsc");
-  expect(prompt).not.toContain("Fix the test");
+  expect(prompt({ key: "a", table: "fail" })).toBe("Goal: a");
+  expect(prompt({ key: "b", table: "fail" })).toBeNull();
+  expect(prompt({ key: "a", table: "cluster" })).toBeNull();
+  expect(prompt({ table: "report" })).toBe("r");
 });

@@ -17,55 +17,52 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
-import type { TimeRow } from "@workspace/view-core/api-types.gen";
+import type { StatsText, TimeRow } from "@workspace/view-core/api-types.gen";
+import { STATS_EMPTY } from "@workspace/view-core/constants.gen";
 import { Fragment } from "react";
 
-import { coPresentNote, hms, n, pct, timeNote } from "../../lib/stats-format";
+import { coPresentNote, hms, n, pct } from "../../lib/stats-format";
 import type { PromptFor } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
 /** The measured caveats of one job row, opened under it. */
 const DetailRow = ({
+  note,
   prompt,
   row,
 }: {
+  readonly note: string | undefined;
   readonly prompt: PromptFor;
   readonly row: TimeRow;
-}) => {
-  const note = timeNote(row);
-
-  return (
-    <TableRow className="bg-muted/30 hover:bg-muted/30">
-      <TableCell className="whitespace-normal" colSpan={7}>
-        <div
-          className="flex w-0 min-w-full flex-col gap-2 py-1"
-          data-testid="time-detail"
-        >
-          <div className="flex flex-wrap items-start gap-2">
-            <p className="text-muted-foreground min-w-0 flex-1 text-xs">
-              {coPresentNote(row)}
-            </p>
-            <PromptButton
-              subject={`${row.label} time`}
-              testId="time-prompt"
-              text={prompt({ key: row.key, table: "time" })}
-            />
-          </div>
-          {note !== null && note !== "" ? (
-            <p className="text-xs">{note}</p>
-          ) : null}
-          {row.bgRuns > 0 ? (
-            <p className="text-muted-foreground text-xs">
-              backgrounded: {n(row.bgRuns)} runs, {hms(row.bgSec)} charged
-            </p>
-          ) : null}
-          <SessionLinks detector={null} samples={row.samples} />
+}) => (
+  <TableRow className="bg-muted/30 hover:bg-muted/30">
+    <TableCell className="whitespace-normal" colSpan={7}>
+      <div
+        className="flex w-0 min-w-full flex-col gap-2 py-1"
+        data-testid="time-detail"
+      >
+        <div className="flex flex-wrap items-start gap-2">
+          <p className="text-muted-foreground min-w-0 flex-1 text-xs">
+            {coPresentNote(row)}
+          </p>
+          <PromptButton
+            subject={`${row.label} time`}
+            testId="time-prompt"
+            text={prompt({ key: row.key, table: "time" })}
+          />
         </div>
-      </TableCell>
-    </TableRow>
-  );
-};
+        {note === undefined ? null : <p className="text-xs">{note}</p>}
+        {row.bgRuns > 0 ? (
+          <p className="text-muted-foreground text-xs">
+            backgrounded: {n(row.bgRuns)} runs, {hms(row.bgSec)} charged
+          </p>
+        ) : null}
+        <SessionLinks detector={null} samples={row.samples} />
+      </div>
+    </TableCell>
+  </TableRow>
+);
 
 /** The time table, ranked by seconds. Clicking a row opens its calls. */
 export const TimeTable = ({
@@ -73,16 +70,18 @@ export const TimeTable = ({
   onSelect,
   prompt,
   selectedKey,
+  timeNotes,
 }: {
   readonly onSelect: (key: string) => void;
   readonly prompt: PromptFor;
   readonly rows: readonly TimeRow[];
   readonly selectedKey: string | null;
+  readonly timeNotes: StatsText["timeNotes"];
 }) => {
   if (rows.length === 0) {
     return (
       <p className="text-muted-foreground text-sm" data-testid="time-empty">
-        No shell time measured in this window.
+        {STATS_EMPTY.time}
       </p>
     );
   }
@@ -153,7 +152,11 @@ export const TimeTable = ({
                 </TableCell>
               </TableRow>
               {selectedKey === row.key ? (
-                <DetailRow prompt={prompt} row={row} />
+                <DetailRow
+                  note={timeNotes[row.key]}
+                  prompt={prompt}
+                  row={row}
+                />
               ) : null}
             </Fragment>
           ))}

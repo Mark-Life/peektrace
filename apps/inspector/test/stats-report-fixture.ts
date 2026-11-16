@@ -3,13 +3,26 @@ import type {
   CauseRow,
   FailRow,
   StatsReport,
+  StatsText,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
 import { DETECTOR_VERSION } from "@workspace/view-core/constants.gen";
 
+/** Core's text for a report, empty unless a test fills it in. */
+export const statsText = (over: Partial<StatsText> = {}): StatsText => ({
+  findings: [],
+  prompts: { cause: {}, fail: {}, report: "", time: {} },
+  ruleLines: {},
+  suggested: [],
+  suggestedRule: {},
+  timeNotes: {},
+  ...over,
+});
+
 export const report = (args: {
   readonly causes?: readonly CauseRow[];
   readonly fails: readonly FailRow[];
+  readonly text?: StatsText;
   readonly time: readonly TimeRow[];
 }): StatsReport => ({
   causes: args.causes ?? [],
@@ -36,6 +49,7 @@ export const report = (args: {
   paths: {},
   schemaVersion: "peektrace-stats/v2",
   skipped: [],
+  text: args.text ?? statsText(),
   time: args.time,
   waiting: {
     bgDeclaredSec: 0,

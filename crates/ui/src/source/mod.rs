@@ -20,8 +20,8 @@ use peektrace_protocol::{
 use self::memory::{MemoryData, MemoryDone, MemoryWrite};
 use crate::model::stats::{DrillAsk, StatsScope, StatsText};
 
-/// A stats report and the text core writes for it; `text` is `None` where
-/// core does not run (the web build).
+/// A stats report and the text core writes for it; `text` is `None` only
+/// when a server sent none.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StatsScreen {
     pub report: StatsReportView,

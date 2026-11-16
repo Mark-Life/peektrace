@@ -5,6 +5,7 @@
 
 mod history;
 pub mod stats;
+pub mod stats_text;
 #[cfg(test)]
 mod ts_gen;
 pub mod view;
@@ -238,6 +239,18 @@ pub enum DrillTable {
     Time,
     Cluster,
     Wait,
+}
+
+impl DrillTable {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Cause => "cause",
+            Self::Fail => "fail",
+            Self::Time => "time",
+            Self::Cluster => "cluster",
+            Self::Wait => "wait",
+        }
+    }
 }
 
 /// How `GET /api/stats/usage` buckets turns.

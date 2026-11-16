@@ -697,6 +697,44 @@ export type CorpusSummary = { transcripts: number, sessions: number, projects: n
 
 export type StatsWindow = { days: number, fromIso: string, toIso: string, };
 
+export type Finding = { detector: string | null, 
+/**
+ * What it costs, in the unit its own table ranks by.
+ */
+impact: string, key: string, note: string, 
+/**
+ * The memory line this finding suggests copying.
+ */
+rule: string | null, 
+/**
+ * How wide it reaches, in that table's own columns.
+ */
+spread: string, table: DrillTable, title: string, };
+
+export type StatsPrompts = { report: string, cause: Record<string, string>, fail: Record<string, string>, time: Record<string, string>, };
+
+export type StatsText = { 
+/**
+ * Rows that name a change, cheapest change first.
+ */
+findings: ReadonlyArray<Finding>, 
+/**
+ * Every suggested memory line, in the cause table's order.
+ */
+suggested: ReadonlyArray<string>, prompts: StatsPrompts, 
+/**
+ * Cause key to its rule check line.
+ */
+ruleLines: Record<string, string>, 
+/**
+ * Cause key to the memory line it suggests.
+ */
+suggestedRule: Record<string, string>, 
+/**
+ * Time key to its note.
+ */
+timeNotes: Record<string, string>, };
+
 export type StatsReport = { schemaVersion: StatsSchemaVersion, 
 /**
  * Epoch ms of the report clock.
@@ -705,7 +743,11 @@ generatedAt: number, window: StatsWindow, detectorVersion: number, corpus: Corpu
 /**
  * Transcript path of every session a sample names, by `sid`.
  */
-paths: Record<string, string>, caveats: ReadonlyArray<string>, };
+paths: Record<string, string>, caveats: ReadonlyArray<string>, 
+/**
+ * Every sentence the screen shows about this report, written by core.
+ */
+text: StatsText, };
 
 export type DrillHit = { durSec: number | null, tool: string, failed: boolean, 
 /**

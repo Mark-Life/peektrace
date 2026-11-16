@@ -190,7 +190,6 @@ These are deliberate or accepted. The parity harness does not cover them.
 | Rune app memory type `__proto__` or an `Object.prototype` member name | the donut fails to render (its colour lookup returns the prototype member) | painted `--chart-5`. TS core drops `__proto__` anyway |
 | Rune app Memory create and edit body fields | monospace text area | the kit text area's UI font |
 | Experimental `serve --ui rune`: web UI | React inspector, any browser | WebGPU only; a plain page says so when the browser has none. One SSE stream per tab (no Web Lock leader) |
-| Experimental `serve --ui rune`: Stats | findings, prompts, rule badges and time notes | none: core writes that text, so the web build hides it |
 | Experimental `serve --ui rune`: web fonts | system fonts | Geist and Geist Mono subsets, then Rune's Inter (Latin, Greek, Cyrillic) and a DejaVu Sans cut for the UI's `∞ ⋯ ▴ ▾ ⌘`; CJK and emoji show as boxes |
 
 ## Decisions
@@ -256,7 +255,7 @@ Done at cutover: `apps/web` is deleted. A real landing page is a separate projec
 34. Answered: types and constants from Rust, browser helpers in `packages/view-core` and the inspector, export on the server.
 35. Keep or drop the Rune web build after the native app ships?
 36. Rune app Stats: draw the detector marks in the opened transcript, or leave the link at the call?
-37. Rune web build Stats: add a server route for the inspector-format findings and prompts, or keep them native only?
+37. Answered: `/api/stats/report` carries core's text (findings, prompts, rule lines, time notes), so the Rune web build shows them too.
 38. Rune app Settings: re-resolve the roots and restart the watcher after a save, so new roots show without a restart?
 39. Rune app: bind `[` / `]` turn steps (needs the turn under the scroll top)?
 40. Rune app: migrate the theme the Electrobun app kept in its webview `localStorage`? Today the first launch follows the OS.

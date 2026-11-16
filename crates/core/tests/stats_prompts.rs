@@ -1,6 +1,5 @@
-//! The investigation prompts. Golden texts were recorded from the TS
-//! `statsPrompt` with the CLI number formatters; each TS assertion is kept
-//! too.
+//! The investigation prompts: golden texts in the CLI number format, and
+//! the rules every surface's prompt follows.
 
 use peektrace_core::Agent;
 use peektrace_core::stats::accumulate::{CorpusSummary, SampleRef, StatsWindow};

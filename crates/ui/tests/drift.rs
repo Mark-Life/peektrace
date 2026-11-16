@@ -123,6 +123,10 @@ fn the_report_view_keeps_every_row_core_writes() {
         text.findings.len(),
         peektrace_core::stats::findings::findings_of(&r).len()
     );
+    assert_eq!(v.text, None);
+    let api: StatsReportView =
+        serde_json::from_str(&r.to_api_json(&text)).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(api.text.as_ref(), Some(&text));
     assert_eq!(text.prompts.cause.len(), r.causes.len());
     let key = &r.causes[0].key;
     let page = peektrace_core::stats::service::DrillPage {

@@ -3,6 +3,7 @@
 //! rounding, `Date.parse` and `toISOString`, `JSON.parse` leniency and key
 //! order, and UTF-16 lengths and cuts.
 
+pub mod inspector;
 pub mod json;
 pub mod json_out;
 pub mod num;
