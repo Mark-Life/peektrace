@@ -16,7 +16,7 @@ import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
 /** Cards shown before the reader asks for more. */
-const VISIBLE = 6;
+export const VISIBLE = 6;
 
 /** Where a finding came from, in one word the reader can trust. */
 const SOURCE_LABEL: Record<Finding["table"], string> = {

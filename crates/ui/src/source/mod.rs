@@ -9,8 +9,21 @@ pub mod in_process;
 #[cfg(target_arch = "wasm32")]
 pub mod http;
 
+use peektrace_protocol::stats::{DrillView, StatsReportView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView, mend_surrogates};
 use peektrace_protocol::{ApiError, ApiErrorBody, WatchVersions};
+
+use crate::model::stats::{DrillAsk, StatsScope, StatsText};
+
+/// A stats report and the text core writes for it; `text` is `None` where
+/// core does not run (the web build).
+#[derive(Debug, Clone, PartialEq)]
+pub struct StatsScreen {
+    pub report: StatsReportView,
+    pub text: Option<StatsText>,
+    /// `generatedAt` in the source's local time.
+    pub generated: String,
+}
 
 /// Why a load failed.
 #[derive(Debug, Clone, PartialEq)]
@@ -23,6 +36,8 @@ pub enum LoadError {
     },
     /// The body did not match the view types.
     Decode(String),
+    /// A newer ask for another scope came first; the pass never ran.
+    Superseded,
 }
 
 impl std::fmt::Display for LoadError {
@@ -34,6 +49,10 @@ impl std::fmt::Display for LoadError {
             Self::Api(ApiError::TranscriptParseError { path, reason }) => {
                 write!(f, "Could not read {path}: {reason}")
             }
+            Self::Api(ApiError::StatsScanError { reason, .. }) => f.write_str(reason),
+            Self::Api(ApiError::StatsRowNotFoundError { table, key }) => {
+                write!(f, "No {table} row {key} in this window.")
+            }
             Self::Api(e) => write!(f, "{e:?}"),
             Self::Transport {
                 status: Some(s),
@@ -44,6 +63,7 @@ impl std::fmt::Display for LoadError {
                 message,
             } => f.write_str(message),
             Self::Decode(m) => write!(f, "Unexpected response: {m}"),
+            Self::Superseded => f.write_str("A newer request replaced this one."),
         }
     }
 }
@@ -77,6 +97,21 @@ pub trait DataSource: Send + Sync + 'static {
         _id: &str,
         _parent: Option<&str>,
     ) -> Option<Result<AnalyzedSession, LoadError>> {
+        None
+    }
+    /// One pass over the corpus for `scope`; passes run one at a time, and
+    /// a source may skip a queued one once another scope was asked.
+    fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>);
+    /// One page of the calls behind a row.
+    fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>);
+    fn stats_report_now(&self, _scope: StatsScope) -> Option<Result<StatsScreen, LoadError>> {
+        None
+    }
+    fn stats_drill_now(
+        &self,
+        _scope: StatsScope,
+        _ask: &DrillAsk,
+    ) -> Option<Result<DrillView, LoadError>> {
         None
     }
 }

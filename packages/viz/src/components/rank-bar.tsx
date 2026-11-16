@@ -29,7 +29,7 @@ export interface RankRow {
   readonly valueText?: string;
 }
 
-const widthOf = (value: number, max: number) => {
+export const widthOf = (value: number, max: number) => {
   if (max <= 0) {
     return 0;
   }

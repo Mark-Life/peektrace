@@ -50,6 +50,18 @@ name = "session_list"
 required-features = ["view"]
 
 [[test]]
+name = "stats"
+required-features = ["view"]
+
+[[test]]
+name = "stats_source"
+required-features = ["view"]
+
+[[test]]
+name = "stats_views"
+required-features = ["view"]
+
+[[test]]
 name = "tool_event"
 required-features = ["view"]
 

@@ -11,6 +11,7 @@ pub mod md;
 pub mod notice;
 pub mod row;
 pub mod settle;
+pub mod stats;
 pub mod tools;
 pub mod turns;
 pub mod utf16;

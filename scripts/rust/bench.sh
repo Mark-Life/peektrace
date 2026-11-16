@@ -7,7 +7,7 @@
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               serve-open statusline mcp upgrade tui telemetry ci app web web-paging
+#                                               serve-open statusline mcp upgrade tui telemetry ci app web web-paging stats-screen
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
 #   BENCH_SUITES="app web" ...                  the Rune app suites; web also needs agent-browser and brotli.
@@ -15,6 +15,8 @@
 #   BENCH_SUITES="serve-open web-paging" ...    open a big session: TS RPC vs Rust paged routes over HTTP, and the
 #                                               base branch's inspector vs this one in headless Chromium. web-paging needs
 #                                               agent-browser and BENCH_BASE_REF=<git ref> (or BENCH_BASE_INSPECTOR=<dist>)
+#   BENCH_SUITES="stats-screen" ...             the Stats screen: native app start to first frame vs the React
+#                                               inspector on the Rust server in headless Chromium; needs agent-browser
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
@@ -82,7 +84,9 @@ if [[ "${BENCH_SKIP_BUILD:-0}" != 1 && "$REPORT_ONLY" != 1 ]]; then
   # so the Rust binary embeds the same inspector build.
   (cd "$ROOT/apps/cli" && bun run build:binary)
   (cd "$ROOT" && cargo build --release)
-  if [[ " $BENCH_SUITES " == *" app "* ]]; then (cd "$ROOT" && cargo build --release -p peektrace-app); fi
+  if [[ " $BENCH_SUITES " == *" app "* || " $BENCH_SUITES " == *" stats-screen "* ]]; then
+    (cd "$ROOT" && cargo build --release -p peektrace-app)
+  fi
   if [[ " $BENCH_SUITES " == *" web "* ]]; then "$ROOT/scripts/rust/build-rune-web.sh"; fi
   # The ci suite checks the parity-profile binary, as CI does.
   if [[ " $BENCH_SUITES " == *" ci "* ]]; then
@@ -338,7 +342,7 @@ trap 'stop_live; stop_fake_release; stop_web' EXIT
 for suite in $BENCH_SUITES; do
   case "$suite" in
     startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | serve-open | \
-      statusline | mcp | upgrade | tui | telemetry | ci | app | web | web-paging) "suite_${suite//-/_}" ;;
+      statusline | mcp | upgrade | tui | telemetry | ci | app | web | web-paging | stats-screen) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done

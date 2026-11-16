@@ -5,6 +5,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use peektrace_protocol::WatchVersions;
+use peektrace_protocol::stats::DrillView;
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView};
 use tracing::{field, info_span};
 use wasm_bindgen::JsCast as _;
@@ -12,7 +13,12 @@ use wasm_bindgen::prelude::Closure;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
 use web_sys::{EventSource, MessageEvent, Request, RequestCredentials, RequestInit, Response};
 
-use super::{DataSource, LoadError, OnVersions, Reply, WatchEvent, decode, decode_error};
+use super::{
+    DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode, decode_error,
+};
+use crate::model::stats::format::at;
+use crate::model::stats::rows::{DRILL_PAGE, table_name};
+use crate::model::stats::{DrillAsk, StatsScope};
 
 /// Stream errors without an open between them before polling takes over.
 const STREAM_TRIES: u32 = 3;
@@ -79,10 +85,24 @@ async fn load<T: serde::de::DeserializeOwned>(
     out
 }
 
+/// The browser's offset east of UTC at `ms`, as `Date` reads it.
+fn local_offset(ms: f64) -> f64 {
+    -js_sys::Date::new(&ms.into()).get_timezone_offset() * 60_000.0
+}
+
 fn encode(s: &str) -> String {
     js_sys::encode_uri_component(s)
         .as_string()
         .unwrap_or_default()
+}
+
+/// `days=<d>[&agent=<id>]`, the agent left out for every agent.
+fn scope_query(scope: StatsScope) -> String {
+    let agent = scope
+        .agent
+        .map(|a| format!("&agent={}", a.as_str()))
+        .unwrap_or_default();
+    format!("days={}{agent}", scope.days)
 }
 
 /// Poll `/api/watch` every second. `recovering`: the first answer after a
@@ -129,6 +149,34 @@ impl DataSource for Http {
             .unwrap_or_default();
         let path = format!("/api/sessions/{}/analysis?redact=true{parent}", encode(&id));
         spawn_local(async move { reply(load("/api/sessions/{id}/analysis", path).await) });
+    }
+
+    fn stats_report(&self, scope: StatsScope, reply: Reply<StatsScreen>) {
+        let path = format!("/api/stats/report?{}", scope_query(scope));
+        spawn_local(async move {
+            let out = load("/api/stats/report", path).await;
+            reply(
+                out.map(|report: peektrace_protocol::stats::StatsReportView| {
+                    let generated = at(report.generated_at, local_offset(report.generated_at));
+                    StatsScreen {
+                        report,
+                        text: None,
+                        generated,
+                    }
+                }),
+            );
+        });
+    }
+
+    fn stats_drill(&self, scope: StatsScope, ask: DrillAsk, reply: Reply<DrillView>) {
+        let path = format!(
+            "/api/stats/drill/{}/{}?{}&offset={}&pageSize={DRILL_PAGE}",
+            table_name(ask.table),
+            encode(&ask.key),
+            scope_query(scope),
+            ask.offset
+        );
+        spawn_local(async move { reply(load("/api/stats/drill/{table}/{key}", path).await) });
     }
 
     fn watch(&self, on_versions: OnVersions) {

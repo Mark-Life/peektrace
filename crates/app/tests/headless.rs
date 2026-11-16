@@ -106,12 +106,24 @@ fn scenes_match_goldens() {
         ("detail-top", "dark", vec![session.as_str()]),
         ("detail-chart-hover", "dark", vec![session.as_str()]),
         ("history-open", "dark", vec![session.as_str()]),
-        ("stub-stats", "dark", vec![]),
         ("light", "light", vec![session.as_str()]),
+        ("nav-collapsed", "dark", vec![]),
     ] {
         let got = render(&full, scene, theme, &extra);
         check(scene, &got);
     }
+    let stats = home::stats_home();
+    for (scene, theme) in [
+        ("stats", "dark"),
+        ("stats-pending", "dark"),
+        ("stats-cause-open", "dark"),
+        ("stats-drill", "dark"),
+        ("stats-findings-all", "dark"),
+        ("stats-light", "light"),
+    ] {
+        check(scene, &render(&stats, scene, theme, &[]));
+    }
     let empty = home::temp_home("empty");
     check("empty-home", &render(&empty, "list", "dark", &[]));
+    check("stats-empty", &render(&empty, "stats", "dark", &[]));
 }

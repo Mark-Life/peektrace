@@ -2,6 +2,9 @@
 //! line, one JSON answer per stdout line. `scripts/rust/parity-ui.ts`
 //! asks the TS inspector the same questions and diffs the answers.
 
+#[path = "ui_helpers_stats/mod.rs"]
+mod stats;
+
 use std::io::{BufRead as _, Write as _};
 
 use peektrace_js::num::to_fixed;
@@ -319,6 +322,9 @@ fn answer(req: &Value) -> Value {
         "growth" => load().map_or(Value::Null, |a| {
             growth(&a).map_or(Value::Null, |g| growth_answer(&a, &g))
         }),
+        "statsfmt" => stats::fmt_answer(req),
+        "stats" => stats::stats_answer(req),
+        "drill" => stats::drill_answer(req),
         other => json!({ "error": format!("unknown fn {other}") }),
     }
 }

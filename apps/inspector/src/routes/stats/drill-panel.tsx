@@ -47,7 +47,7 @@ const STEP = 30;
 const NEAR_END = 240;
 
 /** The hit's session: the title with project and short id, else `project/id`. */
-const drillLabel = (hit: DrillHit, titles: SessionTitles) => {
+export const drillLabel = (hit: DrillHit, titles: SessionTitles) => {
   const chip = chipLabelOf(hit, titles);
   return chip.id === null
     ? chip.label
