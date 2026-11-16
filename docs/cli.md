@@ -205,14 +205,18 @@ regardless.
 ### `sessions ls` — list sessions
 
 Lightweight headers (lazy — bodies are not parsed), across every agent. Columns:
-id, agent, project, model, message count, estimated cost, size, updated, title.
+id, agent, project, model, message count, cost, size, updated, title.
 Rows are sorted newest first and capped at 30; a hint on stderr says how many
 were hidden.
 
-`EST COST` is the main transcript at API list price, without subagent files
-(`sessions analyze` adds them); a note on stderr says so. A `*` means some
-models have no rate card, so the figure is too low. OpenCode shows its own
-recorded cost, else its messages at list price. Codex shows `-` for now.
+`COST` is the same total `sessions analyze` shows. `$1.23` is the agent's own
+record: Claude Code `cost-state` (subagents included), Pi or OpenCode.
+`~$1.23` is an estimate at API list price over the main transcript,
+its subagents and workflow agents; Codex costs are always estimates. A note on
+stderr explains `$` and `~$`. A `*` means some models have no rate card,
+so the estimate is too low. `--json` adds `costSource` (`agent` or
+`estimate`) and `subagentsUsd`, the estimated subagent share of the total,
+when the total counts one.
 
 | Flag | Effect |
 | --- | --- |

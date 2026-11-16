@@ -31,7 +31,7 @@ pub mod wire;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions, list_sessions_cached};
 pub use model::{
-    Agent, FileStamp, Launcher, ProjectSlug, SessionFileRef, SessionHeader, SessionId,
+    Agent, FileStamp, HeaderCost, Launcher, ProjectSlug, SessionFileRef, SessionHeader, SessionId,
     SessionListing, SourceTag, UnreadableSession,
 };
 pub use paths::PathStyle;

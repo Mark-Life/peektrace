@@ -565,9 +565,23 @@ malformedLines?: number,
 /**
  * The app that started the session, when known.
  */
-launcher?: Launcher, costUsd?: number, 
+launcher?: Launcher, 
 /**
- * Model ids with no rate card; set only when non-empty.
+ * The session's cost, the same total the session detail shows:
+ * subagents and workflow agents included.
+ */
+costUsd?: number, 
+/**
+ * Where `costUsd` comes from; set with it.
+ */
+costSource?: CostSource, 
+/**
+ * Estimated subagent share of `costUsd`. Absent beside a Claude Code
+ * record, which already counts subagents.
+ */
+subagentsUsd?: number, 
+/**
+ * Models an estimated `costUsd` leaves out.
  */
 unpricedModels?: ReadonlyArray<string>, };
 

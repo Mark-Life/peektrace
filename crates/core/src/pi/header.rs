@@ -9,8 +9,8 @@ use crate::js::text;
 use crate::js::time;
 use crate::js::value::{EMPTY_OBJECT, JsValue, defined};
 use crate::model::{Agent, SessionFileRef, SessionHeader};
-use crate::sessions::cost::turns_cost;
-use crate::sessions::model::{Turn, TurnTokens};
+use crate::sessions::cost::{header_cost, turns_cost};
+use crate::sessions::model::{CostParts, NativeCost, Turn, TurnTokens};
 
 /// Token counts one Pi call's `usage` reports; a missing count reads 0.
 pub fn pi_tokens(usage: &JsValue) -> TurnTokens {
@@ -22,6 +22,38 @@ pub fn pi_tokens(usage: &JsValue) -> TurnTokens {
         cache_read,
         cache_creation,
         output: n("output"),
+    }
+}
+
+/// Pi's own per-call cost summed over the calls it priced (above 0), and
+/// the calls it wrote 0 for, which means "no price", not "free".
+#[derive(Debug, Default)]
+pub struct PiRecord {
+    usd: f64,
+    unrecorded_calls: usize,
+}
+
+impl PiRecord {
+    /// Fold one counted call's `usage`.
+    pub fn add(&mut self, usage: &JsValue) {
+        let recorded = usage
+            .get("cost")
+            .and_then(|c| c.get("total"))
+            .and_then(JsValue::as_num)
+            .filter(|usd| *usd > 0.0);
+        match recorded {
+            Some(usd) => self.usd += usd,
+            None => self.unrecorded_calls += 1,
+        }
+    }
+
+    /// The record, partial when any call went unpriced; `None` at $0.
+    pub fn native(&self) -> Option<NativeCost> {
+        (self.usd > 0.0).then_some(NativeCost {
+            usd: self.usd,
+            includes_subagents: false,
+            partial: self.unrecorded_calls > 0,
+        })
     }
 }
 
@@ -37,6 +69,7 @@ pub(crate) struct Acc {
     messages: u64,
     keys: HashSet<String>,
     turns: Vec<Turn>,
+    record: PiRecord,
 }
 
 fn str_field<'a>(v: &'a JsValue, key: &str) -> Option<&'a str> {
@@ -83,8 +116,10 @@ impl Acc {
         }
         if role == Some("assistant") {
             let key = str_field(row, "id").map_or_else(|| format!("line-{index}"), str::to_owned);
-            let tokens = pi_tokens(defined(msg.get("usage")).unwrap_or(&EMPTY_OBJECT));
+            let usage = defined(msg.get("usage")).unwrap_or(&EMPTY_OBJECT);
+            let tokens = pi_tokens(usage);
             if tokens.context > 0.0 && self.keys.insert(key) {
+                self.record.add(usage);
                 let model = string_or(msg.get("model"), "unknown");
                 self.turns
                     .push(Turn::new(String::new(), model, tokens, None));
@@ -104,7 +139,11 @@ impl RowFold for Acc {
 
     /// `title` sits after `startedAt`.
     fn header(self, r: &SessionFileRef, malformed: u64) -> SessionHeader {
-        let cost = turns_cost(&self.turns);
+        let cost = header_cost(&CostParts {
+            own: turns_cost(&self.turns),
+            native: self.record.native(),
+            ..CostParts::default()
+        });
         SessionHeader {
             id: r.id.clone(),
             agent: Agent::Pi,
@@ -121,8 +160,8 @@ impl RowFold for Acc {
             title: self.title,
             started_at: self.started_at,
             malformed_lines: (malformed > 0).then_some(malformed),
-            cost_usd: cost.cost_usd,
-            unpriced_models: cost.unpriced_models,
+            cost,
+            cost_parts: None,
             source: None,
             launcher: None,
         }

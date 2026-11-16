@@ -5,8 +5,8 @@ use super::session::Session;
 use crate::js::time;
 use crate::js::value::str_of;
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionHeader};
-use crate::sessions::cost::turns_cost;
-use crate::sessions::model::TurnsCost;
+use crate::sessions::cost::{header_cost, turns_cost};
+use crate::sessions::model::{CostParts, NativeCost};
 
 /// Last non-empty segment, split on `/` and `\`.
 fn basename(p: &str) -> &str {
@@ -40,13 +40,14 @@ pub(super) fn build_header(session: &Session, r: &SessionFileRef) -> SessionHead
         })
         .unzip();
     let message_costs: Vec<_> = message_costs.into_iter().flatten().collect();
-    let cost = agent_cost(positive(info.cost), &message_costs).map_or_else(
-        || turns_cost(&turns),
-        |own| TurnsCost {
-            cost_usd: Some(own),
-            unpriced_models: None,
-        },
-    );
+    let cost = header_cost(&CostParts {
+        own: turns_cost(&turns),
+        native: agent_cost(positive(info.cost), &message_costs).map(|usd| NativeCost {
+            usd,
+            ..NativeCost::default()
+        }),
+        ..CostParts::default()
+    });
     let cwd = info.directory.as_deref();
     let project = [cwd.map_or("", basename), r.slug.as_str(), r.id.as_str()]
         .into_iter()
@@ -66,8 +67,8 @@ pub(super) fn build_header(session: &Session, r: &SessionFileRef) -> SessionHead
         title: info.title.clone(),
         started_at: iso_from_ms(info.time_created),
         malformed_lines: None,
-        cost_usd: cost.cost_usd,
-        unpriced_models: cost.unpriced_models,
+        cost,
+        cost_parts: None,
         source: r.source.clone(),
         launcher: None,
     }

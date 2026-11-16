@@ -50,6 +50,10 @@ pub struct ListFilter {
     pub agent: Option<Agent>,
     /// Exact project slug; empty means no filter.
     pub project: Option<String>,
+    /// Add Claude subagent files to the cost, for callers that show it.
+    /// Without it they are not read, and a cost they could add to is left
+    /// unknown until [`crate::claude::add_subagent_costs_to`].
+    pub with_subagent_costs: bool,
 }
 
 /// Transcript files of one agent. A Claude or Pi row's project is its slug,
@@ -93,10 +97,11 @@ fn in_project(o: &Outcome, project: Option<&str>) -> bool {
 fn agent_outcomes(
     agent: Agent,
     roots: &AgentRoots,
-    project: Option<&str>,
+    filter: &ListFilter,
     cache: Option<&HeaderCache>,
     parent: &Span,
 ) -> Vec<Outcome> {
+    let project = filter.project.as_deref();
     let refs = session_files(agent, roots, project);
     let load = |refs: &[SessionFileRef]| match agent {
         Agent::Claude => claude::load_headers(refs, parent),
@@ -104,13 +109,18 @@ fn agent_outcomes(
         Agent::Pi => pi::load_headers(refs, parent),
         Agent::Opencode => opencode::load_headers(refs, &default_root(&roots.opencode), parent),
     };
-    let outcomes = match cache {
-        Some(c) if agent != Agent::Opencode => {
-            let complete = agent == Agent::Codex || project.is_none_or(str::is_empty);
-            c.outcomes(agent, &refs, complete, load)
-        }
+    let complete = agent == Agent::Codex || project.is_none_or(str::is_empty);
+    let mut outcomes = match cache {
+        Some(c) if agent != Agent::Opencode => c.outcomes(agent, &refs, complete, load),
         _ => load(&refs),
     };
+    if agent == Agent::Claude {
+        if filter.with_subagent_costs {
+            claude::add_subagent_costs(&mut outcomes, cache.map(|c| &c.subagents), complete);
+        } else {
+            claude::drop_pending_costs(&mut outcomes);
+        }
+    }
     match agent {
         Agent::Codex | Agent::Opencode => outcomes
             .into_iter()
@@ -167,7 +177,7 @@ fn list_with(
     let outcomes = Agent::ALL
         .into_iter()
         .filter(|a| filter.agent.is_none_or(|f| f == *a))
-        .flat_map(|agent| agent_outcomes(agent, roots, filter.project.as_deref(), cache, &span))
+        .flat_map(|agent| agent_outcomes(agent, roots, filter, cache, &span))
         .collect();
     let mut listing = to_listing(outcomes);
     crate::t3code::apply_headers(&mut listing.headers, roots.t3code.as_deref());

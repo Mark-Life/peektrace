@@ -116,7 +116,8 @@ pub struct CostSummary {
     pub estimate_note: Option<String>,
 }
 
-pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
+pub fn cost_summary(cost: &SessionCost, provider: &str) -> CostSummary {
+    let agent_label = provider_label(provider);
     let recorded = cost.source == CostSource::Agent;
     let mut notes = vec![if recorded {
         format!("recorded by {agent_label}")
@@ -138,7 +139,7 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
     if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
         notes.push(format!("{n} subagent(s) unreadable"));
     }
-    let (warning, estimate_note) = estimate_lines(cost);
+    let (warning, estimate_note) = estimate_lines(cost, provider);
     let total = cost.total_usd.map_or_else(
         || "—".to_owned(),
         |t| {
@@ -169,21 +170,26 @@ pub fn estimate_warning(recorded: f64, estimate: f64) -> String {
     format!("estimate from tokens {} ({pct}% {dir})", fmt_usd(estimate))
 }
 
+/// The quiet note for the estimate beside a full record. Only Claude Code
+/// bills calls its transcript does not log, so only its note says so.
+fn estimate_note(estimate: f64, provider: &str) -> String {
+    let usd = fmt_usd(estimate);
+    if provider == "claude-code" {
+        format!("Estimate from transcript: {usd}. Transcripts miss some billed calls.")
+    } else {
+        format!("Estimate at list price: {usd}.")
+    }
+}
+
 /// The warning or the quiet note for the estimate beside a full record.
 /// Core decides when it warns (`estimateWarning`).
-fn estimate_lines(cost: &SessionCost) -> (Option<String>, Option<String>) {
+fn estimate_lines(cost: &SessionCost, provider: &str) -> (Option<String>, Option<String>) {
     match (cost.recorded_usd, cost.estimate_usd) {
         (Some(r), Some(e)) if cost.source == CostSource::Agent && !cost.record_partial => {
             if cost.estimate_warning {
                 (Some(estimate_warning(r, e)), None)
             } else {
-                (
-                    None,
-                    Some(format!(
-                        "Estimate from transcript: {}. Transcripts miss some billed calls.",
-                        fmt_usd(e)
-                    )),
-                )
+                (None, Some(estimate_note(e, provider)))
             }
         }
         _ => (None, None),
@@ -216,7 +222,7 @@ mod tests {
             ..cost(CostSource::Estimate)
         };
         assert_eq!(
-            cost_summary(&c, "Claude Code"),
+            cost_summary(&c, "claude-code"),
             CostSummary {
                 total: "~$1.23".into(),
                 notes: vec!["estimated from tokens".into()],
@@ -228,8 +234,8 @@ mod tests {
             total_usd: Some(0.001),
             ..cost(CostSource::Agent)
         };
-        assert_eq!(cost_summary(&c, "Codex").total, "<$0.01");
-        assert_eq!(cost_summary(&c, "Codex").notes, ["recorded by Codex"]);
+        assert_eq!(cost_summary(&c, "codex").total, "<$0.01");
+        assert_eq!(cost_summary(&c, "codex").notes, ["recorded by Codex"]);
         let c = SessionCost {
             total_usd: Some(464.02),
             recorded_usd: Some(464.02),
@@ -238,7 +244,7 @@ mod tests {
             estimate_warning: true,
             ..cost(CostSource::Agent)
         };
-        let s = cost_summary(&c, "Claude Code");
+        let s = cost_summary(&c, "claude-code");
         assert_eq!(s.total, "$464.02");
         assert_eq!(
             s.warning.as_deref(),
@@ -251,7 +257,7 @@ mod tests {
             ..cost(CostSource::Estimate)
         };
         assert_eq!(
-            cost_summary(&c, "Claude Code").notes,
+            cost_summary(&c, "claude-code").notes,
             [
                 "estimated from tokens",
                 "Claude Code recorded $74.42 for part of the session"
@@ -263,7 +269,7 @@ mod tests {
             unreadable_subagents: Some(2),
             ..cost(CostSource::Estimate)
         };
-        let s = cost_summary(&c, "Pi");
+        let s = cost_summary(&c, "pi");
         assert_eq!(s.total, "—");
         assert_eq!(
             s.notes,

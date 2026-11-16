@@ -277,6 +277,7 @@ pub struct Line<'a> {
     pub request_id: Str<'a>,
     pub is_meta: IsTrue,
     pub is_compact_summary: IsTrue,
+    pub is_sidechain: IsTrue,
     pub message: Message<'a>,
 }
 
@@ -289,6 +290,7 @@ loose_object!(Line<'de>, arrays: false, {
     "requestId" => request_id,
     "isMeta" => is_meta,
     "isCompactSummary" => is_compact_summary,
+    "isSidechain" => is_sidechain,
     "message" => message,
 });
 

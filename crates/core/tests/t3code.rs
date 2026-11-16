@@ -60,7 +60,13 @@ fn launcher(branch: Option<&str>, worktree: Option<&str>) -> Launcher {
 fn listed_sessions_take_the_thread_name_and_launcher() {
     let dir = TempDir::new("t3code-list");
     let roots = setup(&dir);
-    let listing = list_sessions(&roots, &ListFilter::default());
+    let listing = list_sessions(
+        &roots,
+        &ListFilter {
+            with_subagent_costs: true,
+            ..ListFilter::default()
+        },
+    );
     let row = |id: &str| {
         listing
             .headers

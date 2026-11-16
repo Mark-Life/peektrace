@@ -301,11 +301,11 @@ fn parse_subagent(stub: &SubagentStub, linker: &Linker, local: &dyn LocalZone) -
 
 /// Fold Claude subagent transcripts into a parsed session. A failure to
 /// locate them keeps the session without subagents.
-fn fold_claude_subagents(env: SessionEnv<'_>, parsed: &mut ParsedSession, id: &str, text: &str) {
-    let loc = match resolve_claude_session(&env.roots.claude, id) {
+fn fold_claude_subagents(env: SessionEnv<'_>, parsed: &mut ParsedSession, path: &str, text: &str) {
+    let loc = match resolve_claude_session(&env.roots.claude, path) {
         Ok(loc) => loc,
         Err(e) => {
-            debug!(id, reason = %e, "subagents not folded");
+            debug!(path, reason = %e, "subagents not folded");
             return;
         }
     };
@@ -370,8 +370,9 @@ fn parse_inner(
                     include_sidechain_turns: loaded.nested,
                     skip_system_prompt: false,
                 });
+                // By the loaded path: two projects may hold the same id.
                 if !loaded.nested {
-                    fold_claude_subagents(env, &mut parsed, id, text);
+                    fold_claude_subagents(env, &mut parsed, path, text);
                 }
                 parsed
             }

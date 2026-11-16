@@ -412,7 +412,18 @@ pub struct SessionHeader {
     /// The app that started the session, when known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub launcher: Option<Launcher>,
-    /// Cost of the main transcript, inline sidechains included.
-    #[serde(flatten)]
-    pub cost: TurnsCost,
+    /// The session's cost, the same total the session detail shows:
+    /// subagents and workflow agents included.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_usd: Option<f64>,
+    /// Where `costUsd` comes from; set with it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cost_source: Option<CostSource>,
+    /// Estimated subagent share of `costUsd`. Absent beside a Claude Code
+    /// record, which already counts subagents.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagents_usd: Option<f64>,
+    /// Models an estimated `costUsd` leaves out.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unpriced_models: Option<Vec<String>>,
 }

@@ -8,14 +8,13 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::context::{Base, agent_message_event, message_events, plain, session_meta_event};
+use super::context::{Base, agent_message_event, plain, session_meta_event};
+use super::usage::{UsageFold, call_tokens, response_item_events};
 use crate::js::units;
 use crate::js::value::{EMPTY_OBJECT, JsValue, defined, str_of};
 use crate::sessions::jsonl::parse_rows;
 use crate::sessions::measure::measure_tokens;
-use crate::sessions::model::{
-    EventKind, EventShape, ParsedSession, Provider, TimelineEvent, Turn, TurnTokens,
-};
+use crate::sessions::model::{EventKind, EventShape, ParsedSession, Provider, TimelineEvent, Turn};
 
 const LINE_CAP: usize = 200;
 
@@ -25,11 +24,6 @@ static ERR_EXIT: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i-u:exit(?:ed with)? code:? ?[1-9])")
         .unwrap_or_else(|e| unreachable!("bad pattern: {e}"))
 });
-
-/// A number field, 0 when absent or not a number.
-fn num(v: Option<&JsValue>) -> f64 {
-    v.and_then(JsValue::as_num).unwrap_or(0.0)
-}
 
 /// `JSON.stringify(JSON.parse(s), null, 2)`, or `s` when it does not parse.
 fn pretty_json(s: String) -> String {
@@ -84,7 +78,7 @@ fn json_or(v: Option<&JsValue>, fallback: &str) -> String {
 }
 
 /// The timeline event for one non-message `response_item` payload.
-fn response_event(payload: &JsValue, base: Base<'_>) -> Option<TimelineEvent> {
+pub(super) fn response_event(payload: &JsValue, base: Base<'_>) -> Option<TimelineEvent> {
     let field = |k: &str| str_of(payload.get(k));
     Some(match str_of(payload.get("type")).as_str() {
         "agent_message" => return agent_message_event(payload, base),
@@ -159,10 +153,7 @@ struct Cursor {
     call_events: Vec<usize>,
     current_model: String,
     current_turn_id: Option<String>,
-    /// A fork still replaying its parent's history (no own output yet).
-    inherited: bool,
-    /// The last cumulative usage seen, as JSON text.
-    last_total: Option<String>,
+    usage: UsageFold,
     native_window: Option<f64>,
 }
 
@@ -181,21 +172,14 @@ impl Scan {
         let output = e.kind.is_output();
         self.events.push(e);
         if output {
-            self.cursor.inherited = false;
+            self.cursor.usage.output();
             self.cursor.call_events.push(self.events.len() - 1);
         }
     }
 
     fn session_meta(&mut self, payload: &JsValue) {
-        let (meta, cursor) = (&mut self.meta, &mut self.cursor);
-        if meta.session_id.is_none()
-            && payload
-                .get("forked_from_id")
-                .and_then(JsValue::as_str)
-                .is_some()
-        {
-            cursor.inherited = true;
-        }
+        let meta = &mut self.meta;
+        self.cursor.usage.session_meta(payload);
         let id = str_of(payload.get("id"));
         if !id.is_empty() {
             meta.session_id = Some(id);
@@ -237,25 +221,13 @@ impl Scan {
         if let Some(w) = info.get("model_context_window").and_then(JsValue::as_num) {
             cursor.native_window = Some(w);
         }
-        let Some(last) = plain(info.get("last_token_usage")) else {
+        let Some(last) = cursor.usage.call(info) else {
             return;
         };
-        let total = info.get("total_token_usage").map(|t| t.stringify(false));
-        if total.is_some() && total == cursor.last_total {
-            return;
-        }
-        if total.is_some() {
-            cursor.last_total = total;
-        }
-        if cursor.inherited {
-            return;
-        }
-        let context = num(last.get("input_tokens"));
-        let cache_read = num(last.get("cached_input_tokens"));
         let calls = std::mem::take(&mut cursor.call_events);
-        if context <= 0.0 {
+        let Some(tokens) = call_tokens(last) else {
             return;
-        }
+        };
         let turn_id = cursor
             .current_turn_id
             .clone()
@@ -268,13 +240,6 @@ impl Scan {
                 e.request_id = Some(request_id.clone());
             }
         }
-        let tokens = TurnTokens {
-            context,
-            input: context - cache_read,
-            cache_read,
-            cache_creation: 0.0,
-            output: num(last.get("output_tokens")),
-        };
         let mut turn = Turn::new(
             request_id,
             self.cursor.current_model.clone(),
@@ -330,12 +295,8 @@ impl Scan {
             }
             "turn_context" => self.turn_context(payload),
             "response_item" => {
-                if payload.get("type").and_then(JsValue::as_str) == Some("message") {
-                    for e in message_events(payload, base) {
-                        self.push(Some(e));
-                    }
-                } else {
-                    self.push(response_event(payload, base));
+                for e in response_item_events(payload, base) {
+                    self.push(Some(e));
                 }
             }
             "event_msg" => self.event_msg(payload, index, ts),
@@ -358,8 +319,7 @@ pub fn parse_codex_session(text: &str, path: &str, session_id: &str) -> ParsedSe
             call_events: Vec::new(),
             current_model: "unknown".to_owned(),
             current_turn_id: None,
-            inherited: false,
-            last_total: None,
+            usage: UsageFold::default(),
             native_window: None,
         },
     };

@@ -39,10 +39,17 @@ pub fn write_header(w: &mut Writer, h: &SessionHeader) {
     if let Some(n) = h.malformed_lines {
         w.key("malformedLines").int(int(n));
     }
-    if let Some(c) = h.cost_usd {
+    let cost = &h.cost;
+    // A non-finite estimate (an out-of-range usage line) is left unknown.
+    if let Some(c) = cost.usd.filter(|c| c.is_finite()) {
         w.key("costUsd").num(c);
+        w.key("costSource")
+            .str(if cost.from_agent { "agent" } else { "estimate" });
     }
-    if let Some(m) = &h.unpriced_models {
+    if let Some(s) = cost.subagents_usd.filter(|s| s.is_finite()) {
+        w.key("subagentsUsd").num(s);
+    }
+    if let Some(m) = &cost.unpriced_models {
         w.key("unpricedModels").texts(m.iter().map(String::as_str));
     }
     if let Some(s) = &h.source {

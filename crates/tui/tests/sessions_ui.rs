@@ -44,8 +44,8 @@ fn header(id: &str, agent: Agent, title: &str, started: &str) -> SessionHeader {
         title: Some(title.to_owned()),
         started_at: Some(started.to_owned()),
         malformed_lines: None,
-        cost_usd: None,
-        unpriced_models: None,
+        cost: peektrace_core::HeaderCost::default(),
+        cost_parts: None,
         source: None,
         launcher: None,
     }

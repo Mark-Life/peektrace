@@ -166,6 +166,7 @@ fn an_unreadable_codex_row_keeps_an_empty_project() {
         &ListFilter {
             agent: None,
             project: Some("anything".to_owned()),
+            ..ListFilter::default()
         },
     );
     fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("chmod");

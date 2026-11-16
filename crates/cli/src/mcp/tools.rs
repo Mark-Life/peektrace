@@ -309,7 +309,7 @@ fn stats_drill(a: &Args<'_>, s: &Call<'_>) -> Result<Answer, UserError> {
 pub const TOOLS: [Tool; 5] = [
     Tool {
         name: "sessions_list",
-        description: "List local coding-agent sessions (Claude Code, Codex, Pi, OpenCode), newest first: id, agent, project, model, message count, estimated cost, size, update time and title. Use an id with sessions_analyze.",
+        description: "List local coding-agent sessions (Claude Code, Codex, Pi, OpenCode), newest first: id, agent, project, model, message count, cost (the agent's own record, else estimated from tokens; subagents included), size, update time and title. Use an id with sessions_analyze.",
         fields: &[
             AGENT,
             PROJECT,
