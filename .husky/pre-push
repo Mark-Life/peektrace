@@ -1,0 +1,33 @@
+#!/bin/sh
+# Run clippy when the pushed commits touch Rust. Tests stay in CI.
+set -ef
+
+ZERO=0000000000000000000000000000000000000000
+RUST='*.rs Cargo.toml Cargo.lock rust-toolchain.toml'
+rust=no
+rune=no
+
+# git passes "<local ref> <local sha> <remote ref> <remote sha>" per ref.
+while read -r _lref lsha _rref rsha; do
+  [ "$lsha" = "$ZERO" ] && continue
+  if [ "$rsha" != "$ZERO" ] && git cat-file -e "$rsha" 2>/dev/null; then
+    base=$rsha
+  else
+    base=$(git merge-base "$lsha" origin/main 2>/dev/null || true)
+  fi
+  if [ -z "$base" ]; then
+    rust=yes
+    rune=yes
+    continue
+  fi
+  # shellcheck disable=SC2086
+  git diff --quiet "$base" "$lsha" -- $RUST || rust=yes
+  git diff --quiet "$base" "$lsha" -- crates/ui crates/app || rune=yes
+done
+
+[ "$rust" = yes ] || [ "$rune" = yes ] || exit 0
+
+cargo clippy --locked --all-targets -- -D warnings
+if [ "$rune" = yes ]; then
+  cargo clippy --locked -p peektrace-ui -p peektrace-app --all-targets -- -D warnings
+fi
