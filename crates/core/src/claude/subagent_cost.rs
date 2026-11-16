@@ -48,7 +48,7 @@ impl SubagentCosts {
 }
 
 /// Subdirs deeper than this are not walked, so a symlink loop ends.
-const MAX_DEPTH: usize = 8;
+const MAX_DEPTH: usize = 64;
 
 /// Every `agent-*.jsonl` under `dir` and its subdirs, as `find_subagents`
 /// walks them, with its stamp.
