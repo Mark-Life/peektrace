@@ -7,7 +7,7 @@ mod common;
 use std::fs;
 
 use common::{create_db, headers, ids, opencode_roots, path_str, temp_dir, write_good_db};
-use peektrace_core::opencode::{list_session_files, load_session, parse_opencode_session};
+use peektrace_core::opencode::{Store, list_session_files, load_session, parse_opencode_session};
 use peektrace_core::roots::{RootsEnv, sources};
 use peektrace_core::{Agent, ProjectSlug, SessionFileRef, SessionId};
 use rusqlite::{Connection, params};
@@ -47,6 +47,33 @@ fn unknown_id_loads_nothing() {
     let data = path_str(&dir);
     write_good_db(&dir.join("opencode.db"), "ses_good", "/good/proj");
     assert!(load_session(&format!("{data}#nonexistent-id"), "x", &data).is_none());
+}
+
+#[test]
+fn reader_keeps_the_dbs_open_across_sessions() {
+    let dir = temp_dir("oc");
+    let data = path_str(&dir);
+    let db_path = dir.join("opencode.db");
+    write_good_db(&db_path, "ses_a", "/a");
+    Connection::open(&db_path)
+        .and_then(|db| {
+            db.execute(
+                "INSERT INTO session (id, directory, title, time_created, time_updated) VALUES ('ses_b', '/b', 'B', 1000, 2000)",
+                [],
+            )
+        })
+        .expect("second session");
+    let (a, b) = (format!("{data}#ses_a"), format!("{data}#ses_b"));
+    let store = Store::new([a.as_str(), b.as_str()], "/elsewhere");
+    let mut reader = store.reader();
+    assert!(reader.load(&a, "x").is_some());
+    // The open connection still reads the unlinked file; a fresh open finds nothing.
+    fs::remove_file(&db_path).expect("unlink");
+    assert!(load_session(&b, "x", &data).is_none());
+    assert_eq!(
+        reader.load(&b, "x").map(|s| s.info.directory),
+        Some(Some("/b".to_owned()))
+    );
 }
 
 #[test]
