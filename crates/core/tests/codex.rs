@@ -1,7 +1,4 @@
-//! Codex parser, header and budget, ported from the TS tests `codex.test.ts`,
-//! `codex-budget.test.ts`, the Codex cases of `context-entries.test.ts` and
-//! `measure.test.ts`, and the Codex header cases of
-//! `swallowed-errors.test.ts`. Same fixtures, same assertions.
+//! Codex parser, header, budget, context entries and size measure.
 
 mod common;
 
@@ -31,7 +28,7 @@ fn at(p: &ParsedSession, index: usize) -> Vec<&TimelineEvent> {
     p.events.iter().filter(|e| e.index == index).collect()
 }
 
-// codex.test.ts
+// Parser
 
 #[test]
 fn extracts_provider_and_session_metadata_from_session_meta() {
@@ -139,7 +136,7 @@ fn never_throws_on_a_garbage_or_empty_transcript() {
     assert_eq!(empty.turns.len(), 0);
 }
 
-// codex-budget.test.ts
+// Budget
 
 fn budget() -> ParsedSession {
     codex("rollout-budget")
@@ -280,7 +277,7 @@ fn fork_the_first_turn_is_the_childs_first_call_and_has_a_snapshot() {
     assert!(a.system_overhead_tokens > 0.0);
 }
 
-// measure.test.ts, Codex rollout
+// Size measure of a Codex rollout
 
 #[test]
 fn tool_output_gets_input_growth_minus_the_calls_output() {
@@ -296,7 +293,7 @@ fn a_step_holding_an_aborted_calls_output_keeps_estimates() {
     assert_eq!(at(&p, 29)[0].tokens_measured, None);
 }
 
-// context-entries.test.ts, Codex
+// Context entries
 
 fn context() -> ParsedSession {
     let rel = "sessions-codex/rollout-context.jsonl";
@@ -362,7 +359,7 @@ fn inter_agent_messages_are_kept() {
     assert_eq!(msg.body, "Check the parser.");
 }
 
-// swallowed-errors.test.ts, Codex header messageCount
+// Header message count
 
 fn item(role: &str, texts: &[&str]) -> String {
     let content: Vec<_> = texts

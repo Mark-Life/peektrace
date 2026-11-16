@@ -2,6 +2,8 @@
 
 **Date:** 2026-08-08 · **Versions measured:** `@tanstack/charts` / `@tanstack/react-charts` / `@tanstack/charts-scales` `0.7.2`, `recharts` `3.8.0`
 
+> This spike predates the Rust rewrite. The `apps/web` and `packages/core` paths below no longer exist: the web page was removed and core moved to `crates/core`.
+
 **Recommendation: adopt for one chart now (`type-donut`), wait on the rest.** Details and the trigger conditions are at the end.
 
 **Status: done.** `type-donut` now ships on TanStack Charts, Recharts and `packages/ui/src/components/chart.tsx` are deleted, and the measured result is in [Outcome](#outcome) at the bottom. `growth-timeline` and `link-graph` are unchanged; their ports live in `packages/viz/spike/` and ship to nobody.

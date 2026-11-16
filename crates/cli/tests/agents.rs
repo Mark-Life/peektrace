@@ -1,7 +1,5 @@
-//! `sessions ls / analyze / export` over Claude, Codex and Pi sessions, ported
-//! from the TS CLI tests `sessions-ls.test.ts`, `sessions-analyze.test.ts`
-//! and `sessions-export.test.ts`. Each test runs the binary over a throwaway
-//! HOME, so nothing from the developer's machine leaks in.
+//! `sessions ls / analyze / export` over Claude, Codex and Pi sessions. Each
+//! test runs the binary over a throwaway HOME, so nothing from the developer's machine leaks in.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -85,7 +83,7 @@ impl Drop for Home {
     }
 }
 
-// sessions-ls.test.ts: one Claude, Codex and Pi session each (Codex newest,
+// sessions ls: one Claude, Codex and Pi session each (Codex newest,
 // Claude oldest).
 
 fn ls_home() -> Home {
@@ -203,7 +201,7 @@ fn cwd_matches_the_directory_and_anything_below_it() {
     assert_eq!(ids(&out), [PI_ID, CLAUDE_ID]);
 }
 
-// sessions-analyze.test.ts: two Claude sessions and one newer Codex session.
+// sessions analyze: two Claude sessions and one newer Codex session.
 
 fn claude_lines(at: &str, context_tokens: u32, cwd: &str) -> [Value; 2] {
     [
@@ -240,7 +238,7 @@ fn analyze_latest_picks_the_newest_session_of_any_agent() {
     assert_eq!(a["sessionId"], CODEX);
 }
 
-// sessions-export.test.ts: one Claude session and one newer Codex session.
+// sessions export: one Claude session and one newer Codex session.
 
 #[test]
 fn export_latest_exports_a_non_claude_session() {

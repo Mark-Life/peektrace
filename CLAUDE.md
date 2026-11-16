@@ -1,9 +1,19 @@
+## Layout
+The app is Rust (`crates/`): the `peektrace` CLI, server, TUI and the Rune native app. TypeScript is only the browser UI (`apps/inspector`, `packages/ui`, `packages/viz`, `packages/view-core`) and the release scripts (`scripts/release`).
+
+## Dev commands
+- Run: `cargo run -p peektrace-cli -- serve` (debug build serves `apps/inspector/dist` from disk; build it with `bun run --filter=inspector build`). `bun run serve` builds the UI, then runs a release build.
+- UI with hot reload: the server above with `--no-open --port 4321`, plus `bun run dev` (Vite proxies `/api` to it).
+- Rust checks: `cargo fmt --all --check`, `cargo clippy --locked --all-targets -- -D warnings`, `cargo test --locked`. The Rune app crates are outside default-members: add `-p peektrace-ui -p peektrace-app`.
+- TS checks: `bun run typecheck`, `bun run check`, `bun test`.
+- Fixtures the Rust tests read live in `tests/fixtures`.
+
 ## Code Quality
 When writing or reviewing TypeScript/full-stack code, follow the `quality-code` skill (`.agents/skills/quality-code/SKILL.md`). It loads on demand — invoke it for the full standards.
 
 
 ## Typecheck
-Typecheck with `bun run typecheck` (per-package `tsrs --noEmit`, the Rust TypeScript 7 port from oxc-project/tsrs; `typescript` stays installed for editors and tooling). Never run `tsc -b` or bare `tsc` — build/emit mode writes `.js`/`.d.ts`/`.d.ts.map` next to sources and pollutes the tree; stale emitted `*.test.js` then get double-run by `bun test`. The base tsconfig sets `noEmit`, but build mode (`-b`) bypasses it. This repo never builds via tsc (Bun runs TS directly; the inspector builds with Vite; web with Next).
+Typecheck with `bun run typecheck` (per-package `tsrs --noEmit`, the Rust TypeScript 7 port from oxc-project/tsrs; `typescript` stays installed for editors and tooling). Never run `tsc -b` or bare `tsc` — build/emit mode writes `.js`/`.d.ts`/`.d.ts.map` next to sources and pollutes the tree; stale emitted `*.test.js` then get double-run by `bun test`. The base tsconfig sets `noEmit`, but build mode (`-b`) bypasses it. This repo never builds via tsc (the inspector builds with Vite; Bun runs the scripts directly).
 
 ## Local Effect Source
 Two Effect checkouts are cloned locally for reference (we're mid-transition, so both matter):

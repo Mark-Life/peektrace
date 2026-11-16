@@ -163,7 +163,7 @@ fn a_shard_cut_mid_line_fails_cleanly() {
 
 const RETRIES: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/../../packages/core/test/fixtures/sessions-claude/retries.jsonl"
+    "/../../tests/fixtures/sessions-claude/retries.jsonl"
 );
 
 #[test]

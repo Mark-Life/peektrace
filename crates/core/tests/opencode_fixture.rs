@@ -1,6 +1,6 @@
-//! Parser facts from `opencode.test.ts` and the `OpenCode` cases of
-//! `cost.test.ts`. The TS fixture `sessions-opencode/session-fixture.jsonl`
-//! is reader output; here the same session is stored as DB rows. Part ids
+//! `OpenCode` parser facts and cost. The fixture
+//! `sessions-opencode/session-fixture.jsonl` is reader output; here the same
+//! session is stored as DB rows. Part ids
 //! get an ordinal prefix so SQL order (`message_id, id`) keeps file order.
 
 mod common;

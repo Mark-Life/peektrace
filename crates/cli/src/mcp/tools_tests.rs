@@ -20,7 +20,7 @@ fn args(text: &str) -> JsValue {
     JsValue::parse(text).unwrap_or(JsValue::Null)
 }
 
-/// TS `mcp-protocol.test.ts` "%s refuses redact:false", one per tool.
+/// Each tool refuses `redact: false`.
 #[test]
 fn every_tool_refuses_redact_false() {
     let s = shared();
@@ -47,7 +47,7 @@ fn every_tool_refuses_redact_false() {
     }
 }
 
-/// TS `mcp-protocol.test.ts` "a defect becomes an isError result".
+/// A defect becomes an `isError` result.
 #[test]
 fn a_defect_becomes_an_is_error_result() {
     let boom = Tool {

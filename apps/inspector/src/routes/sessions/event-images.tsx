@@ -48,7 +48,6 @@ const Picture = ({
     return <span className={NOTE}>Decoding image…</span>;
   }
   return (
-    // biome-ignore lint/performance/noImgElement: Vite app, not Next; a blob: URL needs no optimizer.
     <img
       alt={alt}
       className={cn(

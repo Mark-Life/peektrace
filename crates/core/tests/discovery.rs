@@ -1,6 +1,4 @@
-//! Codex and Pi roots and file discovery, ported from the TS tests
-//! `agents-walkers.test.ts`, the Codex/Pi cases of `agents.test.ts`, and the
-//! unreadable-row case of `swallowed-errors.test.ts`.
+//! Codex and Pi roots and file discovery, plus the unreadable-row case.
 #![cfg_attr(not(unix), allow(unused_imports, dead_code))]
 
 mod common;
@@ -41,7 +39,7 @@ fn sorted_ids(agent: Agent, roots: &AgentRoots) -> (Vec<String>, Vec<String>) {
     (ids, slugs)
 }
 
-// agents-walkers.test.ts
+// Directory walkers
 
 fn walker_tree() -> std::path::PathBuf {
     let base = temp_dir("walkers");
@@ -83,7 +81,7 @@ fn pi_lists_slug_dirs_id_from_after_the_underscore() {
     let _ = fs::remove_dir_all(&base);
 }
 
-// agents.test.ts, Codex and Pi
+// Codex and Pi roots
 
 fn env() -> RootsEnv {
     RootsEnv {
@@ -146,7 +144,7 @@ fn derives_codex_and_pi_extra_roots_per_layout() {
     assert_eq!(pi[1].label, "pi-extra");
 }
 
-// swallowed-errors.test.ts: an unreadable row with no slug keeps an empty
+// An unreadable row with no slug keeps an empty
 // project. A Codex ref has no slug, so its unreadable row has project "" and
 // is kept under any `--project`.
 

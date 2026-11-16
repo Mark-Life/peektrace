@@ -14,10 +14,7 @@ import { defineConfig } from "vite";
  * - Prod transport: none needed — `peektrace serve` hosts `dist/` and `/api`
  *   on the same origin, so the default base URL `""` resolves `/api` directly.
  */
-const API_TARGET =
-  process.env.PEEKTRACE_API_TARGET ??
-  process.env.PEEKTRACE_RPC_TARGET ??
-  "http://127.0.0.1:4321";
+const API_TARGET = process.env.PEEKTRACE_API_TARGET ?? "http://127.0.0.1:4321";
 
 const EFFECT_RE = /node_modules\/(effect|@effect|@effect-atom)\//;
 const REACT_RE = /node_modules\/(react|react-dom|scheduler)\//;

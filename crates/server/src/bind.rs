@@ -89,7 +89,7 @@ mod tests {
         let (_peer, from) = listener.accept().unwrap();
         assert!(from.ip().to_canonical().is_loopback(), "{from}");
     }
-    // find-free-port.test.ts: a client polling the port does not stall the scan.
+    // A client polling the port does not stall the scan.
     #[test]
     fn a_client_connecting_during_the_scan_does_not_stall_it() {
         let (first, port) = bind_free_port("127.0.0.1", 44_200).unwrap();

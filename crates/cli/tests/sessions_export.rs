@@ -1,6 +1,6 @@
 //! `peektrace sessions export` over a throwaway home: one Claude session
 //! whose text carries fake secrets and a home path, and one newer Codex
-//! session. Ported from `apps/cli/test/sessions-export`.
+//! session.
 
 mod common;
 

@@ -30,7 +30,6 @@ mod tests {
         assert_eq!(verdict(0.7, 0.4), "Rotting");
     }
 
-    /// TS `verdict.test.ts`.
     #[test]
     fn verdict_bands_switch_at_the_dumb_zone_and_at_rotting() {
         assert_eq!(verdict(0.39, 0.4), "Healthy");
@@ -39,7 +38,6 @@ mod tests {
         assert_eq!(verdict(ROTTING_FRACTION, 0.4), "Rotting");
     }
 
-    /// TS `verdict.test.ts`.
     #[test]
     #[allow(clippy::float_cmp)]
     fn fractions_are_zero_for_an_unknown_window() {

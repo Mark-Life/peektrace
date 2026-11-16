@@ -349,7 +349,7 @@ mod tests {
             .collect()
     }
 
-    /// TS `argv.test.ts` `isRootHelp`.
+    /// Root help shows only when no subcommand is given.
     #[test]
     fn root_help_only_without_a_subcommand() {
         let root = |s: &[&str]| early(&words(s)) == Some(Early::RootHelp);
@@ -367,8 +367,8 @@ mod tests {
         assert!(!root(&[]));
     }
 
-    /// TS `argv.test.ts` `helpGroup`. `--help sessions` names the group in
-    /// TS too, but the root page wins there first, as it does here.
+    /// Group help shows for `<group> --help`. For `--help sessions` the root
+    /// page wins first.
     #[test]
     fn group_help_only_for_group_then_help() {
         let group = |s: &[&str]| match early(&words(s)) {
@@ -388,7 +388,7 @@ mod tests {
         assert_eq!(group(&["sessions", "--completions", "zsh", "--help"]), None);
     }
 
-    /// TS `help.test.ts` "rows match the real command tree": root commands
+    /// Rows match the real command tree: root commands
     /// plus group subcommands equal the rows plus the group paths.
     #[test]
     fn rows_match_the_real_command_tree() {
@@ -412,9 +412,9 @@ mod tests {
         assert_eq!(paths, want);
     }
 
-    /// TS `help.test.ts` "every real root option appears on the page": the
-    /// root flags clap knows, minus those the TS lib adds itself, are the
-    /// page's own rows, and each shows on the page.
+    /// Every real root option appears on the page: the root flags clap
+    /// knows, minus the built-in ones, are the page's own rows, and each
+    /// shows on the page.
     #[test]
     fn every_real_root_option_appears_on_the_page() {
         use std::collections::BTreeSet;

@@ -1,5 +1,5 @@
 //! `peektrace upgrade` against a local fake release server, replacing a temp
-//! file through `PEEKTRACE_UPGRADE_TARGET` (TS `upgrade.test.ts`).
+//! file through `PEEKTRACE_UPGRADE_TARGET`.
 #![cfg(unix)]
 #![allow(clippy::case_sensitive_file_extension_comparisons)]
 

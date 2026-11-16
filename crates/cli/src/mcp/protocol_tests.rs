@@ -12,7 +12,6 @@ fn result(line: &str) -> String {
     reply_of(line).unwrap_or_default()
 }
 
-/// TS `mcp-protocol.test.ts`.
 #[test]
 fn initialize_echoes_a_known_version_and_falls_back() {
     let r = result(
@@ -193,8 +192,7 @@ fn parsed(line: &str) -> JsValue {
     JsValue::parse(&result(line)).unwrap_or(JsValue::Null)
 }
 
-/// TS `mcp-protocol.test.ts` "initialize" and "envelope", with its own
-/// requests.
+/// The initialize reply and the JSON-RPC envelope.
 #[test]
 fn ts_initialize_and_envelope_cases() {
     let r = parsed(
@@ -250,8 +248,7 @@ fn ts_initialize_and_envelope_cases() {
     );
 }
 
-/// TS `mcp-protocol.test.ts` "lists the five read-only tools with object
-/// schemas".
+/// `tools/list` names five read-only tools, each with an object schema.
 #[test]
 fn listed_tools_are_read_only_object_schemas() {
     let r = parsed(r#"{"jsonrpc":"2.0","id":7,"method":"tools/list"}"#);

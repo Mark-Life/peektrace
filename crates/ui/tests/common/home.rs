@@ -23,7 +23,7 @@ pub const BIG_BYTES: usize = 200_000;
 pub const BIG_TURN: u64 = 30;
 
 fn fixtures() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/test/fixtures")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures")
 }
 
 fn copy_dir(from: &Path, to: &Path) {

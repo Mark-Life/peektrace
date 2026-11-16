@@ -1,5 +1,5 @@
 {
-  "extends": ["ultracite/biome/core", "ultracite/biome/next"],
+  "extends": ["ultracite/biome/core", "ultracite/biome/react"],
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
     "includes": [
@@ -7,13 +7,14 @@
       "apps/**/*.tsx",
       "packages/**/*.ts",
       "packages/**/*.tsx",
+      "scripts/**/*.ts",
       "!node_modules/**/*",
       "!dist/**/*",
       // Vendored agent instructions, not source. Biome pulls the markdown in
       // through the `extends` merge and then errors on it.
       "!.agents/**/*",
       "!.claude/**/*",
-      "!apps/cli/scripts/npm",
+      "!scripts/release/npm",
       // Generated from crates/protocol, crates/core and crates/server.
       "!packages/view-core/src/*.gen.ts",
       "!apps/inspector/test/fixtures/**/*",

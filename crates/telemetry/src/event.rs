@@ -1,5 +1,5 @@
-//! The wide event: one per root span, stored as JSON in the TS schema
-//! (`packages/telemetry/src/schema.ts`), keys in schema order.
+//! The wide event: one per root span, stored as JSON in the schema the TS
+//! CLI wrote, so old stores stay readable; keys in schema order.
 
 use std::collections::hash_map::RandomState;
 use std::hash::BuildHasher as _;

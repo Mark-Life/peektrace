@@ -1,6 +1,5 @@
 //! Throwaway HOMEs the end-to-end tests run the binary over: a preset
-//! Claude project (`Fixture`) and a synthetic home built per test (`Home`,
-//! as `apps/cli/test/support/synthetic-home.ts` builds them).
+//! Claude project (`Fixture`) and a synthetic home built per test (`Home`).
 #![allow(dead_code)]
 
 use std::fs::{self, File};

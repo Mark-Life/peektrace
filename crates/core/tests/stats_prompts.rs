@@ -1,6 +1,6 @@
-//! The investigation prompts. Golden texts come from the TS `statsPrompt`
-//! over the `prompts.test.ts` fixtures with the CLI number formatters
-//! (`scripts/rust/stats-prompt-golden.ts`); each TS assertion is kept too.
+//! The investigation prompts. Golden texts were recorded from the TS
+//! `statsPrompt` with the CLI number formatters; each TS assertion is kept
+//! too.
 
 use peektrace_core::Agent;
 use peektrace_core::stats::accumulate::{CorpusSummary, SampleRef, StatsWindow};

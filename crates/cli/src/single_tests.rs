@@ -51,8 +51,7 @@ fn cells() {
     assert_eq!(percent(0.115), "11.5%");
 }
 
-/// TS `sessions-filter.test.ts`: the `planTarget` and `pickTarget` cases
-/// that need no listing.
+/// Target planning and picking cases that need no listing.
 #[test]
 fn plans_like_pick_target() {
     let invalid = |r: Result<Plan, UserError>| matches!(r, Err(UserError::Invalid(_)));

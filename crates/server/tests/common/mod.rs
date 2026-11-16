@@ -18,7 +18,7 @@ pub mod stats_fixture;
 pub const SESSION: &str = "11111111-1111-4111-8111-111111111111";
 
 pub fn fixtures(sub: &str) -> String {
-    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/test/fixtures");
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures");
     p.join(sub).to_string_lossy().into_owned()
 }
 

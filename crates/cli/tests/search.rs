@@ -1,6 +1,5 @@
 //! `peektrace sessions search`, run as a user runs it: a real process over a
-//! throwaway home holding synthetic sessions (port of
-//! `apps/cli/test/sessions-search.test.ts`).
+//! throwaway home holding synthetic sessions.
 
 mod common;
 

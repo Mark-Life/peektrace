@@ -1,5 +1,5 @@
-//! Memory trees for the app's tests and goldens: a port of the parity
-//! harness's `buildMemHome` (every vault state) and a small set of vaults
+//! Memory trees for the app's tests and goldens: one home with every vault
+//! state and a small set of vaults
 //! for the headless scenes. Mtimes are pinned, so dates and sort ties hold.
 
 #![allow(dead_code, reason = "each test binary uses part of it")]
@@ -30,7 +30,7 @@ pub fn put(path: &Path, body: impl AsRef<[u8]>) {
 }
 
 fn fixtures() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../packages/core/test/fixtures/memory")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/memory")
 }
 
 /// `---\nname: \xff\xfe\n---\nbody\n`: invalid UTF-8 in a name.
@@ -116,7 +116,7 @@ fn unreadable_and_link(a: &Path) {
 #[cfg(not(unix))]
 const fn unreadable_and_link(_: &Path) {}
 
-/// The vault of core's `memory.test.ts` plus both `fixtures/memory` files.
+/// A small memory vault plus both `fixtures/memory` files.
 fn seed_vault(dir: &Path) {
     put(
         &dir.join("a.md"),

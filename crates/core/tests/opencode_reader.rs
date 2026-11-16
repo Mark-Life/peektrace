@@ -1,6 +1,5 @@
-//! `OpenCode` reader robustness, refs, SQL order and the TS dialect byte
-//! count. Ports `opencode-reader.test.ts`, the `OpenCode` cases of
-//! `agents-walkers.test.ts`, `agents.test.ts` and `list-cache.test.ts`.
+//! `OpenCode` reader robustness, refs, SQL order, the JS dialect byte count,
+//! discovery and the list cache.
 
 mod common;
 
