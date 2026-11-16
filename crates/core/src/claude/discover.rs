@@ -151,6 +151,7 @@ mod tests {
         Source {
             id: "claude".to_owned(),
             label: "Claude".to_owned(),
+            home: String::new(),
             projects_root: root.to_owned(),
         }
     }

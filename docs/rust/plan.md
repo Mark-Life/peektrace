@@ -68,6 +68,9 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--pretty` widths | `Bun.stringWidth` | same per char and for Lam-Alef. A few sequences still differ, e.g. a keycap with no VS16 (`#⃣`) or a prepend mark before an emoji. |
 | `--otel` `Sessions.list` `malformedLines` and root `cli` `sessions.unreadable` with `--project` | count every Claude transcript | count only the kept project. The stderr note on unreadable sessions matches. |
 | Codex, Pi and OpenCode sessions | listed | no reader yet. `--agent codex`, `pi` or `opencode` exits 1 with `not supported yet`. Without `--agent`, only Claude rows, plus a note on stderr. |
+| `sessions analyze` / `export` with `--latest`, `--cwd` or an id prefix | pick among every agent's sessions; a prefix must be unique across all of them | pick among Claude sessions only. When a Codex, Pi or OpenCode root holds files, stderr says `<agents> sessions are not searched: not supported yet`. |
+| `sessions analyze` / `export` with a Codex, Pi or OpenCode id | analyzed | exit 1 with `Session "<id>" not found (searched claude only; <agents> not supported yet).` When those roots are empty, the TS text `(searched all agents)` is kept. |
+| A `null` line, or assistant `content` that is a number, boolean or object | `analyze` / `export` fail with an Effect error on stdout | the `null` line is skipped; the content yields no events |
 | Tie order by id (same `updatedAt`) for non-ASCII ids | ICU `localeCompare` | ASCII in CLDR root order, other chars after ASCII by code point. Session ids are ASCII in practice. |
 | Two roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |

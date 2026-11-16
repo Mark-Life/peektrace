@@ -162,7 +162,7 @@ pub fn run(args: &LsArgs, globals: Globals, ctx: &Context) -> Result<Output, Use
     };
     let notes = render::list_notes(unreadable, table_notes, picked.hidden)
         .into_iter()
-        .chain(render::skipped_note(&listing.skipped))
+        .chain(render::skipped_note(&listing.skipped, "listed"))
         .collect();
     Ok(Output {
         stdout,

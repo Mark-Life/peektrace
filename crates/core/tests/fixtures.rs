@@ -1,11 +1,14 @@
-//! Listing against the TS test fixtures in `packages/core/test/fixtures`.
-//! Expected values come from the TS CLI (`sessions ls --json`).
+//! Listing, analysis and export against the TS test fixtures in
+//! `packages/core/test/fixtures`. Expected values come from the TS CLI
+//! (`sessions ls --json`, `sessions analyze --json`).
 
 use std::path::PathBuf;
 
+use peektrace_core::export::{ExportFormat, ExportOptions, render_export};
 use peektrace_core::js::time::Utc;
 use peektrace_core::roots::{RootsEnv, claude_sources};
 use peektrace_core::select::{SelectOptions, select_sessions};
+use peektrace_core::sessions::service::{SessionEnv, analyze_session, get_session, session_image};
 use peektrace_core::{Agent, AgentRoots, ListFilter, SessionHeader, list_sessions};
 
 fn fixtures(sub: &str) -> String {
@@ -141,4 +144,95 @@ fn selection_sorts_newest_first_and_limits() {
 fn missing_root_is_empty() {
     let listing = list_sessions(&roots_at("/nonexistent/projects"), &claude_only(None));
     assert_eq!(listing.headers.len() + listing.unreadable.len(), 0);
+}
+
+const GOLDEN_ID: &str = "11111111-1111-4111-8111-111111111111";
+
+#[test]
+fn analyze_golden_session_with_subagent() {
+    let roots = roots_at(&fixtures("sessions/projects"));
+    let env = SessionEnv {
+        claude: &roots.claude,
+        unsearched: &[],
+        local: &Utc,
+    };
+    let a = analyze_session(env, "1111", None, true).expect("analyze");
+    assert_eq!(a.parsed.session_id, GOLDEN_ID);
+    assert_eq!(a.turn_count, 3);
+    assert_eq!(a.tool_call_count, 1);
+    assert!((a.peak_context_tokens - 1150.0).abs() < f64::EPSILON);
+    assert!((a.final_context_tokens - 970.0).abs() < f64::EPSILON);
+    let cost = a.cost.as_ref().expect("cost");
+    assert_eq!(cost.total_usd, Some(0.117_192_499_999_999_99));
+    assert_eq!(cost.subagents_usd, Some(0.000_23));
+    let [sub] = a.parsed.subagents.as_slice() else {
+        panic!("expected one subagent")
+    };
+    assert_eq!(
+        (
+            sub.id.as_str(),
+            sub.turns,
+            sub.peak_context_tokens,
+            sub.cost.cost_usd
+        ),
+        ("agent-1", 2, 700.0, Some(0.000_154))
+    );
+}
+
+#[test]
+fn export_golden_session() {
+    let roots = roots_at(&fixtures("sessions/projects"));
+    let env = SessionEnv {
+        claude: &roots.claude,
+        unsearched: &[],
+        local: &Utc,
+    };
+    let session = get_session(env, GOLDEN_ID, None, true).expect("session");
+    let opts = ExportOptions {
+        exported_at: "2026-01-01T00:00:00.000Z".to_owned(),
+        home: None,
+        redacted: true,
+    };
+    let md = render_export(ExportFormat::Md, &session, &opts);
+    assert!(
+        md.starts_with("# Refactor auth module\n\n- Session: 11111111-"),
+        "{md}"
+    );
+    let json = render_export(ExportFormat::Json, &session, &opts);
+    assert!(
+        json.contains("\"exportedAt\": \"2026-01-01T00:00:00.000Z\""),
+        "{json}"
+    );
+    let html = render_export(ExportFormat::Html, &session, &opts);
+    assert!(html.starts_with("<!doctype html>"), "{html}");
+    let sub = get_session(env, "agent-1", Some("1111"), false).expect("subagent");
+    assert_eq!(sub.session_id, "agent-1");
+}
+
+#[test]
+fn session_image_reads_bytes_by_line_and_block() {
+    let dir = std::env::temp_dir().join(format!("peektrace-img-{}", std::process::id()));
+    let proj = dir.join("-p");
+    std::fs::create_dir_all(&proj).expect("mkdir");
+    std::fs::copy(
+        fixtures("sessions-claude/measured-image.jsonl"),
+        proj.join("img.jsonl"),
+    )
+    .expect("copy");
+    let roots = roots_at(&dir.to_string_lossy());
+    let env = SessionEnv {
+        claude: &roots.claude,
+        unsearched: &[],
+        local: &Utc,
+    };
+    let in_result = session_image(env, "img", None, 2, 0, Some(0)).expect("image");
+    let inline = session_image(env, "img", None, 4, 1, None).expect("image");
+    let text_block = session_image(env, "img", None, 4, 0, None).expect("image");
+    let _ = std::fs::remove_dir_all(&dir);
+    for img in [in_result, inline] {
+        let img = img.expect("an image");
+        assert_eq!(img.media_type, "image/png");
+        assert!(img.data.starts_with("iVBORw0KGgo"));
+    }
+    assert_eq!(text_block, None);
 }
