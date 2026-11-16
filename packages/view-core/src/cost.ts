@@ -171,12 +171,15 @@ export const headerCost = (
           PROVIDER_OF[h.agent]
         );
 
-  const amount =
-    costUsd === undefined ? "unknown" : `$${costUsd.toFixed(USD_DECIMALS)}`;
+  const unpricedNote = unpriced ? ", some models unpriced" : "";
+  const amount = costUsd === undefined ? "" : fmtRecordedUsd(costUsd);
 
-  const label = recorded
-    ? `cost ${amount}, recorded`
-    : `cost about ${amount}, estimated${unpriced ? ", some models unpriced" : ""}`;
+  const estimated =
+    costUsd === undefined
+      ? `cost unknown${unpricedNote}`
+      : `cost about ${amount}, estimated${unpricedNote}`;
+
+  const label = recorded ? `cost ${amount}, recorded` : estimated;
 
   return summary === undefined
     ? undefined

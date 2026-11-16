@@ -152,8 +152,21 @@ describe("cost formatting", () => {
       title:
         "Cost: ~$3.00 · estimated from tokens · incl. subagents ~$1.00 · unpriced: mystery",
     });
-    expect(headerCost({ agent: "pi", unpricedModels: ["mystery"] })?.text).toBe(
-      "—*"
-    );
+    const unknown = headerCost({ agent: "pi", unpricedModels: ["mystery"] });
+    expect([unknown?.text, unknown?.label]).toEqual([
+      "—*",
+      "cost unknown, some models unpriced",
+    ]);
+
+    const cents = headerCost({
+      agent: "codex",
+      costSource: "estimate",
+      costUsd: 0.001,
+    });
+
+    expect([cents?.text, cents?.label]).toEqual([
+      "<$0.01",
+      "cost about <$0.01, estimated",
+    ]);
   });
 });
