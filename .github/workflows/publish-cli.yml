@@ -413,6 +413,7 @@ jobs:
           # and treat a race where npm reports it as already published as
           # success, so a partially-failed run is safe to retry.
           publish_dir() {
+            # "./" keeps npm from reading dist-npm/peektrace as a GitHub repo.
             local dir="$1"
             local name version
             name="$(node -p "require('./$dir/package.json').name")"
@@ -423,7 +424,7 @@ jobs:
             fi
             echo "Publishing $name@$version"
             local out
-            if out="$(npm publish "$dir" --access public 2>&1)"; then
+            if out="$(npm publish "./$dir" --access public 2>&1)"; then
               printf '%s\n' "$out"
               return 0
             fi
