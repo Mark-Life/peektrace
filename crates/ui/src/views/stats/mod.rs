@@ -11,7 +11,7 @@ mod header;
 mod links;
 mod pending;
 
-use rune::{Color, Cx, El, Icon, ScrollSpec, col, el, row, text};
+use rune::{Color, Cx, El, Icon, ScrollSpec, col, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
 use peektrace_protocol::stats::{SampleRefView, StatsReportView};
@@ -90,6 +90,7 @@ pub fn mono(s: impl Into<String>, t: &Theme) -> El {
 pub fn outline_badge(label: impl Into<String>, mono: bool, t: &Theme) -> El {
     row()
         .h(20.0)
+        .shrink()
         .px(8.0)
         .radius(6.0)
         .center_y()
@@ -97,21 +98,30 @@ pub fn outline_badge(label: impl Into<String>, mono: bool, t: &Theme) -> El {
         .child(
             text(label.into())
                 .font(if mono { ty::MONO_XS } else { ty::XS_MEDIUM })
-                .color(t.fg),
+                .color(t.fg)
+                .truncate()
+                .min_w(0.0),
         )
 }
 
 pub fn secondary_badge(label: impl Into<String>, t: &Theme) -> El {
     row()
         .h(20.0)
+        .shrink()
         .px(8.0)
         .radius(6.0)
         .center_y()
         .fill(t.muted)
-        .child(text(label.into()).font(ty::XS_MEDIUM).color(t.fg))
+        .child(
+            text(label.into())
+                .font(ty::XS_MEDIUM)
+                .color(t.fg)
+                .truncate()
+                .min_w(0.0),
+        )
 }
 
-/// A small button: outline or ghost, 24 tall.
+/// An outline or ghost button, as tall as the selects and fields.
 pub fn small_button(label: impl Into<String>, ghost: bool, t: &Theme) -> Button {
     let _ = t;
     Button::new(label)
@@ -120,16 +130,7 @@ pub fn small_button(label: impl Into<String>, ghost: bool, t: &Theme) -> Button 
         } else {
             ButtonVariant::Outline
         })
-        .control_size(ControlSize::Regular)
-}
-
-/// A muted filled block standing in for content that is loading.
-pub fn skeleton(w: Option<f32>, h: f32, t: &Theme) -> El {
-    let b = el().h(h).radius(6.0).fill(t.muted);
-    match w {
-        Some(w) => b.w(w).max_w(f32::MAX),
-        None => b.w_full(),
-    }
+        .control_size(ControlSize::Large)
 }
 
 fn section(key: &str, title: &str, by: &str, body: Vec<El>, t: &Theme) -> El {

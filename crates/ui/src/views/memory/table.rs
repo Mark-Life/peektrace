@@ -255,7 +255,7 @@ fn detail(vault: &str, e: &EntryView, can_write: bool, t: &Theme) -> El {
                 .child(
                     Button::new("Edit")
                         .variant(ButtonVariant::Outline)
-                        .control_size(ControlSize::Small)
+                        .control_size(ControlSize::Large)
                         .on_press(move |s: &mut Ui| s.open_edit(&v1, &e1))
                         .build(&t.kit)
                         .key(format!("mem-edit:{vault}:{}", e.slug)),
@@ -263,7 +263,7 @@ fn detail(vault: &str, e: &EntryView, can_write: bool, t: &Theme) -> El {
                 .child(
                     Button::new("Delete")
                         .variant(ButtonVariant::Outline)
-                        .control_size(ControlSize::Small)
+                        .control_size(ControlSize::Large)
                         .on_press(move |s: &mut Ui| s.open_delete(&v2, &e2))
                         .build(&t.kit)
                         .key(format!("mem-delete:{vault}:{}", e.slug)),

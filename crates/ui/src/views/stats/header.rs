@@ -3,13 +3,14 @@
 
 use peektrace_protocol::AgentId;
 use rune::{El, Tx, col, icon, row, spacer, text};
-use rune_kit::{Collapsible, Select};
+use rune_kit::Collapsible;
 
 use super::copy::prompt_button;
 use super::{REFRESH, SHIELD_CHECK, V, muted, small_button};
 use crate::model::stats::rows::{DAY_OPTIONS, caveats_line, corpus_line, window_line};
 use crate::state::Ui;
 use crate::theme::ty;
+use crate::views::widgets::select;
 
 const ALL_AGENTS: &str = "All agents";
 
@@ -21,7 +22,7 @@ fn controls(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
     let (s, t) = (v.s, v.t);
     let days: Vec<String> = DAY_OPTIONS.iter().map(|d| day_label(*d)).collect();
     let current = day_label(s.stats.scope.days);
-    let days = Select::new("stats-days", &days)
+    let days = select("stats-days", &days)
         .width(128.0)
         .current(Some(current.as_str()))
         .label("Window")
@@ -40,7 +41,7 @@ fn controls(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
     let agents: Vec<&str> = std::iter::once(ALL_AGENTS)
         .chain(AgentId::ALL.iter().map(|a| a.as_str()))
         .collect();
-    let agent = Select::new("stats-agent", &agents)
+    let agent = select("stats-agent", &agents)
         .width(144.0)
         .current(Some(
             s.stats.scope.agent.map_or(ALL_AGENTS, AgentId::as_str),
@@ -76,7 +77,9 @@ fn controls(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
         v.text.map(|x| x.prompts.report.as_str()),
         t,
     );
+    // Shrinks to the window, so a narrow one wraps the buttons, not clips them.
     row()
+        .shrink()
         .flex_wrap()
         .gap(8.0)
         .center_y()
@@ -117,6 +120,7 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
                         .font(ty::MONO_SM)
                         .color(t.fg)
                         .wrap()
+                        .shrink()
                         .key("stats-corpus"),
                 )
                 .child(spacer())
@@ -125,13 +129,17 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
         .child(muted(window_line(r, v.generated), t).key("stats-window"))
         .child(
             row()
+                .w_full()
                 .gap(6.0)
                 .center_y()
                 .child(icon(&SHIELD_CHECK, 14.0).color(t.muted_fg))
-                .child(muted(
-                    "Command text, error signatures and cluster labels are redacted before they are stored or shown.",
-                    t,
-                )),
+                .child(
+                    muted(
+                        "Command text, error signatures and cluster labels are redacted before they are stored or shown.",
+                        t,
+                    )
+                    .shrink(),
+                ),
         )
         .child(caveats)
 }

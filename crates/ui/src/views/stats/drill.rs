@@ -8,12 +8,13 @@ use peektrace_protocol::stats::{DrillHitView, DrillView};
 use rune::{El, GrowthSpec, ScrollSpec, Tx, col, el, memo, row, spacer, text};
 use rune_kit::{IconButton, IconButtonVariant};
 
-use super::{V, error_view, mono, muted, outline_badge, skeleton, small_button, title_for};
+use super::{V, error_view, mono, muted, outline_badge, small_button, title_for};
 use crate::model::stats::chips::drill_label;
 use crate::model::stats::format::hms;
 use crate::model::stats::rows::page_note;
 use crate::state::Ui;
 use crate::theme::{Theme, theme, ty};
+use crate::views::widgets::skeleton;
 
 /// Sheet width, as `sm:max-w-xl`.
 const SHEET_W: f32 = 576.0;
@@ -277,7 +278,7 @@ pub fn sheet(v: &V<'_>, layer: &mut Vec<El>) {
             .absolute(0.0, 0.0)
             .w_full()
             .h_full()
-            .fill(rune::Color::BLACK.alpha(0.4))
+            .fill(t.kit.c.scrim)
             .a11y_hidden(),
     );
     layer.push(

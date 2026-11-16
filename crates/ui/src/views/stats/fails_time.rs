@@ -133,7 +133,7 @@ fn fail_row(v: &V<'_>, r: &FailRowView, on: bool) -> El {
             .truncate(),
     );
     if let Some(d) = &r.detector {
-        what = what.child(row().child(outline_badge(d.clone(), true, t)));
+        what = what.child(row().w_full().child(outline_badge(d.clone(), true, t)));
     }
     let values = [
         None,
@@ -230,7 +230,13 @@ fn time_row(v: &V<'_>, r: &TimeRowView, on: bool) -> El {
         .flex_wrap()
         .gap(8.0)
         .center_y()
-        .child(text(r.label.clone()).font(ty::SM_MEDIUM).color(t.fg))
+        .child(
+            text(r.label.clone())
+                .font(ty::SM_MEDIUM)
+                .color(t.fg)
+                .truncate()
+                .shrink(),
+        )
         .children(
             time_badges(r)
                 .into_iter()

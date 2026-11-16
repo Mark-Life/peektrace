@@ -14,6 +14,7 @@ use common::stats_report::{
     PARENT, cause_row, fail_row, firing, main_sample, report, sample, sample_at, three_causes,
     time_row,
 };
+use common::tree::{blank_leaves_under, by_key, inside};
 use peektrace_core::stats::accumulate::SampleRef;
 use peektrace_core::stats::schema::Job;
 use peektrace_core::stats::service::StatsReport;
@@ -199,28 +200,6 @@ fn a_success_renders_the_value_and_no_retry() {
     assert!(rt.find("result-error").is_none() && rt.find("result-retry").is_none());
 }
 
-/// Leaves under `key`'s element with no text: the skeleton blocks.
-fn blank_leaves_under(rt: &Runtime<Ui>, key: &str) -> usize {
-    let els = rt.elements();
-    let Some(root) = els.iter().position(|e| e.key.as_deref() == Some(key)) else {
-        return 0;
-    };
-    let under = |mut i: usize| {
-        while let Some(p) = els[i].parent {
-            if p == root {
-                return true;
-            }
-            i = p;
-        }
-        false
-    };
-    (0..els.len())
-        .filter(|&i| under(i))
-        .filter(|&i| !els.iter().any(|e| e.parent == Some(i)))
-        .filter(|&i| els[i].text.is_none())
-        .count()
-}
-
 // stats-pending.test.tsx:11
 #[test]
 fn pending_stats_show_a_status_note_a_counter_and_skeletons_but_no_progress_bar() {
@@ -231,7 +210,7 @@ fn pending_stats_show_a_status_note_a_counter_and_skeletons_but_no_progress_bar(
     assert_eq!(el(&rt, "stats-elapsed").text.as_deref(), Some("0 s"));
     assert!(rt.elements().iter().any(|e| e.role == "status"));
     assert!(!rt.elements().iter().any(|e| e.role == "progressbar"));
-    let blocks = blank_leaves_under(&rt, "stats-pending");
+    let blocks = blank_leaves_under(&rt.elements(), "stats-pending");
     assert!(blocks > 5, "{blocks} skeleton blocks");
 }
 
@@ -454,4 +433,68 @@ fn a_mixed_group_shows_the_subagent_tag() {
     );
     assert!(has_text(&rt, "subagent"));
     assert!(!keys_with(&rt, "stats-session-more:").is_empty());
+}
+
+#[test]
+fn a_long_rule_badge_stays_in_its_cell_at_every_width() {
+    let long = "~/.claude/CLAUDE.md → ~/.agents/skills/agent-to-human/rules/shell-and-globs.md";
+    let r = report(
+        vec![cause_row(|c| {
+            c.rule = Some({
+                let mut f = firing();
+                f.matches[0].path = long.into();
+                f
+            });
+        })],
+        vec![],
+        vec![],
+    );
+    let key = format!("cause-rule:{}", r.causes[0].key);
+    for w in [1440.0, 900.0, 600.0] {
+        let rt = runtime_at(ui(&r), w);
+        let els = rt.elements();
+        let table =
+            by_key(&els, "cause-table").map_or_else(|| panic!("no table at {w}"), |e| e.rect);
+        let i = els
+            .iter()
+            .position(|e| e.key.as_deref() == Some(key.as_str()))
+            .unwrap_or_else(|| panic!("no rule badge at {w}"));
+        let badge = els[i].rect;
+        assert!(inside(badge, table), "{w}: badge {badge:?} table {table:?}");
+        assert!(badge[0] + badge[2] <= w, "{w}: badge {badge:?}");
+        assert!(
+            els[i].help.as_deref().is_some_and(|h| h.contains(long)),
+            "{w}"
+        );
+        for e in els.iter().filter(|e| e.parent == Some(i)) {
+            assert!(
+                inside(e.rect, badge),
+                "{w}: text {:?} badge {badge:?}",
+                e.rect
+            );
+        }
+    }
+}
+
+#[test]
+fn the_window_and_agent_selects_are_fields_at_the_inspectors_widths() {
+    let rt = runtime(ui(&three_causes()));
+    for (key, w) in [("stats-days", 128.0), ("stats-agent", 144.0)] {
+        let r = el(&rt, key).rect;
+        assert!(
+            (r[2] - w).abs() < 0.5 && (r[3] - 28.0).abs() < 0.5,
+            "{key}: {r:?}"
+        );
+    }
+}
+
+#[test]
+fn the_header_controls_wrap_inside_a_narrow_window() {
+    for w in [700.0, 900.0, 1440.0] {
+        let rt = runtime_at(ui(&three_causes()), w);
+        for key in ["stats-days", "stats-agent", "stats-rescan", "stats-prompt"] {
+            let r = el(&rt, key).rect;
+            assert!(r[0] + r[2] <= w, "{w}: {key} {r:?}");
+        }
+    }
 }

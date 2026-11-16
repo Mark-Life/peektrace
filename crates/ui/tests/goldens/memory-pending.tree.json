@@ -1,0 +1,232 @@
+{
+  "elements": [
+    {
+      "key": "kit-root",
+      "rect": [0, 0, 1440, 900],
+      "role": "group"
+    },
+    {
+      "rect": [0, 0, 1440, 900],
+      "role": "group"
+    },
+    {
+      "key": "nav",
+      "rect": [0, 0, 256, 900],
+      "role": "group"
+    },
+    {
+      "key": "titlebar-band",
+      "rect": [10, 10, 236, 32],
+      "role": "group"
+    },
+    {
+      "rect": [10, 46, 236, 47],
+      "role": "group"
+    },
+    {
+      "rect": [16, 46, 224, 18],
+      "role": "text",
+      "text": "Peektrace"
+    },
+    {
+      "rect": [16, 66, 224, 15],
+      "role": "text",
+      "text": "Agent session inspector"
+    },
+    {
+      "key": "nav-sessions",
+      "label": "Sessions",
+      "rect": [10, 97, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 104, 60, 18],
+      "role": "text",
+      "text": "Sessions"
+    },
+    {
+      "key": "nav-stats",
+      "label": "Stats",
+      "rect": [10, 133, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 140, 35, 18],
+      "role": "text",
+      "text": "Stats"
+    },
+    {
+      "key": "nav-memory",
+      "label": "Memory",
+      "rect": [10, 169, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 176, 54, 18],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "key": "nav-settings",
+      "label": "Settings",
+      "rect": [10, 205, 236, 32],
+      "role": "link"
+    },
+    {
+      "rect": [20, 212, 55, 18],
+      "role": "text",
+      "text": "Settings"
+    },
+    {
+      "rect": [10, 241, 236, 618],
+      "role": "group"
+    },
+    {
+      "rect": [10, 862, 236, 28],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Switch to light theme",
+      "rect": [10, 862, 44, 28],
+      "role": "button"
+    },
+    {
+      "rect": [18, 869, 28, 15],
+      "role": "text",
+      "text": "Light"
+    },
+    {
+      "key": "shortcuts-button",
+      "label": "Keyboard shortcuts",
+      "rect": [62, 862, 92, 28],
+      "role": "button"
+    },
+    {
+      "rect": [70, 868, 76, 16],
+      "role": "group"
+    },
+    {
+      "rect": [70, 868, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [92, 869, 54, 15],
+      "role": "text",
+      "text": "Shortcuts"
+    },
+    {
+      "rect": [256, 0, 1184, 900],
+      "role": "group"
+    },
+    {
+      "key": "header",
+      "rect": [256, 0, 1184, 44],
+      "role": "group"
+    },
+    {
+      "rect": [272, 13, 54, 18],
+      "role": "text",
+      "text": "Memory"
+    },
+    {
+      "rect": [336, 22, 1024, 0],
+      "role": "group"
+    },
+    {
+      "key": "syncing",
+      "rect": [1370, 15, 55, 15],
+      "role": "group"
+    },
+    {
+      "rect": [1370, 19, 6, 6],
+      "role": "image"
+    },
+    {
+      "rect": [1382, 15, 43, 15],
+      "role": "text",
+      "text": "syncing"
+    },
+    {
+      "key": "mem-scroll",
+      "rect": [256, 44, 1184, 856],
+      "role": "group"
+    },
+    {
+      "key": "mem-col",
+      "rect": [256, 44, 1184, 566],
+      "role": "group"
+    },
+    {
+      "key": "mem-loading",
+      "rect": [272, 60, 1152, 534],
+      "role": "group"
+    },
+    {
+      "rect": [272, 60, 1152, 18],
+      "role": "status",
+      "text": "Loading memory…"
+    },
+    {
+      "rect": [272, 98, 1152, 32],
+      "role": "group"
+    },
+    {
+      "rect": [272, 98, 320, 32],
+      "role": "group"
+    },
+    {
+      "rect": [604, 98, 144, 28],
+      "role": "group"
+    },
+    {
+      "rect": [760, 98, 208, 28],
+      "role": "group"
+    },
+    {
+      "rect": [272, 150, 1152, 84],
+      "role": "group"
+    },
+    {
+      "rect": [272, 150, 279, 84],
+      "role": "group"
+    },
+    {
+      "rect": [563, 150, 279, 84],
+      "role": "group"
+    },
+    {
+      "rect": [854, 150, 279, 84],
+      "role": "group"
+    },
+    {
+      "rect": [1145, 150, 279, 84],
+      "role": "group"
+    },
+    {
+      "rect": [272, 254, 1152, 160],
+      "role": "group"
+    },
+    {
+      "rect": [272, 254, 240, 20],
+      "role": "group"
+    },
+    {
+      "rect": [272, 286, 1152, 128],
+      "role": "group"
+    },
+    {
+      "rect": [272, 434, 1152, 160],
+      "role": "group"
+    },
+    {
+      "rect": [272, 434, 240, 20],
+      "role": "group"
+    },
+    {
+      "rect": [272, 466, 1152, 128],
+      "role": "group"
+    }
+  ],
+  "title": "Peektrace"
+}

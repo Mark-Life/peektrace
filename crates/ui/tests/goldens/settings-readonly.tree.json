@@ -154,12 +154,12 @@
       "role": "group"
     },
     {
-      "rect": [256, 44, 1184, 1231],
+      "rect": [256, 44, 1184, 1271],
       "role": "group"
     },
     {
       "key": "settings",
-      "rect": [464, 68, 768, 1183],
+      "rect": [464, 68, 768, 1223],
       "role": "group"
     },
     {
@@ -178,7 +178,7 @@
     },
     {
       "key": "settings-editor",
-      "rect": [480, 142, 736, 962],
+      "rect": [480, 142, 736, 998],
       "role": "group"
     },
     {
@@ -224,12 +224,12 @@
     },
     {
       "key": "settings-form",
-      "rect": [480, 335, 736, 769],
+      "rect": [480, 335, 736, 805],
       "role": "group"
     },
     {
       "key": "settings-agent-claude",
-      "rect": [480, 335, 736, 170],
+      "rect": [480, 335, 736, 178],
       "role": "group"
     },
     {
@@ -268,246 +268,246 @@
       "text": "No extra roots."
     },
     {
-      "rect": [496, 469, 704, 20],
+      "rect": [496, 469, 704, 28],
       "role": "group"
     },
     {
       "key": "settings-add-claude",
       "label": "Add root",
-      "rect": [496, 469, 65, 20],
+      "rect": [496, 469, 81, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [506, 473, 45, 12],
+      "rect": [510, 473, 53, 20],
       "role": "text",
       "text": "Add root"
     },
     {
       "key": "settings-agent-codex",
-      "rect": [480, 521, 736, 170],
+      "rect": [480, 529, 736, 178],
       "role": "group"
     },
     {
-      "rect": [496, 537, 704, 18],
+      "rect": [496, 545, 704, 18],
       "role": "text",
       "text": "Codex"
     },
     {
-      "rect": [496, 567, 704, 18],
+      "rect": [496, 575, 704, 18],
       "role": "text",
       "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
     },
     {
       "key": "settings-default-root",
-      "rect": [496, 596, 704, 18],
+      "rect": [496, 604, 704, 18],
       "role": "group"
     },
     {
-      "rect": [496, 596, 48, 18],
+      "rect": [496, 604, 48, 18],
       "role": "text",
       "text": "Default"
     },
     {
-      "rect": [552, 597, 58, 15],
+      "rect": [552, 605, 58, 15],
       "role": "text",
       "text": "~/.codex"
     },
     {
-      "rect": [618, 597, 158, 15],
+      "rect": [618, 605, 158, 15],
       "role": "text",
       "text": "scans ~/.codex/sessions"
     },
     {
-      "rect": [496, 626, 704, 18],
+      "rect": [496, 634, 704, 18],
       "role": "text",
       "text": "No extra roots."
     },
     {
-      "rect": [496, 655, 704, 20],
+      "rect": [496, 663, 704, 28],
       "role": "group"
     },
     {
       "key": "settings-add-codex",
       "label": "Add root",
-      "rect": [496, 655, 65, 20],
+      "rect": [496, 663, 81, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [506, 659, 45, 12],
+      "rect": [510, 667, 53, 20],
       "role": "text",
       "text": "Add root"
     },
     {
       "key": "settings-agent-pi",
-      "rect": [480, 707, 736, 170],
+      "rect": [480, 723, 736, 178],
       "role": "group"
     },
     {
-      "rect": [496, 723, 704, 18],
+      "rect": [496, 739, 704, 18],
       "role": "text",
       "text": "Pi"
     },
     {
-      "rect": [496, 753, 704, 18],
+      "rect": [496, 769, 704, 18],
       "role": "text",
       "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
     },
     {
       "key": "settings-default-root",
-      "rect": [496, 782, 704, 18],
+      "rect": [496, 798, 704, 18],
       "role": "group"
     },
     {
-      "rect": [496, 782, 48, 18],
+      "rect": [496, 798, 48, 18],
       "role": "text",
       "text": "Default"
     },
     {
-      "rect": [552, 783, 36, 15],
+      "rect": [552, 799, 36, 15],
       "role": "text",
       "text": "~/.pi"
     },
     {
-      "rect": [596, 783, 180, 15],
+      "rect": [596, 799, 180, 15],
       "role": "text",
       "text": "scans ~/.pi/agent/sessions"
     },
     {
-      "rect": [496, 812, 704, 18],
+      "rect": [496, 828, 704, 18],
       "role": "text",
       "text": "No extra roots."
     },
     {
-      "rect": [496, 841, 704, 20],
+      "rect": [496, 857, 704, 28],
       "role": "group"
     },
     {
       "key": "settings-add-pi",
       "label": "Add root",
-      "rect": [496, 841, 65, 20],
+      "rect": [496, 857, 81, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [506, 845, 45, 12],
+      "rect": [510, 861, 53, 20],
       "role": "text",
       "text": "Add root"
     },
     {
       "key": "settings-agent-opencode",
-      "rect": [480, 893, 736, 171],
+      "rect": [480, 917, 736, 179],
       "role": "group"
     },
     {
-      "rect": [496, 909, 704, 18],
+      "rect": [496, 933, 704, 18],
       "role": "text",
       "text": "OpenCode"
     },
     {
-      "rect": [496, 939, 704, 18],
+      "rect": [496, 963, 704, 18],
       "role": "text",
       "text": "Extra config dirs to scan alongside the default. The transcript root is derived from each path per agent layout."
     },
     {
       "key": "settings-default-root",
-      "rect": [496, 968, 704, 18],
+      "rect": [496, 992, 704, 18],
       "role": "group"
     },
     {
-      "rect": [496, 968, 48, 18],
+      "rect": [496, 992, 48, 18],
       "role": "text",
       "text": "Default"
     },
     {
-      "rect": [552, 970, 166, 15],
+      "rect": [552, 994, 166, 15],
       "role": "text",
       "text": "~/.local/share/opencode"
     },
     {
-      "rect": [726, 970, 201, 15],
+      "rect": [726, 994, 201, 15],
       "role": "text",
       "text": "scans ~/.local/share/opencode"
     },
     {
       "key": "root-missing",
-      "rect": [935, 968, 58, 18],
+      "rect": [935, 992, 58, 18],
       "role": "group"
     },
     {
-      "rect": [941, 971, 46, 13],
+      "rect": [941, 995, 46, 13],
       "role": "text",
       "text": "not found"
     },
     {
-      "rect": [496, 998, 704, 18],
+      "rect": [496, 1022, 704, 18],
       "role": "text",
       "text": "No extra roots."
     },
     {
-      "rect": [496, 1028, 704, 20],
+      "rect": [496, 1052, 704, 28],
       "role": "group"
     },
     {
       "key": "settings-add-opencode",
       "label": "Add root",
-      "rect": [496, 1028, 65, 20],
+      "rect": [496, 1052, 81, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [506, 1032, 45, 12],
+      "rect": [510, 1056, 53, 20],
       "role": "text",
       "text": "Add root"
     },
     {
-      "rect": [480, 1080, 736, 24],
+      "rect": [480, 1112, 736, 28],
       "role": "group"
     },
     {
-      "rect": [480, 1080, 630, 24],
+      "rect": [480, 1112, 626, 28],
       "role": "group"
     },
     {
       "key": "settings-save",
       "label": "Save settings",
-      "rect": [1110, 1080, 107, 24],
+      "rect": [1106, 1112, 111, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [1122, 1082, 83, 20],
+      "rect": [1120, 1116, 83, 20],
       "role": "text",
       "text": "Save settings"
     },
     {
-      "rect": [480, 1120, 736, 115],
+      "rect": [480, 1156, 736, 119],
       "role": "group"
     },
     {
-      "rect": [496, 1136, 704, 18],
+      "rect": [496, 1172, 704, 18],
       "role": "text",
       "text": "Capabilities"
     },
     {
-      "rect": [496, 1165, 704, 18],
+      "rect": [496, 1201, 704, 18],
       "role": "text",
       "text": "What each agent supports"
     },
     {
-      "rect": [496, 1195, 704, 24],
+      "rect": [496, 1231, 704, 28],
       "role": "group"
     },
     {
       "key": "settings-capabilities",
       "label": "Open",
-      "rect": [496, 1195, 57, 24],
+      "rect": [496, 1231, 61, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [508, 1197, 33, 20],
+      "rect": [510, 1235, 33, 20],
       "role": "text",
       "text": "Open"
     }

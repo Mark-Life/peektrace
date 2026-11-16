@@ -5,9 +5,9 @@ use std::borrow::Cow;
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::SessionHeader;
 use rune::{El, GrowthSpec, ScrollSpec, Tx, col, el, memo, row, spacer, text};
-use rune_kit::{Button, ButtonVariant, ControlSize, Select, TextInput, glyphs};
+use rune_kit::{Button, ButtonVariant, ControlSize, TextInput, glyphs};
 
-use super::widgets::{badge, dot};
+use super::widgets::{badge, dot, select};
 use crate::model::format::fmt_bytes;
 use crate::model::list::{self, agent_label};
 use crate::state::Ui;
@@ -137,7 +137,7 @@ fn agent_select(s: &Ui, t: &Theme, layer: &mut Vec<El>) -> El {
         .chain(agents.iter().map(|a| agent_label(*a)))
         .collect();
     let current = s.rail.filters.agent.map_or(ALL_AGENTS, agent_label);
-    Select::new("agent-facet", &options)
+    select("agent-facet", &options)
         .width(130.0)
         .current(Some(current))
         .label("Agent")
@@ -207,7 +207,7 @@ fn count_line(s: &Ui, t: &Theme) -> El {
         r = r.child(
             Button::new(format!("Clear {active}"))
                 .variant(ButtonVariant::Ghost)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press(|s: &mut Ui| s.reset_filters())
                 .build(&t.kit)
                 .key("clear-filters"),
@@ -234,7 +234,7 @@ fn empty(title: &str, body: &str, t: &Theme, reset: bool) -> El {
         c = c.child(
             Button::new("Reset filters")
                 .variant(ButtonVariant::Outline)
-                .control_size(ControlSize::Small)
+                .control_size(ControlSize::Large)
                 .on_press(|s: &mut Ui| s.reset_filters())
                 .build(&t.kit)
                 .key("reset-filters"),

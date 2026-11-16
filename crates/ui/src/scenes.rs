@@ -19,6 +19,11 @@ pub const SCENES: &[Scene] = &[
         s.apply_query();
     }),
     ("detail-top", open_scene),
+    ("detail-pending", |s| {
+        if let Some(id) = scene_session(s) {
+            s.select(&id, None);
+        }
+    }),
     ("detail-chart-hover", |s| {
         open_scene(s);
         s.hover = s
@@ -88,6 +93,7 @@ pub const SCENES: &[Scene] = &[
         s.mac = true;
     }),
     ("memory", state_memory::scene),
+    ("memory-pending", |s| s.go(Route::Memory)),
     ("memory-filtered", state_memory::scene_filtered),
     ("memory-entry", state_memory::scene_entry),
     ("memory-create", state_memory::scene_create),
