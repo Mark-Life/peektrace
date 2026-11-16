@@ -1,0 +1,18 @@
+[package]
+name = "peektrace-telemetry"
+description = "Local wide-event telemetry for peektrace: a tracing layer and a SQLite store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+peektrace-core.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

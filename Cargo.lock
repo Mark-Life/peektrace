@@ -1345,7 +1345,10 @@ dependencies = [
  "peektrace-core",
  "peektrace-protocol",
  "peektrace-server",
+ "peektrace-telemetry",
  "peektrace-tui",
+ "regex",
+ "rusqlite",
  "serde_json",
  "sha2 0.10.9",
  "terminal_size",
@@ -1397,6 +1400,7 @@ dependencies = [
  "mime_guess",
  "peektrace-core",
  "peektrace-protocol",
+ "peektrace-telemetry",
  "percent-encoding",
  "rust-embed",
  "serde_json",
@@ -1411,10 +1415,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "peektrace-telemetry"
+version = "0.0.0"
+dependencies = [
+ "peektrace-core",
+ "rusqlite",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "peektrace-tui"
 version = "0.0.0"
 dependencies = [
  "peektrace-core",
+ "peektrace-telemetry",
  "ratatui",
  "rayon",
  "serde_json",

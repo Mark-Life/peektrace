@@ -354,9 +354,15 @@ const runReal = async () => {
     )
   );
   console.log(`suite search-real: ${cases.length} cases`);
+  // TS reads the OpenCode DB with busy timeout 0, so a lock held by another
+  // case makes it skip the store. Those cases run alone, TS then Rust.
+  const usesOpencode = (args: readonly string[]) => {
+    const agent = args[args.indexOf("--agent") + 1];
+    return agent === "all" || agent === "opencode";
+  };
   const before = stamps(env);
-  const runs = await pool(
-    cases,
+  const pooled = await pool(
+    cases.filter((args) => !usesOpencode(args)),
     async (args) => {
       const [ts, rust] = await Promise.all([
         runAsync([...TS_CMD, ...args], env),
@@ -366,6 +372,13 @@ const runReal = async () => {
     },
     4
   );
+  const alone: typeof pooled = [];
+  for (const args of cases.filter(usesOpencode)) {
+    const ts = await runAsync([...TS_CMD, ...args], env);
+    const rust = await runAsync([rustBin, ...args], env);
+    alone.push({ args, ts, rust });
+  }
+  const runs = [...pooled, ...alone];
   const after = stamps(env);
   const live = new Set(
     [...new Set([...before.keys(), ...after.keys()])].filter(

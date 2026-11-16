@@ -9,7 +9,7 @@ use crate::reorder::GLOBAL_VALUES;
 pub const DESCRIPTION: &str = "Local, loopback-only inspector for Claude Code, Codex, Pi and OpenCode sessions: context-budget forensics, stats and Claude memory.";
 
 /// Every runnable command, in display order.
-const COMMAND_ROWS: [(&str, &str); 17] = [
+const COMMAND_ROWS: [(&str, &str); 18] = [
     ("serve", "Start the local web UI"),
     ("tui", "Browse sessions in a terminal UI"),
     ("sessions ls", "List session headers"),
@@ -50,6 +50,7 @@ const COMMAND_ROWS: [(&str, &str); 17] = [
         "mcp",
         "Serve read-only session and stats tools over stdio MCP",
     ),
+    ("doctor", "Write a redacted telemetry bundle for support"),
     (
         "upgrade",
         "Upgrade the installed binary to the latest release",

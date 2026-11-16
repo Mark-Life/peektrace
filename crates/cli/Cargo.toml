@@ -16,9 +16,11 @@ peektrace-core.workspace = true
 peektrace-protocol.workspace = true
 peektrace-server.workspace = true
 peektrace-tui.workspace = true
+peektrace-telemetry.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 jiff.workspace = true
+regex.workspace = true
 terminal_size.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
@@ -37,6 +39,7 @@ default = []
 https = ["ureq/rustls"]
 
 [dev-dependencies]
+rusqlite.workspace = true
 serde_json.workspace = true
 
 [lints]
