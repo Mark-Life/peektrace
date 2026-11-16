@@ -323,7 +323,10 @@ fn bare_sessions_prints_help() {
     let f = Fixture::new();
     let (code, out, err) = f.run(&["sessions"]);
     assert_eq!((code, err.as_str()), (0, ""));
-    assert!(out.contains("Usage: peektrace sessions"), "{out}");
+    assert!(
+        out.contains("peektrace [global flags] sessions <command>"),
+        "{out}"
+    );
 }
 
 #[cfg(unix)]

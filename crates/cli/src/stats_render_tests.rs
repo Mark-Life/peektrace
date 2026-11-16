@@ -20,7 +20,7 @@ use peektrace_core::stats::schema::{CauseId, Kind};
 use peektrace_core::stats::service::{DrillResult, StatsReport};
 use peektrace_core::stats::usage_service::UsageReport;
 
-use crate::stats_render::{render_drill, render_report, render_usage};
+use crate::stats_render::{CLI_DRILL_HINT, render_drill, render_report, render_usage};
 
 fn hit() -> DrillHit {
     DrillHit {
@@ -199,6 +199,7 @@ fn report_findings_lead_then_causes_then_fails() {
     let text = render_report(
         &report(vec![cause_row(|_| {}), still_firing()], vec![fail_row()]),
         false,
+        CLI_DRILL_HINT,
     );
     let at = |s: &str| text.find(s).unwrap_or(usize::MAX);
     assert!(at("FIX FIRST") > 0 && at("FIX FIRST") != usize::MAX);
@@ -239,7 +240,7 @@ fn report_suggests_only_unstated_rule_causes() {
         suggested_rules(&r),
         ["quote every glob passed as a flag value"]
     );
-    assert!(render_report(&r, false).contains(
+    assert!(render_report(&r, false, CLI_DRILL_HINT).contains(
         "SUGGESTED RULES  (copy into CLAUDE.md / AGENTS.md; causes already stated are not repeated)\n- quote every glob passed as a flag value"
     ));
 }
@@ -247,11 +248,11 @@ fn report_suggests_only_unstated_rule_causes() {
 #[test]
 fn report_no_suggestion_says_why() {
     assert!(
-        render_report(&report(vec![], vec![]), false)
+        render_report(&report(vec![], vec![]), false, CLI_DRILL_HINT)
             .contains("SUGGESTED RULES  none: no rule cause fired in this window")
     );
     assert!(
-        render_report(&report(vec![still_firing()], vec![]), false).contains(
+        render_report(&report(vec![still_firing()], vec![]), false, CLI_DRILL_HINT).contains(
             "SUGGESTED RULES  none: every rule cause that fired is already stated in a memory file"
         )
     );
