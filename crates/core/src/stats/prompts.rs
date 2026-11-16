@@ -374,11 +374,8 @@ fn table_sections(c: &Ctx<'_>, causes: &[&CauseRow]) -> Vec<String> {
 fn report_body(c: &Ctx<'_>) -> Vec<String> {
     let r = c.report;
     let corp = &r.corpus;
-    let main = corp
-        .kinds
-        .iter()
-        .find(|(k, _)| k == "main")
-        .map_or(0.0, |(_, n)| *n);
+    let (_, nested) = corp.split();
+    let main = corp.transcripts - nested;
     let causes: Vec<&CauseRow> = r.causes.iter().filter(|x| x.hits > 0.0).collect();
     let pairs = causes.iter().fold(0.0, |n, x| n + x.pairs);
     let sec = causes.iter().fold(0.0, |n, x| n + x.retry_sec);
@@ -406,7 +403,7 @@ fn report_body(c: &Ctx<'_>) -> Vec<String> {
             "- corpus: {} transcripts ({} main, {} subagent), {} projects, {} tool calls, {} shell time",
             (c.f.count)(corp.transcripts),
             (c.f.count)(main),
-            (c.f.count)(corp.transcripts - main),
+            (c.f.count)(nested),
             (c.f.count)(corp.projects),
             (c.f.count)(corp.tool_calls),
             (c.f.hms)(corp.bash_sec)

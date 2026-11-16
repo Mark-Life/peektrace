@@ -173,7 +173,7 @@ impl CorpusPanelSink {
                                 });
                         agg.calls += 1.0;
                         agg.chars += c.out_chars;
-                        agg.sessions.insert(c.base.sid.clone());
+                        agg.sessions.insert(c.base.root_sid().to_owned());
                         agg.runs.insert(c.base.run.clone().unwrap_or_default());
                     }
                 }

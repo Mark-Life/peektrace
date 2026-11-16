@@ -104,9 +104,11 @@ pub fn wait_note(w: &WaitPanelView) -> Option<String> {
 }
 
 pub fn corpus_line(c: &CorpusView) -> String {
+    let (main, nested) = c.split();
     format!(
-        "{} transcripts · {} projects · {} tool calls · {} shell calls · {} of shell time",
-        n(c.transcripts),
+        "{} sessions + {} subagent runs · {} projects · {} tool calls · {} shell calls · {} of shell time",
+        n(main),
+        n(nested),
         n(c.projects),
         n(c.tool_calls),
         n(c.bash_calls),
@@ -274,7 +276,7 @@ pub fn time_badges(r: &TimeRowView) -> Vec<String> {
     out
 }
 
-/// Time, share, runs, co-present, median, p95.
+/// Time, share, runs, in other jobs, median, p95.
 pub fn time_cells(r: &TimeRowView) -> [String; 6] {
     [
         hms(r.total_sec),
@@ -288,7 +290,7 @@ pub fn time_cells(r: &TimeRowView) -> [String; 6] {
 
 pub fn co_present_note(r: &TimeRowView) -> String {
     format!(
-        "{} lines hold this job and were charged elsewhere",
+        "{} lines also run this job but are charged to another one",
         n(r.co_present_runs)
     )
 }

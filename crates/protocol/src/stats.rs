@@ -2,6 +2,8 @@
 //! print them. Only the fields the app reads are typed; the rest
 //! (`context`, `fanout`, `web`, `cost`, `paths`) are skipped.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{AgentId, DrillTable};
@@ -30,6 +32,17 @@ pub struct CorpusView {
     pub tool_calls: f64,
     pub bash_calls: f64,
     pub bash_sec: f64,
+    /// Transcripts by kind: `main`, `subagent`, `workflow-agent`.
+    #[serde(default)]
+    pub kinds: BTreeMap<String, f64>,
+}
+
+impl CorpusView {
+    /// Sessions (distinct roots), and the subagent and workflow-agent runs.
+    pub fn split(&self) -> (f64, f64) {
+        let main = self.kinds.get("main").copied().unwrap_or(0.0);
+        (self.sessions, self.transcripts - main)
+    }
 }
 
 /// One call a row points back to.

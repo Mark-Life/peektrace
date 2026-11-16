@@ -103,7 +103,7 @@ impl<'a> CauseTable<'a> {
         let agg = self.agg_for(pair.cause, &failed.tool);
         agg.pairs += 1.0;
         add_to(&mut agg.pairs_by, is_nested(failed));
-        agg.retry_sessions.insert(failed.base.sid.clone());
+        agg.retry_sessions.insert(failed.base.root_sid().to_owned());
         if let Some(g) = pair.gap_sec {
             agg.retry_sec += g;
             agg.sec_measured += 1.0;
@@ -159,7 +159,7 @@ impl<'a> CauseTable<'a> {
             agg.flagged += 1.0;
         }
         bump_cell(&mut agg.hits_by_cell, f, origin);
-        agg.sessions.insert(f.base.sid.clone());
+        agg.sessions.insert(f.base.root_sid().to_owned());
         if let Some(d) = &detail {
             bump(&mut agg.details, d, 1.0);
         }

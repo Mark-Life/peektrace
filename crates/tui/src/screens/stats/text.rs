@@ -149,7 +149,7 @@ pub fn note_lines_of(
                     )
                 }),
                 format!(
-                    "{} runs · {} co-present · median {} · p95 {}",
+                    "{} runs · {} in other jobs · median {} · p95 {}",
                     fmt(row.runs),
                     fmt(row.co_present_runs),
                     hms(row.median_sec),
@@ -282,8 +282,9 @@ pub fn scope_text(
 
 pub fn corpus_line(r: &StatsReport, wide: bool) -> String {
     let c = &r.corpus;
+    let (main, nested) = c.split();
     let mut parts = vec![
-        format!("{} transcripts", fmt(c.transcripts)),
+        format!("{} sessions + {} subagent runs", fmt(main), fmt(nested)),
         format!("{} projects", fmt(c.projects)),
     ];
     if wide {

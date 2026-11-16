@@ -502,7 +502,11 @@ fn every_screen_mounts_on_an_empty_home() {
     h.keys(&["4"]);
     assert!(h.text().contains("No extra roots."));
     h.keys(&["5"]);
-    assert!(h.text().contains("0 transcripts"), "{}", h.text());
+    assert!(
+        h.text().contains("0 sessions + 0 subagent runs"),
+        "{}",
+        h.text()
+    );
 }
 
 #[test]

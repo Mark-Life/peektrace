@@ -255,3 +255,25 @@ fn every_agent_is_scanned() {
         )
     );
 }
+
+#[test]
+fn the_header_counts_the_main_session_apart_from_its_subagent() {
+    let h = StatsHome::new("header");
+    let lines: Vec<Value> = std::fs::read_to_string(&h.transcript)
+        .expect("read")
+        .lines()
+        .map(|l| serde_json::from_str(l).expect("json"))
+        .collect();
+    h.home.write(
+        &format!(".claude/projects/{SLUG}/{SID}/subagents/agent-a1.jsonl"),
+        &lines,
+    );
+    let (code, out, err) = h.run(&["--days", "7", "--agent", "claude"]);
+    assert_eq!(code, 0, "{err}");
+    assert!(
+        out.contains("1 sessions + 1 subagent runs  1 projects"),
+        "{out}"
+    );
+    assert!(!out.contains("transcripts  "), "{out}");
+    assert!(out.contains("\truns\tin other jobs\t"), "{out}");
+}

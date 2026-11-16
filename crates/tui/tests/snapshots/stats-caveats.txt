@@ -1,6 +1,6 @@
  Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
  Stats ▸ what fails, what costs time                                                                                        60d · all agents · scanned just now
- 5 transcripts · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
+ 5 sessions + 0 subagent runs · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
  peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 10 caveats (c)
 
  ╭─CAVEATS  everything that travels with these numbers · esc close────────────────────────────────────────────────────────────────────────────────────────────╮
