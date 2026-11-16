@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use peektrace_core::js::value::JsValue;
 
+pub use super::version::compare_versions;
 use crate::ls::UserError;
 
 /// Build-time default of a release setting, so a build can point the
@@ -191,48 +192,6 @@ pub fn parse_checksum(sums: &str, asset: &str) -> Option<String> {
     })
 }
 
-/// `parseInt(s, 10)`, with no digits read as 0.
-fn leading_int(s: &str) -> f64 {
-    let s = s.trim_start();
-    let (sign, digits) = match s.as_bytes().first() {
-        Some(b'-') => (-1.0, &s[1..]),
-        Some(b'+') => (1.0, &s[1..]),
-        _ => (1.0, s),
-    };
-    let end = digits
-        .bytes()
-        .position(|b| !b.is_ascii_digit())
-        .unwrap_or(digits.len());
-    digits[..end].parse::<f64>().map_or(0.0, |n| sign * n)
-}
-
-/// The version without the tag prefix or a leading `v`.
-fn version_core(v: &str) -> &str {
-    v.strip_prefix(TAG_PREFIX)
-        .or_else(|| v.strip_prefix('v'))
-        .unwrap_or(v)
-}
-
-/// Compare dotted numeric versions, ignoring the tag prefix; a suffix such
-/// as `-dev` sorts as its numeric core.
-pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
-    let parts = |v: &str| {
-        version_core(v)
-            .split('.')
-            .map(leading_int)
-            .collect::<Vec<_>>()
-    };
-    let (pa, pb) = (parts(a), parts(b));
-    (0..pa.len().max(pb.len()))
-        .map(|i| {
-            let x = pa.get(i).copied().unwrap_or(0.0);
-            let y = pb.get(i).copied().unwrap_or(0.0);
-            x.partial_cmp(&y).unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .find(|o| o.is_ne())
-        .unwrap_or(std::cmp::Ordering::Equal)
-}
-
 /// Any accepted version spelling as a release tag.
 pub fn normalize_tag(version: &str) -> String {
     if version.starts_with(TAG_PREFIX) {
@@ -338,8 +297,6 @@ pub fn resolve_target_tag(
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::Ordering::{Equal, Greater, Less};
-
     use super::*;
 
     #[test]
@@ -459,15 +416,9 @@ mod tests {
         assert_eq!(parse_checksum("solo", "solo"), Some("solo".to_owned()));
     }
 
-    /// Version order, with dev builds oldest.
+    /// Any version spelling as a tag.
     #[test]
-    fn versions() {
-        assert_eq!(compare_versions("cli-v9.9.9", "0.0.0-dev"), Greater);
-        assert_eq!(compare_versions("cli-v0.0.0", "0.0.0-dev"), Equal);
-        assert_eq!(compare_versions("v1.2", "1.2.0"), Equal);
-        assert_eq!(compare_versions("1.10.0", "1.9.9"), Greater);
-        assert_eq!(compare_versions("cli-v0.11.0", "cli-v0.12.0"), Less);
-        assert_eq!(compare_versions("x", "0"), Equal);
+    fn tags() {
         assert_eq!(normalize_tag("1.2.3"), "cli-v1.2.3");
         assert_eq!(normalize_tag("v1.2.3"), "cli-v1.2.3");
         assert_eq!(normalize_tag("cli-v1.2.3"), "cli-v1.2.3");
@@ -518,17 +469,5 @@ mod tests {
             detect_asset("freebsd", "x64"),
             Detection::Unsupported(_)
         ));
-
-        assert_eq!(compare_versions("cli-v9.9.9", "0.0.1"), Greater);
-        assert_eq!(compare_versions("1.2.3", "1.2.3"), Equal);
-        assert_eq!(compare_versions("v1.0.0", "v1.2.0"), Less);
-        assert_eq!(compare_versions("0.0.0-dev", "cli-v0.0.1"), Less);
-    }
-
-    #[test]
-    fn leading_ints() {
-        assert!((leading_int("0-dev") - 0.0).abs() < f64::EPSILON);
-        assert!((leading_int("12abc") - 12.0).abs() < f64::EPSILON);
-        assert!((leading_int(" -3") + 3.0).abs() < f64::EPSILON);
     }
 }

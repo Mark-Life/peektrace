@@ -6,6 +6,7 @@
 pub mod install;
 pub mod notice;
 pub mod release;
+pub mod version;
 
 use std::cmp::Ordering;
 use std::path::PathBuf;
@@ -138,6 +139,11 @@ mod tests {
             ("cli-v0.12.0", "0.13.0", false, false),
             ("cli-v0.12.9", "0.13.0-dev", false, false),
             ("cli-v1.0.0", "0.13.0", false, true),
+            ("cli-v0.13.0", "0.13.0-rc.1", false, true),
+            ("cli-v0.13.0", "0.13.0-dev", false, true),
+            ("cli-v1.0.0-rc.1", "1.0.0-beta.2", false, true),
+            ("cli-v0.13.0-rc.1", "0.13.0", false, false),
+            ("cli-v0.12.0", "0.0.0-dev", false, true),
             ("cli-v0.12.0", "0.13.0", true, true),
             ("cli-v0.13.0", "0.13.0", true, true),
         ];
