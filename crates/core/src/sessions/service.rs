@@ -344,6 +344,15 @@ pub fn get_session(
     Ok(parsed)
 }
 
+/// Analysis settings a caller may override.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct AnalyzeOverrides {
+    /// Context-window override (tokens).
+    pub window: Option<f64>,
+    /// Degradation threshold as a fraction of the window.
+    pub dumb_zone: Option<f64>,
+}
+
 /// `sessions.analyze`: context forensics, always with on-disk context files
 /// for Claude, redacted unless `redact` is false.
 pub fn analyze_session(
@@ -351,6 +360,17 @@ pub fn analyze_session(
     target: Target<'_>,
     parent: Option<&str>,
     redact: bool,
+) -> Result<AnalyzedSession, SessionError> {
+    analyze_session_with(env, target, parent, redact, AnalyzeOverrides::default())
+}
+
+/// [`analyze_session`] with a window and dumb-zone override.
+pub fn analyze_session_with(
+    env: SessionEnv<'_>,
+    target: Target<'_>,
+    parent: Option<&str>,
+    redact: bool,
+    overrides: AnalyzeOverrides,
 ) -> Result<AnalyzedSession, SessionError> {
     let span = info_span!("Sessions.analyze", id = target.id(), error = field::Empty);
     let _entered = span.enter();
@@ -370,9 +390,9 @@ pub fn analyze_session(
         let mut a = analyze(
             full.parsed,
             AnalyzeOptions {
-                dumb_zone_fraction: None,
+                dumb_zone_fraction: overrides.dumb_zone,
                 on_disk_context_files: files,
-                window: None,
+                window: overrides.window,
                 local: env.local,
             },
         );
@@ -398,7 +418,8 @@ pub fn session_image(
     item: Option<usize>,
 ) -> Result<Option<super::images::ImageData>, SessionError> {
     let _span = info_span!("Sessions.image", id, line).entered();
-    let Body::Text(text) = load(env, Target::Lookup(id), parent)?.body else {
+    let loaded = load(env, Target::Lookup(id), parent)?;
+    let (Agent::Claude, Body::Text(text)) = (loaded.agent, loaded.body) else {
         return Ok(None);
     };
     let at = |raw: Option<JsValue>| raw.and_then(|v| super::images::image_at(&v, block, item));

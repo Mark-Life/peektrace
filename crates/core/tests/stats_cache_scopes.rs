@@ -270,3 +270,22 @@ fn a_corrupt_shard_is_re_extracted_and_rewritten_not_a_failed_pass() {
     let again = c.refresh(None, false);
     assert_eq!(again.cached, 2);
 }
+
+#[test]
+fn a_scoped_pass_keeps_entries_another_pass_wrote_while_it_ran() {
+    let c = Corpus::new("cache-side-by-side");
+    // The Claude pass commits while the Codex pass is between its fold and
+    // its own commit.
+    let claude_pass = |_: usize, _: usize| {
+        c.refresh(Some(&[Agent::Claude]), false);
+    };
+    let env = StatsEnv {
+        progress: Some(&claude_pass),
+        ..c.env()
+    };
+    let codex = refresh(&env, Some(CODEX), false).expect("refresh");
+    assert_eq!(codex.extracted, 1);
+    assert_eq!(c.index_paths(), c.both());
+    let full = c.refresh(None, false);
+    assert_eq!((full.extracted, full.cached), (0, 2));
+}

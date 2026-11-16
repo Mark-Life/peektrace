@@ -7,7 +7,6 @@
  * SupportLevel legend.
  */
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
-import type { Capability } from "@workspace/rpc/contract";
 import { Badge } from "@workspace/ui/components/badge";
 import {
   Sheet,
@@ -26,6 +25,7 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import { Fragment, useState } from "react";
+import type { Capability } from "../lib/api-types.gen";
 import { capabilitiesAtom } from "../lib/atoms";
 import { ResultView } from "../lib/result-view";
 

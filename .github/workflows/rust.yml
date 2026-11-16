@@ -114,6 +114,9 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Build the inspector (embedded in the binary)
+        run: bun run --filter=inspector build
+
       - name: Build release binary
         run: cargo build --locked --release
 

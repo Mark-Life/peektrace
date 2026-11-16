@@ -161,6 +161,7 @@ fn search_in(roots: &AgentRoots, req: &SearchRequest) -> SearchResult {
             roots,
             home: None,
             local: &Utc,
+            headers: None,
         },
         req,
     )

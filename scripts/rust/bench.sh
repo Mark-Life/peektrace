@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
-# Benchmark the Bun-compiled CLI against the Rust CLI on the local ~/.claude corpus.
-# Runs on macOS and Linux. Needs hyperfine, jq, gzip and GNU time
-# (macOS: `gtime` from Homebrew; Linux: /usr/bin/time from the `time` package).
+# Benchmark the Bun-compiled binary against the Rust binary on the local agent corpus.
+# Runs on macOS and Linux. Needs hyperfine (>= 1.17 for --conclude), jq, gzip, curl
+# and GNU time (macOS: `gtime` from Homebrew; Linux: /usr/bin/time from the `time` package).
 #
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
-#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory
+#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
-# Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
+# Each suite adds cases with `add_case` (one CLI command run on both binaries) or
+# `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
+# The serve suites live in bench-serve.sh, sourced below.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # Bash 3.2 compatible (macOS /bin/bash).
 set -euo pipefail
@@ -55,7 +57,7 @@ esac
 BUN_BIN="${BUN_BIN:-$ROOT/apps/cli/dist/bun-$OS-$ARCH/peektrace}"
 RUST_BIN="${RUST_BIN:-$ROOT/target/release/peektrace}"
 
-for tool in hyperfine jq gzip "$GTIME"; do
+for tool in hyperfine jq gzip curl "$GTIME"; do
   command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
 # BSD time (macOS /usr/bin/time) has no -f; GNU time is required for %M.
@@ -99,14 +101,21 @@ size_bytes() { jq -r --arg id "$2" '(map(select(.id == $id)) | .[0].sizeBytes) /
 fmt_bytes() { awk '{ if ($1 == "n/a") print "n/a"; else if ($1 < 1048576) printf "%.1f KiB", $1/1024; else printf "%.2f MiB", $1/1048576 }'; }
 
 # --- cases -----------------------------------------------------------------------
+# add_pair <name> <warmup> <runs> <flags> <label> <bun-cmd> <rust-cmd> [bun-conclude rust-conclude]
+# Commands are strings hyperfine -N splits shell-style. Conclude commands run after each run, untimed.
+# flags: space-separated words; "rss" adds a peak RSS row (CLI cases only), "cpu" adds a CPU time row,
+# "live" needs the long-running servers of the serve suite.
+C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_BUN=() C_RUST=() C_BUN_END=() C_RUST_END=() C_PREP=()
+add_pair() {
+  C_NAME+=("$1"); C_WARMUP+=("$2"); C_RUNS+=("$3"); C_FLAGS+=("$4"); C_LABEL+=("$5")
+  C_BUN+=("$6"); C_RUST+=("$7"); C_BUN_END+=("${8:-}"); C_RUST_END+=("${9:-}"); C_PREP+=("")
+}
 # add_case <name> <warmup> <runs> <flags> <label> <args...>
-# flags: space-separated words; "rss" adds a peak RSS row, "cpu" adds a CPU time row.
 # Args are joined with spaces, so no single arg may contain a space.
-C_NAME=() C_WARMUP=() C_RUNS=() C_FLAGS=() C_LABEL=() C_ARGS=() C_PREP=()
 add_case() {
-  C_NAME+=("$1"); C_WARMUP+=("$2"); C_RUNS+=("$3"); C_FLAGS+=("$4"); C_LABEL+=("$5"); C_PREP+=("")
+  local n="$1" w="$2" r="$3" f="$4" l="$5"
   shift 5
-  C_ARGS+=("$*")
+  add_pair "$n" "$w" "$r" "$f" "$l" "$BUN_BIN $*" "$RUST_BIN $*"
 }
 # set_prepare <command> -> run before each timed and RSS run of the last case; no shell, so no globs or pipes.
 set_prepare() { C_PREP[$((${#C_NAME[@]} - 1))]="$1"; }
@@ -246,28 +255,39 @@ suite_search() {
   METHOD_EXTRA+=("Search: \`$word\` is a common word (override with \`BENCH_SEARCH_WORD\`); the miss row searches a string found nowhere, so every transcript is read.")
 }
 
-suite_memory() {
-  # Largest memory file across all projects; the slug and name stay out of the summary.
-  local projects="$OUT/bun-memory-ls.json" entries="$OUT/memory-entries.txt" slug top_slug top_name top_size big_slug
+# memory_scan -> once: sets MEM_TOP_{SIZE,SLUG,NAME} (largest file) and MEM_BIG_SLUG (largest project).
+# Slugs and names stay out of the summary.
+MEM_BIG_SLUG=""
+memory_scan() {
+  [[ -n "$MEM_BIG_SLUG" ]] && return
+  local projects="$OUT/bun-memory-ls.json" entries="$OUT/memory-entries.txt" slug
   "$BUN_BIN" memory ls --json >"$projects"
   : >"$entries"
   for slug in $(jq -r '.[].slug' "$projects"); do
     "$BUN_BIN" memory ls "$slug" --json |
       jq -r '"\(.slug)\t\(.totalBytes)\t" + ([.entries[] | "\(.size) \(.fileName | sub("\\.md$"; ""))"] | join(","))' >>"$entries"
   done
-  read -r top_size top_slug top_name <<<"$(awk -F'\t' '{n = split($3, e, ","); for (i = 1; i <= n; i++) { split(e[i], p, " "); print p[1], $1, p[2] } }' "$entries" | sort -n | tail -1)"
-  big_slug="$(sort -t$'\t' -k2,2n "$entries" | tail -1 | cut -f1)"
-  [[ -n "$top_name" ]] || { echo "no memory files found" >&2; exit 1; }
-  ENV_EXTRA+=("memory: $(jq 'length' "$projects") projects, $(jq '[.[].fileCount] | add' "$projects") files; largest file $(fmt_bytes <<<"$top_size"); largest project $(awk -F'\t' -v s="$big_slug" '$1 == s {print $2}' "$entries" | fmt_bytes)")
-  add_case memory-ls 2 10 "rss" "\`memory ls --json\` (all projects)" memory ls --json
-  add_case memory-ls-project 2 10 "" "\`memory ls <largest project> --json\`" memory ls "$big_slug" --json
-  add_case memory-show 2 10 "rss" "\`memory show <largest file> --json\` ($(fmt_bytes <<<"$top_size"))" memory show "$top_slug" "$top_name" --json
+  read -r MEM_TOP_SIZE MEM_TOP_SLUG MEM_TOP_NAME <<<"$(awk -F'\t' '{n = split($3, e, ","); for (i = 1; i <= n; i++) { split(e[i], p, " "); print p[1], $1, p[2] } }' "$entries" | sort -n | tail -1)"
+  MEM_BIG_SLUG="$(sort -t$'\t' -k2,2n "$entries" | tail -1 | cut -f1)"
+  [[ -n "$MEM_TOP_NAME" ]] || { echo "no memory files found" >&2; exit 1; }
+  ENV_EXTRA+=("memory: $(jq 'length' "$projects") projects, $(jq '[.[].fileCount] | add' "$projects") files; largest file $(fmt_bytes <<<"$MEM_TOP_SIZE"); largest project $(awk -F'\t' -v s="$MEM_BIG_SLUG" '$1 == s {print $2}' "$entries" | fmt_bytes)")
   METHOD_EXTRA+=("Memory: largest file by \`size\` and largest project by \`totalBytes\` from the Bun \`memory ls\` output.")
 }
 
+suite_memory() {
+  memory_scan
+  add_case memory-ls 2 10 "rss" "\`memory ls --json\` (all projects)" memory ls --json
+  add_case memory-ls-project 2 10 "" "\`memory ls <largest project> --json\`" memory ls "$MEM_BIG_SLUG" --json
+  add_case memory-show 2 10 "rss" "\`memory show <largest file> --json\` ($(fmt_bytes <<<"$MEM_TOP_SIZE"))" memory show "$MEM_TOP_SLUG" "$MEM_TOP_NAME" --json
+}
+
+# --- serve -----------------------------------------------------------------------
+# shellcheck source=scripts/rust/bench-serve.sh
+. "$ROOT/scripts/rust/bench-serve.sh"
+
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
@@ -298,26 +318,43 @@ printf 'bun %s %s\nrust %s %s\n' "$BUN_SIZE" "$BUN_GZ" "$RUST_SIZE" "$RUST_GZ" >
 
 # --- latency (hyperfine, no intermediate shell) --------------------------------------
 for ((c = 0; c < N_CASES; c++)); do
+  if has_flag "$c" live && ((${#LIVE_PIDS[@]} == 0)); then start_live; fi
   prep=()
   [[ -n "${C_PREP[c]}" ]] && prep=(--prepare "${C_PREP[c]}")
+  conclude=()
+  [[ -n "${C_BUN_END[c]}" ]] && conclude=(--conclude "${C_BUN_END[c]}" --conclude "${C_RUST_END[c]}")
   hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} \
     --export-json "$OUT/${C_NAME[c]}.json" \
-    --command-name bun "$BUN_BIN ${C_ARGS[c]}" \
-    --command-name rust "$RUST_BIN ${C_ARGS[c]}"
+    ${conclude[@]+"${conclude[@]}"} \
+    --command-name bun "${C_BUN[c]}" \
+    --command-name rust "${C_RUST[c]}"
 done
+
+# --- serve payloads and memory ---------------------------------------------------------
+if [[ "${SERVE:-0}" == 1 ]]; then
+  ((${#LIVE_PIDS[@]} > 0)) || start_live
+  for ((p = 0; p < ${#P_NAME[@]}; p++)); do
+    [[ "${P_SIZE[p]}" == yes ]] || continue
+    echo "${P_NAME[p]} bun $(payload_sizes bun "${P_BUN[p]}") rust $(payload_sizes rust "${P_RUST[p]}")"
+  done | tee "$OUT/payload.txt"
+  stop_live
+  for ((i = 1; i <= RSS_ROUNDS; i++)); do
+    for ((g = 0; g < ${#G_NAME[@]}; g++)); do serve_rss_round "$g" bun; serve_rss_round "$g" rust; done
+  done
+fi
 
 # --- peak RSS (GNU time, interleaved) -----------------------------------------------
 # Each round runs every rss case on Bun, then Rust, so drift hits both alike.
+RSS_CASES=""
+for ((c = 0; c < N_CASES; c++)); do has_flag "$c" rss && RSS_CASES+=" $c"; done
 for ((i = 1; i <= RSS_ROUNDS; i++)); do
-  for ((c = 0; c < N_CASES; c++)); do
-    has_flag "$c" rss || continue
-    read -ra argv <<<"${C_ARGS[c]}"
+  for c in $RSS_CASES; do
     read -ra prep <<<"${C_PREP[c]}"
     for impl in bun rust; do
-      bin="$BUN_BIN"; [[ "$impl" == rust ]] && bin="$RUST_BIN"
+      if [[ "$impl" == bun ]]; then read -ra argv <<<"${C_BUN[c]}"; else read -ra argv <<<"${C_RUST[c]}"; fi
       if ((${#prep[@]})); then "${prep[@]}"; fi
       # %M is KiB on both macOS gtime and Linux GNU time; keep only its last stderr line.
-      "$GTIME" -f %M "$bin" "${argv[@]}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
+      "$GTIME" -f %M "${argv[@]}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
     done
   done
 done
@@ -354,15 +391,16 @@ row_hf() {
   printf '| %s | %s | %s | %s |\n' "$label" "$(fmt_ms <<<"$b")" "$(fmt_ms <<<"$r")" \
     "$(delta "${b%% *}" "${r%% *}" faster)"
 }
+# row_rss <label> <file prefix>: reads <prefix>-bun.txt and <prefix>-rust.txt (KiB per line)
 row_rss() {
   local label="$1" name="$2" b r
-  b="$(stats "$OUT/rss-$name-bun.txt")"; r="$(stats "$OUT/rss-$name-rust.txt")"
+  b="$(stats "$name-bun.txt")"; r="$(stats "$name-rust.txt")"
   printf '| %s | %s | %s | %s |\n' "$label" "$(fmt_mib <<<"$b")" "$(fmt_mib <<<"$r")" \
     "$(delta "${b%% *}" "${r%% *}" less)"
 }
 
 {
-  echo "# Bun vs Rust CLI benchmark"
+  echo "# Bun vs Rust benchmark"
   echo
   echo "| metric | Bun | Rust | Δ (Rust vs Bun) |"
   echo "|---|---|---|---|"
@@ -373,14 +411,40 @@ row_rss() {
     if has_flag "$c" cpu; then row_hf "CPU time (user+sys), same command" "${C_NAME[c]}" time_cpu; fi
   done
   echo
-  echo "## Peak RSS"
-  echo
-  echo "| command | Bun | Rust | Δ (Rust vs Bun) |"
-  echo "|---|---|---|---|"
-  for ((c = 0; c < N_CASES; c++)); do
-    if has_flag "$c" rss; then row_rss "${C_LABEL[c]}" "${C_NAME[c]}"; fi
-  done
-  echo
+  if [[ -n "$RSS_CASES" ]]; then
+    echo "## Peak RSS"
+    echo
+    echo "| command | Bun | Rust | Δ (Rust vs Bun) |"
+    echo "|---|---|---|---|"
+    for c in $RSS_CASES; do row_rss "${C_LABEL[c]}" "$OUT/rss-${C_NAME[c]}"; done
+    echo
+  fi
+  if [[ "${SERVE:-0}" == 1 ]]; then
+    echo "## Serve memory"
+    echo
+    echo "| server RSS | Bun | Rust | Δ (Rust vs Bun) |"
+    echo "|---|---|---|---|"
+    for ((g = 0; g < ${#G_NAME[@]}; g++)); do
+      row_rss "${G_LABEL[g]}: idle, 10 s after ready" "$OUT/srss-${G_NAME[g]}-idle"
+      row_rss "${G_LABEL[g]}: after the calls" "$OUT/srss-${G_NAME[g]}-used"
+      row_rss "${G_LABEL[g]}: peak over the server life" "$OUT/srss-${G_NAME[g]}-peak"
+    done
+    echo
+    echo "## Serve payloads"
+    echo
+    echo "| response | Bun | Rust | Δ (Rust vs Bun) |"
+    echo "|---|---|---|---|"
+    for ((p = 0; p < ${#P_NAME[@]}; p++)); do
+      [[ "${P_SIZE[p]}" == yes ]] || continue
+      # payload.txt: <name> bun <raw> <gz6> <wire> <ok> rust <raw> <gz6> <wire> <ok>
+      read -r _ _ braw bgz bwire bok _ rraw rgz rwire rok < <(grep "^${P_NAME[p]} " "$OUT/payload.txt")
+      printf '| %s, raw | %s | %s | %s |\n' "${P_LABEL[p]}" "$(fmt_bytes <<<"$braw")" "$(fmt_bytes <<<"$rraw")" "$(delta "$braw" "$rraw" smaller)"
+      printf '| same, gzip -6 | %s | %s | %s |\n' "$(fmt_bytes <<<"$bgz")" "$(fmt_bytes <<<"$rgz")" "$(delta "$bgz" "$rgz" smaller)"
+      printf '| same, on the wire with `Accept-Encoding: gzip` | %s | %s | %s |\n' "$(fmt_bytes <<<"$bwire")" "$(fmt_bytes <<<"$rwire")" "$(delta "$bwire" "$rwire" smaller)"
+      [[ "$bok" == yes && "$rok" == yes ]] || echo "| ${P_NAME[p]}: call failed (bun ok: $bok, rust ok: $rok) | | | |"
+    done
+    echo
+  fi
   echo "## Method"
   echo
   echo "- Binaries: \`cargo build --release\` (fat LTO, stripped) and \`bun run build:binary\` (builds the inspector UI, then \`bun build --compile --minify\` with the UI and OpenTUI native lib embedded)."

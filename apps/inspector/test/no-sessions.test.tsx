@@ -1,9 +1,9 @@
 /** Empty session list: scanned folders per agent and a Settings link. */
 import { describe, expect, test } from "bun:test";
 import { Result } from "@effect-atom/atom-react";
-import type { ServerInfo } from "@workspace/rpc/contract";
 import { Cause } from "effect";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ServerInfo } from "../src/lib/api-types.gen";
 import { NoSessions } from "../src/routes/sessions/no-sessions";
 
 const HOME = "/home/dev";

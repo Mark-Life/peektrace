@@ -1,2 +1,4 @@
 # Fixtures are compared byte for byte (sizes, line endings): never convert them.
 packages/core/test/fixtures/** -text
+# Checked byte for byte against the Rust generator output, which uses LF.
+apps/inspector/src/lib/api-types.gen.ts text eol=lf

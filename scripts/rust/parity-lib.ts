@@ -1,10 +1,50 @@
 /** Shared pieces of the parity harness: process runs, diff reporting and
  * fixture env. */
-import { cpus } from "node:os";
-import { join, resolve } from "node:path";
+import { cpus, tmpdir } from "node:os";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 export const REPO = resolve(import.meta.dir, "../..");
-export const WORK = join(REPO, ".scratch", "parity");
+
+const inside = (parent: string, child: string) => {
+  const rel = relative(parent, child);
+  return rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+};
+
+/** The scratch dir `--work <dir>` names, or why it is refused. The dir is
+ * wiped, so it must sit under `<repo>/.scratch` or the OS temp dir and must
+ * not hold the repo. */
+export const resolveWork = (
+  argv: readonly string[],
+  repo: string,
+  tmp: string
+): { readonly dir: string } | { readonly error: string } => {
+  const at = argv.indexOf("--work");
+  if (at < 0) {
+    return { dir: join(repo, ".scratch", "parity") };
+  }
+  const value = argv[at + 1];
+  if (value === undefined || value === "" || value.startsWith("--")) {
+    return { error: "Missing value for --work." };
+  }
+  const dir = resolve(repo, value);
+  const safe =
+    (inside(join(repo, ".scratch"), dir) || inside(tmp, dir)) &&
+    dir !== repo &&
+    !inside(dir, repo);
+  return safe
+    ? { dir }
+    : {
+        error: `Refusing --work ${dir}: it is wiped, so it must sit under ${join(repo, ".scratch")} or ${tmp}.`,
+      };
+};
+
+const work = resolveWork(process.argv, REPO, tmpdir());
+if ("error" in work) {
+  console.error(work.error);
+  process.exit(2);
+}
+/** Scratch dir, wiped at start; `--work <dir>` keeps two runs apart. */
+export const WORK = work.dir;
 export const TS_CMD = ["bun", join(REPO, "apps/cli/src/index.ts")];
 const MAX_REPORTED = 20;
 

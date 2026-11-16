@@ -10,8 +10,8 @@
  * Window, agent and the open drill key all ride the hash, so any view here is a
  * link someone else can open.
  */
-import type { Atom, Result } from "@effect-atom/atom-react";
-import { useAtomValue } from "@effect-atom/atom-react";
+import type { Atom } from "@effect-atom/atom-react";
+import { type Result, useAtomValue } from "@effect-atom/atom-react";
 import type { AgentId } from "@workspace/core/services/agent-id";
 import { RETRY_WINDOW } from "@workspace/core/services/stats/detectors/retry-gates";
 import type {
@@ -19,8 +19,8 @@ import type {
   DrillTable,
   StatsReport,
 } from "@workspace/core/services/stats/schema";
-import type { WireError } from "@workspace/rpc/contract";
 import { useState } from "react";
+import type { ApiFailure } from "../lib/api";
 import { ResultView } from "../lib/result-view";
 import { setHashParam, useHashParam } from "../lib/routes";
 import {
@@ -105,7 +105,7 @@ const ReportView = ({
   readonly agent: AgentId | null;
   readonly days: number;
   readonly drill: DrillTarget | null;
-  readonly drillAtom: Atom.Atom<Result.Result<DrillResult, WireError>> | null;
+  readonly drillAtom: Atom.Atom<Result.Result<DrillResult, ApiFailure>> | null;
   readonly onPage: (offset: number) => void;
   readonly onRescan: () => void;
   readonly report: StatsReport;

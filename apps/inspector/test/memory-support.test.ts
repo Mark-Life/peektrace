@@ -1,6 +1,6 @@
 /** Memory editing summary line, derived from the capability matrix. */
 import { describe, expect, test } from "bun:test";
-import type { Capability } from "@workspace/rpc/contract";
+import type { Capability } from "../src/lib/api-types.gen";
 import {
   memoryCrudVerdict,
   memorySupportSummary,

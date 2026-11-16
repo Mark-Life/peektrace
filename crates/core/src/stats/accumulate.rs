@@ -31,6 +31,18 @@ pub enum DrillTable {
 }
 
 impl DrillTable {
+    pub const ALL: [Self; 5] = [
+        Self::Cause,
+        Self::Fail,
+        Self::Time,
+        Self::Cluster,
+        Self::Wait,
+    ];
+
+    pub fn parse(s: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|t| t.as_str() == s)
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Cause => "cause",

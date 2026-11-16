@@ -1,8 +1,8 @@
 /** Memory editing support from the live matrix: the Claude write gate and a
  * one-line summary across agents. */
 import { AGENT_IDS, type AgentId } from "@workspace/core/services/agent-id";
-import type { Capability, SupportLevel } from "@workspace/rpc/contract";
 import { AGENT_LABEL } from "./agent-label";
+import type { Capability, SupportLevel } from "./api-types.gen";
 
 /** The capability id that gates all memory writes. */
 const MEMORY_CRUD = "memory.crud";
@@ -12,7 +12,7 @@ const crudCap = (caps: readonly Capability[]) =>
 
 /** Display order and wording for the non-supported levels. */
 const OTHER_LEVELS: readonly {
-  level: typeof SupportLevel.Type;
+  level: SupportLevel;
   label: string;
 }[] = [
   { level: "partial", label: "Partial" },
@@ -28,7 +28,7 @@ export const memorySupportSummary = (caps: readonly Capability[]) => {
   const cap = crudCap(caps);
   const levelOf = (agent: AgentId) =>
     cap?.perAgent[agent]?.level ?? "unsupported";
-  const namesAt = (level: typeof SupportLevel.Type) =>
+  const namesAt = (level: SupportLevel) =>
     AGENT_IDS.filter((a) => levelOf(a) === level)
       .map((a) => AGENT_LABEL[a])
       .join(", ");
