@@ -9,6 +9,8 @@
  *   bun scripts/rust/parity.ts --real-all      # every real session in the
  *                                              # analyze/export stages
  *   bun scripts/rust/parity.ts --stats-only    # only the `stats` stage
+ *   bun scripts/rust/parity.ts --search-only   # only the `sessions search` stage
+ *   bun scripts/rust/parity.ts --memory-only   # only the `memory` stage
  *   bun scripts/rust/parity.ts --no-real-stats # skip the real stats suite
  *   bun scripts/rust/parity.ts --real-stats    # run it off macOS too
  *
@@ -23,6 +25,8 @@
  *   Only `--json` output is compared, row by row.
  * - `sessions analyze` and `sessions export` run after the `ls` suites; see
  *   `parity-analyze.ts` for their cases and normalisation.
+ * - `sessions search` and `memory` run after them; see `parity-search.ts`
+ *   and `parity-memory.ts`.
  * - `stats` runs last; see `parity-stats.ts`. Its real suite snapshots
  *   every agent's sessions (`~/.claude/projects`, Codex and Pi sessions, the
  *   OpenCode DBs) into WORK and deletes them after. On macOS that is a
@@ -61,8 +65,10 @@ import {
   TS_CMD,
   WORK,
 } from "./parity-lib";
+import { runMemoryStage } from "./parity-memory";
 import { runOpencodeStage } from "./parity-opencode";
 import { storeStamp } from "./parity-opencode-stamp";
+import { runSearchStage } from "./parity-search";
 import { runStatsStage } from "./parity-stats";
 
 const FIXED_MTIME = new Date("2026-11-11T16:42:21.851Z");
@@ -371,36 +377,45 @@ const runRealOnce = (env: Record<string, string>, agent?: string) => {
   console.log(`  compared ${compared} rows, skipped ${live.size} live`);
 };
 
-const main = async () => {
-  if (!existsSync(rustBin)) {
-    console.error(`missing ${rustBin}: run cargo build --release`);
-    process.exit(2);
-  }
-  rmSync(WORK, { recursive: true, force: true });
-  mkdirSync(WORK, { recursive: true });
-  const suites = fixtureSuites();
-  const statsOnly = flag("--stats-only");
-  if (!(flag("--real-only") || statsOnly)) {
-    for (const suite of suites) {
-      runSuite(suite);
-    }
-  }
-  const realRoot = join(process.env.HOME ?? "", ".claude", "projects");
-  const real = !flag("--fixtures-only") && existsSync(realRoot);
-  if (real && !statsOnly) {
-    runReal();
-  }
-  if (!statsOnly) {
+/** Which stages run: all by default, or one with `--<stage>-only`. */
+const pickStages = () => {
+  const only = ["stats", "search", "memory"].find((s) => flag(`--${s}-only`));
+  return {
+    base: only === undefined,
+    search: only === undefined || only === "search",
+    memory: only === undefined || only === "memory",
+    stats: only === undefined || only === "stats",
+  };
+};
+
+/** The stages after the `ls` suites: OpenCode, analyze/export, search,
+ * memory and stats. */
+const runStages = async (
+  stages: ReturnType<typeof pickStages>,
+  suites: Suite[],
+  real: boolean
+) => {
+  const fixtures = !flag("--real-only");
+  if (stages.base) {
     await runOpencodeStage({
-      fixtures: !flag("--real-only"),
+      fixtures,
       real: !flag("--fixtures-only"),
       realAll: flag("--real-all"),
     });
     await runAnalyzeStage({
-      fixtures: flag("--real-only") ? [] : suites,
+      fixtures: fixtures ? suites : [],
       real,
       realAll: flag("--real-all"),
     });
+  }
+  if (stages.search) {
+    await runSearchStage({ fixtures, real, suites });
+  }
+  if (stages.memory) {
+    await runMemoryStage({ fixtures, real });
+  }
+  if (!stages.stats) {
+    return;
   }
   const realStats =
     real &&
@@ -409,7 +424,29 @@ const main = async () => {
   if (real && !realStats) {
     console.log("suite stats-real: skipped (pass --real-stats to run)");
   }
-  runStatsStage({ fixtures: !flag("--real-only"), real: realStats });
+  runStatsStage({ fixtures, real: realStats });
+};
+
+const main = async () => {
+  if (!existsSync(rustBin)) {
+    console.error(`missing ${rustBin}: run cargo build --release`);
+    process.exit(2);
+  }
+  rmSync(WORK, { recursive: true, force: true });
+  mkdirSync(WORK, { recursive: true });
+  const suites = fixtureSuites();
+  const stages = pickStages();
+  if (stages.base && !flag("--real-only")) {
+    for (const suite of suites) {
+      runSuite(suite);
+    }
+  }
+  const realRoot = join(process.env.HOME ?? "", ".claude", "projects");
+  const real = !flag("--fixtures-only") && existsSync(realRoot);
+  if (real && stages.base) {
+    runReal();
+  }
+  await runStages(stages, suites, real);
   for (const path of locked.filter((p) => existsSync(p))) {
     chmodSync(path, READ_WRITE);
   }

@@ -6,7 +6,7 @@
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
-#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all
+#                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
 #
 # Each suite adds cases with `add_case`; a case is one CLI command run on both binaries.
@@ -228,9 +228,46 @@ suite_stats_all() {
   add_case stats-all-usage-day 2 10 "" "\`stats usage --by day --tz UTC --json\` (all agents)" stats usage --by day --tz UTC --json
 }
 
+suite_search() {
+  # Search walks sessions newest first and stops at --limit, so a common word scans few files.
+  # The miss case finds nothing, so it reads every transcript.
+  local word="${BENCH_SEARCH_WORD:-error}" miss="zqxv-peektrace-bench-miss" impl bin
+  for impl in bun rust; do
+    bin="$BUN_BIN"; [[ "$impl" == rust ]] && bin="$RUST_BIN"
+    "$bin" sessions search "$word" --json --limit 50 >"$OUT/$impl-search.json" 2>/dev/null
+    "$bin" sessions search "$miss" --json --limit 0 >"$OUT/$impl-search-miss.json" 2>/dev/null
+  done
+  local b="$OUT/bun-search.json" r="$OUT/rust-search.json" same=no
+  [[ "$(jq -c '[.sessions[].id]' "$b")" == "$(jq -c '[.sessions[].id]' "$r")" ]] && same=yes
+  ENV_EXTRA+=("search \"$word\": $(jq -c '{scannedSessions, hits: (.sessions | length), truncated}' "$b"), same ids in same order: $same")
+  ENV_EXTRA+=("search miss: $(jq -c '{scannedSessions, hits: (.sessions | length)}' "$OUT/bun-search-miss.json") (rust: $(jq -c '{scannedSessions}' "$OUT/rust-search-miss.json"))")
+  add_case search-common 2 10 "cpu rss" "\`sessions search $word --json --limit 50\` (all agents)" sessions search "$word" --json --limit 50
+  add_case search-miss 2 10 "cpu rss" "\`sessions search <no match> --json --limit 0\` (all agents, full scan)" sessions search "$miss" --json --limit 0
+  METHOD_EXTRA+=("Search: \`$word\` is a common word (override with \`BENCH_SEARCH_WORD\`); the miss row searches a string found nowhere, so every transcript is read.")
+}
+
+suite_memory() {
+  # Largest memory file across all projects; the slug and name stay out of the summary.
+  local projects="$OUT/bun-memory-ls.json" entries="$OUT/memory-entries.txt" slug top_slug top_name top_size big_slug
+  "$BUN_BIN" memory ls --json >"$projects"
+  : >"$entries"
+  for slug in $(jq -r '.[].slug' "$projects"); do
+    "$BUN_BIN" memory ls "$slug" --json |
+      jq -r '"\(.slug)\t\(.totalBytes)\t" + ([.entries[] | "\(.size) \(.fileName | sub("\\.md$"; ""))"] | join(","))' >>"$entries"
+  done
+  read -r top_size top_slug top_name <<<"$(awk -F'\t' '{n = split($3, e, ","); for (i = 1; i <= n; i++) { split(e[i], p, " "); print p[1], $1, p[2] } }' "$entries" | sort -n | tail -1)"
+  big_slug="$(sort -t$'\t' -k2,2n "$entries" | tail -1 | cut -f1)"
+  [[ -n "$top_name" ]] || { echo "no memory files found" >&2; exit 1; }
+  ENV_EXTRA+=("memory: $(jq 'length' "$projects") projects, $(jq '[.[].fileCount] | add' "$projects") files; largest file $(fmt_bytes <<<"$top_size"); largest project $(awk -F'\t' -v s="$big_slug" '$1 == s {print $2}' "$entries" | fmt_bytes)")
+  add_case memory-ls 2 10 "rss" "\`memory ls --json\` (all projects)" memory ls --json
+  add_case memory-ls-project 2 10 "" "\`memory ls <largest project> --json\`" memory ls "$big_slug" --json
+  add_case memory-show 2 10 "rss" "\`memory show <largest file> --json\` ($(fmt_bytes <<<"$top_size"))" memory show "$top_slug" "$top_name" --json
+  METHOD_EXTRA+=("Memory: largest file by \`size\` and largest project by \`totalBytes\` from the Bun \`memory ls\` output.")
+}
+
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done

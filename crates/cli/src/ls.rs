@@ -25,6 +25,7 @@ pub struct Context {
 pub struct Globals {
     pub json: bool,
     pub pretty: bool,
+    pub read_only: bool,
 }
 
 /// A failure the user caused. Exit code 1 with the message on stderr.
@@ -49,7 +50,7 @@ pub struct Output {
 
 /// `--limit` as `@effect/cli` reads an integer: `Number(s)` that is a safe
 /// integer, with blank input rejected.
-fn parse_limit(raw: &str) -> Result<f64, UserError> {
+pub(crate) fn parse_limit(raw: &str) -> Result<f64, UserError> {
     let n = num::parse_number(raw);
     if peektrace_core::js::text::trim(raw).is_empty() || !num::is_safe_integer(n) {
         return Err(UserError::Validation(format!("'{raw}' is not a integer")));
@@ -58,7 +59,7 @@ fn parse_limit(raw: &str) -> Result<f64, UserError> {
 }
 
 /// `--agent`: absent or `all` means every agent.
-fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError> {
+pub(crate) fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError> {
     let value = raw.unwrap_or("all");
     if value == "all" {
         return Ok(None);
@@ -73,7 +74,7 @@ fn parse_agent(raw: Option<&str>) -> Result<Option<Agent>, UserError> {
 }
 
 /// Validated `--limit` (as a row count) and `--since` (epoch ms).
-fn parse_bounds(
+pub(crate) fn parse_bounds(
     limit: f64,
     since: Option<&str>,
     now_ms: f64,

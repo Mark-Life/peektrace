@@ -24,7 +24,7 @@ Spike numbers: Bun binary and Rust release binary, both built from the same comm
 | `sessions ls` (all rows) | 1228 ms | 83 ms | 2114 ms | 62 ms |
 | Peak RSS for that listing | 1174 MiB | 30 MiB | 556 MiB | 27 MiB |
 
-Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus.
+Parity: `bun scripts/rust/parity.ts` shows no differences for Claude, Codex, Pi and OpenCode sessions, on the fixtures, on generated edge trees and on the real corpus (`sessions ls`, `analyze`, `export`). It also covers every `stats` command (report, drill, prompt, usage, refresh) for each agent and for all agents at once, on the fixtures and on the real corpus. `sessions search` matches on every agent, on the fixtures, generated edge lines and the real corpus. `memory ls`, `show` and `rm` match on a generated memory tree and the real `~/.claude`; `rm` runs on twin copies and the two trees are diffed.
 
 `stats` on the Mac corpus (7,182 transcripts, single runs): cold `stats refresh --force` takes 6.0 s in Rust and 23.4 s in TS. A warm report takes 2.6 s in Rust and 2.3 to 9.7 s in TS.
 
@@ -71,13 +71,18 @@ These are deliberate or accepted. The parity harness does not cover them.
 | `--otel` `Sessions.list` `malformedLines` and root `cli` `sessions.unreadable` with `--project` | count every Claude transcript | count only the kept project. The stderr note on unreadable sessions matches. |
 | A `null` line in a Claude, Codex or Pi transcript, or Claude assistant `content` that is a number, boolean or object | `analyze` / `export` fail with an Effect error on stdout | the `null` line is skipped and keeps its row index; the content yields no events |
 | A symlink loop under the Codex sessions root | each pass round the loop lists the same rollouts again under a longer path, until the OS fails the path | a dir already on the walk's path is not entered again, so each rollout is listed once per real path |
-| Tie order by id (same `updatedAt`) for non-ASCII ids | ICU `localeCompare` | ASCII in CLDR root order, other chars after ASCII by code point. Session ids are ASCII in practice. |
 | Two Claude, Codex or Pi roots that name the same folder (case variant, symlink) | each scanned, so every session prints twice | the folder is scanned once. OpenCode roots follow TS. |
 | `TZ` with a POSIX rule in `<>` (`<+03>-3`) or a `,` | Bun falls back to the OS zone | UTC, as for other POSIX rules. Only timestamps with no offset are affected. |
 | `stats` fact cache | `$PEEKTRACE_DIR/stats/` | `$PEEKTRACE_DIR/stats-rs/`, same layout and extractor version 13. Both read and write the one `rule-lines.json` beside it. |
 | `stats` on a Claude, Codex or Pi transcript with a `null` line | the whole command fails: `Could not scan the corpus: TypeError: ...` | the line is skipped |
 | `stats --days` so large the window start is not a valid date | Effect `ERROR (#n)` dump on stdout | `--days N reaches past the earliest date` on stderr, exit 1 |
-| `stats` with `--otel` | also prints `RpcServer.stats.*` and `RpcClient.stats.*` spans | no RPC spans |
+| `stats`, `sessions search` and `memory` with `--otel` | also print `RpcServer.*` and `RpcClient.*` spans | no RPC spans |
+| `sessions search` `scannedSessions` and `unreadable` when the result is `truncated` | vary run to run: up to 8 loads are in flight when the scan stops | each thread (at most 16) loads the next session, newest first, with no batch wait; both counts cover the sessions up to the one that made `limit + 1` matches, so they do not vary |
+| `sessions search` query words that look like flags | `-v` prints the version; `true` or `false` after `--json` or `--no-redact` is read as the flag's value | `-v` is a clap error; `true` and `false` are query text. Other dash words follow TS: query text, and when the query starts with one, every later word is text too. |
+| `sessions search` root span `argv` | dash query words (`--force`, `-rf`) stay verbatim | the reordered command line: known flags first, then `--`, then every query word as `<text>` |
+| `memory` on Windows | every entry reads as not in `MEMORY.md`: the match slugs the whole path, which has `\` separators | the path's `\` read as `/`, so entries match by file name |
+| `memory` `typeCounts` for a `type` named `__proto__` or after an `Object.prototype` member (`constructor`, `toString`, ...) | `__proto__` is dropped; the others print as text such as `"function Object() { [native code] }1"` | counted like any other type |
+| `memory rm` when the file cannot be removed (IO error) | Effect `ERROR (#n)` dump on stdout | `<path>: <OS error>` on stderr, naming the memory file or `MEMORY.md`. Exit 1 in both. |
 | `stats usage --tz` | ICU `Intl` names and aliases | jiff names (any case) and fixed offsets `±HH`, `±HHMM`, `±HH:MM`. Rare ICU-only aliases may be rejected. |
 | `stats` nested transcript walk | follows symlinked dirs with no loop guard | stops 64 dirs deep |
 | `stats` rule check for a missing binary whose name is about 50,000+ chars | the name gets a probe | the probe pattern passes the regex size limit, so that name gets no probe |
@@ -106,3 +111,5 @@ Strip Next.js out of `apps/web` and leave a static HTML placeholder. A real land
 3. Should `stats` (report) take `--force`, as `refresh` and `usage` do? TS has none.
 4. A nested transcript of the default Claude source carries no `source` while its main does. Copy TS (done) or fix both? It changes rule reach only with 2+ Claude sources.
 5. The real stats parity suite snapshots `~/.claude/projects` and deletes it after. It runs by default on macOS (APFS clone) and needs `--real-stats` elsewhere (full copy). Keep it out of CI?
+6. `memory rm` writes an empty MEMORY.md when the project has none. Rust copies TS. Fix it in both?
+7. `memory` writes (`create`, `update`) have no `expectedHash` check and no file lock in Rust: TS has both in `fs.ts` but nothing calls them. Port them with `serve` if the server needs them?
