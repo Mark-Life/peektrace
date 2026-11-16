@@ -279,9 +279,12 @@ $0, or OpenCode's session cost. Otherwise it is the session at API list price
 (`~$1.23 (estimated from tokens)`), subagents included. `incl. subagents (est.)` is
 always our estimate. Models with no rate card are listed under `unpriced
 models`. A Claude Code record that starts after the session does (a resumed
-process only) is not the total: it shows as `partial record`. When the record
-and our estimate differ by more than 5%, a `warning` row shows the estimate:
-usually a model with no rate card.
+process only) is not the total: it shows as `partial record`. Beside a full
+record, an `estimate` row shows our estimate. Transcripts miss some billed
+calls, so it is often a little lower. It becomes a `warning` row when a model
+has no rate card, when it is more than 5% above the record, or more than 35%
+below it: a price is likely missing or wrong. `--json` sets
+`cost.estimateWarning` in those cases.
 
 ```sh
 peektrace sessions analyze <session-uuid>

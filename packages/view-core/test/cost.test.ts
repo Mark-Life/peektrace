@@ -43,23 +43,48 @@ describe("cost formatting", () => {
       warning: undefined,
     });
     expect(costSummary({ source: "agent", totalUsd: 0.5 }, "OpenCode")).toEqual(
-      { notes: ["recorded by OpenCode"], total: "$0.50", warning: undefined }
+      {
+        estimateNote: undefined,
+        notes: ["recorded by OpenCode"],
+        total: "$0.50",
+        warning: undefined,
+      }
     );
   });
 
-  test("costSummary warns when the record and the estimate disagree", () => {
-    expect(
-      costSummary(
-        {
-          estimateGap: -0.926,
-          estimateUsd: 34.37,
-          recordedUsd: 464.02,
-          source: "agent",
-          totalUsd: 464.02,
-        },
-        "Claude Code"
-      ).warning
-    ).toBe("estimate from tokens ~$34.37 (93% lower)");
+  test("costSummary warns when core flags the estimate", () => {
+    const s = costSummary(
+      {
+        estimateGap: -0.926,
+        estimateUsd: 34.37,
+        estimateWarning: true,
+        recordedUsd: 464.02,
+        source: "agent",
+        totalUsd: 464.02,
+      },
+      "Claude Code"
+    );
+
+    expect(s.warning).toBe("estimate from tokens ~$34.37 (93% lower)");
+    expect(s.estimateNote).toBeUndefined();
+  });
+
+  test("costSummary shows an unflagged estimate quietly", () => {
+    const s = costSummary(
+      {
+        estimateGap: -0.2,
+        estimateUsd: 8,
+        recordedUsd: 10,
+        source: "agent",
+        totalUsd: 10,
+      },
+      "Claude Code"
+    );
+
+    expect(s.warning).toBeUndefined();
+    expect(s.estimateNote).toBe(
+      "Estimate from transcript: ~$8.00. Transcripts miss some billed calls."
+    );
   });
 
   test("costSummary names a partial record next to the estimate", () => {

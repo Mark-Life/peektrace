@@ -82,6 +82,7 @@ pub fn cost_from_json(v: &JsValue) -> Option<SessionCost> {
         estimate_usd: v.get("estimateUsd").and_then(JsValue::as_num),
         record_partial: v.get("recordPartial").is_some_and(JsValue::is_true),
         estimate_gap: v.get("estimateGap").and_then(JsValue::as_num),
+        estimate_warning: v.get("estimateWarning").is_some_and(JsValue::is_true),
     })
 }
 

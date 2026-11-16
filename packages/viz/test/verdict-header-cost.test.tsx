@@ -62,6 +62,7 @@ test("a record far from the estimate shows a warning", () => {
     cost: {
       estimateGap: -0.926,
       estimateUsd: 34.37,
+      estimateWarning: true,
       recordedUsd: 464.02,
       source: "agent",
       totalUsd: 464.02,
@@ -71,6 +72,26 @@ test("a record far from the estimate shows a warning", () => {
   expect(html).toContain("recorded by Claude Code");
   expect(html).toContain('data-testid="session-cost-warning"');
   expect(html).toContain("estimate from tokens ~$34.37 (93% lower)");
+  expect(html).not.toContain('data-testid="session-cost-estimate"');
+});
+
+test("an expected estimate gap shows quietly, not as a warning", () => {
+  const html = render({
+    ...base,
+    cost: {
+      estimateGap: -0.1,
+      estimateUsd: 9,
+      recordedUsd: 10,
+      source: "agent",
+      totalUsd: 10,
+    },
+  });
+
+  expect(html).not.toContain('data-testid="session-cost-warning"');
+  expect(html).toContain('data-testid="session-cost-estimate"');
+  expect(html).toContain(
+    "Estimate from transcript: ~$9.00. Transcripts miss some billed calls."
+  );
 });
 
 test("no cost means no cost cell", () => {

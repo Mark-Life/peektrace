@@ -63,8 +63,8 @@ const Meta = ({
 
 /**
  * Cost cell value as visible text: total (or `—` when nothing is priced), its
- * source, the notes that qualify it, and a warning when the agent's record
- * and our estimate disagree.
+ * source, the notes that qualify it, and beside a full record either a
+ * warning or a quiet estimate note.
  */
 const CostValue = ({
   cost,
@@ -73,7 +73,7 @@ const CostValue = ({
   readonly cost: NonNullable<AnalyzedSession["cost"]>;
   readonly provider: string;
 }) => {
-  const { total, notes, warning } = costSummary(
+  const { total, notes, warning, estimateNote } = costSummary(
     cost,
     PROVIDER_LABEL.get(provider) ?? provider
   );
@@ -95,10 +95,18 @@ const CostValue = ({
         <span
           className="block text-amber-700 dark:text-amber-400"
           data-testid="session-cost-warning"
-          title="A model may lack a price card, or the transcript misses calls"
+          title="A model may lack a price card, or its price may be wrong"
         >
           <span className="sr-only">Warning: </span>
           {warning}
+        </span>
+      )}
+      {estimateNote === undefined ? null : (
+        <span
+          className="text-muted-foreground block text-xs"
+          data-testid="session-cost-estimate"
+        >
+          {estimateNote}
         </span>
       )}
     </>

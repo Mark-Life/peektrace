@@ -6,6 +6,7 @@ mod common;
 use common::{analyze_default, jsonl, parse_text};
 use peektrace_core::js::value::JsValue;
 use peektrace_core::pi::parse_pi_session;
+use peektrace_core::sessions::cost::cost_summary;
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost, SubagentRef, TurnsCost};
 use peektrace_core::sessions::read::{cost_from_json, parsed_from_json};
 use peektrace_core::sessions::write::{analyzed_json, parsed_json};
@@ -91,6 +92,62 @@ fn claude_record_is_the_total_and_subagents_are_not_added_again() {
         "estimate: $4 main + $0.30 subagent"
     );
     assert_eq!(c.estimate_gap, None, "2.4% apart is under the 5% limit");
+    assert!(!c.estimate_warning);
+}
+
+/// Warning and quiet note for one $4 opus-5-5 call against a record.
+fn lines_for(recorded: f64) -> (Option<String>, Option<String>) {
+    let a = analyzed(
+        &claude("claude-opus-5-5", &[cost_state(T0_MS - 1000, recorded)]),
+        None,
+    );
+    let s = cost_summary(cost(&a), "Claude Code");
+    (s.warning, s.estimate_note)
+}
+
+#[test]
+fn an_estimate_above_the_record_warns() {
+    assert_eq!(
+        lines_for(3.5),
+        (
+            Some("estimate from tokens ~$4.00 (14% higher)".to_owned()),
+            None
+        )
+    );
+}
+
+#[test]
+fn an_estimate_far_below_the_record_warns() {
+    assert_eq!(
+        lines_for(7.0),
+        (
+            Some("estimate from tokens ~$4.00 (43% lower)".to_owned()),
+            None
+        )
+    );
+}
+
+#[test]
+fn an_estimate_somewhat_below_the_record_shows_quietly() {
+    let a = analyzed(
+        &claude("claude-opus-5-5", &[cost_state(T0_MS - 1000, 5.0)]),
+        None,
+    );
+    let c = cost(&a);
+    assert!(
+        close(c.estimate_gap, -0.2),
+        "the gap is still recorded: {c:?}"
+    );
+    assert!(!c.estimate_warning);
+    assert_eq!(
+        lines_for(5.0),
+        (
+            None,
+            Some(
+                "Estimate from transcript: ~$4.00. Transcripts miss some billed calls.".to_owned()
+            )
+        )
+    );
 }
 
 #[test]
@@ -104,6 +161,28 @@ fn a_missing_price_card_shows_as_an_estimate_gap() {
     assert_eq!(
         c.unpriced_models.as_deref(),
         Some(&["claude-example-9-9".to_owned()][..])
+    );
+    assert!(c.estimate_warning);
+}
+
+#[test]
+fn an_unpriced_model_warns_even_with_a_small_gap() {
+    // $4 priced call plus an unpriced one; the record is within 5%.
+    let mut rows = claude("claude-opus-5-5", &[cost_state(T0_MS - 1000, 4.1)]);
+    rows.insert(
+        2,
+        json!({"type":"assistant","timestamp":"2026-01-01T00:00:02Z","requestId":"r2",
+            "message":{"model":"claude-example-9-9","usage":{"input_tokens":10,"output_tokens":0,
+            "cache_read_input_tokens":0,"cache_creation_input_tokens":0},
+            "content":[{"type":"text","text":"ok"}]}}),
+    );
+    let a = analyzed(&rows, None);
+    let c = cost(&a);
+    assert_eq!(c.estimate_gap, None, "{c:?}");
+    assert!(c.estimate_warning);
+    assert_eq!(
+        cost_summary(c, "Claude Code").warning.as_deref(),
+        Some("estimate from tokens ~$4.00 (2% lower)")
     );
 }
 

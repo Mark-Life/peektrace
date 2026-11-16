@@ -144,7 +144,15 @@ fn tiles(a: &AnalyzedSession, zone: Zone, cols: usize, t: &Theme) -> El {
                     .color(zone_text(Zone::Warn))
                     .wrap_anywhere()
                     .key("session-cost-warning")
-                    .help("A model may lack a price card, or the transcript misses calls"),
+                    .help("A model may lack a price card, or its price may be wrong"),
+            );
+        } else if let Some(n) = c.estimate_note {
+            el = col().gap(2.0).child(el).child(
+                text(n)
+                    .font(ty::XS)
+                    .color(t.muted_fg)
+                    .wrap_anywhere()
+                    .key("session-cost-estimate"),
             );
         }
         items.push(tile("tile-cost", "Cost", el, t));

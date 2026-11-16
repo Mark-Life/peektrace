@@ -182,6 +182,9 @@ fn write_cost(w: &mut Writer, c: &SessionCost) {
     if let Some(v) = c.estimate_gap {
         w.key("estimateGap").num(v);
     }
+    if c.estimate_warning {
+        w.key("estimateWarning").bool(true);
+    }
     w.end_obj();
 }
 

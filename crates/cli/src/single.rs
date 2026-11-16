@@ -8,7 +8,7 @@ use peektrace_core::js::value::JsValue;
 use peektrace_core::js::{num, text};
 use peektrace_core::roots;
 use peektrace_core::select::{self, SelectOptions};
-use peektrace_core::sessions::cost::{estimate_warning, fmt_recorded_usd};
+use peektrace_core::sessions::cost::{estimate_lines, fmt_recorded_usd};
 use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
 use peektrace_core::sessions::read::{cost_from_json, listing_from_json, parsed_from_json};
 use peektrace_core::sessions::service::{SessionEnv, Target, analyze_session, get_session};
@@ -234,8 +234,12 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
             ),
         ));
     }
-    if let Some((gap, e)) = cost.and_then(|c| c.estimate_gap.zip(c.estimate_usd)) {
-        rows.push(row("warning", estimate_warning(gap, e)));
+    let (warning, note) = cost.map(estimate_lines).unwrap_or_default();
+    if let Some(w) = warning {
+        rows.push(row("warning", w));
+    }
+    if let Some(n) = note {
+        rows.push(row("estimate", n));
     }
     if !unpriced.is_empty() {
         rows.push(row("unpriced models", unpriced.join(", ")));

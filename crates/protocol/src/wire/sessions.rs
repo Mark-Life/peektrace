@@ -297,6 +297,11 @@ pub struct SessionCost {
     /// record is the total: a model may lack a price card.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub estimate_gap: Option<f64>,
+    /// True when the record is the total and the estimate points at a price
+    /// problem: a model is unpriced, the estimate is more than 5% above the
+    /// record, or more than 35% below it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimate_warning: Option<bool>,
 }
 
 /// The analysis without its events, turns and snapshots.

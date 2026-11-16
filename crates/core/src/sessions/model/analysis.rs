@@ -150,6 +150,9 @@ pub struct SessionCost {
     /// `(estimate - recorded) / recorded` when the record is the total and
     /// the two differ by more than `ESTIMATE_GAP_LIMIT`.
     pub estimate_gap: Option<f64>,
+    /// True when the record is the total and the estimate points at a price
+    /// problem: see `estimate_warns`.
+    pub estimate_warning: bool,
 }
 
 /// A parsed session plus its context forensics. `parsed.turns` holds the

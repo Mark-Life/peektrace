@@ -390,6 +390,8 @@ pub struct SessionCost {
         deserialize_with = "opt_num"
     )]
     pub estimate_gap: Option<f64>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub estimate_warning: bool,
 }
 
 /// The session analysis without its events, turns and snapshots.

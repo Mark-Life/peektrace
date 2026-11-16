@@ -352,7 +352,13 @@ recordPartial?: boolean,
  * `(estimateUsd - recordedUsd) / recordedUsd`, set only past 5% when the
  * record is the total: a model may lack a price card.
  */
-estimateGap?: number, };
+estimateGap?: number, 
+/**
+ * True when the record is the total and the estimate points at a price
+ * problem: a model is unpriced, the estimate is more than 5% above the
+ * record, or more than 35% below it.
+ */
+estimateWarning?: boolean, };
 
 export type AnalysisMeta = { contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**

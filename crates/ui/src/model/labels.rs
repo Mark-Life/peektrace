@@ -112,6 +112,8 @@ pub struct CostSummary {
     pub total: String,
     pub notes: Vec<String>,
     pub warning: Option<String>,
+    /// The estimate beside a record when it does not warn; shown quietly.
+    pub estimate_note: Option<String>,
 }
 
 pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
@@ -136,10 +138,7 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
     if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
         notes.push(format!("{n} subagent(s) unreadable"));
     }
-    let warning = cost
-        .estimate_gap
-        .zip(cost.estimate_usd)
-        .map(|(gap, e)| estimate_warning(gap, e));
+    let (warning, estimate_note) = estimate_lines(cost);
     let total = cost.total_usd.map_or_else(
         || "—".to_owned(),
         |t| {
@@ -154,14 +153,41 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
         total,
         notes,
         warning,
+        estimate_note,
     }
 }
 
 /// `estimate from tokens ~$34.37 (93% lower)`.
-pub fn estimate_warning(gap: f64, estimate: f64) -> String {
+pub fn estimate_warning(recorded: f64, estimate: f64) -> String {
+    let gap = if recorded > 0.0 {
+        (estimate - recorded) / recorded
+    } else {
+        0.0
+    };
     let pct = to_fixed((gap * 100.0).abs(), 0);
     let dir = if gap < 0.0 { "lower" } else { "higher" };
     format!("estimate from tokens {} ({pct}% {dir})", fmt_usd(estimate))
+}
+
+/// The warning or the quiet note for the estimate beside a full record.
+/// Core decides when it warns (`estimateWarning`).
+fn estimate_lines(cost: &SessionCost) -> (Option<String>, Option<String>) {
+    match (cost.recorded_usd, cost.estimate_usd) {
+        (Some(r), Some(e)) if cost.source == CostSource::Agent && !cost.record_partial => {
+            if cost.estimate_warning {
+                (Some(estimate_warning(r, e)), None)
+            } else {
+                (
+                    None,
+                    Some(format!(
+                        "Estimate from transcript: {}. Transcripts miss some billed calls.",
+                        fmt_usd(e)
+                    )),
+                )
+            }
+        }
+        _ => (None, None),
+    }
 }
 
 #[cfg(test)]
@@ -179,6 +205,7 @@ mod tests {
             estimate_usd: None,
             record_partial: false,
             estimate_gap: None,
+            estimate_warning: false,
         }
     }
 
@@ -194,6 +221,7 @@ mod tests {
                 total: "~$1.23".into(),
                 notes: vec!["estimated from tokens".into()],
                 warning: None,
+                estimate_note: None,
             }
         );
         let c = SessionCost {
@@ -207,6 +235,7 @@ mod tests {
             recorded_usd: Some(464.02),
             estimate_usd: Some(34.37),
             estimate_gap: Some(-0.926),
+            estimate_warning: true,
             ..cost(CostSource::Agent)
         };
         let s = cost_summary(&c, "Claude Code");

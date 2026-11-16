@@ -58,14 +58,34 @@ pub fn turns_cost(turns: &[Turn]) -> TurnsCost {
     sum_priced(&priced)
 }
 
-/// Record and estimate differ past this share: a model may lack a price
-/// card, or the transcript may miss calls.
+/// Record and estimate differ past this share: `estimate_gap` is set.
 pub const ESTIMATE_GAP_LIMIT: f64 = 0.05;
 
-/// `(estimate - recorded) / recorded` when it passes the limit.
+/// Warn when the estimate is above the record by more than this: a price
+/// card may be too high, or calls are counted twice.
+pub const ESTIMATE_HIGH_WARN: f64 = 0.05;
+
+/// Warn when the estimate is below the record by more than this: a price
+/// may be missing or wrong. Smaller gaps are normal, because transcripts
+/// miss some billed calls.
+pub const ESTIMATE_LOW_WARN: f64 = 0.35;
+
+/// `(estimate - recorded) / recorded`, `None` without a positive record.
+fn gap(recorded: f64, estimate: f64) -> Option<f64> {
+    (recorded > 0.0).then(|| (estimate - recorded) / recorded)
+}
+
+/// The gap when it passes `ESTIMATE_GAP_LIMIT`.
 fn estimate_gap(recorded: f64, estimate: f64) -> Option<f64> {
-    let gap = (estimate - recorded) / recorded;
-    (recorded > 0.0 && gap.abs() > ESTIMATE_GAP_LIMIT).then_some(gap)
+    gap(recorded, estimate).filter(|g| g.abs() > ESTIMATE_GAP_LIMIT)
+}
+
+/// True when a full record and our estimate disagree in a way that points
+/// at a price problem: an unpriced model, an estimate too high, or one far
+/// too low.
+pub fn estimate_warns(recorded: f64, estimate: f64, unpriced: bool) -> bool {
+    gap(recorded, estimate)
+        .is_some_and(|g| unpriced || g > ESTIMATE_HIGH_WARN || g < -ESTIMATE_LOW_WARN)
 }
 
 /// A session's cost. The agent's own record is the total when it covers the
@@ -114,7 +134,6 @@ pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionC
         from_agent: headline.is_some(),
         total_usd: total,
         subagents_usd: (subagents_usd > 0.0).then_some(subagents_usd),
-        unpriced_models: unpriced,
         unreadable_subagents: (unreadable > 0).then_some(unreadable),
         recorded_usd: native.map(|n| n.usd),
         estimate_usd: estimate,
@@ -122,6 +141,10 @@ pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionC
         estimate_gap: headline
             .zip(estimate)
             .and_then(|(n, e)| estimate_gap(n.usd, e)),
+        estimate_warning: headline
+            .zip(estimate)
+            .is_some_and(|(n, e)| estimate_warns(n.usd, e, unpriced.is_some())),
+        unpriced_models: unpriced,
     })
 }
 
@@ -151,8 +174,11 @@ pub struct CostSummary {
     /// `—` when nothing is priced.
     pub total: String,
     pub notes: Vec<String>,
-    /// Record and estimate disagree; shown as a warning.
+    /// Record and estimate disagree in a way that points at a price
+    /// problem; shown as a warning.
     pub warning: Option<String>,
+    /// The estimate beside a record when it does not warn; shown quietly.
+    pub estimate_note: Option<String>,
 }
 
 /// The total and the notes that qualify it, led by where it comes from.
@@ -177,10 +203,7 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
     if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
         notes.push(format!("{n} subagent(s) unreadable"));
     }
-    let warning = cost
-        .estimate_gap
-        .zip(cost.estimate_usd)
-        .map(|(gap, e)| estimate_warning(gap, e));
+    let (warning, estimate_note) = estimate_lines(cost);
     let total = cost.total_usd.map_or_else(
         || "—".to_owned(),
         |t| {
@@ -195,12 +218,37 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
         total,
         notes,
         warning,
+        estimate_note,
     }
 }
 
 /// `estimate from tokens ~$34.37 (93% lower)`.
-pub fn estimate_warning(gap: f64, estimate: f64) -> String {
-    let pct = crate::js::num::to_fixed((gap * 100.0).abs(), 0);
-    let dir = if gap < 0.0 { "lower" } else { "higher" };
+pub fn estimate_warning(recorded: f64, estimate: f64) -> String {
+    let g = gap(recorded, estimate).unwrap_or(0.0);
+    let pct = crate::js::num::to_fixed((g * 100.0).abs(), 0);
+    let dir = if g < 0.0 { "lower" } else { "higher" };
     format!("estimate from tokens {} ({pct}% {dir})", fmt_usd(estimate))
+}
+
+/// `Estimate from transcript: ~$6.10. Transcripts miss some billed calls.`
+pub fn estimate_note(estimate: f64) -> String {
+    format!(
+        "Estimate from transcript: {}. Transcripts miss some billed calls.",
+        fmt_usd(estimate)
+    )
+}
+
+/// The warning or the quiet note for the estimate beside a full record;
+/// both `None` without one.
+pub fn estimate_lines(cost: &SessionCost) -> (Option<String>, Option<String>) {
+    match (cost.recorded_usd, cost.estimate_usd) {
+        (Some(r), Some(e)) if cost.from_agent && !cost.record_partial => {
+            if cost.estimate_warning {
+                (Some(estimate_warning(r, e)), None)
+            } else {
+                (None, Some(estimate_note(e)))
+            }
+        }
+        _ => (None, None),
+    }
 }

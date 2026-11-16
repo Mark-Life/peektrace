@@ -17,12 +17,43 @@ export const fmtRecordedUsd = (n: number) => usd(n, "");
 /** `estimate from tokens ~$34.37 (93% lower)`. */
 export const estimateWarning = ({
   estimate,
-  gap,
+  recorded,
 }: {
   readonly estimate: number;
-  readonly gap: number;
-}) =>
-  `estimate from tokens ${fmtUsd(estimate)} (${Math.abs(gap * PERCENT).toFixed(0)}% ${gap < 0 ? "lower" : "higher"})`;
+  readonly recorded: number;
+}) => {
+  const gap = recorded > 0 ? (estimate - recorded) / recorded : 0;
+
+  return `estimate from tokens ${fmtUsd(estimate)} (${Math.abs(gap * PERCENT).toFixed(0)}% ${gap < 0 ? "lower" : "higher"})`;
+};
+
+/** `Estimate from transcript: ~$6.10. Transcripts miss some billed calls.` */
+export const estimateNote = (estimate: number) =>
+  `Estimate from transcript: ${fmtUsd(estimate)}. Transcripts miss some billed calls.`;
+
+/**
+ * The warning or the quiet note for the estimate beside a full record. Core
+ * decides when it warns (`estimateWarning`).
+ */
+const estimateLines = (cost: SessionCost) => {
+  const { estimateUsd: estimate, recordedUsd: recorded } = cost;
+
+  if (
+    estimate === undefined ||
+    recorded === undefined ||
+    cost.source !== "agent" ||
+    cost.recordPartial === true
+  ) {
+    return { estimateNote: undefined, warning: undefined };
+  }
+
+  return cost.estimateWarning === true
+    ? {
+        estimateNote: undefined,
+        warning: estimateWarning({ estimate, recorded }),
+      }
+    : { estimateNote: estimateNote(estimate), warning: undefined };
+};
 
 /** Notes that qualify a session cost after its source. */
 const costNotes = (cost: SessionCost, agentLabel: string) => [
@@ -54,8 +85,8 @@ const fmtTotal = (cost: SessionCost) => {
 
 /**
  * A session cost as display text: the total (`—` when nothing is priced),
- * the notes that qualify it led by its source, and a warning when the
- * agent's record and our estimate disagree.
+ * the notes that qualify it led by its source, and beside a full record
+ * either a warning (a likely price problem) or a quiet estimate note.
  */
 export const costSummary = (cost: SessionCost, agentLabel: string) => ({
   notes: [
@@ -65,8 +96,5 @@ export const costSummary = (cost: SessionCost, agentLabel: string) => ({
     ...costNotes(cost, agentLabel),
   ],
   total: fmtTotal(cost),
-  warning:
-    cost.estimateGap === undefined || cost.estimateUsd === undefined
-      ? undefined
-      : estimateWarning({ estimate: cost.estimateUsd, gap: cost.estimateGap }),
+  ...estimateLines(cost),
 });

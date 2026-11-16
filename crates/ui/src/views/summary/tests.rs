@@ -51,6 +51,7 @@ fn cost(source: CostSource) -> SessionCost {
         estimate_usd: None,
         record_partial: false,
         estimate_gap: None,
+        estimate_warning: false,
     }
 }
 
@@ -123,6 +124,7 @@ fn a_record_far_from_the_estimate_shows_a_warning() {
         recorded_usd: Some(464.02),
         estimate_usd: Some(34.37),
         estimate_gap: Some(-0.926),
+        estimate_warning: true,
         ..cost(CostSource::Agent)
     }));
     let els = rt.elements();
@@ -130,6 +132,24 @@ fn a_record_far_from_the_estimate_shows_a_warning() {
     assert_eq!(
         by_key(&els, "session-cost-warning").and_then(|e| e.text.as_deref()),
         Some("estimate from tokens ~$34.37 (93% lower)")
+    );
+    assert!(by_key(&els, "session-cost-estimate").is_none());
+}
+
+#[test]
+fn an_expected_estimate_gap_shows_quietly() {
+    let rt = render(with_cost(SessionCost {
+        total_usd: Some(10.0),
+        recorded_usd: Some(10.0),
+        estimate_usd: Some(9.0),
+        estimate_gap: Some(-0.1),
+        ..cost(CostSource::Agent)
+    }));
+    let els = rt.elements();
+    assert!(by_key(&els, "session-cost-warning").is_none());
+    assert_eq!(
+        by_key(&els, "session-cost-estimate").and_then(|e| e.text.as_deref()),
+        Some("Estimate from transcript: ~$9.00. Transcripts miss some billed calls.")
     );
 }
 
