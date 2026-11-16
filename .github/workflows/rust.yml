@@ -118,7 +118,9 @@ jobs:
         run: bun run --filter=inspector build
 
       - name: Build release binary
-        run: cargo build --locked --release
+        run: |
+          cargo build --locked --release
+          cargo build --locked --release -p peektrace-core -p peektrace-tui --examples
 
       - name: Parity against the TS CLI
         run: bun scripts/rust/parity.ts --fixtures-only

@@ -215,7 +215,7 @@ pub fn compare_hits(a: &DrillHit, b: &DrillHit) -> Ordering {
     .then_with(|| asc(a.sample.seq, b.sample.seq))
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct FailRow {
     pub key: String,
     pub label: String,

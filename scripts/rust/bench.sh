@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # Benchmark the Bun-compiled binary against the Rust binary on the local agent corpus.
-# Runs on macOS and Linux. Needs hyperfine (>= 1.17 for --conclude), jq, gzip, curl
+# Runs on macOS and Linux. Needs hyperfine (>= 1.17 for --conclude), jq, gzip, curl, bun
 # and GNU time (macOS: `gtime` from Homebrew; Linux: /usr/bin/time from the `time` package).
 #
 #   scripts/rust/bench.sh                       rebuild both binaries, then measure
 #   BENCH_SKIP_BUILD=1 scripts/rust/bench.sh    measure existing binaries
 #   BENCH_SUITES="startup analyze" ...          pick suites (default: startup ls analyze)
 #                                               all: startup ls agents analyze analyze-codex analyze-pi analyze-opencode stats stats-all search memory serve serve-data
-#                                               statusline mcp upgrade
+#                                               statusline mcp upgrade tui
 #   BENCH_DIR=.scratch/p1a ...                  raw results to $BENCH_DIR/bench/, summary to $BENCH_DIR/bench.md
+#   BENCH_REPORT_ONLY=1 ...                     no build or runs: rewrite bench.md from the raw results
 #
 # Each suite adds cases with `add_case` (one CLI command run on both binaries) or
 # `add_pair` (a different command per implementation, e.g. TS `/rpc` vs Rust `/api`).
-# The serve suites live in bench-serve.sh, the statusline, mcp and upgrade suites in bench-stdio.sh, sourced below.
+# The serve suites live in bench-serve.sh, the statusline, mcp and upgrade suites in bench-stdio.sh,
+# and the TUI suite in bench-tui.sh, sourced below.
 # `set_prepare` gives the last case a command run before every timed run (hyperfine --prepare).
 # `set_input` gives the last case a file fed to stdin (hyperfine --input, `<` for GNU time).
 # Bash 3.2 compatible (macOS /bin/bash).
@@ -59,13 +61,14 @@ esac
 BUN_BIN="${BUN_BIN:-$ROOT/apps/cli/dist/bun-$OS-$ARCH/peektrace}"
 RUST_BIN="${RUST_BIN:-$ROOT/target/release/peektrace}"
 
-for tool in hyperfine jq gzip curl "$GTIME"; do
+for tool in hyperfine jq gzip curl bun "$GTIME"; do
   command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
 # BSD time (macOS /usr/bin/time) has no -f; GNU time is required for %M.
 "$GTIME" -f %M true >/dev/null 2>&1 || { echo "$GTIME is not GNU time (needs -f %M)" >&2; exit 1; }
 
-if [[ "${BENCH_SKIP_BUILD:-0}" != 1 ]]; then
+REPORT_ONLY="${BENCH_REPORT_ONLY:-0}"
+if [[ "${BENCH_SKIP_BUILD:-0}" != 1 && "$REPORT_ONLY" != 1 ]]; then
   (cd "$ROOT" && cargo build --release)
   # build.ts builds the inspector UI first, then compiles the binary.
   (cd "$ROOT/apps/cli" && bun run build:binary)
@@ -76,13 +79,14 @@ for bin in "$BUN_BIN" "$RUST_BIN"; do
 done
 
 mkdir -p "$OUT"
-rm -f "${OUT:?}"/*.json "${OUT:?}"/*.txt
+[[ "$REPORT_ONLY" == 1 ]] || rm -f "${OUT:?}"/*.json "${OUT:?}"/*.txt
 
 # --- corpus ----------------------------------------------------------------------
 # One `ls --json` per agent on each binary; ids and sizes for the session cases come from Bun.
 AGENTS=(claude codex pi opencode)
 ls_json() { echo sessions ls --agent "$1" --json --limit 0; }
 for agent in "${AGENTS[@]}"; do
+  [[ "$REPORT_ONLY" == 1 ]] && break
   # shellcheck disable=SC2046
   "$RUST_BIN" $(ls_json "$agent") >"$OUT/rust-ls-$agent.json" 2>/dev/null
   # shellcheck disable=SC2046
@@ -295,32 +299,17 @@ suite_memory() {
 . "$ROOT/scripts/rust/bench-serve.sh"
 # shellcheck source=scripts/rust/bench-stdio.sh
 . "$ROOT/scripts/rust/bench-stdio.sh"
+# shellcheck source=scripts/rust/bench-tui.sh
+. "$ROOT/scripts/rust/bench-tui.sh"
 trap 'stop_live; stop_fake_release' EXIT
 
 for suite in $BENCH_SUITES; do
   case "$suite" in
-    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade) "suite_${suite//-/_}" ;;
+    startup | ls | agents | analyze | analyze-codex | analyze-pi | analyze-opencode | stats | stats-all | search | memory | serve | serve-data | statusline | mcp | upgrade | tui) "suite_${suite//-/_}" ;;
     *) echo "unknown suite: $suite" >&2; exit 1 ;;
   esac
 done
 N_CASES="${#C_NAME[@]}"
-
-# --- environment -----------------------------------------------------------------
-{
-  echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "git: $(git -C "$ROOT" rev-parse --short HEAD) ($(git -C "$ROOT" branch --show-current))"
-  echo "cpu: $(cpu_info)"
-  echo "os: $(os_info)"
-  echo "load at start (1/5/15 min): $(uptime | sed 's/.*load averages*: //')"
-  echo "cargo: $(cargo --version)"
-  echo "rustc: $(rustc --version)"
-  echo "bun: $(bun --version)"
-  echo "hyperfine: $(hyperfine --version)"
-  echo "bun binary: $BUN_BIN ($("$BUN_BIN" --version))"
-  echo "rust binary: $RUST_BIN ($("$RUST_BIN" --version))"
-  for agent in "${AGENTS[@]}"; do corpus_line "$agent"; done
-  for line in ${ENV_EXTRA[@]+"${ENV_EXTRA[@]}"}; do echo "$line"; done
-} | tee "$OUT/env.txt"
 
 # --- size --------------------------------------------------------------------------
 gz_of() { gzip -9 -c "$1" | wc -c | tr -d ' '; }
@@ -328,53 +317,76 @@ BUN_SIZE="$(size_of "$BUN_BIN")"; BUN_GZ="$(gz_of "$BUN_BIN")"
 RUST_SIZE="$(size_of "$RUST_BIN")"; RUST_GZ="$(gz_of "$RUST_BIN")"
 printf 'bun %s %s\nrust %s %s\n' "$BUN_SIZE" "$BUN_GZ" "$RUST_SIZE" "$RUST_GZ" >"$OUT/size.txt"
 
-# --- latency (hyperfine, no intermediate shell) --------------------------------------
-for ((c = 0; c < N_CASES; c++)); do
-  if has_flag "$c" live && ((${#LIVE_PIDS[@]} == 0)); then start_live; fi
-  prep=()
-  [[ -n "${C_PREP[c]}" ]] && prep=(--prepare "${C_PREP[c]}")
-  input=()
-  [[ -n "${C_INPUT[c]}" ]] && input=(--input "${C_INPUT[c]}")
-  conclude=()
-  [[ -n "${C_BUN_END[c]}" ]] && conclude=(--conclude "${C_BUN_END[c]}" --conclude "${C_RUST_END[c]}")
-  hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} ${input[@]+"${input[@]}"} \
-    --export-json "$OUT/${C_NAME[c]}.json" \
-    ${conclude[@]+"${conclude[@]}"} \
-    --command-name bun "${C_BUN[c]}" \
-    --command-name rust "${C_RUST[c]}"
-done
-
-# --- serve payloads and memory ---------------------------------------------------------
-if [[ "${SERVE:-0}" == 1 ]]; then
-  ((${#LIVE_PIDS[@]} > 0)) || start_live
-  for ((p = 0; p < ${#P_NAME[@]}; p++)); do
-    [[ "${P_SIZE[p]}" == yes ]] || continue
-    echo "${P_NAME[p]} bun $(payload_sizes bun "${P_BUN[p]}") rust $(payload_sizes rust "${P_RUST[p]}")"
-  done | tee "$OUT/payload.txt"
-  stop_live
-  for ((i = 1; i <= RSS_ROUNDS; i++)); do
-    for ((g = 0; g < ${#G_NAME[@]}; g++)); do serve_rss_round "$g" bun; serve_rss_round "$g" rust; done
-  done
-fi
-
-# --- peak RSS (GNU time, interleaved) -----------------------------------------------
-# Each round runs every rss case on Bun, then Rust, so drift hits both alike.
 RSS_CASES=""
 for ((c = 0; c < N_CASES; c++)); do has_flag "$c" rss && RSS_CASES+=" $c"; done
-for ((i = 1; i <= RSS_ROUNDS; i++)); do
-  for c in $RSS_CASES; do
-    read -ra prep <<<"${C_PREP[c]}"
-    for impl in bun rust; do
-      if [[ "$impl" == bun ]]; then read -ra argv <<<"${C_BUN[c]}"; else read -ra argv <<<"${C_RUST[c]}"; fi
-      if ((${#prep[@]})); then "${prep[@]}"; fi
-      # %M is KiB on both macOS gtime and Linux GNU time; keep only its last stderr line.
-      "$GTIME" -f %M "${argv[@]}" <"${C_INPUT[c]:-/dev/null}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
-    done
-  done
-  for hook in ${RSS_HOOKS[@]+"${RSS_HOOKS[@]}"}; do "$hook"; done
-done
 
-echo "load at end (1/5/15 min): $(uptime | sed 's/.*load averages*: //')" >>"$OUT/env.txt"
+# Everything from here to the summary measures; BENCH_REPORT_ONLY=1 skips it.
+if [[ "$REPORT_ONLY" != 1 ]]; then
+  # --- environment -----------------------------------------------------------------
+  {
+    echo "date: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "git: $(git -C "$ROOT" rev-parse --short HEAD) ($(git -C "$ROOT" branch --show-current))"
+    echo "cpu: $(cpu_info)"
+    echo "os: $(os_info)"
+    echo "load at start (1/5/15 min): $(uptime | sed 's/.*load averages*: //')"
+    echo "cargo: $(cargo --version)"
+    echo "rustc: $(rustc --version)"
+    echo "bun: $(bun --version)"
+    echo "hyperfine: $(hyperfine --version)"
+    echo "bun binary: $BUN_BIN ($("$BUN_BIN" --version))"
+    echo "rust binary: $RUST_BIN ($("$RUST_BIN" --version))"
+    for agent in "${AGENTS[@]}"; do corpus_line "$agent"; done
+    for line in ${ENV_EXTRA[@]+"${ENV_EXTRA[@]}"}; do echo "$line"; done
+  } | tee "$OUT/env.txt"
+
+  # --- latency (hyperfine, no intermediate shell) --------------------------------------
+  for ((c = 0; c < N_CASES; c++)); do
+    if has_flag "$c" live && ((${#LIVE_PIDS[@]} == 0)); then start_live; fi
+    prep=()
+    [[ -n "${C_PREP[c]}" ]] && prep=(--prepare "${C_PREP[c]}")
+    input=()
+    [[ -n "${C_INPUT[c]}" ]] && input=(--input "${C_INPUT[c]}")
+    conclude=()
+    [[ -n "${C_BUN_END[c]}" ]] && conclude=(--conclude "${C_BUN_END[c]}" --conclude "${C_RUST_END[c]}")
+    hyperfine -N --warmup "${C_WARMUP[c]}" --runs "${C_RUNS[c]}" ${prep[@]+"${prep[@]}"} ${input[@]+"${input[@]}"} \
+      --export-json "$OUT/${C_NAME[c]}.json" \
+      ${conclude[@]+"${conclude[@]}"} \
+      --command-name bun "${C_BUN[c]}" \
+      --command-name rust "${C_RUST[c]}"
+  done
+
+  # --- serve payloads and memory ---------------------------------------------------------
+  if [[ "${SERVE:-0}" == 1 ]]; then
+    ((${#LIVE_PIDS[@]} > 0)) || start_live
+    for ((p = 0; p < ${#P_NAME[@]}; p++)); do
+      [[ "${P_SIZE[p]}" == yes ]] || continue
+      echo "${P_NAME[p]} bun $(payload_sizes bun "${P_BUN[p]}") rust $(payload_sizes rust "${P_RUST[p]}")"
+    done | tee "$OUT/payload.txt"
+    stop_live
+    for ((i = 1; i <= RSS_ROUNDS; i++)); do
+      for ((g = 0; g < ${#G_NAME[@]}; g++)); do serve_rss_round "$g" bun; serve_rss_round "$g" rust; done
+    done
+  fi
+
+  if [[ "${TUI:-0}" == 1 ]]; then tui_measure; fi
+
+  # --- peak RSS (GNU time, interleaved) -----------------------------------------------
+  # Each round runs every rss case on Bun, then Rust, so drift hits both alike.
+  for ((i = 1; i <= RSS_ROUNDS; i++)); do
+    for c in $RSS_CASES; do
+      read -ra prep <<<"${C_PREP[c]}"
+      for impl in bun rust; do
+        if [[ "$impl" == bun ]]; then read -ra argv <<<"${C_BUN[c]}"; else read -ra argv <<<"${C_RUST[c]}"; fi
+        if ((${#prep[@]})); then "${prep[@]}"; fi
+        # %M is KiB on both macOS gtime and Linux GNU time; keep only its last stderr line.
+        "$GTIME" -f %M "${argv[@]}" <"${C_INPUT[c]:-/dev/null}" 2>&1 >/dev/null | tail -1 >>"$OUT/rss-${C_NAME[c]}-$impl.txt"
+      done
+    done
+    for hook in ${RSS_HOOKS[@]+"${RSS_HOOKS[@]}"}; do "$hook"; done
+  done
+
+  echo "load at end (1/5/15 min): $(uptime | sed 's/.*load averages*: //')" >>"$OUT/env.txt"
+fi
 
 # --- summary -------------------------------------------------------------------------
 # stats <file of numbers> -> "median min max"
@@ -468,6 +480,7 @@ row_rss() {
     done
     echo
   fi
+  if [[ "${TUI:-0}" == 1 ]]; then tui_summary; fi
   echo "## Method"
   echo
   echo "- Binaries: \`cargo build --release\` (fat LTO, stripped) and \`bun run build:binary\` (builds the inspector UI, then \`bun build --compile --minify\` with the UI and OpenTUI native lib embedded)."

@@ -8,6 +8,7 @@ mod discover;
 pub mod export;
 pub mod header_cache;
 mod headers;
+pub mod highlight;
 pub mod js;
 pub mod listing;
 pub mod memory;

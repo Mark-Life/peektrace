@@ -1,0 +1,48 @@
+ Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
+ ╭─Capabilities (7)────────────────────────────────────────────────────────────────────────────────────────────────╮ ╭─Detail─────────────────────────────────╮
+ │                                                                                                                 │ │                                        │
+ │ Capability                    Claude   Codex    Pi       OpenCode                                               │ │ Context debug                          │
+ │ SESSIONS                                                                                                        │ │ Reproduce the context-budget forensics │
+ │   Session browser             ●        ●        ●        ●                                                      │ │ at peak.                               │
+ │ › Context debug               ●        ●        ●        ●                                                      │ │                                        │
+ │ MEMORY                                                                                                          │ │ Claude    ● supported                  │
+ │   Memory explorer             ●        ●        ●        ●                                                      │ │   Built and working today.             │
+ │   Memory edit                 ●        ●        ●        ●                                                      │ │ Codex     ● partial                    │
+ │ MCP                                                                                                             │ │   Ground-truth usage + authoritative … │
+ │   MCP dashboard               ●        ●        ●        ●                                                      │ │ Pi        ● partial                    │
+ │ SKILLS                                                                                                          │ │   Ground-truth usage; context window … │
+ │   Skills browser              ●        ●        ●        ●                                                      │ │ OpenCode  ● partial                    │
+ │ HISTORY                                                                                                         │ │   Session-level ground-truth token to… │
+ │   File-history diff           ●        ●        ●        ●                                                      │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ │                                                                                                                 │ │                                        │
+ ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯ ╰────────────────────────────────────────╯
+ ■ supported  ■ partial  ■ planned  ■ unsupported
+ ↑↓/jk move  1-5 section  q quit
+ web ▸ http://127.0.0.1:4321                                                                                                                1-5 section  q quit
