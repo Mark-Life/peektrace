@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "typecheck": "tsrs --noEmit",
+    "typecheck": "tsrs --noEmit --fast",
     "test": "bun test"
   },
   "dependencies": {
@@ -33,7 +33,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "@workspace/typescript-config": "workspace:*",
     "tailwindcss": "^4.1.18",
-    "typescript": "^6.0.3",
+    "typescript": "7.0.2",
     "vite": "^8.1.0"
   },
   "overrides": {

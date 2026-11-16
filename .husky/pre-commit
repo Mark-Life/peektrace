@@ -5,7 +5,7 @@ set -ef
 staged() { git diff --cached --name-only --diff-filter=ACMR -z -- "$@"; }
 has_staged() { [ -n "$(staged "$@" | tr -d '\0')" ]; }
 
-JS='*.ts *.tsx *.js *.jsx'
+JS='*.ts *.tsx *.js *.jsx *.json *.jsonc *.css *.yml *.yaml'
 
 # shellcheck disable=SC2086
 if has_staged $JS; then

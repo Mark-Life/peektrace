@@ -111,9 +111,7 @@ jobs:
 
       - name: Fixture listing, agent discovery and memory files
         run: >-
-          cargo test --locked -p peektrace-core
-          --test fixtures --test discovery --test codex --test pi
-          --test pi_context_edit --test memory --test memory_fs
+          cargo test --locked -p peektrace-core --test fixtures --test discovery --test codex --test pi --test pi_context_edit --test memory --test memory_fs
 
       - name: Telemetry store and layer
         run: cargo test --locked -p peektrace-telemetry --test writer --test layer

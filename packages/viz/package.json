@@ -5,7 +5,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "typecheck": "tsrs --noEmit"
+    "typecheck": "tsrs --noEmit --fast"
   },
   "exports": {
     "./components/*": "./src/components/*.tsx",
@@ -27,7 +27,7 @@
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@workspace/typescript-config": "workspace:*",
-    "typescript": "^6.0.3"
+    "typescript": "7.0.2"
   },
   "overrides": {
     "@types/react": "19.2.14",

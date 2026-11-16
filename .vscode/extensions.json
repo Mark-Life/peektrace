@@ -1,6 +1,7 @@
 {
   "recommendations": [
-    "biomejs.biome",
+    "TypeScriptTeam.native-preview",
+    "oxc.oxc-vscode",
     "bradlc.vscode-tailwindcss",
     "oven.bun-vscode",
     "yoavbls.pretty-ts-errors",

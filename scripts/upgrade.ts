@@ -6,7 +6,7 @@ const steps = [
   {
     name: "Bump root dev tooling",
     command: () =>
-      $`bun add -D --exact @biomejs/biome@latest typescript@latest ultracite@latest`,
+      $`bun add -D --exact oxlint@latest @oxlint/plugins@latest oxlint-tsgolint@latest oxfmt@latest typescript@latest tsrs@latest ultracite@latest`,
     critical: true,
   },
   {

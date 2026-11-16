@@ -7,12 +7,13 @@
     "composite": false,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    "types": ["bun"],
     "strictNullChecks": true,
     "paths": {
       "@workspace/ui/*": ["../ui/src/*"],
       "@workspace/view-core/*": ["../view-core/src/*"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "exclude": ["node_modules", "dist"]
 }

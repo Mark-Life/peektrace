@@ -5,14 +5,17 @@
     "effect": "3.21.4"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
+    "@oxlint/plugins": "1.90.0",
     "@types/bun": "^1.3.14",
     "@workspace/typescript-config": "workspace:*",
     "bun-types": "^1.3.14",
     "husky": "^9.1.7",
-    "tsrs": "^0.23.0-ts7.1.0-beta",
-    "typescript": "6.0.3",
-    "ultracite": "7.7.0"
+    "oxfmt": "0.75.0",
+    "oxlint": "1.90.0",
+    "oxlint-tsgolint": "7.0.2005",
+    "tsrs": "0.25.0-ts7.1.0-beta",
+    "typescript": "7.0.2",
+    "ultracite": "8.1.1"
   },
   "name": "peektrace-workspace",
   "scripts": {
@@ -21,10 +24,10 @@
     "serve": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- serve",
     "tui": "bun run --filter=inspector build && cargo run --release -p peektrace-cli -- tui",
     "lint": "bun run check",
-    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit -p scripts",
+    "typecheck": "bun run --filter='*' typecheck && tsrs --noEmit --fast -p scripts",
     "format": "bun run fix",
-    "check": "bunx --bun ultracite check",
-    "fix": "bunx --bun ultracite fix",
+    "check": "bunx --bun ultracite check --type-aware",
+    "fix": "bunx --bun ultracite fix --type-aware",
     "prepare": "husky",
     "upgrade": "bun run scripts/upgrade.ts"
   },
@@ -41,5 +44,6 @@
   "engines": {
     "node": ">=20.9.0",
     "bun": ">=1.3.0"
-  }
+  },
+  "type": "module"
 }
