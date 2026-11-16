@@ -13,11 +13,11 @@ pub struct Identity {
     re: Option<Regex>,
 }
 
-/// The form a Claude project slug gives a path: each non-alphanumeric char
-/// becomes `-`.
+/// The form a Claude project slug gives a path: each char outside
+/// `[A-Za-z0-9]` becomes `-`.
 fn slug(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
         .collect()
 }
 
@@ -123,5 +123,12 @@ mod tests {
         assert_eq!(id.scrub("al and calendar"), "al and calendar");
         assert_eq!(Identity::new("", &[None]).scrub("/a/b"), "/a/b");
         assert_eq!(Identity::new("/", &[Some("ab")]).scrub("/x"), "/x");
+    }
+
+    #[test]
+    fn non_ascii_name_matches_its_slug() {
+        let id = Identity::new("/Users/jos\u{e9}", &[]);
+        assert_eq!(id.scrub("-Users-jos--Code"), "-Users-<user>-Code");
+        assert_eq!(id.scrub("/Users/jos\u{e9}/Code"), "~/Code");
     }
 }
