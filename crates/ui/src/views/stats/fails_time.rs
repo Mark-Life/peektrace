@@ -67,7 +67,7 @@ const TIME_COLUMNS: [Column; 6] = [
     },
     Column {
         head: "In other jobs",
-        w: 88.0,
+        w: 104.0,
         from: 2,
         right: true,
     },

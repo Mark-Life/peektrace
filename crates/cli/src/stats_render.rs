@@ -247,9 +247,9 @@ fn header(r: &StatsReport) -> String {
             "{} sessions + {} subagent runs  {} projects  {} tool calls  {} shell calls  {} shell time",
             count(main),
             count(nested),
-            n(c.projects),
-            n(c.tool_calls),
-            n(c.bash_calls),
+            count(c.projects),
+            count(c.tool_calls),
+            count(c.bash_calls),
             hms(c.bash_sec)
         ),
         format!(
