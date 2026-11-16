@@ -4,3 +4,5 @@ tests/fixtures/** -text
 packages/view-core/src/*.gen.ts text eol=lf
 # The server analyses fixture is compared byte for byte too.
 apps/inspector/test/fixtures/tool-event/** text eol=lf
+# The built-in price table is checked byte for byte against the generator, which writes LF.
+crates/core/src/pricing/models_dev.json text eol=lf

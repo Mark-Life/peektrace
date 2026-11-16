@@ -96,7 +96,7 @@ fn telemetry_flags_override_each_other() {
 }
 
 /// The rows of the owned root page (TS `COMMAND_ROWS`).
-const COMMAND_ROWS: [(&str, &str); 18] = [
+const COMMAND_ROWS: [(&str, &str); 20] = [
     ("serve", "Start the local web UI"),
     ("tui", "Browse sessions in a terminal UI"),
     ("sessions ls", "List session headers"),
@@ -141,6 +141,11 @@ const COMMAND_ROWS: [(&str, &str); 18] = [
     (
         "upgrade",
         "Upgrade the installed binary to the latest release",
+    ),
+    ("pricing", "Show which price table cost estimates use"),
+    (
+        "pricing update",
+        "Download current prices from models.dev (opt-in)",
     ),
 ];
 
@@ -190,7 +195,7 @@ fn root_help_lists_every_command_compactly() {
         assert!(!text.contains("--wizard"));
         assert!(!text.contains("A true or false value."));
         let lines: Vec<&str> = text.split('\n').collect();
-        assert!(lines.len() <= 55, "{args:?}: {} lines", lines.len());
+        assert!(lines.len() <= 57, "{args:?}: {} lines", lines.len());
         for line in lines {
             assert!(line.chars().count() <= 80, "{args:?}: {line}");
         }

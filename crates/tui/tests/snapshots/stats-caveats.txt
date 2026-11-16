@@ -15,7 +15,7 @@
  │ - a rule match is a keyword probe over CLAUDE.md/AGENTS.md: it means a line mentions the habit, not that it states the fix                                 │
  │ - Context: the top 1% of main sessions (1 of 5) hold 100.0% of 9.55M cache-read tokens — compact or split those sessions before tuning anything else       │
  │ - Cost is an ESTIMATE, not a measurement: no transcript records per-call tokens. Rates per million tokens (input/output/cacheWrite/cacheRead USD):         │
- │   opus-5-5 4/20/5/0.2; sonnet-4-5 3/15/3.75/0.3 (checked 2026-11-08)                                                                                       │
+ │   opus-5-5 4/20/5/0.2; sonnet-4-5 3/15/3.75/0.3 (models.dev 2026-11-16, built-in)                                                                          │
  │ - Cost: 1 model ids have no rate card and are left out of the cost — (unknown)                                                                             │
  │                                                                                                                                                            │
  │                                                                                                                                                            │

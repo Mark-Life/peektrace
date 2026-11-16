@@ -9,7 +9,7 @@ use crate::reorder::GLOBAL_VALUES;
 pub const DESCRIPTION: &str = "Local, loopback-only inspector for Claude Code, Codex, Pi and OpenCode sessions: context-budget forensics, stats and Claude memory.";
 
 /// Every runnable command, in display order.
-const COMMAND_ROWS: [(&str, &str); 18] = [
+const COMMAND_ROWS: [(&str, &str); 20] = [
     ("serve", "Start the local web UI"),
     ("tui", "Browse sessions in a terminal UI"),
     ("sessions ls", "List session headers"),
@@ -54,6 +54,11 @@ const COMMAND_ROWS: [(&str, &str); 18] = [
     (
         "upgrade",
         "Upgrade the installed binary to the latest release",
+    ),
+    ("pricing", "Show which price table cost estimates use"),
+    (
+        "pricing update",
+        "Download current prices from models.dev (opt-in)",
     ),
 ];
 
@@ -436,7 +441,7 @@ mod tests {
         for sub in cmd.get_subcommands() {
             let name = sub.get_name();
             paths.insert(name.to_owned());
-            if ["sessions", "memory", "stats"].contains(&name) {
+            if ["sessions", "memory", "stats", "pricing"].contains(&name) {
                 for leaf in sub.get_subcommands() {
                     paths.insert(format!("{name} {}", leaf.get_name()));
                 }
