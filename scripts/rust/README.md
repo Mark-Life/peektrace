@@ -30,7 +30,7 @@ The second call builds the `ui` stage's helpers probe without Rune, which only t
 | `bun scripts/rust/parity.ts --fixtures-only --bin target/parity/peektrace` | The full live run on fixtures, TS and Rust side by side. |
 | `bun scripts/rust/parity.ts` | Fixtures plus the real corpora (`~/.claude`, `~/.codex`, `~/.pi`, OpenCode). |
 
-Add `--stage base,serve` to `goldens.ts` to run some stages only. Stages: `base` (`sessions ls`, OpenCode, analyze/export), `search`, `memory`, `stats`, `serve`, `cli` (statusline, mcp, upgrade, help, telemetry), `tui`, `ui` (the Rune app's helpers and growth chart against the inspector's, `serve --ui rune`).
+Add `--stage base,serve` to `goldens.ts` to run some stages only. Stages: `base` (`sessions ls`, OpenCode, analyze/export), `search`, `memory`, `stats`, `serve`, `cli` (statusline, mcp, upgrade, help, telemetry), `tui`, `ui` (the Rune app's helpers, growth chart, Settings, Capabilities and shortcut rules against the inspector's, `serve --ui rune`).
 
 ## Platforms
 
@@ -59,7 +59,7 @@ Re-record a stage after a change to one of its inputs. `goldens-inputs.ts` lists
 
 - every stage: the TS CLI and the packages it imports (`apps/cli/src`, `packages/*/src` except `ui` and `viz`), the fixtures (`packages/core/test/fixtures`), `bun.lock`, `package.json`, and `parity.ts` with the scripts it shares
 - `serve` only: `apps/inspector` and `packages/ui`, `packages/viz`
-- `ui` only: the inspector helpers and chart the Rune app ports (`apps/inspector/src/lib`, `apps/inspector/src/routes/sessions`), `packages/ui`, `packages/viz`
+- `ui` only: the inspector helpers, chart and pages the Rune app ports (`apps/inspector/src/lib`, `apps/inspector/src/routes/sessions`, the Settings and Capabilities routes, the shortcuts dialog, `read-only.tsx`, `root-row.tsx`), `packages/ui`, `packages/viz`
 - each stage: the stage scripts it imports, for example `parity-tui.ts` for `tui` only
 
 Each stage's `<stage>.json` keeps a hash of its inputs. The check fails with `goldens are stale` and names the stages when the hash does not match, so a change cannot skip the regeneration. Re-record only those stages: label the PR, then copy just their artifacts. Rust changes never need it.

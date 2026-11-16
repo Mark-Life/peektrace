@@ -22,14 +22,14 @@ import {
   useShortcut,
 } from "../lib/shortcuts";
 
-const GROUPS: readonly Shortcut["group"][] = [
+export const GROUPS: readonly Shortcut["group"][] = [
   "Sessions",
   "Transcript",
   "General",
 ];
 
 /** Where a group's keys work, when that is narrower than the whole app. */
-const GROUP_NOTE: Partial<Record<Shortcut["group"], string>> = {
+export const GROUP_NOTE: Partial<Record<Shortcut["group"], string>> = {
   Sessions: "Moving and opening work while a session row has focus.",
   Transcript:
     "In an open transcript. The table view moves by turn only when sorted by Turn.",

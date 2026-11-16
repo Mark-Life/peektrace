@@ -82,15 +82,38 @@
       "role": "group"
     },
     {
-      "key": "theme-toggle",
-      "label": "Toggle theme",
       "rect": [10, 862, 236, 28],
+      "role": "group"
+    },
+    {
+      "key": "theme-toggle",
+      "label": "Switch to light theme",
+      "rect": [10, 862, 44, 28],
       "role": "button"
     },
     {
       "rect": [18, 869, 28, 15],
       "role": "text",
       "text": "Light"
+    },
+    {
+      "key": "shortcuts-button",
+      "label": "Keyboard shortcuts",
+      "rect": [62, 862, 92, 28],
+      "role": "button"
+    },
+    {
+      "rect": [70, 868, 76, 16],
+      "role": "group"
+    },
+    {
+      "rect": [70, 868, 16, 16],
+      "role": "icon"
+    },
+    {
+      "rect": [92, 869, 54, 15],
+      "role": "text",
+      "text": "Shortcuts"
     },
     {
       "rect": [256, 0, 1184, 900],

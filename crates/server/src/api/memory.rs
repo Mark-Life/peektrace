@@ -15,11 +15,12 @@ use peektrace_core::memory::write::{
     FrontmatterPatch, MemoryCtx, MemoryError, MemoryUpdate, NewMemory, create, delete, update,
 };
 use peektrace_core::memory::{all_vaults, get_vault, list_projects};
+use peektrace_core::wire::agent_id;
 use peektrace_protocol::{ApiError, FileChangeReason, READ_ONLY_REASON};
 use tracing::Instrument as _;
 
 use super::params::{object_body, opt_num, opt_obj, opt_str, req_str, segment};
-use super::{Failure, Res, Shared, agent_id, blocking, finish, json};
+use super::{Failure, Res, Shared, blocking, finish, json};
 use crate::AppState;
 
 fn memory_error(e: MemoryError, ctx: &MemoryCtx) -> Failure {

@@ -65,5 +65,21 @@ required-features = ["view"]
 name = "tool_event"
 required-features = ["view"]
 
+[[test]]
+name = "settings"
+required-features = ["view"]
+
+[[test]]
+name = "settings_source"
+required-features = ["view"]
+
+[[test]]
+name = "capabilities"
+required-features = ["view"]
+
+[[test]]
+name = "shortcuts"
+required-features = ["view"]
+
 [lints]
 workspace = true

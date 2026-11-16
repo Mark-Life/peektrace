@@ -9,6 +9,8 @@
 pub mod chart;
 pub mod model;
 #[cfg(feature = "view")]
+mod scenes;
+#[cfg(feature = "view")]
 mod shell;
 #[cfg(feature = "view")]
 pub mod source;
@@ -23,5 +25,7 @@ pub mod views;
 #[cfg(feature = "view")]
 pub mod web;
 
+#[cfg(feature = "view")]
+pub use scenes::*;
 #[cfg(feature = "view")]
 pub use shell::*;

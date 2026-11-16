@@ -73,19 +73,37 @@
       "text": "S"
     },
     {
-      "rect": [10, 226, 60, 632],
+      "rect": [10, 226, 60, 596],
+      "role": "group"
+    },
+    {
+      "rect": [10, 826, 60, 64],
       "role": "group"
     },
     {
       "key": "theme-toggle",
-      "label": "Toggle theme",
-      "rect": [10, 862, 60, 28],
+      "label": "Switch to light theme",
+      "rect": [18, 826, 44, 28],
       "role": "button"
     },
     {
-      "rect": [18, 869, 28, 15],
+      "rect": [26, 833, 28, 15],
       "role": "text",
       "text": "Light"
+    },
+    {
+      "key": "shortcuts-button",
+      "label": "Keyboard shortcuts",
+      "rect": [24, 862, 32, 28],
+      "role": "button"
+    },
+    {
+      "rect": [32, 868, 16, 16],
+      "role": "group"
+    },
+    {
+      "rect": [32, 868, 16, 16],
+      "role": "icon"
     },
     {
       "rect": [80, 0, 1360, 900],

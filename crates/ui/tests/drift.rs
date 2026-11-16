@@ -138,3 +138,82 @@ fn the_report_view_keeps_every_row_core_writes() {
     assert_eq!(dv.hits.len(), d.hits.len());
     assert_eq!(dv.key, *key);
 }
+
+/// The server answers `/api/capabilities`, `/api/server` and
+/// `/api/settings` through `peektrace_core::wire` (its own tests hold it to
+/// that); the in-process source must answer through the same functions.
+#[test]
+fn in_process_replies_are_the_server_wire_bodies() {
+    use peektrace_core::settings_doc;
+    use peektrace_core::wire;
+    use peektrace_protocol::{SettingsResult, SettingsUpdate};
+    use peektrace_ui::source::in_process::InProcess;
+    use peektrace_ui::source::{DataSource as _, LoadError, decode};
+
+    let home = home::temp_home("drift-wire");
+    let dir = home.to_string_lossy().into_owned();
+    let env = peektrace_core::roots::RootsEnv::from_vars(dir.clone(), PathStyle::NATIVE, |_| None);
+    let roots = AgentRoots::resolve(&env, &peektrace_core::roots::Settings::default());
+    let settings_path = env.settings_path();
+
+    for read_only in [false, true] {
+        let src = InProcess::for_home(dir.clone(), |_| None).with_read_only(read_only);
+        assert_eq!(
+            src.capabilities_now().and_then(Result::ok),
+            Some(wire::capability_rows())
+        );
+        assert_eq!(
+            src.server_info_now().and_then(Result::ok),
+            Some(wire::server_info(&roots, read_only, &dir))
+        );
+        let want: Option<SettingsResult> = decode(&wire::settings_body(
+            &settings_doc::read_stored(&settings_path),
+        ))
+        .ok();
+        assert_eq!(src.settings_now().and_then(Result::ok), want);
+    }
+
+    let update = |settings: serde_json::Value, expected_mtime| SettingsUpdate {
+        settings: serde_json::from_value(settings).unwrap_or_default(),
+        expected_mtime,
+    };
+    let locked = InProcess::for_home(dir.clone(), |_| None).with_read_only(true);
+    assert_eq!(
+        locked
+            .save_settings_now(update(serde_json::json!({}), None))
+            .and_then(Result::err),
+        wire::check_settings_writable(true)
+            .err()
+            .map(LoadError::Api)
+    );
+    let src = InProcess::for_home(dir, |_| None);
+    let bad = serde_json::json!({"roots": {"claude": [{"label": "x"}]}});
+    let bad_value =
+        peektrace_core::js::value::JsValue::parse(&bad.to_string()).expect("bad is JSON");
+    assert_eq!(
+        src.save_settings_now(update(bad, None))
+            .and_then(Result::err),
+        wire::validated_settings(&bad_value)
+            .err()
+            .map(LoadError::Api)
+    );
+    let saved = src
+        .save_settings_now(update(serde_json::json!({}), Some(0.0)))
+        .and_then(Result::ok);
+    let want: Option<SettingsResult> = decode(&wire::settings_body(&settings_doc::read_stored(
+        &settings_path,
+    )))
+    .ok();
+    assert_eq!(saved, want);
+    assert_eq!(
+        src.save_settings_now(update(serde_json::json!({}), Some(1.0)))
+            .and_then(Result::err),
+        wire::store_settings(
+            &settings_path,
+            settings_doc::SettingsDoc::default(),
+            Some(1.0)
+        )
+        .err()
+        .map(LoadError::Api)
+    );
+}

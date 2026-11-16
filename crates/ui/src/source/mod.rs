@@ -11,7 +11,9 @@ pub mod http;
 
 use peektrace_protocol::stats::{DrillView, StatsReportView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView, mend_surrogates};
-use peektrace_protocol::{ApiError, ApiErrorBody, WatchVersions};
+use peektrace_protocol::{
+    ApiError, ApiErrorBody, Capability, ServerInfo, SettingsResult, SettingsUpdate, WatchVersions,
+};
 
 use crate::model::stats::{DrillAsk, StatsScope, StatsText};
 
@@ -88,6 +90,11 @@ pub trait DataSource: Send + Sync + 'static {
     /// Calls `on_versions` with the current versions, then after each change
     /// and on each reconnect.
     fn watch(&self, on_versions: OnVersions);
+    fn capabilities(&self, reply: Reply<Vec<Capability>>);
+    fn server_info(&self, reply: Reply<ServerInfo>);
+    fn settings(&self, reply: Reply<SettingsResult>);
+    /// Write `settings.json`; `expected_mtime` turns on compare-and-swap.
+    fn save_settings(&self, update: SettingsUpdate, reply: Reply<SettingsResult>);
     /// The listing now, for headless runs; `None` where loads cannot block.
     fn sessions_now(&self) -> Option<Result<SessionListingView, LoadError>> {
         None
@@ -112,6 +119,21 @@ pub trait DataSource: Send + Sync + 'static {
         _scope: StatsScope,
         _ask: &DrillAsk,
     ) -> Option<Result<DrillView, LoadError>> {
+        None
+    }
+    fn capabilities_now(&self) -> Option<Result<Vec<Capability>, LoadError>> {
+        None
+    }
+    fn server_info_now(&self) -> Option<Result<ServerInfo, LoadError>> {
+        None
+    }
+    fn settings_now(&self) -> Option<Result<SettingsResult, LoadError>> {
+        None
+    }
+    fn save_settings_now(
+        &self,
+        _update: SettingsUpdate,
+    ) -> Option<Result<SettingsResult, LoadError>> {
         None
     }
 }

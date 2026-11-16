@@ -1,10 +1,16 @@
 //! The window: nav rail, header and the routed content.
 
+pub mod blocks;
+pub mod capabilities;
 pub mod history;
 pub mod session_list;
+pub mod settings;
+pub mod shortcuts;
 pub mod stats;
 pub mod summary;
 pub mod widgets;
+
+use std::time::Duration;
 
 use rune::{Cx, El, ScrollSpec, Tx, col, el, row, spacer, text};
 
@@ -55,13 +61,12 @@ fn nav_row(s: &Ui, route: Route, t: &Theme) -> El {
         .label(label)
         .focusable(true)
         .on_press_tx(move |s: &mut Ui, tx: &mut Tx| {
-            if s.route == Route::Stats && route != Route::Stats {
-                s.leave_stats();
-            }
             if route == Route::Stats {
                 s.enter_stats(tx.clock());
+            } else {
+                s.go(route);
             }
-            s.route = route;
+            tx.wake_after(Duration::ZERO);
             tx.set_title(if route == Route::Sessions {
                 s.title()
             } else {
@@ -92,21 +97,6 @@ fn nav(s: &Ui, inset: f32, t: &Theme) -> El {
                     .color(t.muted_fg),
             )
     };
-    let dark = t.dark;
-    let toggle = t
-        .kit
-        .interactive(
-            row().h(28.0).px(8.0).radius(6.0).center_y().child(
-                text(if dark { "Light" } else { "Dark" })
-                    .font(ty::XS)
-                    .color(t.fg),
-            ),
-        )
-        .key("theme-toggle")
-        .role("button")
-        .label("Toggle theme")
-        .focusable(true)
-        .on_press(move |s: &mut Ui| s.dark = Some(!dark));
     let drag_band = (inset > 0.0).then(|| {
         rune::el()
             .key("titlebar-band")
@@ -134,7 +124,7 @@ fn nav(s: &Ui, inset: f32, t: &Theme) -> El {
             .map(|r| nav_row(s, r, t)),
         )
         .child(spacer())
-        .child(toggle)
+        .child(shortcuts::footer(s, t))
 }
 
 fn header(s: &Ui, t: &Theme) -> El {
@@ -149,12 +139,14 @@ fn header(s: &Ui, t: &Theme) -> El {
         .border_sides([0.0, 0.0, 1.0, 0.0], t.border)
         .child(text(s.route.title()).font(ty::SM_MEDIUM).color(t.fg));
     let hint = match s.route {
-        Route::Sessions => Some("Context debug"),
-        Route::Stats => Some("What fails, what costs time"),
-        _ => None,
+        Route::Sessions => "Context debug",
+        Route::Stats => "What fails, what costs time",
+        Route::Settings => "Agent roots",
+        Route::Capabilities => "Support matrix",
+        Route::Memory => "",
     };
-    if let Some(h) = hint {
-        r = r.child(text(h).font(ty::XS).color(t.muted_fg));
+    if !hint.is_empty() {
+        r = r.child(text(hint).font(ty::XS).color(t.muted_fg));
     }
     r = r.child(spacer());
     if s.syncing > 0 {
@@ -166,6 +158,9 @@ fn header(s: &Ui, t: &Theme) -> El {
                 .child(dot(6.0, hex_or_grey(EMERALD_500)))
                 .child(text("syncing").font(ty::XS).color(t.muted_fg)),
         );
+    }
+    if s.read_only() {
+        r = r.child(widgets::badge("Read-only", t.muted_fg, t).key("read-only-badge"));
     }
     r
 }
@@ -260,7 +255,9 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
     let content = match s.route {
         Route::Sessions => sessions(s, cx, &t, &mut layer),
         Route::Stats => stats::view(s, cx, &t, &mut layer),
-        other => el().key("stub").w_full().grow(1.0).child(notice(
+        Route::Settings => settings::page(s, &t),
+        Route::Capabilities => capabilities::page(s, &t, &mut layer),
+        other @ Route::Memory => el().key("stub").w_full().grow(1.0).child(notice(
             other.title(),
             &stub_text(other.title()),
             &t,
@@ -280,5 +277,7 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
                 .child(header(s, &t))
                 .child(content),
         );
+    shortcuts::help(s, &t, &mut layer);
+    layer.extend(shortcuts::toast(s, &t));
     rune_kit::root(base, layer)
 }
