@@ -1,5 +1,6 @@
 //! The web build keeps the open session in `location.hash`, in the
-//! inspector's shape: `#/sessions?id=<id>&parent=<parent>`.
+//! inspector's shape: `#/sessions?id=<id>&parent=<parent>`, and shows
+//! times in the browser's zone.
 
 use crate::state::Selected;
 
@@ -102,4 +103,13 @@ mod tests {
         assert_eq!(parse_hash("#/stats"), None);
         assert_eq!(parse_hash("#/sessions?q=x"), None);
     }
+}
+
+/// `new Date(iso).toLocaleString()` in the browser's locale and zone;
+/// `"default"` resolves to the browser's own locale.
+#[cfg(target_arch = "wasm32")]
+pub fn locale_date(iso: &str) -> String {
+    js_sys::Date::new(&iso.into())
+        .to_locale_string("default", &wasm_bindgen::JsValue::UNDEFINED)
+        .into()
 }

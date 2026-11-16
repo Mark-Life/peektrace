@@ -27,6 +27,7 @@ import { digest, PINNED } from "./parity-oracle";
 import { exampleBin, pipe } from "./parity-tui";
 import { compare, tsAnswer } from "./parity-ui-compare";
 import { growthAnswer } from "./parity-ui-growth";
+import { runMemoryUi } from "./parity-ui-memory";
 import { runRuneServeChecks } from "./parity-ui-serve";
 import { runSettingsChecks } from "./parity-ui-settings";
 import { runStats } from "./parity-ui-stats-run";
@@ -346,8 +347,9 @@ export const runUiStage = async ({
     { bin, compare, digest, listHeaders, pipe, tsAnswer },
     { fixtures, real }
   );
+  const memory = runMemoryUi(bin, sets);
   const statics = await runRuneServeChecks();
   console.log(
-    `ui stage: helpers ${counts.helpers} cases, analyses ${counts.analyses}, growth ${counts.growth} sessions (${counts.shifted} interleaved, known), stats ${stats.reports} reports (${stats.prompts} prompts, ${stats.helpers} findings, ${stats.fmt} format cases), ${stats.drills} drill pages, settings ${extra.settings}, caps ${extra.caps}, keys ${extra.keys} cases, serve --ui rune ${statics} checks`
+    `ui stage: helpers ${counts.helpers} cases, analyses ${counts.analyses}, growth ${counts.growth} sessions (${counts.shifted} interleaved, known), stats ${stats.reports} reports (${stats.prompts} prompts, ${stats.helpers} findings, ${stats.fmt} format cases), ${stats.drills} drill pages, memory ${memory.vaults} vaults, ${memory.cases} rule cases, ${memory.geom} graph/donut/gauge cases, settings ${extra.settings}, caps ${extra.caps}, keys ${extra.keys} cases, serve --ui rune ${statics} checks`
   );
 };

@@ -133,6 +133,7 @@ impl Ui {
                     self.request_capabilities();
                 }
             }
+            Route::Memory => self.enter_memory(),
             _ => {}
         }
     }
@@ -311,9 +312,12 @@ impl Ui {
     }
 
     /// A dialog owns the keys while it is open: the shortcuts dialog, a
-    /// capability cell or the Stats drill sheet.
+    /// capability cell, the Stats drill sheet or a memory dialog.
     pub const fn dialog_open(&self) -> bool {
-        self.help_open || self.caps.selection.is_some() || self.stats.drill.is_some()
+        self.help_open
+            || self.caps.selection.is_some()
+            || self.stats.drill.is_some()
+            || self.memory.modal_open()
     }
 
     /// What the next theme press does, from the look on screen.

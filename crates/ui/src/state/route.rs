@@ -3,6 +3,7 @@
 use peektrace_protocol::SettingsUpdate;
 
 use crate::model::stats::{DrillAsk, StatsScope};
+use crate::state_memory::MemoryRequest;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Route {
@@ -58,4 +59,5 @@ pub enum Request {
         rid: u64,
         update: SettingsUpdate,
     },
+    Memory(MemoryRequest),
 }

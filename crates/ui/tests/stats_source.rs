@@ -68,6 +68,13 @@ fn a_drill_page_turn_slices_the_first_pass() {
 struct Silent;
 
 impl DataSource for Silent {
+    fn memory(&self, _: Reply<peektrace_ui::source::memory::MemoryData>) {}
+    fn memory_write(
+        &self,
+        _: peektrace_ui::source::memory::MemoryWrite,
+        _: Reply<peektrace_ui::source::memory::MemoryDone>,
+    ) {
+    }
     fn sessions(&self, _: Reply<peektrace_protocol::view::SessionListingView>) {}
     fn analysis(
         &self,

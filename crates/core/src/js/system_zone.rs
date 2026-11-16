@@ -79,6 +79,21 @@ impl LocalZone for SystemZone {
             .compatible()
             .map_or(0, |at| wall.as_millisecond() - at.as_millisecond())
     }
+
+    fn offset_at_utc_ms(&self, utc_ms: i64) -> i64 {
+        let tz = self.0.get_or_init(load);
+        let min = Timestamp::MIN.as_millisecond();
+        let max = Timestamp::MAX.as_millisecond();
+        Timestamp::from_millisecond(utc_ms.clamp(min, max))
+            .map_or(0, |at| i64::from(tz.to_offset(at).seconds()) * 1000)
+    }
+}
+
+impl SystemZone {
+    /// The zone named `name` (IANA), else UTC; for probes and tests.
+    pub fn named(name: &str) -> Self {
+        Self(OnceLock::from(zone_named(name).unwrap_or(TimeZone::UTC)))
+    }
 }
 
 #[cfg(test)]
@@ -113,6 +128,21 @@ mod tests {
             -4 * hour
         );
         assert_eq!(zone("Asia/Tokyo").offset_at_wall_ms(0), 9 * hour);
+    }
+
+    #[test]
+    fn instant_offsets_follow_the_zone() {
+        let ny = SystemZone::named("America/New_York");
+        let at = |iso: &str| {
+            iso.parse::<Timestamp>()
+                .map(Timestamp::as_millisecond)
+                .unwrap_or_default()
+        };
+        let hour = 3_600_000;
+        // 01:30 happens twice on 2026-11-01: EDT, then EST.
+        assert_eq!(ny.offset_at_utc_ms(at("2026-11-01T05:30:00Z")), -4 * hour);
+        assert_eq!(ny.offset_at_utc_ms(at("2026-11-01T06:30:00Z")), -5 * hour);
+        assert_eq!(SystemZone::named("nope/zone").offset_at_utc_ms(0), 0);
     }
 
     /// Hours east of UTC on 2026-07-01 for `TZ`, with UTC as the OS zone.

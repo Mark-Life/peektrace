@@ -6,6 +6,8 @@
 
 #[path = "../../ui/tests/common/home.rs"]
 mod home;
+#[path = "../../ui/tests/common/memory_home.rs"]
+mod memory_home;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -99,6 +101,7 @@ fn check(name: &str, got: &Value) {
 #[test]
 fn scenes_match_goldens() {
     let full = home::build_home();
+    memory_home::add_app_memory(&full);
     let session = format!("session={}", home::LONG_ID);
     for (scene, theme, extra) in [
         ("list", "dark", vec![]),
@@ -115,10 +118,15 @@ fn scenes_match_goldens() {
         ("capabilities", "dark", vec![]),
         ("capabilities-cell", "dark", vec![]),
         ("shortcuts", "dark", vec![]),
+        ("memory", "dark", vec![]),
+        ("memory-filtered", "dark", vec![]),
+        ("memory-entry", "dark", vec![]),
+        ("memory-create", "dark", vec![]),
     ] {
         let got = render(&full, scene, theme, &extra);
         check(scene, &got);
     }
+    check("memory-light", &render(&full, "memory", "light", &[]));
     let stats = home::stats_home();
     for (scene, theme) in [
         ("stats", "dark"),
@@ -133,4 +141,5 @@ fn scenes_match_goldens() {
     let empty = home::temp_home("empty");
     check("empty-home", &render(&empty, "list", "dark", &[]));
     check("stats-empty", &render(&empty, "stats", "dark", &[]));
+    check("memory-empty", &render(&empty, "memory", "dark", &[]));
 }

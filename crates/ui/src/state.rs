@@ -23,6 +23,7 @@ use crate::model::chat::plan_index_of_turn;
 use crate::model::list::{self, Filters};
 use crate::model::settle::{Settle, SettleEffect, SettleEvent, step};
 use crate::source::{DataSource, LoadError, WatchEvent};
+use crate::state_memory::MemoryUi;
 use crate::state_stats::StatsState;
 
 /// The search applies this long after the last key.
@@ -89,6 +90,7 @@ pub struct Ui {
     pub toast: Option<settings::Toast>,
     /// Where the theme pick persists.
     pub prefs: rune::prefs::Prefs,
+    pub memory: MemoryUi,
     pub io: Option<Io>,
 }
 
@@ -134,6 +136,7 @@ impl Ui {
             mac: crate::shell::MAC,
             toast: None,
             prefs: rune::prefs::Prefs::memory(),
+            memory: MemoryUi::default(),
             io,
         }
     }
@@ -341,6 +344,7 @@ impl Ui {
                 self.recheck_detail = false;
                 self.request_sessions();
                 self.request_analysis();
+                self.on_memory_reconnect();
                 tx.wake_after(std::time::Duration::ZERO);
             }
         }
@@ -351,6 +355,7 @@ impl Ui {
     pub fn on_versions(&mut self, v: WatchVersions, clock: f64, tx: &mut Tx) {
         let bumped = self.versions.is_some_and(|old| v.sessions > old.sessions);
         self.versions = Some(v);
+        self.on_memory_version(v.memory);
         if bumped
             && let SettleEffect::WakeAt(t) = step(
                 &mut self.settle,
@@ -367,7 +372,7 @@ impl Ui {
     /// Timers: the search pause, the settle deadline, the live-dot clock.
     /// True when visible state changed.
     pub fn tick(&mut self, clock: f64, now_ms: f64, tx: &mut Tx) -> bool {
-        let mut changed = false;
+        let mut changed = self.memory_tick(clock);
         if self.query_due.is_some_and(|due| clock >= due) {
             self.apply_query();
             changed = true;

@@ -3,6 +3,7 @@
 pub mod blocks;
 pub mod capabilities;
 pub mod history;
+pub mod memory;
 pub mod session_list;
 pub mod settings;
 pub mod shortcuts;
@@ -12,7 +13,7 @@ pub mod widgets;
 
 use std::time::Duration;
 
-use rune::{Cx, El, ScrollSpec, Tx, col, el, row, spacer, text};
+use rune::{Cx, El, ScrollSpec, Tx, col, row, spacer, text};
 
 use self::widgets::{dot, notice};
 use crate::state::{Route, Ui};
@@ -25,13 +26,6 @@ const NAV_COLLAPSED_W: f32 = 56.0;
 const TITLEBAR_BAND_H: f32 = 32.0;
 const HEADER_H: f32 = 44.0;
 const DETAIL_MAX_W: f32 = 1800.0;
-
-/// The text a section shows until it is ported.
-pub fn stub_text(section: &str) -> String {
-    format!(
-        "{section} is not in the desktop app yet. Use peektrace serve (web inspector) or peektrace tui."
-    )
-}
 
 fn nav_row(s: &Ui, route: Route, t: &Theme) -> El {
     let active = s.route == route;
@@ -257,11 +251,7 @@ pub fn view(s: &Ui, cx: &mut Cx<Ui>) -> El {
         Route::Stats => stats::view(s, cx, &t, &mut layer),
         Route::Settings => settings::page(s, &t),
         Route::Capabilities => capabilities::page(s, &t, &mut layer),
-        other @ Route::Memory => el().key("stub").w_full().grow(1.0).child(notice(
-            other.title(),
-            &stub_text(other.title()),
-            &t,
-        )),
+        Route::Memory => memory::view(s, cx, &t, &mut layer),
     };
     let inset = cx.titlebar_inset();
     let base = row()

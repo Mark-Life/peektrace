@@ -5,6 +5,7 @@ use peektrace_protocol::AgentId;
 use crate::shell::load_now;
 use crate::state::settings::FormRow;
 use crate::state::{Route, Ui};
+use crate::state_memory;
 
 /// Scenes for headless goldens. Detail scenes open the newest session, or
 /// the one an extra `session=<id>` argument names.
@@ -86,6 +87,10 @@ pub const SCENES: &[Scene] = &[
         s.help_open = true;
         s.mac = true;
     }),
+    ("memory", state_memory::scene),
+    ("memory-filtered", state_memory::scene_filtered),
+    ("memory-entry", state_memory::scene_entry),
+    ("memory-create", state_memory::scene_create),
 ];
 
 fn stats_scene(s: &mut Ui) {

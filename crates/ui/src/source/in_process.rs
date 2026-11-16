@@ -24,11 +24,13 @@ use peektrace_protocol::{
 use tracing::{field, info_span};
 
 use self::stats::{Drilled, Gate};
+use super::memory::{self, MemoryData, MemoryDone, MemoryWrite};
 use super::{DataSource, LoadError, OnVersions, Reply, StatsScreen, WatchEvent, decode};
 use crate::model::stats::{DrillAsk, StatsScope};
 
 struct Inner {
     roots: AgentRoots,
+    tmp_dir: String,
     headers: HeaderCache,
     zone: SystemZone,
     stats_cache: String,
@@ -101,6 +103,7 @@ impl InProcess {
         Self {
             inner: Arc::new(Inner {
                 roots,
+                tmp_dir: peektrace_core::js::os::tmpdir(),
                 headers: HeaderCache::default(),
                 zone: SystemZone::default(),
                 stats_cache,
@@ -374,5 +377,28 @@ impl DataSource for InProcess {
         ask: &DrillAsk,
     ) -> Option<Result<DrillView, LoadError>> {
         Some(Self::stats_page(&self.inner, scope, ask, Gate::Always))
+    }
+
+    fn memory(&self, reply: Reply<MemoryData>) {
+        self.spawn(|inner| memory::load(&inner.roots), reply);
+    }
+
+    fn memory_write(&self, op: MemoryWrite, reply: Reply<MemoryDone>) {
+        self.spawn(
+            move |inner| memory::write(&inner.roots, &inner.tmp_dir, op),
+            reply,
+        );
+    }
+
+    fn memory_now(&self) -> Option<Result<MemoryData, LoadError>> {
+        Some(memory::load(&self.inner.roots))
+    }
+
+    fn memory_write_now(&self, op: &MemoryWrite) -> Option<Result<MemoryDone, LoadError>> {
+        Some(memory::write(
+            &self.inner.roots,
+            &self.inner.tmp_dir,
+            op.clone(),
+        ))
     }
 }

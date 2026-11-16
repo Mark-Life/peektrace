@@ -148,9 +148,8 @@ WEB_PROBE='(() => {
   const b = (window.__bench = {});
   const now = () => performance.now();
   addEventListener("runepresent", () => { b.firstFrame ??= now(); }, true);
-  new PerformanceObserver((l) => {
-    for (const e of l.getEntries()) if (e.name === "first-contentful-paint") b.fcp ??= e.startTime;
-  }).observe({ type: "paint", buffered: true });
+  const fcp = (l) => { for (const e of l) if (e.name === "first-contentful-paint") b.fcp ??= e.startTime; };
+  new PerformanceObserver((l) => fcp(l.getEntries())).observe({ type: "paint", buffered: true });
   const text = () => (document.querySelector("[data-rune-a11y]") ?? document.body)?.textContent ?? "";
   const listed = () => document.querySelector("[data-session-id]") || /[1-9][\d,]* sessions/.test(text());
   const opened = () => text().includes("Context growth timeline");

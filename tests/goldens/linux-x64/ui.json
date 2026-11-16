@@ -1,9 +1,9 @@
 {
   "bun": "1.3.14",
-  "bytes": 590483,
+  "bytes": 638908,
   "dirOrder": "newest-first",
   "platform": "linux-x64",
   "root": "/dev/shm/peektrace-goldens",
-  "tsSourceHash": "a506ad9dbe95fe0c76ca4315116d6ff2260e67f024e2f6f38d4bb5de03772381",
-  "values": 53
+  "tsSourceHash": "66fbe98245c68b115bd59410ce8f0aa5cf4b3a680f569fb283a49ce39a83f3eb",
+  "values": 57
 }
