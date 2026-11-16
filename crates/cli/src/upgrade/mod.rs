@@ -54,6 +54,25 @@ impl UpgradeEnv {
     }
 }
 
+fn is_newer(tag: &str, installed: &str) -> bool {
+    release::compare_versions(tag, installed) == Ordering::Greater
+}
+
+/// Install only a newer release, so a build ahead of the latest release is
+/// never downgraded; a version the user names installs as asked.
+pub fn should_install(tag: &str, installed: &str, forced: bool) -> bool {
+    forced || is_newer(tag, installed)
+}
+
+/// Both versions, so a build ahead of the feed says so.
+fn up_to_date_line(installed: &str, tag: &str, forced: bool) -> String {
+    let which = if forced { "requested" } else { "latest" };
+    format!(
+        "peektrace is up to date: installed {}, {which} release {tag}.",
+        release::normalize_tag(installed)
+    )
+}
+
 /// Run `upgrade`; each stdout line goes to `print` as it is decided, so
 /// `Fetching ...` shows before the download.
 pub fn run(
@@ -75,25 +94,22 @@ pub fn run(
     let agent = release::agent(None);
     let pinned = args.version.as_deref();
     let tag = release::resolve_target_tag(&agent, config, pinned)?;
-    let comparison = release::compare_versions(&tag, env.version);
+    let forced = pinned.is_some() || config.pinned_version.is_some();
+    let up_to_date = up_to_date_line(env.version, &tag, forced);
     if args.check {
-        if comparison == Ordering::Greater {
+        if is_newer(&tag, env.version) {
             print(&notice::update_hint(&tag, &env.exe));
         } else {
-            print(&format!(
-                "peektrace is up to date ({}).",
-                release::normalize_tag(env.version)
-            ));
+            print(&up_to_date);
         }
+        return Ok(());
+    }
+    if !should_install(&tag, env.version, forced) {
+        print(&up_to_date);
         return Ok(());
     }
     if os == Os::Windows {
         print(WINDOWS_INSTALL_HINT);
-        return Ok(());
-    }
-    let forced = pinned.is_some() || config.pinned_version.is_some();
-    if comparison == Ordering::Equal && !forced {
-        print(&format!("Already on the latest version ({tag})."));
         return Ok(());
     }
     let Some(target) = &env.target else {
@@ -108,4 +124,41 @@ pub fn run(
         bytes(size as u64)
     ));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn installs_only_newer_unless_forced() {
+        let cases = [
+            ("cli-v0.13.0", "0.12.0", false, true),
+            ("cli-v0.13.0", "0.13.0", false, false),
+            ("cli-v0.12.0", "0.13.0", false, false),
+            ("cli-v0.12.9", "0.13.0-dev", false, false),
+            ("cli-v1.0.0", "0.13.0", false, true),
+            ("cli-v0.12.0", "0.13.0", true, true),
+            ("cli-v0.13.0", "0.13.0", true, true),
+        ];
+        for (tag, installed, forced, want) in cases {
+            assert_eq!(
+                should_install(tag, installed, forced),
+                want,
+                "{tag} over {installed}, forced {forced}"
+            );
+        }
+    }
+
+    #[test]
+    fn up_to_date_names_both_versions() {
+        assert_eq!(
+            up_to_date_line("0.13.1", "cli-v0.13.0", false),
+            "peektrace is up to date: installed cli-v0.13.1, latest release cli-v0.13.0."
+        );
+        assert_eq!(
+            up_to_date_line("cli-v0.13.0", "cli-v0.13.0", true),
+            "peektrace is up to date: installed cli-v0.13.0, requested release cli-v0.13.0."
+        );
+    }
 }
