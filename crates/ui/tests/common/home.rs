@@ -254,3 +254,163 @@ pub fn many_home(n: usize) -> PathBuf {
     }
     home
 }
+
+/// One tool call of a stats transcript: command (or tool and input), its
+/// output, whether it failed, and the seconds it took.
+struct Step {
+    tool: &'static str,
+    input: Value,
+    out: &'static str,
+    err: bool,
+    gap: u64,
+}
+
+fn bash(cmd: &str, out: &'static str, err: bool) -> Step {
+    Step {
+        tool: "Bash",
+        input: json!({ "command": cmd }),
+        out,
+        err,
+        gap: 2,
+    }
+}
+
+fn main_steps() -> Vec<Step> {
+    vec![
+        bash("ls dist/*.js", "zsh:1: no matches found: dist/*.js", true),
+        bash("ls dist", "a.js", false),
+        bash(
+            "jqq . data.json",
+            "Exit code 127\nzsh:1: command not found: jqq",
+            true,
+        ),
+        bash("jq . data.json", "{}", false),
+        bash(
+            "sleep 30 && curl -s localhost:3000/health",
+            "Blocked: sleep 30 followed by: curl -s localhost:3000/health. To wait for a condition, use Monitor.",
+            true,
+        ),
+        Step {
+            gap: 60,
+            ..bash(
+                "until curl -s localhost:3000/health; do sleep 2; done",
+                "ok",
+                false,
+            )
+        },
+        bash("sleep 60; tail -n 5 log.txt", "ready", false),
+        bash(
+            "bun run typecheck",
+            "src/a.ts(3,1): error TS2304: Cannot find name 'x'.",
+            false,
+        ),
+        bash("bun test | tail -5", " 3 pass\n 2 fail\n", false),
+        Step {
+            gap: 600,
+            ..bash("bun run build", "built", false)
+        },
+        bash(
+            "rm -rf $DIR/*",
+            "Dangerous rm operation detected: refusing",
+            true,
+        ),
+        bash("pkill -f 'bun run dev'", "Exit code 144", true),
+        bash("pkill -x bun", "", false),
+    ]
+}
+
+fn sub_steps() -> Vec<Step> {
+    vec![
+        bash("ls src/*.ts", "zsh:1: no matches found: src/*.ts", true),
+        bash("ls src", "a.ts", false),
+        bash(
+            "fdd src",
+            "Exit code 127\nzsh:1: command not found: fdd",
+            true,
+        ),
+        bash(
+            "bun test src/x.test.ts",
+            "FAIL src/x.test.ts\n 1 fail",
+            true,
+        ),
+    ]
+}
+
+/// A Claude transcript of `steps`, one model call each, from `start`.
+fn stats_transcript(sid: &str, start: &str, side: bool, steps: &[Step]) -> String {
+    let base = peektrace_js::time::parse_date(start, &peektrace_js::time::Utc).unwrap_or(0);
+    let mut t = base;
+    let at = |ms: i64| peektrace_js::time::to_iso_string(ms);
+    let cwd = "/Users/demo/stats";
+    let mut out = line(
+        &json!({"type":"user","cwd":cwd,"sessionId":sid,"isSidechain":side,"timestamp":at(t),"message":{"role":"user","content":"Run the checks and fix what fails."}}),
+    );
+    for (i, s) in steps.iter().enumerate() {
+        t += 5000;
+        let id = format!("toolu_{sid}_{i:03}");
+        out += &line(
+            &json!({"type":"assistant","requestId":format!("req_{sid}_{i}"),"isSidechain":side,"cwd":cwd,"sessionId":sid,"timestamp":at(t),"message":{"id":format!("msg_{sid}_{i}"),"model":"claude-sonnet-4-5","usage":{"input_tokens":3,"cache_read_input_tokens":1000 * (i + 1),"cache_creation_input_tokens":200,"output_tokens":20},"content":[{"type":"tool_use","id":id,"name":s.tool,"input":s.input}]}}),
+        );
+        t += i64::try_from(s.gap * 1000).unwrap_or(0);
+        out += &line(
+            &json!({"type":"user","isSidechain":side,"cwd":cwd,"sessionId":sid,"timestamp":at(t),"message":{"role":"user","content":[{"type":"tool_result","tool_use_id":id,"content":s.out,"is_error":s.err}]}}),
+        );
+    }
+    out
+}
+
+pub const STATS_MAIN_ID: &str = "77777777-7777-4777-8777-777777777777";
+pub const STATS_OTHER_ID: &str = "88888888-8888-4888-8888-888888888888";
+
+fn pin_all(dir: &Path, at: std::time::SystemTime) {
+    for e in fs::read_dir(dir).expect("read dir").flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            pin_all(&p, at);
+        }
+        if let Ok(f) = fs::File::options()
+            .write(true)
+            .open(&p)
+            .or_else(|_| fs::File::open(&p))
+        {
+            let _ = f.set_modified(at);
+        }
+    }
+}
+
+/// A HOME for the Stats screen: two Claude sessions and a subagent with
+/// failing calls, their retries, waits and builds within the week before
+/// `NOW`, and a memory file that already states one rule.
+pub fn stats_home() -> PathBuf {
+    let home = temp_home("stats");
+    let dir = home.join(".claude/projects/-Users-demo-stats");
+    write(
+        &dir.join(format!("{STATS_MAIN_ID}.jsonl")),
+        &stats_transcript(
+            STATS_MAIN_ID,
+            "2026-05-30T09:00:00.000Z",
+            false,
+            &main_steps(),
+        ),
+    );
+    write(
+        &dir.join(format!("{STATS_MAIN_ID}/subagents/agent-a1.jsonl")),
+        &stats_transcript("agent-a1", "2026-05-30T09:20:00.000Z", true, &sub_steps()),
+    );
+    write(
+        &dir.join(format!("{STATS_OTHER_ID}.jsonl")),
+        &stats_transcript(
+            STATS_OTHER_ID,
+            "2026-05-31T11:00:00.000Z",
+            false,
+            &main_steps()[..6],
+        ),
+    );
+    write(
+        &home.join(".claude/CLAUDE.md"),
+        "# Rules\n\n- jq is installed; there is no jqq binary.\n",
+    );
+    let at = std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_780_000_000);
+    pin_all(&home, at);
+    home
+}

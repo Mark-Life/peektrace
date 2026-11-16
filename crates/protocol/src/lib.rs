@@ -4,6 +4,7 @@
 //! JSON writers, so only their names appear here.
 
 mod history;
+pub mod stats;
 #[cfg(test)]
 mod ts_gen;
 pub mod view;
@@ -16,7 +17,7 @@ pub use history::{
 use serde::{Deserialize, Serialize};
 
 /// A coding agent id.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum AgentId {
@@ -227,7 +228,7 @@ pub struct AnalysisQuery {
 }
 
 /// A stats table a drill expands.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "lowercase")]
 pub enum DrillTable {

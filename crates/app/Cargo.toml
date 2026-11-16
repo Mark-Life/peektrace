@@ -28,6 +28,7 @@ rune = { workspace = true, features = ["embedded-fonts"] }
 wasm-bindgen = "=0.2.129"
 
 [dev-dependencies]
+peektrace-js.workspace = true
 serde_json.workspace = true
 
 [lints]

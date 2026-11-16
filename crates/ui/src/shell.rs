@@ -72,10 +72,41 @@ pub fn dispatch(s: &mut Ui) {
                         s.syncing = s.syncing.saturating_sub(1);
                         if s.apply_analysis(rid, res) {
                             tx.set_title(s.title());
+                            if let Some(key) = s.take_call_target() {
+                                tx.scroll_into_view(key);
+                            }
                         }
                     });
                 }),
             ),
+            Request::StatsReport { rid, scope } => io.source.stats_report(
+                scope,
+                Box::new(move |res| {
+                    h.update(move |s, tx| {
+                        s.syncing = s.syncing.saturating_sub(1);
+                        s.apply_stats(rid, scope, res);
+                        if !s.pending.is_empty() {
+                            tx.wake_after(Duration::ZERO);
+                        }
+                    });
+                }),
+            ),
+            Request::StatsDrill { rid, scope, ask } => {
+                let landed = ask.clone();
+                io.source.stats_drill(
+                    scope,
+                    ask,
+                    Box::new(move |res| {
+                        h.update(move |s, tx| {
+                            s.syncing = s.syncing.saturating_sub(1);
+                            s.apply_drill(rid, scope, landed, res);
+                            if !s.pending.is_empty() {
+                                tx.wake_after(Duration::ZERO);
+                            }
+                        });
+                    }),
+                );
+            }
         }
     }
 }
@@ -95,6 +126,17 @@ pub fn load_now(s: &mut Ui) {
             Request::Analysis { rid, id, parent } => {
                 if let Some(r) = source.analysis_now(&id, parent.as_deref()) {
                     s.apply_analysis(rid, r);
+                    s.take_call_target();
+                }
+            }
+            Request::StatsReport { rid, scope } => {
+                if let Some(r) = source.stats_report_now(scope) {
+                    s.apply_stats(rid, scope, r);
+                }
+            }
+            Request::StatsDrill { rid, scope, ask } => {
+                if let Some(r) = source.stats_drill_now(scope, &ask) {
+                    s.apply_drill(rid, scope, ask, r);
                 }
             }
         }
@@ -104,7 +146,7 @@ pub fn load_now(s: &mut Ui) {
 fn poll(s: &mut Ui, clock: f64, tx: &mut Tx) -> bool {
     let had = !s.pending.is_empty();
     dispatch(s);
-    let changed = s.tick(clock, wall_ms(), tx);
+    let changed = s.tick(clock, wall_ms(), tx) | s.stats_tick(clock, tx);
     #[cfg(target_arch = "wasm32")]
     if let Some(sel) = &s.selected {
         crate::web::write(sel);
@@ -215,12 +257,45 @@ pub const SCENES: &[Scene] = &[
         open_scene(s);
         s.expand_all();
     }),
-    ("stub-stats", |s| s.route = Route::Stats),
     ("light", |s| {
         open_scene(s);
         s.dark = Some(false);
     }),
+    ("nav-collapsed", |s| s.nav_collapsed = true),
+    ("stats", stats_scene),
+    ("stats-pending", |s| s.enter_stats(0.0)),
+    ("stats-cause-open", |s| {
+        stats_scene(s);
+        s.stats.open_cause = first_cause(s);
+    }),
+    ("stats-drill", |s| {
+        stats_scene(s);
+        if let Some(key) = first_cause(s) {
+            s.open_drill(peektrace_protocol::DrillTable::Cause, &key);
+            load_now(s);
+        }
+    }),
+    ("stats-findings-all", |s| {
+        stats_scene(s);
+        s.stats.show_all = true;
+    }),
+    ("stats-light", |s| {
+        stats_scene(s);
+        s.dark = Some(false);
+    }),
 ];
+
+fn stats_scene(s: &mut Ui) {
+    s.enter_stats(0.0);
+    load_now(s);
+}
+
+fn first_cause(s: &Ui) -> Option<String> {
+    s.stats
+        .screen()
+        .and_then(|x| x.report.causes.first())
+        .map(|c| c.key.clone())
+}
 
 fn scene_session(s: &Ui) -> Option<String> {
     rune::extra_args()

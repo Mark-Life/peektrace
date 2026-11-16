@@ -209,6 +209,63 @@ pub fn is_safe_integer(x: f64) -> bool {
     x.is_finite() && x.trunc() == x && x.abs() <= MAX_SAFE
 }
 
+/// `n.toLocaleString("en-US")`: grouped, up to three fraction digits, as
+/// ICU rounds them.
+pub fn to_locale_string(value: f64) -> String {
+    if !value.is_finite() {
+        return to_js_string(value);
+    }
+    // `toFixed` prints exponents from 1e21 on; ICU still groups the digits.
+    let s = if value.abs() >= 1e21 {
+        format!("{:.0}", value.abs())
+    } else {
+        to_fixed(value.abs(), 3)
+    };
+    let (int, frac) = s.split_once('.').unwrap_or((&s, ""));
+    let frac = frac.trim_end_matches('0');
+    let mut grouped = String::with_capacity(int.len() + int.len() / 3);
+    for (i, c) in int.chars().enumerate() {
+        if i > 0 && (int.len() - i).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(c);
+    }
+    let sign = if value < 0.0 && (grouped != "0" || !frac.is_empty()) {
+        "-"
+    } else {
+        ""
+    };
+    if frac.is_empty() {
+        format!("{sign}{grouped}")
+    } else {
+        format!("{sign}{grouped}.{frac}")
+    }
+}
+
+/// `String(Number(x.toPrecision(2)))` for `0.01 <= x`.
+fn precision2(x: f64) -> String {
+    if x == 0.0 || !x.is_finite() {
+        return to_js_string(x);
+    }
+    let e = x.abs().log10().floor();
+    #[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let digits = (1.0 - e).max(0.0) as u32;
+    to_js_string(parse_number(&to_fixed(x, digits)))
+}
+
+/// A per-1k rate: `<0.01` for a tiny nonzero rate, whole above 10, else two
+/// significant digits (core `rateText`).
+pub fn rate_text(rate: f64, hits: f64) -> String {
+    if hits > 0.0 && rate < 0.01 {
+        return "<0.01".to_owned();
+    }
+    if rate >= 10.0 {
+        to_locale_string(js_round(rate))
+    } else {
+        precision2(rate)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,5 +345,28 @@ mod tests {
         assert_eq!(parse_number("-Infinity"), f64::NEG_INFINITY);
         assert!(is_safe_integer(parse_number("1e1")));
         assert!(!is_safe_integer(parse_number("1.5")));
+    }
+
+    #[test]
+    fn locale_counts_and_rates() {
+        let counts = [
+            (0.0, "0"),
+            (12.0, "12"),
+            (1234.0, "1,234"),
+            (1_234_567.0, "1,234,567"),
+            (1_234.567_8, "1,234.568"),
+            (-0.4, "-0.4"),
+            (-1234.5, "-1,234.5"),
+            (1e21, "1,000,000,000,000,000,000,000"),
+        ];
+        for (x, want) in counts {
+            assert_eq!(to_locale_string(x), want, "{x}");
+        }
+        assert_eq!(rate_text(0.0, 0.0), "0");
+        assert_eq!(rate_text(0.001, 1.0), "<0.01");
+        assert_eq!(rate_text(0.125, 1.0), "0.13");
+        assert_eq!(rate_text(3.33, 1.0), "3.3");
+        assert_eq!(rate_text(12.5, 1.0), "13");
+        assert_eq!(rate_text(1234.5, 9.0), "1,235");
     }
 }

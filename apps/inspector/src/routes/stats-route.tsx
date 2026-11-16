@@ -46,7 +46,7 @@ interface DrillTarget {
 }
 
 /** A drill key can hold colons; only the first one separates the table. */
-const parseDrill = (raw: string | null): DrillTarget | null => {
+export const parseDrill = (raw: string | null): DrillTarget | null => {
   if (raw === null) {
     return null;
   }
@@ -64,7 +64,7 @@ const parseDrill = (raw: string | null): DrillTarget | null => {
 
 /** The detector id of the row a drill came from, so the sessions it opens are
  *  marked with the same glyph. The cause and fail tables name one. */
-const detectorOf = (
+export const detectorOf = (
   report: StatsReport,
   drill: DrillTarget | null
 ): string | null => {

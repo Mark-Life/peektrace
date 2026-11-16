@@ -392,3 +392,21 @@ fn a_side_with_hits_never_reads_zero() {
         "{line}"
     );
 }
+
+#[test]
+fn a_cause_finding_carries_its_suggested_rule() {
+    let r = report(
+        100.0,
+        vec![
+            cause_row(|_| {}),
+            cause_row(|r| {
+                r.key = "cause:stated".into();
+                r.rule = Some(firing());
+            }),
+        ],
+        vec![fail_row("named", |r| r.note = Some("n".into()))],
+        vec![time_row(capped)],
+    );
+    let rules: Vec<Option<String>> = findings_of(&r).into_iter().map(|f| f.rule).collect();
+    assert_eq!(rules, [Some("quote the glob".to_owned()), None, None, None]);
+}
