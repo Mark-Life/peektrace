@@ -178,15 +178,15 @@ fn parse_good(dir: &TempDir, id: &str) -> ParsedSession {
 }
 
 #[test]
-fn a_subagent_resolve_failure_keeps_the_session() {
+fn subagents_fold_by_the_loaded_path_not_a_second_lookup() {
     let dir = good_tree();
     assert_eq!(parse_good(&dir, "abcd1234-goo").subagents.len(), 1);
-    // A directory whose name ends in `.jsonl` is no transcript, but it makes
-    // the subagent lookup's prefix match ambiguous, so folding fails.
+    // A directory whose name ends in `.jsonl` is no transcript. It made a
+    // second lookup by the typed prefix ambiguous; the loaded path is not.
     dir.mkdir("projects/-p/abcd1234-goofy.jsonl");
     let p = parse_good(&dir, "abcd1234-goo");
     assert_eq!(p.session_id, GOOD);
-    assert_eq!(p.subagents.len(), 0);
+    assert_eq!(p.subagents.len(), 1);
 }
 
 #[cfg(unix)]
