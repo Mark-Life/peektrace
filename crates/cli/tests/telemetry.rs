@@ -302,11 +302,12 @@ fn doctor_redacts_the_bundle() {
     let envs = [("PEEKTRACE_NO_TELEMETRY", "1"), ("USER", "zed-tester")];
     let out = run_in(&f, &dir, &envs, &["doctor"]);
     let path = dir.join("peektrace-report-1.json");
+    let shown = Path::new("~").join("pt").join("peektrace-report-1.json");
     assert_eq!(
         text(&out.stdout),
         format!(
             "Wrote 1 events → {}\nEmail this file to 108@mark-life.com\n",
-            path.display()
+            shown.display()
         )
     );
     let raw = fs::read_to_string(&path).unwrap();

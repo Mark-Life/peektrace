@@ -168,7 +168,7 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
     let homes: Vec<&str> = std::iter::once(env.home).chain(env.real_home).collect();
     let id = Identity::new(&homes, &env.user_names);
     let open_failed = |reason: String| {
-        UserError::Invalid(format!("Could not open the telemetry store: {reason}"))
+        UserError::Invalid(id.scrub(&format!("Could not open the telemetry store: {reason}")))
     };
     let dir = store::dir_of(env.peektrace_dir, env.home).map_err(|e| open_failed(e.to_string()))?;
     peektrace_telemetry::wait_ready(peektrace_telemetry::exit_wait());
@@ -191,10 +191,10 @@ pub fn run(args: &DoctorArgs, env: &DoctorEnv<'_>) -> Result<Vec<String>, UserEr
         ])
     });
     std::fs::write(Path::new(&path), text)
-        .map_err(|e| UserError::Invalid(write_error(&path, &e)))?;
+        .map_err(|e| UserError::Invalid(id.scrub(&write_error(&path, &e))))?;
     let unreadable = last_unreadable_count(&events);
     Ok(
-        std::iter::once(format!("Wrote {} events → {path}", events.len()))
+        std::iter::once(id.scrub(&format!("Wrote {} events → {path}", events.len())))
             .chain((unreadable > 0.0).then(|| unreadable_line(unreadable)))
             .chain(std::iter::once(
                 "Email this file to 108@mark-life.com".to_owned(),
