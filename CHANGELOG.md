@@ -1,5 +1,38 @@
 # Changelog
 
+## cli-v0.13.0 — 2026-11-16
+
+### Changed
+
+- **The CLI is rewritten in Rust** (#171–#191). The commands, flags and
+  output are the same as in 0.12.0.
+- **Faster and smaller** (#173, #175, #177, #179, #180). `sessions ls` for
+  all agents: 1639 to 135 ms, peak RSS 1158 to 32 MiB. `stats` with an empty
+  cache: 23442 to 3735 ms. `sessions search`: 2024 to 114 ms. `statusline`:
+  118.4 to 4.5 ms. Server peak RSS: 1736 to 366 MiB.
+- **Smaller download** (#191). The npm platform package (darwin-arm64) is
+  6.3 MB packed and 13.1 MB unpacked, down from a ~97 MB Bun binary.
+- **New terminal UI on ratatui** (#181). A scroll step on a 47 MiB session
+  takes 3.7 ms instead of 61.1 ms, and a 4,000-turn session opens.
+- **The Rust server serves the inspector** (#179). The API moves from `/rpc`
+  to plain JSON under `/api`, with live updates over SSE.
+- **Big sessions load in pages** (#185). On a 49 MB session the first row
+  shows in 480 ms instead of 844 ms, after 768 KiB instead of 4.13 MiB.
+- **Linux needs glibc 2.17 or newer** (#191).
+- **Stats index rebuilt once.** The first `stats` run builds a new index
+  in `~/.peektrace/stats-rs` (about 6 s). The old `~/.peektrace/stats`
+  folder is unused and safe to delete.
+- **Install routes are unchanged** (#191): `install.sh`, `install.ps1`, npm
+  and `peektrace upgrade`.
+- **Search argv edge case** (#177). `peektrace sessions search walrus -v` is
+  a flag error now; 0.12.0 printed the version.
+
+### Removed
+
+- **The Electrobun desktop app** (#191). It had no public release.
+- **Delta patches for `upgrade`** (#180, #191). `upgrade` downloads the full
+  `.gz` asset.
+
 ## cli-v0.12.0 — 2026-11-09
 
 ### Added
