@@ -16,8 +16,10 @@ use crate::{Failure, Run, VERSION, help, print_stderr, print_stdout, run, write_
 /// `--completions` value that names no shell).
 pub fn print_early(early: help::Early, failure: Failure<'_>) -> ExitCode {
     let text = match early {
-        help::Early::RootHelp => format!("{}\n", help::root_page(VERSION)),
-        help::Early::GroupHelp(g) => format!("{}\n", help::group_page(g, VERSION)),
+        help::Early::RootHelp => format!("{}\n", help::root_page(VERSION, help::color_here())),
+        help::Early::GroupHelp(g) => {
+            format!("{}\n", help::group_page(g, VERSION, help::color_here()))
+        }
         help::Early::Completions(Ok(shell)) => help::completions(shell),
         help::Early::Completions(Err(value)) => {
             let message = format!(

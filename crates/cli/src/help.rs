@@ -67,7 +67,7 @@ const GLOBAL_FLAGS: [(&str, &str); 10] = [
     ),
     (
         "--otel",
-        "Log Effect spans to stderr (or set PEEKTRACE_OTEL)",
+        "Print span timings to stderr (or set PEEKTRACE_OTEL)",
     ),
     (
         "--no-telemetry",
@@ -101,8 +101,29 @@ pub fn banner() -> String {
     )
 }
 
-fn h1(text: &str) -> String {
-    format!("\x1b[0;1m{text}\x1b[0m\n")
+/// Bold headings only on a terminal, and never with a non-empty
+/// `NO_COLOR`, as the TUI reads it.
+pub fn use_color(stdout_is_terminal: bool, no_color: Option<&str>) -> bool {
+    stdout_is_terminal && no_color.is_none_or(str::is_empty)
+}
+
+/// Whether this process's help pages are coloured.
+pub fn color_here() -> bool {
+    use std::io::IsTerminal as _;
+    use_color(
+        std::io::stdout().is_terminal(),
+        std::env::var_os("NO_COLOR")
+            .map(|v| v.to_string_lossy().into_owned())
+            .as_deref(),
+    )
+}
+
+fn h1(text: &str, color: bool) -> String {
+    if color {
+        format!("\x1b[0;1m{text}\x1b[0m\n")
+    } else {
+        format!("{text}\n")
+    }
 }
 
 /// Each line indented and ended with a newline.
@@ -139,19 +160,19 @@ fn description_lines() -> String {
 }
 
 /// The root `--help` page.
-pub fn root_page(version: &str) -> String {
+pub fn root_page(version: &str, color: bool) -> String {
     let examples = indented(EXAMPLES.iter());
     [
-        h1(&format!("Peektrace {version}")),
-        h1("USAGE"),
+        h1(&format!("Peektrace {version}"), color),
+        h1("USAGE", color),
         format!("{INDENT}peektrace [global flags] <command>\n"),
-        h1("DESCRIPTION"),
+        h1("DESCRIPTION", color),
         description_lines(),
-        h1("COMMANDS"),
+        h1("COMMANDS", color),
         pad(&COMMAND_ROWS),
-        h1("GLOBAL OPTIONS"),
+        h1("GLOBAL OPTIONS", color),
         pad(&GLOBAL_FLAGS),
-        h1("EXAMPLES"),
+        h1("EXAMPLES", color),
         examples,
         "Run peektrace <command> --help for its flags.\n".to_owned(),
     ]
@@ -159,7 +180,7 @@ pub fn root_page(version: &str) -> String {
 }
 
 /// The page of a group command, built from the rows under its prefix.
-pub fn group_page(group: &str, version: &str) -> String {
+pub fn group_page(group: &str, version: &str, color: bool) -> String {
     let summary = GROUPS
         .iter()
         .find(|(g, _)| *g == group)
@@ -170,12 +191,12 @@ pub fn group_page(group: &str, version: &str) -> String {
         .filter_map(|(path, s)| path.strip_prefix(&prefix).map(|leaf| (leaf, *s)))
         .collect();
     [
-        h1(&format!("Peektrace {version}")),
-        h1("USAGE"),
+        h1(&format!("Peektrace {version}"), color),
+        h1("USAGE", color),
         format!("{INDENT}peektrace [global flags] {group} <command>\n"),
-        h1("DESCRIPTION"),
+        h1("DESCRIPTION", color),
         format!("{INDENT}{summary}\n"),
-        h1("COMMANDS"),
+        h1("COMMANDS", color),
         pad(&rows),
         format!("Run peektrace {group} <command> --help for its flags.\n"),
     ]
@@ -330,9 +351,26 @@ mod tests {
 
     #[test]
     fn group_page_rows() {
-        let p = group_page("memory", "0.0.0-dev");
+        let p = group_page("memory", "0.0.0-dev", true);
         assert!(p.starts_with("\x1b[0;1mPeektrace 0.0.0-dev\x1b[0m\n\n\x1b[0;1mUSAGE\x1b[0m\n\n  peektrace [global flags] memory <command>\n"));
         assert!(p.contains("\n  ls    List projects with memory, or the entries of one project\n  show  Show the frontmatter and full body of one entry\n  rm    Delete one entry (blocked under --read-only)\n\nRun peektrace memory <command> --help for its flags.\n"));
+    }
+
+    #[test]
+    fn plain_pages_without_color() {
+        for p in [root_page("1", false), group_page("sessions", "1", false)] {
+            assert!(!p.contains('\x1b'), "{p}");
+            assert!(p.starts_with("Peektrace 1\n\nUSAGE\n"), "{p}");
+        }
+        assert!(root_page("1", true).contains("\x1b[0;1mUSAGE\x1b[0m"));
+    }
+
+    #[test]
+    fn color_needs_a_terminal_and_no_no_color() {
+        assert!(use_color(true, None));
+        assert!(use_color(true, Some("")));
+        assert!(!use_color(true, Some("1")));
+        assert!(!use_color(false, None));
     }
 
     #[test]
@@ -441,7 +479,7 @@ mod tests {
             .filter(|n| !LIB_FLAGS.contains(&n.as_str()) && n != "-v," && n != "-h,")
             .collect();
         assert_eq!(real, rows);
-        let page = root_page("0.0.0-dev");
+        let page = root_page("0.0.0-dev", false);
         for name in &real {
             assert!(page.contains(name.as_str()), "{name}");
         }

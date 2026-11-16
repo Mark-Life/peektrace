@@ -182,7 +182,7 @@ fn otel_echo_lists_spans() {
 #[test]
 fn unparseable_settings_warn() {
     let f = Fixture::new();
-    let path = f.settings(b"{}");
+    let path = f.settings(br#"{"roots":null}"#);
     let warn = format!(
         "WARN peektrace: ignoring unparseable settings at {}\n",
         path.display()
@@ -199,9 +199,11 @@ fn unparseable_settings_warn() {
         "error",
     ]);
     assert_eq!(err, "");
-    f.settings(br#"{"roots":{}}"#);
-    let (_, _, err) = f.run(&["sessions", "ls", "--agent", "claude", "--json"]);
-    assert_eq!(err, "");
+    for quiet in [&br#"{"roots":{}}"#[..], b"{}\n"] {
+        f.settings(quiet);
+        let (_, _, err) = f.run(&["sessions", "ls", "--agent", "claude", "--json"]);
+        assert_eq!(err, "");
+    }
 }
 
 #[test]

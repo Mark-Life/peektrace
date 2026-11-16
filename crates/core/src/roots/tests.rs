@@ -248,7 +248,6 @@ fn settings_parse_is_tolerant() {
 fn unparseable_settings_match_ts() {
     let warns = [
         "not json",
-        "{}",
         "[]",
         "5",
         r#"[{"roots":{}}]"#,
@@ -262,6 +261,9 @@ fn unparseable_settings_match_ts() {
     let quiet = [
         "",
         " \n ",
+        "{}",
+        "{}\n",
+        r#"{"other":1}"#,
         r#"{"roots":{}}"#,
         r#"{"roots":{"foo":1}}"#,
         r#"{"roots":{"claude":[]}}"#,
@@ -305,4 +307,13 @@ fn listing_and_editor_agree_on_roots() {
         }
         assert_eq!(s.unparseable, doc.roots.is_none(), "{raw}");
     }
+}
+
+#[test]
+fn settings_file_written_with_no_roots_parses_quietly() {
+    let text =
+        crate::settings_doc::settings_file_text(&crate::settings_doc::SettingsDoc::default());
+    let s = parse_settings(&text);
+    assert!(!s.unparseable, "{text:?}");
+    assert_eq!(s.claude, Vec::new());
 }

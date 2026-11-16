@@ -294,17 +294,20 @@ fn doctor_redacts_the_bundle() {
     let dir = f.home.join("pt");
     let secret = format!("sk-ant-{}", "A".repeat(50));
     let event = format!(
-        r#"{{"id":"e1","traceId":"t","ts":{},"kind":"cli","name":"cli","appVersion":"0.0.1","platform":"test","durationMs":5,"attributes":{{"argv":"sessions ls","token":"{secret}"}},"spans":[],"outcome":"success"}}"#,
-        now()
+        r#"{{"id":"e1","traceId":"t","ts":{},"kind":"cli","name":"cli","appVersion":"0.0.1","platform":"test","durationMs":5,"attributes":{{"argv":"sessions ls {}/x by zed-tester","token":"{secret}"}},"spans":[],"outcome":"success"}}"#,
+        now(),
+        f.home.display()
     );
     seed(&dir, &[("e1", now(), &event)]);
-    let out = run_in(&f, &dir, &[("PEEKTRACE_NO_TELEMETRY", "1")], &["doctor"]);
+    let envs = [("PEEKTRACE_NO_TELEMETRY", "1"), ("USER", "zed-tester")];
+    let out = run_in(&f, &dir, &envs, &["doctor"]);
     let path = dir.join("peektrace-report-1.json");
+    let shown = Path::new("~").join("pt").join("peektrace-report-1.json");
     assert_eq!(
         text(&out.stdout),
         format!(
             "Wrote 1 events → {}\nEmail this file to 108@mark-life.com\n",
-            path.display()
+            shown.display()
         )
     );
     let raw = fs::read_to_string(&path).unwrap();
@@ -317,7 +320,10 @@ fn doctor_redacts_the_bundle() {
         bundle["events"][0]["attributes"]["token"],
         "[REDACTED:anthropic-key]"
     );
-    assert_eq!(bundle["events"][0]["attributes"]["argv"], "sessions ls");
+    assert_eq!(
+        bundle["events"][0]["attributes"]["argv"],
+        "sessions ls ~/x by <user>"
+    );
 }
 
 #[test]

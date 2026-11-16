@@ -455,8 +455,8 @@ message pointing back at the PowerShell installer instead of attempting the swap
 | `--check` | `false` | Only report whether an update is available; download and write nothing |
 
 ```sh
-peektrace upgrade                    # download + verify + replace with the latest
-peektrace upgrade --check            # "up to date" or "a newer version is available"
+peektrace upgrade                    # download + verify + replace with the latest; never downgrades
+peektrace upgrade --check            # "up to date" with both versions, or "a newer version is available"
 peektrace upgrade --version cli-v1.2.3
 ```
 
