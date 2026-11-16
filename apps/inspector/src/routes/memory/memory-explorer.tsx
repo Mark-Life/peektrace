@@ -8,11 +8,7 @@
  * cell gates every write affordance. Writes refresh `allVaultsAtom` so gauges re-validate.
  */
 import { useAtomRefresh, useAtomValue } from "@effect-atom/atom-react";
-import type {
-  AllVaults,
-  MemoryEntry,
-  MemoryVault,
-} from "@workspace/core/services/memory/types";
+import type { AllVaults } from "@workspace/core/services/memory/types";
 import { MEMORY_TYPES } from "@workspace/core/services/memory/types";
 import {
   Accordion,
@@ -50,34 +46,9 @@ import {
 import { ResultView } from "../../lib/result-view";
 import { CapabilityBanner } from "./capability-banner";
 import { CreateDialog } from "./create-dialog";
+import { visibleVaults } from "./memory-model";
 import { CreateAnywhereButton } from "./project-picker";
 import { VaultSection } from "./vault-section";
-
-/** Does an entry match the free-text query? */
-const matchesQuery = (entry: MemoryEntry, q: string) => {
-  if (q.length === 0) {
-    return true;
-  }
-  const hay =
-    `${entry.slug} ${entry.name ?? ""} ${entry.description ?? ""} ${entry.body}`.toLowerCase();
-  return hay.includes(q.toLowerCase());
-};
-
-/** Apply search + type filter to a vault, returning its matching entries. */
-const filterEntries = ({
-  vault,
-  query,
-  type,
-}: {
-  readonly vault: MemoryVault;
-  readonly query: string;
-  readonly type: string;
-}) =>
-  vault.entries.filter(
-    (e) =>
-      matchesQuery(e, query) &&
-      (type === "all" || (e.type ?? "untyped") === type)
-  );
 
 /** Project overview cards across all discovered vaults. */
 const Overview = ({ all }: { readonly all: typeof AllVaults.Type }) => (
@@ -211,17 +182,8 @@ export const Explorer = ({
   const isEmpty = all.projects.length === 0;
 
   const vaults = useMemo(
-    () =>
-      all.vaults
-        .filter((v) => scope === "all" || v.slug === scope)
-        .map((vault) => ({
-          vault,
-          entries: filterEntries({ vault, query, type }),
-        }))
-        .filter(({ entries }) =>
-          query.length === 0 && type === "all" ? true : entries.length > 0
-        ),
-    [all.vaults, scope, query, type]
+    () => visibleVaults({ all, scope, query, type }),
+    [all, scope, query, type]
   );
   const visible = vaults.map(({ vault }) => vault.slug);
 

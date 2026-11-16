@@ -20,6 +20,10 @@ const NODE_R_RANGE = 9;
 /** Vertical offset of a node label above its circle. */
 const LABEL_OFFSET = 2;
 
+/** A node's radius: from the minimum up by its share of the largest file. */
+export const nodeRadius = (bytes: number, maxBytes: number) =>
+  NODE_MIN_R + (bytes / maxBytes) * NODE_R_RANGE;
+
 /** Rendered width (px) the ring geometry was drawn for. */
 const DEFAULT_MAX_WIDTH = 360;
 /** Hard ceiling on rendered width: past this the 8px labels and 1px strokes
@@ -27,7 +31,7 @@ const DEFAULT_MAX_WIDTH = 360;
 const MAX_WIDTH_CEILING = 480;
 
 /** Place nodes evenly on a ring; returns slug → {x,y}. */
-const layout = (slugs: readonly string[]) => {
+export const layout = (slugs: readonly string[]) => {
   const positions = new Map<string, { x: number; y: number }>();
   const n = Math.max(1, slugs.length);
   slugs.forEach((slug, i) => {
@@ -98,7 +102,7 @@ export const LinkGraph = ({
         if (!p) {
           return null;
         }
-        const r = NODE_MIN_R + (node.bytes / maxBytes) * NODE_R_RANGE;
+        const r = nodeRadius(node.bytes, maxBytes);
         const select = onSelect ? () => onSelect(node.slug) : undefined;
         return (
           // biome-ignore lint/a11y/noStaticElementInteractions: SVG group exposes role=button + keyboard handler for node selection

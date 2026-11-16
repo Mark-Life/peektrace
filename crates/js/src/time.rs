@@ -128,6 +128,13 @@ fn time_of_day(c: &mut Cursor<'_>) -> Option<i64> {
 /// moves forward, a repeated one takes the earlier instant.
 pub trait LocalZone {
     fn offset_at_wall_ms(&self, wall_ms: i64) -> i64;
+    /// The offset in force at the instant `utc_ms`, as `Date` reads local
+    /// fields off it. The default walks the wall-time lookup; zones that
+    /// know their transitions answer exactly.
+    fn offset_at_utc_ms(&self, utc_ms: i64) -> i64 {
+        let first = self.offset_at_wall_ms(utc_ms);
+        self.offset_at_wall_ms(utc_ms.saturating_add(first))
+    }
 }
 
 /// UTC as the local zone.
@@ -239,6 +246,26 @@ pub fn to_iso_string(ms: i64) -> String {
     )
 }
 
+/// `new Date(ms).toLocaleString()` in `en-US`, as Bun prints it in the
+/// `local` zone: `11/11/2026, 4:42:21 PM`. Years before 1 print as numbers
+/// (ICU writes eras there; no memory file is that old).
+pub fn to_locale_string(ms: i64, local: &dyn LocalZone) -> String {
+    let wall = ms.saturating_add(local.offset_at_utc_ms(ms));
+    let (year, month, day) = civil_from_days(wall.div_euclid(MS_PER_DAY));
+    let rem = wall.rem_euclid(MS_PER_DAY);
+    let hour = rem / 3_600_000;
+    let h12 = match hour % 12 {
+        0 => 12,
+        h => h,
+    };
+    format!(
+        "{month}/{day}/{year}, {h12}:{:02}:{:02} {}",
+        rem / 60_000 % 60,
+        rem / 1000 % 60,
+        if hour < 12 { "AM" } else { "PM" }
+    )
+}
+
 /// `YYYY-MM-DD` of the UTC day `ms` falls on.
 pub fn day_key(ms: i64) -> String {
     let (y, m, d) = civil_from_days(ms.div_euclid(MS_PER_DAY));
@@ -248,6 +275,20 @@ pub fn day_key(ms: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Bun 1.4 `new Date(iso).toLocaleString()` under `TZ=UTC`.
+    #[test]
+    fn locale_strings_match_bun() {
+        for (iso, want) in [
+            ("2026-11-11T16:42:21.851Z", "11/11/2026, 4:42:21 PM"),
+            ("2026-01-02T00:05:00.000Z", "1/2/2026, 12:05:00 AM"),
+            ("0099-01-01T00:00:00Z", "1/1/99, 12:00:00 AM"),
+            ("2026-06-01T12:00:00Z", "6/1/2026, 12:00:00 PM"),
+        ] {
+            let ms = parse_date(iso, &Utc).unwrap_or_default();
+            assert_eq!(to_locale_string(ms, &Utc), want, "{iso}");
+        }
+    }
 
     /// Expected values measured with Bun 1.4.4 `Date.parse` under `TZ=UTC`.
     const CASES: &[(&str, Option<i64>)] = &[

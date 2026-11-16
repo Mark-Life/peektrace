@@ -1,4 +1,4 @@
-//! Small shared pieces: badges, dots, cards, chips and the stub panel.
+//! Small shared pieces: badges, dots, cards, chips and the notice panel.
 
 use rune::{Color, El, Shape, canvas, col, row, text};
 
@@ -51,7 +51,7 @@ pub fn chip(label: impl Into<String>, color: Color, t: &Theme) -> El {
         .child(text(label.into()).font(ty::TINY).color(color))
 }
 
-/// A centred title and line of text, for empty and stub panes.
+/// A centred title and line of text, for empty and loading panes.
 pub fn notice(title: &str, body: &str, t: &Theme) -> El {
     col()
         .w_full()

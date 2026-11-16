@@ -27,18 +27,14 @@ import {
   XIcon,
 } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
-
-/** Bytes per kilobyte, for the size column. */
-const BYTES_PER_KB = 1024;
-
-/** Splits a body into text + `[[wikilink]]` tokens. */
-const WIKILINK_SPLIT = /(\[\[[^\]]+\]\])/g;
-
-/** Matches a single `[[wikilink]]` token. */
-const WIKILINK_TOKEN = /^\[\[([^\]]+)\]\]$/;
-
-/** Sortable column keys. */
-type SortKey = "title" | "type" | "size" | "mtime" | "inIndex" | "links";
+import {
+  bodyParts,
+  fmtDate,
+  fmtSize,
+  type SortKey,
+  sortEntries,
+  titleOf,
+} from "./memory-model";
 
 /** A click handler set shared by every row. */
 interface RowActions {
@@ -48,36 +44,6 @@ interface RowActions {
   readonly onNavigate: (slug: string) => void;
 }
 
-/** Human-readable byte size. */
-const fmtSize = (bytes: number) =>
-  bytes < BYTES_PER_KB
-    ? `${bytes} B`
-    : `${(bytes / BYTES_PER_KB).toFixed(1)} KB`;
-
-/** Short local date-time for the modified column. */
-const fmtDate = (iso: string) => new Date(iso).toLocaleString();
-
-/** A memory's display title: frontmatter name → slug. */
-const titleOf = (e: MemoryEntry) => e.name ?? e.slug;
-
-/** Compare two entries by the active sort key. */
-const compareBy = (key: SortKey) => (a: MemoryEntry, b: MemoryEntry) => {
-  switch (key) {
-    case "title":
-      return titleOf(a).localeCompare(titleOf(b));
-    case "type":
-      return (a.type ?? "").localeCompare(b.type ?? "");
-    case "size":
-      return a.size - b.size;
-    case "mtime":
-      return a.mtimeMs - b.mtimeMs;
-    case "inIndex":
-      return Number(a.inIndex) - Number(b.inIndex);
-    default:
-      return a.links.length - b.links.length;
-  }
-};
-
 /** Render the body with `[[wikilinks]]` turned into navigation buttons. */
 const LinkedBody = ({
   entry,
@@ -86,29 +52,25 @@ const LinkedBody = ({
   readonly entry: MemoryEntry;
   readonly onNavigate: (slug: string) => void;
 }) => {
-  const targets = new Map(entry.links.map((l) => [l.rawTarget, l.targetSlug]));
-  const parts = entry.body.split(WIKILINK_SPLIT);
+  const parts = bodyParts(entry);
   return (
     <div className="whitespace-pre-wrap font-mono text-xs leading-relaxed">
       {parts.map((part, i) => {
-        const m = part.match(WIKILINK_TOKEN);
-        if (m?.[1]) {
-          const raw = m[1];
-          const slug = targets.get(raw) ?? raw.toLowerCase();
+        if ("link" in part) {
           return (
             <button
               className="text-sky-400 underline decoration-dotted hover:text-sky-300"
               // biome-ignore lint/suspicious/noArrayIndexKey: body is static per render
               key={i}
-              onClick={() => onNavigate(slug)}
+              onClick={() => onNavigate(part.slug)}
               type="button"
             >
-              {part}
+              {part.link}
             </button>
           );
         }
         // biome-ignore lint/suspicious/noArrayIndexKey: body is static per render
-        return <Fragment key={i}>{part}</Fragment>;
+        return <Fragment key={i}>{part.text}</Fragment>;
       })}
     </div>
   );
@@ -237,10 +199,10 @@ export const BrowseTable = ({
     onExpandChange?.(next);
   };
 
-  const sorted = useMemo(() => {
-    const arr = [...entries].sort(compareBy(sort));
-    return asc ? arr : arr.reverse();
-  }, [entries, sort, asc]);
+  const sorted = useMemo(
+    () => sortEntries(entries, sort, asc),
+    [entries, sort, asc]
+  );
 
   if (entries.length === 0) {
     return (

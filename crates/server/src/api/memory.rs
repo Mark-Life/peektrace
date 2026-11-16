@@ -6,8 +6,6 @@ use axum::extract::rejection::PathRejection;
 use axum::extract::{Path, State};
 use axum::http::Method;
 use peektrace_core::Agent;
-use peektrace_core::capabilities::MEMORY_CRUD;
-use peektrace_core::memory::fs::{ChangeReason, WriteError};
 use peektrace_core::memory::json::{
     all_vaults_json, delete_json, entry_json, projects_json, vault_json,
 };
@@ -15,8 +13,8 @@ use peektrace_core::memory::write::{
     FrontmatterPatch, MemoryCtx, MemoryError, MemoryUpdate, NewMemory, create, delete, update,
 };
 use peektrace_core::memory::{all_vaults, get_vault, list_projects};
-use peektrace_core::wire::agent_id;
-use peektrace_protocol::{ApiError, FileChangeReason, READ_ONLY_REASON};
+use peektrace_core::wire::memory_api_error;
+use peektrace_protocol::{ApiError, READ_ONLY_REASON, expected_mtime};
 use tracing::Instrument as _;
 
 use super::params::{object_body, opt_num, opt_obj, opt_str, req_str, segment};
@@ -24,30 +22,8 @@ use super::{Failure, Res, Shared, blocking, finish, json};
 use crate::AppState;
 
 fn memory_error(e: MemoryError, ctx: &MemoryCtx) -> Failure {
-    let api = match e {
-        MemoryError::CapabilityUnsupported { agent } => ApiError::CapabilityUnsupportedError {
-            capability_id: MEMORY_CRUD.to_owned(),
-            agent_id: agent_id(agent),
-        },
-        MemoryError::Validation { reason, name } => ApiError::MemoryValidationError {
-            reason,
-            name: Some(name),
-        },
-        MemoryError::NotFound { project, name } => ApiError::MemoryNotFoundError { project, name },
-        MemoryError::Write(WriteError::Changed { path, reason }) => ApiError::FileChangedError {
-            path,
-            reason: match reason {
-                ChangeReason::Mtime => FileChangeReason::Mtime,
-                ChangeReason::Missing => FileChangeReason::Missing,
-            },
-        },
-        MemoryError::Write(WriteError::OutsideRoots { path }) => ApiError::PathOutsideRootError {
-            path,
-            roots: ctx.allowed_roots.clone(),
-        },
-        MemoryError::Write(e @ WriteError::Io { .. }) => return Failure::Defect(e.to_string()),
-    };
-    Failure::Api(api)
+    memory_api_error(e, &ctx.allowed_roots)
+        .map_or_else(|e| Failure::Defect(e.to_string()), Failure::Api)
 }
 
 /// Writes are refused in read-only mode before any disk access.
@@ -171,15 +147,6 @@ pub async fn memory_create(
     .await
 }
 
-/// `expectedMtime` as the whole ms core compares; any other number can
-/// never match, so it maps to a value no file has.
-#[expect(clippy::cast_possible_truncation, reason = "checked to be in range")]
-fn expected_mtime(n: f64) -> i64 {
-    #[expect(clippy::cast_precision_loss, reason = "range bounds")]
-    let in_range = n.fract() == 0.0 && n >= i64::MIN as f64 && n < i64::MAX as f64;
-    if in_range { n as i64 } else { i64::MIN }
-}
-
 fn patch_of(o: &peektrace_core::js::value::JsObject) -> Result<FrontmatterPatch, ApiError> {
     Ok(FrontmatterPatch {
         name: opt_str(o, "name")?,
@@ -246,16 +213,4 @@ pub async fn memory_delete(
     }
     .instrument(span)
     .await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn only_whole_ms_can_match() {
-        assert_eq!(expected_mtime(1_700_000_000_123.0), 1_700_000_000_123);
-        assert_eq!(expected_mtime(1.5), i64::MIN);
-        assert_eq!(expected_mtime(1e300), i64::MIN);
-    }
 }

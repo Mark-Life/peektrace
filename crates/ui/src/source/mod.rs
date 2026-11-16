@@ -8,6 +8,7 @@ pub mod in_process;
 
 #[cfg(target_arch = "wasm32")]
 pub mod http;
+pub mod memory;
 
 use peektrace_protocol::stats::{DrillView, StatsReportView};
 use peektrace_protocol::view::{AnalyzedSession, SessionListingView, mend_surrogates};
@@ -15,6 +16,7 @@ use peektrace_protocol::{
     ApiError, ApiErrorBody, Capability, ServerInfo, SettingsResult, SettingsUpdate, WatchVersions,
 };
 
+use self::memory::{MemoryData, MemoryDone, MemoryWrite};
 use crate::model::stats::{DrillAsk, StatsScope, StatsText};
 
 /// A stats report and the text core writes for it; `text` is `None` where
@@ -134,6 +136,15 @@ pub trait DataSource: Send + Sync + 'static {
         &self,
         _update: SettingsUpdate,
     ) -> Option<Result<SettingsResult, LoadError>> {
+        None
+    }
+    /// Every vault with the write gate's inputs.
+    fn memory(&self, reply: Reply<MemoryData>);
+    fn memory_write(&self, op: MemoryWrite, reply: Reply<MemoryDone>);
+    fn memory_now(&self) -> Option<Result<MemoryData, LoadError>> {
+        None
+    }
+    fn memory_write_now(&self, _op: &MemoryWrite) -> Option<Result<MemoryDone, LoadError>> {
         None
     }
 }

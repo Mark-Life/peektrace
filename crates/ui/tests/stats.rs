@@ -549,6 +549,13 @@ fn scan_failed<T>() -> Result<T, LoadError> {
 }
 
 impl DataSource for Failing {
+    fn memory(&self, _: Reply<peektrace_ui::source::memory::MemoryData>) {}
+    fn memory_write(
+        &self,
+        _: peektrace_ui::source::memory::MemoryWrite,
+        _: Reply<peektrace_ui::source::memory::MemoryDone>,
+    ) {
+    }
     fn sessions(&self, _: Reply<peektrace_protocol::view::SessionListingView>) {}
     fn analysis(
         &self,

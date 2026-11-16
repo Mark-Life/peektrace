@@ -6,9 +6,11 @@ use peektrace_protocol::{
     READ_ONLY_REASON, ScannedRoot, ServerInfo, SupportLevel,
 };
 
-use crate::capabilities::{self, SupportLevel as CoreLevel};
+use crate::capabilities::{self, MEMORY_CRUD, SupportLevel as CoreLevel};
 use crate::js::json_out::Writer;
 use crate::js::value::JsValue;
+use crate::memory::fs::{self, WriteError};
+use crate::memory::write::MemoryError;
 use crate::sessions::resolve;
 use crate::settings_doc::{
     self, ChangeReason, SettingsDoc, SettingsUpdateError, StoredSettings, write_settings_doc,
@@ -134,6 +136,34 @@ fn update_error(e: SettingsUpdateError) -> ApiError {
     }
 }
 
+/// A memory write failure as its typed API error. An IO failure has none:
+/// it comes back as `Err`, for the caller to report as a defect.
+pub fn memory_api_error(e: MemoryError, allowed_roots: &[String]) -> Result<ApiError, WriteError> {
+    Ok(match e {
+        MemoryError::CapabilityUnsupported { agent } => ApiError::CapabilityUnsupportedError {
+            capability_id: MEMORY_CRUD.to_owned(),
+            agent_id: agent_id(agent),
+        },
+        MemoryError::Validation { reason, name } => ApiError::MemoryValidationError {
+            reason,
+            name: Some(name),
+        },
+        MemoryError::NotFound { project, name } => ApiError::MemoryNotFoundError { project, name },
+        MemoryError::Write(WriteError::Changed { path, reason }) => ApiError::FileChangedError {
+            path,
+            reason: match reason {
+                fs::ChangeReason::Mtime => FileChangeReason::Mtime,
+                fs::ChangeReason::Missing => FileChangeReason::Missing,
+            },
+        },
+        MemoryError::Write(WriteError::OutsideRoots { path }) => ApiError::PathOutsideRootError {
+            path,
+            roots: allowed_roots.to_vec(),
+        },
+        MemoryError::Write(e @ WriteError::Io { .. }) => return Err(e),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use serde_json::{Value, json};
@@ -181,5 +211,67 @@ mod tests {
         let refused = check_settings_writable(true).err();
         assert_eq!(refused.as_ref().map(ApiError::status), Some(403));
         assert!(check_settings_writable(false).is_ok());
+    }
+
+    #[test]
+    fn memory_errors_map_to_their_api_errors() {
+        let roots = ["/r".to_owned()];
+        let api = |e| memory_api_error(e, &roots).ok();
+        assert_eq!(
+            api(MemoryError::CapabilityUnsupported {
+                agent: Agent::Codex
+            }),
+            Some(ApiError::CapabilityUnsupportedError {
+                capability_id: MEMORY_CRUD.to_owned(),
+                agent_id: AgentId::Codex,
+            })
+        );
+        assert_eq!(
+            api(MemoryError::Validation {
+                reason: "r".into(),
+                name: "n".into()
+            }),
+            Some(ApiError::MemoryValidationError {
+                reason: "r".into(),
+                name: Some("n".into())
+            })
+        );
+        assert_eq!(
+            api(MemoryError::NotFound {
+                project: "p".into(),
+                name: "n".into()
+            }),
+            Some(ApiError::MemoryNotFoundError {
+                project: "p".into(),
+                name: "n".into()
+            })
+        );
+        assert_eq!(
+            api(MemoryError::Write(WriteError::Changed {
+                path: "/f".into(),
+                reason: fs::ChangeReason::Missing
+            })),
+            Some(ApiError::FileChangedError {
+                path: "/f".into(),
+                reason: FileChangeReason::Missing
+            })
+        );
+        assert_eq!(
+            api(MemoryError::Write(WriteError::OutsideRoots {
+                path: "/x".into()
+            })),
+            Some(ApiError::PathOutsideRootError {
+                path: "/x".into(),
+                roots: vec!["/r".into()]
+            })
+        );
+        let io = MemoryError::Write(WriteError::Io {
+            path: "/f".into(),
+            source: std::io::Error::other("disk"),
+        });
+        assert!(matches!(
+            memory_api_error(io, &roots),
+            Err(WriteError::Io { .. })
+        ));
     }
 }

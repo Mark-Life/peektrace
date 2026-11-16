@@ -45,7 +45,7 @@ const SERVE_SOURCE =
  * with them in process, and reads the Settings, Capabilities and shortcut
  * pages for their copy. */
 const UI_SOURCE =
-  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|src\/routes\/(settings|capabilities)-route\.tsx$|src\/components\/(shortcuts-dialog|read-only|root-row)\.tsx$|package\.json$)|packages\/(ui|viz)\/(src\/|package\.json$))/;
+  /^(apps\/inspector\/(src\/lib\/|src\/routes\/sessions\/|src\/routes\/memory\/|src\/routes\/(settings|capabilities)-route\.tsx$|src\/components\/(shortcuts-dialog|read-only|root-row)\.tsx$|package\.json$)|packages\/(ui|viz)\/(src\/|package\.json$))/;
 /** Paths `git ls-files` lists for the patterns above. */
 const TREE = [
   "apps/cli/src",
