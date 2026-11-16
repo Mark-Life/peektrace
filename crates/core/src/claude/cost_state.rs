@@ -67,17 +67,21 @@ impl CostStates {
         }
     }
 
-    /// The summed record. It is partial when no process started by the
-    /// first transcript line (a resumed process only), or when Claude Code
-    /// flagged a model it could not price.
+    /// The summed record, `None` at $0. It is partial when no process
+    /// started by the first transcript line (a resumed process only), or
+    /// when Claude Code flagged a model it could not price.
     pub fn native(&self, first_ts: Option<&str>) -> Option<NativeCost> {
+        let usd: f64 = self.processes.iter().map(|p| p.usd).sum();
+        if usd <= 0.0 {
+            return None;
+        }
         let earliest = self.processes.iter().map(|p| p.start_ms).reduce(f64::min)?;
         let covers_start = first_ts
             .and_then(iso_ms)
             .is_some_and(|first| earliest <= first + START_SLACK_MS);
         let unknown = self.processes.iter().any(|p| p.unknown_model_cost);
         Some(NativeCost {
-            usd: self.processes.iter().map(|p| p.usd).sum(),
+            usd,
             includes_subagents: true,
             partial: !covers_start || unknown,
         })
@@ -116,6 +120,9 @@ mod tests {
         assert!(c.native(Some(T0)).is_some_and(|n| n.partial));
         assert!(c.native(None).is_some_and(|n| n.partial));
         assert_eq!(CostStates::default().native(Some(T0)), None);
+        let mut zero = CostStates::default();
+        zero.push(&line(T0_MS, 0.0));
+        assert_eq!(zero.native(Some(T0)), None, "$0 is no record");
     }
 
     #[test]

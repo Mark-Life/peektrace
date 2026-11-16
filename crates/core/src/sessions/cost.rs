@@ -98,13 +98,8 @@ pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionC
         None => (own.cost_usd.is_some() || parts_priced)
             .then(|| own.cost_usd.unwrap_or(0.0) + subagents_usd),
     };
-    // A main-only record prices every main turn; a whole-session record
-    // keeps them, as they explain an estimate gap.
-    let mut unpriced = if headline.is_some_and(|n| !n.includes_subagents) {
-        Vec::new()
-    } else {
-        own.unpriced_models.unwrap_or_default()
-    };
+    // Kept beside a record too: they explain an estimate gap.
+    let mut unpriced = own.unpriced_models.unwrap_or_default();
     unpriced.extend(
         parts
             .iter()

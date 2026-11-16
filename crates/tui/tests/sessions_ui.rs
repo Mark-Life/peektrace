@@ -1,6 +1,6 @@
 //! The Sessions screen over a fake backend with synthetic analyses: history
 //! expand and sort, attachment badges, card selection driving the detail,
-//! the estimated cost, and the growth chart toggle.
+//! the cost and its source, and the growth chart toggle.
 
 mod common;
 

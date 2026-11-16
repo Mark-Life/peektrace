@@ -3,7 +3,7 @@
  * A health word (Healthy / Degrading / Rotting) derived from peak context vs
  * window, the peak gauge with its dumb-zone marker, and the headline metadata
  * grid (peak, turns, system tax, output, dumb-zone dwell, cache, and the
- * estimated cost when the session has one).
+ * cost and its source when the session has one).
  */
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";

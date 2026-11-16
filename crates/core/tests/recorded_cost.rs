@@ -191,3 +191,12 @@ fn pi_record_counts_only_when_every_call_has_one_above_zero() {
     assert!(close(c.total_usd, 8.0));
     assert!(close(c.recorded_usd, 3.9));
 }
+
+#[test]
+fn a_zero_record_is_no_record() {
+    let rows = claude("claude-opus-5-5", &[cost_state(T0_MS - 1000, 0.0)]);
+    let a = analyzed(&rows, None);
+    let c = cost(&a);
+    assert!(!c.from_agent && c.recorded_usd.is_none());
+    assert!(close(c.total_usd, 4.0));
+}

@@ -205,30 +205,18 @@ fn row(k: &str, v: String) -> Vec<String> {
 
 /// Summary rows for a session's cost; `-` when nothing is priced.
 fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
-    let from_agent = cost.is_some_and(|c| c.from_agent && c.total_usd.is_some());
-    let total = match cost.and_then(|c| c.total_usd) {
-        Some(t) if from_agent => fmt_recorded_usd(t),
-        t => render::usd_cell(t),
-    };
+    let from_agent = cost.is_some_and(|c| c.from_agent);
     let subagents = cost.and_then(|c| c.subagents_usd).unwrap_or(0.0);
     let unpriced = cost
         .and_then(|c| c.unpriced_models.as_deref())
         .unwrap_or_default();
     let unreadable = cost.and_then(|c| c.unreadable_subagents).unwrap_or(0);
-    let source = if from_agent {
-        format!("recorded by {provider}")
-    } else {
-        "estimated from tokens".to_owned()
+    let total = match cost.and_then(|c| c.total_usd) {
+        None => "-".to_owned(),
+        Some(t) if from_agent => format!("{} (recorded by {provider})", fmt_recorded_usd(t)),
+        t => format!("{} (estimated from tokens)", render::usd_cell(t)),
     };
-    let priced = cost.is_some_and(|c| c.total_usd.is_some());
-    let mut rows = vec![row(
-        "cost",
-        if priced {
-            format!("{total} ({source})")
-        } else {
-            total
-        },
-    )];
+    let mut rows = vec![row("cost", total)];
     if subagents > 0.0 {
         rows.push(row("  subagents (est.)", render::usd_cell(Some(subagents))));
     }
