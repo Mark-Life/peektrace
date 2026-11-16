@@ -206,6 +206,8 @@ peektrace memory ls [project]                    # --json for raw output
 peektrace memory show <project> <name>
 peektrace --read-only memory rm <project> <name> # refused, nothing written
 peektrace doctor                                 # write a local support bundle
+peektrace pricing                                # price table in use and its date
+peektrace pricing update                         # opt-in: download prices from models.dev
 ```
 
 `peektrace doctor` collects recent local run-log events, recursively redacts
@@ -260,6 +262,10 @@ yet**. Run it from source with `cargo run --release -p peektrace-app`.
   exists, and prints one hint line if so. The result caches for ~24h, so it hits
   the network at most once a day, and it never delays the server. It sends
   nothing about you. Disable with `PEEKTRACE_NO_UPDATE_CHECK=1`.
+- **Prices ship with the binary.** Cost estimates use a price table generated
+  from [models.dev](https://models.dev) and built in. `peektrace pricing update`
+  downloads a newer one only when you run it; nothing fetches prices on its
+  own. These two are the only network calls peektrace makes.
 
 ---
 

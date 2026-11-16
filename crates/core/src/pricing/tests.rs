@@ -1,4 +1,4 @@
-//! Unit tests for `pricing.rs`.
+//! Unit tests for `pricing`.
 
 use super::*;
 
@@ -40,9 +40,21 @@ fn the_most_specific_codex_key_wins() {
 }
 
 #[test]
-fn fast_mode_and_codex_spark_have_no_verified_rate() {
+fn fast_mode_has_no_rate_and_codex_spark_has_its_own() {
     assert_eq!(key("gpt-5.6-terra-fast"), None);
-    assert_eq!(key("gpt-5.3-codex-spark"), None);
+    assert_eq!(key("gpt-5.3-codex-spark"), Some("gpt-5.3-codex-spark"));
+}
+
+#[test]
+fn haiku_long_tier_bills_one_hour_writes_at_twice_its_input() {
+    let t = CostTokens {
+        input: 100_000.0,
+        cache_creation: 1_000_000.0,
+        cache_creation_1h: Some(1_000_000.0),
+        ..CostTokens::default()
+    };
+    // 0.1M input at 0.5 + 1M one-hour writes at 1.0.
+    assert!(close(cost("claude-haiku-5-5", &t), 1.05));
 }
 
 #[test]
