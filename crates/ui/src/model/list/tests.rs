@@ -17,6 +17,7 @@ fn header() -> SessionHeader {
         cost_usd: None,
         source: None,
         source_label: None,
+        launcher: None,
     }
 }
 
@@ -490,4 +491,20 @@ fn hiding_filters_reset_only_the_hiding_ones() {
     assert_eq!(fix, [FilterName::Query, FilterName::Agent]);
     let fixed = fix.into_iter().fold(f, Filters::without);
     assert!(matches(&h, &fixed));
+}
+
+#[test]
+fn launcher_help_names_only_what_is_known() {
+    let l = Launcher {
+        name: "t3code".into(),
+        branch: Some("feat/a".into()),
+        worktree_path: None,
+    };
+    assert_eq!(launcher_help(&l), "Started from t3code · branch feat/a");
+    let l = Launcher {
+        branch: None,
+        worktree_path: Some("/wt/a".into()),
+        ..l
+    };
+    assert_eq!(launcher_help(&l), "Started from t3code · worktree /wt/a");
 }

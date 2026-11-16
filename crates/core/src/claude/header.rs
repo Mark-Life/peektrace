@@ -274,6 +274,7 @@ impl HeaderAcc {
             cost_usd,
             unpriced_models,
             source: meta.source,
+            launcher: None,
         }
     }
 }

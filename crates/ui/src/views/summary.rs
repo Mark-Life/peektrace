@@ -7,6 +7,7 @@ use rune_kit::{Button, ButtonVariant, ControlSize};
 use super::widgets::{badge, card, chip, grid};
 use crate::model::format::{Zone, fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::labels::{analyzed_title, cost_summary, provider_label};
+use crate::model::list::launcher_help;
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty, zone_fill, zone_text};
 
@@ -321,6 +322,11 @@ pub fn verdict(d: &Detail, width: f32, t: &Theme) -> El {
                 .child(text(meta).font(ty::MONO_XS).color(t.muted_fg).truncate()),
         )
         .child(badge(provider_label(&a.provider), t.fg, t))
+        .children(a.launcher.as_ref().map(|l| {
+            badge(&l.name, t.muted_fg, t)
+                .help(launcher_help(l))
+                .key("launcher")
+        }))
         .child(badge(zone.health(), zone_text(zone), t).key("health"));
     card(t)
         .key("verdict")

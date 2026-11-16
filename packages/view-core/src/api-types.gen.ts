@@ -253,6 +253,8 @@ unreadable?: true, costUsd?: number,
  */
 unpricedModels?: ReadonlyArray<string>, };
 
+export type Launcher = { name: string, branch?: string, worktreePath?: string, };
+
 export type ContextFileScope = "global" | "project" | "memory";
 
 export type OnDiskContextFile = { label: string, path: string, bytes: number, tokensEst: number, scope: ContextFileScope, };
@@ -294,7 +296,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type ParsedSession = { events: ReadonlyArray<TimelineEvent>, turns: ReadonlyArray<Turn>, provider: Provider, sessionId: string, path: string, cwd?: string, gitBranch?: string, title?: string, version?: string, models: ReadonlyArray<string>, startedAt?: string, endedAt?: string, compactionIndexes: ReadonlyArray<number>, subagents: ReadonlyArray<SubagentRef>, 
 /**
@@ -325,7 +331,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type CostSource = "estimate" | "agent";
 
@@ -405,7 +415,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type AnalyzedSession = { events: ReadonlyArray<TimelineEvent>, turns: ReadonlyArray<Turn>, snapshots: ReadonlyArray<TurnSnapshot>, contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -444,7 +458,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type SessionSummary = { history: SummaryHistory, contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -483,7 +501,11 @@ nativeCostPartial?: boolean,
 /**
  * Cost of inline sidechain turns, which `turns` leaves out.
  */
-sidechainCost?: TurnsCost, };
+sidechainCost?: TurnsCost, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, };
 
 export type HistoryPage = { events: ReadonlyArray<TimelineEvent>, rev: string, offset: number, total: number, 
 /**
@@ -539,7 +561,11 @@ sourceLabel?: string,
 /**
  * Malformed lines other than a partial last line; set only above 0.
  */
-malformedLines?: number, costUsd?: number, 
+malformedLines?: number, 
+/**
+ * The app that started the session, when known.
+ */
+launcher?: Launcher, costUsd?: number, 
 /**
  * Model ids with no rate card; set only when non-empty.
  */

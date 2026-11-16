@@ -9,6 +9,7 @@ import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { costSummary } from "@workspace/view-core/cost";
+import { launcherHint } from "@workspace/view-core/launcher";
 import type { ReactNode } from "react";
 
 import {
@@ -224,6 +225,15 @@ export const VerdictHeader = ({
           <Badge data-testid="session-provider" variant="outline">
             {PROVIDER_LABEL.get(a.provider) ?? a.provider}
           </Badge>
+          {a.launcher === undefined ? null : (
+            <Badge
+              data-testid="session-launcher"
+              title={launcherHint(a.launcher)}
+              variant="secondary"
+            >
+              {a.launcher.name}
+            </Badge>
+          )}
           <Badge
             className={cn("text-sm", ZONE_CLASSES[zone].text)}
             data-testid="health-verdict"

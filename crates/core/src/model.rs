@@ -80,6 +80,15 @@ pub struct SourceTag {
     pub label: String,
 }
 
+/// The app that started a session, when peektrace knows it. Every field is
+/// text from that app's store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Launcher {
+    pub name: String,
+    pub branch: Option<String>,
+    pub worktree_path: Option<String>,
+}
+
 /// File size and mtime, as `fs.stat` reports them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FileStamp {
@@ -117,6 +126,7 @@ pub struct SessionHeader {
     pub cost_usd: Option<f64>,
     pub unpriced_models: Option<Vec<String>>,
     pub source: Option<SourceTag>,
+    pub launcher: Option<Launcher>,
 }
 
 /// A transcript that was listed but could not be read.

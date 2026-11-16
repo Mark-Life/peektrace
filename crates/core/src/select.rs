@@ -298,6 +298,7 @@ mod tests {
             cost_usd: None,
             unpriced_models: None,
             source: None,
+            launcher: None,
         }
     }
 
