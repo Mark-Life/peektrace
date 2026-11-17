@@ -91,6 +91,9 @@ pub struct StatsText {
     /// What the report covers, on one line: sessions, calls and the time
     /// every share divides by.
     pub corpus_line: String,
+    /// The link to the measurement notes: `How these numbers are measured
+    /// (10 notes) · 1 file skipped`.
+    pub measured_link: String,
     /// Cause key to its retry-time cell: `32m14s · 2.8%`.
     #[cfg_attr(test, ts(type = "Record<string, string>"))]
     pub cause_time: BTreeMap<String, String>,

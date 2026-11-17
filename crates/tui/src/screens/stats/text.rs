@@ -298,17 +298,25 @@ pub fn scope_text(
 }
 
 /// What the screen opens with, wrapped to `w` over at most `rows` lines:
-/// what avoidable retries cost, what the `shown` live findings cover, and
-/// what the total holds. Fixed causes never count as fixes.
+/// what avoidable retries cost and what the `shown` live findings cover,
+/// then what the total holds when that fits too. Fixed causes never count
+/// as fixes.
 pub fn verdict_lines(r: &StatsReport, shown: usize, w: usize, rows: usize) -> Vec<String> {
     use peektrace_core::stats::verdict::{verdict_note_with, verdict_with};
     let line = verdict_with(r, &findings_with(r, &FORMAT), shown, &FORMAT);
-    let all = verdict_note_with(r, &FORMAT).map_or_else(|| line.clone(), |n| format!("{line} {n}"));
-    let mut out = wrap(&all, w);
+    let mut out = wrap(&line, w);
     if out.len() > rows {
         out.truncate(rows);
         if let Some(last) = out.last_mut() {
             *last = clip(&format!("{last} …"), w);
+        }
+        return out;
+    }
+    // The note joins only when all of it fits; a cut note says nothing.
+    if let Some(note) = verdict_note_with(r, &FORMAT) {
+        let note = wrap(&note, w);
+        if out.len() + note.len() <= rows {
+            out.extend(note);
         }
     }
     out
@@ -340,31 +348,17 @@ pub fn corpus_line(r: &StatsReport, wide: bool) -> String {
     parts.join(" · ")
 }
 
-pub fn provenance_line(r: &StatsReport, wide: bool) -> String {
-    let schema = if wide {
-        STATS_SCHEMA_VERSION
-    } else {
-        STATS_SCHEMA_VERSION.trim_start_matches("peektrace-")
-    };
-    let caveats = r.caveats.len() + usize::from(!r.skipped.is_empty());
-    [
-        schema.to_owned(),
-        format!("detector v{DETECTOR_VERSION}"),
-        if wide {
-            "durations ≈ the call→result gap"
-        } else {
-            "durations ≈ call→result gap"
-        }
-        .to_owned(),
-        format!("{caveats} caveats (c)"),
-    ]
-    .join(" · ")
+/// What the report is: its schema, detector version and how time is measured.
+pub fn provenance_line() -> String {
+    format!(
+        "{STATS_SCHEMA_VERSION} · detector v{DETECTOR_VERSION} · durations ≈ the call→result gap"
+    )
 }
 
 /// What the report is, then every caveat plus the skipped files, wrapped
 /// for the overlay.
 pub fn caveat_lines(r: &StatsReport, w: usize) -> Vec<String> {
-    let mut all: Vec<String> = vec![provenance_line(r, true)];
+    let mut all: Vec<String> = vec![provenance_line()];
     all.extend(r.caveats.iter().cloned());
     if !r.skipped.is_empty() {
         #[expect(clippy::cast_precision_loss, reason = "file counts")]

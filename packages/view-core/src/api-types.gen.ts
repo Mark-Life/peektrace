@@ -818,6 +818,11 @@ ruleLines: Record<string, string>,
  */
 corpusLine: string, 
 /**
+ * The link to the measurement notes: `How these numbers are measured
+ * (10 notes) · 1 file skipped`.
+ */
+measuredLink: string, 
+/**
  * Cause key to its retry-time cell: `32m14s · 2.8%`.
  */
 causeTime: Record<string, string>, 

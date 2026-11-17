@@ -5,7 +5,7 @@
 
  ╭─CAVEATS  everything that travels with these numbers · esc close────────────────────────────────────────────────────────────────────────────────────────────╮
  │                                                                                                                                                            │
- │ - peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 9 caveats (c)                                                                       │
+ │ - peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap                                                                                       │
  │ - A call's time is the gap between the call and its result, so it includes the agent's own overhead and time spent waiting for your approval               │
  │ - Failure counts are a floor: a detector sees only the output the transcript kept                                                                          │
  │ - A command sent to the background is charged only the seconds it ran, not the wait it started                                                             │

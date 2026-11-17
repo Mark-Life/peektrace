@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use peektrace_protocol::DrillTable as WireTable;
 use peektrace_protocol::stats_text::{
-    CauseTotalsText, FINDINGS_VISIBLE, Finding, StatsPrompts, StatsText,
+    CauseTotalsText, FINDINGS_VISIBLE, Finding, StatsPrompts, StatsText, measured_link,
 };
 use peektrace_protocol::wire::stats::{SampleRef as WireSample, TranscriptKind};
 
@@ -133,6 +133,7 @@ pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
             })
             .collect(),
         corpus_line: corpus_line(&r.corpus, f),
+        measured_link: measured_text(r, f),
         cause_time: r
             .causes
             .iter()
@@ -187,6 +188,18 @@ pub fn corpus_line(c: &CorpusSummary, f: &FindingFormat) -> String {
         (f.hms)(c.bash_sec),
         (f.hms)(c.tool_sec)
     )
+}
+
+/// The notes link, with the files no pass could read.
+#[expect(clippy::cast_precision_loss, reason = "file counts")]
+fn measured_text(r: &StatsReport, f: &FindingFormat) -> String {
+    let link = measured_link(r.caveats.len());
+    if r.skipped.is_empty() {
+        link
+    } else {
+        let files = counted(r.skipped.len() as f64, "file", "files", f);
+        format!("{link} · {files} skipped")
+    }
 }
 
 /// The totals row's cells, or `None` when one cause is the whole table.
@@ -293,6 +306,7 @@ pub fn write_text(w: &mut Writer, t: &StatsText) {
     w.key("ruleLines");
     map_json(w, &t.rule_lines);
     w.key("corpusLine").text(&t.corpus_line);
+    w.key("measuredLink").text(&t.measured_link);
     w.key("causeTime");
     map_json(w, &t.cause_time);
     w.key("causeReread");

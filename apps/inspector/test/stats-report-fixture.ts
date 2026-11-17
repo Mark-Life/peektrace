@@ -16,6 +16,7 @@ export const statsText = (over: Partial<StatsText> = {}): StatsText => ({
   causeTime: {},
   corpusLine: "",
   findings: [],
+  measuredLink: "",
   prompts: { cause: {}, fail: {}, report: "", time: {} },
   ruleLines: {},
   suggested: [],

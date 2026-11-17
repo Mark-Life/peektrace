@@ -19,14 +19,10 @@ import {
 import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
 import type { AgentId, StatsReport } from "@workspace/view-core/api-types.gen";
-import {
-  AGENT_IDS,
-  STATS_DATA,
-  STATS_FINDINGS,
-} from "@workspace/view-core/constants.gen";
+import { AGENT_IDS, STATS_DATA } from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 
-import { at, n } from "../../lib/stats-format";
+import { at } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 
 const WEEK_DAYS = 7;
@@ -200,11 +196,7 @@ export const ReportFooter = ({
     </div>
     <Collapsible>
       <CollapsibleTrigger className="text-left underline decoration-dotted">
-        {STATS_FINDINGS.measuredTitle} ({n(report.caveats.length)}{" "}
-        {report.caveats.length === 1 ? "note" : "notes"})
-        {report.skipped.length > 0
-          ? ` · ${n(report.skipped.length)} files skipped`
-          : ""}
+        {report.text.measuredLink}
       </CollapsibleTrigger>
       <CollapsibleContent>
         <ul
