@@ -6,13 +6,15 @@ use super::*;
 use crate::model::{HeaderCost, ProjectSlug, SessionId};
 
 /// A fresh empty dir under the system temp dir, canonical so paths compare.
+/// Windows canonical paths drop `\\?\`, as real cwds never carry it.
 fn temp_dir(tag: &str) -> PathBuf {
     static N: AtomicUsize = AtomicUsize::new(0);
     let n = N.fetch_add(1, Ordering::Relaxed);
     let dir = std::env::temp_dir().join(format!("peektrace-wt-{tag}-{}-{n}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("mkdir");
-    fs::canonicalize(&dir).expect("canonical")
+    let canonical = fs::canonicalize(&dir).expect("canonical");
+    PathBuf::from(crate::paths::strip_verbatim(&canonical.to_string_lossy()))
 }
 
 fn s(p: &std::path::Path) -> String {

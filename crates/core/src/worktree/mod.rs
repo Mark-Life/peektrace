@@ -18,7 +18,7 @@ use git::linked;
 use git::read_linked;
 
 use crate::model::{Agent, SessionHeader, Worktree};
-use crate::paths::{PathStyle, claude_slug, pi_slug};
+use crate::paths::{claude_slug, pi_slug};
 
 /// What t3code recorded for one worktree path.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,22 +46,20 @@ pub(crate) fn basename(path: &str) -> &str {
 }
 
 /// `<home>/worktrees/<project>/<leaf>` (or a dir below it) as a worktree of
-/// `<project>`, with no root or branch known.
+/// `<project>`, with no root or branch known. Compared by path components,
+/// so `/` and `\` both separate on Windows; the result keeps `path`'s own
+/// spelling.
 fn under_t3_home(path: &str, home: &str) -> Option<Worktree> {
-    let home = normalize(home);
-    let base = PathStyle::NATIVE.join(&[home, "worktrees"]);
-    let rest = path
-        .strip_prefix(base.as_str())?
-        .strip_prefix(['/', '\\'])?;
-    let mut segs = rest.split(['/', '\\']);
-    let (project, leaf) = (segs.next()?, segs.next()?);
-    if project.is_empty() || leaf.is_empty() {
-        return None;
-    }
+    let base = Path::new(home).join("worktrees");
+    let wt = Path::new(path)
+        .ancestors()
+        .find(|d| d.parent().and_then(Path::parent) == Some(base.as_path()))?;
+    let project = wt.parent()?.file_name()?.to_str()?;
+    wt.file_name()?;
     Some(Worktree {
         project: project.to_owned(),
         project_root: None,
-        path: PathStyle::NATIVE.join(&[&base, project, leaf]),
+        path: wt.to_str()?.to_owned(),
         branch: None,
     })
 }
