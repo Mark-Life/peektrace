@@ -1,5 +1,6 @@
 /** Pure helpers behind the session rail: filtering, ordering and row labels. */
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
+import { sessionBranch } from "@workspace/view-core/session-marks";
 import type { DateRange } from "react-day-picker";
 
 import { AGENT_LABEL } from "../../lib/agent-label";
@@ -233,14 +234,24 @@ const PATH_SEP = /[\\/]/u;
 /** Non-empty path segments, split on either separator. */
 const segments = (path: string) => path.split(PATH_SEP).filter(Boolean);
 
-/** The folder the session ran in (last segment of `cwd`), else the stored slug. */
-export const projectLabel = (h: Pick<SessionHeader, "cwd" | "project">) =>
-  (hasText(h.cwd) ? segments(h.cwd).at(-1) : undefined) ?? h.project;
+/** The header fields that name a row's project. */
+type ProjectFields = Pick<SessionHeader, "cwd" | "project" | "worktree">;
 
-/** The project facet key: the folder the session ran in, else the stored slug.
- * Harnesses encode the slug differently, so `cwd` groups them per folder. */
-export const projectKey = (h: Pick<SessionHeader, "cwd" | "project">) =>
-  hasText(h.cwd) ? h.cwd : h.project;
+/** The folder that names the project: a worktree's main checkout, else `cwd`. */
+const projectPath = (h: ProjectFields) =>
+  h.worktree?.projectRoot ?? (hasText(h.cwd) ? h.cwd : undefined);
+
+/** A worktree's parent project, else the folder the session ran in (last
+ * segment of `cwd`), else the stored slug. */
+export const projectLabel = (h: ProjectFields) =>
+  h.worktree?.project ??
+  (hasText(h.cwd) ? segments(h.cwd).at(-1) : undefined) ??
+  h.project;
+
+/** The project facet key: a worktree's main checkout, else the folder the
+ * session ran in, else the stored slug. Harnesses encode the slug differently,
+ * so the folder groups them. */
+export const projectKey = (h: ProjectFields) => projectPath(h) ?? h.project;
 
 /** Labels with more than one owner in `labels`. */
 const collisions = (labels: readonly string[]) => {
@@ -261,9 +272,9 @@ const PARENT_SEGMENTS = 2;
  * shared by two folders get their parent folder too; still-equal labels fall
  * back to the full key, so the options stay distinct. */
 export const projectOptions = (
-  headers: readonly Pick<SessionHeader, "cwd" | "project">[]
+  headers: readonly ProjectFields[]
 ): readonly FilterOption[] => {
-  const byKey = new Map<string, Pick<SessionHeader, "cwd" | "project">>();
+  const byKey = new Map<string, ProjectFields>();
 
   for (const h of headers) {
     const key = projectKey(h);
@@ -278,11 +289,12 @@ export const projectOptions = (
 
   const first = entries.map(([value, h]) => {
     const label = projectLabel(h);
+    const path = projectPath(h);
 
     return {
       label:
-        short.has(label) && hasText(h.cwd)
-          ? segments(h.cwd).slice(-PARENT_SEGMENTS).join("/")
+        short.has(label) && path !== undefined
+          ? segments(path).slice(-PARENT_SEGMENTS).join("/")
           : label,
       value,
     };
@@ -295,9 +307,10 @@ export const projectOptions = (
     .toSorted((a, b) => a.label.localeCompare(b.label));
 };
 
-/** The branch worth showing on a row: none for an empty or detached `HEAD`. */
-export const visibleBranch = (branch: string | undefined) =>
-  hasText(branch) && branch !== "HEAD" ? branch : undefined;
+/** The branch facet value: the shown branch, else the raw one, so a detached
+ * `HEAD` stays filterable while a worktree row filters by its own branch. */
+export const branchFacet = (h: Pick<SessionHeader, "gitBranch" | "worktree">) =>
+  sessionBranch(h) ?? h.gitBranch;
 
 /** Epoch ms of an ISO stamp; 0 if missing or unparseable. */
 const msOf = (iso: string | undefined) => {
@@ -410,7 +423,7 @@ export const matches = (h: SessionHeader, f: Filters) => {
     return false;
   }
 
-  if (f.branch !== ANY && h.gitBranch !== f.branch) {
+  if (f.branch !== ANY && branchFacet(h) !== f.branch) {
     return false;
   }
 

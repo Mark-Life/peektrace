@@ -35,8 +35,15 @@ import {
 } from "@workspace/ui/components/select";
 import { cn } from "@workspace/ui/lib/utils";
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
-import { headerCost } from "@workspace/view-core/cost";
-import { launcherHint } from "@workspace/view-core/launcher";
+import { headerCost, PROVIDER_OF } from "@workspace/view-core/cost";
+import {
+  sessionBranch,
+  sessionModels,
+} from "@workspace/view-core/session-marks";
+import {
+  SessionMarks,
+  WorktreeMarker,
+} from "@workspace/viz/components/session-marks";
 import { fmtBytes } from "@workspace/viz/lib/session-format";
 import { FilterXIcon, SearchIcon, SearchXIcon, XIcon } from "lucide-react";
 import type { RefObject } from "react";
@@ -51,7 +58,6 @@ import {
   useState,
 } from "react";
 
-import { AGENT_LABEL } from "../../lib/agent-label";
 import {
   sessionHash,
   setHashParams,
@@ -64,6 +70,7 @@ import {
   ANY,
   activeCount,
   activeDays,
+  branchFacet,
   distinct,
   filtersFromParams,
   filtersToParams,
@@ -77,28 +84,9 @@ import {
   sortByRecent,
   stampTitle,
   titleOf,
-  visibleBranch,
 } from "./session-list-model";
 import type { FilterOption, Filters } from "./session-list-model";
 import { useListRoving, useListSearch } from "./use-list-roving";
-
-/** Per-harness chip tint, so a rail of mixed sessions is scannable at a glance.
- * Unknown agents fall through to the plain `outline` badge. */
-const AGENT_BADGE = new Map([
-  [
-    "claude",
-    "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300",
-  ],
-  [
-    "codex",
-    "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-  ],
-  [
-    "opencode",
-    "border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300",
-  ],
-  ["pi", "border-cyan-500/25 bg-slate-500/10 text-cyan-700 dark:text-cyan-300"],
-]);
 
 /** Fixed row height in rem, so rows grow with the browser font size; must
  * match `ROW_HEIGHT_CLASS`. */
@@ -201,7 +189,7 @@ const SessionRow = memo(function SessionRow({
 }) {
   const title = titleOf(h);
   const stamp = h.updatedAt ?? h.startedAt;
-  const branch = visibleBranch(h.gitBranch);
+  const branch = sessionBranch(h);
   const cost = headerCost(h);
 
   return (
@@ -257,41 +245,54 @@ const SessionRow = memo(function SessionRow({
             </span>
           )}
           <span
-            className="text-muted-foreground shrink-0 tabular-nums"
+            className="text-muted-foreground shrink-0 whitespace-nowrap tabular-nums"
+            data-testid="session-row-date"
             title={stampTitle(h)}
           >
             {fmtStamp(stamp)}
           </span>
         </span>
         <span className="text-muted-foreground flex min-w-0 items-center gap-2">
-          <Badge className={cn(AGENT_BADGE.get(h.agent))} variant="outline">
-            {AGENT_LABEL[h.agent] ?? h.agent}
-          </Badge>
+          <SessionMarks
+            harness={PROVIDER_OF[h.agent]}
+            launcher={h.launcher}
+            models={sessionModels(h)}
+            provider={h.modelProvider}
+          />
           {h.sourceLabel !== undefined && h.sourceLabel !== "" ? (
-            <Badge variant="secondary">{h.sourceLabel}</Badge>
-          ) : null}
-          {h.launcher === undefined ? null : (
             <Badge
-              data-testid="session-launcher"
-              title={launcherHint(h.launcher)}
+              className="min-w-0 shrink"
+              title={h.sourceLabel}
               variant="secondary"
             >
-              {h.launcher.name}
+              <span className="truncate">{h.sourceLabel}</span>
             </Badge>
+          ) : null}
+          {h.worktree === undefined ? null : (
+            <WorktreeMarker
+              parentTitle={h.launcher?.parentTitle}
+              worktree={h.worktree}
+            />
           )}
           <span
-            className="max-w-1/2 min-w-0 shrink-0 truncate"
-            title={h.cwd ?? h.project}
+            className="min-w-0 truncate"
+            data-testid="session-row-project"
+            title={h.worktree?.projectRoot ?? h.cwd ?? h.project}
           >
             {projectLabel(h)}
           </span>
-          {branch !== undefined && branch !== "" ? (
-            <span className="min-w-0 truncate font-mono" title={branch}>
+          {branch === undefined ? null : (
+            <span
+              className="min-w-0 shrink-[4] truncate font-mono"
+              data-testid="session-row-branch"
+              title={branch}
+            >
               {branch}
             </span>
-          ) : null}
+          )}
           <span
             className="ml-auto shrink-0 whitespace-nowrap tabular-nums"
+            data-testid="session-row-count"
             title={`${fmtBytes(h.sizeBytes)} · ${h.model ?? h.id}`}
           >
             {h.messageCount} msgs
@@ -605,7 +606,7 @@ const SessionListView = ({
   const projects = useMemo(() => projectOptions(headers), [headers]);
 
   const branches = useMemo(
-    () => toOptions(distinct(headers, (h) => h.gitBranch)),
+    () => toOptions(distinct(headers, branchFacet)),
     [headers]
   );
 

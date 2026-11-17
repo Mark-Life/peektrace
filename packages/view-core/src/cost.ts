@@ -134,7 +134,7 @@ export const costSummary = (cost: CostFields, provider: Provider) => ({
 });
 
 /** The provider id of a list row's agent. */
-const PROVIDER_OF: Readonly<Record<AgentId, Provider>> = {
+export const PROVIDER_OF: Readonly<Record<AgentId, Provider>> = {
   claude: "claude-code",
   codex: "codex",
   opencode: "opencode",
