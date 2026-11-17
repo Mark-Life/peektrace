@@ -244,16 +244,31 @@ fn cwd(h: &SessionHeader) -> Option<&str> {
     h.cwd.as_deref().filter(|c| !c.is_empty())
 }
 
-/// The folder the session ran in, else the stored project slug.
+/// The folder that names the project: a worktree's main checkout, else
+/// the folder the session ran in.
+fn project_dir(h: &SessionHeader) -> Option<&str> {
+    h.worktree
+        .as_ref()
+        .and_then(|w| w.project_root.as_deref())
+        .filter(|r| !r.is_empty())
+        .or_else(|| cwd(h))
+}
+
+/// A worktree's project, else the folder the session ran in, else the
+/// stored project slug.
 pub fn project_label(h: &SessionHeader) -> &str {
+    if let Some(w) = h.worktree.as_ref().filter(|w| !w.project.is_empty()) {
+        return &w.project;
+    }
     cwd(h)
         .and_then(|c| segments(c).next_back())
         .unwrap_or(&h.project)
 }
 
-/// The project facet key: the session's folder, else the slug.
+/// The project facet key: a worktree's main checkout, else the session's
+/// folder, else the slug.
 pub fn project_key(h: &SessionHeader) -> &str {
-    cwd(h).unwrap_or(&h.project)
+    project_dir(h).unwrap_or(&h.project)
 }
 
 /// A filter option: `value` matches the header, `label` is shown.
@@ -288,7 +303,7 @@ pub fn project_options(headers: &[SessionHeader]) -> Vec<FilterOption> {
         .iter()
         .map(|(value, h)| {
             let label = project_label(h);
-            let label = match cwd(h) {
+            let label = match project_dir(h) {
                 Some(c) if short.contains(label) => {
                     let segs: Vec<&str> = segments(c).collect();
                     segs[segs.len().saturating_sub(2)..].join("/")
@@ -325,6 +340,13 @@ pub fn project_options(headers: &[SessionHeader]) -> Vec<FilterOption> {
 /// The branch worth showing: none for empty or a detached `HEAD`.
 pub fn visible_branch(branch: Option<&str>) -> Option<&str> {
     branch.filter(|b| !b.is_empty() && *b != "HEAD")
+}
+
+/// The row's branch: the transcript's, else the worktree's; never the
+/// worktree's folder name.
+pub fn row_branch(h: &SessionHeader) -> Option<&str> {
+    visible_branch(h.git_branch.as_deref())
+        .or_else(|| visible_branch(h.worktree.as_ref()?.branch.as_deref()))
 }
 
 #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
@@ -405,7 +427,7 @@ pub fn matches(h: &SessionHeader, f: &Filters) -> bool {
         || f.project.as_deref().is_some_and(|p| p != project_key(h))
         || f.branch
             .as_deref()
-            .is_some_and(|b| Some(b) != h.git_branch.as_deref())
+            .is_some_and(|b| Some(b) != h.git_branch.as_deref() && Some(b) != row_branch(h))
         || f.model
             .as_deref()
             .is_some_and(|m| Some(m) != h.model.as_deref())

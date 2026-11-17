@@ -4,10 +4,12 @@ use peektrace_protocol::view::AnalyzedSession;
 use rune::{Align, El, Tx, col, el, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
 
+use super::marks;
 use super::widgets::{badge, card, chip, grid};
 use crate::model::format::{Zone, fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::labels::{analyzed_title, cost_summary, provider_label};
-use crate::model::list::launcher_help;
+use crate::model::list::visible_branch;
+use crate::model::marks::{agent_of_provider, harness_name, provider_name};
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty, zone_fill, zone_text};
 
@@ -277,8 +279,82 @@ fn chips(d: &Detail, t: &Theme) -> El {
             .key("chip-fetch"),
         );
     }
-    if let Some(b) = a.git_branch.as_deref().filter(|b| !b.is_empty()) {
+    let branch = visible_branch(a.git_branch.as_deref())
+        .or_else(|| visible_branch(a.worktree.as_ref()?.branch.as_deref()))
+        .or_else(|| a.git_branch.as_deref().filter(|b| !b.is_empty()));
+    if let Some(b) = branch {
         r = r.child(chip(b.to_owned(), t.fg, t).key("chip-branch"));
+    }
+    r
+}
+
+/// A mark with its full name beside it.
+fn named(mark: El, name: &str, key: &str, t: &Theme) -> El {
+    row()
+        .key(key.to_owned())
+        .gap(4.0)
+        .center_y()
+        .shrink()
+        .child(mark)
+        .child(
+            text(name.to_owned())
+                .font(ty::XS)
+                .color(t.muted_fg)
+                .truncate(),
+        )
+}
+
+/// Who ran the session and where: launcher, harness and provider marks with
+/// their names, the project with its worktree marker, and the parent thread.
+fn identity(a: &AnalyzedSession, t: &Theme) -> El {
+    let mut r = row().w_full().gap(10.0).center_y().flex_wrap();
+    if let Some(l) = &a.launcher {
+        r = r.child(named(marks::launcher(l, t), &l.name, "launcher", t));
+    }
+    r = r.child(match agent_of_provider(&a.provider) {
+        Some(agent) => named(marks::harness(agent, t), harness_name(agent), "harness", t),
+        None => badge(provider_label(&a.provider), t.fg, t).key("harness"),
+    });
+    let model = a.models.first().map(String::as_str);
+    if let Some(m) = marks::provider(a.model_provider.as_ref(), model, &a.models, t) {
+        r = r.child(named(
+            m,
+            provider_name(a.model_provider.as_ref()),
+            "model-provider",
+            t,
+        ));
+    }
+    let project = a
+        .worktree
+        .as_ref()
+        .map(|w| w.project.as_str())
+        .filter(|p| !p.is_empty())
+        .or_else(|| {
+            a.cwd
+                .as_deref()
+                .and_then(|c| c.rsplit(['/', '\\']).find(|s| !s.is_empty()))
+        });
+    if let Some(p) = project {
+        let mut place = row().key("project").gap(4.0).center_y().shrink();
+        if let Some(w) = &a.worktree {
+            place = place.child(marks::worktree(w, a.launcher.as_ref(), t));
+        }
+        r = r.child(place.child(text(p.to_owned()).font(ty::XS).color(t.fg).truncate()));
+    }
+    if let Some(parent) = a
+        .launcher
+        .as_ref()
+        .and_then(|l| l.parent_title.as_deref())
+        .filter(|p| !p.is_empty())
+    {
+        r = r.child(
+            text(format!("started by: {parent}"))
+                .font(ty::XS)
+                .color(t.muted_fg)
+                .truncate()
+                .help_when_truncated(format!("started by: {parent}"))
+                .key("started-by"),
+        );
     }
     r
 }
@@ -319,14 +395,9 @@ pub fn verdict(d: &Detail, width: f32, t: &Theme) -> El {
                         .wrap()
                         .key("verdict-title"),
                 )
+                .child(identity(a, t))
                 .child(text(meta).font(ty::MONO_XS).color(t.muted_fg).truncate()),
         )
-        .child(badge(provider_label(&a.provider), t.fg, t))
-        .children(a.launcher.as_ref().map(|l| {
-            badge(&l.name, t.muted_fg, t)
-                .help(launcher_help(l))
-                .key("launcher")
-        }))
         .child(badge(zone.health(), zone_text(zone), t).key("health"));
     card(t)
         .key("verdict")

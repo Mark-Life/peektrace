@@ -3,6 +3,7 @@
 pub mod blocks;
 pub mod capabilities;
 pub mod history;
+pub mod marks;
 pub mod memory;
 pub mod session_list;
 pub mod settings;

@@ -7,11 +7,12 @@ use peektrace_protocol::view::SessionHeader;
 use rune::{El, GrowthSpec, ScrollSpec, Tx, col, el, memo, row, spacer, text};
 use rune_kit::{Button, ButtonVariant, ControlSize, TextInput, glyphs};
 
-use super::widgets::{badge, dot, select};
+use super::marks;
+use super::widgets::{dot, select};
 use crate::model::format::fmt_bytes;
 use crate::model::list::{self, agent_label};
 use crate::state::Ui;
-use crate::theme::{EMERALD_500, Theme, agent_color, hex_or_grey, ty};
+use crate::theme::{EMERALD_500, Theme, hex_or_grey, ty};
 
 pub const RAIL_W: f32 = 320.0;
 const ROW_H: f32 = 60.0;
@@ -30,6 +31,60 @@ fn stamp(h: &SessionHeader) -> String {
     list::fmt_stamp(at)
 }
 
+/// Line 2: marks, source, worktree, project, branch, then the message count.
+fn meta_line(h: &SessionHeader, t: &Theme) -> El {
+    let mut line2 = row().w_full().gap(6.0).center_y().children(marks::marks(
+        h.launcher.as_ref(),
+        Some(h.agent),
+        h.model_provider.as_ref(),
+        h.model.as_deref(),
+        &h.models,
+        t,
+    ));
+    if let Some(src) = h.source_label.as_deref() {
+        line2 = line2.child(source_badge(src, t));
+    }
+    if let Some(w) = &h.worktree {
+        line2 = line2.child(marks::worktree(w, h.launcher.as_ref(), t));
+    }
+    let project_help = h
+        .worktree
+        .as_ref()
+        .and_then(|w| w.project_root.clone())
+        .or_else(|| h.cwd.clone())
+        .unwrap_or_else(|| h.project.clone());
+    line2 = line2.child(
+        text(list::project_label(h).to_owned())
+            .font(ty::XS)
+            .color(t.muted_fg)
+            .truncate()
+            .min_w(24.0)
+            .max_w(130.0)
+            .help(project_help),
+    );
+    if let Some(b) = list::row_branch(h) {
+        line2 = line2.child(
+            text(b.to_owned())
+                .font(ty::MONO_XS)
+                .color(t.muted_fg)
+                .truncate()
+                .max_w(110.0)
+                .help_when_truncated(b.to_owned()),
+        );
+    }
+    let detail = format!(
+        "{} · {}",
+        fmt_bytes(f64_of(h.size_bytes)),
+        h.model.as_deref().unwrap_or(&h.id)
+    );
+    line2.child(spacer()).child(
+        text(format!("{} msgs", h.message_count))
+            .font(ty::XS)
+            .color(t.muted_fg)
+            .help(detail),
+    )
+}
+
 fn session_row(h: &SessionHeader, selected: bool, live: bool, focused: bool, t: &Theme) -> El {
     let id = h.id.clone();
     let mut line1 = row().w_full().gap(6.0).center_y();
@@ -46,6 +101,7 @@ fn session_row(h: &SessionHeader, selected: bool, live: bool, focused: bool, t: 
                 .font(ty::SM_MEDIUM)
                 .color(t.fg)
                 .truncate()
+                .help_when_truncated(list::title_of(h))
                 .grow(1.0)
                 .min_w(0.0),
         )
@@ -55,45 +111,7 @@ fn session_row(h: &SessionHeader, selected: bool, live: bool, focused: bool, t: 
                 .color(t.muted_fg)
                 .help(list::stamp_title(h)),
         );
-    let mut line2 = row().w_full().gap(6.0).center_y().child(badge(
-        agent_label(h.agent),
-        agent_color(h.agent),
-        t,
-    ));
-    if let Some(src) = h.source_label.as_deref() {
-        line2 = line2.child(badge(src, t.muted_fg, t));
-    }
-    if let Some(l) = &h.launcher {
-        line2 = line2.child(badge(&l.name, t.muted_fg, t).help(list::launcher_help(l)));
-    }
-    line2 = line2.child(
-        text(list::project_label(h).to_owned())
-            .font(ty::XS)
-            .color(t.muted_fg)
-            .truncate()
-            .max_w(130.0)
-            .help(h.cwd.clone().unwrap_or_else(|| h.project.clone())),
-    );
-    if let Some(b) = list::visible_branch(h.git_branch.as_deref()) {
-        line2 = line2.child(
-            text(b.to_owned())
-                .font(ty::MONO_XS)
-                .color(t.muted_fg)
-                .truncate()
-                .max_w(80.0),
-        );
-    }
-    let detail = format!(
-        "{} · {}",
-        fmt_bytes(f64_of(h.size_bytes)),
-        h.model.as_deref().unwrap_or(&h.id)
-    );
-    line2 = line2.child(spacer()).child(
-        text(format!("{} msgs", h.message_count))
-            .font(ty::XS)
-            .color(t.muted_fg)
-            .help(detail),
-    );
+    let line2 = meta_line(h, t);
     let (border, fill) = if selected {
         (t.primary.alpha(0.4), t.primary.alpha(0.1))
     } else if focused {
@@ -122,6 +140,26 @@ fn session_row(h: &SessionHeader, selected: bool, live: bool, focused: bool, t: 
             s.select(&id, None);
             tx.set_title(s.title());
         })
+}
+
+/// The source label as a pill that shrinks and cuts its text with "…".
+fn source_badge(label: &str, t: &Theme) -> El {
+    row()
+        .h(18.0)
+        .px(6.0)
+        .radius(9.0)
+        .center_y()
+        .shrink()
+        .max_w(96.0)
+        .border(1.0, t.muted_fg.alpha(0.5))
+        .fill(t.muted_fg.alpha(if t.dark { 0.12 } else { 0.08 }))
+        .child(
+            text(label.to_owned())
+                .font(ty::TINY)
+                .color(t.muted_fg)
+                .truncate()
+                .help_when_truncated(label.to_owned()),
+        )
 }
 
 #[expect(clippy::cast_precision_loss, reason = "file sizes fit f64")]
