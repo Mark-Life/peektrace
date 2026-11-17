@@ -92,6 +92,7 @@ fn session() -> ParsedSession {
         sidechain_cost: None,
         native_cost: None,
         launcher: None,
+        worktree: None,
     }
 }
 

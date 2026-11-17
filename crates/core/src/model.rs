@@ -89,6 +89,22 @@ pub struct Launcher {
     pub name: String,
     pub branch: Option<String>,
     pub worktree_path: Option<String>,
+    /// Title of the thread that started this one, e.g. the t3code thread
+    /// that delegated it.
+    pub parent_title: Option<String>,
+}
+
+/// The linked git worktree a session ran in, and the project it belongs to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Worktree {
+    /// The main checkout's name: the t3code project title, else its folder.
+    pub project: String,
+    /// The main checkout's root, when known.
+    pub project_root: Option<String>,
+    /// The worktree's own root.
+    pub path: String,
+    /// The branch checked out there; `None` when detached or unknown.
+    pub branch: Option<String>,
 }
 
 /// File size and mtime, as `fs.stat` reports them.
@@ -131,6 +147,10 @@ pub struct SessionHeader {
     pub cost_parts: Option<Box<CostParts>>,
     pub source: Option<SourceTag>,
     pub launcher: Option<Launcher>,
+    /// Distinct models of the priced turns, first use first.
+    pub models: Vec<String>,
+    /// Set only when `cwd` is a linked worktree.
+    pub worktree: Option<Worktree>,
 }
 
 /// A list row's cost: the same headline the session detail shows.

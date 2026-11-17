@@ -537,6 +537,8 @@ pub struct ParsedSession {
     pub native_cost: Option<NativeCost>,
     /// The app that started the session, e.g. t3code.
     pub launcher: Option<crate::model::Launcher>,
+    /// Set only when `cwd` is a linked worktree.
+    pub worktree: Option<crate::model::Worktree>,
 }
 
 /// Cost the agent recorded itself.

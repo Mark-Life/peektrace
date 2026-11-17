@@ -2,6 +2,7 @@
 
 use super::parse::{agent_cost, billed, iso_from_ms, model_id, num, positive, turn_for_message};
 use super::session::Session;
+use crate::headers::distinct_models;
 use crate::js::time;
 use crate::js::value::str_of;
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionHeader};
@@ -71,6 +72,8 @@ pub(super) fn build_header(session: &Session, r: &SessionFileRef) -> SessionHead
         cost_parts: None,
         source: r.source.clone(),
         launcher: None,
+        models: distinct_models(turns.iter().map(|t| t.model.as_str())),
+        worktree: None,
     }
 }
 

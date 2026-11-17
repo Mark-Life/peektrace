@@ -5,6 +5,7 @@ use peektrace_core::js::num;
 use peektrace_core::js::text;
 use peektrace_core::sessions::cost::fmt_recorded_usd;
 use peektrace_core::sessions::write::headers_json;
+use peektrace_core::worktree::row_project;
 use peektrace_core::{Agent, HeaderCost, SessionHeader};
 
 use crate::width::display_width;
@@ -115,10 +116,9 @@ fn row_cells(h: &SessionHeader, id: &str) -> Vec<String> {
             || h.agent.as_str().to_owned(),
             |l| format!("{} ({})", h.agent.as_str(), printable(&l.name)),
         ),
-        if h.agent == Agent::Codex {
-            printable(h.project.as_str())
-        } else {
-            h.project.as_str().to_owned()
+        match row_project(h) {
+            p if h.agent == Agent::Codex || h.worktree.is_some() => printable(&p),
+            p => p.into_owned(),
         },
         printable(h.model.as_deref().unwrap_or("-")),
         h.message_count.to_string(),

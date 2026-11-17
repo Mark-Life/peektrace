@@ -344,6 +344,7 @@ pub fn parse_opencode_session(
         sidechain_cost: None,
         native_cost: None,
         launcher: None,
+        worktree: None,
     };
     let Some(session) = session else {
         return p;

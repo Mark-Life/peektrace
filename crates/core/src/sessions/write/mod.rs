@@ -8,7 +8,8 @@ pub use event::{write_event, write_event_fields, write_turn};
 pub use header::{headers_json, listing_json, write_header};
 
 use crate::js::json_out::Writer;
-use crate::model::Launcher;
+use crate::model::{Launcher, Worktree};
+use crate::model_provider::model_provider;
 use crate::sessions::model::{
     AnalyzedSession, BudgetKey, BudgetSlices, OnDiskContextFile, ParsedSession, SessionCost,
     SubagentRef, TurnsCost,
@@ -126,9 +127,14 @@ fn write_parsed_fields(w: &mut Writer, p: &ParsedSession, arrays: bool) {
     if let Some(l) = &p.launcher {
         write_launcher(w, l);
     }
+    write_model_provider(w, p.models.first().map(String::as_str));
+    if let Some(wt) = &p.worktree {
+        write_worktree(w, wt);
+    }
 }
 
-/// `"launcher": {name, branch?, worktreePath?}` at the writer's position.
+/// `"launcher": {name, branch?, worktreePath?, parentTitle?}` at the
+/// writer's position.
 pub(super) fn write_launcher(w: &mut Writer, l: &Launcher) {
     w.key("launcher").begin_obj();
     w.key("name").text(&l.name);
@@ -138,7 +144,35 @@ pub(super) fn write_launcher(w: &mut Writer, l: &Launcher) {
     if let Some(p) = &l.worktree_path {
         w.key("worktreePath").text(p);
     }
+    if let Some(t) = &l.parent_title {
+        w.key("parentTitle").text(t);
+    }
     w.end_obj();
+}
+
+/// `"worktree": {project, projectRoot?, path, branch?}`.
+pub(super) fn write_worktree(w: &mut Writer, wt: &Worktree) {
+    w.key("worktree").begin_obj();
+    w.key("project").text(&wt.project);
+    if let Some(r) = &wt.project_root {
+        w.key("projectRoot").text(r);
+    }
+    w.key("path").text(&wt.path);
+    if let Some(b) = &wt.branch {
+        w.key("branch").text(b);
+    }
+    w.end_obj();
+}
+
+/// `"modelProvider": {id, name}` for `model`'s maker, when known. Derived
+/// on write, so readers need not keep it.
+pub(super) fn write_model_provider(w: &mut Writer, model: Option<&str>) {
+    if let Some(m) = model.and_then(model_provider) {
+        w.key("modelProvider").begin_obj();
+        w.key("id").str(m.id);
+        w.key("name").str(m.name);
+        w.end_obj();
+    }
 }
 
 fn write_slices(w: &mut Writer, s: &BudgetSlices) {

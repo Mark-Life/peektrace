@@ -217,6 +217,10 @@
     ],
     "finalContextTokens": 970,
     "gitBranch": "main",
+    "modelProvider": {
+      "id": "anthropic",
+      "name": "Anthropic"
+    },
     "models": [
       "claude-opus-4",
       "claude-haiku"
@@ -570,6 +574,10 @@
     ],
     "finalContextTokens": 970,
     "gitBranch": "main",
+    "modelProvider": {
+      "id": "anthropic",
+      "name": "Anthropic"
+    },
     "models": [
       "claude-opus-4",
       "claude-haiku"
@@ -813,6 +821,10 @@
       }
     ],
     "finalContextTokens": 10,
+    "modelProvider": {
+      "id": "anthropic",
+      "name": "Anthropic"
+    },
     "models": [
       "claude-opus-4"
     ],

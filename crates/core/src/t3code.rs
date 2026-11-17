@@ -1,4 +1,5 @@
-//! t3code thread names for the Claude and Codex sessions t3code started.
+//! t3code thread names for the Claude and Codex sessions t3code started,
+//! and the project of every session that ran in a linked worktree.
 //!
 //! t3code keeps its threads in a `SQLite` database under its state dir:
 //! `statev2.sqlite` today, `state.sqlite` before. The newest file wins. It is
@@ -13,10 +14,13 @@ use rusqlite::{Connection, ErrorCode, OpenFlags};
 use tracing::{debug, info};
 
 use crate::js::text;
-use crate::model::{Agent, Launcher, SessionHeader};
+use crate::model::{Agent, Launcher, SessionHeader, Worktree};
 use crate::paths::PathStyle;
 use crate::sessions::inputs::{Stamp, stamp};
 use crate::sessions::model::ParsedSession;
+use crate::worktree::{self, Known};
+
+mod sql;
 
 /// Database files, newest schema first.
 const DB_NAMES: [&str; 2] = ["statev2.sqlite", "state.sqlite"];
@@ -27,37 +31,6 @@ const PLACEHOLDER_TITLE: &str = "New thread";
 /// How long a read waits on t3code's write lock before it gives up.
 const BUSY_TIMEOUT: Duration = Duration::from_millis(500);
 
-// Every query yields `(provider, native id, title, branch, worktree, deleted)`.
-
-/// Legacy runtime rows with their legacy thread rows, for `state.sqlite`.
-const LEGACY: &str = "SELECT r.provider_name,
-        CASE r.provider_name WHEN 'codex' THEN json_extract(r.resume_cursor_json, '$.threadId')
-            ELSE json_extract(r.resume_cursor_json, '$.resume') END,
-        t.title, t.branch, t.worktree_path, t.deleted_at IS NOT NULL
-     FROM provider_session_runtime r JOIN projection_threads t ON t.thread_id = r.thread_id
-     WHERE json_valid(r.resume_cursor_json)";
-
-/// Legacy runtime rows named by the current thread rows, whose titles and
-/// deletes stay fresh.
-const LEGACY_CURRENT: &str = "SELECT r.provider_name,
-        CASE r.provider_name WHEN 'codex' THEN json_extract(r.resume_cursor_json, '$.threadId')
-            ELSE json_extract(r.resume_cursor_json, '$.resume') END,
-        t.title, json_extract(t.payload_json, '$.branch'),
-        json_extract(t.payload_json, '$.worktreePath'), t.deleted_at IS NOT NULL
-     FROM provider_session_runtime r
-     JOIN orchestration_v2_projection_threads t ON t.thread_id = r.thread_id
-     WHERE json_valid(r.resume_cursor_json) AND json_valid(t.payload_json)";
-
-/// Current provider threads; the newest row for a native id wins.
-const CURRENT: &str = "SELECT json_extract(p.payload_json, '$.nativeThreadRef.driver'),
-        json_extract(p.payload_json, '$.nativeThreadRef.nativeId'),
-        t.title, json_extract(t.payload_json, '$.branch'),
-        json_extract(t.payload_json, '$.worktreePath'), t.deleted_at IS NOT NULL
-     FROM orchestration_v2_projection_provider_threads p
-     JOIN orchestration_v2_projection_threads t ON t.thread_id = p.thread_id
-     WHERE json_valid(p.payload_json) AND json_valid(t.payload_json)
-     ORDER BY p.updated_at";
-
 /// One t3code thread as the session it started sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Thread {
@@ -67,13 +40,21 @@ pub struct Thread {
     pub launcher: Launcher,
 }
 
-/// Threads by the agent and native session id they ran.
+/// Threads by the agent and native session id they ran, and what t3code
+/// recorded for each worktree path.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-struct Index(HashMap<(Agent, String), Thread>);
+struct Index {
+    threads: HashMap<(Agent, String), Thread>,
+    worktrees: HashMap<String, Known>,
+}
 
 impl Index {
     fn get(&self, agent: Agent, id: &str) -> Option<&Thread> {
-        self.0.get(&(agent, id.to_owned()))
+        self.threads.get(&(agent, id.to_owned()))
+    }
+
+    fn worktree(&self, path: &str) -> Option<Known> {
+        self.worktrees.get(path).cloned()
     }
 }
 
@@ -109,9 +90,37 @@ fn run(conn: &Connection, sql: &str, index: &mut Index) -> rusqlite::Result<()> 
                 name: "t3code".to_owned(),
                 branch: text_of(row.get(3)?),
                 worktree_path: text_of(row.get(4)?),
+                parent_title: text_of(row.get(6)?).filter(|t| t != PLACEHOLDER_TITLE),
             },
         };
-        index.0.insert((agent, id), thread);
+        index.threads.insert((agent, id), thread);
+    }
+    Ok(())
+}
+
+fn run_worktrees(conn: &Connection, sql: &str, index: &mut Index) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare(sql)?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let (Some(path), Some(project)) = (text_of(row.get(0)?), text_of(row.get(1)?)) else {
+            continue;
+        };
+        let path = worktree::normalize(&path).to_owned();
+        let root: Option<String> = text_of(row.get(2)?);
+        // A dir inside the project (t3code's scratch dirs) is no worktree.
+        if root
+            .as_deref()
+            .map(worktree::normalize)
+            .is_some_and(|r| path == r || path.starts_with(&format!("{r}/")))
+        {
+            continue;
+        }
+        let known = Known {
+            project,
+            project_root: root,
+            branch: text_of(row.get(3)?),
+        };
+        index.worktrees.insert(path, known);
     }
     Ok(())
 }
@@ -142,8 +151,11 @@ fn read_index(path: &str) -> Option<Index> {
     };
     let mut index = Index::default();
     let results = [
-        run(&conn, LEGACY_CURRENT, &mut index).or_else(|_| run(&conn, LEGACY, &mut index)),
-        run(&conn, CURRENT, &mut index),
+        run(&conn, &sql::legacy_current(), &mut index)
+            .or_else(|_| run(&conn, sql::LEGACY, &mut index)),
+        run(&conn, &sql::current(), &mut index),
+        run_worktrees(&conn, sql::LEGACY_WORKTREES, &mut index),
+        run_worktrees(&conn, sql::WORKTREES, &mut index),
     ];
     for e in results.iter().filter_map(|r| r.as_ref().err()) {
         debug!(db = %path, reason = %e, "t3code query skipped");
@@ -203,7 +215,7 @@ fn load(dir: Option<&str>) -> Arc<Index> {
         return cached.map(|(_, index)| index).unwrap_or_default();
     };
     if cached.is_none() {
-        info!(db = %path, threads = index.0.len(), "t3code db read");
+        info!(db = %path, threads = index.threads.len(), "t3code db read");
     }
     CACHE
         .lock()
@@ -217,63 +229,106 @@ const fn t3code_runs(agent: Agent) -> bool {
     matches!(agent, Agent::Claude | Agent::Codex)
 }
 
-/// Name and tag every header t3code started.
+/// t3code's base dir (`~/.t3`): the parent of its state dir.
+fn t3_home(dir: Option<&str>) -> Option<&str> {
+    let dir = worktree::normalize(dir?);
+    let cut = dir.rfind(['/', '\\'])?;
+    (cut > 0).then(|| &dir[..cut])
+}
+
+/// The worktree a session in `cwd` ran in: by its cwd, else by the
+/// worktree t3code gave its thread.
+fn worktree_of(
+    index: &Index,
+    cwd: Option<&str>,
+    launcher: Option<&Launcher>,
+    dir: Option<&str>,
+) -> Option<Worktree> {
+    let home = t3_home(dir);
+    let known = |p: &str| index.worktree(p);
+    cwd.and_then(|c| worktree::resolve(c, known, home))
+        .or_else(|| {
+            let path = launcher?.worktree_path.as_deref()?;
+            worktree::resolve(path, known, home)
+        })
+}
+
+/// Name and tag every header t3code started, and label each one that ran
+/// in a linked worktree with its project.
 pub fn apply_headers(headers: &mut [SessionHeader], dir: Option<&str>) {
-    if !headers.iter().any(|h| t3code_runs(h.agent)) {
+    if headers.is_empty() {
         return;
     }
     let index = load(dir);
     for h in headers.iter_mut() {
-        if let Some(t) = index.get(h.agent, h.id.as_str()) {
+        if let Some(t) = t3code_runs(h.agent)
+            .then(|| index.get(h.agent, h.id.as_str()))
+            .flatten()
+        {
             if let Some(title) = &t.title {
                 h.title = Some(title.clone());
             }
             h.launcher = Some(t.launcher.clone());
         }
+        h.worktree = worktree_of(&index, h.cwd.as_deref(), h.launcher.as_ref(), dir);
     }
 }
 
-fn lookup(dir: Option<&str>, agent: Agent, id: &str) -> Option<Thread> {
+fn lookup(index: &Index, agent: Agent, id: &str) -> Option<Thread> {
     if !t3code_runs(agent) {
         return None;
     }
-    load(dir).get(agent, id).cloned()
+    index.get(agent, id).cloned()
 }
 
-/// The thread one parsed session was named from, so a cached analysis can
-/// tell when t3code renamed or deleted it.
+/// The thread and worktree one parsed session was labelled from, so a
+/// cached analysis can tell when t3code renamed or deleted it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mark {
     dir: Option<String>,
     agent: Agent,
     id: String,
+    cwd: Option<String>,
     seen: Option<Thread>,
+    worktree: Option<Worktree>,
 }
 
 impl Mark {
-    /// Whether t3code still holds the thread this mark saw.
+    /// Whether t3code still holds the thread this mark saw, and the
+    /// session's worktree still resolves the same.
     pub fn unchanged(&self) -> bool {
-        lookup(self.dir.as_deref(), self.agent, &self.id) == self.seen
+        let dir = self.dir.as_deref();
+        let index = load(dir);
+        let seen = lookup(&index, self.agent, &self.id);
+        let launcher = seen.as_ref().map(|t| &t.launcher);
+        seen == self.seen
+            && worktree_of(&index, self.cwd.as_deref(), launcher, dir) == self.worktree
     }
 }
 
-/// Name and tag one parsed session t3code started; the mark records what
-/// was applied.
+/// Name and tag one parsed session t3code started, and label its worktree;
+/// the mark records what was applied.
 pub fn apply_parsed(agent: Agent, parsed: &mut ParsedSession, dir: Option<&str>) -> Mark {
-    let seen = lookup(dir, agent, &parsed.session_id);
+    let index = load(dir);
+    let seen = lookup(&index, agent, &parsed.session_id);
     if let Some(t) = &seen {
         if let Some(title) = &t.title {
             parsed.title = Some(title.clone());
         }
         parsed.launcher = Some(t.launcher.clone());
     }
+    parsed.worktree = worktree_of(&index, parsed.cwd.as_deref(), parsed.launcher.as_ref(), dir);
     Mark {
         dir: dir.map(str::to_owned),
         agent,
         id: parsed.session_id.clone(),
+        cwd: parsed.cwd.clone(),
         seen,
+        worktree: parsed.worktree.clone(),
     }
 }
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod worktree_tests;

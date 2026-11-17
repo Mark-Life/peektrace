@@ -303,5 +303,8 @@ pub fn parsed_from_json(v: &JsValue) -> Option<ParsedSession> {
         launcher: v
             .get("launcher")
             .and_then(crate::sessions::read::launcher_from_json),
+        worktree: v
+            .get("worktree")
+            .and_then(crate::sessions::read::worktree_from_json),
     })
 }

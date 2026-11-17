@@ -4,7 +4,7 @@
 
 use super::context::{Base, is_injected_user_message, plain};
 use super::usage::{UsageFold, call_tokens, response_item_events};
-use crate::headers::{RowFold, fold_text};
+use crate::headers::{RowFold, distinct_models, fold_text};
 use crate::js::time;
 use crate::js::value::{JsValue, defined, js_string};
 use crate::model::{Agent, ProjectSlug, SessionFileRef, SessionHeader};
@@ -167,6 +167,8 @@ impl RowFold for Acc {
             cost_parts: None,
             source: None,
             launcher: None,
+            models: distinct_models(self.turns.iter().map(|t| t.model.as_str())),
+            worktree: None,
         }
     }
 }

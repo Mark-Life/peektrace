@@ -2,7 +2,9 @@
 //! [`super::write`], for clients that talk to a remote server.
 
 use crate::js::value::JsValue;
-use crate::model::{Agent, HeaderCost, Launcher, ProjectSlug, SessionHeader, SessionId, SourceTag};
+use crate::model::{
+    Agent, HeaderCost, Launcher, ProjectSlug, SessionHeader, SessionId, SourceTag, Worktree,
+};
 use crate::sessions::model::SessionCost;
 pub use crate::sessions::read_parsed::parsed_from_json;
 
@@ -36,6 +38,17 @@ pub(crate) fn launcher_from_json(v: &JsValue) -> Option<Launcher> {
         name: text(v, "name")?,
         branch: text(v, "branch"),
         worktree_path: text(v, "worktreePath"),
+        parent_title: text(v, "parentTitle"),
+    })
+}
+
+/// A `worktree` object, as [`super::write`] writes it.
+pub(crate) fn worktree_from_json(v: &JsValue) -> Option<Worktree> {
+    Some(Worktree {
+        project: text(v, "project")?,
+        project_root: text(v, "projectRoot"),
+        path: text(v, "path")?,
+        branch: text(v, "branch"),
     })
 }
 
@@ -68,6 +81,8 @@ pub fn header_from_json(v: &JsValue) -> Option<SessionHeader> {
         cost_parts: None,
         source,
         launcher: v.get("launcher").and_then(launcher_from_json),
+        models: texts(v, "models").unwrap_or_default(),
+        worktree: v.get("worktree").and_then(worktree_from_json),
     })
 }
 
@@ -133,7 +148,19 @@ mod tests {
                 id: "pi:w".to_owned(),
                 label: "w".to_owned(),
             }),
-            launcher: None,
+            launcher: Some(Launcher {
+                name: "t3code".to_owned(),
+                branch: Some("t3/x".to_owned()),
+                worktree_path: Some("/h/.t3/worktrees/p/t3-1".to_owned()),
+                parent_title: Some("Parent".to_owned()),
+            }),
+            models: vec!["m".to_owned(), "nvidia/GLM-5".to_owned()],
+            worktree: Some(Worktree {
+                project: "p".to_owned(),
+                project_root: Some("/code/p".to_owned()),
+                path: "/h/.t3/worktrees/p/t3-1".to_owned(),
+                branch: Some("t3/x".to_owned()),
+            }),
         };
         let json = headers_json([&h], false);
         let back = JsValue::parse(&json).and_then(|v| {
@@ -142,5 +169,15 @@ mod tests {
         });
         assert_eq!(back.as_ref(), Some(&h));
         assert_eq!(headers_json(back.as_ref(), false), json);
+        assert!(json.contains(r#""parentTitle":"Parent""#), "{json}");
+        // The maker is derived from `model` on write, never read back.
+        let anthropic = SessionHeader {
+            model: Some("claude-opus-5-5".to_owned()),
+            ..h
+        };
+        assert!(
+            headers_json([&anthropic], false)
+                .contains(r#""modelProvider":{"id":"anthropic","name":"Anthropic"}"#)
+        );
     }
 }

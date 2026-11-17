@@ -355,6 +355,7 @@ pub fn parse_codex_session(text: &str, path: &str, session_id: &str) -> ParsedSe
         sidechain_cost: None,
         native_cost: None,
         launcher: None,
+        worktree: None,
     };
     measure_tokens(&mut parsed);
     parsed

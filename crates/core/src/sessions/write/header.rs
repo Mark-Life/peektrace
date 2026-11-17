@@ -59,6 +59,13 @@ pub fn write_header(w: &mut Writer, h: &SessionHeader) {
     if let Some(l) = &h.launcher {
         super::write_launcher(w, l);
     }
+    if !h.models.is_empty() {
+        w.key("models").texts(h.models.iter().map(String::as_str));
+    }
+    super::write_model_provider(w, h.model.as_deref());
+    if let Some(wt) = &h.worktree {
+        super::write_worktree(w, wt);
+    }
     w.end_obj();
 }
 

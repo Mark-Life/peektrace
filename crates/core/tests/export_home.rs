@@ -165,6 +165,7 @@ fn renders_exports_with_the_home() {
         sidechain_cost: None,
         native_cost: None,
         launcher: None,
+        worktree: None,
     };
     let out = render_json(
         &session,

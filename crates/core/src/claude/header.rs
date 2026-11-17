@@ -6,6 +6,7 @@ use std::collections::HashMap;
 
 use super::cost_state::CostStates;
 use super::line::{Line, Usage, parse_line, parse_repaired};
+use crate::headers::distinct_models;
 use crate::js::value::JsValue;
 use crate::js::{json, text, time};
 use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
@@ -316,6 +317,7 @@ impl HeaderAcc {
         let full_record = parts.native.is_some_and(|n| !n.partial);
         let malformed = self.malformed();
         let non_empty = |s: Option<String>| s.filter(|v| !v.is_empty());
+        let models = distinct_models(self.models.iter().map(String::as_str));
         SessionHeader {
             id: meta.id,
             agent: Agent::Claude,
@@ -336,6 +338,8 @@ impl HeaderAcc {
             cost_parts: (!full_record).then(|| Box::new(parts)),
             source: meta.source,
             launcher: None,
+            models,
+            worktree: None,
         }
     }
 }
@@ -408,6 +412,7 @@ mod tests {
             h.cost.unpriced_models,
             Some(vec!["mystery-model".to_owned()])
         );
+        assert_eq!(h.models, ["claude-opus-5-5", "mystery-model"]);
     }
 
     #[test]

@@ -102,14 +102,21 @@ fn list_slug(root: &str, slug: &str, id_of: IdOf) -> Vec<Found> {
         .collect()
 }
 
+/// Whether a slug dir is for a linked worktree (`~/.t3/worktrees/...`,
+/// `~/.<tool>/worktrees/...`), whose rows may belong to any project.
+pub(crate) fn is_worktree_slug(slug: &str) -> bool {
+    slug.contains("-worktrees-")
+}
+
 /// Transcripts of one slug-layout root, in directory order. A non-empty
-/// `project` skips every other slug dir before it is stat'ed or read. Slug
-/// dirs are read in parallel: a Pi root holds thousands, mostly empty.
+/// `project` skips every other slug dir, but worktree ones, before it is
+/// stat'ed or read; the listing keeps the worktree rows of that project.
+/// Slug dirs are read in parallel: a Pi root holds thousands, mostly empty.
 pub(crate) fn slug_layout(root: &str, project: Option<&str>, id_of: IdOf) -> Vec<Found> {
     let project = project.filter(|p| !p.is_empty());
     entries(root)
         .into_par_iter()
-        .filter(|e| project.is_none_or(|p| p == e.name))
+        .filter(|e| project.is_none_or(|p| p == e.name || is_worktree_slug(&e.name)))
         .filter(|e| e.is_dir(&STYLE.join(&[root, &e.name])))
         .flat_map_iter(|e| list_slug(root, &e.name, id_of))
         .collect()
