@@ -71,3 +71,22 @@ test("the detail header names each mark, the worktree and the parent", () => {
   expect(html).toContain("· Started by: Plan it");
   expect(html).toContain(">feat/x<");
 });
+
+const harnessGlyph = (harness: "claude-code" | "codex") =>
+  renderToStaticMarkup(
+    <SessionMarks
+      harness={harness}
+      launcher={{ name: "t3code" }}
+      models={[]}
+      provider={undefined}
+    />
+  );
+
+test("the Claude Code mark is orange, other harnesses stay neutral", () => {
+  const claude = harnessGlyph("claude-code");
+  const codex = harnessGlyph("codex");
+
+  expect(claude.match(/text-orange-700/gu)).toHaveLength(1);
+  expect(claude).toContain("dark:text-orange-300");
+  expect(codex).not.toContain("orange");
+});

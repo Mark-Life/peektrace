@@ -20,7 +20,18 @@ import { FolderGit2Icon } from "lucide-react";
 import { PROVIDER_LOGO } from "../lib/provider-logos";
 
 const MONOGRAM_CLASS =
-  "border-border bg-muted text-muted-foreground inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border px-0.5 text-[0.5625rem] leading-none font-semibold";
+  "inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border px-0.5 text-[0.5625rem] leading-none font-semibold";
+
+const NEUTRAL_TONE = "border-border bg-muted text-muted-foreground";
+
+/** Brand tints per harness; others stay neutral. Claude's orange is the one the
+ * old agent chip used. */
+const HARNESS_TONE: ReadonlyMap<Provider, string> = new Map([
+  [
+    "claude-code",
+    "border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+  ],
+]);
 
 /** In forced-colors mode the browser would paint the mask fill with Canvas,
  * hiding the logo; it takes the system text colour instead. */
@@ -32,12 +43,14 @@ const LOGO_CLASS =
 const MarkGlyph = ({
   logo,
   text,
+  tone = NEUTRAL_TONE,
 }: {
   readonly logo: string | undefined;
   readonly text: string;
+  readonly tone?: string;
 }) =>
   logo === undefined ? (
-    <span aria-hidden="true" className={MONOGRAM_CLASS}>
+    <span aria-hidden="true" className={cn(MONOGRAM_CLASS, tone)}>
       {text}
     </span>
   ) : (
@@ -56,12 +69,14 @@ const MarkView = ({
   name,
   named,
   testId,
+  tone,
 }: {
   readonly logo: string | undefined;
   readonly mark: Mark;
   readonly name: string;
   readonly named: boolean;
   readonly testId: string;
+  readonly tone?: string;
 }) =>
   named ? (
     <span
@@ -69,7 +84,7 @@ const MarkView = ({
       data-testid={testId}
       title={mark.title}
     >
-      <MarkGlyph logo={logo} text={mark.text} />
+      <MarkGlyph logo={logo} text={mark.text} tone={tone} />
       <span className="truncate">{name}</span>
     </span>
   ) : (
@@ -82,7 +97,7 @@ const MarkView = ({
       role="img"
       title={mark.title}
     >
-      <MarkGlyph logo={logo} text={mark.text} />
+      <MarkGlyph logo={logo} text={mark.text} tone={tone} />
     </span>
   );
 
@@ -135,6 +150,7 @@ export const SessionMarks = ({
         name={run.label}
         named={named}
         testId="session-harness"
+        tone={HARNESS_TONE.get(harness)}
       />
       {maker === undefined ? null : (
         <MarkView
