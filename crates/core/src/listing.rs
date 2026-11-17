@@ -7,6 +7,7 @@ use crate::header_cache::HeaderCache;
 use crate::headers::Outcome;
 use crate::model::{Agent, SessionFileRef, SessionListing};
 use crate::roots::{self, RootsEnv, Settings, Source};
+use crate::worktree::row_project;
 use crate::{claude, codex, opencode, pi};
 
 /// Where each agent's transcripts live.
@@ -81,15 +82,20 @@ pub(crate) fn default_root(sources: &[Source]) -> String {
         .unwrap_or_default()
 }
 
-/// Keep an outcome under `--project` for agents whose project comes from the
-/// session text: a header of that project, or an unreadable session, whose
-/// project is unknown (`""`).
-fn in_project(o: &Outcome, project: Option<&str>) -> bool {
-    match (o, project.filter(|p| !p.is_empty())) {
-        (_, None) | (Outcome::Skip, _) => true,
-        (Outcome::Header(h), Some(p)) => h.project.as_str() == p,
-        (Outcome::Unreadable(u), Some(p)) => u.project.is_empty() || u.project == p,
-    }
+/// Keep only what `--project` asks for: headers whose own project or
+/// printed project ([`row_project`], so worktree rows count for their main
+/// checkout too) is `project`, and unreadable sessions of that project or of an unknown one
+/// (`""`). Runs after worktrees are resolved.
+fn keep_project(listing: &mut SessionListing, project: Option<&str>) {
+    let Some(p) = project.filter(|p| !p.is_empty()) else {
+        return;
+    };
+    listing
+        .headers
+        .retain(|h| h.project.as_str() == p || row_project(h) == p);
+    listing
+        .unreadable
+        .retain(|u| u.project.is_empty() || u.project == p);
 }
 
 /// Outcomes for one agent's transcripts, in discovery order. File-backed
@@ -121,13 +127,7 @@ fn agent_outcomes(
             claude::drop_pending_costs(&mut outcomes);
         }
     }
-    match agent {
-        Agent::Codex | Agent::Opencode => outcomes
-            .into_iter()
-            .filter(|o| in_project(o, project))
-            .collect(),
-        Agent::Claude | Agent::Pi => outcomes,
-    }
+    outcomes
 }
 
 /// Split outcomes into the listing; empty files drop out.
@@ -181,6 +181,7 @@ fn list_with(
         .collect();
     let mut listing = to_listing(outcomes);
     crate::t3code::apply_headers(&mut listing.headers, roots.t3code.as_deref());
+    keep_project(&mut listing, filter.project.as_deref());
     let malformed: u64 = listing
         .headers
         .iter()

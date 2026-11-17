@@ -7,6 +7,7 @@ mod detail;
 mod growth;
 pub mod growth_chart;
 mod history;
+mod marks;
 mod rail;
 mod view;
 
@@ -31,7 +32,6 @@ use crate::widgets::key_hints;
 
 const LIST_W: u16 = 46;
 const CARD_H: usize = 4;
-const CARD_CONTENT_W: usize = LIST_W as usize - 10;
 /// Least gap between list refetches that file changes drive.
 const REFETCH_MS: f64 = 1000.0;
 

@@ -12,7 +12,7 @@ use std::sync::LazyLock;
 
 use regex::{Captures, Regex};
 
-use crate::paths::claude_slug;
+use crate::paths::{claude_slug, pi_slug};
 
 /// `\p{L}\p{M}\p{N}_` inside a class.
 const WORD: &str = r"\p{L}\p{M}\p{N}_";
@@ -181,13 +181,11 @@ fn segments(home: &str) -> Vec<&str> {
     home.split(['\\', '/']).filter(|s| !s.is_empty()).collect()
 }
 
-/// How Pi names one: `--<path>--`, only separators and `:` become `-`.
+/// Pi's slug of `path` without its closing `--`.
 fn pi_slug_of(path: &str) -> String {
-    let rest = path
-        .strip_prefix(['\\', '/'])
-        .unwrap_or(path)
-        .replace(['\\', '/', ':'], "-");
-    format!("--{rest}")
+    let mut slug = pi_slug(path);
+    slug.truncate(slug.len() - 2);
+    slug
 }
 
 fn not_word_or_dash_after(t: &str, c: &Captures<'_>) -> Option<usize> {

@@ -3,6 +3,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
+import { visibleBranch } from "@workspace/view-core/session-marks";
 import { addToRange } from "react-day-picker";
 
 import {
@@ -20,7 +21,6 @@ import {
   SKEW_MS,
   sortByRecent,
   stampTitle,
-  visibleBranch,
 } from "../src/routes/sessions/session-list-model";
 
 const header = (over: Partial<SessionHeader> = {}): SessionHeader => {
@@ -142,6 +142,62 @@ describe("projectOptions", () => {
       { label: "/a/one/app", value: "/a/one/app" },
       { label: "/b/one/app", value: "/b/one/app" },
     ]);
+  });
+});
+
+describe("worktree rows", () => {
+  const worktree = {
+    branch: "feat/rows",
+    path: "/h/.t3/worktrees/peephole/t3-1a2b3c4d",
+    project: "peephole",
+    projectRoot: "/home/dev/code/peephole",
+  };
+
+  const row = header({
+    cwd: worktree.path,
+    gitBranch: "HEAD",
+    project: "-h--t3-worktrees-peephole-t3-1a2b3c4d",
+    worktree,
+  });
+
+  test("label and key name the parent project, never the worktree folder", () => {
+    expect(projectLabel(row)).toBe("peephole");
+    expect(projectKey(row)).toBe("/home/dev/code/peephole");
+  });
+
+  test("worktrees with no known root share one option", () => {
+    const loose = { ...row, worktree: { ...worktree, projectRoot: undefined } };
+
+    const sibling = {
+      ...loose,
+      worktree: { ...loose.worktree, path: "/h/.t3/worktrees/peephole/t3-9/" },
+    };
+
+    expect(projectLabel(loose)).toBe("peephole");
+    expect(projectKey(loose)).toBe("/h/.t3/worktrees/peephole");
+
+    expect(projectOptions([loose, sibling])).toEqual([
+      { label: "peephole", value: "/h/.t3/worktrees/peephole" },
+    ]);
+  });
+
+  test("shares one project option with its main checkout", () => {
+    const main = header({ cwd: "/home/dev/code/peephole" });
+
+    expect(projectOptions([main, row])).toEqual([
+      { label: "peephole", value: "/home/dev/code/peephole" },
+    ]);
+  });
+
+  test("the project and branch filters match the worktree's values", () => {
+    expect(
+      matches(row, {
+        ...NO_FILTERS,
+        branch: "feat/rows",
+        project: "/home/dev/code/peephole",
+      })
+    ).toBe(true);
+    expect(matches(row, { ...NO_FILTERS, branch: "HEAD" })).toBe(false);
   });
 });
 

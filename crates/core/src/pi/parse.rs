@@ -394,6 +394,7 @@ pub fn parse_pi_session(text_in: &str, path: &str, session_id: &str) -> ParsedSe
         sidechain_cost: None,
         native_cost,
         launcher: None,
+        worktree: None,
     };
     measure_tokens(&mut parsed);
     parsed

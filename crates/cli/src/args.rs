@@ -111,6 +111,9 @@ pub struct PricingUpdateArgs {
     /// Write the table here instead of the data dir
     #[arg(long, hide = true, allow_hyphen_values = true, value_parser = lossy())]
     pub output: Option<String>,
+    /// Also write the model maker snapshot here
+    #[arg(long, hide = true, allow_hyphen_values = true, value_parser = lossy())]
+    pub providers: Option<String>,
 }
 
 #[derive(Debug, Args)]

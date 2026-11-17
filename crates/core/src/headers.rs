@@ -82,3 +82,15 @@ pub(crate) fn stream_headers<F: RowFold>(
         .map(|r| file_header::<F>(agent, r, parent))
         .collect()
 }
+
+/// Distinct model ids, first use first, without the placeholders a turn
+/// gets when its model is unknown.
+pub(crate) fn distinct_models<'a>(ids: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for id in ids {
+        if !matches!(id, "" | "unknown" | "<synthetic>") && !out.iter().any(|m| m == id) {
+            out.push(id.to_owned());
+        }
+    }
+    out
+}

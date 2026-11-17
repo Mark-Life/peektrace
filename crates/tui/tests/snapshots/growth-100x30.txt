@@ -5,24 +5,24 @@
  │ agent: all · a to cycle                    │ │                                                 │
  │                                            │ │  History   Growth   g toggle                    │
  │ ╭───────────────────────────────────────╮  │ │                                                 │
- │ │ [Claude] Fix the flaky build          │  │ │ Context growth 150 turns · peak 130.3K (65%…    │
- │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │                                                 │
+ │ │ Fix the flaky build     Nov 11, 09:00 │  │ │ Context growth 150 turns · peak 130.3K (65%…    │
+ │ │ CC An long · main            151 msgs │  │ │                                                 │
  │ ╰───────────────────────────────────────╯  │ │   200.0K                                        │
  │ ╭───────────────────────────────────────╮  │ │                                                 │
- │ │ [Claude] Claude session               │  │ │                                                 │
- │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │   150.0K                                        │
+ │ │ Claude session           Nov 1, 09:00 │  │ │                                                 │
+ │ │ CC repo                        6 msgs │  │ │   150.0K                                        │
  │ ╰───────────────────────────────────────╯  │ │                               ██                │
  │ ╭───────────────────────────────────────╮  │ │   100.0K                 ███████                │
- │ │ [Claude] Claude session               │  │ │          ╌╌╌╌╌╌╌╌╌╌╌╌███████████╌╌╌╌╌╌╌╌╌╌╌████ │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │                     ████████████        ███████ │
+ │ │ Claude session           Nov 1, 09:00 │  │ │          ╌╌╌╌╌╌╌╌╌╌╌╌███████████╌╌╌╌╌╌╌╌╌╌╌████ │
+ │ │ CC An repo                     4 msgs │  │ │                     ████████████        ███████ │
  │ ╰───────────────────────────────────────╯  │ │    50.0K        ████████████████   ████████████ │
  │ ╭───────────────────────────────────────╮  │ │        0   ████████████████████████████████████ │
- │ │ [Claude] Claude session               │  │ │                                ◆                │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │     turn 3   19  35  51  67  82  98  114 130 14 │
+ │ │ Claude session           Nov 1, 09:00 │  │ │                                ◆                │
+ │ │ CC An repo                     2 msgs │  │ │     turn 3   19  35  51  67  82  98  114 130 14 │
  │ ╰───────────────────────────────────────╯  │ │                                                 │
  │ ╭───────────────────────────────────────╮  │ │ ■ System + tool d…  ■ User prompts              │
- │ │ [Pi] Pi session                       │  │ │ ■ Tool results  ■ Assistant text …              │
- │ │ claude-sonnet-4-5 · Sep 26, 11:00 ·…  │  │ │ ■ Assistant think…  ■ Tool schemas & …          │
+ │ │ Pi session              Sep 26, 11:00 │  │ │ ■ Tool results  ■ Assistant text …              │
+ │ │ Pi An repo                     6 msgs │  │ │ ■ Assistant think…  ■ Tool schemas & …          │
  │ ╰───────────────────────────────────────╯  │ │                                                 │
  │                                            │ │                                                 │
  ╰────────────────────────────────────────────╯ ╰─────────────────────────────────────────────────╯

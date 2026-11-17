@@ -4,6 +4,7 @@
 //! by the core JSON writers; [`wire`] describes their exact shapes.
 
 mod history;
+pub mod marks;
 pub mod stats;
 pub mod stats_text;
 #[cfg(test)]

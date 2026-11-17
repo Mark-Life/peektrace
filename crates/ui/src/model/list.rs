@@ -6,6 +6,8 @@ use std::collections::HashSet;
 use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use peektrace_protocol::AgentId;
+use peektrace_protocol::marks;
+pub use peektrace_protocol::marks::shown_branch;
 use peektrace_protocol::view::SessionHeader;
 use peektrace_protocol::wire::sessions::Launcher;
 
@@ -244,16 +246,41 @@ fn cwd(h: &SessionHeader) -> Option<&str> {
     h.cwd.as_deref().filter(|c| !c.is_empty())
 }
 
-/// The folder the session ran in, else the stored project slug.
-pub fn project_label(h: &SessionHeader) -> &str {
-    cwd(h)
-        .and_then(|c| segments(c).next_back())
-        .unwrap_or(&h.project)
+/// The dir that holds a worktree: `<t3 home>/worktrees/<project>`.
+fn parent_dir(path: &str) -> &str {
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    trimmed
+        .rfind(['/', '\\'])
+        .map(|i| &trimmed[..i])
+        .filter(|p| !p.is_empty())
+        .unwrap_or(path)
 }
 
-/// The project facet key: the session's folder, else the slug.
+/// The folder that names the project: a worktree's main checkout (or, when
+/// that is unknown, the dir holding its sibling worktrees), else the folder
+/// the session ran in.
+fn project_dir(h: &SessionHeader) -> Option<&str> {
+    match &h.worktree {
+        Some(w) => w
+            .project_root
+            .as_deref()
+            .filter(|r| !r.is_empty())
+            .or_else(|| Some(parent_dir(&w.path)).filter(|p| !p.is_empty())),
+        None => cwd(h),
+    }
+}
+
+/// A worktree's project, else the folder the session ran in, else the
+/// stored project slug.
+pub fn project_label(h: &SessionHeader) -> &str {
+    let wt = h.worktree.as_ref().map(|w| w.project.as_str());
+    marks::project_label(wt, cwd(h), &h.project)
+}
+
+/// The project facet key: a worktree's main checkout, else the session's
+/// folder, else the slug.
 pub fn project_key(h: &SessionHeader) -> &str {
-    cwd(h).unwrap_or(&h.project)
+    project_dir(h).unwrap_or(&h.project)
 }
 
 /// A filter option: `value` matches the header, `label` is shown.
@@ -288,7 +315,7 @@ pub fn project_options(headers: &[SessionHeader]) -> Vec<FilterOption> {
         .iter()
         .map(|(value, h)| {
             let label = project_label(h);
-            let label = match cwd(h) {
+            let label = match project_dir(h) {
                 Some(c) if short.contains(label) => {
                     let segs: Vec<&str> = segments(c).collect();
                     segs[segs.len().saturating_sub(2)..].join("/")
@@ -322,9 +349,18 @@ pub fn project_options(headers: &[SessionHeader]) -> Vec<FilterOption> {
     out
 }
 
-/// The branch worth showing: none for empty or a detached `HEAD`.
-pub fn visible_branch(branch: Option<&str>) -> Option<&str> {
-    branch.filter(|b| !b.is_empty() && *b != "HEAD")
+/// The row's branch: the transcript's, else the worktree's; never the
+/// worktree's folder name.
+pub fn row_branch(h: &SessionHeader) -> Option<&str> {
+    let wt = h.worktree.as_ref().and_then(|w| w.branch.as_deref());
+    shown_branch(h.git_branch.as_deref(), wt)
+}
+
+/// The branch filter's value: the shown branch, else the raw one, so a
+/// detached `HEAD` stays filterable while a worktree row filters by its own
+/// branch.
+pub fn branch_facet(h: &SessionHeader) -> Option<&str> {
+    row_branch(h).or(h.git_branch.as_deref())
 }
 
 #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
@@ -405,7 +441,7 @@ pub fn matches(h: &SessionHeader, f: &Filters) -> bool {
         || f.project.as_deref().is_some_and(|p| p != project_key(h))
         || f.branch
             .as_deref()
-            .is_some_and(|b| Some(b) != h.git_branch.as_deref())
+            .is_some_and(|b| Some(b) != branch_facet(h))
         || f.model
             .as_deref()
             .is_some_and(|m| Some(m) != h.model.as_deref())

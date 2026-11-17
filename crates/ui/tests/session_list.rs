@@ -4,6 +4,7 @@
 use peektrace_js::time::{MS_PER_DAY as DAY_MS, Utc, day_key};
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::{SessionHeader, SessionListingView};
+use peektrace_protocol::wire::sessions::{Launcher, ModelProvider, Worktree};
 
 fn parse_date(s: &str) -> Option<i64> {
     peektrace_js::time::parse_date(s, &Utc)
@@ -57,6 +58,9 @@ fn header(i: usize) -> SessionHeader {
         source: None,
         source_label: None,
         launcher: None,
+        models: Vec::new(),
+        model_provider: None,
+        worktree: None,
     }
 }
 
@@ -202,4 +206,133 @@ fn marks_only_a_session_written_to_in_the_last_few_minutes() {
         .position(|e| e.text.as_deref() == Some("Synthetic task 1"))
         .unwrap_or(usize::MAX);
     assert!(dots[0] < title);
+}
+
+fn long_worktree_row(now: i64) -> SessionHeader {
+    let long = "x".repeat(120);
+    SessionHeader {
+        id: "wt".into(),
+        updated_at: iso(now - 3_600_000),
+        title: Some(format!("Synthetic {long}")),
+        cwd: Some(format!("/home/u/.t3/worktrees/peephole/t3-{long}")),
+        git_branch: Some("HEAD".into()),
+        model: Some("nvidia/GLM-5.3-Flash-NVFP4".into()),
+        models: vec!["nvidia/GLM-5.3-Flash-NVFP4".into(), "kimi-k3".into()],
+        model_provider: Some(ModelProvider {
+            id: "nvidia".into(),
+            name: "NVIDIA".into(),
+        }),
+        source_label: Some(format!("source-{long}")),
+        launcher: Some(Launcher {
+            name: "t3code".into(),
+            branch: None,
+            worktree_path: None,
+            parent_title: Some("Plan the release".into()),
+        }),
+        worktree: Some(Worktree {
+            project: format!("peephole-{long}"),
+            project_root: Some("/code/peephole".into()),
+            path: format!("/home/u/.t3/worktrees/peephole/t3-{long}"),
+            branch: Some(format!("feat/{long}")),
+        }),
+        message_count: 1234,
+        ..header(1)
+    }
+}
+
+fn find(els: &[rune::ElementInfo], f: impl Fn(&rune::ElementInfo) -> bool) -> &rune::ElementInfo {
+    els.iter().find(|e| f(e)).expect("element")
+}
+
+fn right(e: &rune::ElementInfo) -> f32 {
+    e.rect[0] + e.rect[2]
+}
+
+#[test]
+fn keeps_a_long_worktree_row_inside_its_card() {
+    let now = ms("2026-11-08T12:00:00Z");
+    let rt = runtime(vec![long_worktree_row(now)], now);
+    let els = rt.elements();
+    let card = find(&els, |e| {
+        e.role == "link"
+            && e.label
+                .as_deref()
+                .is_some_and(|l| l.starts_with("Synthetic x"))
+    });
+    let count = find(&els, |e| e.text.as_deref() == Some("1234 msgs"));
+    let stamp = find(&els, |e| {
+        e.help
+            .as_deref()
+            .is_some_and(|h| h.starts_with("Last activity"))
+    });
+    let edge = right(card) + 0.5;
+    for e in [count, stamp] {
+        assert!(right(e) <= edge, "{:?} leaves the card at {edge}", e.text);
+        assert!(e.rect[2] > 10.0, "{:?} squeezed", e.text);
+    }
+    let inside = |e: &rune::ElementInfo| e.rect[0] >= card.rect[0] && right(e) <= edge;
+    assert!(
+        els.iter()
+            .filter(|e| e.text.as_deref().is_some_and(|t| t.contains("xxxx")))
+            .all(inside)
+    );
+}
+
+#[test]
+fn shows_launcher_harness_and_provider_marks_with_tooltips() {
+    let now = ms("2026-11-08T12:00:00Z");
+    let rt = runtime(vec![long_worktree_row(now)], now);
+    let els = rt.elements();
+    let marks: Vec<(&str, &str)> = els
+        .iter()
+        .filter(|e| e.role == "img")
+        .filter_map(|e| Some((e.label.as_deref()?, e.help.as_deref()?)))
+        .collect();
+    let started = "Worktree: /home/u/.t3/worktrees/peephole/t3-";
+    assert_eq!(marks.len(), 4, "{marks:?}");
+    assert_eq!(marks[0], ("t3code", "Started from t3code"));
+    assert_eq!(marks[1], ("Claude Code", "Claude Code"));
+    assert_eq!(
+        marks[2],
+        ("NVIDIA", "NVIDIA · nvidia/GLM-5.3-Flash-NVFP4\nkimi-k3")
+    );
+    assert_eq!(marks[3].0, "Worktree");
+    assert!(marks[3].1.starts_with(started), "{}", marks[3].1);
+    assert!(marks[3].1.ends_with("\nStarted by: Plan the release"));
+    assert!(els.iter().any(|e| e.role == "icon"));
+    assert!(
+        !els.iter()
+            .filter_map(|e| e.text.as_deref())
+            .any(|t| t == "Claude" || t == "t3code"),
+        "text chips are gone"
+    );
+}
+
+#[test]
+fn labels_a_worktree_row_by_its_project_and_branch() {
+    let now = ms("2026-11-08T12:00:00Z");
+    let rt = runtime(vec![long_worktree_row(now)], now);
+    let all = texts(&rt);
+    assert!(all.iter().any(|t| t.starts_with("peephole-x")));
+    assert!(all.iter().any(|t| t.starts_with("feat/x")));
+    assert!(!all.iter().any(|t| t.starts_with("t3-x") || t == "HEAD"));
+}
+
+#[test]
+fn marks_an_unknown_provider_with_a_question_mark() {
+    let now = ms("2026-11-08T12:00:00Z");
+    let h = SessionHeader {
+        model: Some("nonexistent-model-xyz".into()),
+        ..header(1)
+    };
+    let rt = runtime(vec![h], now);
+    let mark = rt
+        .elements()
+        .into_iter()
+        .find(|e| e.label.as_deref() == Some("Unknown provider"))
+        .expect("unknown mark");
+    assert_eq!(
+        mark.help.as_deref(),
+        Some("Unknown provider · nonexistent-model-xyz")
+    );
 }

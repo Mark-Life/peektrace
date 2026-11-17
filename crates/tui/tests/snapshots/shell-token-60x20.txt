@@ -5,12 +5,12 @@
  │ agent: all · a to cycle                    │ │         │
  │                                            │ │  Histor │
  │ ╭───────────────────────────────────────╮  │ │         │
- │ │ [Claude] Fix the flaky build          │  │ │ redacte │
- │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │  E   C  │
+ │ │ Fix the flaky build     Nov 11, 09:00 │  │ │ redacte │
+ │ │ CC An long · main            151 msgs │  │ │  E   C  │
  │ ╰───────────────────────────────────────╯  │ │         │
  │ ╭───────────────────────────────────────╮  │ │ [t  ~10 │
- │ │ [Claude] Claude session               │  │ │         │
- │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ [t0  ~0 │
+ │ │ Claude session           Nov 1, 09:00 │  │ │         │
+ │ │ CC repo                        6 msgs │  │ │ [t0  ~0 │
  │ ╰───────────────────────────────────────╯  │ │         │
  │                                            │ │         │
  ╰────────────────────────────────────────────╯ ╰─────────╯

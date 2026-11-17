@@ -275,34 +275,44 @@
       "text": "Jun 1, 10:00"
     },
     {
-      "rect": [284, 162, 296, 18],
+      "rect": [284, 162, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 162, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [284, 162, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 164, 33, 13],
+      "rect": [287, 163, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [335, 163, 21, 15],
+      "label": "Anthropic",
+      "rect": [311, 162, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [312, 163, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [333, 162, 24, 15],
       "role": "text",
       "text": "proj"
     },
     {
-      "rect": [362, 163, 29, 15],
+      "rect": [363, 162, 29, 15],
       "role": "text",
       "text": "main"
     },
     {
-      "rect": [397, 171, 137, 0],
+      "rect": [398, 170, 137, 0],
       "role": "group"
     },
     {
-      "rect": [540, 163, 40, 15],
+      "rect": [540, 162, 40, 15],
       "role": "text",
       "text": "6 msgs"
     },

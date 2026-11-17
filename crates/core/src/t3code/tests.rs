@@ -55,6 +55,7 @@ fn thread(title: &str, branch: Option<&str>, worktree: Option<&str>) -> Thread {
             name: "t3code".into(),
             branch: branch.map(Into::into),
             worktree_path: worktree.map(Into::into),
+            parent_title: None,
         },
     }
 }
@@ -82,7 +83,7 @@ fn v2_threads_map_native_ids_to_titles() {
         ),
     );
     let index = read_index(&path).expect("read");
-    assert_eq!(index.0.len(), 4);
+    assert_eq!(index.threads.len(), 4);
     assert_eq!(
         index.get(Agent::Claude, "c-4").map(|t| &t.title),
         Some(&None)
@@ -158,14 +159,14 @@ fn legacy_db_maps_claude_resume_and_codex_thread_ids() {
 fn unknown_schema_or_missing_file_reads_nothing() {
     let dir = temp_dir("odd");
     let path = db(&dir, "statev2.sqlite", "CREATE TABLE other (x TEXT);");
-    assert!(read_index(&path).expect("read").0.is_empty());
+    assert!(read_index(&path).expect("read").threads.is_empty());
     assert!(read_index(&dir.join("absent.sqlite").to_string_lossy()).is_none());
     assert!(
         load(Some(&dir.join("absent").to_string_lossy()))
-            .0
+            .threads
             .is_empty()
     );
-    assert!(load(None).0.is_empty());
+    assert!(load(None).threads.is_empty());
 }
 
 #[test]

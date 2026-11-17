@@ -76,6 +76,15 @@ pub fn claude_slug(path: &str) -> String {
         .collect()
 }
 
+/// How Pi names a project dir: `--<path>--`, with separators and `:` as `-`.
+pub fn pi_slug(path: &str) -> String {
+    let rest = path
+        .strip_prefix(['\\', '/'])
+        .unwrap_or(path)
+        .replace(['\\', '/', ':'], "-");
+    format!("--{rest}--")
+}
+
 /// A Windows verbatim path as Node `fs.realpath` prints it: `\\?\C:\x` is
 /// `C:\x` and `\\?\UNC\host\share` is `\\host\share`. Others pass through.
 pub fn strip_verbatim(path: &str) -> String {

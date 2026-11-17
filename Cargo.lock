@@ -3128,6 +3128,7 @@ name = "peektrace-tui"
 version = "0.0.0"
 dependencies = [
  "peektrace-core",
+ "peektrace-protocol",
  "peektrace-telemetry",
  "ratatui",
  "rayon",

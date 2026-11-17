@@ -29,6 +29,7 @@ use crate::model::{Agent, SessionHeader};
 use crate::opencode;
 use crate::select::{self, SelectOptions};
 use crate::sessions::service::load_transcript;
+use crate::worktree::row_project;
 
 /// Default `limit` of a search.
 pub const DEFAULT_LIMIT: usize = 20;
@@ -194,7 +195,7 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
     let headers: Vec<SessionHeader> = listing
         .headers
         .into_iter()
-        .filter(|h| in_project(h.project.as_str()))
+        .filter(|h| in_project(h.project.as_str()) || in_project(&row_project(h)))
         .collect();
     let candidates = select::select_sessions(
         headers,

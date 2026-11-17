@@ -35,6 +35,8 @@ pub fn analysis() -> AnalyzedSession {
             web_fetch_requests: 0.0,
             cost: None,
             launcher: None,
+            model_provider: None,
+            worktree: None,
         },
         events: Vec::new(),
         turns: Vec::new(),

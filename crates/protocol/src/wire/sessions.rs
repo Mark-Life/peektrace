@@ -208,6 +208,38 @@ pub struct Launcher {
     pub branch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub worktree_path: Option<String>,
+    /// Title of the thread that started this one (t3code's parent thread).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_title: Option<String>,
+}
+
+/// The linked git worktree a session ran in, labelled with its main
+/// checkout. Set only for sessions in a worktree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[cfg_attr(test, ts(optional_fields))]
+#[serde(rename_all = "camelCase")]
+pub struct Worktree {
+    /// The main checkout's name: the t3code project title, else its folder.
+    pub project: String,
+    /// The main checkout's root, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_root: Option<String>,
+    /// The worktree's own root.
+    pub path: String,
+    /// The branch checked out there; absent when detached or unknown.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+}
+
+/// The company that made a model. `id` names its logo,
+/// `assets/logos/providers/<id>.svg`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ModelProvider {
+    pub id: String,
+    pub name: String,
 }
 
 /// A parsed session without its events and turns.
@@ -261,6 +293,12 @@ pub struct ParsedMeta {
     /// The app that started the session, when known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub launcher: Option<Launcher>,
+    /// The maker of the first model in `models`, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_provider: Option<ModelProvider>,
+    /// Set only when the session ran in a linked worktree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<Worktree>,
 }
 
 /// `GET /api/sessions/{id}`.
@@ -412,6 +450,16 @@ pub struct SessionHeader {
     /// The app that started the session, when known.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub launcher: Option<Launcher>,
+    /// Distinct models of the priced turns, first use first; absent when
+    /// none is known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub models: Option<Vec<String>>,
+    /// The maker of `model`, when known.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_provider: Option<ModelProvider>,
+    /// Set only when the session ran in a linked worktree.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<Worktree>,
     /// The session's cost, the same total the session detail shows:
     /// subagents and workflow agents included.
     #[serde(skip_serializing_if = "Option::is_none")]

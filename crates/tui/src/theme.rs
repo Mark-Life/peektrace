@@ -58,6 +58,32 @@ pub const fn agent_color(a: Agent) -> Color {
     }
 }
 
+/// Two-cell harness mark for the session card.
+pub const fn agent_glyph(a: Agent) -> &'static str {
+    peektrace_protocol::marks::harness_mono(peektrace_core::wire::agent_id(a))
+}
+
+/// Short mark and colour of a model maker, by its models.dev id; a faint
+/// `?` when the id has no mark.
+pub fn provider_glyph(id: &str) -> (&'static str, Color) {
+    match id {
+        "anthropic" => ("An", rgb(0xd9_7757)),
+        "openai" => ("OA", rgb(0xe6_edf3)),
+        "google" => ("Go", rgb(0x6c_9ef8)),
+        "xai" => ("xA", rgb(0xb0_b8c0)),
+        "zai" => ("Z", rgb(0x7a_a2f7)),
+        "moonshotai" => ("Ki", rgb(0x9a_a5ff)),
+        "alibaba" => ("Qw", rgb(0xff_8a3d)),
+        "deepseek" => ("DS", rgb(0x6f_8bff)),
+        "mistral" => ("Mi", rgb(0xff_7000)),
+        "minimax" => ("MM", rgb(0xe8_4a72)),
+        "meta" => ("Me", rgb(0x4a_a3ff)),
+        "nvidia" => ("NV", rgb(0x76_b900)),
+        "cohere" => ("Co", rgb(0x39_d0a0)),
+        _ => ("?", TEXT_FAINT),
+    }
+}
+
 pub const fn level_color(l: SupportLevel) -> Color {
     match l {
         SupportLevel::Supported => GOOD,
@@ -204,6 +230,13 @@ pub fn apply(buf: &mut Buffer, mode: ColorMode) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_maker_has_a_glyph() {
+        for id in peektrace_core::model_provider::MAKERS {
+            assert_ne!(provider_glyph(id).0, "?", "{id} has no glyph");
+        }
+    }
 
     #[test]
     fn cube_and_grey() {

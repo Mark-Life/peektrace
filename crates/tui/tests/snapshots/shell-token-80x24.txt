@@ -5,16 +5,16 @@
  │ agent: all · a to cycle                    │ │                             │
  │                                            │ │  History   Growth   g toggl │
  │ ╭───────────────────────────────────────╮  │ │                             │
- │ │ [Claude] Fix the flaky build          │  │ │ Full redacted · r to reveal │
- │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │  E   C   B                  │
+ │ │ Fix the flaky build     Nov 11, 09:00 │  │ │ Full redacted · r to reveal │
+ │ │ CC An long · main            151 msgs │  │ │  E   C   B                  │
  │ ╰───────────────────────────────────────╯  │ │                             │
  │ ╭───────────────────────────────────────╮  │ │ [t0] [user-prompt] Fix  ~10 │
- │ │ [Claude] Claude session               │  │ │                             │
- │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ [t0] [deferred tools de  ~0 │
+ │ │ Claude session           Nov 1, 09:00 │  │ │                             │
+ │ │ CC repo                        6 msgs │  │ │ [t0] [deferred tools de  ~0 │
  │ ╰───────────────────────────────────────╯  │ │                             │
  │ ╭───────────────────────────────────────╮  │ │ [t1] [assistant-text] S  ~7 │
- │ │ [Claude] Claude session               │  │ │                             │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ [t1] [Bash] { "command  ~15 │
+ │ │ Claude session           Nov 1, 09:00 │  │ │                             │
+ │ │ CC An repo                     4 msgs │  │ │ [t1] [Bash] { "command  ~15 │
  │ ╰───────────────────────────────────────╯  │ │                             │
  │ ╭───────────────────────────────────────╮  │ │ [t1] [tool-result] F  1,280 │
  │                                            │ │                             │

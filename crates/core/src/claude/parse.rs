@@ -462,6 +462,7 @@ pub fn parse_claude_session(args: &ParseArgs<'_>) -> ParsedSession {
         sidechain_cost: (!sidechain.is_empty()).then(|| turns_cost(&sidechain)),
         native_cost,
         launcher: None,
+        worktree: None,
     };
     measure_tokens(&mut parsed);
     parsed

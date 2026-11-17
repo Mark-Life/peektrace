@@ -336,6 +336,7 @@ fn measure(events: Vec<TimelineEvent>, turns: Vec<Turn>) -> ParsedSession {
         sidechain_cost: None::<TurnsCost>,
         native_cost: None,
         launcher: None,
+        worktree: None,
     };
     measure_tokens(&mut p);
     p

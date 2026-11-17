@@ -9,7 +9,11 @@ import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
 import { costSummary, providerLabel } from "@workspace/view-core/cost";
-import { launcherHint } from "@workspace/view-core/launcher";
+import {
+  sessionBranch,
+  sessionModels,
+  startedBy,
+} from "@workspace/view-core/session-marks";
 import type { ReactNode } from "react";
 
 import {
@@ -22,6 +26,7 @@ import {
   zoneOf,
 } from "../lib/session-format";
 import type { SessionJump } from "../lib/session-jump";
+import { SessionMarks, WorktreeMarker } from "./session-marks";
 
 /** An analysis without its per-event and per-turn arrays: all the summary cards read. */
 export type SessionOverview = Omit<
@@ -177,6 +182,45 @@ const PeakGauge = ({ a }: { readonly a: SessionOverview }) => {
   );
 };
 
+/** The worktree's parent project and the thread that started the session;
+ * nothing for a session in a main checkout with no parent. */
+const Origin = ({
+  a,
+}: {
+  readonly a: Pick<SessionOverview, "launcher" | "worktree">;
+}) => {
+  const parent = a.launcher?.parentTitle;
+  const { worktree } = a;
+
+  if (worktree === undefined && (parent === undefined || parent === "")) {
+    return null;
+  }
+
+  return (
+    <div
+      className="text-muted-foreground mt-1 flex min-w-0 items-center gap-1.5 text-xs"
+      data-testid="session-origin"
+    >
+      {worktree === undefined ? null : (
+        <>
+          <WorktreeMarker parentTitle={parent} worktree={worktree} />
+          <span
+            className="min-w-0 truncate"
+            title={worktree.projectRoot ?? worktree.path}
+          >
+            {worktree.project} worktree
+          </span>
+        </>
+      )}
+      {parent === undefined || parent === "" ? null : (
+        <span className="min-w-[6ch] flex-1 truncate" title={parent}>
+          {`${worktree === undefined ? "" : "· "}${startedBy(parent)}`}
+        </span>
+      )}
+    </div>
+  );
+};
+
 /** Verdict header card: title, health badge, gauge, and metadata grid. With
  *  `onJump`, the dumb-zone, compaction and subagent chips jump to the
  *  transcript. */
@@ -190,6 +234,8 @@ export const VerdictHeader = ({
   const frac = a.contextWindow ? a.peakContextTokens / a.contextWindow : 0;
   const zone = zoneOf({ dumbZone: a.dumbZoneFraction, frac });
 
+  const branch = sessionBranch(a);
+
   const cacheFrac = a.peakContextTokens
     ? a.peakCacheReadTokens / a.peakContextTokens
     : 0;
@@ -201,7 +247,9 @@ export const VerdictHeader = ({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-64">
-          <div className="text-lg font-semibold">{analyzedTitle(a)}</div>
+          <div className="text-lg font-semibold wrap-anywhere">
+            {analyzedTitle(a)}
+          </div>
           <div
             className="text-muted-foreground truncate font-mono text-xs"
             title={a.cwd ?? undefined}
@@ -209,20 +257,17 @@ export const VerdictHeader = ({
             {a.sessionId.slice(0, ID_PREFIX)} · {a.models.join(", ")} ·{" "}
             {a.cwd ?? ""}
           </div>
+          <SessionMarks
+            className="mt-1.5 text-xs"
+            harness={a.provider}
+            launcher={a.launcher}
+            models={sessionModels({ models: a.models })}
+            named
+            provider={a.modelProvider}
+          />
+          <Origin a={a} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <Badge data-testid="session-provider" variant="outline">
-            {providerLabel(a.provider)}
-          </Badge>
-          {a.launcher === undefined ? null : (
-            <Badge
-              data-testid="session-launcher"
-              title={launcherHint(a.launcher)}
-              variant="secondary"
-            >
-              {a.launcher.name}
-            </Badge>
-          )}
           <Badge
             className={cn("text-sm", ZONE_CLASSES[zone].text)}
             data-testid="health-verdict"
@@ -311,9 +356,15 @@ export const VerdictHeader = ({
             {a.webFetchRequests} web fetch(es)
           </Badge>
         ) : null}
-        {a.gitBranch !== undefined && a.gitBranch !== "" ? (
-          <Badge variant="secondary">{a.gitBranch}</Badge>
-        ) : null}
+        {branch === undefined ? null : (
+          <Badge
+            className="max-w-full min-w-0"
+            title={branch}
+            variant="secondary"
+          >
+            <span className="truncate">{branch}</span>
+          </Badge>
+        )}
       </div>
     </section>
   );

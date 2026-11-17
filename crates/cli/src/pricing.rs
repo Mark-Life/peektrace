@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use peektrace_core::model_provider::providers_snapshot;
 use peektrace_core::pricing::{
     self, LocalTable, MODELS_DEV_URL, Table, from_models_dev, local_table_path, parse_table,
     read_local_table, table_info, table_json, table_label,
@@ -79,7 +80,9 @@ fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir)?;
     }
-    let tmp = path.with_extension("json.tmp");
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(".tmp");
+    let tmp = PathBuf::from(tmp);
     std::fs::write(&tmp, text)?;
     std::fs::rename(&tmp, path).inspect_err(|_| {
         let _ = std::fs::remove_file(&tmp);
@@ -92,6 +95,40 @@ fn same_models(path: &Path, table: &Table) -> bool {
         .ok()
         .and_then(|t| parse_table(&t).ok())
         .is_some_and(|old| old.models == table.models)
+}
+
+/// The model maker snapshot for `path`, built from `api` with the file's
+/// current lines kept for makers models.dev dropped.
+fn build_providers(
+    path: &Path,
+    api: &str,
+    print: &mut dyn FnMut(&str),
+) -> Result<String, UserError> {
+    let previous = std::fs::read_to_string(path).unwrap_or_default();
+    let snap = providers_snapshot(api, &previous)
+        .map_err(|e| UserError::Invalid(format!("Not a usable models.dev table: {e}")))?;
+    if !snap.missing.is_empty() {
+        print(&format!(
+            "Warning: models.dev lists no {}; kept their previous lines.",
+            snap.missing.join(", ")
+        ));
+    }
+    Ok(snap.text)
+}
+
+/// Write the model maker snapshot to `path` unless it already holds it.
+fn write_providers(path: &Path, text: &str, print: &mut dyn FnMut(&str)) -> Result<(), UserError> {
+    if std::fs::read_to_string(path).is_ok_and(|old| old == text) {
+        print(&format!(
+            "Providers unchanged: {} left as is.",
+            path.display()
+        ));
+        return Ok(());
+    }
+    write_atomic(path, text)
+        .map_err(|e| UserError::Invalid(format!("Cannot write {}: {e}", path.display())))?;
+    print(&format!("Wrote model makers to {}.", path.display()));
+    Ok(())
 }
 
 /// Run `pricing update`; each line goes to `print`.
@@ -115,8 +152,18 @@ pub fn update(
             .map_err(|e| UserError::Invalid(format!("Download failed ({MODELS_DEV_URL}): {e}")))?
     };
     let api = String::from_utf8_lossy(&api);
+    let providers = match &args.providers {
+        Some(out) => Some((
+            Path::new(out),
+            build_providers(Path::new(out), &api, print)?,
+        )),
+        None => None,
+    };
     let table = from_models_dev(&api, &today())
         .map_err(|e| UserError::Invalid(format!("Not a usable models.dev table: {e}")))?;
+    if let Some((out, text)) = &providers {
+        write_providers(out, text, print)?;
+    }
     if args.output.is_some() && same_models(&path, &table) {
         print(&format!("Prices unchanged: {} left as is.", path.display()));
         return Ok(());

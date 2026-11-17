@@ -263,34 +263,44 @@
       "text": "Jun 1, 10:00"
     },
     {
-      "rect": [284, 149, 296, 18],
+      "rect": [284, 149, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 149, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [284, 149, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 151, 33, 13],
+      "rect": [287, 150, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [335, 150, 21, 15],
+      "label": "Anthropic",
+      "rect": [311, 149, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [312, 150, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [333, 149, 24, 15],
       "role": "text",
       "text": "proj"
     },
     {
-      "rect": [362, 150, 29, 15],
+      "rect": [363, 149, 29, 15],
       "role": "text",
       "text": "main"
     },
     {
-      "rect": [397, 158, 137, 0],
+      "rect": [398, 157, 137, 0],
       "role": "group"
     },
     {
-      "rect": [540, 150, 40, 15],
+      "rect": [540, 149, 40, 15],
       "role": "text",
       "text": "6 msgs"
     },
@@ -319,34 +329,44 @@
       "text": "May 31, 09:00"
     },
     {
-      "rect": [284, 213, 296, 18],
+      "rect": [284, 213, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 213, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [284, 213, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 215, 33, 13],
+      "rect": [287, 214, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [335, 214, 36, 15],
+      "label": "Anthropic",
+      "rect": [311, 213, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [312, 214, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [333, 213, 36, 15],
       "role": "text",
       "text": "parser"
     },
     {
-      "rect": [377, 214, 80, 15],
+      "rect": [374, 213, 94, 15],
       "role": "text",
       "text": "feature/speed"
     },
     {
-      "rect": [463, 222, 62, 0],
+      "rect": [474, 221, 51, 0],
       "role": "group"
     },
     {
-      "rect": [531, 214, 50, 15],
+      "rect": [531, 213, 50, 15],
       "role": "text",
       "text": "121 msgs"
     },
@@ -375,29 +395,39 @@
       "text": "May 30, 08:00"
     },
     {
-      "rect": [284, 277, 296, 18],
+      "rect": [284, 277, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 277, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [284, 277, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 279, 33, 13],
+      "rect": [287, 278, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [335, 278, 21, 15],
+      "label": "Anthropic",
+      "rect": [311, 277, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [312, 278, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [333, 277, 24, 15],
       "role": "text",
       "text": "app"
     },
     {
-      "rect": [362, 286, 172, 0],
+      "rect": [363, 285, 171, 0],
       "role": "group"
     },
     {
-      "rect": [540, 278, 41, 15],
+      "rect": [540, 277, 41, 15],
       "role": "text",
       "text": "3 msgs"
     },
@@ -426,29 +456,39 @@
       "text": "May 29, 08:01"
     },
     {
-      "rect": [284, 341, 296, 18],
+      "rect": [284, 341, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 341, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [284, 341, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 343, 33, 13],
+      "rect": [287, 342, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [335, 342, 21, 15],
+      "label": "Anthropic",
+      "rect": [311, 341, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [312, 342, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [333, 341, 24, 15],
       "role": "text",
       "text": "app"
     },
     {
-      "rect": [362, 350, 172, 0],
+      "rect": [363, 349, 171, 0],
       "role": "group"
     },
     {
-      "rect": [540, 342, 41, 15],
+      "rect": [540, 341, 41, 15],
       "role": "text",
       "text": "4 msgs"
     },
@@ -477,29 +517,39 @@
       "text": "May 28, 08:03"
     },
     {
-      "rect": [284, 405, 296, 18],
+      "rect": [284, 405, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 405, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [284, 405, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 407, 33, 13],
+      "rect": [287, 406, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [335, 406, 21, 15],
+      "label": "Anthropic",
+      "rect": [311, 405, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [312, 406, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [333, 405, 24, 15],
       "role": "text",
       "text": "app"
     },
     {
-      "rect": [362, 414, 172, 0],
+      "rect": [363, 413, 171, 0],
       "role": "group"
     },
     {
-      "rect": [540, 406, 41, 15],
+      "rect": [540, 405, 41, 15],
       "role": "text",
       "text": "3 msgs"
     },
@@ -528,29 +578,39 @@
       "text": "Jul 6, 13:05"
     },
     {
-      "rect": [284, 469, 296, 18],
+      "rect": [284, 469, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 469, 21, 18],
-      "role": "group"
+      "label": "Pi",
+      "rect": [284, 469, 16, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 471, 9, 13],
+      "rect": [288, 470, 9, 13],
       "role": "text",
       "text": "Pi"
     },
     {
-      "rect": [311, 470, 21, 15],
+      "label": "Alibaba",
+      "rect": [306, 469, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [307, 470, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [328, 469, 24, 15],
       "role": "text",
       "text": "proj"
     },
     {
-      "rect": [338, 478, 196, 0],
+      "rect": [358, 477, 176, 0],
       "role": "group"
     },
     {
-      "rect": [540, 470, 41, 15],
+      "rect": [540, 469, 41, 15],
       "role": "text",
       "text": "5 msgs"
     },
@@ -579,34 +639,44 @@
       "text": "Jul 8, 10:00"
     },
     {
-      "rect": [284, 533, 296, 18],
+      "rect": [284, 533, 296, 16],
       "role": "group"
     },
     {
-      "rect": [284, 533, 43, 18],
-      "role": "group"
+      "label": "Codex",
+      "rect": [284, 533, 19, 16],
+      "role": "img"
     },
     {
-      "rect": [290, 535, 31, 13],
+      "rect": [287, 534, 13, 13],
       "role": "text",
-      "text": "Codex"
+      "text": "Cx"
     },
     {
-      "rect": [333, 534, 51, 15],
+      "label": "OpenAI",
+      "rect": [309, 533, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [310, 534, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [331, 533, 51, 15],
       "role": "text",
       "text": "peephole"
     },
     {
-      "rect": [390, 534, 80, 15],
+      "rect": [388, 533, 108, 15],
       "role": "text",
       "text": "feature/parsers"
     },
     {
-      "rect": [476, 542, 58, 0],
+      "rect": [502, 541, 32, 0],
       "role": "group"
     },
     {
-      "rect": [540, 534, 41, 15],
+      "rect": [540, 533, 41, 15],
       "role": "text",
       "text": "3 msgs"
     },
@@ -617,11 +687,11 @@
     },
     {
       "key": "detail-col",
-      "rect": [616, 60, 808, 26965],
+      "rect": [616, 60, 808, 26985],
       "role": "group"
     },
     {
-      "rect": [616, 60, 808, 26965],
+      "rect": [616, 60, 808, 26985],
       "role": "group"
     },
     {
@@ -638,36 +708,80 @@
     },
     {
       "key": "summary",
-      "rect": [616, 104, 808, 336],
+      "rect": [616, 104, 808, 356],
       "role": "group"
     },
     {
-      "rect": [632, 120, 776, 42],
+      "rect": [632, 120, 776, 62],
       "role": "group"
     },
     {
-      "rect": [632, 120, 628, 42],
+      "rect": [632, 120, 708, 62],
       "role": "group"
     },
     {
       "key": "verdict-title",
-      "rect": [632, 120, 628, 23],
+      "rect": [632, 120, 708, 23],
       "role": "text",
       "text": "Tune the parser"
     },
     {
-      "rect": [632, 147, 628, 15],
-      "role": "text",
-      "text": "33333333 · claude-sonnet-4-5 · /Users/demo/parser"
-    },
-    {
-      "rect": [1268, 120, 72, 18],
+      "rect": [632, 147, 708, 16],
       "role": "group"
     },
     {
-      "rect": [1274, 123, 60, 13],
+      "key": "harness",
+      "rect": [632, 147, 95, 16],
+      "role": "group"
+    },
+    {
+      "label": "Claude Code",
+      "rect": [632, 147, 21, 16],
+      "role": "img"
+    },
+    {
+      "rect": [635, 148, 15, 13],
+      "role": "text",
+      "text": "CC"
+    },
+    {
+      "rect": [657, 147, 71, 15],
       "role": "text",
       "text": "Claude Code"
+    },
+    {
+      "key": "model-provider",
+      "rect": [737, 147, 73, 16],
+      "role": "group"
+    },
+    {
+      "label": "Anthropic",
+      "rect": [737, 147, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [738, 148, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [757, 147, 53, 15],
+      "role": "text",
+      "text": "Anthropic"
+    },
+    {
+      "key": "project",
+      "rect": [820, 147, 36, 15],
+      "role": "group"
+    },
+    {
+      "rect": [820, 147, 36, 15],
+      "role": "text",
+      "text": "parser"
+    },
+    {
+      "rect": [632, 167, 708, 15],
+      "role": "text",
+      "text": "33333333 · claude-sonnet-4-5 · /Users/demo/parser"
     },
     {
       "key": "health",
@@ -680,1433 +794,1433 @@
       "text": "Degrading"
     },
     {
-      "rect": [632, 174, 776, 35],
+      "rect": [632, 194, 776, 35],
       "role": "group"
     },
     {
       "key": "peak-gauge",
-      "rect": [632, 174, 776, 16],
+      "rect": [632, 194, 776, 16],
       "role": "group"
     },
     {
-      "rect": [632, 174, 318, 16],
+      "rect": [632, 194, 318, 16],
       "role": "group"
     },
     {
-      "rect": [632, 174, 310, 16],
+      "rect": [632, 194, 310, 16],
       "role": "group"
     },
     {
-      "rect": [632, 194, 776, 15],
+      "rect": [632, 214, 776, 15],
       "role": "group"
     },
     {
       "key": "peak-tokens",
-      "rect": [632, 194, 76, 15],
+      "rect": [632, 214, 76, 15],
       "role": "text",
       "text": "peak 410,320"
     },
     {
-      "rect": [1312, 194, 97, 15],
+      "rect": [1312, 214, 97, 15],
       "role": "text",
       "text": "41% of 1,000,000"
     },
     {
       "key": "tile-grid",
-      "rect": [632, 221, 776, 168],
+      "rect": [632, 241, 776, 168],
       "role": "group"
     },
     {
       "key": "tile-peak",
-      "rect": [632, 221, 253, 51],
+      "rect": [632, 241, 253, 51],
       "role": "group"
     },
     {
-      "rect": [644, 229, 229, 15],
+      "rect": [644, 249, 229, 15],
       "role": "text",
       "text": "PEAK CONTEXT"
     },
     {
-      "rect": [644, 246, 229, 18],
+      "rect": [644, 266, 229, 18],
       "role": "text",
       "text": "410,320"
     },
     {
       "key": "tile-turns",
-      "rect": [893, 221, 253, 51],
+      "rect": [893, 241, 253, 51],
       "role": "group"
     },
     {
-      "rect": [905, 229, 229, 15],
+      "rect": [905, 249, 229, 15],
       "role": "text",
       "text": "TURNS"
     },
     {
-      "rect": [905, 246, 229, 18],
+      "rect": [905, 266, 229, 18],
       "role": "text",
       "text": "120 · 1 user · 120 tools"
     },
     {
       "key": "tile-tax",
-      "rect": [1155, 221, 253, 51],
+      "rect": [1155, 241, 253, 51],
       "role": "group"
     },
     {
-      "rect": [1167, 229, 229, 15],
+      "rect": [1167, 249, 229, 15],
       "role": "text",
       "text": "SYSTEM + TOOLS TAX"
     },
     {
-      "rect": [1167, 246, 229, 18],
+      "rect": [1167, 266, 229, 18],
       "role": "text",
       "text": "16,293"
     },
     {
       "key": "tile-output",
-      "rect": [632, 279, 253, 51],
+      "rect": [632, 299, 253, 51],
       "role": "group"
     },
     {
-      "rect": [644, 287, 229, 15],
+      "rect": [644, 307, 229, 15],
       "role": "text",
       "text": "OUTPUT"
     },
     {
-      "rect": [644, 304, 229, 18],
+      "rect": [644, 324, 229, 18],
       "role": "text",
       "text": "48,000"
     },
     {
       "key": "tile-cost",
-      "rect": [893, 279, 253, 51],
+      "rect": [893, 299, 253, 51],
       "role": "group"
     },
     {
-      "rect": [905, 287, 229, 15],
+      "rect": [905, 307, 229, 15],
       "role": "text",
       "text": "COST"
     },
     {
       "key": "session-cost",
-      "rect": [905, 304, 229, 18],
+      "rect": [905, 324, 229, 18],
       "role": "text",
       "text": "~$8.19 · estimated from tokens"
     },
     {
       "key": "tile-dwell",
-      "rect": [1155, 279, 253, 51],
+      "rect": [1155, 299, 253, 51],
       "role": "group"
     },
     {
-      "rect": [1167, 287, 229, 15],
+      "rect": [1167, 307, 229, 15],
       "role": "text",
       "text": "DUMB-ZONE DWELL"
     },
     {
-      "rect": [1167, 304, 229, 18],
+      "rect": [1167, 324, 229, 18],
       "role": "text",
       "text": "2/120"
     },
     {
       "key": "tile-cache",
-      "rect": [632, 338, 253, 51],
+      "rect": [632, 358, 253, 51],
       "role": "group"
     },
     {
-      "rect": [644, 346, 229, 15],
+      "rect": [644, 366, 229, 15],
       "role": "text",
       "text": "CACHE"
     },
     {
-      "rect": [644, 363, 229, 18],
+      "rect": [644, 383, 229, 18],
       "role": "text",
       "text": "100%"
     },
     {
-      "rect": [632, 400, 776, 24],
+      "rect": [632, 420, 776, 24],
       "role": "group"
     },
     {
       "key": "chip-window",
-      "rect": [632, 400, 119, 24],
+      "rect": [632, 420, 119, 24],
       "role": "group"
     },
     {
-      "rect": [640, 406, 103, 13],
+      "rect": [640, 426, 103, 13],
       "role": "text",
       "text": "window 1M (assumed)"
     },
     {
       "key": "chip-cross",
       "label": "entered dumb zone @ turn 89, jump to that turn in history",
-      "rect": [757, 400, 155, 24],
+      "rect": [757, 420, 155, 24],
       "role": "button"
     },
     {
-      "rect": [765, 406, 139, 13],
+      "rect": [765, 426, 139, 13],
       "role": "text",
       "text": "entered dumb zone @ turn 89"
     },
     {
       "key": "chip-compactions",
       "label": "2 compaction(s), jump to the first in history",
-      "rect": [918, 400, 91, 24],
+      "rect": [918, 420, 91, 24],
       "role": "button"
     },
     {
-      "rect": [926, 406, 75, 13],
+      "rect": [926, 426, 75, 13],
       "role": "text",
       "text": "2 compaction(s)"
     },
     {
       "key": "chip-branch",
-      "rect": [1015, 400, 83, 24],
+      "rect": [1015, 420, 83, 24],
       "role": "group"
     },
     {
-      "rect": [1023, 406, 67, 13],
+      "rect": [1023, 426, 67, 13],
       "role": "text",
       "text": "feature/speed"
     },
     {
       "key": "growth",
-      "rect": [616, 456, 808, 451],
+      "rect": [616, 476, 808, 451],
       "role": "group"
     },
     {
-      "rect": [632, 472, 776, 20],
+      "rect": [632, 492, 776, 20],
       "role": "text",
       "text": "Context growth timeline"
     },
     {
       "key": "growth-box",
-      "rect": [632, 500, 776, 341],
+      "rect": [632, 520, 776, 341],
       "role": "group"
     },
     {
       "key": "growth-plot",
       "label": "Context growth over 120 turns, peak 410.3K at turn 90",
-      "rect": [632, 500, 774, 341],
+      "rect": [632, 520, 774, 341],
       "role": "group"
     },
     {
       "key": "growth-static",
-      "rect": [632, 500, 774, 341],
+      "rect": [632, 520, 774, 341],
       "role": "image"
     },
     {
-      "rect": [1232, 674, 160, 14],
+      "rect": [1232, 694, 160, 14],
       "role": "text",
       "text": "DUMB ZONE · 40% = 400K"
     },
     {
-      "rect": [694, 734, 160, 13],
+      "rect": [694, 754, 160, 13],
       "role": "text",
       "text": "200K-model ceiling"
     },
     {
-      "rect": [525, 798, 160, 13],
+      "rect": [525, 818, 160, 13],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [525, 726, 160, 13],
+      "rect": [525, 746, 160, 13],
       "role": "text",
       "text": "250K"
     },
     {
-      "rect": [525, 654, 160, 13],
+      "rect": [525, 674, 160, 13],
       "role": "text",
       "text": "500K"
     },
     {
-      "rect": [525, 582, 160, 13],
+      "rect": [525, 602, 160, 13],
       "role": "text",
       "text": "750K"
     },
     {
-      "rect": [525, 510, 160, 13],
+      "rect": [525, 530, 160, 13],
       "role": "text",
       "text": "1M"
     },
     {
-      "rect": [611, 809, 160, 13],
+      "rect": [611, 829, 160, 13],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [682, 809, 160, 13],
+      "rect": [682, 829, 160, 13],
       "role": "text",
       "text": "13"
     },
     {
-      "rect": [752, 809, 160, 13],
+      "rect": [752, 829, 160, 13],
       "role": "text",
       "text": "25"
     },
     {
-      "rect": [823, 809, 160, 13],
+      "rect": [823, 829, 160, 13],
       "role": "text",
       "text": "37"
     },
     {
-      "rect": [894, 809, 160, 13],
+      "rect": [894, 829, 160, 13],
       "role": "text",
       "text": "49"
     },
     {
-      "rect": [964, 809, 160, 13],
+      "rect": [964, 829, 160, 13],
       "role": "text",
       "text": "61"
     },
     {
-      "rect": [1035, 809, 160, 13],
+      "rect": [1035, 829, 160, 13],
       "role": "text",
       "text": "73"
     },
     {
-      "rect": [1106, 809, 160, 13],
+      "rect": [1106, 829, 160, 13],
       "role": "text",
       "text": "85"
     },
     {
-      "rect": [1177, 809, 160, 13],
+      "rect": [1177, 829, 160, 13],
       "role": "text",
       "text": "97"
     },
     {
-      "rect": [1247, 809, 160, 13],
+      "rect": [1247, 829, 160, 13],
       "role": "text",
       "text": "109"
     },
     {
-      "rect": [1213, 790, 160, 13],
+      "rect": [1213, 810, 160, 13],
       "role": "text",
       "text": "entered @ turn 89"
     },
     {
-      "rect": [1135, 668, 160, 14],
+      "rect": [1135, 688, 160, 14],
       "role": "text",
       "text": "peak 410.3K"
     },
     {
       "key": "growth-hit",
-      "rect": [632, 517, 774, 288],
+      "rect": [632, 537, 774, 288],
       "role": "button"
     },
     {
       "key": "growth-cross",
       "label": "Entered dumb zone at turn 89: jump to it in history",
-      "rect": [1201, 681, 16, 16],
+      "rect": [1201, 701, 16, 16],
       "role": "button"
     },
     {
       "key": "growth-peak",
       "label": "Peak 410.3K at turn 90: jump to it in history",
-      "rect": [1207, 679, 16, 16],
+      "rect": [1207, 699, 16, 16],
       "role": "button"
     },
     {
-      "rect": [632, 849, 776, 42],
+      "rect": [632, 869, 776, 42],
       "role": "group"
     },
     {
-      "rect": [632, 849, 152, 15],
+      "rect": [632, 869, 152, 15],
       "role": "group"
     },
     {
-      "rect": [632, 851, 10, 10],
+      "rect": [632, 871, 10, 10],
       "role": "group"
     },
     {
-      "rect": [648, 849, 136, 15],
+      "rect": [648, 869, 136, 15],
       "role": "text",
       "text": "System + tool definitions"
     },
     {
-      "rect": [796, 849, 91, 15],
+      "rect": [796, 869, 91, 15],
       "role": "group"
     },
     {
-      "rect": [796, 851, 10, 10],
+      "rect": [796, 871, 10, 10],
       "role": "group"
     },
     {
-      "rect": [812, 849, 75, 15],
+      "rect": [812, 869, 75, 15],
       "role": "text",
       "text": "User prompts"
     },
     {
-      "rect": [898, 849, 79, 15],
+      "rect": [898, 869, 79, 15],
       "role": "group"
     },
     {
-      "rect": [898, 851, 10, 10],
+      "rect": [898, 871, 10, 10],
       "role": "group"
     },
     {
-      "rect": [914, 849, 63, 15],
+      "rect": [914, 869, 63, 15],
       "role": "text",
       "text": "Tool results"
     },
     {
-      "rect": [989, 849, 155, 15],
+      "rect": [989, 869, 155, 15],
       "role": "group"
     },
     {
-      "rect": [989, 851, 10, 10],
+      "rect": [989, 871, 10, 10],
       "role": "group"
     },
     {
-      "rect": [1005, 849, 139, 15],
+      "rect": [1005, 869, 139, 15],
       "role": "text",
       "text": "Assistant text + tool calls"
     },
     {
-      "rect": [1155, 849, 170, 15],
+      "rect": [1155, 869, 170, 15],
       "role": "group"
     },
     {
-      "rect": [1155, 851, 10, 10],
+      "rect": [1155, 871, 10, 10],
       "role": "group"
     },
     {
-      "rect": [1171, 849, 154, 15],
+      "rect": [1171, 869, 154, 15],
       "role": "text",
       "text": "Assistant thinking (retained)"
     },
     {
-      "rect": [632, 876, 252, 15],
+      "rect": [632, 896, 252, 15],
       "role": "group"
     },
     {
-      "rect": [632, 878, 10, 10],
+      "rect": [632, 898, 10, 10],
       "role": "group"
     },
     {
-      "rect": [648, 876, 236, 15],
+      "rect": [648, 896, 236, 15],
       "role": "text",
       "text": "Tool schemas & overhead (not in transcript)"
     },
     {
       "key": "history-heading",
-      "rect": [616, 923, 808, 79],
+      "rect": [616, 943, 808, 79],
       "role": "group"
     },
     {
-      "rect": [616, 931, 808, 20],
+      "rect": [616, 951, 808, 20],
       "role": "text",
       "text": "Full history · 364 events · 2/120 turns in dumb zone"
     },
     {
-      "rect": [616, 955, 808, 15],
+      "rect": [616, 975, 808, 15],
       "role": "text",
       "text": "Secrets are redacted by default."
     },
     {
       "key": "history-toolbar",
-      "rect": [616, 974, 808, 28],
+      "rect": [616, 994, 808, 28],
       "role": "group"
     },
     {
       "key": "expand-all",
       "label": "Expand all",
-      "rect": [616, 978, 74, 20],
+      "rect": [616, 998, 74, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [626, 982, 54, 12],
+      "rect": [626, 1002, 54, 12],
       "role": "text",
       "text": "Expand all"
     },
     {
       "key": "collapse-all",
       "label": "Collapse all",
-      "rect": [694, 978, 81, 20],
+      "rect": [694, 998, 81, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [704, 982, 61, 12],
+      "rect": [704, 1002, 61, 12],
       "role": "text",
       "text": "Collapse all"
     },
     {
-      "rect": [778, 988, 521, 0],
+      "rect": [778, 1008, 521, 0],
       "role": "group"
     },
     {
       "key": "back-to-summary",
       "label": "Back to summary ↑",
-      "rect": [1303, 978, 121, 20],
+      "rect": [1303, 998, 121, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [1313, 982, 101, 12],
+      "rect": [1313, 1002, 101, 12],
       "role": "text",
       "text": "Back to summary ↑"
     },
     {
       "key": "history-rows",
-      "rect": [616, 1018, 808, 25959],
+      "rect": [616, 1038, 808, 25959],
       "role": "group"
     },
     {
       "key": "n0",
-      "rect": [616, 1018, 808, 135],
+      "rect": [616, 1038, 808, 135],
       "role": "group"
     },
     {
-      "rect": [616, 1022, 808, 127],
+      "rect": [616, 1042, 808, 127],
       "role": "group"
     },
     {
       "key": "chat:0",
-      "rect": [704, 1022, 720, 127],
+      "rect": [704, 1042, 720, 127],
       "role": "group"
     },
     {
-      "rect": [704, 1022, 720, 20],
+      "rect": [704, 1042, 720, 20],
       "role": "group"
     },
     {
-      "rect": [1297, 1022, 128, 20],
+      "rect": [1297, 1042, 128, 20],
       "role": "group"
     },
     {
-      "rect": [1297, 1024, 25, 15],
+      "rect": [1297, 1044, 25, 15],
       "role": "text",
       "text": "user"
     },
     {
-      "rect": [1327, 1024, 49, 15],
+      "rect": [1327, 1044, 49, 15],
       "role": "text",
       "text": "· ~20 tok"
     },
     {
       "key": "chat:0:raw",
       "label": "Raw",
-      "rect": [1382, 1022, 43, 20],
+      "rect": [1382, 1042, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [1392, 1026, 23, 12],
+      "rect": [1392, 1046, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [704, 1046, 720, 103],
+      "rect": [704, 1066, 720, 103],
       "role": "group"
     },
     {
-      "rect": [718, 1056, 692, 83],
+      "rect": [718, 1076, 692, 83],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [718, 1056, 692, 22],
+      "rect": [718, 1076, 692, 22],
       "role": "text",
       "text": "Tune the parser and keep the tests green."
     },
     {
       "key": "b1",
-      "rect": [718, 1090, 692, 49],
+      "rect": [718, 1110, 692, 49],
       "role": "list"
     },
     {
       "key": "i0",
-      "rect": [718, 1090, 692, 22],
+      "rect": [718, 1110, 692, 22],
       "role": "listitem"
     },
     {
-      "rect": [718, 1090, 32, 22],
+      "rect": [718, 1110, 32, 22],
       "role": "text",
       "text": "•"
     },
     {
-      "rect": [750, 1090, 660, 22],
+      "rect": [750, 1110, 660, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [750, 1090, 660, 22],
+      "rect": [750, 1110, 660, 22],
       "role": "text",
       "text": "profile first"
     },
     {
       "key": "i1",
-      "rect": [718, 1116, 692, 22],
+      "rect": [718, 1136, 692, 22],
       "role": "listitem"
     },
     {
-      "rect": [718, 1116, 32, 22],
+      "rect": [718, 1136, 32, 22],
       "role": "text",
       "text": "•"
     },
     {
-      "rect": [750, 1116, 660, 22],
+      "rect": [750, 1136, 660, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [750, 1116, 660, 22],
+      "rect": [750, 1136, 660, 22],
       "role": "text",
       "text": "then cut allocations"
     },
     {
       "key": "run1",
-      "rect": [616, 1153, 808, 51],
+      "rect": [616, 1173, 808, 51],
       "role": "group"
     },
     {
-      "rect": [616, 1157, 808, 43],
+      "rect": [616, 1177, 808, 43],
       "role": "group"
     },
     {
       "key": "run1",
-      "rect": [616, 1157, 808, 43],
+      "rect": [616, 1177, 808, 43],
       "role": "group"
     },
     {
-      "rect": [966, 1157, 108, 13],
+      "rect": [966, 1177, 108, 13],
       "role": "text",
       "text": "+1 items loaded · ~7 tok"
     },
     {
-      "rect": [616, 1175, 808, 24],
+      "rect": [616, 1195, 808, 24],
       "role": "group"
     },
     {
       "key": "chat:1",
-      "rect": [982, 1175, 76, 24],
+      "rect": [982, 1195, 76, 24],
       "role": "button"
     },
     {
-      "rect": [990, 1180, 60, 14],
+      "rect": [990, 1200, 60, 14],
       "role": "text",
       "text": "CLAUDE.md"
     },
     {
       "key": "turn1",
-      "rect": [616, 1203, 808, 44],
+      "rect": [616, 1223, 808, 44],
       "role": "group"
     },
     {
       "key": "turn1",
-      "rect": [616, 1207, 808, 36],
+      "rect": [616, 1227, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 1225, 215, 1],
+      "rect": [616, 1245, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 1211, 363, 28],
+      "rect": [839, 1231, 363, 28],
       "role": "text",
       "text": "turn 1 · claude-sonnet-4-5 · ctx 16.3K (1.6%) · out 400"
     },
     {
-      "rect": [1210, 1225, 215, 1],
+      "rect": [1210, 1245, 215, 1],
       "role": "group"
     },
     {
       "key": "n2",
-      "rect": [616, 1247, 808, 74],
+      "rect": [616, 1267, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 1251, 808, 66],
+      "rect": [616, 1271, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:2",
-      "rect": [616, 1251, 720, 66],
+      "rect": [616, 1271, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 1251, 720, 20],
+      "rect": [616, 1271, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 1253, 50, 15],
+      "rect": [616, 1273, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 1253, 41, 15],
+      "rect": [672, 1273, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:2:raw",
       "label": "Raw",
-      "rect": [719, 1251, 43, 20],
+      "rect": [719, 1271, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 1255, 23, 12],
+      "rect": [729, 1275, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 1275, 720, 42],
+      "rect": [616, 1295, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 1285, 692, 22],
+      "rect": [630, 1305, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 1285, 692, 22],
+      "rect": [630, 1305, 692, 22],
       "role": "text",
       "text": "Step 1: checking with   ⁦Read⁩  ."
     },
     {
       "key": "n3",
-      "rect": [616, 1321, 808, 42],
+      "rect": [616, 1341, 808, 42],
       "role": "group"
     },
     {
-      "rect": [616, 1325, 808, 34],
+      "rect": [616, 1345, 808, 34],
       "role": "group"
     },
     {
       "key": "chat:3",
-      "rect": [616, 1325, 808, 34],
+      "rect": [616, 1345, 808, 34],
       "role": "group"
     },
     {
-      "rect": [616, 1325, 808, 34],
+      "rect": [616, 1345, 808, 34],
       "role": "button"
     },
     {
-      "rect": [628, 1335, 4, 15],
+      "rect": [628, 1355, 4, 15],
       "role": "text",
       "text": "›"
     },
     {
-      "rect": [640, 1335, 29, 15],
+      "rect": [640, 1355, 29, 15],
       "role": "text",
       "text": "Read"
     },
     {
-      "rect": [677, 1333, 62, 18],
+      "rect": [677, 1353, 62, 18],
       "role": "group"
     },
     {
-      "rect": [683, 1336, 50, 13],
+      "rect": [683, 1356, 50, 13],
       "role": "text",
       "text": "completed"
     },
     {
-      "rect": [747, 1335, 591, 15],
+      "rect": [747, 1355, 591, 15],
       "role": "text",
       "text": "{ \"file_path\": \"/Users/demo/parser/src/m1.ts\" }"
     },
     {
-      "rect": [1346, 1335, 66, 14],
+      "rect": [1346, 1355, 66, 14],
       "role": "text",
       "text": "~12 → 5.6K"
     },
     {
       "key": "turn2",
-      "rect": [616, 1363, 808, 44],
+      "rect": [616, 1383, 808, 44],
       "role": "group"
     },
     {
       "key": "turn2",
-      "rect": [616, 1367, 808, 36],
+      "rect": [616, 1387, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 1384, 215, 1],
+      "rect": [616, 1404, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 1371, 363, 28],
+      "rect": [839, 1391, 363, 28],
       "role": "text",
       "text": "turn 2 · claude-sonnet-4-5 · ctx 22.3K (2.2%) · out 400"
     },
     {
-      "rect": [1210, 1384, 215, 1],
+      "rect": [1210, 1404, 215, 1],
       "role": "group"
     },
     {
       "key": "n5",
-      "rect": [616, 1407, 808, 74],
+      "rect": [616, 1427, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 1411, 808, 66],
+      "rect": [616, 1431, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:5",
-      "rect": [616, 1411, 720, 66],
+      "rect": [616, 1431, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 1411, 720, 20],
+      "rect": [616, 1431, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 1413, 50, 15],
+      "rect": [616, 1433, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 1413, 41, 15],
+      "rect": [672, 1433, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:5:raw",
       "label": "Raw",
-      "rect": [719, 1411, 43, 20],
+      "rect": [719, 1431, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 1415, 23, 12],
+      "rect": [729, 1435, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 1435, 720, 42],
+      "rect": [616, 1455, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 1445, 692, 22],
+      "rect": [630, 1465, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 1445, 692, 22],
+      "rect": [630, 1465, 692, 22],
       "role": "text",
       "text": "Step 2: checking with   ⁦Edit⁩  ."
     },
     {
       "key": "n6",
-      "rect": [616, 1481, 808, 42],
+      "rect": [616, 1501, 808, 42],
       "role": "group"
     },
     {
-      "rect": [616, 1485, 808, 34],
+      "rect": [616, 1505, 808, 34],
       "role": "group"
     },
     {
       "key": "chat:6",
-      "rect": [616, 1485, 808, 34],
+      "rect": [616, 1505, 808, 34],
       "role": "group"
     },
     {
-      "rect": [616, 1485, 808, 34],
+      "rect": [616, 1505, 808, 34],
       "role": "button"
     },
     {
-      "rect": [628, 1495, 4, 15],
+      "rect": [628, 1515, 4, 15],
       "role": "text",
       "text": "›"
     },
     {
-      "rect": [640, 1495, 22, 15],
+      "rect": [640, 1515, 22, 15],
       "role": "text",
       "text": "Edit"
     },
     {
-      "rect": [670, 1493, 62, 18],
+      "rect": [670, 1513, 62, 18],
       "role": "group"
     },
     {
-      "rect": [676, 1496, 50, 13],
+      "rect": [676, 1516, 50, 13],
       "role": "text",
       "text": "completed"
     },
     {
-      "rect": [740, 1495, 598, 15],
+      "rect": [740, 1515, 598, 15],
       "role": "text",
       "text": "lex.ts +1 −1"
     },
     {
-      "rect": [1346, 1495, 66, 14],
+      "rect": [1346, 1515, 66, 14],
       "role": "text",
       "text": "~29 → 5.6K"
     },
     {
       "key": "turn3",
-      "rect": [616, 1523, 808, 44],
+      "rect": [616, 1543, 808, 44],
       "role": "group"
     },
     {
       "key": "turn3",
-      "rect": [616, 1527, 808, 36],
+      "rect": [616, 1547, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 1544, 215, 1],
+      "rect": [616, 1564, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 1531, 363, 28],
+      "rect": [839, 1551, 363, 28],
       "role": "text",
       "text": "turn 3 · claude-sonnet-4-5 · ctx 28.3K (2.8%) · out 400"
     },
     {
-      "rect": [1210, 1544, 215, 1],
+      "rect": [1210, 1564, 215, 1],
       "role": "group"
     },
     {
       "key": "n8",
-      "rect": [616, 1567, 808, 74],
+      "rect": [616, 1587, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 1571, 808, 66],
+      "rect": [616, 1591, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:8",
-      "rect": [616, 1571, 720, 66],
+      "rect": [616, 1591, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 1571, 720, 20],
+      "rect": [616, 1591, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 1573, 50, 15],
+      "rect": [616, 1593, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 1573, 41, 15],
+      "rect": [672, 1593, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:8:raw",
       "label": "Raw",
-      "rect": [719, 1571, 43, 20],
+      "rect": [719, 1591, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 1575, 23, 12],
+      "rect": [729, 1595, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 1595, 720, 42],
+      "rect": [616, 1615, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 1605, 692, 22],
+      "rect": [630, 1625, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 1605, 692, 22],
+      "rect": [630, 1625, 692, 22],
       "role": "text",
       "text": "Step 3: checking with   ⁦Grep⁩  ."
     },
     {
       "key": "n9",
-      "rect": [616, 1641, 808, 42],
+      "rect": [616, 1661, 808, 42],
       "role": "group"
     },
     {
-      "rect": [616, 1645, 808, 34],
+      "rect": [616, 1665, 808, 34],
       "role": "group"
     },
     {
       "key": "chat:9",
-      "rect": [616, 1645, 808, 34],
+      "rect": [616, 1665, 808, 34],
       "role": "group"
     },
     {
-      "rect": [616, 1645, 808, 34],
+      "rect": [616, 1665, 808, 34],
       "role": "button"
     },
     {
-      "rect": [628, 1654, 4, 15],
+      "rect": [628, 1674, 4, 15],
       "role": "text",
       "text": "›"
     },
     {
-      "rect": [640, 1654, 27, 15],
+      "rect": [640, 1674, 27, 15],
       "role": "text",
       "text": "Grep"
     },
     {
-      "rect": [675, 1653, 62, 18],
+      "rect": [675, 1673, 62, 18],
       "role": "group"
     },
     {
-      "rect": [681, 1656, 50, 13],
+      "rect": [681, 1676, 50, 13],
       "role": "text",
       "text": "completed"
     },
     {
-      "rect": [745, 1654, 593, 15],
+      "rect": [745, 1674, 593, 15],
       "role": "text",
       "text": "{ \"path\": \"src\", \"pattern\": \"TODO\" }"
     },
     {
-      "rect": [1346, 1655, 66, 14],
+      "rect": [1346, 1675, 66, 14],
       "role": "text",
       "text": "~10 → 5.6K"
     },
     {
       "key": "turn4",
-      "rect": [616, 1683, 808, 44],
+      "rect": [616, 1703, 808, 44],
       "role": "group"
     },
     {
       "key": "turn4",
-      "rect": [616, 1687, 808, 36],
+      "rect": [616, 1707, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 1704, 215, 1],
+      "rect": [616, 1724, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 1691, 363, 28],
+      "rect": [839, 1711, 363, 28],
       "role": "text",
       "text": "turn 4 · claude-sonnet-4-5 · ctx 34.3K (3.4%) · out 400"
     },
     {
-      "rect": [1210, 1704, 215, 1],
+      "rect": [1210, 1724, 215, 1],
       "role": "group"
     },
     {
       "key": "n11",
-      "rect": [616, 1726, 808, 74],
+      "rect": [616, 1746, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 1730, 808, 66],
+      "rect": [616, 1750, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:11",
-      "rect": [616, 1730, 720, 66],
+      "rect": [616, 1750, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 1730, 720, 20],
+      "rect": [616, 1750, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 1733, 50, 15],
+      "rect": [616, 1753, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 1733, 41, 15],
+      "rect": [672, 1753, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:11:raw",
       "label": "Raw",
-      "rect": [719, 1730, 43, 20],
+      "rect": [719, 1750, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 1734, 23, 12],
+      "rect": [729, 1754, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 1754, 720, 42],
+      "rect": [616, 1774, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 1764, 692, 22],
+      "rect": [630, 1784, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 1764, 692, 22],
+      "rect": [630, 1784, 692, 22],
       "role": "text",
       "text": "Step 4: checking with   ⁦Bash⁩  ."
     },
     {
       "key": "n12",
-      "rect": [616, 1801, 808, 42],
+      "rect": [616, 1821, 808, 42],
       "role": "group"
     },
     {
-      "rect": [616, 1805, 808, 34],
+      "rect": [616, 1825, 808, 34],
       "role": "group"
     },
     {
       "key": "chat:12",
-      "rect": [616, 1805, 808, 34],
+      "rect": [616, 1825, 808, 34],
       "role": "group"
     },
     {
-      "rect": [616, 1805, 808, 34],
+      "rect": [616, 1825, 808, 34],
       "role": "button"
     },
     {
-      "rect": [628, 1814, 4, 15],
+      "rect": [628, 1834, 4, 15],
       "role": "text",
       "text": "›"
     },
     {
-      "rect": [640, 1814, 29, 15],
+      "rect": [640, 1834, 29, 15],
       "role": "text",
       "text": "Bash"
     },
     {
-      "rect": [677, 1813, 62, 18],
+      "rect": [677, 1833, 62, 18],
       "role": "group"
     },
     {
-      "rect": [683, 1816, 50, 13],
+      "rect": [683, 1836, 50, 13],
       "role": "text",
       "text": "completed"
     },
     {
-      "rect": [747, 1814, 592, 15],
+      "rect": [747, 1834, 592, 15],
       "role": "text",
       "text": "cargo test case4 echo done"
     },
     {
-      "rect": [1346, 1815, 66, 14],
+      "rect": [1346, 1835, 66, 14],
       "role": "text",
       "text": "~19 → 5.6K"
     },
     {
       "key": "turn5",
-      "rect": [616, 1843, 808, 44],
+      "rect": [616, 1863, 808, 44],
       "role": "group"
     },
     {
       "key": "turn5",
-      "rect": [616, 1847, 808, 36],
+      "rect": [616, 1867, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 1864, 215, 1],
+      "rect": [616, 1884, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 1851, 363, 28],
+      "rect": [839, 1871, 363, 28],
       "role": "text",
       "text": "turn 5 · claude-sonnet-4-5 · ctx 40.3K (4.0%) · out 400"
     },
     {
-      "rect": [1210, 1864, 215, 1],
+      "rect": [1210, 1884, 215, 1],
       "role": "group"
     },
     {
       "key": "n14",
-      "rect": [616, 1886, 808, 74],
+      "rect": [616, 1906, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 1890, 808, 66],
+      "rect": [616, 1910, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:14",
-      "rect": [616, 1890, 720, 66],
+      "rect": [616, 1910, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 1890, 720, 20],
+      "rect": [616, 1910, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 1893, 50, 15],
+      "rect": [616, 1913, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 1893, 41, 15],
+      "rect": [672, 1913, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:14:raw",
       "label": "Raw",
-      "rect": [719, 1890, 43, 20],
+      "rect": [719, 1910, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 1894, 23, 12],
+      "rect": [729, 1914, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 1914, 720, 42],
+      "rect": [616, 1934, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 1924, 692, 22],
+      "rect": [630, 1944, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 1924, 692, 22],
+      "rect": [630, 1944, 692, 22],
       "role": "text",
       "text": "Step 5: checking with   ⁦Read⁩  ."
     },
     {
       "key": "n15",
-      "rect": [616, 1961, 808, 42],
+      "rect": [616, 1981, 808, 42],
       "role": "group"
     },
     {
-      "rect": [616, 1965, 808, 34],
+      "rect": [616, 1985, 808, 34],
       "role": "group"
     },
     {
       "key": "chat:15",
-      "rect": [616, 1965, 808, 34],
+      "rect": [616, 1985, 808, 34],
       "role": "group"
     },
     {
-      "rect": [616, 1965, 808, 34],
+      "rect": [616, 1985, 808, 34],
       "role": "button"
     },
     {
-      "rect": [628, 1974, 4, 15],
+      "rect": [628, 1994, 4, 15],
       "role": "text",
       "text": "›"
     },
     {
-      "rect": [640, 1974, 29, 15],
+      "rect": [640, 1994, 29, 15],
       "role": "text",
       "text": "Read"
     },
     {
-      "rect": [677, 1973, 62, 18],
+      "rect": [677, 1993, 62, 18],
       "role": "group"
     },
     {
-      "rect": [683, 1976, 50, 13],
+      "rect": [683, 1996, 50, 13],
       "role": "text",
       "text": "completed"
     },
     {
-      "rect": [747, 1974, 591, 15],
+      "rect": [747, 1994, 591, 15],
       "role": "text",
       "text": "{ \"file_path\": \"/Users/demo/parser/src/m5.ts\" }"
     },
     {
-      "rect": [1346, 1975, 66, 14],
+      "rect": [1346, 1995, 66, 14],
       "role": "text",
       "text": "~12 → 5.6K"
     },
     {
       "key": "turn6",
-      "rect": [616, 2003, 808, 44],
+      "rect": [616, 2023, 808, 44],
       "role": "group"
     },
     {
       "key": "turn6",
-      "rect": [616, 2007, 808, 36],
+      "rect": [616, 2027, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 2024, 215, 1],
+      "rect": [616, 2044, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 2011, 363, 28],
+      "rect": [839, 2031, 363, 28],
       "role": "text",
       "text": "turn 6 · claude-sonnet-4-5 · ctx 46.3K (4.6%) · out 400"
     },
     {
-      "rect": [1210, 2024, 215, 1],
+      "rect": [1210, 2044, 215, 1],
       "role": "group"
     },
     {
       "key": "n17",
-      "rect": [616, 2046, 808, 74],
+      "rect": [616, 2066, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 2050, 808, 66],
+      "rect": [616, 2070, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:17",
-      "rect": [616, 2050, 720, 66],
+      "rect": [616, 2070, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 2050, 720, 20],
+      "rect": [616, 2070, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 2053, 50, 15],
+      "rect": [616, 2073, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 2053, 41, 15],
+      "rect": [672, 2073, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:17:raw",
       "label": "Raw",
-      "rect": [719, 2050, 43, 20],
+      "rect": [719, 2070, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 2054, 23, 12],
+      "rect": [729, 2074, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 2074, 720, 42],
+      "rect": [616, 2094, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 2084, 692, 22],
+      "rect": [630, 2104, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 2084, 692, 22],
+      "rect": [630, 2104, 692, 22],
       "role": "text",
       "text": "Step 6: checking with   ⁦Edit⁩  ."
     },
     {
       "key": "n18",
-      "rect": [616, 2121, 808, 42],
+      "rect": [616, 2141, 808, 42],
       "role": "group"
     },
     {
-      "rect": [616, 2125, 808, 34],
+      "rect": [616, 2145, 808, 34],
       "role": "group"
     },
     {
       "key": "chat:18",
-      "rect": [616, 2125, 808, 34],
+      "rect": [616, 2145, 808, 34],
       "role": "group"
     },
     {
-      "rect": [616, 2125, 808, 34],
+      "rect": [616, 2145, 808, 34],
       "role": "button"
     },
     {
-      "rect": [628, 2134, 4, 15],
+      "rect": [628, 2154, 4, 15],
       "role": "text",
       "text": "›"
     },
     {
-      "rect": [640, 2134, 22, 15],
+      "rect": [640, 2154, 22, 15],
       "role": "text",
       "text": "Edit"
     },
     {
-      "rect": [670, 2133, 62, 18],
+      "rect": [670, 2153, 62, 18],
       "role": "group"
     },
     {
-      "rect": [676, 2135, 50, 13],
+      "rect": [676, 2155, 50, 13],
       "role": "text",
       "text": "completed"
     },
     {
-      "rect": [740, 2134, 598, 15],
+      "rect": [740, 2154, 598, 15],
       "role": "text",
       "text": "lex.ts +1 −1"
     },
     {
-      "rect": [1346, 2135, 66, 14],
+      "rect": [1346, 2155, 66, 14],
       "role": "text",
       "text": "~29 → 5.6K"
     },
     {
       "key": "turn7",
-      "rect": [616, 2163, 808, 44],
+      "rect": [616, 2183, 808, 44],
       "role": "group"
     },
     {
       "key": "turn7",
-      "rect": [616, 2167, 808, 36],
+      "rect": [616, 2187, 808, 36],
       "role": "heading"
     },
     {
-      "rect": [616, 2184, 215, 1],
+      "rect": [616, 2204, 215, 1],
       "role": "group"
     },
     {
-      "rect": [839, 2171, 363, 28],
+      "rect": [839, 2191, 363, 28],
       "role": "text",
       "text": "turn 7 · claude-sonnet-4-5 · ctx 52.3K (5.2%) · out 400"
     },
     {
-      "rect": [1210, 2184, 215, 1],
+      "rect": [1210, 2204, 215, 1],
       "role": "group"
     },
     {
       "key": "n20",
-      "rect": [616, 2206, 808, 74],
+      "rect": [616, 2226, 808, 74],
       "role": "group"
     },
     {
-      "rect": [616, 2210, 808, 66],
+      "rect": [616, 2230, 808, 66],
       "role": "group"
     },
     {
       "key": "chat:20",
-      "rect": [616, 2210, 720, 66],
+      "rect": [616, 2230, 720, 66],
       "role": "group"
     },
     {
-      "rect": [616, 2210, 720, 20],
+      "rect": [616, 2230, 720, 20],
       "role": "group"
     },
     {
-      "rect": [616, 2213, 50, 15],
+      "rect": [616, 2233, 50, 15],
       "role": "text",
       "text": "assistant"
     },
     {
-      "rect": [672, 2213, 41, 15],
+      "rect": [672, 2233, 41, 15],
       "role": "text",
       "text": "· ~8 tok"
     },
     {
       "key": "chat:20:raw",
       "label": "Raw",
-      "rect": [719, 2210, 43, 20],
+      "rect": [719, 2230, 43, 20],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [729, 2214, 23, 12],
+      "rect": [729, 2234, 23, 12],
       "role": "text",
       "text": "Raw"
     },
     {
-      "rect": [616, 2234, 720, 42],
+      "rect": [616, 2254, 720, 42],
       "role": "group"
     },
     {
-      "rect": [630, 2244, 692, 22],
+      "rect": [630, 2264, 692, 22],
       "role": "group"
     },
     {
       "key": "b0",
-      "rect": [630, 2244, 692, 22],
+      "rect": [630, 2264, 692, 22],
       "role": "text",
       "text": "Step 7: checking with   ⁦Grep⁩  ."
     }

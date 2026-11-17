@@ -94,3 +94,58 @@ fn pricing_is_local_only() {
     assert_eq!(r.code, 1);
     assert!(r.err.contains("not supported for `pricing`"), "{}", r.err);
 }
+
+#[test]
+fn update_with_providers_writes_the_maker_snapshot() {
+    let h = Home::new("pricing-providers");
+    let mut api: serde_json::Value = serde_json::from_str(API).expect("api");
+    for maker in peektrace_core::model_provider::MAKERS {
+        api.as_object_mut()
+            .expect("object")
+            .entry(maker)
+            .or_insert_with(|| serde_json::json!({"name": maker, "models": {}}));
+    }
+    let file = h.dir().join("api.json");
+    fs::write(&file, api.to_string()).expect("write api");
+    let (out, providers) = (h.dir().join("table.json"), h.dir().join("providers.tsv"));
+    let args = [
+        "pricing",
+        "update",
+        "--from",
+        &file.to_string_lossy(),
+        "--output",
+        &out.to_string_lossy(),
+        "--providers",
+        &providers.to_string_lossy(),
+    ]
+    .map(str::to_owned);
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let r = h.run(&args);
+    assert_eq!(r.code, 0, "{}", r.err);
+    assert!(r.out.starts_with("Wrote model makers"), "{}", r.out);
+    let text = fs::read_to_string(&providers).expect("snapshot written");
+    assert!(text.contains("\nopenai\topenai\tgpt-5.5\n"), "{text}");
+    let r = h.run(&args);
+    assert!(r.out.starts_with("Providers unchanged"), "{}", r.out);
+}
+
+#[test]
+fn update_writes_no_maker_snapshot_when_prices_are_unusable() {
+    let h = Home::new("pricing-providers-bad");
+    let api = serde_json::json!({"anthropic": {"name": "Anthropic", "models": {}}});
+    let file = h.dir().join("api.json");
+    fs::write(&file, api.to_string()).expect("write api");
+    let (out, providers) = (h.dir().join("table.json"), h.dir().join("providers.tsv"));
+    let r = h.run(&[
+        "pricing",
+        "update",
+        "--from",
+        &file.to_string_lossy(),
+        "--output",
+        &out.to_string_lossy(),
+        "--providers",
+        &providers.to_string_lossy(),
+    ]);
+    assert_ne!(r.code, 0, "{}", r.out);
+    assert!(!providers.exists(), "{}", r.out);
+}

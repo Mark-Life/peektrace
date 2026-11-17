@@ -53,6 +53,12 @@ pub struct SessionHeader {
     pub source_label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub launcher: Option<crate::wire::sessions::Launcher>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub models: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_provider: Option<crate::wire::sessions::ModelProvider>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<crate::wire::sessions::Worktree>,
 }
 
 /// `GET /api/sessions`, typed.
@@ -414,6 +420,10 @@ pub struct SessionMeta {
     pub title: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub launcher: Option<crate::wire::sessions::Launcher>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model_provider: Option<crate::wire::sessions::ModelProvider>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub worktree: Option<crate::wire::sessions::Worktree>,
     #[serde(deserialize_with = "num")]
     pub context_window: f64,
     pub context_window_inferred: bool,

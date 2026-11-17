@@ -253,34 +253,44 @@
       "text": "Jun 1, 10:00"
     },
     {
-      "rect": [108, 149, 296, 18],
+      "rect": [108, 149, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 149, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [108, 149, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 151, 33, 13],
+      "rect": [111, 150, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [159, 150, 21, 15],
+      "label": "Anthropic",
+      "rect": [135, 149, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [136, 150, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [157, 149, 24, 15],
       "role": "text",
       "text": "proj"
     },
     {
-      "rect": [186, 150, 29, 15],
+      "rect": [187, 149, 29, 15],
       "role": "text",
       "text": "main"
     },
     {
-      "rect": [221, 158, 137, 0],
+      "rect": [222, 157, 137, 0],
       "role": "group"
     },
     {
-      "rect": [364, 150, 40, 15],
+      "rect": [364, 149, 40, 15],
       "role": "text",
       "text": "6 msgs"
     },
@@ -309,34 +319,44 @@
       "text": "May 31, 09:00"
     },
     {
-      "rect": [108, 213, 296, 18],
+      "rect": [108, 213, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 213, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [108, 213, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 215, 33, 13],
+      "rect": [111, 214, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [159, 214, 36, 15],
+      "label": "Anthropic",
+      "rect": [135, 213, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [136, 214, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [157, 213, 36, 15],
       "role": "text",
       "text": "parser"
     },
     {
-      "rect": [201, 214, 80, 15],
+      "rect": [198, 213, 94, 15],
       "role": "text",
       "text": "feature/speed"
     },
     {
-      "rect": [287, 222, 62, 0],
+      "rect": [298, 221, 51, 0],
       "role": "group"
     },
     {
-      "rect": [355, 214, 50, 15],
+      "rect": [355, 213, 50, 15],
       "role": "text",
       "text": "121 msgs"
     },
@@ -365,29 +385,39 @@
       "text": "May 30, 08:00"
     },
     {
-      "rect": [108, 277, 296, 18],
+      "rect": [108, 277, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 277, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [108, 277, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 279, 33, 13],
+      "rect": [111, 278, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [159, 278, 21, 15],
+      "label": "Anthropic",
+      "rect": [135, 277, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [136, 278, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [157, 277, 24, 15],
       "role": "text",
       "text": "app"
     },
     {
-      "rect": [186, 286, 172, 0],
+      "rect": [187, 285, 171, 0],
       "role": "group"
     },
     {
-      "rect": [364, 278, 41, 15],
+      "rect": [364, 277, 41, 15],
       "role": "text",
       "text": "3 msgs"
     },
@@ -416,29 +446,39 @@
       "text": "May 29, 08:01"
     },
     {
-      "rect": [108, 341, 296, 18],
+      "rect": [108, 341, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 341, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [108, 341, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 343, 33, 13],
+      "rect": [111, 342, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [159, 342, 21, 15],
+      "label": "Anthropic",
+      "rect": [135, 341, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [136, 342, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [157, 341, 24, 15],
       "role": "text",
       "text": "app"
     },
     {
-      "rect": [186, 350, 172, 0],
+      "rect": [187, 349, 171, 0],
       "role": "group"
     },
     {
-      "rect": [364, 342, 41, 15],
+      "rect": [364, 341, 41, 15],
       "role": "text",
       "text": "4 msgs"
     },
@@ -467,29 +507,39 @@
       "text": "May 28, 08:03"
     },
     {
-      "rect": [108, 405, 296, 18],
+      "rect": [108, 405, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 405, 45, 18],
-      "role": "group"
+      "label": "Claude Code",
+      "rect": [108, 405, 21, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 407, 33, 13],
+      "rect": [111, 406, 15, 13],
       "role": "text",
-      "text": "Claude"
+      "text": "CC"
     },
     {
-      "rect": [159, 406, 21, 15],
+      "label": "Anthropic",
+      "rect": [135, 405, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [136, 406, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [157, 405, 24, 15],
       "role": "text",
       "text": "app"
     },
     {
-      "rect": [186, 414, 172, 0],
+      "rect": [187, 413, 171, 0],
       "role": "group"
     },
     {
-      "rect": [364, 406, 41, 15],
+      "rect": [364, 405, 41, 15],
       "role": "text",
       "text": "3 msgs"
     },
@@ -518,29 +568,39 @@
       "text": "Jul 6, 13:05"
     },
     {
-      "rect": [108, 469, 296, 18],
+      "rect": [108, 469, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 469, 21, 18],
-      "role": "group"
+      "label": "Pi",
+      "rect": [108, 469, 16, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 471, 9, 13],
+      "rect": [112, 470, 9, 13],
       "role": "text",
       "text": "Pi"
     },
     {
-      "rect": [135, 470, 21, 15],
+      "label": "Alibaba",
+      "rect": [130, 469, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [131, 470, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [152, 469, 24, 15],
       "role": "text",
       "text": "proj"
     },
     {
-      "rect": [162, 478, 196, 0],
+      "rect": [182, 477, 176, 0],
       "role": "group"
     },
     {
-      "rect": [364, 470, 41, 15],
+      "rect": [364, 469, 41, 15],
       "role": "text",
       "text": "5 msgs"
     },
@@ -569,34 +629,44 @@
       "text": "Jul 8, 10:00"
     },
     {
-      "rect": [108, 533, 296, 18],
+      "rect": [108, 533, 296, 16],
       "role": "group"
     },
     {
-      "rect": [108, 533, 43, 18],
-      "role": "group"
+      "label": "Codex",
+      "rect": [108, 533, 19, 16],
+      "role": "img"
     },
     {
-      "rect": [114, 535, 31, 13],
+      "rect": [111, 534, 13, 13],
       "role": "text",
-      "text": "Codex"
+      "text": "Cx"
     },
     {
-      "rect": [157, 534, 51, 15],
+      "label": "OpenAI",
+      "rect": [133, 533, 16, 16],
+      "role": "img"
+    },
+    {
+      "rect": [134, 534, 14, 14],
+      "role": "icon"
+    },
+    {
+      "rect": [155, 533, 51, 15],
       "role": "text",
       "text": "peephole"
     },
     {
-      "rect": [214, 534, 80, 15],
+      "rect": [212, 533, 108, 15],
       "role": "text",
       "text": "feature/parsers"
     },
     {
-      "rect": [300, 542, 58, 0],
+      "rect": [326, 541, 32, 0],
       "role": "group"
     },
     {
-      "rect": [364, 534, 41, 15],
+      "rect": [364, 533, 41, 15],
       "role": "text",
       "text": "3 msgs"
     },

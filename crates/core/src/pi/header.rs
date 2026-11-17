@@ -4,7 +4,7 @@
 use std::collections::HashSet;
 
 use super::context::string_or;
-use crate::headers::{RowFold, fold_text};
+use crate::headers::{RowFold, distinct_models, fold_text};
 use crate::js::text;
 use crate::js::time;
 use crate::js::value::{EMPTY_OBJECT, JsValue, defined};
@@ -164,6 +164,8 @@ impl RowFold for Acc {
             cost_parts: None,
             source: None,
             launcher: None,
+            models: distinct_models(self.turns.iter().map(|t| t.model.as_str())),
+            worktree: None,
         }
     }
 }

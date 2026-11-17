@@ -253,7 +253,31 @@ unreadable?: true, costUsd?: number,
  */
 unpricedModels?: ReadonlyArray<string>, };
 
-export type Launcher = { name: string, branch?: string, worktreePath?: string, };
+export type Launcher = { name: string, branch?: string, worktreePath?: string, 
+/**
+ * Title of the thread that started this one (t3code's parent thread).
+ */
+parentTitle?: string, };
+
+export type Worktree = { 
+/**
+ * The main checkout's name: the t3code project title, else its folder.
+ */
+project: string, 
+/**
+ * The main checkout's root, when known.
+ */
+projectRoot?: string, 
+/**
+ * The worktree's own root.
+ */
+path: string, 
+/**
+ * The branch checked out there; absent when detached or unknown.
+ */
+branch?: string, };
+
+export type ModelProvider = { id: string, name: string, };
 
 export type ContextFileScope = "global" | "project" | "memory";
 
@@ -300,7 +324,15 @@ sidechainCost?: TurnsCost,
 /**
  * The app that started the session, when known.
  */
-launcher?: Launcher, };
+launcher?: Launcher, 
+/**
+ * The maker of the first model in `models`, when known.
+ */
+modelProvider?: ModelProvider, 
+/**
+ * Set only when the session ran in a linked worktree.
+ */
+worktree?: Worktree, };
 
 export type ParsedSession = { events: ReadonlyArray<TimelineEvent>, turns: ReadonlyArray<Turn>, provider: Provider, sessionId: string, path: string, cwd?: string, gitBranch?: string, title?: string, version?: string, models: ReadonlyArray<string>, startedAt?: string, endedAt?: string, compactionIndexes: ReadonlyArray<number>, subagents: ReadonlyArray<SubagentRef>, 
 /**
@@ -335,7 +367,15 @@ sidechainCost?: TurnsCost,
 /**
  * The app that started the session, when known.
  */
-launcher?: Launcher, };
+launcher?: Launcher, 
+/**
+ * The maker of the first model in `models`, when known.
+ */
+modelProvider?: ModelProvider, 
+/**
+ * Set only when the session ran in a linked worktree.
+ */
+worktree?: Worktree, };
 
 export type CostSource = "estimate" | "agent";
 
@@ -419,7 +459,15 @@ sidechainCost?: TurnsCost,
 /**
  * The app that started the session, when known.
  */
-launcher?: Launcher, };
+launcher?: Launcher, 
+/**
+ * The maker of the first model in `models`, when known.
+ */
+modelProvider?: ModelProvider, 
+/**
+ * Set only when the session ran in a linked worktree.
+ */
+worktree?: Worktree, };
 
 export type AnalyzedSession = { events: ReadonlyArray<TimelineEvent>, turns: ReadonlyArray<Turn>, snapshots: ReadonlyArray<TurnSnapshot>, contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -462,7 +510,15 @@ sidechainCost?: TurnsCost,
 /**
  * The app that started the session, when known.
  */
-launcher?: Launcher, };
+launcher?: Launcher, 
+/**
+ * The maker of the first model in `models`, when known.
+ */
+modelProvider?: ModelProvider, 
+/**
+ * Set only when the session ran in a linked worktree.
+ */
+worktree?: Worktree, };
 
 export type SessionSummary = { history: SummaryHistory, contextWindow: number, contextWindowInferred: boolean, peakContextTokens: number, peakTurnIndex: number, finalContextTokens: number, totalOutputTokens: number, systemOverheadTokens: number, durationMs?: number, budget: ReadonlyArray<BudgetSlice>, onDiskContextFiles: ReadonlyArray<OnDiskContextFile>, 
 /**
@@ -505,7 +561,15 @@ sidechainCost?: TurnsCost,
 /**
  * The app that started the session, when known.
  */
-launcher?: Launcher, };
+launcher?: Launcher, 
+/**
+ * The maker of the first model in `models`, when known.
+ */
+modelProvider?: ModelProvider, 
+/**
+ * Set only when the session ran in a linked worktree.
+ */
+worktree?: Worktree, };
 
 export type HistoryPage = { events: ReadonlyArray<TimelineEvent>, rev: string, offset: number, total: number, 
 /**
@@ -566,6 +630,19 @@ malformedLines?: number,
  * The app that started the session, when known.
  */
 launcher?: Launcher, 
+/**
+ * Distinct models of the priced turns, first use first; absent when
+ * none is known.
+ */
+models?: ReadonlyArray<string>, 
+/**
+ * The maker of `model`, when known.
+ */
+modelProvider?: ModelProvider, 
+/**
+ * Set only when the session ran in a linked worktree.
+ */
+worktree?: Worktree, 
 /**
  * The session's cost, the same total the session detail shows:
  * subagents and workflow agents included.

@@ -299,6 +299,8 @@ mod tests {
             cost_parts: None,
             source: None,
             launcher: None,
+            models: Vec::new(),
+            worktree: None,
         }
     }
 

@@ -13,6 +13,7 @@ pub mod js;
 pub mod listing;
 pub mod memory;
 pub mod model;
+pub mod model_provider;
 pub mod opencode;
 mod paths;
 pub mod pi;
@@ -28,10 +29,11 @@ pub mod t3code;
 mod ts_consts;
 pub mod watch;
 pub mod wire;
+pub mod worktree;
 
 pub use listing::{AgentRoots, ListFilter, list_sessions, list_sessions_cached};
 pub use model::{
     Agent, FileStamp, HeaderCost, Launcher, ProjectSlug, SessionFileRef, SessionHeader, SessionId,
-    SessionListing, SourceTag, UnreadableSession,
+    SessionListing, SourceTag, UnreadableSession, Worktree,
 };
 pub use paths::PathStyle;
