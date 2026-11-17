@@ -12,8 +12,8 @@ use peektrace_core::stats::detectors::rules::{RuleCheck, RuleMatch, Split};
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::waiting::WaitPanel;
 use peektrace_core::stats::findings::{
-    NO_RULE, cause_note, findings_of, no_suggestion_reason, rule_line, time_note, time_spread,
-    working_of,
+    NO_RULE, cause_note, cause_spread, findings_of, no_suggestion_reason, rule_line, time_note,
+    time_spread, working_of,
 };
 use peektrace_core::stats::format::rate_text;
 use peektrace_core::stats::schema::{CauseId, Job};
@@ -245,6 +245,11 @@ fn misses_of_installed_binaries_stop_ranking_command_not_found() {
         vec![],
     );
     assert_eq!(keys(&r), ["cause:a", "cause:cnf"]);
+    assert!(
+        cause_spread(&r.causes[0]).contains("), 80 from binaries installed since · "),
+        "{}",
+        cause_spread(&r.causes[0])
+    );
 }
 
 #[test]

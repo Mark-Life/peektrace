@@ -75,6 +75,12 @@ pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
     } else {
         format!("{} hits", (f.count)(row.hits))
     };
+    let fixed = row.live_hits.map_or(0.0, |live| row.hits - live);
+    let hits = if fixed > 0.0 && row.rule.is_none() {
+        format!("{hits}, {} from binaries installed since", (f.count)(fixed))
+    } else {
+        hits
+    };
     let retries = if row.failing {
         format!(" · {} sessions with a retry", (f.count)(row.retry_sessions))
     } else {
