@@ -3,14 +3,17 @@
 //! separate "working" list instead of ranking with live ones.
 
 use super::accumulate::{DrillTable, SampleRef};
+pub use super::cause_text::{approx_usd, cause_narrow_with, cause_split_with};
+use super::cause_text::{counted, hits_text, pairs_word, per_thousand, reread_text, time_share};
 use super::cost_findings::cost_findings;
 use super::detectors::causes::CauseKind;
 use super::detectors::failures::{FailRow, PIPED_EXIT_CODE};
 use super::detectors::retries::CauseRow;
 use super::detectors::rules::{RuleCheck, Split};
 use super::detectors::timing::TimeRow;
-use super::format::{count, hms, percent, rate_text, tokens};
+use super::format::{count, hms, percent, tokens};
 use super::service::StatsReport;
+use peektrace_protocol::stats_text::{SUBAGENTS, YOU, fix_in};
 
 pub const NO_RULE: &str = "no rule to suggest";
 
@@ -47,6 +50,8 @@ pub struct Finding {
     /// The table the row came from; `None` for a cost finding, which has no
     /// drill.
     pub table: Option<DrillTable>,
+    /// `Fix in: memory file`; `None` for a row with no named fix.
+    pub fix_in: Option<String>,
     pub samples: Vec<SampleRef>,
 }
 
@@ -55,7 +60,11 @@ pub fn split_of(s: Split) -> String {
 }
 
 fn split_with(s: Split, f: &FindingFormat) -> String {
-    format!("main {} / sub {}", (f.count)(s.main), (f.count)(s.nested))
+    format!(
+        "{YOU} {} / {SUBAGENTS} {}",
+        (f.count)(s.main),
+        (f.count)(s.nested)
+    )
 }
 
 pub fn cause_spread(row: &CauseRow) -> String {
@@ -63,18 +72,7 @@ pub fn cause_spread(row: &CauseRow) -> String {
 }
 
 pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
-    let exit0 = row.hits - row.flagged;
-    let hits = if let Some(split) = rule_split(row, f) {
-        split
-    } else if exit0 > 0.0 {
-        format!(
-            "{} hits ({} at exit 0)",
-            (f.count)(row.hits),
-            (f.count)(exit0)
-        )
-    } else {
-        format!("{} hits", (f.count)(row.hits))
-    };
+    let hits = rule_split(row, f).unwrap_or_else(|| hits_text(row, f));
     let fixed = row.live_hits.map_or(0.0, |live| row.hits - live);
     let hits = if fixed > 0.0 && row.rule.is_none() {
         format!("{hits}, {} from binaries installed since", (f.count)(fixed))
@@ -82,12 +80,20 @@ pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
         hits
     };
     let retries = if row.failing {
-        format!(" · {} sessions with a retry", (f.count)(row.retry_sessions))
+        format!(
+            " · {} with a retry",
+            counted(row.retry_sessions, "session", "sessions", f)
+        )
     } else {
         String::new()
     };
+    let projects = if row.projects == 1.0 {
+        "project"
+    } else {
+        "projects"
+    };
     format!(
-        "{hits}{retries} · {} projects · hits {}",
+        "{hits}{retries} · {} {projects} · {}",
         (f.count)(row.projects),
         split_with(row.hits_by, f)
     )
@@ -99,24 +105,23 @@ pub fn cause_impact(row: &CauseRow) -> String {
 
 pub fn cause_impact_with(row: &CauseRow, f: &FindingFormat) -> String {
     if row.pairs == 0.0 {
-        return format!("{} sessions", (f.count)(row.sessions));
+        return counted(row.sessions, "session", "sessions", f);
     }
-    let what = if row.failing { "retries" } else { "read-backs" };
+    let (one, many) = pairs_word(row);
     let toks = if row.tokens_measured > 0.0 {
-        format!(" · {} ctx tokens re-read", (f.tokens)(row.retry_ctx_tokens))
+        format!(" · {}", reread_text(row.retry_ctx_tokens, row.retry_usd, f))
     } else {
         String::new()
     };
     let sec = if row.sec_measured == 0.0 {
         String::new()
     } else {
-        format!(" · {}", (f.hms)(row.retry_sec))
+        format!(
+            " · {}",
+            time_share(row.retry_sec, row.retry_share, row.shell, f)
+        )
     };
-    format!(
-        "{} {what} ({}){sec}{toks}",
-        (f.count)(row.pairs),
-        split_with(row.pairs_by, f)
-    )
+    format!("{}{sec}{toks}", counted(row.pairs, one, many, f))
 }
 
 fn rule_place(rule: &RuleCheck) -> String {
@@ -233,13 +238,13 @@ pub fn rule_line(rule: &RuleCheck) -> String {
         RuleState::Firing => {
             let sides = [
                 (
-                    "main",
+                    YOU,
                     rule.calls_since.main,
                     rule.hits_since.main,
                     rule.per1k_since.main,
                 ),
                 (
-                    "sub",
+                    SUBAGENTS,
                     rule.calls_since.nested,
                     rule.hits_since.nested,
                     rule.per1k_since.nested,
@@ -248,10 +253,10 @@ pub fn rule_line(rule: &RuleCheck) -> String {
             let rates = sides
                 .iter()
                 .filter(|s| s.1 > 0.0)
-                .map(|(side, _, hits, rate)| format!("{side} {}/1k", rate_text(*rate, *hits)))
+                .map(|(side, _, hits, rate)| format!("{side} {}", per_thousand(*rate, *hits)))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("{place} · still firing {rates}{since}")
+            format!("{place} · still firing: {rates} per 1,000 calls{since}")
         }
     }
 }
@@ -325,7 +330,7 @@ pub fn time_note(row: &TimeRow) -> Option<String> {
 pub fn time_note_with(row: &TimeRow, f: &FindingFormat) -> Option<String> {
     let capped = (row.capped_runs > 0.0).then(|| {
         format!(
-            "{} of {} runs hit the agent's tool time limit ({} of {}), so this time is a floor",
+            "{} of {} runs hit the time limit ({} of {}), so this time is a floor",
             (f.count)(row.capped_runs),
             (f.count)(row.runs),
             (f.hms)(row.capped_sec),
@@ -334,7 +339,7 @@ pub fn time_note_with(row: &TimeRow, f: &FindingFormat) -> Option<String> {
     });
     let bg = (row.bg_runs > 0.0).then(|| {
         format!(
-            "{} runs went to the background and count only the seconds they ran",
+            "{} ran in the background and count only the seconds they ran",
             (f.count)(row.bg_runs)
         )
     });
@@ -352,6 +357,7 @@ fn cause_finding(row: &CauseRow, note: String, f: &FindingFormat) -> Finding {
         title: row.label.clone(),
         rule: suggested_rule_of(row).map(str::to_owned),
         table: Some(DrillTable::Cause),
+        fix_in: fix_in(row.kind.wire()),
         samples: row.samples.clone(),
     }
 }
@@ -392,6 +398,7 @@ fn piped_finding(report: &StatsReport, f: &FindingFormat) -> Option<Finding> {
         title: "Piped output hides failed exit codes".to_owned(),
         rule: None,
         table: Some(DrillTable::Fail),
+        fix_in: fix_in(peektrace_protocol::wire::stats::CauseKind::Rule),
         samples: top.samples.clone(),
     })
 }

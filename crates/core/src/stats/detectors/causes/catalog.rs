@@ -16,6 +16,16 @@ pub enum CauseKind {
 }
 
 impl CauseKind {
+    pub const fn wire(self) -> peektrace_protocol::wire::stats::CauseKind {
+        use peektrace_protocol::wire::stats::CauseKind as W;
+        match self {
+            Self::Rule => W::Rule,
+            Self::Env => W::Env,
+            Self::Workflow => W::Workflow,
+            Self::None => W::None,
+        }
+    }
+
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Rule => "rule",

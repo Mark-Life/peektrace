@@ -29,9 +29,15 @@ pub fn hms(sec: f64) -> String {
     format!("{}h{}m", to_js_string(h), pad2(to_js_string(m)))
 }
 
-/// A 0-1 share as a percentage with two decimals.
+/// A 0-1 share as a percentage with one decimal; a share too small to show
+/// reads `<0.1%`, never `0.0%`.
 pub fn pct(share: f64) -> String {
-    format!("{}%", to_fixed(share * 100.0, 2))
+    let fixed = to_fixed(share * 100.0, 1);
+    if share > 0.0 && fixed == "0.0" {
+        "<0.1%".to_owned()
+    } else {
+        format!("{fixed}%")
+    }
 }
 
 /// Compact: `1.2K`, `1M`; whole thousands and millions drop the decimal.

@@ -4,18 +4,22 @@
 use peektrace_core::js::num::{to_fixed, to_js_string};
 use peektrace_core::js::units;
 use peektrace_core::stats::accumulate::SampleRef;
+use peektrace_core::stats::cause_text::per_thousand;
+use peektrace_core::stats::detectors::cause_row::CauseTotals;
 use peektrace_core::stats::detectors::failures::FailRow;
 use peektrace_core::stats::detectors::pairing::RETRY_WINDOW;
 use peektrace_core::stats::detectors::retries::CauseRow;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::usage::{UsageBy, UsageTotals};
+use peektrace_core::stats::findings::{FindingFormat, approx_usd};
 use peektrace_core::stats::findings::{
     NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules, working_of,
 };
-use peektrace_core::stats::format::{count, hms, percent, rate_text, tokens};
+use peektrace_core::stats::format::{count, hms, percent, shape_label, tokens};
 use peektrace_core::stats::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
 use peektrace_core::stats::service::{DrillResult, StatsReport};
 use peektrace_core::stats::usage_service::{UsageReport, zone_of};
+use peektrace_core::stats::verdict::{verdict_note_with, verdict_with};
 
 use crate::render::table;
 
@@ -98,9 +102,12 @@ fn findings_block(r: &StatsReport) -> String {
         let none = "FIX FIRST  no row names a change in this window".to_owned();
         return working_line(r).map_or_else(|| none.clone(), |w| format!("{none}\n{w}"));
     }
+    let f = &FindingFormat::CLI;
     let mut lines = vec![
         "FIX FIRST  (largest share of the spend, then hits a fix would still save)".to_owned(),
+        verdict_with(r, &found, FINDINGS_SHOWN, f),
     ];
+    lines.extend(verdict_note_with(r, f));
     for (i, f) in found.iter().take(FINDINGS_SHOWN).enumerate() {
         lines.push(format!("{}. {}  [{}]", i + 1, f.title, f.impact));
         lines.push(format!("   {}", f.note));
@@ -130,23 +137,57 @@ fn cause_cells(row: &CauseRow) -> Vec<String> {
         format!("{}/{}", n(row.hits_by.main), n(row.hits_by.nested)),
         format!(
             "{}/{}",
-            rate_text(row.per1k.main, row.hits_by.main),
-            rate_text(row.per1k.nested, row.hits_by.nested)
+            per_thousand(row.per1k.main, row.hits_by.main),
+            per_thousand(row.per1k.nested, row.hits_by.nested)
         ),
         if row.sec_measured == 0.0 {
             "-".to_owned()
         } else {
             hms(row.retry_sec)
         },
+        if row.sec_measured == 0.0 {
+            "-".to_owned()
+        } else {
+            percent(row.retry_share)
+        },
         if row.tokens_measured == 0.0 {
             "-".to_owned()
         } else {
             tokens(row.retry_ctx_tokens)
         },
+        usd_cell(row.retry_usd),
         row.rule.as_ref().map_or_else(|| "-".to_owned(), rule_line),
         clip_cell(row.fix.as_deref().unwrap_or(NO_RULE)),
         refs_of(&row.samples),
         format!("--cause {}", row.key),
+    ]
+}
+
+fn usd_cell(usd: Option<f64>) -> String {
+    usd.map_or_else(|| "-".to_owned(), |u| approx_usd(u, &FindingFormat::CLI))
+}
+
+/// The row under the cause table that adds every cause up.
+fn totals_cells(r: &StatsReport) -> Vec<String> {
+    let t = CauseTotals::of(&r.causes, &r.corpus);
+    let blank = String::new;
+    vec![
+        "all".to_owned(),
+        blank(),
+        n(t.hits),
+        n(t.pairs),
+        blank(),
+        blank(),
+        blank(),
+        blank(),
+        hms(t.retry_sec),
+        percent(t.retry_share),
+        tokens(t.retry_ctx_tokens),
+        usd_cell(t.retry_usd),
+        blank(),
+        blank(),
+        blank(),
+        blank(),
     ]
 }
 
@@ -210,7 +251,7 @@ fn wait_line(r: &StatsReport) -> String {
     let shapes: Vec<String> = w
         .by_shape
         .iter()
-        .map(|s| format!("{} {}/{}", s.key.as_str(), n(s.calls), hms(s.total_sec)))
+        .map(|s| format!("{} {}/{}", shape_label(s.key), n(s.calls), hms(s.total_sec)))
         .collect();
     [
         format!(
@@ -243,13 +284,14 @@ fn header(r: &StatsReport) -> String {
             r.window.to_iso
         ),
         format!(
-            "{} sessions + {} subagent runs  {} projects  {} tool calls  {} shell calls  {} shell time",
+            "{} sessions + {} subagent runs  {} projects  {} tool calls  {} shell calls  {} shell time  {} tool time",
             count(main),
             count(nested),
             count(c.projects),
             count(c.tool_calls),
             count(c.bash_calls),
-            hms(c.bash_sec)
+            hms(c.bash_sec),
+            hms(c.tool_sec)
         ),
         format!(
             "{STATS_SCHEMA_VERSION}  detector v{}  durations are approximate: they are the call → result gap",
@@ -266,7 +308,8 @@ fn footer(r: &StatsReport, hint: &str) -> String {
             "PAIRS are failed calls followed within {} calls by a similar succeeding call; SESS counts sessions with a pair",
             n(RETRY_WINDOW)
         ),
-        "HITS M/S splits hits between main sessions and subagents; PER 1K IN WINDOW M/S is hits per 1,000 calls that could have hit, per side, over the whole window (a RULE rate counts only since its rule line appeared)".to_owned(),
+        "HITS YOU/SUB splits hits between your own sessions and subagents; PER 1K IN WINDOW YOU/SUB is hits per 1,000 calls that could have hit, per side, over the whole window (a RULE rate counts only since its rule line appeared)".to_owned(),
+        "SHARE is retry time over shell time, or over all tool time for causes outside the shell; USD prices the re-read tokens at each session's model and is approximate".to_owned(),
         hint.to_owned(),
     ]);
     let skipped = (!r.skipped.is_empty()).then(|| {
@@ -287,7 +330,10 @@ pub const CLI_DRILL_HINT: &str = "drill a row with: peektrace stats drill <DRILL
 /// The whole text report: findings first, then the tables, then the notes.
 /// `hint` is the last note, on how to drill a row.
 pub fn render_report(r: &StatsReport, pretty: bool, hint: &str) -> String {
-    let causes: Vec<Vec<String>> = r.causes.iter().map(cause_cells).collect();
+    let mut causes: Vec<Vec<String>> = r.causes.iter().map(cause_cells).collect();
+    if r.causes.len() > 1 {
+        causes.push(totals_cells(r));
+    }
     let fails: Vec<Vec<String>> = r.fails.iter().map(fail_cells).collect();
     let time: Vec<Vec<String>> = r
         .time
@@ -302,8 +348,8 @@ pub fn render_report(r: &StatsReport, pretty: bool, hint: &str) -> String {
         "AVOIDABLE RETRIES  (named causes, ranked by sessions with a retry, then sessions, then pairs)".to_owned(),
         table(
             &[
-                "CAUSE", "KIND", "HITS", "PAIRS", "SESS", "PROJ", "HITS M/S", "PER 1K IN WINDOW M/S", "RETRY SEC",
-                "CTX TOK", "RULE", "FIX", "SEEN IN", "DRILL",
+                "CAUSE", "KIND", "HITS", "PAIRS", "SESS", "PROJ", "HITS YOU/SUB", "PER 1K IN WINDOW YOU/SUB", "RETRY SEC",
+                "SHARE", "CTX TOK", "USD", "RULE", "FIX", "SEEN IN", "DRILL",
             ],
             &causes,
             pretty,

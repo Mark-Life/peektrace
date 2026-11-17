@@ -7,6 +7,7 @@
 
 pub mod accumulate;
 pub mod cache;
+pub mod cause_text;
 pub mod cost_findings;
 pub mod detectors;
 pub mod extract;
@@ -31,4 +32,5 @@ pub mod shell_ctx;
 pub mod shell_lex;
 pub mod text;
 pub mod usage_service;
+pub mod verdict;
 pub mod walk;

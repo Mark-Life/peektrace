@@ -124,6 +124,12 @@ pub struct CauseRowView {
     pub sessions: f64,
     pub projects: f64,
     pub retry_sec: f64,
+    #[serde(default)]
+    pub shell: bool,
+    #[serde(default)]
+    pub retry_share: f64,
+    #[serde(default)]
+    pub retry_usd: Option<f64>,
     pub sec_measured: f64,
     pub retry_ctx_tokens: f64,
     pub tokens_measured: f64,

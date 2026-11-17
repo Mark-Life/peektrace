@@ -11,11 +11,11 @@ use peektrace_core::stats::findings::{
     Finding, FindingFormat, NO_RULE, cause_impact_with, cause_note, cause_spread_with,
     fail_spread_with, findings_with, time_note_with, time_spread_with, working_with,
 };
-use peektrace_core::stats::format::{hms, percent, short_id};
+use peektrace_core::stats::format::{hms, percent, shape_label, short_id};
 use peektrace_core::stats::report::StatsReport;
 use peektrace_core::stats::schema::{DETECTOR_VERSION, Job, STATS_SCHEMA_VERSION};
 
-use crate::fmt::{fmt, fmt_k, sanitize, width};
+use crate::fmt::{clip, fmt, fmt_k, sanitize, width};
 use crate::theme::agent_label;
 
 /// How the TUI spells numbers in findings: `12.3K` tokens.
@@ -107,7 +107,14 @@ fn wait_lines(r: &StatsReport) -> Vec<String> {
     let shapes = w
         .by_shape
         .iter()
-        .map(|s| format!("{} {}/{}", s.key.as_str(), fmt(s.calls), hms(s.total_sec)))
+        .map(|s| {
+            format!(
+                "{} {}/{}",
+                shape_label(s.key),
+                fmt(s.calls),
+                hms(s.total_sec)
+            )
+        })
         .collect::<Vec<_>>()
         .join(" · ");
     vec![
@@ -290,6 +297,31 @@ pub fn scope_text(
     parts.join(" · ")
 }
 
+/// What the screen opens with, wrapped to `w` over at most `rows` lines:
+/// what avoidable retries cost and what the `shown` live findings cover,
+/// then what the total holds when that fits too. Fixed causes never count
+/// as fixes.
+pub fn verdict_lines(r: &StatsReport, shown: usize, w: usize, rows: usize) -> Vec<String> {
+    use peektrace_core::stats::verdict::{verdict_note_with, verdict_with};
+    let line = verdict_with(r, &findings_with(r, &FORMAT), shown, &FORMAT);
+    let mut out = wrap(&line, w);
+    if out.len() > rows {
+        out.truncate(rows);
+        if let Some(last) = out.last_mut() {
+            *last = clip(&format!("{last} …"), w);
+        }
+        return out;
+    }
+    // The note joins only when all of it fits; a cut note says nothing.
+    if let Some(note) = verdict_note_with(r, &FORMAT) {
+        let note = wrap(&note, w);
+        if out.len() + note.len() <= rows {
+            out.extend(note);
+        }
+    }
+    out
+}
+
 pub fn corpus_line(r: &StatsReport, wide: bool) -> String {
     let c = &r.corpus;
     let (main, nested) = c.split();
@@ -300,35 +332,34 @@ pub fn corpus_line(r: &StatsReport, wide: bool) -> String {
     if wide {
         parts.push(format!("{} tool calls", fmt(c.tool_calls)));
     }
-    parts.push(format!("{} shell calls", fmt(c.bash_calls)));
-    parts.push(format!("{} shell time", hms(c.bash_sec)));
+    if wide {
+        parts.push(format!("{} shell calls", fmt(c.bash_calls)));
+    }
+    if wide {
+        parts.push(format!("{} shell time", hms(c.bash_sec)));
+        parts.push(format!("{} tool time", hms(c.tool_sec)));
+    } else {
+        parts.push(format!(
+            "{} shell / {} tool time",
+            hms(c.bash_sec),
+            hms(c.tool_sec)
+        ));
+    }
     parts.join(" · ")
 }
 
-pub fn provenance_line(r: &StatsReport, wide: bool) -> String {
-    let schema = if wide {
-        STATS_SCHEMA_VERSION
-    } else {
-        STATS_SCHEMA_VERSION.trim_start_matches("peektrace-")
-    };
-    let caveats = r.caveats.len() + usize::from(!r.skipped.is_empty());
-    [
-        schema.to_owned(),
-        format!("detector v{DETECTOR_VERSION}"),
-        if wide {
-            "durations ≈ the call→result gap"
-        } else {
-            "durations ≈ call→result gap"
-        }
-        .to_owned(),
-        format!("{caveats} caveats (c)"),
-    ]
-    .join(" · ")
+/// What the report is: its schema, detector version and how time is measured.
+pub fn provenance_line() -> String {
+    format!(
+        "{STATS_SCHEMA_VERSION} · detector v{DETECTOR_VERSION} · durations ≈ the call→result gap"
+    )
 }
 
-/// Every caveat plus the skipped files, wrapped for the overlay.
+/// What the report is, then every caveat plus the skipped files, wrapped
+/// for the overlay.
 pub fn caveat_lines(r: &StatsReport, w: usize) -> Vec<String> {
-    let mut all: Vec<String> = r.caveats.clone();
+    let mut all: Vec<String> = vec![provenance_line()];
+    all.extend(r.caveats.iter().cloned());
     if !r.skipped.is_empty() {
         #[expect(clippy::cast_precision_loss, reason = "file counts")]
         let n = fmt(r.skipped.len() as f64);

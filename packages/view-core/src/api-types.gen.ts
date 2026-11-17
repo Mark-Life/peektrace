@@ -736,11 +736,25 @@ failing: boolean, hits: number,
  * Hits a fix would still save when some culprits are already fixed
  * (command not found: binaries installed since); absent otherwise.
  */
-liveHits?: number, flagged: number, hitsBy: Split, pairs: number, pairsBy: Split, retrySessions: number, sessions: number, projects: number, retrySec: number, secMeasured: number, retryCtxTokens: number, tokensMeasured: number, per1k: Split, details: ReadonlyArray<CauseDetail>, diffs: ReadonlyArray<CauseDiff>, rule: RuleCheck | null, samples: ReadonlyArray<SampleRef>, pairSamples: ReadonlyArray<PairSample>, };
+liveHits?: number, flagged: number, hitsBy: Split, pairs: number, pairsBy: Split, retrySessions: number, sessions: number, projects: number, retrySec: number, 
+/**
+ * Every pair's failed call was a shell command.
+ */
+shell: boolean, 
+/**
+ * `retry_sec` over shell time, or over tool time when not `shell`.
+ */
+retryShare: number, 
+/**
+ * Re-read tokens priced at each session's model; approximate.
+ */
+retryUsd: number | null, secMeasured: number, retryCtxTokens: number, tokensMeasured: number, per1k: Split, details: ReadonlyArray<CauseDetail>, diffs: ReadonlyArray<CauseDiff>, rule: RuleCheck | null, samples: ReadonlyArray<SampleRef>, pairSamples: ReadonlyArray<PairSample>, };
 
 export type CorpusSummary = { transcripts: number, sessions: number, projects: number, toolCalls: number, bashCalls: number, bashSec: number, toolSec: number, humanWaitSec: number, kinds: Record<string, number>, agents: Record<string, number>, };
 
 export type StatsWindow = { days: number, fromIso: string, toIso: string, };
+
+export type CauseTotalsText = { hits: string, retries: string, time: string, reread: string, };
 
 export type Finding = { detector: string | null, 
 /**
@@ -760,6 +774,11 @@ spread: string,
  */
 table: DrillTable | null, title: string, 
 /**
+ * `Fix in: memory file`, and the other places a fix lives; `None` for a
+ * row with no named fix.
+ */
+fixIn: string | null, 
+/**
  * The sessions it came from.
  */
 samples: ReadonlyArray<SampleRef>, };
@@ -767,6 +786,15 @@ samples: ReadonlyArray<SampleRef>, };
 export type StatsPrompts = { report: string, cause: Record<string, string>, fail: Record<string, string>, time: Record<string, string>, };
 
 export type StatsText = { 
+/**
+ * The one line the page opens with: what avoidable retries cost, and
+ * how much of them the shown fixes cover.
+ */
+verdict: string | null, 
+/**
+ * What the verdict's total holds that is not a fixable failure.
+ */
+verdictNote: string | null, 
 /**
  * Rows that name a change, largest share of the spend first, then
  * causes by hits since their last fix.
@@ -784,6 +812,36 @@ suggested: ReadonlyArray<string>, prompts: StatsPrompts,
  * Cause key to its rule check line.
  */
 ruleLines: Record<string, string>, 
+/**
+ * What the report covers, on one line: sessions, calls and the time
+ * every share divides by.
+ */
+corpusLine: string, 
+/**
+ * The link to the measurement notes: `How these numbers are measured
+ * (10 notes) · 1 file skipped`.
+ */
+measuredLink: string, 
+/**
+ * Cause key to its retry-time cell: `32m14s · 2.8%`.
+ */
+causeTime: Record<string, string>, 
+/**
+ * Cause key to its re-read cell: `17.4M · ~$9`.
+ */
+causeReread: Record<string, string>, 
+/**
+ * The row that adds every cause up; `None` with fewer than two causes.
+ */
+totals: CauseTotalsText | null, 
+/**
+ * Cause key to every split of the row on one line.
+ */
+causeSplit: Record<string, string>, 
+/**
+ * Cause key to the row as one line, for a narrow screen.
+ */
+causeNarrow: Record<string, string>, 
 /**
  * Cause key to the memory line it suggests.
  */

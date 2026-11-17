@@ -9,7 +9,9 @@ use peektrace_core::stats::detectors::rules::Split;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::report::StatsReport;
 use peektrace_core::stats::schema::{CauseId, Job};
-use peektrace_tui::screens::stats::text::{Pane, finding_target, findings_of, note_lines_of};
+use peektrace_tui::screens::stats::text::{
+    Pane, finding_target, findings_of, note_lines_of, verdict_lines,
+};
 
 fn fail_row(key: &str, edit: impl FnOnce(&mut FailRow)) -> FailRow {
     let mut r = FailRow {
@@ -73,6 +75,10 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         sessions: 30.0,
         projects: 3.0,
         retry_sec: 50.0,
+        shell: true,
+        retry_share: 0.0,
+        retry_usd: None,
+        ctx_by_sid: Vec::new(),
         sec_measured: 12.0,
         retry_ctx_tokens: 9000.0,
         tokens_measured: 12.0,
@@ -183,11 +189,7 @@ fn a_cause_finding_leads_and_drills_into_the_cause_table() {
         "{}",
         target.spread
     );
-    assert!(
-        target.spread.contains("12 retries (main"),
-        "{}",
-        target.spread
-    );
+    assert!(target.spread.contains("12 retries"), "{}", target.spread);
 }
 
 #[test]
@@ -200,6 +202,25 @@ fn a_cause_finding_spells_re_read_context_compactly() {
     let found = findings_of(&r);
     assert_eq!(
         found[0].impact,
-        "12 retries (main 2 / sub 10) · 50.0s · 32.4M ctx tokens re-read"
+        "12 retries · 50.0s (0.0% of shell time) · 32.4M tokens re-read"
     );
+}
+
+#[test]
+fn the_verdict_wraps_to_two_rows_and_counts_only_live_fixes() {
+    let live = cause_row(|r| r.retry_share = 0.5);
+    let r = report(vec![live], Vec::new(), Vec::new());
+    let lines = verdict_lines(&r, 3, 60, 2);
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    let all = lines.join(" ");
+    assert!(
+        all.starts_with("Avoidable retries cost 50.0s (50.0% of shell time)"),
+        "{all}"
+    );
+    let wide = verdict_lines(&r, 3, 400, 2).join(" ");
+    assert!(
+        wide.contains("The fix below covers 100.0% of retries."),
+        "{wide}"
+    );
+    assert!(verdict_lines(&r, 0, 400, 2)[0].ends_with("in 30 days."));
 }

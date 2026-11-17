@@ -94,6 +94,10 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         sessions: 913.0,
         projects: 4.0,
         retry_sec: 2698.0,
+        shell: true,
+        retry_share: 0.0,
+        retry_usd: None,
+        ctx_by_sid: Vec::new(),
         sec_measured: 678.0,
         retry_ctx_tokens: 32_000.0,
         tokens_measured: 678.0,
@@ -272,7 +276,7 @@ fn report_prompt_states_window_corpus_and_top_rows() {
         "Data (2026-09-21 → 2026-10-21):",
         "1,821 transcripts (401 main, 1,420 subagent), 132 projects",
         "avoidable retries: 1,356 round trips, 1h29m, 64.0k ctx tokens re-read",
-        "  - zsh-glob-flag: 1,492 hits · 678 retries (main 41 / sub 637) · 44m58s · 32.0k ctx tokens re-read · rule in memory\n",
+        "  - zsh-glob-flag: 1,492 hits · 678 retries · 44m58s (0.0% of shell time) · 32.0k tokens re-read · rule in memory\n",
         "  - output-too-large: 1,492 hits · 678 read-backs",
         "  - scan:tsc (error TS####): 206 calls, 137 sessions · 186 of 206",
         "  - flag:Bash (Bash errors): 206 calls, 137 sessions\n",
@@ -502,7 +506,9 @@ fn the_waiting_row_carries_the_waiting_shapes() {
     );
     let text = prompt(&r, &PromptTarget::Time("wait/poll".into()));
     assert_eq!(text, golden("time"));
-    assert!(text.contains("- note: 8 of 643 runs hit the agent's tool time limit (48m00s of 3h39m), so this time is a floor"));
+    assert!(text.contains(
+        "- note: 8 of 643 runs hit the time limit (48m00s of 3h39m), so this time is a floor"
+    ));
     assert!(text.contains("peektrace stats drill --days 30 --time wait/poll --json"));
 }
 

@@ -10,12 +10,21 @@ import { DETECTOR_VERSION } from "@workspace/view-core/constants.gen";
 
 /** Core's text for a report, empty unless a test fills it in. */
 export const statsText = (over: Partial<StatsText> = {}): StatsText => ({
+  causeNarrow: {},
+  causeReread: {},
+  causeSplit: {},
+  causeTime: {},
+  corpusLine: "",
   findings: [],
+  measuredLink: "",
   prompts: { cause: {}, fail: {}, report: "", time: {} },
   ruleLines: {},
   suggested: [],
   suggestedRule: {},
   timeNotes: {},
+  totals: null,
+  verdict: null,
+  verdictNote: null,
   working: [],
   ...over,
 });

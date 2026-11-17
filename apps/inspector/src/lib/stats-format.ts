@@ -19,7 +19,7 @@ const SEC_PER_HOUR = 3600;
 const PERCENT = 100;
 
 /** Decimals a share keeps once it is a percentage. */
-const PCT_DIGITS = 2;
+const PCT_DIGITS = 1;
 
 /** Under this many seconds a duration keeps two decimals. */
 const SUB_TEN_SECONDS = 10;
@@ -43,9 +43,13 @@ export const hms = (sec: number): string => {
   return `${h}h${String(Math.floor((sec - h * SEC_PER_HOUR) / SEC_PER_MIN)).padStart(PAD_WIDTH, "0")}m`;
 };
 
-/** A 0-1 share as a percentage string. */
-export const pct = (share: number): string =>
-  `${(share * PERCENT).toFixed(PCT_DIGITS)}%`;
+/** A 0-1 share as a percentage string; a share too small to show reads
+ * `<0.1%`, never `0.0%`. */
+export const pct = (share: number): string => {
+  const fixed = (share * PERCENT).toFixed(PCT_DIGITS);
+
+  return share > 0 && Number(fixed) === 0 ? "<0.1%" : `${fixed}%`;
+};
 
 /** Thousands separators, one call site for every count in the screen. */
 export const n = (value: number): string => value.toLocaleString();
@@ -53,26 +57,6 @@ export const n = (value: number): string => value.toLocaleString();
 /** A short local timestamp for the report header. */
 export const at = (epochMs: number): string =>
   new Date(epochMs).toLocaleString();
-
-/** Rates at or above this print as whole numbers. */
-const RATE_WHOLE = 10;
-
-/** Significant digits of a smaller rate. */
-const RATE_DIGITS = 2;
-
-/** The smallest rate kept; a side with hits below it prints `<0.01`. */
-const RATE_FLOOR = 0.01;
-
-/** A per-1k rate: `41`, `4.2`, `0.31`. A side with hits never reads `0`. */
-export const rateText = (rate: number, hits: number): string => {
-  if (hits > 0 && rate < RATE_FLOOR) {
-    return `<${RATE_FLOOR}`;
-  }
-
-  return rate >= RATE_WHOLE
-    ? Math.round(rate).toLocaleString("en-US")
-    : String(Number(rate.toPrecision(RATE_DIGITS)));
-};
 
 /** How many lines held this job but were charged to a higher-priority one. */
 export const coPresentNote = (row: TimeRow): string =>

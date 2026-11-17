@@ -2,7 +2,7 @@
 //! `lib/stats-format.ts` does in a browser.
 
 pub use peektrace_js::inspector::{hms, pct};
-pub use peektrace_js::num::{rate_text, to_locale_string as n};
+pub use peektrace_js::num::to_locale_string as n;
 use peektrace_js::time::to_iso_string;
 
 /// `new Date(ms).toLocaleString()` in en-US, `offset_ms` east of UTC:
@@ -56,8 +56,5 @@ mod tests {
             at(1_794_614_400_000.0, -3_600_000.0),
             "11/13/2026, 11:00:00 PM"
         );
-        assert_eq!(rate_text(0.125, 1.0), "0.13");
-        assert_eq!(rate_text(0.001, 1.0), "<0.01");
-        assert_eq!(rate_text(12.5, 1.0), "13");
     }
 }

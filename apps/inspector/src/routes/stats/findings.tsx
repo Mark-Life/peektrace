@@ -1,8 +1,9 @@
-/** What a cold start leads with: where the spend goes, then the causes a fix
- * would still save.
+/** What a cold start leads with: the verdict, where the spend goes, then the
+ * causes a fix would still save.
  *
  * Not a score. Each card states the measurement in its own unit, the one line
- * that says what to change, and the sessions it came from. Dollars, failures
+ * that says what to change, where the fix lives, and the sessions it came
+ * from. Detector ids show only when the reader asks for them. Dollars, failures
  * and seconds are never added together. A cause whose rule no memory file
  * states yet carries a copy button for that rule line; a cause its rule
  * already stopped sits in the collapsed "working" list instead.
@@ -73,11 +74,13 @@ const DrillActions = ({
 );
 
 const FindingCard = ({
+  debug,
   finding,
   look,
   onDrill,
   prompt,
 }: {
+  readonly debug: boolean;
   readonly finding: Finding;
   readonly look: Look;
   readonly onDrill: (table: DrillTable, key: string) => void;
@@ -97,9 +100,15 @@ const FindingCard = ({
       <span className="min-w-0 text-sm font-medium wrap-break-word">
         {finding.title}
       </span>
-      <Badge className="shrink-0" variant="secondary">
-        {finding.table === null ? "cost" : SOURCE_LABEL[finding.table]}
-      </Badge>
+      {finding.fixIn === null ? null : (
+        <Badge
+          className="shrink-0"
+          data-testid="stats-finding-fix-in"
+          variant="secondary"
+        >
+          {finding.fixIn}
+        </Badge>
+      )}
       {look === "fixed" ? (
         <Badge
           className="shrink-0 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
@@ -108,11 +117,12 @@ const FindingCard = ({
           fixed
         </Badge>
       ) : null}
-      {finding.detector === null ? null : (
+      {debug ? (
         <Badge className="shrink-0 font-mono" variant="outline">
-          {finding.detector}
+          {finding.table === null ? "cost" : SOURCE_LABEL[finding.table]}
+          {finding.detector === null ? "" : ` · ${finding.detector}`}
         </Badge>
-      )}
+      ) : null}
       {/* Not shrink-0: a retry impact names four numbers and must wrap, not
           run past the card's clipped edge. */}
       <span
@@ -149,10 +159,12 @@ const FindingCard = ({
 
 /** Causes a rule already stopped, collapsed under one line. */
 const Working = ({
+  debug,
   findings,
   onDrill,
   prompt,
 }: {
+  readonly debug: boolean;
   readonly findings: readonly Finding[];
   readonly onDrill: (table: DrillTable, key: string) => void;
   readonly prompt: PromptFor;
@@ -167,6 +179,7 @@ const Working = ({
         <div className="mt-2 grid gap-3 lg:grid-cols-2">
           {findings.map((finding) => (
             <FindingCard
+              debug={debug}
               finding={finding}
               key={finding.key}
               look="fixed"
@@ -209,6 +222,7 @@ const SuggestedRules = ({ rules }: { readonly rules: readonly string[] }) =>
 
 /** The flagged findings band. Empty is a real answer, and says so. */
 export const Findings = ({
+  debug,
   findings,
   onDrill,
   showAll,
@@ -217,6 +231,7 @@ export const Findings = ({
   suggested,
   working,
 }: {
+  readonly debug: boolean;
   readonly findings: readonly Finding[];
   readonly onDrill: (table: DrillTable, key: string) => void;
   readonly onShowAll: () => void;
@@ -234,7 +249,12 @@ export const Findings = ({
         >
           {STATS_EMPTY.findings}
         </p>
-        <Working findings={working} onDrill={onDrill} prompt={prompt} />
+        <Working
+          debug={debug}
+          findings={working}
+          onDrill={onDrill}
+          prompt={prompt}
+        />
       </div>
     );
   }
@@ -247,6 +267,7 @@ export const Findings = ({
       <div className="grid gap-3 lg:grid-cols-2">
         {shown.map((finding) => (
           <FindingCard
+            debug={debug}
             finding={finding}
             key={`${finding.table ?? "cost"}:${finding.key}`}
             look="live"
@@ -265,8 +286,31 @@ export const Findings = ({
           Show {findings.length - visible} more
         </Button>
       ) : null}
-      <Working findings={working} onDrill={onDrill} prompt={prompt} />
+      <Working
+        debug={debug}
+        findings={working}
+        onDrill={onDrill}
+        prompt={prompt}
+      />
       <SuggestedRules rules={suggested} />
     </div>
   );
 };
+
+/** The line the page opens with, and what its total holds that no fix
+ * removes. */
+export const Verdict = ({
+  line,
+  note,
+}: {
+  readonly line: string | null;
+  readonly note: string | null;
+}) =>
+  line === null ? null : (
+    <div className="flex flex-col gap-1" data-testid="stats-verdict">
+      <p className="text-base font-medium text-balance">{line}</p>
+      {note === null ? null : (
+        <p className="text-muted-foreground text-xs">{note}</p>
+      )}
+    </div>
+  );

@@ -159,6 +159,7 @@ fn stats_decls(cfg: &Config) -> Vec<String> {
         decl::<stats::CauseRow>(cfg),
         decl::<stats::CorpusSummary>(cfg),
         decl::<stats::StatsWindow>(cfg),
+        decl::<crate::stats_text::CauseTotalsText>(cfg),
         decl::<crate::stats_text::Finding>(cfg),
         decl::<crate::stats_text::StatsPrompts>(cfg),
         decl::<crate::stats_text::StatsText>(cfg),

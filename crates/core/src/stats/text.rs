@@ -4,25 +4,30 @@
 use std::collections::BTreeMap;
 
 use peektrace_protocol::DrillTable as WireTable;
-use peektrace_protocol::stats_text::{Finding, StatsPrompts, StatsText};
+use peektrace_protocol::stats_text::{
+    CauseTotalsText, FINDINGS_VISIBLE, Finding, StatsPrompts, StatsText, measured_link,
+};
 use peektrace_protocol::wire::stats::{SampleRef as WireSample, TranscriptKind};
 
-use super::accumulate::{DrillTable, SampleRef};
+use super::accumulate::{CorpusSummary, DrillTable, SampleRef};
+use super::cause_text::{counted, reread_cell, time_cell};
+use super::detectors::cause_row::CauseTotals;
 use super::findings::{
-    self, FindingFormat, findings_with, is_working, rule_line, suggested_rule_of, suggested_rules,
-    time_note_with, working_with,
+    self, FindingFormat, cause_narrow_with, cause_split_with, findings_with, is_working, rule_line,
+    suggested_rule_of, suggested_rules, time_note_with, working_with,
 };
 use super::format::count;
 use super::prompts::{PromptTarget, stats_prompt_with};
 use super::report::StatsReport;
 use super::schema::{Kind, WriteExt};
+use super::verdict::{verdict_note_with, verdict_with};
 use crate::js::inspector::{fmt_k, hms, pct};
 use crate::js::json_out::Writer;
 use crate::model::Agent;
 use crate::wire::agent_id;
 
 impl FindingFormat {
-    /// The inspector's spelling: `39.6K` tokens, `0.42s`, `15.71%`.
+    /// The inspector's spelling: `39.6K` tokens, `0.42s`, `15.7%`.
     pub const INSPECTOR: Self = Self {
         count,
         hms,
@@ -65,6 +70,7 @@ fn wire_sample(s: &SampleRef) -> WireSample {
 
 fn wire_finding(x: findings::Finding) -> Finding {
     Finding {
+        fix_in: x.fix_in,
         detector: x.detector,
         impact: x.impact,
         key: x.key,
@@ -105,8 +111,11 @@ fn prompts_of(r: &StatsReport, agent: Option<Agent>) -> StatsPrompts {
 /// Everything core writes for `r`, with prompts scoped to `agent`.
 pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
     let f = &FindingFormat::INSPECTOR;
+    let found = findings_with(r, f);
     StatsText {
-        findings: findings_with(r, f).into_iter().map(wire_finding).collect(),
+        verdict: Some(verdict_with(r, &found, FINDINGS_VISIBLE, f)),
+        verdict_note: verdict_note_with(r, f),
+        findings: found.into_iter().map(wire_finding).collect(),
         working: working_with(r, f).into_iter().map(wire_finding).collect(),
         suggested: suggested_rules(r).into_iter().map(str::to_owned).collect(),
         prompts: prompts_of(r, agent),
@@ -123,6 +132,35 @@ pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
                 Some((c.key.clone(), line))
             })
             .collect(),
+        corpus_line: corpus_line(&r.corpus, f),
+        measured_link: measured_text(r, f),
+        cause_time: r
+            .causes
+            .iter()
+            .map(|c| (c.key.clone(), time_cell(c, f)))
+            .collect(),
+        cause_reread: r
+            .causes
+            .iter()
+            .map(|c| {
+                let measured = c.tokens_measured > 0.0;
+                (
+                    c.key.clone(),
+                    reread_cell(c.retry_ctx_tokens, c.retry_usd, measured, f),
+                )
+            })
+            .collect(),
+        totals: totals_text(r, f),
+        cause_split: r
+            .causes
+            .iter()
+            .map(|c| (c.key.clone(), cause_split_with(c, f)))
+            .collect(),
+        cause_narrow: r
+            .causes
+            .iter()
+            .map(|c| (c.key.clone(), cause_narrow_with(c, f)))
+            .collect(),
         suggested_rule: r
             .causes
             .iter()
@@ -134,6 +172,53 @@ pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
             .filter_map(|t| Some((t.key.as_str().to_owned(), time_note_with(t, f)?)))
             .collect(),
     }
+}
+
+/// `40 sessions + 60 subagent runs · 3 projects · …`: the corpus every
+/// share divides by.
+pub fn corpus_line(c: &CorpusSummary, f: &FindingFormat) -> String {
+    let (main, nested) = c.split();
+    format!(
+        "{} + {} · {} · {} · {} · {} of shell time · {} of tool time",
+        counted(main, "session", "sessions", f),
+        counted(nested, "subagent run", "subagent runs", f),
+        counted(c.projects, "project", "projects", f),
+        counted(c.tool_calls, "tool call", "tool calls", f),
+        counted(c.bash_calls, "shell call", "shell calls", f),
+        (f.hms)(c.bash_sec),
+        (f.hms)(c.tool_sec)
+    )
+}
+
+/// The notes link, with the files no pass could read.
+#[expect(clippy::cast_precision_loss, reason = "file counts")]
+fn measured_text(r: &StatsReport, f: &FindingFormat) -> String {
+    let link = measured_link(r.caveats.len());
+    if r.skipped.is_empty() {
+        link
+    } else {
+        let files = counted(r.skipped.len() as f64, "file", "files", f);
+        format!("{link} · {files} skipped")
+    }
+}
+
+/// The totals row's cells, or `None` when one cause is the whole table.
+fn totals_text(r: &StatsReport, f: &FindingFormat) -> Option<CauseTotalsText> {
+    (r.causes.len() > 1).then(|| {
+        let t = CauseTotals::of(&r.causes, &r.corpus);
+        let timed = r.causes.iter().any(|c| c.sec_measured > 0.0);
+        let read = r.causes.iter().any(|c| c.tokens_measured > 0.0);
+        CauseTotalsText {
+            hits: (f.count)(t.hits),
+            retries: (f.count)(t.pairs),
+            time: if timed {
+                format!("{} · {}", (f.hms)(t.retry_sec), (f.pct)(t.retry_share))
+            } else {
+                "—".to_owned()
+            },
+            reread: reread_cell(t.retry_ctx_tokens, t.retry_usd, read, f),
+        }
+    })
 }
 
 fn opt_text(w: &mut Writer, s: Option<&str>) {
@@ -187,6 +272,7 @@ fn findings_json(w: &mut Writer, all: &[Finding]) {
             None => w.key("table").null(),
         }
         w.key("title").text(&x.title);
+        w.key("fixIn").opt_text(x.fix_in.as_deref());
         w.key("samples").begin_arr();
         for sample in &x.samples {
             sample_json(w, sample);
@@ -200,6 +286,8 @@ fn findings_json(w: &mut Writer, all: &[Finding]) {
 /// Write `t` as the `text` member of `GET /api/stats/report`.
 pub fn write_text(w: &mut Writer, t: &StatsText) {
     w.begin_obj();
+    w.key("verdict").opt_text(t.verdict.as_deref());
+    w.key("verdictNote").opt_text(t.verdict_note.as_deref());
     w.key("findings");
     findings_json(w, &t.findings);
     w.key("working");
@@ -217,6 +305,27 @@ pub fn write_text(w: &mut Writer, t: &StatsText) {
     w.end_obj();
     w.key("ruleLines");
     map_json(w, &t.rule_lines);
+    w.key("corpusLine").text(&t.corpus_line);
+    w.key("measuredLink").text(&t.measured_link);
+    w.key("causeTime");
+    map_json(w, &t.cause_time);
+    w.key("causeReread");
+    map_json(w, &t.cause_reread);
+    match &t.totals {
+        Some(x) => {
+            w.key("totals").begin_obj();
+            w.key("hits").text(&x.hits);
+            w.key("retries").text(&x.retries);
+            w.key("time").text(&x.time);
+            w.key("reread").text(&x.reread);
+            w.end_obj();
+        }
+        None => w.key("totals").null(),
+    }
+    w.key("causeSplit");
+    map_json(w, &t.cause_split);
+    w.key("causeNarrow");
+    map_json(w, &t.cause_narrow);
     w.key("suggestedRule");
     map_json(w, &t.suggested_rule);
     w.key("timeNotes");
@@ -240,6 +349,7 @@ mod tests {
             spread: "spread".into(),
             table: Some(WireTable::Fail),
             title: "title".into(),
+            fix_in: Some("Fix in: memory file".into()),
             samples: Vec::new(),
         });
         t.working.push(Finding {
@@ -251,6 +361,7 @@ mod tests {
             spread: "spread".into(),
             table: None,
             title: "working".into(),
+            fix_in: None,
             samples: vec![WireSample {
                 sid: "s1".into(),
                 agent: peektrace_protocol::AgentId::Claude,
@@ -264,6 +375,7 @@ mod tests {
             }],
         });
         t.suggested.push("line".into());
+        t.verdict = Some("verdict".into());
         t.prompts.report = "report".into();
         t.prompts.cause.insert("a".into(), "b".into());
         t.time_notes.insert("test".into(), "note".into());

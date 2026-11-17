@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::DrillTable;
-use crate::wire::stats::SampleRef;
+use crate::wire::stats::{CauseKind, SampleRef, WaitShape};
 
 /// One finding: a row that names a change, and the route back to it.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -25,8 +25,21 @@ pub struct Finding {
     /// The table it drills into; `None` for a cost finding.
     pub table: Option<DrillTable>,
     pub title: String,
+    /// `Fix in: memory file`, and the other places a fix lives; `None` for a
+    /// row with no named fix.
+    pub fix_in: Option<String>,
     /// The sessions it came from.
     pub samples: Vec<SampleRef>,
+}
+
+/// The cells of the row that adds every cause up.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct CauseTotalsText {
+    pub hits: String,
+    pub retries: String,
+    pub time: String,
+    pub reread: String,
 }
 
 /// The investigation prompts of one report, by row key.
@@ -59,6 +72,11 @@ impl StatsPrompts {
 #[cfg_attr(test, derive(ts_rs::TS))]
 #[serde(rename_all = "camelCase")]
 pub struct StatsText {
+    /// The one line the page opens with: what avoidable retries cost, and
+    /// how much of them the shown fixes cover.
+    pub verdict: Option<String>,
+    /// What the verdict's total holds that is not a fixable failure.
+    pub verdict_note: Option<String>,
     /// Rows that name a change, largest share of the spend first, then
     /// causes by hits since their last fix.
     pub findings: Vec<Finding>,
@@ -70,6 +88,26 @@ pub struct StatsText {
     /// Cause key to its rule check line.
     #[cfg_attr(test, ts(type = "Record<string, string>"))]
     pub rule_lines: BTreeMap<String, String>,
+    /// What the report covers, on one line: sessions, calls and the time
+    /// every share divides by.
+    pub corpus_line: String,
+    /// The link to the measurement notes: `How these numbers are measured
+    /// (10 notes) · 1 file skipped`.
+    pub measured_link: String,
+    /// Cause key to its retry-time cell: `32m14s · 2.8%`.
+    #[cfg_attr(test, ts(type = "Record<string, string>"))]
+    pub cause_time: BTreeMap<String, String>,
+    /// Cause key to its re-read cell: `17.4M · ~$9`.
+    #[cfg_attr(test, ts(type = "Record<string, string>"))]
+    pub cause_reread: BTreeMap<String, String>,
+    /// The row that adds every cause up; `None` with fewer than two causes.
+    pub totals: Option<CauseTotalsText>,
+    /// Cause key to every split of the row on one line.
+    #[cfg_attr(test, ts(type = "Record<string, string>"))]
+    pub cause_split: BTreeMap<String, String>,
+    /// Cause key to the row as one line, for a narrow screen.
+    #[cfg_attr(test, ts(type = "Record<string, string>"))]
+    pub cause_narrow: BTreeMap<String, String>,
     /// Cause key to the memory line it suggests.
     #[cfg_attr(test, ts(type = "Record<string, string>"))]
     pub suggested_rule: BTreeMap<String, String>,
@@ -159,3 +197,128 @@ pub const EMPTY_FINDINGS: &str =
 pub const EMPTY_CAUSES: &str = "No named cause fired in this window.";
 pub const EMPTY_FAILS: &str = "Nothing failed in this window.";
 pub const EMPTY_TIME: &str = "No shell time measured in this window.";
+
+/// Who made a call: the reader's own sessions, or agents they started.
+pub const YOU: &str = "You";
+pub const SUBAGENTS: &str = "subagents";
+
+/// `Fix in: memory file`, or `None` for a cause with no named fix.
+pub fn fix_in(kind: CauseKind) -> Option<String> {
+    let place = match kind {
+        CauseKind::Rule => "memory file",
+        CauseKind::Env => "your machine",
+        CauseKind::Workflow => "workflow prompt",
+        CauseKind::None => return None,
+    };
+    Some(format!("Fix in: {place}"))
+}
+
+/// [`fix_in`] for a kind spelled as on the wire: `rule`, `env`, `workflow`.
+pub fn fix_in_of(kind: &str) -> Option<String> {
+    fix_in(match kind {
+        "rule" => CauseKind::Rule,
+        "env" => CauseKind::Env,
+        "workflow" => CauseKind::Workflow,
+        _ => CauseKind::None,
+    })
+}
+
+/// [`wait_shape_label`] for a shape spelled as on the wire: `loop-poll`.
+pub fn wait_label_of(key: &str) -> Option<&'static str> {
+    let shape = match key {
+        "loop-poll" => WaitShape::LoopPoll,
+        "watcher" => WaitShape::Watcher,
+        "curl-retry" => WaitShape::CurlRetry,
+        "bare-delay" => WaitShape::BareDelay,
+        _ => return None,
+    };
+    Some(wait_shape_label(shape))
+}
+
+/// How a waiting call parks, in plain words.
+pub const fn wait_shape_label(shape: WaitShape) -> &'static str {
+    match shape {
+        WaitShape::LoopPoll => "polling loop",
+        WaitShape::Watcher => "watcher",
+        WaitShape::CurlRetry => "curl retry",
+        WaitShape::BareDelay => "fixed sleep",
+    }
+}
+
+/// The collapsed tables under the findings.
+pub const DATA_TITLE: &str = "Show the data";
+pub const DATA_HIDE: &str = "Hide the data";
+
+/// One tab of the data section: its title, and the line under it that says
+/// what the tab ranks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DataTab {
+    pub title: &'static str,
+    pub note: &'static str,
+}
+
+pub const RETRIES_TAB: DataTab = DataTab {
+    title: "Retries",
+    note: "Every named cause, ranked by sessions with a retry. A retry is a failed call followed by a similar call of the same tool that succeeded.",
+};
+pub const FAILS_TAB: DataTab = DataTab {
+    title: "Tool errors",
+    note: "Calls whose output printed a failure, ranked by sessions spanned. A row never says that something broke.",
+};
+pub const TIME_TAB: DataTab = DataTab {
+    title: "Time",
+    note: "Shell time by job. Each command line is charged to exactly one job. Tools that wait on a human are left out.",
+};
+
+/// The row under the cause table that adds every cause up.
+pub const TOTALS_LABEL: &str = "All causes";
+
+/// A column heading and the definition its tooltip shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Column {
+    pub label: &'static str,
+    pub tip: &'static str,
+}
+
+pub const COL_HITS: Column = Column {
+    label: "Hits",
+    tip: "Calls that failed with this cause.",
+};
+pub const COL_RETRIES: Column = Column {
+    label: "Retries",
+    tip: "Failed calls followed by a similar call that succeeded: a round trip a fix would save. Read-backs of large output are not failures.",
+};
+pub const COL_SPLIT: Column = Column {
+    label: "You / subagents",
+    tip: "Hits in your own sessions, then in subagents.",
+};
+pub const COL_RETRY_TIME: Column = Column {
+    label: "Retry time",
+    tip: "Time from the failed call to the retry, and its share of shell time. Causes outside the shell, and the total, are a share of all tool time.",
+};
+pub const COL_REREAD: Column = Column {
+    label: "Re-read",
+    tip: "Context the retrying model call read again, priced at each session's model. The dollar figure is approximate.",
+};
+pub const COL_RULE: Column = Column {
+    label: "Rule",
+    tip: "A memory-file line that states this fix, and whether the cause still fires since.",
+};
+pub const COL_FLAGGED: Column = Column {
+    label: "Flagged",
+    tip: "Calls that set the agent's own error flag. The gap to Calls is what an error panel alone would miss.",
+};
+pub const COL_SHARE: Column = Column {
+    label: "Share",
+    tip: "Share of all shell time.",
+};
+pub const COL_OTHER_JOBS: Column = Column {
+    label: "In other jobs",
+    tip: "Command lines that also run this job but are charged to a higher-priority one.",
+};
+
+/// The metadata line at the foot of the page.
+pub const FOOTER_REDACTED: &str =
+    "Secrets such as API keys and tokens are masked. Commands and paths are shown as run.";
+/// The switch that shows detector ids and fix kinds.
+pub const DEBUG_TOGGLE: &str = "Show detector ids";

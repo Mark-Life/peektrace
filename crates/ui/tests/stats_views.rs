@@ -233,16 +233,16 @@ fn the_cause_table_renders_its_rows_and_the_open_one_shows_the_rule_check() {
     assert!(rt.find("cause-detail:cause:zsh-glob-flag").is_some());
     assert!(rt.find("cause-split:cause:zsh-glob-flag").is_some());
     for needle in [
-        "still firing main 31/1k, sub 57/1k",
+        "still firing: You 31, subagents 57 per 1,000 calls",
         "setopt nonomatch",
-        "hits main 125 / sub 1,363",
-        "context re-read 32.3M",
+        "hits: You 125, subagents 1,363",
+        "32.3M tokens re-read",
         "--include=*.ts → --include='*.ts' (135)",
-        "per 1k calls in this window main 26 / sub 53",
+        "per 1,000 calls: You 26, subagents 53",
     ] {
         assert!(has_text(&rt, needle), "{needle}: {:?}", texts(&rt));
     }
-    assert!(texts(&rt).iter().any(|t| t == "Hits main / sub"));
+    assert!(texts(&rt).iter().any(|t| t == "You / subagents"));
 }
 
 // stats-format.test.tsx:321
@@ -253,7 +253,7 @@ fn a_phone_reads_each_cause_row_as_one_wrapped_summary_line() {
     assert!(rt.find("cause-narrow:cause:zsh-glob-flag").is_some());
     assert!(has_text(
         &rt,
-        "1,488 hits · 675 retries in 550 sessions · 44m20s · 32.3M ctx re-read"
+        "1,488 hits · 675 retries in 550 sessions · 44m20s (0.0% of shell time) · 32.3M tokens re-read"
     ));
 }
 

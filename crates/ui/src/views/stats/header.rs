@@ -116,7 +116,10 @@ pub fn header(v: &V<'_>, rescanning: bool, layer: &mut Vec<El>) -> El {
                 .gap(12.0)
                 .center_y()
                 .child(
-                    text(corpus_line(&r.corpus))
+                    text(
+                        v.text
+                            .map_or_else(|| corpus_line(&r.corpus), |x| x.corpus_line.clone()),
+                    )
                         .font(ty::MONO_SM)
                         .color(t.fg)
                         .wrap()

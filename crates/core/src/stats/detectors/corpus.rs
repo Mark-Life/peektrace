@@ -146,6 +146,9 @@ pub struct CorpusPanelSink {
     usage_by_model: IndexMap<String, ModelUsage>,
     /// Per-call cost of cache reads alone, by session.
     read_usd_by_sid: HashMap<String, f64>,
+    /// Cache-read tokens of the priced calls, by session, deduped like the
+    /// dollars above.
+    read_tokens_by_sid: HashMap<String, f64>,
     /// Hashes of the dedup keys priced so far.
     seen_calls: HashSet<u64>,
     cards: CardCache,
@@ -230,6 +233,7 @@ impl CorpusPanelSink {
             base_cost(card.as_ref(), &full),
         );
         *self.read_usd_by_sid.entry(u.sid.clone()).or_default() += usd * read_share;
+        *self.read_tokens_by_sid.entry(u.sid.clone()).or_default() += t.cache_read;
         let model = if u.model.is_empty() {
             UNKNOWN_MODEL
         } else {

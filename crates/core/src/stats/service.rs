@@ -232,6 +232,10 @@ pub fn report(env: &StatsEnv<'_>, req: &ReportRequest) -> Result<StatsReport, St
         };
         row.rule = check_row(&rr, &docs, &d.causes, &dates, &redact);
     }
+    let mean = d.panels.mean_read_rate();
+    for row in &mut causes {
+        row.retry_usd = priced(&row.ctx_by_sid, |sid| d.panels.read_rate(sid).or(mean));
+    }
     // A cause its rule stopped ranks after every live one.
     causes.sort_by_key(crate::stats::findings::is_working);
     let pairs: f64 = causes.iter().map(|r| r.pairs).sum();
@@ -485,4 +489,19 @@ pub fn markers(
         &mut |f| collector.add(f),
     );
     Ok(collector.finish())
+}
+
+/// Tokens by transcript, each priced at that transcript's own read rate;
+/// `None` when no transcript has a price.
+fn priced(by_sid: &[(String, f64)], rate: impl Fn(&str) -> Option<f64>) -> Option<f64> {
+    let mut any = false;
+    let usd = by_sid
+        .iter()
+        .filter_map(|(sid, tok)| {
+            let r = rate(sid)?;
+            any = true;
+            Some(tok * r)
+        })
+        .sum();
+    any.then_some(usd)
 }

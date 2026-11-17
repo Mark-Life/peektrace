@@ -3,18 +3,19 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::CauseRowView;
-use peektrace_protocol::stats_text::EMPTY_CAUSES;
+use peektrace_protocol::stats_text::{
+    COL_HITS, COL_REREAD, COL_RETRIES, COL_RETRY_TIME, COL_RULE, COL_SPLIT, CauseTotalsText,
+    EMPTY_CAUSES, StatsText, TOTALS_LABEL, fix_in_of,
+};
 use rune::{Align, Color, El, col, row, text};
 
 use super::copy::{copy_button, prompt_button};
 use super::links::links;
 use super::{
-    V, amber, amber_text, emerald, emerald_text, mono, muted, outline_badge, secondary_badge,
-    small_button,
+    V, amber, amber_text, emerald, emerald_text, mono, muted, secondary_badge, small_button,
 };
 use crate::model::stats::rows::{
-    cause_badge, cause_cells, cause_learned, cause_named, cause_narrow, cause_pairs, cause_split,
-    match_lines,
+    cause_cells, cause_learned, cause_named, cause_pairs, match_lines,
 };
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
@@ -31,37 +32,37 @@ pub struct Column {
 
 const COLUMNS: [Column; 6] = [
     Column {
-        head: "Hits",
+        head: COL_HITS.label,
         w: 72.0,
         from: 1,
         right: true,
     },
     Column {
-        head: "Retries",
+        head: COL_RETRIES.label,
         w: 96.0,
         from: 1,
         right: true,
     },
     Column {
-        head: "Hits main / sub",
+        head: COL_SPLIT.label,
         w: 128.0,
         from: 2,
         right: true,
     },
     Column {
-        head: "Retry time",
+        head: COL_RETRY_TIME.label,
         w: 96.0,
         from: 1,
         right: true,
     },
     Column {
-        head: "Context re-read",
+        head: COL_REREAD.label,
         w: 128.0,
         from: 2,
         right: true,
     },
     Column {
-        head: "Rule",
+        head: COL_RULE.label,
         w: 200.0,
         from: 1,
         right: false,
@@ -151,6 +152,15 @@ fn is_fixed(v: &V<'_>, row: &CauseRowView) -> bool {
         .is_some_and(|x| x.working.iter().any(|w| w.key == row.key))
 }
 
+/// One cause's line from core's text, when the server sent text.
+fn text_line(
+    v: &V<'_>,
+    pick: fn(&StatsText) -> &std::collections::BTreeMap<String, String>,
+    key: &str,
+) -> Option<String> {
+    pick(v.text?).get(key).cloned()
+}
+
 fn rule_line<'a>(v: &V<'a>, row: &CauseRowView) -> Option<&'a str> {
     v.text?.rule_lines.get(&row.key).map(String::as_str)
 }
@@ -172,15 +182,14 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
             row()
                 .w_full()
                 .gap(4.0)
-                .child(outline_badge(cause_badge(&r.key), true, t))
-                .child(secondary_badge(r.kind.clone(), t)),
+                .children(fix_in_of(&r.kind).map(|place| secondary_badge(place, t))),
         );
     if !v.bp.md {
         let mut narrow = col()
             .key(format!("cause-narrow:{}", r.key))
             .w_full()
             .gap(4.0)
-            .child(mono(cause_narrow(r), t));
+            .children(text_line(v, |x| &x.cause_narrow, &r.key).map(|l| mono(l, t)));
         if let Some(l) = rule_line(v, r) {
             narrow = narrow.child(rule_badge(&r.key, l, is_fixed(v, r), v.t));
         }
@@ -191,7 +200,15 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
 
 fn cause_row(v: &V<'_>, r: &CauseRowView, open: bool, selected: bool) -> El {
     let t = v.t;
-    let cells = cause_cells(r);
+    let mut cells = cause_cells(r);
+    if let Some(x) = v.text {
+        if let Some(time) = x.cause_time.get(&r.key) {
+            cells.retry_time.clone_from(time);
+        }
+        if let Some(reread) = x.cause_reread.get(&r.key) {
+            cells.ctx.clone_from(reread);
+        }
+    }
     let muted_c = t.muted_fg;
     let values: [Vec<(String, Color)>; 5] = [
         vec![(cells.hits, t.fg)],
@@ -301,7 +318,10 @@ fn detail(v: &V<'_>, r: &CauseRowView, layer: &mut Vec<El>) -> El {
                 .children(match_lines(r).into_iter().map(|m| mono(m, t))),
         );
     }
-    c = c.child(mono(cause_split(r), t).key(format!("cause-split:{}", r.key)));
+    c = c.children(
+        text_line(v, |x| &x.cause_split, &r.key)
+            .map(|l| mono(l, t).key(format!("cause-split:{}", r.key))),
+    );
     c = c.children(cause_learned(r).map(|l| mono(l, t)));
     c = c.children(cause_named(r).map(|l| mono(l, t)));
     let pairs = cause_pairs(r);
@@ -343,5 +363,44 @@ pub fn table(v: &V<'_>, layer: &mut Vec<El>) -> El {
             c = c.child(detail(v, r, layer));
         }
     }
-    c
+    c.children(
+        v.text
+            .and_then(|x| x.totals.as_ref())
+            .map(|x| totals_row(v, x)),
+    )
+}
+
+/// Every cause added up, under the last row.
+fn totals_row(v: &V<'_>, x: &CauseTotalsText) -> El {
+    let t = v.t;
+    let values = [
+        x.hits.clone(),
+        x.retries.clone(),
+        String::new(),
+        x.time.clone(),
+        x.reread.clone(),
+    ];
+    let mut line = row()
+        .key("cause-totals")
+        .w_full()
+        .px(8.0)
+        .py(8.0)
+        .gap(8.0)
+        .items_start()
+        .child(
+            text(TOTALS_LABEL)
+                .font(ty::SM_MEDIUM)
+                .color(t.fg)
+                .grow(1.0)
+                .min_w(0.0),
+        );
+    for (c, value) in COLUMNS.iter().zip(values) {
+        if shown(c, v) {
+            line = line.child(cell(c, vec![(value, t.fg)], None, t));
+        }
+    }
+    if shown(&COLUMNS[5], v) {
+        line = line.child(col().w(COLUMNS[5].w));
+    }
+    line
 }

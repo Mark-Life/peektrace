@@ -4,8 +4,10 @@
  * One route, one call, ranked tables and no blended score — a failure count
  * and a second are different units, and the seconds are carried by a thin tail
  * of long runs, so adding them would invent an ordering nobody measured. The
- * flagged findings come first because a number with no action attached is
- * decoration; the charts sit under the tables as secondary evidence.
+ * findings come first because a number with no action attached is
+ * decoration. The page opens on one verdict line and the first few fixes;
+ * the tables behind them sit in one collapsed "Show the data" section, so a
+ * cause shows once on a cold start.
  *
  * Window, agent and the open drill key all ride the hash, so any view here is a
  * link someone else can open.
@@ -33,11 +35,18 @@ import {
 } from "../lib/stats-atoms";
 import { promptsOf } from "../lib/stats-format";
 import { CauseTable } from "./stats/cause-table";
+import { DataSection, tabOf } from "./stats/data-section";
+import type { DataTab } from "./stats/data-section";
 import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
 import { FailTable } from "./stats/fail-table";
-import { Findings } from "./stats/findings";
-import { agentOf, daysOf, ReportHeader } from "./stats/report-header";
+import { Findings, Verdict } from "./stats/findings";
+import {
+  agentOf,
+  daysOf,
+  ReportFooter,
+  ReportHeader,
+} from "./stats/report-header";
 import { StatsPending } from "./stats/stats-pending";
 import { TimeTable } from "./stats/time-table";
 
@@ -84,34 +93,31 @@ export const detectorOf = (
   return report.fails.find((row) => row.key === drill.key)?.detector ?? null;
 };
 
-/** A section heading that states its ranking key, then its lead note. */
-const SectionHead = ({
-  section,
-}: {
-  readonly section: keyof typeof STATS_SECTIONS;
-}) => {
-  const { note, rankedBy, title } = STATS_SECTIONS[section];
+/** The findings heading and what it ranks by. */
+const FindingsHead = () => {
+  const { rankedBy, title } = STATS_SECTIONS.findings;
 
   return (
-    <>
-      <div className="flex flex-wrap items-baseline gap-2">
-        <h2 className="text-base font-semibold">{title}</h2>
-        <span className="text-muted-foreground text-xs">
-          ranked by {rankedBy}
-        </span>
-      </div>
-      {note === null ? null : (
-        <p className="text-muted-foreground text-xs">{note}</p>
-      )}
-    </>
+    <div className="flex flex-wrap items-baseline gap-2">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <span className="text-muted-foreground text-xs">
+        ranked by {rankedBy}
+      </span>
+    </div>
   );
 };
+
+/** A sub-heading inside a data tab. */
+const SubHead = ({ section }: { readonly section: "clusters" | "waiting" }) => (
+  <h3 className="text-sm font-semibold">{STATS_SECTIONS[section].title}</h3>
+);
 
 const openDrill = (table: DrillTable, key: string) => {
   setHashParam("drill", `${table}:${key}`);
 };
 
-/** The screen for one loaded report. */
+/** The screen for one loaded report: verdict, findings, the data behind
+ *  them (collapsed), then what the report covers. */
 const ReportView = ({
   agent,
   days,
@@ -132,6 +138,10 @@ const ReportView = ({
   readonly rescanning: boolean;
 }) => {
   const [showAllFindings, setShowAllFindings] = useState(false);
+  const [debug, setDebug] = useState(false);
+  // A link that names a table row opens the data on that row's tab.
+  const [dataOpen, setDataOpen] = useState(drill !== null);
+  const [tab, setTab] = useState<DataTab>(tabOf(drill?.table));
 
   const keyOf = (table: DrillTable) =>
     drill?.table === table ? drill.key : null;
@@ -152,13 +162,15 @@ const ReportView = ({
         }}
         onRescan={onRescan}
         prompt={prompt({ table: "report" })}
-        report={report}
         rescanning={rescanning}
       />
 
+      <Verdict line={text.verdict} note={text.verdictNote} />
+
       <section className="flex flex-col gap-3">
-        <SectionHead section="findings" />
+        <FindingsHead />
         <Findings
+          debug={debug}
           findings={text.findings}
           onDrill={openDrill}
           onShowAll={() => {
@@ -171,59 +183,64 @@ const ReportView = ({
         />
       </section>
 
-      <section className="flex flex-col gap-3">
-        <SectionHead section="causes" />
-        <CauseTable
-          onSelect={(key) => {
-            openDrill("cause", key);
-          }}
-          prompt={prompt}
-          rows={report.causes}
-          text={text}
-          selectedKey={keyOf("cause")}
-        />
-      </section>
+      <DataSection
+        onOpen={setDataOpen}
+        onTab={setTab}
+        open={dataOpen}
+        panels={{
+          fails: (
+            <>
+              <FailTable
+                debug={debug}
+                onSelect={(key) => {
+                  openDrill("fail", key);
+                }}
+                prompt={prompt}
+                rows={report.fails}
+                selectedKey={keyOf("fail")}
+              />
+              <SubHead section="clusters" />
+              <Clusters
+                onSelect={(key) => {
+                  openDrill("cluster", key);
+                }}
+                rows={report.clusters}
+                selectedKey={keyOf("cluster")}
+              />
+            </>
+          ),
+          retries: (
+            <CauseTable
+              debug={debug}
+              onSelect={(key) => {
+                openDrill("cause", key);
+              }}
+              prompt={prompt}
+              rows={report.causes}
+              selectedKey={keyOf("cause")}
+              text={text}
+            />
+          ),
+          time: (
+            <>
+              <TimeTable
+                onSelect={(key) => {
+                  openDrill("time", key);
+                }}
+                prompt={prompt}
+                rows={report.time}
+                selectedKey={keyOf("time")}
+                timeNotes={text.timeNotes}
+              />
+              <SubHead section="waiting" />
+              <Waiting panel={report.waiting} />
+            </>
+          ),
+        }}
+        tab={tab}
+      />
 
-      <section className="flex flex-col gap-3">
-        <SectionHead section="fails" />
-        <FailTable
-          onSelect={(key) => {
-            openDrill("fail", key);
-          }}
-          prompt={prompt}
-          rows={report.fails}
-          selectedKey={keyOf("fail")}
-        />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <SectionHead section="time" />
-        <TimeTable
-          onSelect={(key) => {
-            openDrill("time", key);
-          }}
-          prompt={prompt}
-          rows={report.time}
-          timeNotes={text.timeNotes}
-          selectedKey={keyOf("time")}
-        />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <SectionHead section="waiting" />
-        <Waiting panel={report.waiting} />
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <SectionHead section="clusters" />
-        <Clusters
-          onSelect={(key) => {
-            openDrill("cluster", key);
-          }}
-          rows={report.clusters}
-          selectedKey={keyOf("cluster")}
-        />
-      </section>
+      <ReportFooter debug={debug} onDebug={setDebug} report={report} />
 
       <DrillPanel
         atom={drillAtom}

@@ -20,6 +20,8 @@ const FAMILY_MAX: usize = 40;
 pub(super) struct CauseAgg {
     pub(super) cause: Option<CauseId>,
     pub(super) ctx_seen: HashSet<String>,
+    /// Re-read tokens by the transcript that re-read them, for pricing.
+    pub(super) ctx_by_sid: IndexMap<String, f64>,
     pub(super) details: IndexMap<String, f64>,
     pub(super) diffs: IndexMap<String, f64>,
     pub(super) flagged: f64,
@@ -34,6 +36,10 @@ pub(super) struct CauseAgg {
     pub(super) samples: Vec<SampleRef>,
     pub(super) sec_measured: f64,
     pub(super) sessions: HashSet<String>,
+    /// Pairs whose failed call was a shell command.
+    pub(super) shell_pairs: f64,
+    /// Hits that were shell commands.
+    pub(super) shell_hits: f64,
     pub(super) tokens_measured: f64,
     pub(super) tool: Option<String>,
 }
@@ -41,6 +47,15 @@ pub(super) struct CauseAgg {
 impl CauseAgg {
     pub(super) fn cause(&self) -> CauseId {
         self.cause.unwrap_or(CauseId::Unclassified)
+    }
+
+    /// Every pair, or with no pair every hit, came from the shell.
+    pub(super) fn is_shell(&self) -> bool {
+        if self.pairs > 0.0 {
+            self.shell_pairs == self.pairs
+        } else {
+            self.shell_hits >= self.hits().total()
+        }
     }
 
     pub(super) fn hits(&self) -> Split {

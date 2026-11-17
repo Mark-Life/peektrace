@@ -93,8 +93,8 @@ fn card(v: &V<'_>, f: &Finding, look: Look, layer: &mut Vec<El>) -> El {
                 .key("stats-working-badge"),
         );
     }
-    if let Some(d) = &f.detector {
-        head = head.child(outline_badge(d.clone(), true, t));
+    if let Some(place) = &f.fix_in {
+        head = head.child(outline_badge(place.clone(), false, t));
     }
     head = head.child(spacer()).child(
         text(f.impact.clone())
@@ -205,6 +205,21 @@ fn empty(body: &str, v: &V<'_>) -> El {
         .color(v.t.muted_fg)
         .wrap()
         .key("stats-no-findings")
+}
+
+/// The line the page opens with, and what its total holds that no fix removes.
+pub fn verdict(v: &V<'_>) -> Option<El> {
+    let text_of = v.text?;
+    let line = text_of.verdict.clone()?;
+    let mut c = col()
+        .key("stats-verdict")
+        .w_full()
+        .gap(4.0)
+        .child(text(line).font(ty::SM_MEDIUM).color(v.t.fg).wrap());
+    if let Some(note) = &text_of.verdict_note {
+        c = c.child(muted(note.clone(), v.t));
+    }
+    Some(c)
 }
 
 pub fn findings(v: &V<'_>, layer: &mut Vec<El>) -> El {

@@ -102,6 +102,10 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         sessions: 30.0,
         projects: 3.0,
         retry_sec: 50.0,
+        shell: true,
+        retry_share: 0.0,
+        retry_usd: None,
+        ctx_by_sid: Vec::new(),
         sec_measured: 12.0,
         retry_ctx_tokens: 9000.0,
         tokens_measured: 12.0,
@@ -211,10 +215,10 @@ fn report_findings_lead_then_causes_then_fails() {
     assert!(at("AVOIDABLE RETRIES") < at("WHAT FAILS"));
     assert!(text.contains("--cause cause:zsh-glob-flag"));
     assert!(text.contains(
-        "rule in ~/.claude/CLAUDE.md:99 · still firing main 2/1k, sub 6/1k since 2026-08-01: unsetopt equals"
+        "rule in ~/.claude/CLAUDE.md:99 · still firing: You 2.0, subagents 6.0 per 1,000 calls since 2026-08-01: unsetopt equals"
     ));
-    assert!(text.contains("\thits m/s\tper 1k in window m/s\t"));
-    assert!(text.contains("9.0k ctx tokens re-read"));
+    assert!(text.contains("\thits you/sub\tper 1k in window you/sub\t"));
+    assert!(text.contains("9.0k tokens re-read"));
     assert!(!text.contains("9,000"));
     assert!(text.contains("no rule to suggest"));
 }

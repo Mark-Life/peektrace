@@ -4,6 +4,7 @@
 #![allow(clippy::float_cmp, reason = "counts are whole numbers")]
 
 use peektrace_core::stats::accumulate::{CorpusSummary, DrillTable, StatsWindow};
+use peektrace_core::stats::cause_text::per_thousand as rate_text;
 use peektrace_core::stats::detectors::causes::CauseKind;
 use peektrace_core::stats::detectors::corpus::CorpusPanels;
 use peektrace_core::stats::detectors::failures::FailRow;
@@ -15,7 +16,6 @@ use peektrace_core::stats::findings::{
     NO_RULE, cause_note, cause_spread, findings_of, no_suggestion_reason, rule_line, time_note,
     time_spread, working_of,
 };
-use peektrace_core::stats::format::rate_text;
 use peektrace_core::stats::schema::{CauseId, Job};
 use peektrace_core::stats::service::StatsReport;
 
@@ -79,6 +79,10 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         sessions: 30.0,
         projects: 3.0,
         retry_sec: 50.0,
+        shell: true,
+        retry_share: 0.0,
+        retry_usd: None,
+        ctx_by_sid: Vec::new(),
         sec_measured: 12.0,
         retry_ctx_tokens: 900.0,
         tokens_measured: 12.0,
@@ -246,7 +250,7 @@ fn misses_of_installed_binaries_stop_ranking_command_not_found() {
     );
     assert_eq!(keys(&r), ["cause:a", "cause:cnf"]);
     assert!(
-        cause_spread(&r.causes[0]).contains("), 80 from binaries installed since · "),
+        cause_spread(&r.causes[0]).contains("80 from binaries installed since · "),
         "{}",
         cause_spread(&r.causes[0])
     );
@@ -314,11 +318,11 @@ fn a_cause_finding_states_its_retries_as_the_cost() {
     let f = findings_of(&report(100.0, vec![cause_row(|_| {})], vec![], vec![]));
     assert_eq!(
         f[0].impact,
-        "12 retries (main 2 / sub 10) · 50.0s · 900 ctx tokens re-read"
+        "12 retries · 50.0s (0.0% of shell time) · 900 tokens re-read"
     );
     assert_eq!(
         f[0].spread,
-        "40 hits (38 at exit 0) · 11 sessions with a retry · 3 projects · hits main 10 / sub 30"
+        "40 commands, 38 exited OK · 11 sessions with a retry · 3 projects · You 10 / subagents 30"
     );
 }
 
@@ -333,10 +337,7 @@ fn a_cause_with_no_measured_gap_states_no_time() {
         vec![],
         vec![],
     ));
-    assert_eq!(
-        f[0].impact,
-        "12 retries (main 2 / sub 10) · 900 ctx tokens re-read"
-    );
+    assert_eq!(f[0].impact, "12 retries · 900 tokens re-read");
 }
 
 #[test]
@@ -379,7 +380,7 @@ fn a_rule_present_and_firing_says_so_instead_of_the_fix() {
     assert_eq!(
         cause_note(&row).as_deref(),
         Some(
-            "rule in ~/.claude/CLAUDE.md:100 · still firing main 10/1k, sub 90/1k since 2026-08-01: setopt nonomatch"
+            "rule in ~/.claude/CLAUDE.md:100 · still firing: You 10, subagents 90 per 1,000 calls since 2026-08-01: setopt nonomatch"
         )
     );
     assert_eq!(
@@ -387,7 +388,7 @@ fn a_rule_present_and_firing_says_so_instead_of_the_fix() {
             calls_since: split(0.0, 100.0),
             ..firing()
         }),
-        "rule in ~/.claude/CLAUDE.md:100 · still firing sub 90/1k since 2026-08-01"
+        "rule in ~/.claude/CLAUDE.md:100 · still firing: subagents 90 per 1,000 calls since 2026-08-01"
     );
     assert_eq!(
         rule_line(&RuleCheck {
@@ -462,7 +463,7 @@ fn a_ceiling_is_stated_as_a_floor() {
     let note = time_note(&time_row(capped)).unwrap_or_default();
     assert_eq!(
         note,
-        "3 of 10 runs hit the agent's tool time limit (1m00s of 1h00m), so this time is a floor"
+        "3 of 10 runs hit the time limit (1m00s of 1h00m), so this time is a floor"
     );
     let both = time_note(&time_row(|r| {
         capped(r);
@@ -470,7 +471,7 @@ fn a_ceiling_is_stated_as_a_floor() {
     }))
     .unwrap_or_default();
     assert!(
-        both.ends_with(". 2 runs went to the background and count only the seconds they ran"),
+        both.ends_with(". 2 ran in the background and count only the seconds they ran"),
         "{both}"
     );
     assert_eq!(time_note(&time_row(|_| {})), None);
@@ -480,13 +481,13 @@ fn a_ceiling_is_stated_as_a_floor() {
 fn one_spelling_of_a_per_1k_rate() {
     assert_eq!(rate_text(41.46, 5.0), "41");
     assert_eq!(rate_text(4.236, 5.0), "4.2");
-    assert_eq!(rate_text(0.31, 1.0), "0.31");
+    assert_eq!(rate_text(0.31, 1.0), "0.3");
     assert_eq!(rate_text(0.0, 0.0), "0");
 }
 
 #[test]
 fn a_side_with_hits_never_reads_zero() {
-    assert_eq!(rate_text(0.0, 1.0), "<0.01");
+    assert_eq!(rate_text(0.0, 1.0), "<0.1");
     let line = rule_line(&RuleCheck {
         matches: vec![RuleMatch {
             path: "~/.claude/CLAUDE.md".into(),
@@ -502,7 +503,7 @@ fn a_side_with_hits_never_reads_zero() {
         advice: "a".into(),
     });
     assert!(
-        line.contains("still firing main 0/1k, sub 0.25/1k"),
+        line.contains("still firing: You 0, subagents 0.3 per 1,000 calls"),
         "{line}"
     );
 }

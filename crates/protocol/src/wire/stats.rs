@@ -334,6 +334,12 @@ pub struct CauseRow {
     pub sessions: f64,
     pub projects: f64,
     pub retry_sec: f64,
+    /// Every pair's failed call was a shell command.
+    pub shell: bool,
+    /// `retry_sec` over shell time, or over tool time when not `shell`.
+    pub retry_share: f64,
+    /// Re-read tokens priced at each session's model; approximate.
+    pub retry_usd: Option<f64>,
     pub sec_measured: f64,
     pub retry_ctx_tokens: f64,
     pub tokens_measured: f64,
