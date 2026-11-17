@@ -93,6 +93,7 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         fix: Some("quote every glob passed as a flag value".into()),
         failing: true,
         hits: 40.0,
+        live_hits: None,
         flagged: 2.0,
         hits_by: split(10.0, 30.0),
         pairs: 12.0,

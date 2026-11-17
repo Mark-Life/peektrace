@@ -178,13 +178,13 @@ fn undated(row: &CauseRow, rule: &RuleCheck) -> f64 {
 }
 
 /// Hits a fix could still save: those after the rule's day plus any with no
-/// day, or all of them when no dated rule covers the cause.
+/// day, or, with no dated rule, the hits whose culprit is not fixed yet.
 pub fn live_hits(row: &CauseRow) -> f64 {
     match &row.rule {
         Some(r) if r.since_iso.is_some() && rule_state(r) != RuleState::Unmeasured => {
             r.hits_after.total() + undated(row, r)
         }
-        _ => row.hits,
+        _ => row.live_hits.unwrap_or(row.hits),
     }
 }
 

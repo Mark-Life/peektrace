@@ -309,6 +309,20 @@ impl<'a> CauseTable<'a> {
         }
     }
 
+    /// Command-not-found hits minus misses of binaries installed since.
+    fn live_of(&self, agg: &CauseAgg) -> Option<f64> {
+        if agg.cause() != CauseId::CommandNotFound {
+            return None;
+        }
+        let fixed: f64 = agg
+            .details
+            .iter()
+            .filter(|(b, _)| self.bare_miss.contains(bin_name(b)) && self.installed(b))
+            .map(|(_, n)| *n)
+            .sum();
+        (fixed > 0.0).then(|| (agg.hits().total() - fixed).max(0.0))
+    }
+
     #[expect(clippy::cast_precision_loss)]
     fn row_of(&self, ctx: &FinishCtx<'_>, key: &str, agg: &CauseAgg) -> CauseRow {
         let s = spec(agg.cause());
@@ -334,6 +348,7 @@ impl<'a> CauseTable<'a> {
             fix: self.fix_of(agg).map(|f| redact.line_max(&f, FIX_MAX)),
             failing: s.failing,
             hits: hits_by.total(),
+            live_hits: self.live_of(agg),
             flagged: agg.flagged,
             hits_by,
             pairs: agg.pairs,

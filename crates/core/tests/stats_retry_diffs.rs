@@ -172,6 +172,13 @@ fn a_binary_that_ran_after_its_last_miss_is_installed() {
         row(&rows, CNF).and_then(|r| r.fix.as_deref()),
         Some("install rsync. Misses: rsync 2")
     );
+    assert_eq!(row(&rows, CNF).and_then(|r| r.live_hits), Some(2.0));
+    let live = |facts: Vec<In>| row(&rows_of(facts), CNF).and_then(|r| r.live_hits);
+    assert_eq!(
+        live(facts![miss(0, "jq"), miss(1, "rsync"), ran()]),
+        Some(1.0)
+    );
+    assert_eq!(live(facts![miss(0, "rsync")]), None);
 }
 
 #[test]

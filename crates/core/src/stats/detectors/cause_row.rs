@@ -22,6 +22,8 @@ pub struct CauseRow {
     pub fix: Option<String>,
     pub failing: bool,
     pub hits: f64,
+    /// Hits minus misses already fixed (installed binaries); command not found only.
+    pub live_hits: Option<f64>,
     pub flagged: f64,
     pub hits_by: Split,
     pub pairs: f64,
@@ -51,6 +53,9 @@ impl CauseRow {
         w.key("fix").opt_text(self.fix.as_deref());
         w.key("failing").bool(self.failing);
         w.key("hits").num(self.hits);
+        if let Some(n) = self.live_hits {
+            w.key("liveHits").num(n);
+        }
         w.key("flagged").num(self.flagged);
         w.key("hitsBy");
         self.hits_by.write(w);

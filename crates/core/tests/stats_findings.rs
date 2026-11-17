@@ -70,6 +70,7 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         fix: Some("quote the glob".into()),
         failing: true,
         hits: 40.0,
+        live_hits: None,
         flagged: 2.0,
         hits_by: split(10.0, 30.0),
         pairs: 12.0,
@@ -231,6 +232,19 @@ fn cause_findings_rank_by_live_hits_and_ties_keep_table_order() {
         vec![],
     );
     assert_eq!(keys(&r), ["cause:c", "cause:a", "cause:b"]);
+}
+
+#[test]
+fn misses_of_installed_binaries_stop_ranking_command_not_found() {
+    let mut cnf = named_cause("cause:cnf", CauseId::CommandNotFound, 90.0);
+    cnf.live_hits = Some(10.0);
+    let r = report(
+        100.0,
+        vec![cnf, named_cause("cause:a", CauseId::ZshGlobFlag, 40.0)],
+        vec![],
+        vec![],
+    );
+    assert_eq!(keys(&r), ["cause:a", "cause:cnf"]);
 }
 
 #[test]

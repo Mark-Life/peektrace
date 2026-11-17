@@ -321,6 +321,11 @@ pub struct CauseRow {
     /// False for waste rather than failure (output too large).
     pub failing: bool,
     pub hits: f64,
+    /// Hits a fix would still save when some culprits are already fixed
+    /// (command not found: binaries installed since); absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(test, ts(optional))]
+    pub live_hits: Option<f64>,
     pub flagged: f64,
     pub hits_by: Split,
     pub pairs: f64,

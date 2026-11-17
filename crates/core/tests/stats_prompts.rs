@@ -85,6 +85,7 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         fix: Some("quote the glob".into()),
         failing: true,
         hits: 1492.0,
+        live_hits: None,
         flagged: 35.0,
         hits_by: split(125.0, 1367.0),
         pairs: 678.0,

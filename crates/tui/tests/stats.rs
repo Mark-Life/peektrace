@@ -296,6 +296,7 @@ fn a_finding_title_never_runs_into_a_wide_impact() {
         fix: Some("quote the glob".into()),
         failing: true,
         hits: 5.0,
+        live_hits: None,
         flagged: 0.0,
         hits_by: none,
         pairs: 0.0,
