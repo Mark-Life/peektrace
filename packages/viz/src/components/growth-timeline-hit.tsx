@@ -108,7 +108,7 @@ export const TimelineHitLayer = ({
     });
   };
 
-  const snap = hover >= 0 ? snaps[hover] : undefined;
+  const snap = snaps[hover];
   const hx = snap ? x(hover) : 0;
   const rightHalf = hx > left + plotW / HALF;
 
