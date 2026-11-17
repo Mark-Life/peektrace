@@ -530,7 +530,7 @@ fn a_click_selects_a_card_and_toggles_a_history_row() {
     h.app.mouse(click(15));
     h.settle();
     assert!(
-        h.text().contains("thinking · claude-opus-5-5"),
+        h.text().contains("thinking · /repo") && h.text().contains("Anthropic · claude-opus-5-5"),
         "third card: {}",
         h.text()
     );

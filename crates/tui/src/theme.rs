@@ -58,6 +58,37 @@ pub const fn agent_color(a: Agent) -> Color {
     }
 }
 
+/// Two-letter harness mark for the session card.
+pub const fn agent_glyph(a: Agent) -> &'static str {
+    match a {
+        Agent::Claude => "CC",
+        Agent::Codex => "Cx",
+        Agent::Pi => "Pi",
+        Agent::Opencode => "OC",
+    }
+}
+
+/// Short mark and colour of a model maker, by its models.dev id; a faint
+/// `?` when the id has no mark.
+pub fn provider_glyph(id: &str) -> (&'static str, Color) {
+    match id {
+        "anthropic" => ("An", rgb(0xd9_7757)),
+        "openai" => ("OA", rgb(0xe6_edf3)),
+        "google" => ("Go", rgb(0x6c_9ef8)),
+        "xai" => ("xA", rgb(0xb0_b8c0)),
+        "zai" => ("Z", rgb(0x7a_a2f7)),
+        "moonshotai" => ("Ki", rgb(0x9a_a5ff)),
+        "alibaba" => ("Qw", rgb(0xff_8a3d)),
+        "deepseek" => ("DS", rgb(0x6f_8bff)),
+        "mistral" => ("Mi", rgb(0xff_7000)),
+        "minimax" => ("MM", rgb(0xe8_4a72)),
+        "meta" => ("Me", rgb(0x4a_a3ff)),
+        "nvidia" => ("NV", rgb(0x76_b900)),
+        "cohere" => ("Co", rgb(0x39_d0a0)),
+        _ => ("?", TEXT_FAINT),
+    }
+}
+
 pub const fn level_color(l: SupportLevel) -> Color {
     match l {
         SupportLevel::Supported => GOOD,

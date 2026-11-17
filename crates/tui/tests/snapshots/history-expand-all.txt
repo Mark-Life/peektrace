@@ -3,38 +3,38 @@
  │                                            │ │                                                                                                             │
  │ / filter (press /)                         │ │ ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────╮ │
  │ agent: all · a to cycle                    │ │ │ Fix the flaky build  ● Degrading                                                                        │ │
- │                                            │ │ │ 22222222 · claude-sonnet-4-5 · /Users/demo/long                                                         │ │
+ │                                            │ │ │ 22222222 · /Users/demo/long · main                                                                      │ │
+ │ ╭───────────────────────────────────────╮  │ │ │ Source         Claude Code · Anthropic · claude-sonnet-4-5                                              │ │
+ │ │ Fix the flaky build     Nov 11, 09:00 │  │ │ │                                                                                                         │ │
+ │ │ CC An long · main            151 msgs │  │ │ │ ████████████████████████████████████████████████████████                                                │ │
+ │ ╰───────────────────────────────────────╯  │ │ │ peak 130,320 · 65% of 200,000                                                                           │ │
  │ ╭───────────────────────────────────────╮  │ │ │                                                                                                         │ │
- │ │ [Claude] Fix the flaky build          │  │ │ │ ████████████████████████████████████████████████████████                                                │ │
- │ │ claude-sonnet-4-5 · Nov 11, 09:00 ·…  │  │ │ │ peak 130,320 · 65% of 200,000                                                                           │ │
- │ ╰───────────────────────────────────────╯  │ │ │                                                                                                         │ │
- │ ╭───────────────────────────────────────╮  │ │ │ Turns          150 · 150 tools · 18,000 out                                                             │ │
- │ │ [Claude] Claude session               │  │ │ │ System + tools 5,710                                                                                    │ │
- │ │ prompt-o · Nov 1, 09:00 · 2.6 KB · …  │  │ │ │ Cost           ~$3.31 · estimated from tokens                                                           │ │
- │ ╰───────────────────────────────────────╯  │ │ │ Cache / window 100% · 200.0K (assumed)                                                                  │ │
- │ ╭───────────────────────────────────────╮  │ │ │                                                                                                         │ │
- │ │ [Claude] Claude session               │  │ │ │ Budget at peak                                                                                          │ │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 1.…  │  │ │ │ ████████████████████████████████████████████████████████                                                │ │
+ │ │ Claude session           Nov 1, 09:00 │  │ │ │ Turns          150 · 150 tools · 18,000 out                                                             │ │
+ │ │ CC repo                        6 msgs │  │ │ │ System + tools 5,710                                                                                    │ │
+ │ ╰───────────────────────────────────────╯  │ │ │ Cost           ~$3.31 · estimated from tokens                                                           │ │
+ │ ╭───────────────────────────────────────╮  │ │ │ Cache / window 100% · 200.0K (assumed)                                                                  │ │
+ │ │ Claude session           Nov 1, 09:00 │  │ │ │ Budget at peak                                                                                          │ │
+ │ │ CC An repo                     4 msgs │  │ │ │ ████████████████████████████████████████████████████████                                                │ │
  │ ╰───────────────────────────────────────╯  │ │ │ ■ Tool results                                                                              94,720  47% │ │
  │ ╭───────────────────────────────────────╮  │ │ │ ■ Tool schemas & overhead (not in transcript)                                              19,200  9.6% │ │
- │ │ [Claude] Claude session               │  │ │ │ ■ Assistant thinking (retained)                                                             8,484  4.2% │ │
- │ │ claude-opus-5-5 · Nov 1, 09:00 · 2.…  │  │ │ │ ■ System + tool definitions                                                                 5,710  2.9% │ │
+ │ │ Claude session           Nov 1, 09:00 │  │ │ │ ■ Assistant thinking (retained)                                                             8,484  4.2% │ │
+ │ │ CC An repo                     2 msgs │  │ │ │ ■ System + tool definitions                                                                 5,710  2.9% │ │
  │ ╰───────────────────────────────────────╯  │ │ │ ■ Assistant text + tool calls                                                               2,196  1.1% │ │
  │ ╭───────────────────────────────────────╮  │ │ ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────╯ │
- │ │ [Pi] Pi session                       │  │ │                                                                                                             │
- │ │ claude-sonnet-4-5 · Sep 26, 11:00 ·…  │  │ │  History   Growth   g toggle                                                                                │
+ │ │ Pi session              Sep 26, 11:00 │  │ │                                                                                                             │
+ │ │ Pi An repo                     6 msgs │  │ │  History   Growth   g toggle                                                                                │
  │ ╰───────────────────────────────────────╯  │ │                                                                                                             │
  │ ╭───────────────────────────────────────╮  │ │ Full history  468 events · 41/150 in dumb zone                                       redacted · r to reveal │
- │ │ [Claude] Claude session               │  │ │  Expand all   Collapse all   Biggest first   enter toggle · s sort · shift+E/C all                          │
- │ │ claude-test · Aug 1, 10:00 · 13.5 K…  │  │ │                                                                                                             │
+ │ │ Claude session           Aug 1, 10:00 │  │ │  Expand all   Collapse all   Biggest first   enter toggle · s sort · shift+E/C all                          │
+ │ │ CC An proj                    22 msgs │  │ │                                                                                                             │
  │ ╰───────────────────────────────────────╯  │ │ [t0] [user-prompt] Fix the flaky build and tidy the scripts.                                            ~10 │
  │ ╭───────────────────────────────────────╮  │ │   Fix the flaky build and tidy the scripts.                                                                 │
- │ │ [Codex] Codex session                 │  │ │                                                                                                             │
- │ │ gpt-5.5 · Jul 8, 10:00 · 3.6 KB · 3…  │  │ │ [t0] [deferred tools delta] deferred_tools_delta                                                         ~0 │
+ │ │ Codex session            Jul 8, 10:00 │  │ │                                                                                                             │
+ │ │ Cx OA peephole · feature/pars… 3 msgs │  │ │ [t0] [deferred tools delta] deferred_tools_delta                                                         ~0 │
  │ ╰───────────────────────────────────────╯  │ │   —                                                                                                         │
  │ ╭───────────────────────────────────────╮  │ │                                                                                                             │
- │ │ [Claude] Refactor auth module         │  │ │ [t1] [assistant-text] Step 1: checking with `Bash`.                                                      ~7 │
- │ │ claude-opus-4 · Jun 1, 10:00 · 2.5 …  │  │ │   Step 1: checking with `Bash`.                                                                             │
+ │ │ Refactor auth module     Jun 1, 10:00 │  │ │ [t1] [assistant-text] Step 1: checking with `Bash`.                                                      ~7 │
+ │ │ CC An proj · main              6 msgs │  │ │   Step 1: checking with `Bash`.                                                                             │
  │ ╰───────────────────────────────────────╯  │ │                                                                                                             │
  │                                            │ │ [t1] [Bash] { "command": "npm test -- --grep case1 2>&1 | tail -5" }                                    ~15 │
  │                                            │ │   npm test -- --grep case1 2>&1 | tail -5                                                                   │

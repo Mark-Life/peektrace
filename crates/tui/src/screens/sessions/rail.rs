@@ -5,11 +5,11 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 
-use super::{CARD_CONTENT_W, CARD_H, Focus, State, title_of};
-use crate::draw::{frame, inset, panel, put, seg};
-use crate::fmt::{clip, fmt_bytes, fmt_started, sanitize};
+use super::{CARD_H, Focus, State, marks, title_of};
+use crate::draw::{frame, inset, panel, put, put_lr, seg, segs_width};
+use crate::fmt::{clip, fmt_started, sanitize};
 use crate::screens::Hit;
-use crate::theme::{self, agent_color, agent_label, fg};
+use crate::theme::{self, agent_label, fg};
 use crate::widgets::{empty, error_line, loading};
 
 impl State {
@@ -113,44 +113,48 @@ impl State {
             scratch.set_style(full, Style::new().bg(theme::PANEL_SEL));
         }
         let inner = inset(frame(&mut scratch, full, None, border, title_style), 1, 0);
-        let badge = format!("[{}] ", agent_label(h.agent));
-        let title_w = CARD_CONTENT_W.saturating_sub(badge.chars().count()).max(6);
-        let model = h
-            .model
-            .clone()
-            .unwrap_or_else(|| peektrace_core::js::units::slice(h.id.as_str(), 0, 8));
-        let sub = format!(
-            "{model} · {} · {} · {} msgs",
-            fmt_started(h.started_at.as_deref()),
-            fmt_bytes(h.size_bytes),
-            h.message_count
+        let w = usize::from(inner.width);
+        let date = seg(fmt_started(h.started_at.as_deref()), fg(theme::TEXT_FAINT));
+        let title = seg(
+            sanitize(&title_of(h)),
+            fg(if selected {
+                theme::PRIMARY
+            } else {
+                theme::TEXT
+            }),
         );
-        put(
+        let title_w = w.saturating_sub(segs_width(std::slice::from_ref(&date)) + 1);
+        let title = seg(clip(&title.0, title_w), title.1);
+        put_lr(
             &mut scratch,
             inner.x,
             inner.y,
             inner.width,
-            &[
-                seg(badge, fg(agent_color(h.agent))),
-                seg(
-                    clip(&sanitize(&title_of(h)), title_w),
-                    fg(if selected {
-                        theme::PRIMARY
-                    } else {
-                        theme::TEXT
-                    }),
-                ),
-            ],
+            &[title],
+            &[date],
         );
-        put(
+        let count = seg(format!("{} msgs", h.message_count), fg(theme::TEXT_FAINT));
+        let mut left = marks::glyphs(h);
+        left.push(seg(" ", Style::new()));
+        if h.worktree.is_some() {
+            left.push(seg(format!("{} ", marks::WORKTREE), fg(theme::ACCENT)));
+        }
+        let room =
+            w.saturating_sub(segs_width(&left) + segs_width(std::slice::from_ref(&count)) + 1);
+        let (project, branch) =
+            marks::fit_place(&marks::project_label(h), marks::branch(h).as_deref(), room);
+        left.push(seg(project, fg(theme::TEXT_DIM)));
+        if let Some(b) = branch {
+            left.push(seg(marks::SEP, fg(theme::TEXT_FAINT)));
+            left.push(seg(b, fg(theme::TEXT_FAINT)));
+        }
+        put_lr(
             &mut scratch,
             inner.x,
             inner.y + 1,
             inner.width,
-            &[seg(
-                clip(&sanitize(&sub), CARD_CONTENT_W),
-                fg(theme::TEXT_FAINT),
-            )],
+            &left,
+            &[count],
         );
         for y in r.y..r.bottom() {
             for x in r.x..r.right() {

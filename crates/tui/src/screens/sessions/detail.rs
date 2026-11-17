@@ -4,12 +4,14 @@
 use std::fmt::Write as _;
 
 use peektrace_core::js::num::to_js_string;
+use peektrace_core::model_provider::provider_line;
 use peektrace_core::sessions::cost::cost_summary;
 use peektrace_core::sessions::model::AnalyzedSession;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 
+use super::marks;
 use crate::draw::{Seg, frame, inset, put_lr, seg};
 use crate::fmt::{clip, fmt, fmt_k, fmt_pct, pad_end, pad_start, sanitize};
 use crate::theme::{self, fg, verdict, zone_of};
@@ -46,6 +48,51 @@ fn web_counts(s: &AnalyzedSession) -> String {
     out
 }
 
+/// The transcript's branch, else the worktree's.
+fn branch_of(s: &AnalyzedSession) -> Option<&str> {
+    let p = &s.parsed;
+    marks::visible(p.git_branch.as_deref())
+        .or_else(|| marks::visible(p.worktree.as_ref().and_then(|wt| wt.branch.as_deref())))
+}
+
+/// Full names of where the session came from: launcher, harness and each
+/// model with its maker; then, for a worktree, its project and path, and
+/// the thread that started the session.
+fn source_rows(s: &AnalyzedSession, w: usize) -> Vec<Vec<Seg>> {
+    let p = &s.parsed;
+    let text = fg(theme::TEXT);
+    let room = w.saturating_sub(LABEL_W);
+    let row = |label: &str, value: &str| field(label, &clip(&sanitize(value), room), text, LABEL_W);
+    let harness = p.launcher.as_ref().map_or_else(
+        || p.provider.label().to_owned(),
+        |l| format!("{} › {}", l.name, p.provider.label()),
+    );
+    let main = p
+        .models
+        .first()
+        .map_or_else(|| "—".to_owned(), |m| provider_line(m));
+    let mut rows = vec![row("Source", &format!("{harness} · {main}"))];
+    for m in p.models.iter().skip(1) {
+        rows.push(row("", &provider_line(m)));
+    }
+    if let Some(wt) = &p.worktree {
+        rows.push(row(
+            "Worktree",
+            &format!(
+                "{} {}{}{}",
+                marks::WORKTREE,
+                wt.project,
+                marks::SEP,
+                wt.path
+            ),
+        ));
+    }
+    if let Some(parent) = p.launcher.as_ref().and_then(|l| l.parent_title.as_deref()) {
+        rows.push(row("Started by", parent));
+    }
+    rows
+}
+
 /// One card row: left segments, and segments flush right.
 type Row = (Vec<Seg>, Vec<Seg>);
 
@@ -67,20 +114,21 @@ fn card_rows(s: &AnalyzedSession, w: usize) -> Vec<Row> {
         ],
         vec![seg(
             clip(
-                &format!(
-                    "{} · {} · {}",
+                &sanitize(&format!(
+                    "{} · {}{}",
                     peektrace_core::js::units::slice(&s.parsed.session_id, 0, 8),
-                    if s.parsed.models.is_empty() {
-                        "—".to_owned()
-                    } else {
-                        s.parsed.models.join(", ")
-                    },
-                    s.parsed.cwd.as_deref().unwrap_or("—")
-                ),
+                    s.parsed.cwd.as_deref().unwrap_or("—"),
+                    branch_of(s)
+                        .map(|b| format!("{}{b}", marks::SEP))
+                        .unwrap_or_default()
+                )),
                 w,
             ),
             fg(theme::TEXT_FAINT),
         )],
+    ];
+    let mut rows: Vec<Vec<Seg>> = rows.into_iter().chain(source_rows(s, w)).collect();
+    rows.extend([
         vec![],
         stacked_bar(
             &[
@@ -102,7 +150,7 @@ fn card_rows(s: &AnalyzedSession, w: usize) -> Vec<Row> {
             fg(theme::TEXT_DIM),
         )],
         vec![],
-    ];
+    ]);
     let text = fg(theme::TEXT);
     let mut rows: Vec<Row> = rows.into_iter().map(|r| (r, Vec::new())).collect();
     let left = |r: Vec<Seg>| (r, Vec::new());
@@ -173,7 +221,6 @@ fn card_rows(s: &AnalyzedSession, w: usize) -> Vec<Row> {
         text,
         LABEL_W,
     )));
-    rows.push(left(vec![]));
     rows.push(left(vec![seg("Budget at peak", fg(theme::ACCENT))]));
     let slices: Vec<_> = s.budget.iter().filter(|b| b.tokens > 0.0).collect();
     rows.push(left(stacked_bar(
