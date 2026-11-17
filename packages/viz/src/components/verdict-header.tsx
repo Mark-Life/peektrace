@@ -213,7 +213,7 @@ const Origin = ({
         </>
       )}
       {parent === undefined || parent === "" ? null : (
-        <span className="min-w-0 shrink-[100] truncate" title={parent}>
+        <span className="min-w-[6ch] flex-1 truncate" title={parent}>
           {`${worktree === undefined ? "" : "· "}${startedBy(parent)}`}
         </span>
       )}

@@ -9,9 +9,11 @@ const PROJECTS: &str = "
 CREATE TABLE projection_projects (project_id TEXT PRIMARY KEY, title TEXT NOT NULL,
     workspace_root TEXT NOT NULL, deleted_at TEXT);
 INSERT INTO projection_projects VALUES
-  ('pr1', 'peephole', '/code/peephole', NULL),
+  ('pr1', 'Renamed in t3code', '/code/peephole', NULL),
   ('pr2', 'Old', '/code/old', '2026-01-01'),
-  ('pr3', 'No project', '/h/.t3/scratch', NULL);";
+  ('pr3', 'No project', '/h/.t3/scratch', NULL),
+  ('pr4', 'app', '/a/app', NULL),
+  ('pr5', 'app', '/b/app/', NULL);";
 
 const V2: &str = "
 CREATE TABLE orchestration_v2_projection_threads (thread_id TEXT PRIMARY KEY,
@@ -73,6 +75,12 @@ INSERT INTO orchestration_v2_projection_provider_threads VALUES
         Some(known("peephole", "/code/peephole", Some("t3/rows")))
     );
     assert_eq!(index.worktree("/h/x"), None);
+    assert_eq!(
+        index.root_named("peephole").as_deref(),
+        Some("/code/peephole")
+    );
+    assert_eq!(index.root_named("old"), None);
+    assert_eq!(index.root_named("app"), None);
     assert_eq!(index.worktree("/h/.t3/scratch/2026-11-14-a"), None);
     let child = index.get(Agent::Claude, "c-2").expect("child");
     assert_eq!(child.launcher.parent_title.as_deref(), Some("Root thread"));
@@ -175,5 +183,17 @@ fn headers_take_the_worktree_project_by_cwd_or_thread_path() {
         Some("/h/.t3/userdata"),
     );
     assert_eq!(by_path.map(|w| w.project), Some("other".into()));
+    // ...and a live project with that folder name gives its root.
+    idx.roots.insert("other".into(), Some("/code/other".into()));
+    let rooted = worktree_of(
+        &idx,
+        Some("/h/.t3/worktrees/other/t3-c/sub"),
+        None,
+        Some("/h/.t3/userdata"),
+    );
+    assert_eq!(
+        rooted.and_then(|w| w.project_root),
+        Some("/code/other".into())
+    );
     assert_eq!(t3_home(Some("/h/.t3/userdata/")), Some("/h/.t3"));
 }

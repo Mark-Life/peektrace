@@ -42,6 +42,3 @@ assets/.raw/
 
 # Local scratch space
 /.scratch
-
-# Captures of real local session data (scripts/media/session-rows --real-home)
-docs/local/

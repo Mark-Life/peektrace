@@ -7,7 +7,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use peektrace_protocol::AgentId;
 use peektrace_protocol::marks;
-pub use peektrace_protocol::marks::{shown_branch, visible_branch};
+pub use peektrace_protocol::marks::shown_branch;
 use peektrace_protocol::view::SessionHeader;
 use peektrace_protocol::wire::sessions::Launcher;
 
@@ -246,14 +246,28 @@ fn cwd(h: &SessionHeader) -> Option<&str> {
     h.cwd.as_deref().filter(|c| !c.is_empty())
 }
 
-/// The folder that names the project: a worktree's main checkout, else
-/// the folder the session ran in.
+/// The dir that holds a worktree: `<t3 home>/worktrees/<project>`.
+fn parent_dir(path: &str) -> &str {
+    let trimmed = path.trim_end_matches(['/', '\\']);
+    trimmed
+        .rfind(['/', '\\'])
+        .map(|i| &trimmed[..i])
+        .filter(|p| !p.is_empty())
+        .unwrap_or(path)
+}
+
+/// The folder that names the project: a worktree's main checkout (or, when
+/// that is unknown, the dir holding its sibling worktrees), else the folder
+/// the session ran in.
 fn project_dir(h: &SessionHeader) -> Option<&str> {
-    h.worktree
-        .as_ref()
-        .and_then(|w| w.project_root.as_deref())
-        .filter(|r| !r.is_empty())
-        .or_else(|| cwd(h))
+    match &h.worktree {
+        Some(w) => w
+            .project_root
+            .as_deref()
+            .filter(|r| !r.is_empty())
+            .or_else(|| Some(parent_dir(&w.path)).filter(|p| !p.is_empty())),
+        None => cwd(h),
+    }
 }
 
 /// A worktree's project, else the folder the session ran in, else the

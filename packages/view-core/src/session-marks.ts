@@ -55,7 +55,7 @@ export const harnessMark = (provider: Provider): Mark => {
 };
 
 /** Who started the session, plus the branch and worktree it gave it. */
-export const launcherHint = (l: Launcher) =>
+const launcherHint = (l: Launcher) =>
   [
     `Started from ${l.name}`,
     ...(l.branch === undefined ? [] : [`branch ${l.branch}`]),
@@ -70,10 +70,8 @@ export const launcherMark = (l: Launcher): Mark => ({
 });
 
 /** `Anthropic · claude-opus-5-5`; an unmapped model names no maker. */
-export const providerLine = (
-  provider: ModelProvider | undefined,
-  model: string
-) => `${provider?.name ?? "Unknown provider"} · ${model}`;
+const providerLine = (provider: ModelProvider | undefined, model: string) =>
+  `${provider?.name ?? "Unknown provider"} · ${model}`;
 
 /** The models a session used, main model first, each once. */
 export const sessionModels = ({
@@ -89,7 +87,7 @@ export const sessionModels = ({
 
 /** Tooltip for the model maker mark: the main model's line, then every other
  * model one per line. The wire names only the main model's maker. */
-export const providerTooltip = ({
+const providerTooltip = ({
   provider,
   models,
 }: {
@@ -123,7 +121,7 @@ export const providerMark = ({
 };
 
 /** The label before the title of the thread that started a session. */
-export const STARTED_BY = "Started by";
+const STARTED_BY = "Started by";
 
 /** `Started by: <title>`. */
 export const startedBy = (title: string) => `${STARTED_BY}: ${title}`;

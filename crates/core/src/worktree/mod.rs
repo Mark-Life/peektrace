@@ -11,6 +11,7 @@ mod git;
 mod tests;
 
 use std::borrow::Cow;
+use std::path::Path;
 
 use git::linked;
 #[cfg(test)]
@@ -38,7 +39,7 @@ pub fn normalize(path: &str) -> &str {
 }
 
 /// A path's last segment.
-fn basename(path: &str) -> &str {
+pub(crate) fn basename(path: &str) -> &str {
     path.rsplit(['/', '\\'])
         .find(|s| !s.is_empty())
         .unwrap_or(path)
@@ -65,8 +66,10 @@ fn under_t3_home(path: &str, home: &str) -> Option<Worktree> {
     })
 }
 
-/// The worktree `cwd` is, when it is one. `known` answers for the paths
-/// t3code recorded; `t3_home` is t3code's base dir (`~/.t3`).
+/// The worktree `cwd` is or lies in, when there is one. `known` answers
+/// for the paths t3code recorded; `t3_home` is t3code's base dir (`~/.t3`).
+/// The nearest dir with a `.git` decides, as for git: a main checkout or
+/// submodule above `cwd` ends the search.
 pub fn resolve(
     cwd: &str,
     known: impl Fn(&str) -> Option<Known>,
@@ -76,21 +79,29 @@ pub fn resolve(
     if path.is_empty() {
         return None;
     }
-    if let Some(k) = known(path) {
-        return Some(Worktree {
-            project: k.project,
-            project_root: k.project_root,
-            path: path.to_owned(),
-            branch: k.branch.or_else(|| linked(path).and_then(|l| l.branch)),
-        });
-    }
-    if let Some(l) = linked(path) {
-        return Some(Worktree {
-            project: basename(&l.root).to_owned(),
-            project_root: Some(l.root),
-            path: path.to_owned(),
-            branch: l.branch,
-        });
+    for dir in Path::new(path).ancestors().filter_map(Path::to_str) {
+        if dir.is_empty() {
+            break;
+        }
+        if let Some(k) = known(dir) {
+            return Some(Worktree {
+                project: k.project,
+                project_root: k.project_root,
+                path: dir.to_owned(),
+                branch: k.branch.or_else(|| linked(dir).and_then(|l| l.branch)),
+            });
+        }
+        if let Some(l) = linked(dir) {
+            return Some(Worktree {
+                project: basename(&l.root).to_owned(),
+                project_root: Some(l.root),
+                path: dir.to_owned(),
+                branch: l.branch,
+            });
+        }
+        if Path::new(dir).join(".git").exists() {
+            break;
+        }
     }
     t3_home.and_then(|home| under_t3_home(path, home))
 }

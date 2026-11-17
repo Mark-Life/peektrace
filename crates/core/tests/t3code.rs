@@ -170,7 +170,7 @@ INSERT INTO orchestration_v2_projection_threads VALUES
         ..common::claude_roots(&dir.str(), &dir.join("projects"))
     };
     let want = Some(Worktree {
-        project: "App".into(),
+        project: "app".into(),
         project_root: Some("/code/app".into()),
         path: WT.into(),
         branch: Some("t3/x".into()),

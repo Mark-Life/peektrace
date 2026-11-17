@@ -13,7 +13,7 @@ use ratatui::style::Style;
 
 use super::marks;
 use crate::draw::{Seg, frame, inset, put_lr, seg};
-use crate::fmt::{clip, fmt, fmt_k, fmt_pct, pad_end, pad_start, sanitize};
+use crate::fmt::{clip, clip_start, fmt, fmt_k, fmt_pct, pad_end, pad_start, sanitize, width};
 use crate::theme::{self, fg, verdict, zone_of};
 use crate::widgets::{bold, field, stacked_bar};
 
@@ -76,16 +76,18 @@ fn source_rows(s: &AnalyzedSession, w: usize) -> Vec<Vec<Seg>> {
         rows.push(row("", &provider_line(m)));
     }
     if let Some(wt) = &p.worktree {
-        rows.push(row(
-            "Worktree",
+        // The path loses its start, not its last folder.
+        let head = clip(
             &format!(
-                "{} {}{}{}",
+                "{} {}{}",
                 marks::WORKTREE,
-                wt.project,
-                marks::SEP,
-                wt.path
+                sanitize(&wt.project),
+                marks::SEP
             ),
-        ));
+            room,
+        );
+        let path = clip_start(&sanitize(&wt.path), room.saturating_sub(width(&head)));
+        rows.push(field("Worktree", &format!("{head}{path}"), text, LABEL_W));
     }
     if let Some(parent) = p.launcher.as_ref().and_then(|l| l.parent_title.as_deref()) {
         rows.push(row(peektrace_protocol::marks::STARTED_BY, parent));

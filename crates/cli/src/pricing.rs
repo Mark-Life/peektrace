@@ -97,10 +97,27 @@ fn same_models(path: &Path, table: &Table) -> bool {
         .is_some_and(|old| old.models == table.models)
 }
 
-/// Write the model maker snapshot to `path` unless it already holds it.
-fn write_providers(path: &Path, api: &str, print: &mut dyn FnMut(&str)) -> Result<(), UserError> {
-    let text = providers_snapshot(api)
+/// The model maker snapshot for `path`, built from `api` with the file's
+/// current lines kept for makers models.dev dropped.
+fn build_providers(
+    path: &Path,
+    api: &str,
+    print: &mut dyn FnMut(&str),
+) -> Result<String, UserError> {
+    let previous = std::fs::read_to_string(path).unwrap_or_default();
+    let snap = providers_snapshot(api, &previous)
         .map_err(|e| UserError::Invalid(format!("Not a usable models.dev table: {e}")))?;
+    if !snap.missing.is_empty() {
+        print(&format!(
+            "Warning: models.dev lists no {}; kept their previous lines.",
+            snap.missing.join(", ")
+        ));
+    }
+    Ok(snap.text)
+}
+
+/// Write the model maker snapshot to `path` unless it already holds it.
+fn write_providers(path: &Path, text: &str, print: &mut dyn FnMut(&str)) -> Result<(), UserError> {
     if std::fs::read_to_string(path).is_ok_and(|old| old == text) {
         print(&format!(
             "Providers unchanged: {} left as is.",
@@ -108,7 +125,7 @@ fn write_providers(path: &Path, api: &str, print: &mut dyn FnMut(&str)) -> Resul
         ));
         return Ok(());
     }
-    write_atomic(path, &text)
+    write_atomic(path, text)
         .map_err(|e| UserError::Invalid(format!("Cannot write {}: {e}", path.display())))?;
     print(&format!("Wrote model makers to {}.", path.display()));
     Ok(())
@@ -135,11 +152,18 @@ pub fn update(
             .map_err(|e| UserError::Invalid(format!("Download failed ({MODELS_DEV_URL}): {e}")))?
     };
     let api = String::from_utf8_lossy(&api);
-    if let Some(out) = &args.providers {
-        write_providers(Path::new(out), &api, print)?;
-    }
+    let providers = match &args.providers {
+        Some(out) => Some((
+            Path::new(out),
+            build_providers(Path::new(out), &api, print)?,
+        )),
+        None => None,
+    };
     let table = from_models_dev(&api, &today())
         .map_err(|e| UserError::Invalid(format!("Not a usable models.dev table: {e}")))?;
+    if let Some((out, text)) = &providers {
+        write_providers(out, text, print)?;
+    }
     if args.output.is_some() && same_models(&path, &table) {
         print(&format!("Prices unchanged: {} left as is.", path.display()));
         return Ok(());

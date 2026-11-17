@@ -165,10 +165,20 @@ describe("worktree rows", () => {
     expect(projectKey(row)).toBe("/home/dev/code/peephole");
   });
 
-  test("a worktree with no known root keys by its own folder", () => {
+  test("worktrees with no known root share one option", () => {
     const loose = { ...row, worktree: { ...worktree, projectRoot: undefined } };
+
+    const sibling = {
+      ...loose,
+      worktree: { ...loose.worktree, path: "/h/.t3/worktrees/peephole/t3-9/" },
+    };
+
     expect(projectLabel(loose)).toBe("peephole");
-    expect(projectKey(loose)).toBe(worktree.path);
+    expect(projectKey(loose)).toBe("/h/.t3/worktrees/peephole");
+
+    expect(projectOptions([loose, sibling])).toEqual([
+      { label: "peephole", value: "/h/.t3/worktrees/peephole" },
+    ]);
   });
 
   test("shares one project option with its main checkout", () => {

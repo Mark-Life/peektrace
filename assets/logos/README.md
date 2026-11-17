@@ -14,10 +14,10 @@ maker:
 
 1. Download its SVG here as `providers/<id>.svg`.
 2. Add the id to `MAKERS` in `crates/core/src/model_provider/build.rs` and
-   run `peektrace pricing update` to refresh the snapshot.
+   run `scripts/pricing/update.sh` to refresh the snapshot
+   (`crates/core/src/model_provider/providers.tsv`).
 3. Web: add it to `PROVIDER_LOGO` in `packages/viz/src/lib/provider-logos.ts`.
-4. Rune: add it to `LOGOS` in `crates/ui/src/views/marks.rs`, with the SVG's
-   `viewBox` size.
+4. Rune: add it to `LOGOS` in `crates/ui/src/views/marks.rs`.
 5. TUI: add a short mark and colour to `provider_glyph` in
    `crates/tui/src/theme.rs`.
 

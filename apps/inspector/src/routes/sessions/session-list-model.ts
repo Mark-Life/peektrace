@@ -237,9 +237,19 @@ const segments = (path: string) => path.split(PATH_SEP).filter(Boolean);
 /** The header fields that name a row's project. */
 type ProjectFields = Pick<SessionHeader, "cwd" | "project" | "worktree">;
 
-/** The folder that names the project: a worktree's main checkout, else `cwd`. */
-const projectPath = (h: ProjectFields) =>
-  h.worktree?.projectRoot ?? (hasText(h.cwd) ? h.cwd : undefined);
+/** The dir that holds a worktree: `<t3 home>/worktrees/<project>`. */
+const parentDir = (path: string) =>
+  path.replace(/[\\/]+$/u, "").replace(/[\\/][^\\/]*$/u, "") || path;
+
+/** The folder that names the project: a worktree's main checkout (or, when
+ * that is unknown, the dir holding its sibling worktrees), else `cwd`. */
+const projectPath = (h: ProjectFields) => {
+  if (h.worktree !== undefined) {
+    return h.worktree.projectRoot ?? parentDir(h.worktree.path);
+  }
+
+  return hasText(h.cwd) ? h.cwd : undefined;
+};
 
 /** A worktree's parent project, else the folder the session ran in (last
  * segment of `cwd`), else the stored slug. */

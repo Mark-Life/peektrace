@@ -13,34 +13,70 @@ use crate::model::marks::{
 use crate::theme::{Theme, agent_color, ty};
 
 /// The side of a logo and of a monogram's box.
-pub const MARK: f32 = 16.0;
+const MARK: f32 = 16.0;
 const LOGO: f32 = 14.0;
 
+/// The width an SVG's `viewBox="0 0 <w> <h>"` gives, read at compile time
+/// so a logo's box needs no hand-copied number. Whole numbers only.
+const fn view_of(svg: &str) -> f32 {
+    const KEY: &[u8] = b"viewBox=\"";
+    let b = svg.as_bytes();
+    let mut i = 0;
+    'find: while i + KEY.len() <= b.len() {
+        let mut k = 0;
+        while k < KEY.len() {
+            if b[i + k] != KEY[k] {
+                i += 1;
+                continue 'find;
+            }
+            k += 1;
+        }
+        // Skip `<min-x> <min-y> ` to the width.
+        let mut at = i + KEY.len();
+        let mut gaps = 0;
+        while gaps < 2 {
+            if b[at] == b' ' {
+                gaps += 1;
+            }
+            at += 1;
+        }
+        let mut w = 0.0;
+        while b[at].is_ascii_digit() {
+            w = w * 10.0 + (b[at] - b'0') as f32;
+            at += 1;
+        }
+        return w;
+    }
+    panic!("svg has no viewBox");
+}
+
 macro_rules! logo {
-    ($id:literal, $view:literal) => {
+    ($id:literal) => {{
+        const BODY: &str =
+            include_str!(concat!("../../../../assets/logos/providers/", $id, ".svg"));
         Icon {
             name: concat!("provider-", $id),
-            view: $view,
-            body: include_str!(concat!("../../../../assets/logos/providers/", $id, ".svg")),
+            view: view_of(BODY),
+            body: BODY,
         }
-    };
+    }};
 }
 
 /// Every provider logo, by `ModelProvider::id`.
 pub static LOGOS: [(&str, Icon); 13] = [
-    ("alibaba", logo!("alibaba", 40.0)),
-    ("anthropic", logo!("anthropic", 40.0)),
-    ("cohere", logo!("cohere", 24.0)),
-    ("deepseek", logo!("deepseek", 40.0)),
-    ("google", logo!("google", 40.0)),
-    ("meta", logo!("meta", 40.0)),
-    ("minimax", logo!("minimax", 40.0)),
-    ("mistral", logo!("mistral", 40.0)),
-    ("moonshotai", logo!("moonshotai", 40.0)),
-    ("nvidia", logo!("nvidia", 40.0)),
-    ("openai", logo!("openai", 40.0)),
-    ("xai", logo!("xai", 40.0)),
-    ("zai", logo!("zai", 40.0)),
+    ("alibaba", logo!("alibaba")),
+    ("anthropic", logo!("anthropic")),
+    ("cohere", logo!("cohere")),
+    ("deepseek", logo!("deepseek")),
+    ("google", logo!("google")),
+    ("meta", logo!("meta")),
+    ("minimax", logo!("minimax")),
+    ("mistral", logo!("mistral")),
+    ("moonshotai", logo!("moonshotai")),
+    ("nvidia", logo!("nvidia")),
+    ("openai", logo!("openai")),
+    ("xai", logo!("xai")),
+    ("zai", logo!("zai")),
 ];
 
 /// The worktree marker: a forked branch.

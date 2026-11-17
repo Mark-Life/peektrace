@@ -97,7 +97,7 @@ fn snapshot_keeps_each_id_with_its_own_maker() {
         "nvidia": {"name": "Nvidia", "models": {"nvidia/x": {}}},
         "cohere": {"name": "Cohere", "models": {}}
     }"#;
-    let text = providers_snapshot(api).expect("snapshot");
+    let text = providers_snapshot(api, "").expect("snapshot").text;
     let line = |id: &str| {
         text.lines()
             .find(|l| l.starts_with(&format!("{id}\t")))
@@ -117,7 +117,20 @@ fn snapshot_keeps_each_id_with_its_own_maker() {
     let parsed = parse(Box::leak(text.into_boxed_str()));
     assert_eq!(parsed.makers.len(), MAKERS.len());
     assert_eq!(parsed.exact.get("plain"), Some(&6));
-    assert!(providers_snapshot("{}").is_err());
+    assert!(providers_snapshot("{}", "").is_err());
+}
+
+#[test]
+fn a_maker_models_dev_dropped_keeps_its_previous_line() {
+    let api = r#"{"anthropic": {"name": "Anthropic", "models": {"claude-x": {}}}}"#;
+    let previous = "openai\tOpenAI\tgpt-x\n";
+    let snap = providers_snapshot(api, previous).expect("snapshot");
+    assert_eq!(snap.missing.len(), MAKERS.len() - 1);
+    assert!(snap.text.lines().any(|l| l == "openai\tOpenAI\tgpt-x"));
+    assert!(snap.text.lines().any(|l| l == "nvidia\tNVIDIA\t"));
+    assert!(snap.text.lines().any(|l| l == "cohere\tcohere\t"));
+    let parsed = parse(Box::leak(snap.text.into_boxed_str()));
+    assert_eq!(parsed.makers.len(), MAKERS.len());
 }
 
 #[test]

@@ -112,7 +112,7 @@ fn json_rows_carry_the_worktree_and_parent_thread() {
     let row = v.iter().find(|r| r["id"] == WT_ID).expect("worktree row");
     assert_eq!(
         row["worktree"],
-        serde_json::json!({"project": "App", "projectRoot": "/code/app", "path": WT, "branch": "t3/rows"})
+        serde_json::json!({"project": "app", "projectRoot": "/code/app", "path": WT, "branch": "t3/rows"})
     );
     assert_eq!(row["launcher"]["parentTitle"], "Plan the release");
     assert_eq!(row["project"], "-h--t3-worktrees-app-t3-1b686728");
@@ -121,7 +121,7 @@ fn json_rows_carry_the_worktree_and_parent_thread() {
         serde_json::json!({"id": "anthropic", "name": "Anthropic"})
     );
     let codex = v.iter().find(|r| r["id"] == CODEX_ID).expect("codex row");
-    assert_eq!(codex["worktree"]["project"], "App");
+    assert_eq!(codex["worktree"]["project"], "app");
     assert_eq!(codex["launcher"], Value::Null);
     let main = v.iter().find(|r| r["id"] == MAIN_ID).expect("main row");
     assert_eq!(main["worktree"], Value::Null);

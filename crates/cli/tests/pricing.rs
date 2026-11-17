@@ -128,3 +128,24 @@ fn update_with_providers_writes_the_maker_snapshot() {
     let r = h.run(&args);
     assert!(r.out.starts_with("Providers unchanged"), "{}", r.out);
 }
+
+#[test]
+fn update_writes_no_maker_snapshot_when_prices_are_unusable() {
+    let h = Home::new("pricing-providers-bad");
+    let api = serde_json::json!({"anthropic": {"name": "Anthropic", "models": {}}});
+    let file = h.dir().join("api.json");
+    fs::write(&file, api.to_string()).expect("write api");
+    let (out, providers) = (h.dir().join("table.json"), h.dir().join("providers.tsv"));
+    let r = h.run(&[
+        "pricing",
+        "update",
+        "--from",
+        &file.to_string_lossy(),
+        "--output",
+        &out.to_string_lossy(),
+        "--providers",
+        &providers.to_string_lossy(),
+    ]);
+    assert_ne!(r.code, 0, "{}", r.out);
+    assert!(!providers.exists(), "{}", r.out);
+}

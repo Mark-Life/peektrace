@@ -6,12 +6,9 @@ import FIXTURE from "../../../tests/fixtures/session-marks.json";
 import type { Provider, SessionHeader } from "../src/api-types.gen";
 import {
   harnessMark,
-  launcherHint,
   launcherMark,
-  providerLine,
   providerMark,
   projectName,
-  providerTooltip,
   sessionBranch,
   sessionModels,
   worktreeHint,
@@ -21,9 +18,10 @@ const NVIDIA = { id: "nvidia", name: "NVIDIA" };
 
 describe("launcher", () => {
   test("hint names only the parts the launcher knows", () => {
-    expect(launcherHint({ name: "t3code" })).toBe("Started from t3code");
+    expect(launcherMark({ name: "t3code" }).title).toBe("Started from t3code");
     expect(
-      launcherHint({ branch: "feat/a", name: "t3code", worktreePath: "/wt/a" })
+      launcherMark({ branch: "feat/a", name: "t3code", worktreePath: "/wt/a" })
+        .title
     ).toBe("Started from t3code · branch feat/a · worktree /wt/a");
   });
 
@@ -49,20 +47,21 @@ describe("harnessMark", () => {
 
 describe("provider", () => {
   test("line names the maker and the exact model id", () => {
-    expect(providerLine(NVIDIA, "nvidia/GLM-5.3-Flash-NVFP4")).toBe(
-      "NVIDIA · nvidia/GLM-5.3-Flash-NVFP4"
-    );
-    expect(providerLine(undefined, "mystery")).toBe(
-      "Unknown provider · mystery"
-    );
+    expect(
+      providerMark({ models: ["nvidia/GLM-5.3-Flash-NVFP4"], provider: NVIDIA })
+        ?.label
+    ).toBe("NVIDIA · nvidia/GLM-5.3-Flash-NVFP4");
+    expect(
+      providerMark({ models: ["mystery"], provider: undefined })?.label
+    ).toBe("Unknown provider · mystery");
   });
 
   test("tooltip puts the main model first, then every other model", () => {
     expect(
-      providerTooltip({
+      providerMark({
         models: ["nvidia/GLM-5.3-Flash-NVFP4", "moonshotai/Kimi-K3"],
         provider: NVIDIA,
-      })
+      })?.title
     ).toBe("NVIDIA · nvidia/GLM-5.3-Flash-NVFP4\nmoonshotai/Kimi-K3");
   });
 
@@ -146,7 +145,7 @@ describe("shared with the Rust UIs", () => {
       const provider =
         p.maker === null ? undefined : { id: "x", name: p.maker };
 
-      expect(providerLine(provider, p.model)).toBe(p.line);
+      expect(providerMark({ models: [p.model], provider })?.label).toBe(p.line);
     }
   });
 

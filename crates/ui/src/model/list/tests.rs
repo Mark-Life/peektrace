@@ -1,4 +1,5 @@
 use super::*;
+use peektrace_protocol::marks::visible_branch;
 
 fn header() -> SessionHeader {
     SessionHeader {
@@ -545,12 +546,17 @@ fn a_worktree_row_takes_its_main_checkout_as_project() {
 }
 
 #[test]
-fn a_worktree_row_without_a_root_keys_by_its_folder() {
+fn worktree_rows_without_a_root_share_one_project_option() {
     let w = worktree_row(None, None);
     assert_eq!(project_label(&w), "peephole");
+    assert_eq!(project_key(&w), "/home/u/.t3/worktrees/peephole");
+    let mut other = worktree_row(None, None);
+    if let Some(wt) = other.worktree.as_mut() {
+        wt.path = "/home/u/.t3/worktrees/peephole/t3-11111111/".into();
+    }
     assert_eq!(
-        project_key(&w),
-        "/home/u/.t3/worktrees/peephole/t3-00000000"
+        project_options(&[w, other]),
+        opts(&[("/home/u/.t3/worktrees/peephole", "peephole")])
     );
 }
 

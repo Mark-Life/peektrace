@@ -66,3 +66,7 @@ pub const WORKTREES: &str = "SELECT json_extract(t.payload_json, '$.worktreePath
      JOIN projection_projects p ON p.project_id = t.project_id
      WHERE json_valid(t.payload_json) AND json_extract(t.payload_json, '$.worktreePath') IS NOT NULL
      ORDER BY t.deleted_at IS NULL, t.updated_at";
+
+/// Live project roots.
+pub const PROJECT_ROOTS: &str =
+    "SELECT workspace_root FROM projection_projects WHERE deleted_at IS NULL";

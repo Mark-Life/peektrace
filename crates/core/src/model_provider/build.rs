@@ -44,22 +44,39 @@ fn own_ids(id: &str, models: &serde_json::Map<String, Value>) -> Vec<String> {
     ids
 }
 
+/// A built snapshot and the makers models.dev no longer lists.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MakerSnapshot {
+    pub text: String,
+    /// Makers kept from the previous snapshot, or written with no ids.
+    pub missing: Vec<&'static str>,
+}
+
 /// The snapshot text: one tab-separated `id`, `name`, space-separated
-/// model ids line per maker, in [`MAKERS`] order.
-pub fn providers_snapshot(api_json: &str) -> Result<String, String> {
+/// model ids line per maker, in [`MAKERS`] order. A maker models.dev
+/// dropped keeps its line from `previous`; none of them listed is an error.
+pub fn providers_snapshot(api_json: &str, previous: &str) -> Result<MakerSnapshot, String> {
     let api: Value = serde_json::from_str(api_json).map_err(|e| e.to_string())?;
+    if !MAKERS.iter().any(|id| api.get(id).is_some()) {
+        return Err("no model makers in models.dev".to_owned());
+    }
     let mut taken: Vec<String> = Vec::new();
+    let mut missing = Vec::new();
     let mut out = HEAD.to_owned();
     for id in MAKERS {
-        let p = api
-            .get(id)
-            .ok_or_else(|| format!("no {id} provider in models.dev"))?;
-        let name = NAMES
-            .iter()
-            .find(|(k, _)| *k == id)
-            .map(|(_, n)| (*n).to_owned())
-            .or_else(|| p.get("name").and_then(Value::as_str).map(str::to_owned))
-            .unwrap_or_else(|| id.to_owned());
+        let Some(p) = api.get(id) else {
+            missing.push(id);
+            let prefix = format!("{id}\t");
+            let line = previous
+                .lines()
+                .find(|l| l.starts_with(&prefix))
+                .map_or_else(|| format!("{id}\t{}\t", name_of(id, None)), str::to_owned);
+            if let Some(ids) = line.splitn(3, '\t').nth(2) {
+                taken.extend(ids.split(' ').filter(|m| !m.is_empty()).map(str::to_owned));
+            }
+            let _ = writeln!(out, "{line}");
+            continue;
+        };
         let models = p.get("models").and_then(Value::as_object);
         let ids: Vec<String> = models
             .map(|m| own_ids(id, m))
@@ -68,8 +85,19 @@ pub fn providers_snapshot(api_json: &str) -> Result<String, String> {
             .filter(|m| !taken.contains(m))
             .collect();
         taken.extend(ids.iter().cloned());
-        let name = name.replace(['\t', '\n'], " ");
+        let name = name_of(id, p.get("name").and_then(Value::as_str));
         let _ = writeln!(out, "{id}\t{name}\t{}", ids.join(" "));
     }
-    Ok(out)
+    Ok(MakerSnapshot { text: out, missing })
+}
+
+/// A maker's badge name: ours, else models.dev's, else its id.
+fn name_of(id: &str, listed: Option<&str>) -> String {
+    NAMES
+        .iter()
+        .find(|(k, _)| *k == id)
+        .map(|(_, n)| *n)
+        .or(listed)
+        .unwrap_or(id)
+        .replace(['\t', '\n'], " ")
 }

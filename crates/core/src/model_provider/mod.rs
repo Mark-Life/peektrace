@@ -11,7 +11,7 @@ mod build;
 #[cfg(test)]
 mod tests;
 
-pub use build::{MAKERS, providers_snapshot};
+pub use build::{MAKERS, MakerSnapshot, providers_snapshot};
 
 /// A model's maker: `id` names its logo, `name` is for people.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

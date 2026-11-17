@@ -76,10 +76,10 @@ describe("a row with very long title, project and branch", () => {
     }
 
     expect(classesOf("session-row-project").has("min-w-0")).toBe(true);
-    // Shrink is weighted by content width: a far larger factor makes the
-    // branch give way before a short project, down to a few visible chars.
+    // A zero-basis branch takes only the room left after the project, so
+    // the project shrinks only once the branch is down to a few chars.
     const branch = classesOf("session-row-branch");
-    expect(branch.has("shrink-[100]")).toBe(true);
+    expect(branch.has("flex-1")).toBe(true);
     expect(branch.has("min-w-[3ch]")).toBe(true);
   });
 

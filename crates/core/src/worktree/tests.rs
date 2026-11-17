@@ -219,3 +219,37 @@ fn normalize_trims_trailing_separators_only() {
     assert_eq!(normalize("/"), "/");
     assert_eq!(normalize(""), "");
 }
+
+#[test]
+fn a_dir_inside_a_worktree_resolves_to_the_worktree() {
+    let dir = temp_dir("subdir");
+    let (main, wt) = linked_worktree(&dir, "ref: refs/heads/feat\n");
+    let sub = wt.join("crates/core");
+    fs::create_dir_all(&sub).expect("sub");
+    let got = resolve(&s(&sub), none, None).expect("git");
+    assert_eq!(got.path, s(&wt));
+    assert_eq!(got.project_root, Some(s(&main)));
+    assert_eq!(got.branch.as_deref(), Some("feat"));
+
+    let wt_s = s(&wt);
+    let known = |p: &str| {
+        (p == wt_s).then(|| Known {
+            project: "app".into(),
+            project_root: Some("/code/app".into()),
+            branch: Some("t3/x".into()),
+        })
+    };
+    let got = resolve(&format!("{wt_s}/gone/deeper"), known, None).expect("known");
+    assert_eq!(got.path, wt_s);
+    assert_eq!(got.project_root.as_deref(), Some("/code/app"));
+    assert_eq!(got.branch.as_deref(), Some("t3/x"));
+}
+
+#[test]
+fn a_main_checkout_stops_the_walk_up() {
+    let dir = temp_dir("nested");
+    let (_, wt) = linked_worktree(&dir, "ref: refs/heads/feat\n");
+    let inner = wt.join("vendor/repo");
+    fs::create_dir_all(inner.join(".git")).expect("inner");
+    assert_eq!(resolve(&s(&inner.join("src")), none, None), None);
+}

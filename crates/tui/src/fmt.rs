@@ -131,6 +131,26 @@ pub fn clip(s: &str, max: usize) -> String {
     format!("{}…", take_width(s, max.saturating_sub(1)))
 }
 
+/// Truncate to `max` columns with a leading `…` when clipped, keeping the
+/// end: the part of a path that tells siblings apart.
+pub fn clip_start(s: &str, max: usize) -> String {
+    if width(s) <= max {
+        return s.to_owned();
+    }
+    let room = max.saturating_sub(1);
+    let mut used = 0;
+    let mut start = s.len();
+    for (i, c) in s.char_indices().rev() {
+        let w = char_width(c);
+        if used + w > room {
+            break;
+        }
+        used += w;
+        start = i;
+    }
+    format!("…{}", &s[start..])
+}
+
 /// First line, sanitized and trimmed, clipped to `max` columns.
 pub fn first_line(s: &str, max: usize) -> String {
     let clean = sanitize(s);
@@ -186,6 +206,14 @@ mod tests {
         assert_eq!(fmt_bytes(512), "512 B");
         assert_eq!(fmt_bytes(1638), "1.6 KB");
         assert_eq!(fmt_bytes(3 * 1024 * 1024), "3.0 MB");
+    }
+
+    #[test]
+    fn clip_start_keeps_the_end() {
+        assert_eq!(clip_start("/h/.t3/worktrees/app/t3-1", 10), "…/app/t3-1");
+        assert_eq!(clip_start("short", 10), "short");
+        assert_eq!(clip_start("界界界", 4), "…界");
+        assert_eq!(clip_start("abc", 0), "…");
     }
 
     #[test]

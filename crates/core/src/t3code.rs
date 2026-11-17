@@ -46,6 +46,8 @@ pub struct Thread {
 struct Index {
     threads: HashMap<(Agent, String), Thread>,
     worktrees: HashMap<String, Known>,
+    /// Live project roots by folder name; `None` when two share a name.
+    roots: HashMap<String, Option<String>>,
 }
 
 impl Index {
@@ -55,6 +57,11 @@ impl Index {
 
     fn worktree(&self, path: &str) -> Option<Known> {
         self.worktrees.get(path).cloned()
+    }
+
+    /// The one live project root whose folder is `name`.
+    fn root_named(&self, name: &str) -> Option<String> {
+        self.roots.get(name).cloned().flatten()
     }
 }
 
@@ -115,12 +122,41 @@ fn run_worktrees(conn: &Connection, sql: &str, index: &mut Index) -> rusqlite::R
         {
             continue;
         }
+        // The folder name, as rows of the main checkout show; a title can
+        // be renamed in t3code.
+        let project = root
+            .as_deref()
+            .map(worktree::basename)
+            .filter(|b| !b.is_empty())
+            .map_or(project, str::to_owned);
         let known = Known {
             project,
             project_root: root,
             branch: text_of(row.get(3)?),
         };
         index.worktrees.insert(path, known);
+    }
+    Ok(())
+}
+
+fn run_roots(conn: &Connection, index: &mut Index) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare(sql::PROJECT_ROOTS)?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        let Some(root) = text_of(row.get(0)?) else {
+            continue;
+        };
+        let root = worktree::normalize(&root).to_owned();
+        let name = worktree::basename(&root).to_owned();
+        index
+            .roots
+            .entry(name)
+            .and_modify(|r| {
+                if r.as_ref() != Some(&root) {
+                    *r = None;
+                }
+            })
+            .or_insert(Some(root));
     }
     Ok(())
 }
@@ -156,6 +192,7 @@ fn read_index(path: &str) -> Option<Index> {
         run(&conn, &sql::current(), &mut index),
         run_worktrees(&conn, sql::LEGACY_WORKTREES, &mut index),
         run_worktrees(&conn, sql::WORKTREES, &mut index),
+        run_roots(&conn, &mut index),
     ];
     for e in results.iter().filter_map(|r| r.as_ref().err()) {
         debug!(db = %path, reason = %e, "t3code query skipped");
@@ -254,12 +291,19 @@ fn worktree_of(
 ) -> Option<Worktree> {
     let home = t3_home(dir);
     let known = |p: &str| index.worktree(p);
-    cwd.and_then(|c| worktree::resolve(c, known, home))
+    let mut found = cwd
+        .and_then(|c| worktree::resolve(c, known, home))
         .or_else(|| {
             let path = launcher?.worktree_path.as_deref()?;
             cwd.is_none_or(|c| within(c, path))
                 .then(|| worktree::resolve(path, known, home))?
-        })
+        })?;
+    // Only the `<t3 home>/worktrees/<project>` layout matched: the project
+    // whose folder has that name is the main checkout.
+    if found.project_root.is_none() {
+        found.project_root = index.root_named(&found.project);
+    }
+    Some(found)
 }
 
 /// Name and tag every header t3code started, and label each one that ran
