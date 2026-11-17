@@ -4,7 +4,6 @@
 use peektrace_core::Agent;
 use peektrace_core::capabilities::SupportLevel;
 use peektrace_core::sessions::model::AnalyzedSession;
-use peektrace_core::sessions::model::Provider;
 use ratatui::buffer::Buffer;
 use ratatui::style::{Color, Modifier, Style};
 
@@ -56,15 +55,6 @@ pub const fn agent_color(a: Agent) -> Color {
         Agent::Codex => rgb(0x10_a37f),
         Agent::Pi => rgb(0xb0_8cff),
         Agent::Opencode => rgb(0xf2_b705),
-    }
-}
-
-pub const fn provider_label(p: Provider) -> &'static str {
-    match p {
-        Provider::ClaudeCode => "Claude Code",
-        Provider::Codex => "Codex",
-        Provider::Pi => "Pi",
-        Provider::Opencode => "OpenCode",
     }
 }
 

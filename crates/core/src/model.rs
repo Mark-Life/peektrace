@@ -2,6 +2,8 @@
 
 use std::fmt;
 
+use crate::sessions::model::CostParts;
+
 /// A coding agent whose sessions peektrace reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Agent {
@@ -80,6 +82,15 @@ pub struct SourceTag {
     pub label: String,
 }
 
+/// The app that started a session, when peektrace knows it. Every field is
+/// text from that app's store.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Launcher {
+    pub name: String,
+    pub branch: Option<String>,
+    pub worktree_path: Option<String>,
+}
+
 /// File size and mtime, as `fs.stat` reports them.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FileStamp {
@@ -114,9 +125,24 @@ pub struct SessionHeader {
     pub title: Option<String>,
     pub started_at: Option<String>,
     pub malformed_lines: Option<u64>,
-    pub cost_usd: Option<f64>,
-    pub unpriced_models: Option<Vec<String>>,
+    pub cost: HeaderCost,
+    /// What `cost` is built from, kept while subagent files can still add to
+    /// it: a Claude session without a full cost record.
+    pub cost_parts: Option<Box<CostParts>>,
     pub source: Option<SourceTag>,
+    pub launcher: Option<Launcher>,
+}
+
+/// A list row's cost: the same headline the session detail shows.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct HeaderCost {
+    pub usd: Option<f64>,
+    /// True when the agent recorded `usd`; else a list-price estimate.
+    pub from_agent: bool,
+    /// Estimated subagent share, when known.
+    pub subagents_usd: Option<f64>,
+    /// Models an estimated `usd` leaves out.
+    pub unpriced_models: Option<Vec<String>>,
 }
 
 /// A transcript that was listed but could not be read.

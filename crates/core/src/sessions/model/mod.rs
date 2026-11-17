@@ -28,6 +28,16 @@ impl Provider {
             Self::Opencode => "opencode",
         }
     }
+
+    /// The agent's display name.
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::ClaudeCode => "Claude Code",
+            Self::Codex => "Codex",
+            Self::Pi => "Pi",
+            Self::Opencode => "OpenCode",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -525,6 +535,8 @@ pub struct ParsedSession {
     pub unknown_system_subtypes: Option<Vec<(String, f64)>>,
     pub sidechain_cost: Option<TurnsCost>,
     pub native_cost: Option<NativeCost>,
+    /// The app that started the session, e.g. t3code.
+    pub launcher: Option<crate::model::Launcher>,
 }
 
 /// Cost the agent recorded itself.
@@ -537,6 +549,18 @@ pub struct NativeCost {
     /// True when the record misses part of the session, so it cannot be the
     /// session's total.
     pub partial: bool,
+}
+
+/// What a session's cost is built from.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CostParts {
+    /// The main transcript's turns.
+    pub own: TurnsCost,
+    /// Inline sidechain turns, then each subagent file.
+    pub parts: Vec<TurnsCost>,
+    pub native: Option<NativeCost>,
+    /// Subagent files that failed to read.
+    pub unreadable: usize,
 }
 
 mod analysis;

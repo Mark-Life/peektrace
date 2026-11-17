@@ -116,7 +116,7 @@ fn sessions_list_tool() {
     assert!(!is_error(t));
     assert!(text(t, 0).starts_with("id\tagent\tproject"));
     assert!(text(t, 0).contains("44444444"));
-    assert!(text(t, 1).contains("EST COST covers the main transcript only"));
+    assert!(text(t, 1).contains("COST includes subagents"));
 
     let rows: Value = serde_json::from_str(text(&by_id["json"], 0)).expect("json");
     let ids: Vec<&str> = rows

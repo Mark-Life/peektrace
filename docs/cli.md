@@ -205,14 +205,18 @@ regardless.
 ### `sessions ls` — list sessions
 
 Lightweight headers (lazy — bodies are not parsed), across every agent. Columns:
-id, agent, project, model, message count, estimated cost, size, updated, title.
+id, agent, project, model, message count, cost, size, updated, title.
 Rows are sorted newest first and capped at 30; a hint on stderr says how many
 were hidden.
 
-`EST COST` is the main transcript at API list price, without subagent files
-(`sessions analyze` adds them); a note on stderr says so. A `*` means some
-models have no rate card, so the figure is too low. OpenCode shows its own
-recorded cost, else its messages at list price. Codex shows `-` for now.
+`COST` is the same total `sessions analyze` shows. `$1.23` is the agent's own
+record: Claude Code `cost-state` (subagents included), Pi or OpenCode.
+`~$1.23` is an estimate at API list price over the main transcript,
+its subagents and workflow agents; Codex costs are always estimates. A note on
+stderr explains `$` and `~$`. A `*` means some models have no rate card,
+so the estimate is too low. `--json` adds `costSource` (`agent` or
+`estimate`) and `subagentsUsd`, the estimated subagent share of the total,
+when the total counts one.
 
 | Flag | Effect |
 | --- | --- |
@@ -473,6 +477,30 @@ peektrace upgrade --version cli-v1.2.3
 that prints a one-line hint when a newer release exists — see the root README's
 Privacy posture (`PEEKTRACE_NO_UPDATE_CHECK=1` disables it).
 
+### `pricing` — the price table cost estimates use
+
+Our estimate prices each model call from a table generated from
+[models.dev](https://models.dev) and built into the binary, plus hand-written
+overrides for what models.dev does not list (older ids, Codex aliases) or
+carry (the 1-hour cache write rate). An id with no entry stays unpriced; an
+unknown version is never priced from its family. Only a bare family alias
+such as `claude-opus` prices as that family's newest generation.
+
+`peektrace pricing` prints the table in use, its date, and the state of a
+downloaded table. `peektrace pricing update` is the only way to fetch prices:
+it downloads `https://models.dev/api.json` and writes the table to
+`~/.peektrace/prices.json` (or `PEEKTRACE_DIR`). A downloaded table newer than
+the built-in one is used from the next start; the built-in table still prices
+models it lacks. Blocked under `--read-only`, and runs locally only.
+
+```sh
+peektrace pricing          # Prices: models.dev 2026-11-16, built-in
+peektrace pricing update   # opt-in download; nothing else fetches prices
+```
+
+The stats caveats name the same table (`models.dev 2026-11-16, built-in`).
+Maintainers regenerate the built-in table with `scripts/pricing/update.sh`.
+
 ## Custom config directories
 
 Each agent's base resolves from its own native override env var, so peektrace
@@ -532,7 +560,9 @@ The local run log is **on by default** and fully local. Every invocation
 persists one wide event (command, timing, span attributes) to a SQLite file at
 `~/.peektrace/telemetry.db` (or `PEEKTRACE_DIR`). **The local run log makes no
 network calls** and exists only to power `peektrace doctor` when you need to file
-a report. Disable it per-invocation with `--no-telemetry`, or globally with
+a report. The only call peektrace makes on its own is the `serve` update check;
+`upgrade`, `pricing update` and `--remote` reach the network only when you run
+them. Disable it per-invocation with `--no-telemetry`, or globally with
 `PEEKTRACE_NO_TELEMETRY=1`. When it is off, `--otel` still drives the stderr
 span echo below.
 

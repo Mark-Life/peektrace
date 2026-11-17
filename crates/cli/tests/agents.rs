@@ -144,18 +144,18 @@ fn no_agent_lists_every_agent_newest_first_with_a_short_id_agent_table() {
 }
 
 #[test]
-fn the_table_has_an_est_cost_column_dash_when_nothing_is_priced() {
+fn the_table_has_a_cost_column_dash_when_nothing_is_priced() {
     let h = ls_home();
     let (_, out, err) = ls(&h, &[]);
     let head: Vec<_> = out.lines().next().unwrap_or_default().split('\t').collect();
-    let col = head.iter().position(|c| *c == "est cost").expect("column");
+    let col = head.iter().position(|c| *c == "cost").expect("column");
     assert_eq!(
         Some(col),
         head.iter().position(|c| *c == "msgs").map(|i| i + 1)
     );
     let cells: Vec<_> = data_rows(&out).iter().map(|r| r[col]).collect();
     assert_eq!(cells, ["-", "-", "-"]);
-    assert!(!err.contains("EST COST covers"), "{err}");
+    assert!(!err.contains("COST includes"), "{err}");
 }
 
 #[test]
@@ -301,11 +301,17 @@ fn codex_and_pi_sessions_list_and_analyze() {
     .expect("write");
 
     let (code, out, err) = f.run(&["sessions", "ls", "--agent", "codex"]);
-    assert_eq!((code, err.as_str()), (0, ""));
+    assert_eq!(
+        (code, err.as_str()),
+        (
+            0,
+            "COST includes subagents: $ is the agent's own record, ~$ an estimate from tokens\n"
+        )
+    );
     assert_eq!(
         out,
-        "id\tagent\tproject\tmodel\tmsgs\test cost\tsize\tupdated\ttitle\n\
-         019f0000\tcodex\tdemo\tgpt-5.5\t1\t-\t612 B\t2026-02-01T10:00:03.000Z\t-\n"
+        "id\tagent\tproject\tmodel\tmsgs\tcost\tsize\tupdated\ttitle\n\
+         019f0000\tcodex\tdemo\tgpt-5.5\t1\t~$0.01\t612 B\t2026-02-01T10:00:03.000Z\t-\n"
     );
     let (code, out, _) = f.run(&["sessions", "ls", "--json", "--agent", "pi"]);
     assert_eq!(code, 0);

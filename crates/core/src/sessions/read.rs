@@ -2,7 +2,7 @@
 //! [`super::write`], for clients that talk to a remote server.
 
 use crate::js::value::JsValue;
-use crate::model::{Agent, ProjectSlug, SessionHeader, SessionId, SourceTag};
+use crate::model::{Agent, HeaderCost, Launcher, ProjectSlug, SessionHeader, SessionId, SourceTag};
 use crate::sessions::model::SessionCost;
 pub use crate::sessions::read_parsed::parsed_from_json;
 
@@ -30,6 +30,15 @@ fn texts(v: &JsValue, key: &str) -> Option<Vec<String>> {
         .collect()
 }
 
+/// A `launcher` object, as [`super::write`] writes it.
+pub(crate) fn launcher_from_json(v: &JsValue) -> Option<Launcher> {
+    Some(Launcher {
+        name: text(v, "name")?,
+        branch: text(v, "branch"),
+        worktree_path: text(v, "worktreePath"),
+    })
+}
+
 /// One header object, as [`super::write::write_header`] writes it.
 pub fn header_from_json(v: &JsValue) -> Option<SessionHeader> {
     let source = match (text(v, "source"), text(v, "sourceLabel")) {
@@ -50,9 +59,15 @@ pub fn header_from_json(v: &JsValue) -> Option<SessionHeader> {
         title: text(v, "title"),
         started_at: text(v, "startedAt"),
         malformed_lines: count(v, "malformedLines"),
-        cost_usd: v.get("costUsd").and_then(JsValue::as_num),
-        unpriced_models: texts(v, "unpricedModels"),
+        cost: HeaderCost {
+            usd: v.get("costUsd").and_then(JsValue::as_num),
+            from_agent: v.get("costSource").and_then(JsValue::as_str) == Some("agent"),
+            subagents_usd: v.get("subagentsUsd").and_then(JsValue::as_num),
+            unpriced_models: texts(v, "unpricedModels"),
+        },
+        cost_parts: None,
         source,
+        launcher: v.get("launcher").and_then(launcher_from_json),
     })
 }
 
@@ -107,12 +122,18 @@ mod tests {
             title: Some("t\u{10F800}".to_owned()),
             started_at: Some("2026".to_owned()),
             malformed_lines: Some(1),
-            cost_usd: Some(0.25),
-            unpriced_models: Some(vec!["u".to_owned()]),
+            cost: HeaderCost {
+                usd: Some(0.25),
+                from_agent: false,
+                subagents_usd: Some(0.125),
+                unpriced_models: Some(vec!["u".to_owned()]),
+            },
+            cost_parts: None,
             source: Some(SourceTag {
                 id: "pi:w".to_owned(),
                 label: "w".to_owned(),
             }),
+            launcher: None,
         };
         let json = headers_json([&h], false);
         let back = JsValue::parse(&json).and_then(|v| {

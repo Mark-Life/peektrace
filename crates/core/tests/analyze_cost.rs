@@ -319,10 +319,11 @@ fn header_cost(text: &str) -> (Option<f64>, Option<Vec<String>>) {
     let filter = ListFilter {
         agent: Some(Agent::Claude),
         project: None,
+        with_subagent_costs: true,
     };
     let listing = list_sessions(&roots, &filter);
     let h = listing.headers.first().expect("header");
-    (h.cost_usd, h.unpriced_models.clone())
+    (h.cost.usd, h.cost.unpriced_models.clone())
 }
 
 #[test]

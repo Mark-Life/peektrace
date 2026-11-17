@@ -25,6 +25,7 @@ use crate::listing::{AgentRoots, default_root};
 use crate::model::{Agent, SessionHeader};
 use crate::opencode;
 use crate::pi::parse_pi_session;
+use crate::t3code;
 
 /// What lookups and parses read from the environment.
 #[derive(Clone, Copy)]
@@ -300,11 +301,11 @@ fn parse_subagent(stub: &SubagentStub, linker: &Linker, local: &dyn LocalZone) -
 
 /// Fold Claude subagent transcripts into a parsed session. A failure to
 /// locate them keeps the session without subagents.
-fn fold_claude_subagents(env: SessionEnv<'_>, parsed: &mut ParsedSession, id: &str, text: &str) {
-    let loc = match resolve_claude_session(&env.roots.claude, id) {
+fn fold_claude_subagents(env: SessionEnv<'_>, parsed: &mut ParsedSession, path: &str, text: &str) {
+    let loc = match resolve_claude_session(&env.roots.claude, path) {
         Ok(loc) => loc,
         Err(e) => {
-            debug!(id, reason = %e, "subagents not folded");
+            debug!(path, reason = %e, "subagents not folded");
             return;
         }
     };
@@ -324,6 +325,8 @@ pub struct FullParse {
     pub source: Option<String>,
     /// Transcript inputs stamped before the read; empty unless tracked.
     pub inputs: Vec<Input>,
+    /// The t3code thread that named the session; `None` for nested ones.
+    pub t3code: Option<t3code::Mark>,
 }
 
 /// Resolve and fully parse one transcript (`parent` names the session a
@@ -350,7 +353,7 @@ fn parse_inner(
     let _entered = span.enter();
     let result = load(env, target, parent, track).map(|loaded| {
         let (path, sid) = (&loaded.path, &loaded.id);
-        let parsed = match (&loaded.body, loaded.agent) {
+        let mut parsed = match (&loaded.body, loaded.agent) {
             (Body::Opencode(session), _) => {
                 opencode::parse_opencode_session(session.as_deref(), path, sid)
             }
@@ -367,17 +370,21 @@ fn parse_inner(
                     include_sidechain_turns: loaded.nested,
                     skip_system_prompt: false,
                 });
+                // By the loaded path: two projects may hold the same id.
                 if !loaded.nested {
-                    fold_claude_subagents(env, &mut parsed, id, text);
+                    fold_claude_subagents(env, &mut parsed, path, text);
                 }
                 parsed
             }
         };
+        let t3code = (!loaded.nested)
+            .then(|| t3code::apply_parsed(loaded.agent, &mut parsed, env.roots.t3code.as_deref()));
         FullParse {
             agent: loaded.agent,
             parsed,
             source: loaded.source,
             inputs: loaded.inputs,
+            t3code,
         }
     });
     if let Err(e) = &result {
@@ -437,6 +444,8 @@ pub fn analyze_session_with(
 pub struct Tracked {
     pub analysis: AnalyzedSession,
     pub inputs: Vec<Input>,
+    /// The t3code thread that named the session, checked like `inputs`.
+    pub t3code: Option<t3code::Mark>,
 }
 
 /// [`analyze_session_with`], plus the paths it read (see
@@ -470,6 +479,7 @@ fn analyze_inner(
     let span = info_span!("Sessions.analyze", id = target.id(), error = field::Empty);
     let _entered = span.enter();
     let result = parse_inner(env, target, parent, track).map(|full| {
+        let t3code = full.t3code;
         let claude = full.agent == Agent::Claude;
         let (home, root) = context_roots(env, full.source.as_deref());
         let cwd = full.parsed.cwd.as_deref();
@@ -499,6 +509,7 @@ fn analyze_inner(
         Tracked {
             analysis: a,
             inputs,
+            t3code,
         }
     });
     if let Err(e) = &result {

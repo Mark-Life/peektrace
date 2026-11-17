@@ -3,8 +3,9 @@
 
 use peektrace_core::js::num;
 use peektrace_core::js::text;
+use peektrace_core::sessions::cost::fmt_recorded_usd;
 use peektrace_core::sessions::write::headers_json;
-use peektrace_core::{Agent, SessionHeader};
+use peektrace_core::{Agent, HeaderCost, SessionHeader};
 
 use crate::width::display_width;
 
@@ -14,7 +15,7 @@ pub fn json_rows(rows: &[SessionHeader]) -> String {
 }
 
 const HEADERS: [&str; 9] = [
-    "ID", "AGENT", "PROJECT", "MODEL", "MSGS", "EST COST", "SIZE", "UPDATED", "TITLE",
+    "ID", "AGENT", "PROJECT", "MODEL", "MSGS", "COST", "SIZE", "UPDATED", "TITLE",
 ];
 const CENT: f64 = 0.005;
 const KB: f64 = 1024.0;
@@ -27,6 +28,19 @@ pub fn usd_cell(n: Option<f64>) -> String {
         Some(n) => format!("~${}", num::to_fixed(n, 2)),
     }
 }
+
+/// A list row's cost: `$1.23` when the agent recorded it, `~$1.23` when
+/// estimated from tokens.
+pub fn cost_cell(c: &HeaderCost) -> String {
+    match c.usd {
+        Some(n) if c.from_agent => fmt_recorded_usd(n),
+        n => usd_cell(n),
+    }
+}
+
+/// Stderr note under the `sessions ls` table when a row has a cost.
+const COST_NOTE: &str =
+    "COST includes subagents: $ is the agent's own record, ~$ an estimate from tokens";
 
 /// Human-readable size, 1 KB = 1024 B.
 #[expect(clippy::cast_precision_loss, reason = "JS numbers are f64")]
@@ -90,10 +104,17 @@ pub fn printable(cell: &str) -> String {
 }
 
 fn row_cells(h: &SessionHeader, id: &str) -> Vec<String> {
-    let star = if h.unpriced_models.is_some() { "*" } else { "" };
+    let star = if h.cost.unpriced_models.is_some() {
+        "*"
+    } else {
+        ""
+    };
     vec![
         id.to_owned(),
-        h.agent.as_str().to_owned(),
+        h.launcher.as_ref().map_or_else(
+            || h.agent.as_str().to_owned(),
+            |l| format!("{} ({})", h.agent.as_str(), printable(&l.name)),
+        ),
         if h.agent == Agent::Codex {
             printable(h.project.as_str())
         } else {
@@ -101,7 +122,7 @@ fn row_cells(h: &SessionHeader, id: &str) -> Vec<String> {
         },
         printable(h.model.as_deref().unwrap_or("-")),
         h.message_count.to_string(),
-        format!("{}{star}", usd_cell(h.cost_usd)),
+        format!("{}{star}", cost_cell(&h.cost)),
         bytes(h.size_bytes),
         printable(&h.updated_at),
         printable(h.title.as_deref().unwrap_or("-")),
@@ -241,10 +262,10 @@ pub fn session_table(
     let table = table(&HEADERS, &cells, pretty);
     let notes = [
         rows.iter()
-            .any(|h| h.cost_usd.is_some())
-            .then(|| "EST COST covers the main transcript only, without subagent files".to_owned()),
+            .any(|h| h.cost.usd.is_some())
+            .then(|| COST_NOTE.to_owned()),
         rows.iter()
-            .any(|h| h.unpriced_models.is_some())
+            .any(|h| h.cost.unpriced_models.is_some())
             .then(|| "* some models unpriced: the figure is too low".to_owned()),
     ];
     (table, notes.into_iter().flatten().collect())

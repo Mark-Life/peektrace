@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 
 use peektrace_core::sessions::inputs::Input;
 use peektrace_core::sessions::pages::SessionPages;
+use peektrace_core::t3code::Mark;
 use tokio::sync::OnceCell;
 
 const SLOTS: usize = 4;
@@ -29,16 +30,23 @@ pub struct Built {
     pub pages: SessionPages,
     version: u64,
     inputs: Vec<Input>,
+    t3code: Option<Mark>,
 }
 
 impl Built {
     /// `inputs` must be stamped before the build reads them: stamping after
     /// would let a write during the build pass as already seen.
-    pub const fn new(pages: SessionPages, version: u64, inputs: Vec<Input>) -> Self {
+    pub const fn new(
+        pages: SessionPages,
+        version: u64,
+        inputs: Vec<Input>,
+        t3code: Option<Mark>,
+    ) -> Self {
         Self {
             pages,
             version,
             inputs,
+            t3code,
         }
     }
 
@@ -46,11 +54,14 @@ impl Built {
     /// when the watcher is not running. Other sessions' writes bump the
     /// watch version too, so a JSONL transcript ignores it. An `OpenCode`
     /// store is shared by every session in it, so it also needs the
-    /// version to hold.
+    /// version to hold. A t3code rename changes the title without touching
+    /// the transcript, so the thread is checked too.
     fn fresh(&self, version: u64) -> bool {
         let jsonl = self.pages.analysis().parsed.provider.as_str() != "opencode"
             && self.inputs.first().is_some_and(|i| i.stamp.is_some());
-        self.inputs.iter().all(Input::unchanged) && (jsonl || self.version == version)
+        self.inputs.iter().all(Input::unchanged)
+            && (jsonl || self.version == version)
+            && self.t3code.as_ref().is_none_or(Mark::unchanged)
     }
 }
 
@@ -175,7 +186,7 @@ mod tests {
         cache
             .get(k, version, || async move {
                 let pages = empty_pages(&path);
-                Ok(Built::new(pages, version, stamp_all([path])))
+                Ok(Built::new(pages, version, stamp_all([path]), None))
             })
             .await
             .map(|(_, l)| l)
@@ -214,7 +225,7 @@ mod tests {
                 let inputs = stamp_all([path.clone()]);
                 let pages = empty_pages(&path);
                 std::fs::write(&file, "{}\n{}\n").expect("append");
-                Ok::<_, ()>(Built::new(pages, 0, inputs))
+                Ok::<_, ()>(Built::new(pages, 0, inputs, None))
             })
             .await
             .map(|(_, l)| l);
@@ -239,7 +250,12 @@ mod tests {
         let k = key("oc");
         let build = || async {
             let parsed = peektrace_core::opencode::parse_opencode_session(None, &path, "ses_1");
-            Ok::<_, ()>(Built::new(pages_of(parsed), 0, stamp_all(inputs.clone())))
+            Ok::<_, ()>(Built::new(
+                pages_of(parsed),
+                0,
+                stamp_all(inputs.clone()),
+                None,
+            ))
         };
         let lookup = |r: Result<(Arc<Built>, Lookup), ()>| r.map(|(_, l)| l);
         assert_eq!(lookup(cache.get(&k, 0, build).await), Ok(Lookup::Miss));
@@ -279,7 +295,7 @@ mod tests {
                     .get(&key("x"), 0, || async move {
                         builds.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                         tokio::task::yield_now().await;
-                        Ok::<_, ()>(Built::new(empty_pages("/nope"), 0, Vec::new()))
+                        Ok::<_, ()>(Built::new(empty_pages("/nope"), 0, Vec::new(), None))
                     })
                     .await
                     .map(|(_, l)| l)

@@ -4,6 +4,7 @@
 mod context;
 mod header;
 mod parse;
+mod usage;
 
 use std::sync::LazyLock;
 

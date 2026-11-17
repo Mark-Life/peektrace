@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { costSummary, fmtRecordedUsd, fmtUsd } from "../src/cost";
+import { costSummary, fmtRecordedUsd, fmtUsd, headerCost } from "../src/cost";
 
 describe("cost formatting", () => {
   test("fmtUsd rounds to cents and marks sub-cent spend", () => {
@@ -12,9 +12,9 @@ describe("cost formatting", () => {
   });
 
   test("costSummary lists only the qualifiers that are set", () => {
-    expect(costSummary({ source: "estimate", totalUsd: 1 }, "X").notes).toEqual(
-      ["estimated from tokens"]
-    );
+    expect(
+      costSummary({ source: "estimate", totalUsd: 1 }, "codex").notes
+    ).toEqual(["estimated from tokens"]);
     expect(
       costSummary(
         {
@@ -24,7 +24,7 @@ describe("cost formatting", () => {
           unpricedModels: ["mystery-a", "mystery-b"],
           unreadableSubagents: 2,
         },
-        "OpenCode"
+        "opencode"
       ).notes
     ).toEqual([
       "recorded by OpenCode",
@@ -36,14 +36,17 @@ describe("cost formatting", () => {
 
   test("costSummary dashes an unpriced total and names an agent's own figure", () => {
     expect(
-      costSummary({ source: "estimate", unpricedModels: ["mystery-a"] }, "X")
+      costSummary(
+        { source: "estimate", unpricedModels: ["mystery-a"] },
+        "codex"
+      )
     ).toEqual({
       estimateNote: undefined,
       notes: ["estimated from tokens", "unpriced: mystery-a"],
       total: "—",
       warning: undefined,
     });
-    expect(costSummary({ source: "agent", totalUsd: 0.5 }, "OpenCode")).toEqual(
+    expect(costSummary({ source: "agent", totalUsd: 0.5 }, "opencode")).toEqual(
       {
         estimateNote: undefined,
         notes: ["recorded by OpenCode"],
@@ -63,7 +66,7 @@ describe("cost formatting", () => {
         source: "agent",
         totalUsd: 464.02,
       },
-      "Claude Code"
+      "claude-code"
     );
 
     expect(s.warning).toBe("estimate from tokens ~$34.37 (93% lower)");
@@ -79,12 +82,28 @@ describe("cost formatting", () => {
         source: "agent",
         totalUsd: 10,
       },
-      "Claude Code"
+      "claude-code"
     );
 
     expect(s.warning).toBeUndefined();
     expect(s.estimateNote).toBe(
       "Estimate from transcript: ~$8.00. Transcripts miss some billed calls."
+    );
+  });
+
+  test("only Claude Code's note says transcripts miss calls", () => {
+    const cost = {
+      estimateUsd: 0.4,
+      recordedUsd: 0.42,
+      source: "agent",
+      totalUsd: 0.42,
+    } as const;
+
+    expect(costSummary(cost, "opencode").estimateNote).toBe(
+      "Estimate at list price: ~$0.40."
+    );
+    expect(costSummary(cost, "pi").estimateNote).toBe(
+      "Estimate at list price: ~$0.40."
     );
   });
 
@@ -97,7 +116,7 @@ describe("cost formatting", () => {
           source: "estimate",
           totalUsd: 95.23,
         },
-        "Claude Code"
+        "claude-code"
       )
     ).toEqual({
       estimateNote: undefined,
@@ -108,5 +127,53 @@ describe("cost formatting", () => {
       total: "~$95.23",
       warning: undefined,
     });
+  });
+
+  test("headerCost marks a list row's cost as the detail does", () => {
+    expect(headerCost({ agent: "claude" })).toBeUndefined();
+    expect(
+      headerCost({
+        agent: "claude",
+        costSource: "estimate",
+        costUsd: Number.POSITIVE_INFINITY,
+      })
+    ).toBeUndefined();
+    expect(
+      headerCost({ agent: "claude", costSource: "agent", costUsd: 12.5 })
+    ).toEqual({
+      label: "cost $12.50, recorded",
+      text: "$12.50",
+      title: "Cost: $12.50 · recorded by Claude Code",
+    });
+    expect(
+      headerCost({
+        agent: "codex",
+        costSource: "estimate",
+        costUsd: 3,
+        subagentsUsd: 1,
+        unpricedModels: ["mystery"],
+      })
+    ).toEqual({
+      label: "cost about $3.00, estimated, some models unpriced",
+      text: "~$3.00*",
+      title:
+        "Cost: ~$3.00 · estimated from tokens · incl. subagents ~$1.00 · unpriced: mystery",
+    });
+    const unknown = headerCost({ agent: "pi", unpricedModels: ["mystery"] });
+    expect([unknown?.text, unknown?.label]).toEqual([
+      "—*",
+      "cost unknown, some models unpriced",
+    ]);
+
+    const cents = headerCost({
+      agent: "codex",
+      costSource: "estimate",
+      costUsd: 0.001,
+    });
+
+    expect([cents?.text, cents?.label]).toEqual([
+      "<$0.01",
+      "cost about <$0.01, estimated",
+    ]);
   });
 });

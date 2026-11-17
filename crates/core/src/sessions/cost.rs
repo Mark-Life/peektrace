@@ -1,8 +1,11 @@
 //! Session cost from priced turns: a list-price estimate unless the agent
 //! recorded its own figure.
 
-use super::model::{ParsedSession, SessionCost, SubagentRef, Turn, TurnField, TurnsCost};
+use super::model::{
+    CostParts, ParsedSession, Provider, SessionCost, SubagentRef, Turn, TurnField, TurnsCost,
+};
 use crate::js::text;
+use crate::model::HeaderCost;
 use crate::pricing::{CostTokens, card_for, turn_cost};
 
 /// A turn's cost at list price, `None` when its model is unpriced.
@@ -92,16 +95,14 @@ pub fn estimate_warns(recorded: f64, estimate: f64, unpriced: bool) -> bool {
 /// whole session; a record that already counts subagents gets nothing added.
 /// Otherwise the sum of priced turns, inline sidechain turns and subagents.
 /// `None` when there is nothing to price or report.
-pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionCost> {
-    let own = sum_priced(priced_turns);
-    let parts: Vec<&TurnsCost> = p
-        .sidechain_cost
+fn cost_of(c: &CostParts) -> Option<SessionCost> {
+    let own = &c.own;
+    let subagents_usd = c
+        .parts
         .iter()
-        .chain(p.subagents.iter().map(|s: &SubagentRef| &s.cost))
-        .collect();
-    let subagents_usd = parts.iter().fold(0.0, |n, c| n + c.cost_usd.unwrap_or(0.0));
-    let parts_priced = parts.iter().any(|c| c.cost_usd.is_some());
-    let native = p.native_cost;
+        .fold(0.0, |n, p| n + p.cost_usd.unwrap_or(0.0));
+    let parts_priced = c.parts.iter().any(|p| p.cost_usd.is_some());
+    let native = c.native;
     let headline = native.filter(|n| !n.partial);
     // Our estimate over what the record covers.
     let estimate = native.map(|n| {
@@ -119,14 +120,15 @@ pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionC
             .then(|| own.cost_usd.unwrap_or(0.0) + subagents_usd),
     };
     // Kept beside a record too: they explain an estimate gap.
-    let mut unpriced = own.unpriced_models.unwrap_or_default();
-    unpriced.extend(
-        parts
-            .iter()
-            .flat_map(|c| c.unpriced_models.iter().flatten().cloned()),
+    let unpriced = sorted(
+        std::iter::once(own)
+            .chain(&c.parts)
+            .filter_map(|p| p.unpriced_models.as_ref())
+            .flatten()
+            .cloned()
+            .collect(),
     );
-    let unreadable = p.subagents.iter().filter(|s| s.unreadable).count();
-    let unpriced = sorted(unpriced);
+    let unreadable = c.unreadable;
     if total.is_none() && unpriced.is_none() && unreadable == 0 && native.is_none() {
         return None;
     }
@@ -145,6 +147,35 @@ pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionC
             .zip(estimate)
             .is_some_and(|(n, e)| estimate_warns(n.usd, e, unpriced.is_some())),
         unpriced_models: unpriced,
+    })
+}
+
+/// [`cost_of`] a parsed session whose turns are priced.
+pub fn session_cost(p: &ParsedSession, priced_turns: &[Turn]) -> Option<SessionCost> {
+    cost_of(&CostParts {
+        own: sum_priced(priced_turns),
+        parts: p
+            .sidechain_cost
+            .iter()
+            .chain(p.subagents.iter().map(|s: &SubagentRef| &s.cost))
+            .cloned()
+            .collect(),
+        native: p.native_cost,
+        unreadable: p.subagents.iter().filter(|s| s.unreadable).count(),
+    })
+}
+
+/// The list row's cost: the headline [`cost_of`] gives the session detail.
+/// Beside a record that already counts subagents, the subagent share stays
+/// unknown, since the list does not read their files for it.
+pub fn header_cost(c: &CostParts) -> HeaderCost {
+    cost_of(c).map_or_else(HeaderCost::default, |s| HeaderCost {
+        usd: s.total_usd,
+        from_agent: s.from_agent,
+        subagents_usd: s
+            .subagents_usd
+            .filter(|_| !(s.from_agent && c.native.is_some_and(|n| n.includes_subagents))),
+        unpriced_models: s.unpriced_models.filter(|_| !s.from_agent),
     })
 }
 
@@ -182,7 +213,8 @@ pub struct CostSummary {
 }
 
 /// The total and the notes that qualify it, led by where it comes from.
-pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
+pub fn cost_summary(cost: &SessionCost, provider: Provider) -> CostSummary {
+    let agent_label = provider.label();
     let mut notes = vec![if cost.from_agent {
         format!("recorded by {agent_label}")
     } else {
@@ -203,7 +235,7 @@ pub fn cost_summary(cost: &SessionCost, agent_label: &str) -> CostSummary {
     if let Some(n) = cost.unreadable_subagents.filter(|n| *n > 0) {
         notes.push(format!("{n} subagent(s) unreadable"));
     }
-    let (warning, estimate_note) = estimate_lines(cost);
+    let (warning, estimate_note) = estimate_lines(cost, provider);
     let total = cost.total_usd.map_or_else(
         || "—".to_owned(),
         |t| {
@@ -230,23 +262,30 @@ pub fn estimate_warning(recorded: f64, estimate: f64) -> String {
     format!("estimate from tokens {} ({pct}% {dir})", fmt_usd(estimate))
 }
 
-/// `Estimate from transcript: ~$6.10. Transcripts miss some billed calls.`
-pub fn estimate_note(estimate: f64) -> String {
-    format!(
-        "Estimate from transcript: {}. Transcripts miss some billed calls.",
-        fmt_usd(estimate)
-    )
+/// The quiet note for the estimate beside a full record. Only Claude Code
+/// bills calls its transcript does not log, so only its note says so; the
+/// others record the same calls at their own prices.
+pub fn estimate_note(estimate: f64, provider: Provider) -> String {
+    let usd = fmt_usd(estimate);
+    match provider {
+        Provider::ClaudeCode => {
+            format!("Estimate from transcript: {usd}. Transcripts miss some billed calls.")
+        }
+        Provider::Codex | Provider::Pi | Provider::Opencode => {
+            format!("Estimate at list price: {usd}.")
+        }
+    }
 }
 
 /// The warning or the quiet note for the estimate beside a full record;
 /// both `None` without one.
-pub fn estimate_lines(cost: &SessionCost) -> (Option<String>, Option<String>) {
+pub fn estimate_lines(cost: &SessionCost, provider: Provider) -> (Option<String>, Option<String>) {
     match (cost.recorded_usd, cost.estimate_usd) {
         (Some(r), Some(e)) if cost.from_agent && !cost.record_partial => {
             if cost.estimate_warning {
                 (Some(estimate_warning(r, e)), None)
             } else {
-                (None, Some(estimate_note(e)))
+                (None, Some(estimate_note(e, provider)))
             }
         }
         _ => (None, None),

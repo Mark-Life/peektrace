@@ -486,7 +486,7 @@ fn pi_a_repeated_message_id_counts_once() {
     .to_string();
     let text = [message.as_str(), message.as_str()].join("\n");
     let h = build_header(&text, &file_ref("s", "demo", "/synthetic/s.jsonl", 1));
-    assert!(close(h.cost_usd, 3.0, 6), "{:?}", h.cost_usd);
+    assert!(close(h.cost.usd, 3.0, 6), "{:?}", h.cost.usd);
 }
 
 fn claude_header(text: &str) -> Option<f64> {
@@ -497,7 +497,7 @@ fn claude_header(text: &str) -> Option<f64> {
     let out = claude::load_headers(&[file_ref("s", "demo", &path, 1)], &tracing::Span::none());
     let _ = fs::remove_dir_all(&dir);
     match out.into_iter().next() {
-        Some(Outcome::Header(h)) => h.cost_usd,
+        Some(Outcome::Header(h)) => h.cost.usd,
         _ => panic!("no header"),
     }
 }
@@ -553,5 +553,5 @@ fn claude_and_pi_headers_match_analyze_on_the_same_transcript() {
     let a = analyze_default(parse_pi_session(&pi, "/synthetic/p.jsonl", "p"));
     let total = a.cost.and_then(|c| c.total_usd).expect("pi cost");
     let h = build_header(&pi, &file_ref("s", "demo", "/synthetic/s.jsonl", 1));
-    assert!(close(h.cost_usd, total, 10), "{:?} vs {total}", h.cost_usd);
+    assert!(close(h.cost.usd, total, 10), "{:?} vs {total}", h.cost.usd);
 }

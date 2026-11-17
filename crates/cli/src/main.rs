@@ -9,6 +9,7 @@ mod ls;
 mod mcp;
 mod memory;
 mod otel;
+mod pricing;
 mod remote;
 mod render;
 mod reorder;
@@ -121,6 +122,8 @@ enum Run<'a> {
     Statusline(&'a args::StatuslineArgs),
     Mcp,
     Upgrade(&'a args::UpgradeArgs),
+    PricingShow,
+    PricingUpdate(&'a args::PricingUpdateArgs),
     Doctor(&'a args::DoctorArgs),
     Tui(&'a args::ServeArgs),
 }
@@ -138,6 +141,8 @@ impl<'a> Run<'a> {
             Self::StatsPrompt(_) => Some("stats prompt"),
             Self::StatsRefresh(_) => Some("stats refresh"),
             Self::StatsUsage(_) => Some("stats usage"),
+            Self::PricingShow => Some("pricing"),
+            Self::PricingUpdate(_) => Some("pricing update"),
             Self::Ls(_)
             | Self::Analyze(_)
             | Self::Export(_)
@@ -215,6 +220,33 @@ fn write_failure(e: &io::Error) -> &'static str {
     }
 }
 
+/// Commands that read no sessions: `doctor`, `upgrade`, `pricing` and
+/// `pricing update`. `None` for any other command.
+fn run_standalone(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> io::Result<Option<ExitCode>> {
+    let mut print = |line: &str| {
+        let _ = print_stdout(line);
+    };
+    let done = |r: Result<(), ls::UserError>| match r {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => failure.fail(&e),
+    };
+    match cmd {
+        Run::Doctor(args) => Ok(Some(run_doctor(args, failure))),
+        Run::Upgrade(args) => {
+            let env = upgrade::UpgradeEnv::from_process(VERSION);
+            Ok(Some(done(upgrade::run(args, &env, &mut print))))
+        }
+        Run::PricingShow => {
+            print_stdout(&pricing::show(&pricing::local_path()).join("\n"))?;
+            Ok(Some(ExitCode::SUCCESS))
+        }
+        Run::PricingUpdate(args) => {
+            Ok(Some(done(pricing::update(args, cli.read_only, &mut print))))
+        }
+        _ => Ok(None),
+    }
+}
+
 fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<ExitCode> {
     let root = failure.root;
     if let (Some(_), Some(name)) = (&cli.remote, cmd.local_only()) {
@@ -222,6 +254,10 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
             "--remote is not supported for `{name}` in the Rust build yet."
         ));
         return Ok(failure.fail(&e));
+    }
+    pricing::use_local();
+    if let Some(code) = run_standalone(cli, cmd, failure)? {
+        return Ok(code);
     }
     if let Run::Mcp = cmd {
         if cli.remote.is_some() {
@@ -234,19 +270,6 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         print_warnings(cli, &warnings_of(&ctx));
         mcp::serve(ctx, io::stdin().lock());
         return Ok(ExitCode::SUCCESS);
-    }
-    if let Run::Doctor(args) = cmd {
-        return Ok(run_doctor(args, failure));
-    }
-    if let Run::Upgrade(args) = cmd {
-        let env = upgrade::UpgradeEnv::from_process(VERSION);
-        let mut print = |line: &str| {
-            let _ = print_stdout(line);
-        };
-        return Ok(match upgrade::run(args, &env, &mut print) {
-            Ok(()) => ExitCode::SUCCESS,
-            Err(e) => failure.fail(&e),
-        });
     }
     if let Run::Statusline(args) = cmd {
         let deadline = match statusline::parse_timeout(&args.timeout) {
@@ -294,7 +317,12 @@ fn run_command(cli: &Cli, cmd: Run<'_>, failure: Failure<'_>) -> anyhow::Result<
         Run::StatsPrompt(args) => stats::run_prompt(args, &ctx),
         Run::StatsRefresh(args) => stats::run_refresh(args, globals, &ctx),
         Run::StatsUsage(args) => stats::run_usage(args, globals, &ctx),
-        Run::Statusline(_) | Run::Mcp | Run::Upgrade(_) | Run::Doctor(_) => unreachable!(),
+        Run::Statusline(_)
+        | Run::Mcp
+        | Run::Upgrade(_)
+        | Run::PricingShow
+        | Run::PricingUpdate(_)
+        | Run::Doctor(_) => unreachable!(),
     };
     let out = match out {
         Ok(out) => out,

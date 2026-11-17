@@ -9,7 +9,7 @@ use peektrace_core::js::{num, text};
 use peektrace_core::roots;
 use peektrace_core::select::{self, SelectOptions};
 use peektrace_core::sessions::cost::{estimate_lines, fmt_recorded_usd};
-use peektrace_core::sessions::model::{AnalyzedSession, SessionCost};
+use peektrace_core::sessions::model::{AnalyzedSession, Provider, SessionCost};
 use peektrace_core::sessions::read::{cost_from_json, listing_from_json, parsed_from_json};
 use peektrace_core::sessions::service::{
     AnalyzeOverrides, SessionEnv, Target, analyze_session_with, get_session,
@@ -236,7 +236,12 @@ fn cost_rows(cost: Option<&SessionCost>, provider: &str) -> Vec<Vec<String>> {
             ),
         ));
     }
-    let (warning, note) = cost.map(estimate_lines).unwrap_or_default();
+    // A provider from a newer server has no estimate wording here.
+    let known = Provider::ALL.into_iter().find(|p| p.as_str() == provider);
+    let (warning, note) = cost
+        .zip(known)
+        .map(|(c, p)| estimate_lines(c, p))
+        .unwrap_or_default();
     if let Some(w) = warning {
         rows.push(row("warning", w));
     }

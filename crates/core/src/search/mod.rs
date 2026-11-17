@@ -179,6 +179,7 @@ pub fn search_sessions(env: SearchEnv<'_>, req: &SearchRequest) -> SearchRun {
     let filter = ListFilter {
         agent: req.agent,
         project: None,
+        ..ListFilter::default()
     };
     let listing = match env.headers {
         Some(cache) => list_sessions_cached(env.roots, &filter, cache),

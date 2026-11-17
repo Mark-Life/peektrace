@@ -145,14 +145,18 @@ impl InProcess {
     }
 
     /// Roots from `HOME`, the agent env vars and `settings.json`, as the CLI
-    /// reads them.
+    /// reads them. Also prices from a downloaded table newer than the built-in one
+    /// (`peektrace pricing update`), so call it before anything is priced.
     pub fn from_env() -> Self {
         let home = std::env::home_dir()
             .map(|h| h.to_string_lossy().into_owned())
             .unwrap_or_default();
-        Self::for_home(home, |k| {
-            std::env::var_os(k).map(|v| v.to_string_lossy().into_owned())
-        })
+        let var = |k: &str| std::env::var_os(k).map(|v| v.to_string_lossy().into_owned());
+        peektrace_core::pricing::use_local_table(&peektrace_core::pricing::local_table_path(
+            var("PEEKTRACE_DIR").as_deref(),
+            &home,
+        ));
+        Self::for_home(home, var)
     }
 
     /// Roots under `home`, with env vars read through `var`.

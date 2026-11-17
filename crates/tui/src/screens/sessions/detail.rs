@@ -12,7 +12,7 @@ use ratatui::style::Style;
 
 use crate::draw::{Seg, frame, inset, put_lr, seg};
 use crate::fmt::{clip, fmt, fmt_k, fmt_pct, pad_end, pad_start, sanitize};
-use crate::theme::{self, fg, provider_label, verdict, zone_of};
+use crate::theme::{self, fg, verdict, zone_of};
 use crate::widgets::{bold, field, stacked_bar};
 
 const LABEL_W: usize = 15;
@@ -24,7 +24,7 @@ fn title_of(s: &AnalyzedSession) -> String {
     s.parsed
         .title
         .clone()
-        .unwrap_or_else(|| format!("{} session", provider_label(s.parsed.provider)))
+        .unwrap_or_else(|| format!("{} session", s.parsed.provider.label()))
 }
 
 fn frac(s: &AnalyzedSession) -> f64 {
@@ -125,7 +125,7 @@ fn card_rows(s: &AnalyzedSession, w: usize) -> Vec<Row> {
         LABEL_W,
     )));
     if let Some(cost) = &s.cost {
-        let c = cost_summary(cost, provider_label(s.parsed.provider));
+        let c = cost_summary(cost, s.parsed.provider);
         let line = std::iter::once(c.total)
             .chain(c.notes)
             .collect::<Vec<_>>()

@@ -14,7 +14,7 @@
  │ - Subagent and workflow-agent transcripts record their own model calls, so their tokens and cost are counted                                               │
  │ - A rule match means a CLAUDE.md or AGENTS.md line mentions the habit, found by keywords. It does not prove the line states the fix                        │
  │ - Cost is estimated at API list prices from each model call's token counts. Rates per million tokens (input / output / cache write / cache read, USD):     │
- │   opus-5-5 4/20/5/0.2; sonnet-4-5 3/15/3.75/0.3 (checked 2026-11-08)                                                                                       │
+ │   opus-5-5 4/20/5/0.2; sonnet-4-5 3/15/3.75/0.3 (models.dev 2026-11-16, built-in)                                                                          │
  │ - 1 models have no price, so their calls are left out of the cost: (unknown)                                                                               │
  │                                                                                                                                                            │
  │                                                                                                                                                            │

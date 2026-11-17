@@ -63,6 +63,9 @@ fn session_row(h: &SessionHeader, selected: bool, live: bool, focused: bool, t: 
     if let Some(src) = h.source_label.as_deref() {
         line2 = line2.child(badge(src, t.muted_fg, t));
     }
+    if let Some(l) = &h.launcher {
+        line2 = line2.child(badge(&l.name, t.muted_fg, t).help(list::launcher_help(l)));
+    }
     line2 = line2.child(
         text(list::project_label(h).to_owned())
             .font(ty::XS)

@@ -7,6 +7,7 @@ use std::path::Path;
 use super::header::{FileMeta, HeaderAcc};
 use crate::model::SessionHeader;
 use crate::sessions::jsonl::read_lines;
+use crate::sessions::model::TurnsCost;
 
 const READ_BUFFER: usize = 64 * 1024;
 
@@ -20,12 +21,26 @@ pub enum Loaded {
 /// Fold a transcript from `reader`. Lines split on `\n`; bytes that are not
 /// UTF-8 become U+FFFD and a leading BOM is dropped, as `TextDecoder` does.
 pub fn read_transcript(reader: impl BufRead, meta: FileMeta) -> io::Result<Loaded> {
-    let mut acc = HeaderAcc::default();
+    let mut acc = HeaderAcc::new(meta.id.as_str());
     let text_empty = read_lines(reader, |line| acc.push_line(line))?;
     if text_empty && meta.size_bytes == 0 {
         return Ok(Loaded::Skip);
     }
     Ok(Loaded::Header(Box::new(acc.finish(meta))))
+}
+
+/// The cost of a subagent file's turns, folded as a header folds its lines.
+/// Only lines that mention `"assistant"` are parsed, as the session parse
+/// reads a subagent file.
+pub fn subagent_cost(path: &Path) -> io::Result<TurnsCost> {
+    let file = File::open(path)?;
+    let mut acc = HeaderAcc::default();
+    read_lines(BufReader::with_capacity(READ_BUFFER, file), |line| {
+        if line.contains("\"assistant\"") {
+            acc.push_line(line);
+        }
+    })?;
+    Ok(acc.all_turns_cost())
 }
 
 /// Open and fold one transcript file.

@@ -8,7 +8,8 @@
 import { Badge } from "@workspace/ui/components/badge";
 import { cn } from "@workspace/ui/lib/utils";
 import type { AnalyzedSession } from "@workspace/view-core/api-types.gen";
-import { costSummary } from "@workspace/view-core/cost";
+import { costSummary, providerLabel } from "@workspace/view-core/cost";
+import { launcherHint } from "@workspace/view-core/launcher";
 import type { ReactNode } from "react";
 
 import {
@@ -31,19 +32,11 @@ export type SessionOverview = Omit<
 /** Short id prefix shown in the metadata line. */
 const ID_PREFIX = 8;
 
-/** Display label per transcript provider. */
-const PROVIDER_LABEL: ReadonlyMap<string, string> = new Map([
-  ["claude-code", "Claude Code"],
-  ["codex", "Codex"],
-  ["opencode", "OpenCode"],
-  ["pi", "Pi"],
-]);
-
 /** The session's display name: its title, else the harness that produced it. */
 export const analyzedTitle = (a: Pick<AnalyzedSession, "provider" | "title">) =>
   a.title !== undefined && a.title !== ""
     ? a.title
-    : `${PROVIDER_LABEL.get(a.provider) ?? a.provider} session`;
+    : `${providerLabel(a.provider)} session`;
 
 /** A single metadata cell. */
 const Meta = ({
@@ -71,12 +64,9 @@ const CostValue = ({
   provider,
 }: {
   readonly cost: NonNullable<AnalyzedSession["cost"]>;
-  readonly provider: string;
+  readonly provider: AnalyzedSession["provider"];
 }) => {
-  const { total, notes, warning, estimateNote } = costSummary(
-    cost,
-    PROVIDER_LABEL.get(provider) ?? provider
-  );
+  const { total, notes, warning, estimateNote } = costSummary(cost, provider);
 
   return (
     <>
@@ -222,8 +212,17 @@ export const VerdictHeader = ({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Badge data-testid="session-provider" variant="outline">
-            {PROVIDER_LABEL.get(a.provider) ?? a.provider}
+            {providerLabel(a.provider)}
           </Badge>
+          {a.launcher === undefined ? null : (
+            <Badge
+              data-testid="session-launcher"
+              title={launcherHint(a.launcher)}
+              variant="secondary"
+            >
+              {a.launcher.name}
+            </Badge>
+          )}
           <Badge
             className={cn("text-sm", ZONE_CLASSES[zone].text)}
             data-testid="health-verdict"

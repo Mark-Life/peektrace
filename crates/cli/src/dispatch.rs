@@ -7,8 +7,8 @@ use clap::Parser as _;
 use clap::error::ErrorKind;
 
 use crate::args::{
-    self, Cli, Command, MemoryArgs, MemoryCommand, SessionsArgs, SessionsCommand, StatsArgs,
-    StatsCommand,
+    self, Cli, Command, MemoryArgs, MemoryCommand, PricingArgs, PricingCommand, SessionsArgs,
+    SessionsCommand, StatsArgs, StatsCommand,
 };
 use crate::{Failure, Run, VERSION, help, print_stderr, print_stdout, run, write_stdout};
 
@@ -101,6 +101,10 @@ pub fn dispatch(raw: &[String], argv: &[String], failure: Failure<'_>) -> ExitCo
         Some(Command::Statusline(a)) => Run::Statusline(a),
         Some(Command::Mcp) => Run::Mcp,
         Some(Command::Upgrade(a)) => Run::Upgrade(a),
+        Some(Command::Pricing(PricingArgs { command })) => match command {
+            None => Run::PricingShow,
+            Some(PricingCommand::Update(a)) => Run::PricingUpdate(a),
+        },
         Some(Command::Doctor(a)) => Run::Doctor(a),
         Some(Command::Tui(a)) => Run::Tui(a),
     };

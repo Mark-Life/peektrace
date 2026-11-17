@@ -7,6 +7,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::SessionHeader;
+use peektrace_protocol::wire::sessions::Launcher;
 
 use peektrace_js::time::{MS_PER_DAY as DAY_MS, Utc, day_key};
 
@@ -211,6 +212,20 @@ pub fn stamp_title(h: &SessionHeader) -> String {
         _ => String::new(),
     };
     format!("Last activity {}{started}", fmt_stamp(Some(last)))
+}
+
+/// The tooltip of a launcher badge: who started the session, and the
+/// branch and worktree it gave it.
+pub fn launcher_help(l: &Launcher) -> String {
+    [
+        Some(format!("Started from {}", l.name)),
+        l.branch.as_ref().map(|b| format!("branch {b}")),
+        l.worktree_path.as_ref().map(|w| format!("worktree {w}")),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" · ")
 }
 
 /// The row headline: the title, else `<Agent> session`.

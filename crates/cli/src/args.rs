@@ -86,6 +86,31 @@ pub enum Command {
     Doctor(DoctorArgs),
     /// Upgrade the installed binary to the latest release
     Upgrade(UpgradeArgs),
+    /// Show which price table cost estimates use, or download a newer one
+    Pricing(PricingArgs),
+}
+
+/// `pricing` with no subcommand shows the table in use.
+#[derive(Debug, Args)]
+pub struct PricingArgs {
+    #[command(subcommand)]
+    pub command: Option<PricingCommand>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum PricingCommand {
+    /// Download current prices from models.dev into the data dir
+    Update(PricingUpdateArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct PricingUpdateArgs {
+    /// Read models.dev `api.json` from this file instead of downloading it
+    #[arg(long, hide = true, allow_hyphen_values = true, value_parser = lossy())]
+    pub from: Option<String>,
+    /// Write the table here instead of the data dir
+    #[arg(long, hide = true, allow_hyphen_values = true, value_parser = lossy())]
+    pub output: Option<String>,
 }
 
 #[derive(Debug, Args)]

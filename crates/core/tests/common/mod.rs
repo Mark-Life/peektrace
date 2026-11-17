@@ -195,6 +195,7 @@ pub fn headers(data: &str) -> Vec<SessionHeader> {
         &ListFilter {
             agent: Some(Agent::Opencode),
             project: None,
+            ..ListFilter::default()
         },
     )
     .headers
