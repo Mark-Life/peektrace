@@ -183,21 +183,4 @@ impl CauseTotals {
             }),
         }
     }
-
-    pub fn write(&self, w: &mut Writer) {
-        w.begin_obj();
-        w.key("hits").num(self.hits);
-        w.key("pairs").num(self.pairs);
-        w.key("retrySec").num(self.retry_sec);
-        w.key("shell").bool(self.shell);
-        w.key("retryShare").num(self.retry_share);
-        w.key("retryCtxTokens").num(self.retry_ctx_tokens);
-        match self.retry_usd {
-            Some(usd) => w.key("retryUsd").num(usd),
-            None => w.key("retryUsd").null(),
-        }
-        w.key("nonFailingPairs").num(self.non_failing_pairs);
-        w.key("unclassifiedPairs").num(self.unclassified_pairs);
-        w.end_obj();
-    }
 }

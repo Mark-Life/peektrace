@@ -20,7 +20,6 @@ import {
   pct,
   projectTail,
   promptsOf,
-  rateText,
   sessionChip,
 } from "../src/lib/stats-format";
 import { CauseTable } from "../src/routes/stats/cause-table";
@@ -28,7 +27,7 @@ import { FailTable } from "../src/routes/stats/fail-table";
 import { Findings } from "../src/routes/stats/findings";
 import { ReportHeader } from "../src/routes/stats/report-header";
 import { TimeTable } from "../src/routes/stats/time-table";
-import { report, statsText } from "./stats-report-fixture";
+import { statsText } from "./stats-report-fixture";
 
 const failRow = (
   over: Partial<FailRow> & { readonly key: string }
@@ -209,13 +208,6 @@ const FIRING: RuleCheck = {
 /** A report with no row to prompt for: buttons that need one render nothing. */
 const NO_PROMPT = () => null;
 
-test("a per-1k rate keeps two digits and never reads 0 for a side with hits", () => {
-  expect(rateText(31.16, 42)).toBe("31");
-  expect(rateText(4.24, 1)).toBe("4.2");
-  expect(rateText(0.001, 1)).toBe("<0.01");
-  expect(rateText(0, 0)).toBe("0");
-});
-
 /** The rule line core writes for `FIRING`. */
 const FIRING_LINE =
   "rule in ~/.claude/CLAUDE.md:100 · still firing: You 31, subagents 57 per 1,000 calls since 2026-10-15";
@@ -358,14 +350,21 @@ test("the cause table renders its rows, and the open one shows the rule check", 
   const html = renderToStaticMarkup(
     <CauseTable
       debug={false}
-      totals={report({ fails: [], time: [] }).causeTotals}
       onSelect={() => {}}
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey="cause:zsh-glob-flag"
       text={statsText({
+        causeReread: { "cause:zsh-glob-flag": "32.3M · ~$42" },
         causeSplit: { "cause:zsh-glob-flag": SPLIT_LINE },
+        causeTime: { "cause:zsh-glob-flag": "44m20s · 1.2%" },
         ruleLines: { "cause:zsh-glob-flag": FIRING_LINE },
+        totals: {
+          hits: "1,488",
+          reread: "32.3M · ~$42",
+          retries: "675",
+          time: "44m20s · 1.2%",
+        },
       })}
     />
   );
@@ -382,6 +381,7 @@ test("the cause table renders its rows, and the open one shows the rule check", 
   expect(html).toContain("You / subagents");
   expect(html).toContain("44m20s · 1.2%");
   expect(html).toContain("32.3M · ~$42");
+  expect(html).toContain("All causes");
   expect(html).toContain("Fix in: memory file");
   // Detector ids stay behind the debug switch.
   expect(html).not.toContain("zsh-glob-flag · rule");
@@ -391,7 +391,6 @@ test("a phone reads each cause row as one wrapped summary line", () => {
   const html = renderToStaticMarkup(
     <CauseTable
       debug={false}
-      totals={report({ fails: [], time: [] }).causeTotals}
       onSelect={() => {}}
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
@@ -472,7 +471,6 @@ test("every open row and the header copy an agent prompt, each named for its row
     renderToStaticMarkup(
       <CauseTable
         debug={false}
-        totals={report({ fails: [], time: [] }).causeTotals}
         onSelect={() => {}}
         prompt={prompt}
         rows={[cause]}

@@ -85,7 +85,7 @@ export const FailTable = ({
             <TableHead className="text-right">Sessions</TableHead>
             <TableHead className="text-right">Calls</TableHead>
             <TableHead className="text-right">
-              <HeadTip label="Flagged" tip={STATS_DATA.columns.flagged} />
+              <HeadTip column={STATS_DATA.columns.flagged} />
             </TableHead>
             <TableHead className="hidden text-right lg:table-cell">
               Projects

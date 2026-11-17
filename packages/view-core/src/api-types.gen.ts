@@ -750,23 +750,11 @@ retryShare: number,
  */
 retryUsd: number | null, secMeasured: number, retryCtxTokens: number, tokensMeasured: number, per1k: Split, details: ReadonlyArray<CauseDetail>, diffs: ReadonlyArray<CauseDiff>, rule: RuleCheck | null, samples: ReadonlyArray<SampleRef>, pairSamples: ReadonlyArray<PairSample>, };
 
-export type CauseTotals = { hits: number, pairs: number, retrySec: number, 
-/**
- * Every cause with a pair is a shell cause.
- */
-shell: boolean, retryShare: number, retryCtxTokens: number, retryUsd: number | null, 
-/**
- * Read-backs of large output: not failures.
- */
-nonFailingPairs: number, 
-/**
- * Pairs with no named cause.
- */
-unclassifiedPairs: number, };
-
 export type CorpusSummary = { transcripts: number, sessions: number, projects: number, toolCalls: number, bashCalls: number, bashSec: number, toolSec: number, humanWaitSec: number, kinds: Record<string, number>, agents: Record<string, number>, };
 
 export type StatsWindow = { days: number, fromIso: string, toIso: string, };
+
+export type CauseTotalsText = { hits: string, retries: string, time: string, reread: string, };
 
 export type Finding = { detector: string | null, 
 /**
@@ -825,6 +813,23 @@ suggested: ReadonlyArray<string>, prompts: StatsPrompts,
  */
 ruleLines: Record<string, string>, 
 /**
+ * What the report covers, on one line: sessions, calls and the time
+ * every share divides by.
+ */
+corpusLine: string, 
+/**
+ * Cause key to its retry-time cell: `32m14s · 2.8%`.
+ */
+causeTime: Record<string, string>, 
+/**
+ * Cause key to its re-read cell: `17.4M · ~$9`.
+ */
+causeReread: Record<string, string>, 
+/**
+ * The row that adds every cause up; `None` with fewer than two causes.
+ */
+totals: CauseTotalsText | null, 
+/**
  * Cause key to every split of the row on one line.
  */
 causeSplit: Record<string, string>, 
@@ -845,7 +850,7 @@ export type StatsReport = { schemaVersion: StatsSchemaVersion,
 /**
  * Epoch ms of the report clock.
  */
-generatedAt: number, window: StatsWindow, detectorVersion: number, corpus: CorpusSummary, causes: ReadonlyArray<CauseRow>, causeTotals: CauseTotals, fails: ReadonlyArray<FailRow>, time: ReadonlyArray<TimeRow>, waiting: WaitPanel, clusters: ReadonlyArray<ClusterRow>, context: ReadonlyArray<ContextRow>, fanout: ReadonlyArray<FanoutRow>, web: ReadonlyArray<WebRepeatRow>, cost: ReadonlyArray<CostRow>, skipped: ReadonlyArray<string>, 
+generatedAt: number, window: StatsWindow, detectorVersion: number, corpus: CorpusSummary, causes: ReadonlyArray<CauseRow>, fails: ReadonlyArray<FailRow>, time: ReadonlyArray<TimeRow>, waiting: WaitPanel, clusters: ReadonlyArray<ClusterRow>, context: ReadonlyArray<ContextRow>, fanout: ReadonlyArray<FanoutRow>, web: ReadonlyArray<WebRepeatRow>, cost: ReadonlyArray<CostRow>, skipped: ReadonlyArray<string>, 
 /**
  * Transcript path of every session a sample names, by `sid`.
  */

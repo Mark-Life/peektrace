@@ -11,13 +11,17 @@ import { DETECTOR_VERSION } from "@workspace/view-core/constants.gen";
 /** Core's text for a report, empty unless a test fills it in. */
 export const statsText = (over: Partial<StatsText> = {}): StatsText => ({
   causeNarrow: {},
+  causeReread: {},
   causeSplit: {},
+  causeTime: {},
+  corpusLine: "",
   findings: [],
   prompts: { cause: {}, fail: {}, report: "", time: {} },
   ruleLines: {},
   suggested: [],
   suggestedRule: {},
   timeNotes: {},
+  totals: null,
   verdict: null,
   verdictNote: null,
   working: [],
@@ -30,17 +34,6 @@ export const report = (args: {
   readonly text?: StatsText;
   readonly time: readonly TimeRow[];
 }): StatsReport => ({
-  causeTotals: {
-    hits: 0,
-    nonFailingPairs: 0,
-    pairs: 0,
-    retryCtxTokens: 0,
-    retrySec: 0,
-    retryShare: 0,
-    retryUsd: null,
-    shell: true,
-    unclassifiedPairs: 0,
-  },
   causes: args.causes ?? [],
   caveats: [],
   clusters: [],

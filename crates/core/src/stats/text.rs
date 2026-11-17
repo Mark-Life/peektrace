@@ -4,10 +4,14 @@
 use std::collections::BTreeMap;
 
 use peektrace_protocol::DrillTable as WireTable;
-use peektrace_protocol::stats_text::{FINDINGS_VISIBLE, Finding, StatsPrompts, StatsText};
+use peektrace_protocol::stats_text::{
+    CauseTotalsText, FINDINGS_VISIBLE, Finding, StatsPrompts, StatsText,
+};
 use peektrace_protocol::wire::stats::{SampleRef as WireSample, TranscriptKind};
 
-use super::accumulate::{DrillTable, SampleRef};
+use super::accumulate::{CorpusSummary, DrillTable, SampleRef};
+use super::cause_text::{counted, reread_cell, time_cell};
+use super::detectors::cause_row::CauseTotals;
 use super::findings::{
     self, FindingFormat, cause_narrow_with, cause_split_with, findings_with, is_working, rule_line,
     suggested_rule_of, suggested_rules, time_note_with, working_with,
@@ -128,6 +132,24 @@ pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
                 Some((c.key.clone(), line))
             })
             .collect(),
+        corpus_line: corpus_line(&r.corpus, f),
+        cause_time: r
+            .causes
+            .iter()
+            .map(|c| (c.key.clone(), time_cell(c, f)))
+            .collect(),
+        cause_reread: r
+            .causes
+            .iter()
+            .map(|c| {
+                let measured = c.tokens_measured > 0.0;
+                (
+                    c.key.clone(),
+                    reread_cell(c.retry_ctx_tokens, c.retry_usd, measured, f),
+                )
+            })
+            .collect(),
+        totals: totals_text(r, f),
         cause_split: r
             .causes
             .iter()
@@ -149,6 +171,41 @@ pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
             .filter_map(|t| Some((t.key.as_str().to_owned(), time_note_with(t, f)?)))
             .collect(),
     }
+}
+
+/// `40 sessions + 60 subagent runs · 3 projects · …`: the corpus every
+/// share divides by.
+pub fn corpus_line(c: &CorpusSummary, f: &FindingFormat) -> String {
+    let (main, nested) = c.split();
+    format!(
+        "{} + {} · {} · {} · {} · {} of shell time · {} of tool time",
+        counted(main, "session", "sessions", f),
+        counted(nested, "subagent run", "subagent runs", f),
+        counted(c.projects, "project", "projects", f),
+        counted(c.tool_calls, "tool call", "tool calls", f),
+        counted(c.bash_calls, "shell call", "shell calls", f),
+        (f.hms)(c.bash_sec),
+        (f.hms)(c.tool_sec)
+    )
+}
+
+/// The totals row's cells, or `None` when one cause is the whole table.
+fn totals_text(r: &StatsReport, f: &FindingFormat) -> Option<CauseTotalsText> {
+    (r.causes.len() > 1).then(|| {
+        let t = CauseTotals::of(&r.causes, &r.corpus);
+        let timed = r.causes.iter().any(|c| c.sec_measured > 0.0);
+        let read = r.causes.iter().any(|c| c.tokens_measured > 0.0);
+        CauseTotalsText {
+            hits: (f.count)(t.hits),
+            retries: (f.count)(t.pairs),
+            time: if timed {
+                format!("{} · {}", (f.hms)(t.retry_sec), (f.pct)(t.retry_share))
+            } else {
+                "—".to_owned()
+            },
+            reread: reread_cell(t.retry_ctx_tokens, t.retry_usd, read, f),
+        }
+    })
 }
 
 fn opt_text(w: &mut Writer, s: Option<&str>) {
@@ -235,6 +292,22 @@ pub fn write_text(w: &mut Writer, t: &StatsText) {
     w.end_obj();
     w.key("ruleLines");
     map_json(w, &t.rule_lines);
+    w.key("corpusLine").text(&t.corpus_line);
+    w.key("causeTime");
+    map_json(w, &t.cause_time);
+    w.key("causeReread");
+    map_json(w, &t.cause_reread);
+    match &t.totals {
+        Some(x) => {
+            w.key("totals").begin_obj();
+            w.key("hits").text(&x.hits);
+            w.key("retries").text(&x.retries);
+            w.key("time").text(&x.time);
+            w.key("reread").text(&x.reread);
+            w.end_obj();
+        }
+        None => w.key("totals").null(),
+    }
     w.key("causeSplit");
     map_json(w, &t.cause_split);
     w.key("causeNarrow");

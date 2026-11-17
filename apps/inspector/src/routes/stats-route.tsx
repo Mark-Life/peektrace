@@ -5,7 +5,7 @@
  * and a second are different units, and the seconds are carried by a thin tail
  * of long runs, so adding them would invent an ordering nobody measured. The
  * findings come first because a number with no action attached is
- * decoration. The page opens on one verdict line and at most three fixes;
+ * decoration. The page opens on one verdict line and the first few fixes;
  * the tables behind them sit in one collapsed "Show the data" section, so a
  * cause shows once on a cold start.
  *
@@ -41,7 +41,6 @@ import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
 import { FailTable } from "./stats/fail-table";
 import { Findings, Verdict } from "./stats/findings";
-import { HeadTip } from "./stats/head-tip";
 import {
   agentOf,
   daysOf,
@@ -94,14 +93,17 @@ export const detectorOf = (
   return report.fails.find((row) => row.key === drill.key)?.detector ?? null;
 };
 
-/** The findings heading; what it ranks by opens on hover or focus. */
+/** The findings heading and what it ranks by. */
 const FindingsHead = () => {
   const { rankedBy, title } = STATS_SECTIONS.findings;
 
   return (
-    <h2 className="text-base font-semibold">
-      <HeadTip label={title} tip={`Ranked by ${rankedBy}.`} />
-    </h2>
+    <div className="flex flex-wrap items-baseline gap-2">
+      <h2 className="text-base font-semibold">{title}</h2>
+      <span className="text-muted-foreground text-xs">
+        ranked by {rankedBy}
+      </span>
+    </div>
   );
 };
 
@@ -217,7 +219,6 @@ const ReportView = ({
               rows={report.causes}
               selectedKey={keyOf("cause")}
               text={text}
-              totals={report.causeTotals}
             />
           ),
           time: (

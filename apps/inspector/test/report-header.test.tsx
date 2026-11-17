@@ -36,16 +36,14 @@ test("a rescan in flight disables the button and says so", () => {
   expect(header(true)).toMatch(RESCAN_BUSY);
 });
 
-test("the footer counts main sessions apart from subagent runs", () => {
+test("the footer prints the corpus line core wrote", () => {
   const base = report({ fails: [], time: [] });
 
   const html = footer({
     ...base,
-    corpus: {
-      ...base.corpus,
-      kinds: { main: 1302, subagent: 204, "workflow-agent": 4000 },
-      sessions: 1302,
-      transcripts: 5506,
+    text: {
+      ...base.text,
+      corpusLine: "1,302 sessions + 4,204 subagent runs · 3 projects",
     },
   });
 

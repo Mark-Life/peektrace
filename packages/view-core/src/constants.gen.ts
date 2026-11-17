@@ -266,15 +266,42 @@ export const STATS_FINDINGS = {
 /** The collapsed data section: its toggle, tabs, column tooltips and totals row. */
 export const STATS_DATA = {
   "columns": {
-    "flagged": "Calls that set the agent's own error flag. The gap to Calls is what an error panel alone would miss.",
-    "hits": "Calls that failed with this cause.",
-    "otherJobs": "Command lines that also run this job but are charged to a higher-priority one.",
-    "reread": "Context the retrying model call read again, priced at each session's model. The dollar figure is approximate.",
-    "retries": "Failed calls followed by a similar call that succeeded: a round trip a fix would save. Read-backs of large output are not failures.",
-    "retryTime": "Time from the failed call to the retry, and its share of shell time. Causes outside the shell are a share of all tool time.",
-    "rule": "A memory-file line that states this fix, and whether the cause still fires since.",
-    "share": "Share of all shell time.",
-    "split": "Hits in your own sessions, then in subagents."
+    "flagged": {
+      "label": "Flagged",
+      "tip": "Calls that set the agent's own error flag. The gap to Calls is what an error panel alone would miss."
+    },
+    "hits": {
+      "label": "Hits",
+      "tip": "Calls that failed with this cause."
+    },
+    "otherJobs": {
+      "label": "In other jobs",
+      "tip": "Command lines that also run this job but are charged to a higher-priority one."
+    },
+    "reread": {
+      "label": "Re-read",
+      "tip": "Context the retrying model call read again, priced at each session's model. The dollar figure is approximate."
+    },
+    "retries": {
+      "label": "Retries",
+      "tip": "Failed calls followed by a similar call that succeeded: a round trip a fix would save. Read-backs of large output are not failures."
+    },
+    "retryTime": {
+      "label": "Retry time",
+      "tip": "Time from the failed call to the retry, and its share of shell time. Causes outside the shell, and the total, are a share of all tool time."
+    },
+    "rule": {
+      "label": "Rule",
+      "tip": "A memory-file line that states this fix, and whether the cause still fires since."
+    },
+    "share": {
+      "label": "Share",
+      "tip": "Share of all shell time."
+    },
+    "split": {
+      "label": "You / subagents",
+      "tip": "Hits in your own sessions, then in subagents."
+    }
   },
   "debug": "Show detector ids",
   "hide": "Hide the data",

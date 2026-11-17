@@ -38,6 +38,8 @@ pub(super) struct CauseAgg {
     pub(super) sessions: HashSet<String>,
     /// Pairs whose failed call was a shell command.
     pub(super) shell_pairs: f64,
+    /// Hits that were shell commands.
+    pub(super) shell_hits: f64,
     pub(super) tokens_measured: f64,
     pub(super) tool: Option<String>,
 }
@@ -45,6 +47,15 @@ pub(super) struct CauseAgg {
 impl CauseAgg {
     pub(super) fn cause(&self) -> CauseId {
         self.cause.unwrap_or(CauseId::Unclassified)
+    }
+
+    /// Every pair, or with no pair every hit, came from the shell.
+    pub(super) fn is_shell(&self) -> bool {
+        if self.pairs > 0.0 {
+            self.shell_pairs == self.pairs
+        } else {
+            self.shell_hits >= self.hits().total()
+        }
     }
 
     pub(super) fn hits(&self) -> Split {

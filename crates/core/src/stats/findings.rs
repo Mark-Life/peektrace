@@ -3,6 +3,8 @@
 //! separate "working" list instead of ranking with live ones.
 
 use super::accumulate::{DrillTable, SampleRef};
+pub use super::cause_text::{approx_usd, cause_narrow_with, cause_split_with};
+use super::cause_text::{counted, hits_text, pairs_word, per_thousand, reread_text, time_share};
 use super::cost_findings::cost_findings;
 use super::detectors::causes::CauseKind;
 use super::detectors::failures::{FailRow, PIPED_EXIT_CODE};
@@ -65,45 +67,6 @@ fn split_with(s: Split, f: &FindingFormat) -> String {
     )
 }
 
-/// What a cause's hits are: shell commands, or calls of another tool.
-const fn calls_word(row: &CauseRow) -> &'static str {
-    if row.shell { "commands" } else { "calls" }
-}
-
-/// `400 commands, all exited OK`, `120 commands, 30 exited OK`.
-fn hits_text(row: &CauseRow, f: &FindingFormat) -> String {
-    let exit0 = row.hits - row.flagged;
-    let what = calls_word(row);
-    if exit0 <= 0.0 {
-        format!("{} {what}", (f.count)(row.hits))
-    } else if exit0 >= row.hits {
-        format!("{} {what}, all exited OK", (f.count)(row.hits))
-    } else {
-        format!(
-            "{} {what}, {} exited OK",
-            (f.count)(row.hits),
-            (f.count)(exit0)
-        )
-    }
-}
-
-/// `~$26`, or `<$1` when it rounds to nothing.
-pub fn approx_usd(usd: f64, f: &FindingFormat) -> String {
-    peektrace_protocol::stats_text::approx_usd_text(usd, f.count)
-}
-
-/// `32m14s (2.8% of shell time)`.
-pub fn time_share(sec: f64, share: f64, shell: bool, f: &FindingFormat) -> String {
-    let of = if shell { "shell time" } else { "tool time" };
-    format!("{} ({} of {of})", (f.hms)(sec), (f.pct)(share))
-}
-
-/// `17.4M tokens re-read (~$26)`.
-pub fn reread_text(tokens: f64, usd: Option<f64>, f: &FindingFormat) -> String {
-    let usd = usd.map_or_else(String::new, |u| format!(" ({})", approx_usd(u, f)));
-    format!("{} tokens re-read{usd}", (f.tokens)(tokens))
-}
-
 pub fn cause_spread(row: &CauseRow) -> String {
     cause_spread_with(row, &FindingFormat::CLI)
 }
@@ -117,7 +80,10 @@ pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
         hits
     };
     let retries = if row.failing {
-        format!(" · {} sessions with a retry", (f.count)(row.retry_sessions))
+        format!(
+            " · {} with a retry",
+            counted(row.retry_sessions, "session", "sessions", f)
+        )
     } else {
         String::new()
     };
@@ -133,64 +99,6 @@ pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
     )
 }
 
-/// Every split of one cause on one line: who hit it, how often per 1,000
-/// calls, who retried, and what the retries re-read.
-pub fn cause_split_with(row: &CauseRow, f: &FindingFormat) -> String {
-    let side = |s: Split| {
-        format!(
-            "{YOU} {}, {SUBAGENTS} {}",
-            (f.count)(s.main),
-            (f.count)(s.nested)
-        )
-    };
-    let rates = format!(
-        "{YOU} {}, {SUBAGENTS} {}",
-        per_thousand(row.per1k.main, row.hits_by.main),
-        per_thousand(row.per1k.nested, row.hits_by.nested)
-    );
-    let what = if row.failing { "retries" } else { "read-backs" };
-    let reread = if row.tokens_measured == 0.0 {
-        "re-read not measured".to_owned()
-    } else {
-        reread_text(row.retry_ctx_tokens, row.retry_usd, f)
-    };
-    let exit0 = row.hits - row.flagged;
-    let exit0 = if exit0 > 0.0 {
-        format!(" · {} exited OK", (f.count)(exit0))
-    } else {
-        String::new()
-    };
-    format!(
-        "hits: {} · per 1,000 calls: {rates} · {what}: {}{exit0} · {reread}",
-        side(row.hits_by),
-        side(row.pairs_by)
-    )
-}
-
-/// One cause as one line, for a narrow screen.
-pub fn cause_narrow_with(row: &CauseRow, f: &FindingFormat) -> String {
-    let what = if row.failing { "retries" } else { "read-backs" };
-    let sec = if row.sec_measured == 0.0 {
-        String::new()
-    } else {
-        format!(
-            " · {}",
-            time_share(row.retry_sec, row.retry_share, row.shell, f)
-        )
-    };
-    let toks = if row.tokens_measured == 0.0 {
-        String::new()
-    } else {
-        format!(" · {}", reread_text(row.retry_ctx_tokens, row.retry_usd, f))
-    };
-    format!(
-        "{} hits · {} {what} in {} sessions{sec}{toks}",
-        (f.count)(row.hits),
-        (f.count)(row.pairs),
-        (f.count)(row.retry_sessions)
-    )
-}
-
 pub fn cause_impact(row: &CauseRow) -> String {
     cause_impact_with(row, &FindingFormat::CLI)
 }
@@ -199,12 +107,7 @@ pub fn cause_impact_with(row: &CauseRow, f: &FindingFormat) -> String {
     if row.pairs == 0.0 {
         return format!("{} sessions", (f.count)(row.sessions));
     }
-    let what = match (row.failing, row.pairs == 1.0) {
-        (true, true) => "retry",
-        (true, false) => "retries",
-        (false, true) => "read-back",
-        (false, false) => "read-backs",
-    };
+    let (one, many) = pairs_word(row);
     let toks = if row.tokens_measured > 0.0 {
         format!(" · {}", reread_text(row.retry_ctx_tokens, row.retry_usd, f))
     } else {
@@ -218,7 +121,7 @@ pub fn cause_impact_with(row: &CauseRow, f: &FindingFormat) -> String {
             time_share(row.retry_sec, row.retry_share, row.shell, f)
         )
     };
-    format!("{} {what}{sec}{toks}", (f.count)(row.pairs))
+    format!("{}{sec}{toks}", counted(row.pairs, one, many, f))
 }
 
 fn rule_place(rule: &RuleCheck) -> String {
@@ -355,20 +258,6 @@ pub fn rule_line(rule: &RuleCheck) -> String {
                 .join(", ");
             format!("{place} · still firing: {rates} per 1,000 calls{since}")
         }
-    }
-}
-
-/// A per-1,000 rate with one decimal; a side with hits never reads `0`.
-fn per_thousand(rate: f64, hits: f64) -> String {
-    let fixed = crate::js::num::to_fixed(rate, 1);
-    if hits == 0.0 {
-        "0".to_owned()
-    } else if fixed == "0.0" {
-        "<0.1".to_owned()
-    } else if rate >= 10.0 {
-        count(rate.round())
-    } else {
-        fixed
     }
 }
 

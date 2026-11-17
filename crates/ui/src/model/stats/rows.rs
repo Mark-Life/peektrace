@@ -6,7 +6,7 @@ use peektrace_protocol::stats::{
 };
 use peektrace_protocol::{AgentId, DrillTable};
 
-use peektrace_protocol::stats_text::{approx_usd_text, wait_shape_label};
+use peektrace_protocol::stats_text::{approx_usd_text, wait_label_of};
 
 use super::format::{hms, n, pct};
 use crate::model::format::fmt_k;
@@ -141,11 +141,6 @@ pub fn caveats_line(r: &StatsReportView) -> String {
     )
 }
 
-/// The cause's id badge: `row.key.replace("cause:", "")`, first match only.
-pub fn cause_badge(key: &str) -> String {
-    key.replacen("cause:", "", 1)
-}
-
 /// The cause table's cells, wide to narrow.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CauseCells {
@@ -167,15 +162,7 @@ pub fn reread_cell(tokens: f64, usd: Option<f64>) -> String {
 
 /// A waiting shape in plain words; an unknown key prints as sent.
 fn shape_label(key: &str) -> String {
-    use peektrace_protocol::wire::stats::WaitShape as W;
-    let shape = match key {
-        "loop-poll" => W::LoopPoll,
-        "watcher" => W::Watcher,
-        "curl-retry" => W::CurlRetry,
-        "bare-delay" => W::BareDelay,
-        _ => return key.to_owned(),
-    };
-    wait_shape_label(shape).to_owned()
+    wait_label_of(key).map_or_else(|| key.to_owned(), str::to_owned)
 }
 
 pub fn cause_cells(r: &CauseRowView) -> CauseCells {
@@ -395,6 +382,5 @@ mod tests {
         );
         assert_eq!(parse_drill(Some("cause:")), None);
         assert_eq!(parse_drill(Some("nope:x")), None);
-        assert_eq!(cause_badge("cause:a:cause:b"), "a:cause:b");
     }
 }

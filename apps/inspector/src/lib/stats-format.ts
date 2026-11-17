@@ -54,34 +54,9 @@ export const pct = (share: number): string => {
 /** Thousands separators, one call site for every count in the screen. */
 export const n = (value: number): string => value.toLocaleString();
 
-/** `~$26`, or `<$1`: a priced figure that is an estimate, spelled as core
- * spells it. */
-export const approxUsd = (usd: number): string =>
-  usd < 1 ? "<$1" : `~$${n(Math.round(usd))}`;
-
 /** A short local timestamp for the report header. */
 export const at = (epochMs: number): string =>
   new Date(epochMs).toLocaleString();
-
-/** Rates at or above this print as whole numbers. */
-const RATE_WHOLE = 10;
-
-/** Significant digits of a smaller rate. */
-const RATE_DIGITS = 2;
-
-/** The smallest rate kept; a side with hits below it prints `<0.01`. */
-const RATE_FLOOR = 0.01;
-
-/** A per-1k rate: `41`, `4.2`, `0.31`. A side with hits never reads `0`. */
-export const rateText = (rate: number, hits: number): string => {
-  if (hits > 0 && rate < RATE_FLOOR) {
-    return `<${RATE_FLOOR}`;
-  }
-
-  return rate >= RATE_WHOLE
-    ? Math.round(rate).toLocaleString("en-US")
-    : String(Number(rate.toPrecision(RATE_DIGITS)));
-};
 
 /** How many lines held this job but were charged to a higher-priority one. */
 export const coPresentNote = (row: TimeRow): string =>

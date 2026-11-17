@@ -331,7 +331,7 @@ impl State {
                 area.y + 3,
                 area.width,
                 &[seg(
-                    clip(&verdict_line(r, &self.findings), content),
+                    clip(&verdict_line(r, self.shown(term)), content),
                     fg(theme::TEXT),
                 )],
             );

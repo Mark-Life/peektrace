@@ -191,6 +191,9 @@ impl<'a> CauseTable<'a> {
             agg.flagged += 1.0;
         }
         bump_cell(&mut agg.hits_by_cell, f, origin);
+        if f.bash.is_some() {
+            agg.shell_hits += 1.0;
+        }
         agg.sessions.insert(f.base.root_sid().to_owned());
         if let Some(d) = &detail {
             bump(&mut agg.details, d, 1.0);
@@ -362,8 +365,8 @@ impl<'a> CauseTable<'a> {
             sessions: agg.sessions.len() as f64,
             projects: projects.len() as f64,
             retry_sec: round(agg.retry_sec),
-            shell: agg.shell_pairs == agg.pairs,
-            retry_share: retry_share(agg.retry_sec, agg.shell_pairs == agg.pairs, ctx.corpus),
+            shell: agg.is_shell(),
+            retry_share: retry_share(agg.retry_sec, agg.is_shell(), ctx.corpus),
             retry_usd: None,
             ctx_by_sid: agg
                 .ctx_by_sid

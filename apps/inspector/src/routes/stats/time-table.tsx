@@ -95,14 +95,11 @@ export const TimeTable = ({
             <TableHead>Job</TableHead>
             <TableHead className="text-right">Time</TableHead>
             <TableHead className="text-right">
-              <HeadTip label="Share" tip={STATS_DATA.columns.share} />
+              <HeadTip column={STATS_DATA.columns.share} />
             </TableHead>
             <TableHead className="text-right">Runs</TableHead>
             <TableHead className="hidden text-right lg:table-cell">
-              <HeadTip
-                label="In other jobs"
-                tip={STATS_DATA.columns.otherJobs}
-              />
+              <HeadTip column={STATS_DATA.columns.otherJobs} />
             </TableHead>
             <TableHead className="hidden text-right md:table-cell">
               Median

@@ -169,8 +169,6 @@ fn usd_cell(usd: Option<f64>) -> String {
 /// The row under the cause table that adds every cause up.
 fn totals_cells(r: &StatsReport) -> Vec<String> {
     let t = CauseTotals::of(&r.causes, &r.corpus);
-    let you: f64 = r.causes.iter().map(|c| c.hits_by.main).sum();
-    let sub: f64 = r.causes.iter().map(|c| c.hits_by.nested).sum();
     let blank = String::new;
     vec![
         "all".to_owned(),
@@ -179,7 +177,7 @@ fn totals_cells(r: &StatsReport) -> Vec<String> {
         n(t.pairs),
         blank(),
         blank(),
-        format!("{}/{}", n(you), n(sub)),
+        blank(),
         blank(),
         hms(t.retry_sec),
         percent(t.retry_share),

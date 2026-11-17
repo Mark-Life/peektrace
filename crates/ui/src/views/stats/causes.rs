@@ -3,7 +3,10 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::CauseRowView;
-use peektrace_protocol::stats_text::{EMPTY_CAUSES, StatsText, fix_in_of};
+use peektrace_protocol::stats_text::{
+    COL_HITS, COL_REREAD, COL_RETRIES, COL_RETRY_TIME, COL_RULE, COL_SPLIT, CauseTotalsText,
+    EMPTY_CAUSES, StatsText, TOTALS_LABEL, fix_in_of,
+};
 use rune::{Align, Color, El, col, row, text};
 
 use super::copy::{copy_button, prompt_button};
@@ -29,37 +32,37 @@ pub struct Column {
 
 const COLUMNS: [Column; 6] = [
     Column {
-        head: "Hits",
+        head: COL_HITS.label,
         w: 72.0,
         from: 1,
         right: true,
     },
     Column {
-        head: "Retries",
+        head: COL_RETRIES.label,
         w: 96.0,
         from: 1,
         right: true,
     },
     Column {
-        head: "You / subagents",
+        head: COL_SPLIT.label,
         w: 128.0,
         from: 2,
         right: true,
     },
     Column {
-        head: "Retry time",
+        head: COL_RETRY_TIME.label,
         w: 96.0,
         from: 1,
         right: true,
     },
     Column {
-        head: "Re-read",
+        head: COL_REREAD.label,
         w: 128.0,
         from: 2,
         right: true,
     },
     Column {
-        head: "Rule",
+        head: COL_RULE.label,
         w: 200.0,
         from: 1,
         right: false,
@@ -197,7 +200,15 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
 
 fn cause_row(v: &V<'_>, r: &CauseRowView, open: bool, selected: bool) -> El {
     let t = v.t;
-    let cells = cause_cells(r);
+    let mut cells = cause_cells(r);
+    if let Some(x) = v.text {
+        if let Some(time) = x.cause_time.get(&r.key) {
+            cells.retry_time.clone_from(time);
+        }
+        if let Some(reread) = x.cause_reread.get(&r.key) {
+            cells.ctx.clone_from(reread);
+        }
+    }
     let muted_c = t.muted_fg;
     let values: [Vec<(String, Color)>; 5] = [
         vec![(cells.hits, t.fg)],
@@ -352,5 +363,44 @@ pub fn table(v: &V<'_>, layer: &mut Vec<El>) -> El {
             c = c.child(detail(v, r, layer));
         }
     }
-    c
+    c.children(
+        v.text
+            .and_then(|x| x.totals.as_ref())
+            .map(|x| totals_row(v, x)),
+    )
+}
+
+/// Every cause added up, under the last row.
+fn totals_row(v: &V<'_>, x: &CauseTotalsText) -> El {
+    let t = v.t;
+    let values = [
+        x.hits.clone(),
+        x.retries.clone(),
+        String::new(),
+        x.time.clone(),
+        x.reread.clone(),
+    ];
+    let mut line = row()
+        .key("cause-totals")
+        .w_full()
+        .px(8.0)
+        .py(8.0)
+        .gap(8.0)
+        .items_start()
+        .child(
+            text(TOTALS_LABEL)
+                .font(ty::SM_MEDIUM)
+                .color(t.fg)
+                .grow(1.0)
+                .min_w(0.0),
+        );
+    for (c, value) in COLUMNS.iter().zip(values) {
+        if shown(c, v) {
+            line = line.child(cell(c, vec![(value, t.fg)], None, t));
+        }
+    }
+    if shown(&COLUMNS[5], v) {
+        line = line.child(col().w(COLUMNS[5].w));
+    }
+    line
 }

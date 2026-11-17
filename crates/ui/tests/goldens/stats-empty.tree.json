@@ -164,12 +164,12 @@
     },
     {
       "key": "stats-corpus",
-      "rect": [280, 68, 790, 18],
+      "rect": [280, 68, 967, 18],
       "role": "text",
-      "text": "0 sessions + 0 subagent runs · 0 projects · 0 tool calls · 0 shell calls · 0.00s of shell time"
+      "text": "0 sessions + 0 subagent runs · 0 projects · 0 tool calls · 0 shell calls · 0.00s of shell time · 0.00s of tool time"
     },
     {
-      "rect": [1082, 77, 334, 0],
+      "rect": [1259, 77, 158, 0],
       "role": "group"
     },
     {

@@ -32,6 +32,16 @@ pub struct Finding {
     pub samples: Vec<SampleRef>,
 }
 
+/// The cells of the row that adds every cause up.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct CauseTotalsText {
+    pub hits: String,
+    pub retries: String,
+    pub time: String,
+    pub reread: String,
+}
+
 /// The investigation prompts of one report, by row key.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(test, derive(ts_rs::TS))]
@@ -78,6 +88,17 @@ pub struct StatsText {
     /// Cause key to its rule check line.
     #[cfg_attr(test, ts(type = "Record<string, string>"))]
     pub rule_lines: BTreeMap<String, String>,
+    /// What the report covers, on one line: sessions, calls and the time
+    /// every share divides by.
+    pub corpus_line: String,
+    /// Cause key to its retry-time cell: `32m14s · 2.8%`.
+    #[cfg_attr(test, ts(type = "Record<string, string>"))]
+    pub cause_time: BTreeMap<String, String>,
+    /// Cause key to its re-read cell: `17.4M · ~$9`.
+    #[cfg_attr(test, ts(type = "Record<string, string>"))]
+    pub cause_reread: BTreeMap<String, String>,
+    /// The row that adds every cause up; `None` with fewer than two causes.
+    pub totals: Option<CauseTotalsText>,
     /// Cause key to every split of the row on one line.
     #[cfg_attr(test, ts(type = "Record<string, string>"))]
     pub cause_split: BTreeMap<String, String>,
@@ -209,6 +230,18 @@ pub fn approx_usd_text(usd: f64, whole: impl Fn(f64) -> String) -> String {
     }
 }
 
+/// [`wait_shape_label`] for a shape spelled as on the wire: `loop-poll`.
+pub fn wait_label_of(key: &str) -> Option<&'static str> {
+    let shape = match key {
+        "loop-poll" => WaitShape::LoopPoll,
+        "watcher" => WaitShape::Watcher,
+        "curl-retry" => WaitShape::CurlRetry,
+        "bare-delay" => WaitShape::BareDelay,
+        _ => return None,
+    };
+    Some(wait_shape_label(shape))
+}
+
 /// How a waiting call parks, in plain words.
 pub const fn wait_shape_label(shape: WaitShape) -> &'static str {
     match shape {
@@ -223,8 +256,8 @@ pub const fn wait_shape_label(shape: WaitShape) -> &'static str {
 pub const DATA_TITLE: &str = "Show the data";
 pub const DATA_HIDE: &str = "Hide the data";
 
-/// One tab of the data section: its title, and the definition its tooltip
-/// shows.
+/// One tab of the data section: its title, and the line under it that says
+/// what the tab ranks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DataTab {
     pub title: &'static str,
@@ -247,18 +280,49 @@ pub const TIME_TAB: DataTab = DataTab {
 /// The row under the cause table that adds every cause up.
 pub const TOTALS_LABEL: &str = "All causes";
 
-/// Column definitions, shown as tooltips on the headers.
-pub const COL_HITS: &str = "Calls that failed with this cause.";
-pub const COL_RETRIES: &str = "Failed calls followed by a similar call that succeeded: a round trip a fix would save. Read-backs of large output are not failures.";
-pub const COL_SPLIT: &str = "Hits in your own sessions, then in subagents.";
-pub const COL_RETRY_TIME: &str = "Time from the failed call to the retry, and its share of shell time. Causes outside the shell are a share of all tool time.";
-pub const COL_REREAD: &str = "Context the retrying model call read again, priced at each session's model. The dollar figure is approximate.";
-pub const COL_RULE: &str =
-    "A memory-file line that states this fix, and whether the cause still fires since.";
-pub const COL_FLAGGED: &str = "Calls that set the agent's own error flag. The gap to Calls is what an error panel alone would miss.";
-pub const COL_SHARE: &str = "Share of all shell time.";
-pub const COL_OTHER_JOBS: &str =
-    "Command lines that also run this job but are charged to a higher-priority one.";
+/// A column heading and the definition its tooltip shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Column {
+    pub label: &'static str,
+    pub tip: &'static str,
+}
+
+pub const COL_HITS: Column = Column {
+    label: "Hits",
+    tip: "Calls that failed with this cause.",
+};
+pub const COL_RETRIES: Column = Column {
+    label: "Retries",
+    tip: "Failed calls followed by a similar call that succeeded: a round trip a fix would save. Read-backs of large output are not failures.",
+};
+pub const COL_SPLIT: Column = Column {
+    label: "You / subagents",
+    tip: "Hits in your own sessions, then in subagents.",
+};
+pub const COL_RETRY_TIME: Column = Column {
+    label: "Retry time",
+    tip: "Time from the failed call to the retry, and its share of shell time. Causes outside the shell, and the total, are a share of all tool time.",
+};
+pub const COL_REREAD: Column = Column {
+    label: "Re-read",
+    tip: "Context the retrying model call read again, priced at each session's model. The dollar figure is approximate.",
+};
+pub const COL_RULE: Column = Column {
+    label: "Rule",
+    tip: "A memory-file line that states this fix, and whether the cause still fires since.",
+};
+pub const COL_FLAGGED: Column = Column {
+    label: "Flagged",
+    tip: "Calls that set the agent's own error flag. The gap to Calls is what an error panel alone would miss.",
+};
+pub const COL_SHARE: Column = Column {
+    label: "Share",
+    tip: "Share of all shell time.",
+};
+pub const COL_OTHER_JOBS: Column = Column {
+    label: "In other jobs",
+    tip: "Command lines that also run this job but are charged to a higher-priority one.",
+};
 
 /// The metadata line at the foot of the page.
 pub const FOOTER_REDACTED: &str =

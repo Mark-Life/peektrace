@@ -5,8 +5,9 @@
 pub use peektrace_protocol::stats_text::FINDINGS_VISIBLE;
 
 use super::accumulate::DrillTable;
+use super::cause_text::{counted, reread_text, time_share};
 use super::detectors::cause_row::CauseTotals;
-use super::findings::{Finding, FindingFormat, reread_text, time_share};
+use super::findings::{Finding, FindingFormat};
 use super::report::StatsReport;
 
 /// `Avoidable retries cost 1h54m (0.8% of shell time) and 55.5M tokens
@@ -14,12 +15,12 @@ use super::report::StatsReport;
 /// `shown` is how many findings the surface lists before "more".
 pub fn verdict_with(r: &StatsReport, found: &[Finding], shown: usize, f: &FindingFormat) -> String {
     let t = CauseTotals::of(&r.causes, &r.corpus);
-    let days = (f.count)(r.window.days);
+    let days = counted(r.window.days, "day", "days", f);
     if t.pairs == 0.0 {
-        return format!("No avoidable retries in {days} days.");
+        return format!("No avoidable retries in {days}.");
     }
     let cost = format!(
-        "Avoidable retries cost {} and {} in {days} days.",
+        "Avoidable retries cost {} and {} in {days}.",
         time_share(t.retry_sec, t.retry_share, t.shell, f),
         reread_text(t.retry_ctx_tokens, t.retry_usd, f)
     );
@@ -54,14 +55,24 @@ pub fn verdict_note_with(r: &StatsReport, f: &FindingFormat) -> Option<String> {
     let t = CauseTotals::of(&r.causes, &r.corpus);
     let read_backs = (t.non_failing_pairs > 0.0).then(|| {
         format!(
-            "{} read-backs of large output, which are not failures,",
-            (f.count)(t.non_failing_pairs)
+            "{} of large output, which {} not failures,",
+            counted(t.non_failing_pairs, "read-back", "read-backs", f),
+            if t.non_failing_pairs == 1.0 {
+                "is"
+            } else {
+                "are"
+            }
         )
     });
     let unnamed = (t.unclassified_pairs > 0.0).then(|| {
         format!(
-            "{} retries with no named cause, which have no fix",
-            (f.count)(t.unclassified_pairs)
+            "{} with no named cause, which {} no fix",
+            counted(t.unclassified_pairs, "retry", "retries", f),
+            if t.unclassified_pairs == 1.0 {
+                "has"
+            } else {
+                "have"
+            }
         )
     });
     let parts: Vec<String> = read_backs.into_iter().chain(unnamed).collect();

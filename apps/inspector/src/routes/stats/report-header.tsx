@@ -26,7 +26,7 @@ import {
 } from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 
-import { at, hms, n } from "../../lib/stats-format";
+import { at, n } from "../../lib/stats-format";
 import { PromptButton } from "./prompt-button";
 
 const WEEK_DAYS = 7;
@@ -180,61 +180,53 @@ export const ReportFooter = ({
   readonly debug: boolean;
   readonly onDebug: (on: boolean) => void;
   readonly report: StatsReport;
-}) => {
-  const { corpus } = report;
-  const nestedRuns = corpus.transcripts - (corpus.kinds.main ?? 0);
-
-  return (
-    <footer
-      className="border-border text-muted-foreground flex flex-col gap-2 border-t pt-4 text-xs"
-      data-testid="stats-footer"
-    >
-      <p className="font-mono" data-testid="stats-corpus">
-        {n(corpus.sessions)} sessions + {n(nestedRuns)} subagent runs ·{" "}
-        {n(corpus.projects)} projects · {n(corpus.toolCalls)} tool calls ·{" "}
-        {n(corpus.bashCalls)} shell calls · {hms(corpus.bashSec)} of shell time
-        · {hms(corpus.toolSec)} of tool time
-      </p>
-      <p>
-        {report.window.fromIso.slice(0, ISO_DATE_LENGTH)} →{" "}
-        {report.window.toIso.slice(0, ISO_DATE_LENGTH)} · generated{" "}
-        {at(report.generatedAt)} · {report.schemaVersion} · detector v
-        {report.detectorVersion}
-      </p>
-      <div className="flex items-center gap-1.5">
-        <ShieldCheckIcon className="size-3.5 shrink-0" />
-        {STATS_DATA.redacted}
-      </div>
-      <Collapsible>
-        <CollapsibleTrigger className="text-left underline decoration-dotted">
-          {STATS_FINDINGS.measuredTitle} ({n(report.caveats.length)}{" "}
-          {report.caveats.length === 1 ? "note" : "notes"})
-          {report.skipped.length > 0
-            ? ` · ${n(report.skipped.length)} files skipped`
-            : ""}
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <ul
-            className="mt-2 flex list-disc flex-col gap-1 pl-4"
-            data-testid="stats-caveats"
-          >
-            {report.caveats.map((caveat) => (
-              <li key={caveat}>{caveat}</li>
-            ))}
-            {report.skipped.map((path) => (
-              <li key={path}>skipped: {path}</li>
-            ))}
-          </ul>
-        </CollapsibleContent>
-      </Collapsible>
-      <label className="flex items-center gap-2 self-start">
-        <Switch
-          checked={debug}
-          data-testid="stats-debug"
-          onCheckedChange={onDebug}
-        />
-        {STATS_DATA.debug}
-      </label>
-    </footer>
-  );
-};
+}) => (
+  <footer
+    className="border-border text-muted-foreground flex flex-col gap-2 border-t pt-4 text-xs"
+    data-testid="stats-footer"
+  >
+    <p className="font-mono" data-testid="stats-corpus">
+      {report.text.corpusLine}
+    </p>
+    <p>
+      {report.window.fromIso.slice(0, ISO_DATE_LENGTH)} →{" "}
+      {report.window.toIso.slice(0, ISO_DATE_LENGTH)} · generated{" "}
+      {at(report.generatedAt)} · {report.schemaVersion} · detector v
+      {report.detectorVersion}
+    </p>
+    <div className="flex items-center gap-1.5">
+      <ShieldCheckIcon className="size-3.5 shrink-0" />
+      {STATS_DATA.redacted}
+    </div>
+    <Collapsible>
+      <CollapsibleTrigger className="text-left underline decoration-dotted">
+        {STATS_FINDINGS.measuredTitle} ({n(report.caveats.length)}{" "}
+        {report.caveats.length === 1 ? "note" : "notes"})
+        {report.skipped.length > 0
+          ? ` · ${n(report.skipped.length)} files skipped`
+          : ""}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <ul
+          className="mt-2 flex list-disc flex-col gap-1 pl-4"
+          data-testid="stats-caveats"
+        >
+          {report.caveats.map((caveat) => (
+            <li key={caveat}>{caveat}</li>
+          ))}
+          {report.skipped.map((path) => (
+            <li key={path}>skipped: {path}</li>
+          ))}
+        </ul>
+      </CollapsibleContent>
+    </Collapsible>
+    <label className="flex items-center gap-2 self-start">
+      <Switch
+        checked={debug}
+        data-testid="stats-debug"
+        onCheckedChange={onDebug}
+      />
+      {STATS_DATA.debug}
+    </label>
+  </footer>
+);

@@ -298,14 +298,9 @@ pub fn scope_text(
 }
 
 /// The line the screen opens with: what avoidable retries cost, and what
-/// the first findings cover.
-pub fn verdict_line(r: &StatsReport, findings: &[Finding]) -> String {
-    peektrace_core::stats::verdict::verdict_with(
-        r,
-        findings,
-        peektrace_core::stats::verdict::FINDINGS_VISIBLE,
-        &FORMAT,
-    )
+/// the `shown` live findings cover. Fixed causes never count as fixes.
+pub fn verdict_line(r: &StatsReport, shown: usize) -> String {
+    peektrace_core::stats::verdict::verdict_with(r, &findings_with(r, &FORMAT), shown, &FORMAT)
 }
 
 pub fn corpus_line(r: &StatsReport, wide: bool) -> String {

@@ -8,13 +8,13 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip";
 
-export const HeadTip = ({
-  label,
-  tip,
-}: {
+/** A heading and its definition, as core writes them. */
+interface Column {
   readonly label: string;
   readonly tip: string;
-}) => (
+}
+
+export const HeadTip = ({ column }: { readonly column: Column }) => (
   <TooltipProvider delayDuration={150}>
     <Tooltip>
       <TooltipTrigger asChild>
@@ -23,10 +23,10 @@ export const HeadTip = ({
           className="cursor-help underline decoration-dotted underline-offset-2"
           type="button"
         >
-          {label}
+          {column.label}
         </button>
       </TooltipTrigger>
-      <TooltipContent className="max-w-xs">{tip}</TooltipContent>
+      <TooltipContent className="max-w-xs">{column.tip}</TooltipContent>
     </Tooltip>
   </TooltipProvider>
 );

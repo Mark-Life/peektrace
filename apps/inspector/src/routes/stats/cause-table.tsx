@@ -18,7 +18,7 @@ import {
 import { cn } from "@workspace/ui/lib/utils";
 import type {
   CauseRow,
-  CauseTotals,
+  CauseTotalsText,
   StatsText,
 } from "@workspace/view-core/api-types.gen";
 import {
@@ -26,10 +26,9 @@ import {
   STATS_EMPTY,
   STATS_FIX_IN,
 } from "@workspace/view-core/constants.gen";
-import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
 
-import { approxUsd, hms, NO_RULE, n, pct } from "../../lib/stats-format";
+import { NO_RULE, n } from "../../lib/stats-format";
 import type { PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
 import { HeadTip } from "./head-tip";
@@ -107,14 +106,6 @@ const NarrowSummary = ({
     )}
   </div>
 );
-
-/** `32m14s · 2.8%`: retry time and its share. */
-export const timeCell = (sec: number, share: number) =>
-  `${hms(sec)} · ${pct(share)}`;
-
-/** `17.4M · ~$9`: re-read tokens and their approximate price. */
-export const rereadCell = (tokens: number, usd: number | null) =>
-  usd === null ? fmtK(tokens) : `${fmtK(tokens)} · ${approxUsd(usd)}`;
 
 /**
  * The fix, the rule check and the evidence of one cause, opened under it. It
@@ -229,35 +220,36 @@ const DetailRow = ({
   );
 };
 
-/**
- * The cause table. Clicking a row opens its detail under it; the detail's
- * "All pairs" opens the drill sheet. A row arrived at through a drill link
- * starts open.
- */
-/** Every cause added up, under the last row. */
-const TotalsRow = ({ totals }: { readonly totals: CauseTotals }) => (
+/** Every cause added up, under the last row. A phone hides every number
+ * column, so it hides this row too. */
+const TotalsRow = ({ totals }: { readonly totals: CauseTotalsText }) => (
   <TableRow
-    className="bg-muted/20 hover:bg-muted/20 font-medium"
+    className="bg-muted/20 hover:bg-muted/20 hidden font-medium md:table-row"
     data-testid="cause-totals"
   >
     <TableCell className="text-sm">{STATS_DATA.totals}</TableCell>
     <TableCell className={cn(WIDE, "font-mono text-sm")}>
-      {n(totals.hits)}
+      {totals.hits}
     </TableCell>
     <TableCell className={cn(WIDE, "font-mono text-sm")}>
-      {n(totals.pairs)}
+      {totals.retries}
     </TableCell>
     <TableCell className="hidden lg:table-cell" />
     <TableCell className={cn(WIDE, "font-mono text-sm")}>
-      {timeCell(totals.retrySec, totals.retryShare)}
+      {totals.time}
     </TableCell>
     <TableCell className="hidden text-right font-mono text-sm lg:table-cell">
-      {rereadCell(totals.retryCtxTokens, totals.retryUsd)}
+      {totals.reread}
     </TableCell>
     <TableCell className="hidden md:table-cell" />
   </TableRow>
 );
 
+/**
+ * The cause table. Clicking a row opens its detail under it; the detail's
+ * "All pairs" opens the drill sheet. A row arrived at through a drill link
+ * starts open.
+ */
 export const CauseTable = ({
   debug,
   rows,
@@ -265,7 +257,6 @@ export const CauseTable = ({
   prompt,
   selectedKey,
   text,
-  totals,
 }: {
   readonly debug: boolean;
   readonly onSelect: (key: string) => void;
@@ -273,7 +264,6 @@ export const CauseTable = ({
   readonly rows: readonly CauseRow[];
   readonly selectedKey: string | null;
   readonly text: StatsText;
-  readonly totals: CauseTotals;
 }) => {
   const [openKey, setOpenKey] = useState<string | null>(selectedKey);
 
@@ -296,25 +286,22 @@ export const CauseTable = ({
           <TableRow>
             <TableHead>Cause</TableHead>
             <TableHead className={WIDE}>
-              <HeadTip label="Hits" tip={columns.hits} />
+              <HeadTip column={columns.hits} />
             </TableHead>
             <TableHead className={WIDE}>
-              <HeadTip label="Retries" tip={columns.retries} />
+              <HeadTip column={columns.retries} />
             </TableHead>
             <TableHead className="hidden text-right lg:table-cell">
-              <HeadTip
-                label={`${STATS_DATA.you} / ${STATS_DATA.subagents}`}
-                tip={columns.split}
-              />
+              <HeadTip column={columns.split} />
             </TableHead>
             <TableHead className={WIDE}>
-              <HeadTip label="Retry time" tip={columns.retryTime} />
+              <HeadTip column={columns.retryTime} />
             </TableHead>
             <TableHead className="hidden text-right lg:table-cell">
-              <HeadTip label="Re-read" tip={columns.reread} />
+              <HeadTip column={columns.reread} />
             </TableHead>
             <TableHead className="hidden md:table-cell">
-              <HeadTip label="Rule" tip={columns.rule} />
+              <HeadTip column={columns.rule} />
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -384,14 +371,10 @@ export const CauseTable = ({
                     "text-muted-foreground align-top font-mono text-sm"
                   )}
                 >
-                  {row.secMeasured === 0
-                    ? "—"
-                    : timeCell(row.retrySec, row.retryShare)}
+                  {text.causeTime[row.key] ?? "—"}
                 </TableCell>
                 <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm lg:table-cell">
-                  {row.tokensMeasured === 0
-                    ? "—"
-                    : rereadCell(row.retryCtxTokens, row.retryUsd)}
+                  {text.causeReread[row.key] ?? "—"}
                 </TableCell>
                 <TableCell className="hidden min-w-[16ch] align-top text-xs whitespace-normal md:table-cell">
                   <RuleCell
@@ -412,7 +395,7 @@ export const CauseTable = ({
               ) : null}
             </Fragment>
           ))}
-          {rows.length > 1 ? <TotalsRow totals={totals} /> : null}
+          {text.totals === null ? null : <TotalsRow totals={text.totals} />}
         </TableBody>
       </Table>
     </div>

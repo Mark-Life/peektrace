@@ -201,18 +201,27 @@ impl CorpusPanelSink {
     /// `None` when the session has no model call to price.
     pub fn read_rate(&self, sid: &str) -> Option<f64> {
         let s = self.sessions.get(sid)?;
-        if s.tokens.cache_read <= 0.0 {
-            return None;
-        }
-        let usd = if self.usd_by_sid.contains_key(sid) {
-            self.read_usd_by_sid.get(sid).copied().unwrap_or(0.0)
+        let (usd, read) = if self.usd_by_sid.contains_key(sid) {
+            (
+                self.read_usd_by_sid.get(sid).copied().unwrap_or(0.0),
+                self.read_tokens_by_sid.get(sid).copied().unwrap_or(0.0),
+            )
         } else {
-            part_cost(s, |t| Tokens {
+            let usd = part_cost(s, |t| Tokens {
                 cache_read: t.cache_read,
                 ..Tokens::default()
-            })
+            });
+            (usd, s.tokens.cache_read)
         };
-        (usd > 0.0).then(|| usd / s.tokens.cache_read)
+        (usd > 0.0 && read > 0.0).then(|| usd / read)
+    }
+
+    /// USD per cache-read token over every priced call, for a session with
+    /// no price of its own.
+    pub fn mean_read_rate(&self) -> Option<f64> {
+        let usd: f64 = self.read_usd_by_sid.values().sum();
+        let read: f64 = self.read_tokens_by_sid.values().sum();
+        (usd > 0.0 && read > 0.0).then(|| usd / read)
     }
 
     pub(super) fn insights(&self, ctx: &FinishCtx<'_>) -> CostInsights {
