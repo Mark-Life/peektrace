@@ -5,7 +5,7 @@ const SEPARATOR_WIDTH = 50;
 const steps = [
   {
     command: () =>
-      $`bun add -D --exact oxlint@latest @oxlint/plugins@latest oxlint-tsgolint@latest oxfmt@latest typescript@latest tsrs@latest ultracite@latest`,
+      $`bun add -D --exact oxlint@latest @oxlint/plugins@latest oxfmt@latest typescript@latest tsrs@latest ultracite@latest`,
     critical: true,
     name: "Bump root dev tooling",
   },
