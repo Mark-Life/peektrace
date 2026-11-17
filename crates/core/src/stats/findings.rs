@@ -105,7 +105,7 @@ pub fn cause_impact(row: &CauseRow) -> String {
 
 pub fn cause_impact_with(row: &CauseRow, f: &FindingFormat) -> String {
     if row.pairs == 0.0 {
-        return format!("{} sessions", (f.count)(row.sessions));
+        return counted(row.sessions, "session", "sessions", f);
     }
     let (one, many) = pairs_word(row);
     let toks = if row.tokens_measured > 0.0 {

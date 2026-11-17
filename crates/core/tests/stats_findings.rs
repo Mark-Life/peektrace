@@ -4,6 +4,7 @@
 #![allow(clippy::float_cmp, reason = "counts are whole numbers")]
 
 use peektrace_core::stats::accumulate::{CorpusSummary, DrillTable, StatsWindow};
+use peektrace_core::stats::cause_text::per_thousand as rate_text;
 use peektrace_core::stats::detectors::causes::CauseKind;
 use peektrace_core::stats::detectors::corpus::CorpusPanels;
 use peektrace_core::stats::detectors::failures::FailRow;
@@ -15,7 +16,6 @@ use peektrace_core::stats::findings::{
     NO_RULE, cause_note, cause_spread, findings_of, no_suggestion_reason, rule_line, time_note,
     time_spread, working_of,
 };
-use peektrace_core::stats::format::rate_text;
 use peektrace_core::stats::schema::{CauseId, Job};
 use peektrace_core::stats::service::StatsReport;
 
@@ -481,13 +481,13 @@ fn a_ceiling_is_stated_as_a_floor() {
 fn one_spelling_of_a_per_1k_rate() {
     assert_eq!(rate_text(41.46, 5.0), "41");
     assert_eq!(rate_text(4.236, 5.0), "4.2");
-    assert_eq!(rate_text(0.31, 1.0), "0.31");
+    assert_eq!(rate_text(0.31, 1.0), "0.3");
     assert_eq!(rate_text(0.0, 0.0), "0");
 }
 
 #[test]
 fn a_side_with_hits_never_reads_zero() {
-    assert_eq!(rate_text(0.0, 1.0), "<0.01");
+    assert_eq!(rate_text(0.0, 1.0), "<0.1");
     let line = rule_line(&RuleCheck {
         matches: vec![RuleMatch {
             path: "~/.claude/CLAUDE.md".into(),

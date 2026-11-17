@@ -17,7 +17,7 @@ use self::drill::{Drill, DrillOut};
 use self::layout::{MIN_HEIGHT, MIN_WIDTH, columns_of, content_width, layout_of};
 use self::text::{
     DrillTarget, Pane, ago_of, caveat_lines, corpus_line, fail_target, finding_target, findings_of,
-    note_strip_of, provenance_line, scope_text, time_target, verdict_line,
+    note_strip_of, scope_text, time_target, verdict_lines,
 };
 use super::{Ctx, Query};
 use crate::backend::{Reply, Request, Response};
@@ -315,26 +315,16 @@ impl State {
                     fg(theme::TEXT_DIM),
                 )],
             );
-            put(
-                buf,
-                area.x,
-                area.y + 2,
-                area.width,
-                &[seg(
-                    clip(&provenance_line(r, cols.wide), content),
-                    fg(theme::TEXT_FAINT),
-                )],
-            );
-            put(
-                buf,
-                area.x,
-                area.y + 3,
-                area.width,
-                &[seg(
-                    clip(&verdict_line(r, self.shown(term)), content),
-                    fg(theme::TEXT),
-                )],
-            );
+            let lines = verdict_lines(r, self.shown(term), content, 2);
+            for (row, line) in (2..).zip(&lines) {
+                put(
+                    buf,
+                    area.x,
+                    area.y + row,
+                    area.width,
+                    &[seg(line.clone(), fg(theme::TEXT))],
+                );
+            }
         }
         let mut y = area.y + 4;
         if let Some(line) = self.status() {

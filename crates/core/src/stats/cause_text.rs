@@ -48,7 +48,11 @@ pub fn hits_text(row: &CauseRow, f: &FindingFormat) -> String {
 
 /// `~$26`, or `<$1` when it rounds to nothing.
 pub fn approx_usd(usd: f64, f: &FindingFormat) -> String {
-    peektrace_protocol::stats_text::approx_usd_text(usd, f.count)
+    if usd < 1.0 {
+        "<$1".to_owned()
+    } else {
+        format!("~${}", (f.count)(usd.round()))
+    }
 }
 
 /// `32m14s (2.8% of shell time)`.

@@ -6,7 +6,7 @@ use peektrace_protocol::stats::{
 };
 use peektrace_protocol::{AgentId, DrillTable};
 
-use peektrace_protocol::stats_text::{approx_usd_text, wait_label_of};
+use peektrace_protocol::stats_text::wait_label_of;
 
 use super::format::{hms, n, pct};
 use crate::model::format::fmt_k;
@@ -152,14 +152,6 @@ pub struct CauseCells {
     pub ctx: String,
 }
 
-/// `17.4M · ~$9`: re-read tokens and their approximate price.
-pub fn reread_cell(tokens: f64, usd: Option<f64>) -> String {
-    usd.map_or_else(
-        || fmt_k(tokens),
-        |u| format!("{} · {}", fmt_k(tokens), approx_usd_text(u, n)),
-    )
-}
-
 /// A waiting shape in plain words; an unknown key prints as sent.
 fn shape_label(key: &str) -> String {
     wait_label_of(key).map_or_else(|| key.to_owned(), str::to_owned)
@@ -174,12 +166,12 @@ pub fn cause_cells(r: &CauseRowView) -> CauseCells {
         retry_time: if r.sec_measured == 0.0 {
             NO_SHELL.to_owned()
         } else {
-            format!("{} · {}", hms(r.retry_sec), pct(r.retry_share))
+            hms(r.retry_sec)
         },
         ctx: if r.tokens_measured == 0.0 {
             NO_SHELL.to_owned()
         } else {
-            reread_cell(r.retry_ctx_tokens, r.retry_usd)
+            fmt_k(r.retry_ctx_tokens)
         },
     }
 }

@@ -1,10 +1,11 @@
  Peektrace   1 Sessions    2 Memory    3 Capabilities    4 Settings    5 Stats                                                                    loopback only
  Stats ▸ what fails, what costs time                                                                                        60d · all agents · scanned just now
- 5 sessions + 0 subagent runs · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time
- peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 9 caveats (c)
+ 5 sessions + 0 subagent runs · 3 projects · 153 tool calls · 50 shell calls · 16m40s shell time · 50m03s tool time
  No avoidable retries in 60 days.
+
  ╭─CAVEATS  everything that travels with these numbers · esc close────────────────────────────────────────────────────────────────────────────────────────────╮
  │                                                                                                                                                            │
+ │ - peektrace-stats/v2 · detector v2 · durations ≈ the call→result gap · 9 caveats (c)                                                                       │
  │ - A call's time is the gap between the call and its result, so it includes the agent's own overhead and time spent waiting for your approval               │
  │ - Failure counts are a floor: a detector sees only the output the transcript kept                                                                          │
  │ - A command sent to the background is charged only the seconds it ran, not the wait it started                                                             │
@@ -16,7 +17,6 @@
  │ - Cost is estimated at API list prices from each model call's token counts. Rates per million tokens (input / output / cache write / cache read, USD):     │
  │   opus-5-5 4/20/5/0.2; sonnet-4-5 3/15/3.75/0.3 (models.dev 2026-11-16, built-in)                                                                          │
  │ - 1 models have no price, so their calls are left out of the cost: (unknown)                                                                               │
- │                                                                                                                                                            │
  │                                                                                                                                                            │
  │                                                                                                                                                            │
  │                                                                                                                                                            │

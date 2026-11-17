@@ -1,7 +1,7 @@
 //! How stats text spells numbers: counts, durations, shares and tokens.
 
+pub use crate::js::num::to_locale_string as count;
 use crate::js::num::{js_round, to_fixed, to_js_string};
-pub use crate::js::num::{rate_text, to_locale_string as count};
 
 /// Duration as `1h04m`, `4m05s` or `2.3s`.
 #[expect(clippy::cast_possible_truncation)]
@@ -67,10 +67,5 @@ mod tests {
         assert_eq!(hms(125.0), "2m05s");
         assert_eq!(hms(3725.0), "1h02m");
         assert_eq!(tokens(12_345.0), "12.3k");
-        assert_eq!(rate_text(0.125, 1.0), "0.13");
-        assert_eq!(rate_text(3.33, 1.0), "3.3");
-        assert_eq!(rate_text(0.0, 0.0), "0");
-        assert_eq!(rate_text(0.001, 1.0), "<0.01");
-        assert_eq!(rate_text(12.5, 1.0), "13");
     }
 }

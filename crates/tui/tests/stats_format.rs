@@ -9,7 +9,9 @@ use peektrace_core::stats::detectors::rules::Split;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::report::StatsReport;
 use peektrace_core::stats::schema::{CauseId, Job};
-use peektrace_tui::screens::stats::text::{Pane, finding_target, findings_of, note_lines_of};
+use peektrace_tui::screens::stats::text::{
+    Pane, finding_target, findings_of, note_lines_of, verdict_lines,
+};
 
 fn fail_row(key: &str, edit: impl FnOnce(&mut FailRow)) -> FailRow {
     let mut r = FailRow {
@@ -202,4 +204,23 @@ fn a_cause_finding_spells_re_read_context_compactly() {
         found[0].impact,
         "12 retries · 50.0s (0.0% of shell time) · 32.4M tokens re-read"
     );
+}
+
+#[test]
+fn the_verdict_wraps_to_two_rows_and_counts_only_live_fixes() {
+    let live = cause_row(|r| r.retry_share = 0.5);
+    let r = report(vec![live], Vec::new(), Vec::new());
+    let lines = verdict_lines(&r, 3, 60, 2);
+    assert_eq!(lines.len(), 2, "{lines:?}");
+    let all = lines.join(" ");
+    assert!(
+        all.starts_with("Avoidable retries cost 50.0s (50.0% of shell time)"),
+        "{all}"
+    );
+    let wide = verdict_lines(&r, 3, 400, 2).join(" ");
+    assert!(
+        wide.contains("The fix below covers 100.0% of retries."),
+        "{wide}"
+    );
+    assert!(verdict_lines(&r, 0, 400, 2)[0].ends_with("in 30 days."));
 }

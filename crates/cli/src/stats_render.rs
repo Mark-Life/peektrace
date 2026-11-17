@@ -4,6 +4,7 @@
 use peektrace_core::js::num::{to_fixed, to_js_string};
 use peektrace_core::js::units;
 use peektrace_core::stats::accumulate::SampleRef;
+use peektrace_core::stats::cause_text::per_thousand;
 use peektrace_core::stats::detectors::cause_row::CauseTotals;
 use peektrace_core::stats::detectors::failures::FailRow;
 use peektrace_core::stats::detectors::pairing::RETRY_WINDOW;
@@ -14,7 +15,7 @@ use peektrace_core::stats::findings::{FindingFormat, approx_usd};
 use peektrace_core::stats::findings::{
     NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules, working_of,
 };
-use peektrace_core::stats::format::{count, hms, percent, rate_text, shape_label, tokens};
+use peektrace_core::stats::format::{count, hms, percent, shape_label, tokens};
 use peektrace_core::stats::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
 use peektrace_core::stats::service::{DrillResult, StatsReport};
 use peektrace_core::stats::usage_service::{UsageReport, zone_of};
@@ -136,8 +137,8 @@ fn cause_cells(row: &CauseRow) -> Vec<String> {
         format!("{}/{}", n(row.hits_by.main), n(row.hits_by.nested)),
         format!(
             "{}/{}",
-            rate_text(row.per1k.main, row.hits_by.main),
-            rate_text(row.per1k.nested, row.hits_by.nested)
+            per_thousand(row.per1k.main, row.hits_by.main),
+            per_thousand(row.per1k.nested, row.hits_by.nested)
         ),
         if row.sec_measured == 0.0 {
             "-".to_owned()
@@ -283,13 +284,14 @@ fn header(r: &StatsReport) -> String {
             r.window.to_iso
         ),
         format!(
-            "{} sessions + {} subagent runs  {} projects  {} tool calls  {} shell calls  {} shell time",
+            "{} sessions + {} subagent runs  {} projects  {} tool calls  {} shell calls  {} shell time  {} tool time",
             count(main),
             count(nested),
             count(c.projects),
             count(c.tool_calls),
             count(c.bash_calls),
-            hms(c.bash_sec)
+            hms(c.bash_sec),
+            hms(c.tool_sec)
         ),
         format!(
             "{STATS_SCHEMA_VERSION}  detector v{}  durations are approximate: they are the call → result gap",

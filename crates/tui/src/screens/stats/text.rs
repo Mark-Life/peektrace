@@ -15,7 +15,7 @@ use peektrace_core::stats::format::{hms, percent, shape_label, short_id};
 use peektrace_core::stats::report::StatsReport;
 use peektrace_core::stats::schema::{DETECTOR_VERSION, Job, STATS_SCHEMA_VERSION};
 
-use crate::fmt::{fmt, fmt_k, sanitize, width};
+use crate::fmt::{clip, fmt, fmt_k, sanitize, width};
 use crate::theme::agent_label;
 
 /// How the TUI spells numbers in findings: `12.3K` tokens.
@@ -297,10 +297,21 @@ pub fn scope_text(
     parts.join(" · ")
 }
 
-/// The line the screen opens with: what avoidable retries cost, and what
-/// the `shown` live findings cover. Fixed causes never count as fixes.
-pub fn verdict_line(r: &StatsReport, shown: usize) -> String {
-    peektrace_core::stats::verdict::verdict_with(r, &findings_with(r, &FORMAT), shown, &FORMAT)
+/// What the screen opens with, wrapped to `w` over at most `rows` lines:
+/// what avoidable retries cost, what the `shown` live findings cover, and
+/// what the total holds. Fixed causes never count as fixes.
+pub fn verdict_lines(r: &StatsReport, shown: usize, w: usize, rows: usize) -> Vec<String> {
+    use peektrace_core::stats::verdict::{verdict_note_with, verdict_with};
+    let line = verdict_with(r, &findings_with(r, &FORMAT), shown, &FORMAT);
+    let all = verdict_note_with(r, &FORMAT).map_or_else(|| line.clone(), |n| format!("{line} {n}"));
+    let mut out = wrap(&all, w);
+    if out.len() > rows {
+        out.truncate(rows);
+        if let Some(last) = out.last_mut() {
+            *last = clip(&format!("{last} …"), w);
+        }
+    }
+    out
 }
 
 pub fn corpus_line(r: &StatsReport, wide: bool) -> String {
@@ -313,8 +324,19 @@ pub fn corpus_line(r: &StatsReport, wide: bool) -> String {
     if wide {
         parts.push(format!("{} tool calls", fmt(c.tool_calls)));
     }
-    parts.push(format!("{} shell calls", fmt(c.bash_calls)));
-    parts.push(format!("{} shell time", hms(c.bash_sec)));
+    if wide {
+        parts.push(format!("{} shell calls", fmt(c.bash_calls)));
+    }
+    if wide {
+        parts.push(format!("{} shell time", hms(c.bash_sec)));
+        parts.push(format!("{} tool time", hms(c.tool_sec)));
+    } else {
+        parts.push(format!(
+            "{} shell / {} tool time",
+            hms(c.bash_sec),
+            hms(c.tool_sec)
+        ));
+    }
     parts.join(" · ")
 }
 
@@ -339,9 +361,11 @@ pub fn provenance_line(r: &StatsReport, wide: bool) -> String {
     .join(" · ")
 }
 
-/// Every caveat plus the skipped files, wrapped for the overlay.
+/// What the report is, then every caveat plus the skipped files, wrapped
+/// for the overlay.
 pub fn caveat_lines(r: &StatsReport, w: usize) -> Vec<String> {
-    let mut all: Vec<String> = r.caveats.clone();
+    let mut all: Vec<String> = vec![provenance_line(r, true)];
+    all.extend(r.caveats.iter().cloned());
     if !r.skipped.is_empty() {
         #[expect(clippy::cast_precision_loss, reason = "file counts")]
         let n = fmt(r.skipped.len() as f64);

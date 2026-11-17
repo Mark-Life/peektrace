@@ -220,16 +220,6 @@ pub fn fix_in_of(kind: &str) -> Option<String> {
     })
 }
 
-/// `~$26`, or `<$1` when it rounds to nothing: a priced figure that is an
-/// estimate.
-pub fn approx_usd_text(usd: f64, whole: impl Fn(f64) -> String) -> String {
-    if usd < 1.0 {
-        "<$1".to_owned()
-    } else {
-        format!("~${}", whole(usd.round()))
-    }
-}
-
 /// [`wait_shape_label`] for a shape spelled as on the wire: `loop-poll`.
 pub fn wait_label_of(key: &str) -> Option<&'static str> {
     let shape = match key {
