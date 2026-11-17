@@ -4,7 +4,7 @@
 # <bindir> holds `peektrace` and `peektrace-app` (a debug build is fine).
 # <home> is a synthetic HOME from make-home.ts (its real path must sit under
 # the repo's .scratch; a /tmp alias of it is fine), or `--real-home` for this
-# machine's data, which only writes under a `docs/local/` dir (git-excluded).
+# machine's data, which only writes under a `docs/local/` dir (in .gitignore).
 # Needs tmux, freeze, jq and agent-browser on PATH. Writes web-*.png,
 # tui-*.png, rune-*.png and, for a synthetic HOME, measure.json. The web list
 # is a fixed 320px column from 768px up and full width below, so the default

@@ -3,6 +3,7 @@
 
 use peektrace_core::model::{Launcher, SessionHeader};
 use peektrace_core::model_provider::model_provider;
+use peektrace_protocol::marks::launcher_mono;
 
 use crate::draw::{Seg, seg};
 use crate::fmt::{clip, sanitize, take_width, width};
@@ -15,22 +16,9 @@ pub const SEP: &str = " · ";
 /// The least columns a shrunk label keeps before it is dropped.
 const MIN_LABEL: usize = 6;
 
-/// A two-cell launcher mark: `T3` for t3code, else the name's first two
-/// letters.
+/// A two-cell launcher mark: the shared monogram, cut to two cells.
 fn launcher_glyph(l: &Launcher) -> String {
-    if l.name.eq_ignore_ascii_case("t3code") {
-        return "T3".to_owned();
-    }
-    let mark: String = l
-        .name
-        .chars()
-        .filter(|c| c.is_alphanumeric())
-        .take(2)
-        .collect();
-    let mut chars = mark.chars();
-    let first = chars.next().map(|c| c.to_uppercase().collect::<String>());
-    let mark = first.unwrap_or_default() + chars.as_str();
-    take_width(&mark, 2).to_owned()
+    take_width(&launcher_mono(&l.name), 2).to_owned()
 }
 
 /// Launcher (when present), harness, then model maker: at most 8 cells.

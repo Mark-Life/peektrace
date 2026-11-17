@@ -111,6 +111,9 @@ pub(crate) fn is_worktree_slug(slug: &str) -> bool {
 /// Transcripts of one slug-layout root, in directory order. A non-empty
 /// `project` skips every other slug dir, but worktree ones, before it is
 /// stat'ed or read; the listing keeps the worktree rows of that project.
+/// Known limit: a linked worktree outside a `-worktrees-` path (e.g.
+/// `git worktree add ../app-feature`) is labelled with its main checkout in
+/// a plain listing, but `--project <main slug>` never opens its slug dir.
 /// Slug dirs are read in parallel: a Pi root holds thousands, mostly empty.
 pub(crate) fn slug_layout(root: &str, project: Option<&str>, id_of: IdOf) -> Vec<Found> {
     let project = project.filter(|p| !p.is_empty());

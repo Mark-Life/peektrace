@@ -288,7 +288,7 @@ fn shows_launcher_harness_and_provider_marks_with_tooltips() {
         .filter(|e| e.role == "img")
         .filter_map(|e| Some((e.label.as_deref()?, e.help.as_deref()?)))
         .collect();
-    let started = "Worktree /home/u/.t3/worktrees/peephole/t3-";
+    let started = "Worktree: /home/u/.t3/worktrees/peephole/t3-";
     assert_eq!(marks.len(), 4, "{marks:?}");
     assert_eq!(marks[0], ("t3code", "Started from t3code"));
     assert_eq!(marks[1], ("Claude Code", "Claude Code"));
@@ -298,7 +298,7 @@ fn shows_launcher_harness_and_provider_marks_with_tooltips() {
     );
     assert_eq!(marks[3].0, "Worktree");
     assert!(marks[3].1.starts_with(started), "{}", marks[3].1);
-    assert!(marks[3].1.ends_with("\nstarted by: Plan the release"));
+    assert!(marks[3].1.ends_with("\nStarted by: Plan the release"));
     assert!(els.iter().any(|e| e.role == "icon"));
     assert!(
         !els.iter()

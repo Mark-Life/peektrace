@@ -68,13 +68,7 @@ pub fn thinking_note(e: &TimelineEvent) -> String {
 
 /// Display label of a transcript provider.
 pub fn provider_label(provider: &str) -> &str {
-    match provider {
-        "claude-code" => "Claude Code",
-        "codex" => "Codex",
-        "pi" => "Pi",
-        "opencode" => "OpenCode",
-        other => other,
-    }
+    super::marks::agent_of_provider(provider).map_or(provider, |a| super::marks::harness_name(a))
 }
 
 /// The session's name: its title, else `<Provider> session`.

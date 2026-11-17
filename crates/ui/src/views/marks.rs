@@ -142,4 +142,11 @@ mod tests {
             assert!(!i.body.contains("fill=\"#"), "{id} names its own colour");
         }
     }
+
+    #[test]
+    fn every_maker_has_a_logo() {
+        for id in peektrace_core::model_provider::MAKERS {
+            assert!(LOGOS.iter().any(|(k, _)| *k == id), "{id} has no logo");
+        }
+    }
 }

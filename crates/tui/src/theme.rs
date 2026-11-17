@@ -58,14 +58,9 @@ pub const fn agent_color(a: Agent) -> Color {
     }
 }
 
-/// Two-letter harness mark for the session card.
+/// Two-cell harness mark for the session card.
 pub const fn agent_glyph(a: Agent) -> &'static str {
-    match a {
-        Agent::Claude => "CC",
-        Agent::Codex => "Cx",
-        Agent::Pi => "Pi",
-        Agent::Opencode => "OC",
-    }
+    peektrace_protocol::marks::harness_mono(peektrace_core::wire::agent_id(a))
 }
 
 /// Short mark and colour of a model maker, by its models.dev id; a faint
@@ -235,6 +230,13 @@ pub fn apply(buf: &mut Buffer, mode: ColorMode) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_maker_has_a_glyph() {
+        for id in peektrace_core::model_provider::MAKERS {
+            assert_ne!(provider_glyph(id).0, "?", "{id} has no glyph");
+        }
+    }
 
     #[test]
     fn cube_and_grey() {

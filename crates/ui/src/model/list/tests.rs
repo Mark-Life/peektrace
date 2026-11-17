@@ -515,13 +515,13 @@ fn launcher_help_names_only_what_is_known() {
 
 fn worktree_row(root: Option<&str>, branch: Option<&str>) -> SessionHeader {
     with(|h| {
-        h.cwd = Some("/home/u/.t3/worktrees/peephole/t3-a6cadd38".into());
-        h.project = "-home-u--t3-worktrees-peephole-t3-a6cadd38".into();
+        h.cwd = Some("/home/u/.t3/worktrees/peephole/t3-00000000".into());
+        h.project = "-home-u--t3-worktrees-peephole-t3-00000000".into();
         h.git_branch = Some("HEAD".into());
         h.worktree = Some(peektrace_protocol::wire::sessions::Worktree {
             project: "peephole".into(),
             project_root: root.map(str::to_owned),
-            path: "/home/u/.t3/worktrees/peephole/t3-a6cadd38".into(),
+            path: "/home/u/.t3/worktrees/peephole/t3-00000000".into(),
             branch: branch.map(str::to_owned),
         });
     })
@@ -550,7 +550,7 @@ fn a_worktree_row_without_a_root_keys_by_its_folder() {
     assert_eq!(project_label(&w), "peephole");
     assert_eq!(
         project_key(&w),
-        "/home/u/.t3/worktrees/peephole/t3-a6cadd38"
+        "/home/u/.t3/worktrees/peephole/t3-00000000"
     );
 }
 
@@ -567,4 +567,19 @@ fn row_branch_falls_back_to_the_worktree_branch() {
     assert_eq!(row_branch(&own), Some("main"));
     assert_eq!(row_branch(&worktree_row(None, None)), None);
     assert_eq!(row_branch(&worktree_row(None, Some("HEAD"))), None);
+}
+
+#[test]
+fn a_detached_head_is_hidden_but_stays_filterable() {
+    let head = with(|h| h.git_branch = Some("HEAD".into()));
+    assert_eq!(row_branch(&head), None);
+    assert_eq!(shown_branch(Some("HEAD"), None), None);
+    let by = |b: &str| Filters {
+        branch: Some(b.into()),
+        ..Filters::default()
+    };
+    assert!(matches(&head, &by("HEAD")));
+    let w = worktree_row(Some("/code/peephole"), Some("feat/logos"));
+    assert_eq!(branch_facet(&w), Some("feat/logos"));
+    assert!(!matches(&w, &by("HEAD")));
 }

@@ -91,6 +91,16 @@ fn worktree_rows_print_and_match_their_main_checkout() {
     let ids: Vec<String> = rows(&codex.out).into_iter().map(|(i, _)| i).collect();
     assert_eq!(ids.len(), 1, "{}", codex.out);
     assert!(ids[0].starts_with("bbbb"), "{ids:?}");
+
+    for (own, id) in [
+        ("-h--t3-worktrees-app-t3-1b686728", "cccc"),
+        ("t3-1b686728", "bbbb"),
+    ] {
+        let run = h.run(&["sessions", "ls", "--project", own]);
+        let ids: Vec<String> = rows(&run.out).into_iter().map(|(i, _)| i).collect();
+        assert_eq!(ids.len(), 1, "{own}: {}", run.out);
+        assert!(ids[0].starts_with(id), "{own}: {ids:?}");
+    }
 }
 
 #[test]

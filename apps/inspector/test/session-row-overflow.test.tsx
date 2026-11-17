@@ -71,12 +71,16 @@ describe("a row with very long title, project and branch", () => {
   test("project and branch truncate, and the branch gives way first", () => {
     for (const id of ["session-row-project", "session-row-branch"]) {
       const c = classesOf(id);
-      expect(c.has("min-w-0")).toBe(true);
       expect(c.has("truncate")).toBe(true);
       expect(c.has("shrink-0")).toBe(false);
     }
 
-    expect(classesOf("session-row-branch").has("shrink-[4]")).toBe(true);
+    expect(classesOf("session-row-project").has("min-w-0")).toBe(true);
+    // Shrink is weighted by content width: a far larger factor makes the
+    // branch give way before a short project, down to a few visible chars.
+    const branch = classesOf("session-row-branch");
+    expect(branch.has("shrink-[100]")).toBe(true);
+    expect(branch.has("min-w-[3ch]")).toBe(true);
   });
 
   test("the title truncates with its full text as a tooltip", () => {
@@ -110,6 +114,10 @@ describe("a row with very long title, project and branch", () => {
     expect(tagOf("session-worktree")).toContain(
       "Started by: Plan the long thing"
     );
+  });
+
+  test("the worktree marker keeps the path out of the row's spoken name", () => {
+    expect(tagOf("session-worktree")).toContain('aria-label="Worktree"');
   });
 
   test("marks run launcher, harness, model maker, each with a name", () => {

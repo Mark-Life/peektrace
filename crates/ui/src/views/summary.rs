@@ -8,7 +8,7 @@ use super::marks;
 use super::widgets::{badge, card, chip, grid};
 use crate::model::format::{Zone, fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::labels::{analyzed_title, cost_summary, provider_label};
-use crate::model::list::visible_branch;
+use crate::model::list::shown_branch;
 use crate::model::marks::{agent_of_provider, harness_name, provider_name};
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty, zone_fill, zone_text};
@@ -279,10 +279,7 @@ fn chips(d: &Detail, t: &Theme) -> El {
             .key("chip-fetch"),
         );
     }
-    let branch = visible_branch(a.git_branch.as_deref())
-        .or_else(|| visible_branch(a.worktree.as_ref()?.branch.as_deref()))
-        .or_else(|| a.git_branch.as_deref().filter(|b| !b.is_empty()));
-    if let Some(b) = branch {
+    if let Some(b) = shown_branch(a.git_branch.as_deref(), a.worktree.as_ref()) {
         r = r.child(chip(b.to_owned(), t.fg, t).key("chip-branch"));
     }
     r

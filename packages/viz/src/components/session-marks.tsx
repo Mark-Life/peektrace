@@ -22,8 +22,10 @@ import { PROVIDER_LOGO } from "../lib/provider-logos";
 const MONOGRAM_CLASS =
   "border-border bg-muted text-muted-foreground inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border px-0.5 text-[0.5625rem] leading-none font-semibold";
 
+/** In forced-colors mode the browser would paint the mask fill with Canvas,
+ * hiding the logo; it takes the system text colour instead. */
 const LOGO_CLASS =
-  "text-foreground/80 inline-block size-4 shrink-0 bg-current [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat]";
+  "text-foreground/80 inline-block size-4 shrink-0 bg-current [mask-size:contain] [mask-position:center] [mask-repeat:no-repeat] forced-colors:bg-[color:CanvasText] forced-colors:[forced-color-adjust:none]";
 
 /** The drawn part of a mark: the logo when `logo` is set, else the monogram.
  * Logos draw through a mask, so they take `currentColor`. */
@@ -63,7 +65,7 @@ const MarkView = ({
 }) =>
   named ? (
     <span
-      className="inline-flex min-w-0 items-center gap-1"
+      className="inline-flex max-w-full min-w-0 items-center gap-1"
       data-testid={testId}
       title={mark.title}
     >
@@ -108,8 +110,12 @@ export const SessionMarks = ({
   return (
     <span
       className={cn(
-        "inline-flex items-center",
-        named ? "min-w-0 flex-wrap gap-x-3 gap-y-1" : "shrink-0 gap-1",
+        "items-center",
+        // Named marks take the full width, so a long name wraps to its own
+        // line and truncates there instead of leaving the card.
+        named
+          ? "flex min-w-0 flex-wrap gap-x-3 gap-y-1"
+          : "inline-flex shrink-0 gap-1",
         className
       )}
       data-testid="session-marks"
@@ -146,7 +152,8 @@ export const SessionMarks = ({
 };
 
 /** Marks a session run in a linked worktree; the tooltip names its path and
- * the thread that started it. */
+ * the thread that started it. The accessible name stays short: screen readers
+ * read it inside every row link, and the path is a long id. */
 export const WorktreeMarker = ({
   parentTitle,
   worktree,
@@ -159,7 +166,7 @@ export const WorktreeMarker = ({
   return (
     // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a labelled icon, not an image file
     <span
-      aria-label={hint.replaceAll("\n", ". ")}
+      aria-label="Worktree"
       className="text-muted-foreground inline-flex shrink-0"
       data-testid="session-worktree"
       // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- a labelled icon, not an image file

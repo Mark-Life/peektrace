@@ -72,3 +72,17 @@ fn shipped_fonts_cover_the_ui_glyphs() {
         "no glyph in the shipped fonts: {missing:?}"
     );
 }
+
+/// The shared mark strings live outside this crate, so the scan above misses
+/// them.
+#[test]
+fn shipped_fonts_cover_the_mark_glyphs() {
+    use peektrace_protocol::AgentId;
+    use peektrace_protocol::marks::harness_mono;
+    let missing: Vec<_> = AgentId::ALL
+        .into_iter()
+        .flat_map(|a| harness_mono(a).chars())
+        .filter(|c| !covers(&["geist.ttf", "symbols.ttf"], *c))
+        .collect();
+    assert!(missing.is_empty(), "no glyph for {missing:?}");
+}

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
+// The same cases the Rust `peektrace_protocol::marks` test reads, so the web
+// and the native UIs draw the same strings.
+import FIXTURE from "../../../tests/fixtures/session-marks.json";
+import type { Provider } from "../src/api-types.gen";
 import {
   harnessMark,
   launcherHint,
@@ -37,7 +41,7 @@ describe("harnessMark", () => {
       title: "Claude Code",
     });
     expect(harnessMark("codex").text).toBe("Cx");
-    expect(harnessMark("pi").text).toBe("π");
+    expect(harnessMark("pi").text).toBe("Pi");
     expect(harnessMark("opencode").text).toBe("OC");
   });
 });
@@ -97,5 +101,54 @@ describe("worktree", () => {
     expect(sessionBranch({ worktree: wt })).toBe("feat/x");
     expect(sessionBranch({ gitBranch: "main", worktree: wt })).toBe("main");
     expect(sessionBranch({ gitBranch: "HEAD", worktree })).toBeUndefined();
+  });
+});
+
+const PROVIDERS: readonly Provider[] = [
+  "claude-code",
+  "codex",
+  "opencode",
+  "pi",
+];
+
+describe("shared with the Rust UIs", () => {
+  test("harness monograms and names", () => {
+    for (const h of FIXTURE.harnesses) {
+      const provider = PROVIDERS.find((p) => p === h.provider);
+      expect(provider).toBeDefined();
+      expect(
+        provider === undefined ? undefined : harnessMark(provider)
+      ).toEqual({
+        label: h.name,
+        text: h.mono,
+        title: h.name,
+      });
+    }
+  });
+
+  test("launcher monograms", () => {
+    for (const l of FIXTURE.launchers) {
+      expect(launcherMark({ name: l.name }).text).toBe(l.mono);
+    }
+  });
+
+  test("provider lines", () => {
+    for (const p of FIXTURE.providerLines) {
+      const provider =
+        p.maker === null ? undefined : { id: "x", name: p.maker };
+
+      expect(providerLine(provider, p.model)).toBe(p.line);
+    }
+  });
+
+  test("worktree hints", () => {
+    for (const w of FIXTURE.worktreeHints) {
+      expect(
+        worktreeHint({
+          parentTitle: w.parentTitle ?? undefined,
+          worktree: { path: w.path, project: "p" },
+        })
+      ).toBe(w.hint);
+    }
   });
 });

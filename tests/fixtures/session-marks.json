@@ -1,0 +1,25 @@
+{
+  "harnesses": [
+    { "agent": "claude", "provider": "claude-code", "mono": "CC", "name": "Claude Code" },
+    { "agent": "codex", "provider": "codex", "mono": "Cx", "name": "Codex" },
+    { "agent": "pi", "provider": "pi", "mono": "Pi", "name": "Pi" },
+    { "agent": "opencode", "provider": "opencode", "mono": "OC", "name": "OpenCode" }
+  ],
+  "launchers": [
+    { "name": "t3code", "mono": "T3" },
+    { "name": "T3Code", "mono": "T3" },
+    { "name": "conductor", "mono": "Co" },
+    { "name": "zed", "mono": "Ze" },
+    { "name": "--", "mono": "?" },
+    { "name": "日本", "mono": "日本" }
+  ],
+  "providerLines": [
+    { "maker": "NVIDIA", "model": "nvidia/GLM-5.3-Flash-NVFP4", "line": "NVIDIA · nvidia/GLM-5.3-Flash-NVFP4" },
+    { "maker": null, "model": "mystery-1", "line": "Unknown provider · mystery-1" }
+  ],
+  "worktreeHints": [
+    { "path": "/h/.t3/worktrees/app/t3-1", "parentTitle": "Plan it", "hint": "Worktree: /h/.t3/worktrees/app/t3-1\nStarted by: Plan it" },
+    { "path": "/h/.t3/worktrees/app/t3-1", "parentTitle": null, "hint": "Worktree: /h/.t3/worktrees/app/t3-1" },
+    { "path": "/wt", "parentTitle": "", "hint": "Worktree: /wt" }
+  ]
+}

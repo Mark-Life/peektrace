@@ -22,7 +22,7 @@ const HARNESS_TEXT: Readonly<Record<Provider, string>> = {
   "claude-code": "CC",
   codex: "Cx",
   opencode: "OC",
-  pi: "π",
+  pi: "Pi",
 };
 
 /** Monograms of known launchers, by lowercase name. */

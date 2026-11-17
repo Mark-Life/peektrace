@@ -283,7 +283,7 @@ const SessionRow = memo(function SessionRow({
           </span>
           {branch === undefined ? null : (
             <span
-              className="min-w-0 shrink-[4] truncate font-mono"
+              className="min-w-[3ch] shrink-[100] truncate font-mono"
               data-testid="session-row-branch"
               title={branch}
             >

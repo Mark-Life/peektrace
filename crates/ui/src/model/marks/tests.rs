@@ -76,7 +76,7 @@ fn gives_the_worktree_path_and_the_parent_thread() {
     };
     assert_eq!(
         worktree_help(&w, None),
-        "Worktree /home/u/.t3/worktrees/peephole/t3-1"
+        "Worktree: /home/u/.t3/worktrees/peephole/t3-1"
     );
     let l = Launcher {
         name: "t3code".into(),
@@ -86,6 +86,6 @@ fn gives_the_worktree_path_and_the_parent_thread() {
     };
     assert_eq!(
         worktree_help(&w, Some(&l)),
-        "Worktree /home/u/.t3/worktrees/peephole/t3-1\nstarted by: Plan the release"
+        "Worktree: /home/u/.t3/worktrees/peephole/t3-1\nStarted by: Plan the release"
     );
 }

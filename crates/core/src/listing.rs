@@ -82,15 +82,17 @@ pub(crate) fn default_root(sources: &[Source]) -> String {
         .unwrap_or_default()
 }
 
-/// Keep only what `--project` asks for: headers whose printed project
-/// ([`row_project`], so worktree rows count for their main checkout) is
-/// `project`, and unreadable sessions of that project or of an unknown one
+/// Keep only what `--project` asks for: headers whose own project or
+/// printed project ([`row_project`], so worktree rows count for their main
+/// checkout too) is `project`, and unreadable sessions of that project or of an unknown one
 /// (`""`). Runs after worktrees are resolved.
 fn keep_project(listing: &mut SessionListing, project: Option<&str>) {
     let Some(p) = project.filter(|p| !p.is_empty()) else {
         return;
     };
-    listing.headers.retain(|h| row_project(h) == p);
+    listing
+        .headers
+        .retain(|h| h.project.as_str() == p || row_project(h) == p);
     listing
         .unreadable
         .retain(|u| u.project.is_empty() || u.project == p);

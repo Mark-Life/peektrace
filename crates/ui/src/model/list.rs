@@ -7,7 +7,7 @@ use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use peektrace_protocol::AgentId;
 use peektrace_protocol::view::SessionHeader;
-use peektrace_protocol::wire::sessions::Launcher;
+use peektrace_protocol::wire::sessions::{Launcher, Worktree};
 
 use peektrace_js::time::{MS_PER_DAY as DAY_MS, Utc, day_key};
 
@@ -345,8 +345,20 @@ pub fn visible_branch(branch: Option<&str>) -> Option<&str> {
 /// The row's branch: the transcript's, else the worktree's; never the
 /// worktree's folder name.
 pub fn row_branch(h: &SessionHeader) -> Option<&str> {
-    visible_branch(h.git_branch.as_deref())
-        .or_else(|| visible_branch(h.worktree.as_ref()?.branch.as_deref()))
+    shown_branch(h.git_branch.as_deref(), h.worktree.as_ref())
+}
+
+/// The branch a session shows, in rows and in the detail header: the
+/// transcript's, else the worktree's; never a detached `HEAD`.
+pub fn shown_branch<'a>(git_branch: Option<&'a str>, w: Option<&'a Worktree>) -> Option<&'a str> {
+    visible_branch(git_branch).or_else(|| visible_branch(w?.branch.as_deref()))
+}
+
+/// The branch filter's value: the shown branch, else the raw one, so a
+/// detached `HEAD` stays filterable while a worktree row filters by its own
+/// branch.
+pub fn branch_facet(h: &SessionHeader) -> Option<&str> {
+    row_branch(h).or(h.git_branch.as_deref())
 }
 
 #[expect(clippy::cast_precision_loss, reason = "epoch ms fit f64 exactly")]
@@ -427,7 +439,7 @@ pub fn matches(h: &SessionHeader, f: &Filters) -> bool {
         || f.project.as_deref().is_some_and(|p| p != project_key(h))
         || f.branch
             .as_deref()
-            .is_some_and(|b| Some(b) != h.git_branch.as_deref() && Some(b) != row_branch(h))
+            .is_some_and(|b| Some(b) != branch_facet(h))
         || f.model
             .as_deref()
             .is_some_and(|m| Some(m) != h.model.as_deref())

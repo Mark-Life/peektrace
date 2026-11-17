@@ -15,7 +15,7 @@ use peektrace_tui::theme::ColorMode;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
-const WT: &str = "/Users/demo/.t3/worktrees/a-very-long-project-name/t3-a6cadd38-d608d857bf5cb07e";
+const WT: &str = "/Users/demo/.t3/worktrees/a-very-long-project-name/t3-00000000-0000000000000000";
 
 fn launcher() -> Launcher {
     Launcher {
@@ -127,7 +127,7 @@ fn long_rows_stay_inside_their_cards_at_a_narrow_width() {
     assert!(t.contains("12345 msgs"), "{t}");
     assert!(t.contains("Nov 17, 09:30"), "{t}");
     assert!(
-        !t.contains("t3-a6cadd38 ·"),
+        !t.contains("t3-00000000 ·"),
         "the leaf folder is never the project"
     );
     assert!(t.contains("Pi ? 日本"), "{t}");

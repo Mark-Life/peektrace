@@ -177,6 +177,5 @@ pub fn model_provider(model: &str) -> Option<ProviderMark> {
 /// One tooltip line: `"Anthropic · claude-opus-5-5"`, or
 /// `"Unknown provider · <model>"`.
 pub fn provider_line(model: &str) -> String {
-    let name = model_provider(model).map_or("Unknown provider", |m| m.name);
-    format!("{name} · {model}")
+    peektrace_protocol::marks::provider_line(model_provider(model).map(|m| m.name), model)
 }
