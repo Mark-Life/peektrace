@@ -144,8 +144,29 @@ fn headers_take_the_worktree_project_by_cwd_or_thread_path() {
         worktree_path: Some("/h/.t3/worktrees/peephole/t3-a".into()),
         parent_title: None,
     };
-    let by_thread = worktree_of(&idx, Some("/elsewhere"), Some(&launcher), None);
+    let by_thread = worktree_of(&idx, None, Some(&launcher), None);
     assert_eq!(by_thread.and_then(|w| w.branch), Some("t3/rows".into()));
+    // A session that ran elsewhere is not in the thread's worktree.
+    assert_eq!(
+        worktree_of(&idx, Some("/elsewhere"), Some(&launcher), None),
+        None
+    );
+    assert_eq!(
+        worktree_of(
+            &idx,
+            Some("/h/.t3/worktrees/peephole/t3-ab"),
+            Some(&launcher),
+            None
+        ),
+        None
+    );
+    let inside = worktree_of(
+        &idx,
+        Some("/h/.t3/worktrees/peephole/t3-a/sub"),
+        Some(&launcher),
+        None,
+    );
+    assert_eq!(inside.map(|w| w.project), Some("peephole".into()));
     // No record: the `<t3 home>/worktrees` layout still names the project.
     let by_path = worktree_of(
         &Index::default(),

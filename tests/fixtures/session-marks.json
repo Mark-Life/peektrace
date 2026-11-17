@@ -17,6 +17,20 @@
     { "maker": "NVIDIA", "model": "nvidia/GLM-5.3-Flash-NVFP4", "line": "NVIDIA · nvidia/GLM-5.3-Flash-NVFP4" },
     { "maker": null, "model": "mystery-1", "line": "Unknown provider · mystery-1" }
   ],
+  "branches": [
+    { "gitBranch": "main", "worktreeBranch": "feat/x", "shown": "main" },
+    { "gitBranch": "HEAD", "worktreeBranch": "feat/x", "shown": "feat/x" },
+    { "gitBranch": null, "worktreeBranch": "feat/x", "shown": "feat/x" },
+    { "gitBranch": "", "worktreeBranch": "HEAD", "shown": null },
+    { "gitBranch": null, "worktreeBranch": null, "shown": null }
+  ],
+  "projectLabels": [
+    { "worktreeProject": "App", "cwd": "/h/.t3/worktrees/app/t3-1", "slug": "-h--t3-worktrees-app-t3-1", "label": "App" },
+    { "worktreeProject": "", "cwd": "/code/shop/", "slug": "-code-shop", "label": "shop" },
+    { "worktreeProject": null, "cwd": "C:\\code\\shop", "slug": "C--code-shop", "label": "shop" },
+    { "worktreeProject": null, "cwd": "", "slug": "-code-shop", "label": "-code-shop" },
+    { "worktreeProject": null, "cwd": null, "slug": "-code-shop", "label": "-code-shop" }
+  ],
   "worktreeHints": [
     { "path": "/h/.t3/worktrees/app/t3-1", "parentTitle": "Plan it", "hint": "Worktree: /h/.t3/worktrees/app/t3-1\nStarted by: Plan it" },
     { "path": "/h/.t3/worktrees/app/t3-1", "parentTitle": null, "hint": "Worktree: /h/.t3/worktrees/app/t3-1" },

@@ -1,6 +1,6 @@
 /** Pure helpers behind the session rail: filtering, ordering and row labels. */
 import type { SessionHeader } from "@workspace/view-core/api-types.gen";
-import { sessionBranch } from "@workspace/view-core/session-marks";
+import { projectName, sessionBranch } from "@workspace/view-core/session-marks";
 import type { DateRange } from "react-day-picker";
 
 import { AGENT_LABEL } from "../../lib/agent-label";
@@ -243,10 +243,7 @@ const projectPath = (h: ProjectFields) =>
 
 /** A worktree's parent project, else the folder the session ran in (last
  * segment of `cwd`), else the stored slug. */
-export const projectLabel = (h: ProjectFields) =>
-  h.worktree?.project ??
-  (hasText(h.cwd) ? segments(h.cwd).at(-1) : undefined) ??
-  h.project;
+export const projectLabel = (h: ProjectFields) => projectName(h);
 
 /** The project facet key: a worktree's main checkout, else the folder the
  * session ran in, else the stored slug. Harnesses encode the slug differently,

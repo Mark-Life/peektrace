@@ -1,5 +1,6 @@
 //! The detail summary: jump button, parent note and the verdict card.
 
+use peektrace_protocol::marks::{project_label, shown_branch, started_by};
 use peektrace_protocol::view::AnalyzedSession;
 use rune::{Align, El, Tx, col, el, row, text};
 use rune_kit::{Button, ButtonVariant, ControlSize};
@@ -8,7 +9,7 @@ use super::marks;
 use super::widgets::{badge, card, chip, grid};
 use crate::model::format::{Zone, fmt, fmt_k, fmt_pct, zone_of};
 use crate::model::labels::{analyzed_title, cost_summary, provider_label};
-use crate::model::list::shown_branch;
+
 use crate::model::marks::{agent_of_provider, harness_name, provider_name};
 use crate::state::{Detail, Ui};
 use crate::theme::{RED_400, Theme, hex_or_grey, ty, zone_fill, zone_text};
@@ -279,20 +280,21 @@ fn chips(d: &Detail, t: &Theme) -> El {
             .key("chip-fetch"),
         );
     }
-    if let Some(b) = shown_branch(a.git_branch.as_deref(), a.worktree.as_ref()) {
+    let wt_branch = a.worktree.as_ref().and_then(|w| w.branch.as_deref());
+    if let Some(b) = shown_branch(a.git_branch.as_deref(), wt_branch) {
         r = r.child(chip(b.to_owned(), t.fg, t).key("chip-branch"));
     }
     r
 }
 
-/// A mark with its full name beside it.
+/// A mark with its full name beside it; the name alone is read aloud.
 fn named(mark: El, name: &str, key: &str, t: &Theme) -> El {
     row()
         .key(key.to_owned())
         .gap(4.0)
         .center_y()
         .shrink()
-        .child(mark)
+        .child(mark.a11y_hidden())
         .child(
             text(name.to_owned())
                 .font(ty::XS)
@@ -321,22 +323,28 @@ fn identity(a: &AnalyzedSession, t: &Theme) -> El {
             t,
         ));
     }
-    let project = a
-        .worktree
-        .as_ref()
-        .map(|w| w.project.as_str())
-        .filter(|p| !p.is_empty())
-        .or_else(|| {
-            a.cwd
-                .as_deref()
-                .and_then(|c| c.rsplit(['/', '\\']).find(|s| !s.is_empty()))
-        });
-    if let Some(p) = project {
+    let wt_project = a.worktree.as_ref().map(|w| w.project.as_str());
+    let project = project_label(wt_project, a.cwd.as_deref(), "");
+    if !project.is_empty() {
         let mut place = row().key("project").gap(4.0).center_y().shrink();
         if let Some(w) = &a.worktree {
             place = place.child(marks::worktree(w, a.launcher.as_ref(), t));
         }
-        r = r.child(place.child(text(p.to_owned()).font(ty::XS).color(t.fg).truncate()));
+        let help = a
+            .worktree
+            .as_ref()
+            .and_then(|w| w.project_root.clone())
+            .or_else(|| a.cwd.clone())
+            .unwrap_or_else(|| project.to_owned());
+        r = r.child(
+            place.child(
+                text(project.to_owned())
+                    .font(ty::XS)
+                    .color(t.fg)
+                    .truncate()
+                    .help_when_truncated(help),
+            ),
+        );
     }
     if let Some(parent) = a
         .launcher
@@ -345,11 +353,11 @@ fn identity(a: &AnalyzedSession, t: &Theme) -> El {
         .filter(|p| !p.is_empty())
     {
         r = r.child(
-            text(format!("started by: {parent}"))
+            text(started_by(parent))
                 .font(ty::XS)
                 .color(t.muted_fg)
                 .truncate()
-                .help_when_truncated(format!("started by: {parent}"))
+                .help_when_truncated(started_by(parent))
                 .key("started-by"),
         );
     }

@@ -6,8 +6,10 @@ use std::collections::HashSet;
 use icu_collator::options::CollatorOptions;
 use icu_collator::{CollatorBorrowed, CollatorPreferences};
 use peektrace_protocol::AgentId;
+use peektrace_protocol::marks;
+pub use peektrace_protocol::marks::{shown_branch, visible_branch};
 use peektrace_protocol::view::SessionHeader;
-use peektrace_protocol::wire::sessions::{Launcher, Worktree};
+use peektrace_protocol::wire::sessions::Launcher;
 
 use peektrace_js::time::{MS_PER_DAY as DAY_MS, Utc, day_key};
 
@@ -257,12 +259,8 @@ fn project_dir(h: &SessionHeader) -> Option<&str> {
 /// A worktree's project, else the folder the session ran in, else the
 /// stored project slug.
 pub fn project_label(h: &SessionHeader) -> &str {
-    if let Some(w) = h.worktree.as_ref().filter(|w| !w.project.is_empty()) {
-        return &w.project;
-    }
-    cwd(h)
-        .and_then(|c| segments(c).next_back())
-        .unwrap_or(&h.project)
+    let wt = h.worktree.as_ref().map(|w| w.project.as_str());
+    marks::project_label(wt, cwd(h), &h.project)
 }
 
 /// The project facet key: a worktree's main checkout, else the session's
@@ -337,21 +335,11 @@ pub fn project_options(headers: &[SessionHeader]) -> Vec<FilterOption> {
     out
 }
 
-/// The branch worth showing: none for empty or a detached `HEAD`.
-pub fn visible_branch(branch: Option<&str>) -> Option<&str> {
-    branch.filter(|b| !b.is_empty() && *b != "HEAD")
-}
-
 /// The row's branch: the transcript's, else the worktree's; never the
 /// worktree's folder name.
 pub fn row_branch(h: &SessionHeader) -> Option<&str> {
-    shown_branch(h.git_branch.as_deref(), h.worktree.as_ref())
-}
-
-/// The branch a session shows, in rows and in the detail header: the
-/// transcript's, else the worktree's; never a detached `HEAD`.
-pub fn shown_branch<'a>(git_branch: Option<&'a str>, w: Option<&'a Worktree>) -> Option<&'a str> {
-    visible_branch(git_branch).or_else(|| visible_branch(w?.branch.as_deref()))
+    let wt = h.worktree.as_ref().and_then(|w| w.branch.as_deref());
+    shown_branch(h.git_branch.as_deref(), wt)
 }
 
 /// The branch filter's value: the shown branch, else the raw one, so a

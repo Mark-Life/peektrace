@@ -74,6 +74,36 @@ fn a_relative_git_file_resolves_from_the_worktree() {
 }
 
 #[test]
+fn bare_repos_name_their_project_not_the_git_dir() {
+    let dir = temp_dir("bare");
+    for (common, root) in [(".bare", ""), ("app.git", "app")] {
+        let admin = dir.join(common).join("worktrees/main");
+        let wt = dir.join(format!("wt-{root}"));
+        fs::create_dir_all(&admin).expect("admin");
+        fs::create_dir_all(&wt).expect("wt");
+        fs::write(admin.join("HEAD"), "ref: refs/heads/main\n").expect("head");
+        fs::write(wt.join(".git"), format!("gitdir: {}\n", admin.display())).expect(".git");
+        let want = if root.is_empty() {
+            s(&dir)
+        } else {
+            s(&dir.join(root))
+        };
+        assert_eq!(read_linked(&s(&wt)).map(|l| l.root), Some(want), "{common}");
+    }
+}
+
+#[test]
+fn gitdir_paths_are_folded_lexically() {
+    let dir = temp_dir("fold");
+    let (main, wt) = linked_worktree(&dir, "ref: refs/heads/x\n");
+    let dotted = format!("gitdir: {}/./wt/../main/.git/worktrees/leaf\n", s(&dir));
+    fs::write(wt.join(".git"), dotted).expect(".git");
+    assert_eq!(read_linked(&s(&wt)).map(|l| l.root), Some(s(&main)));
+    fs::write(wt.join(".git"), "gitdir: ../../gone/.git/worktrees/leaf\n").expect(".git");
+    assert_eq!(read_linked(&s(&wt)), None);
+}
+
+#[test]
 fn main_checkouts_submodules_and_missing_dirs_are_not_worktrees() {
     let dir = temp_dir("not");
     let main = dir.join("main");

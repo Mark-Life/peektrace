@@ -68,6 +68,6 @@ test("the detail header names each mark, the worktree and the parent", () => {
   expect(html).toContain(">Claude Code<");
   expect(html).toContain(">Anthropic · claude-opus-5-5<");
   expect(html).toContain("app worktree");
-  expect(html).toContain("· started by: Plan it");
+  expect(html).toContain("· Started by: Plan it");
   expect(html).toContain(">feat/x<");
 });

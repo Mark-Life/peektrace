@@ -236,8 +236,16 @@ fn t3_home(dir: Option<&str>) -> Option<&str> {
     (cut > 0).then(|| &dir[..cut])
 }
 
+/// Whether `cwd` is `root` or a dir below it.
+fn within(cwd: &str, root: &str) -> bool {
+    let (cwd, root) = (worktree::normalize(cwd), worktree::normalize(root));
+    cwd.strip_prefix(root)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '\\']))
+}
+
 /// The worktree a session in `cwd` ran in: by its cwd, else by the
-/// worktree t3code gave its thread.
+/// worktree t3code gave its thread when the session has no cwd or ran
+/// inside that worktree.
 fn worktree_of(
     index: &Index,
     cwd: Option<&str>,
@@ -249,7 +257,8 @@ fn worktree_of(
     cwd.and_then(|c| worktree::resolve(c, known, home))
         .or_else(|| {
             let path = launcher?.worktree_path.as_deref()?;
-            worktree::resolve(path, known, home)
+            cwd.is_none_or(|c| within(c, path))
+                .then(|| worktree::resolve(path, known, home))?
         })
 }
 

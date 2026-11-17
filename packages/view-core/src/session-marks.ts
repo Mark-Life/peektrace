@@ -122,6 +122,12 @@ export const providerMark = ({
       };
 };
 
+/** The label before the title of the thread that started a session. */
+export const STARTED_BY = "Started by";
+
+/** `Started by: <title>`. */
+export const startedBy = (title: string) => `${STARTED_BY}: ${title}`;
+
 /** Tooltip for the worktree marker: its path, then who started the session. */
 export const worktreeHint = ({
   worktree,
@@ -134,7 +140,7 @@ export const worktreeHint = ({
     `Worktree: ${worktree.path}`,
     ...(parentTitle === undefined || parentTitle === ""
       ? []
-      : [`Started by: ${parentTitle}`]),
+      : [startedBy(parentTitle)]),
   ].join("\n");
 
 /** The branch worth showing: none for an empty or detached `HEAD`. */
@@ -150,3 +156,16 @@ export const sessionBranch = ({
   worktree,
 }: Pick<SessionHeader, "gitBranch" | "worktree">) =>
   visibleBranch(gitBranch) ?? visibleBranch(worktree?.branch);
+
+/** A session's project name: its worktree's main checkout, else the last
+ * folder of its cwd, else the agent's project slug. */
+export const projectName = ({
+  cwd,
+  project,
+  worktree,
+}: Pick<SessionHeader, "cwd" | "project" | "worktree">) =>
+  (worktree?.project === undefined || worktree.project === ""
+    ? undefined
+    : worktree.project) ??
+  (cwd ?? "").split(/[\\/]/u).findLast((s) => s !== "") ??
+  project;

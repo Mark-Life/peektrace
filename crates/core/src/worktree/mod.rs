@@ -12,7 +12,9 @@ mod tests;
 
 use std::borrow::Cow;
 
-pub use git::{Linked, linked, read_linked};
+use git::linked;
+#[cfg(test)]
+use git::read_linked;
 
 use crate::model::{Agent, SessionHeader, Worktree};
 use crate::paths::{PathStyle, claude_slug, pi_slug};
@@ -44,7 +46,7 @@ fn basename(path: &str) -> &str {
 
 /// `<home>/worktrees/<project>/<leaf>` (or a dir below it) as a worktree of
 /// `<project>`, with no root or branch known.
-pub fn under_t3_home(path: &str, home: &str) -> Option<Worktree> {
+fn under_t3_home(path: &str, home: &str) -> Option<Worktree> {
     let home = normalize(home);
     let base = PathStyle::NATIVE.join(&[home, "worktrees"]);
     let rest = path

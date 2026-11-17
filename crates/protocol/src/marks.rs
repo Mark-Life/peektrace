@@ -8,6 +8,41 @@ use crate::AgentId;
 /// What the provider mark says when the model's maker is not known.
 pub const UNKNOWN_PROVIDER: &str = "Unknown provider";
 
+/// The label before the title of the thread that started a session.
+pub const STARTED_BY: &str = "Started by";
+
+/// `Started by: <title>`.
+pub fn started_by(title: &str) -> String {
+    format!("{STARTED_BY}: {title}")
+}
+
+/// The branch worth showing: none for an empty or detached `HEAD`.
+pub fn visible_branch(branch: Option<&str>) -> Option<&str> {
+    branch.filter(|b| !b.is_empty() && *b != "HEAD")
+}
+
+/// A session's branch: the transcript's, else the worktree's; never the
+/// worktree folder.
+pub fn shown_branch<'a>(
+    git_branch: Option<&'a str>,
+    worktree_branch: Option<&'a str>,
+) -> Option<&'a str> {
+    visible_branch(git_branch).or_else(|| visible_branch(worktree_branch))
+}
+
+/// A session's project name: its worktree's main checkout, else the last
+/// folder of its cwd, else the agent's project slug.
+pub fn project_label<'a>(
+    worktree_project: Option<&'a str>,
+    cwd: Option<&'a str>,
+    slug: &'a str,
+) -> &'a str {
+    worktree_project
+        .filter(|p| !p.is_empty())
+        .or_else(|| cwd?.split(['/', '\\']).rfind(|s| !s.is_empty()))
+        .unwrap_or(slug)
+}
+
 /// The harness's full name.
 pub const fn harness_name(a: AgentId) -> &'static str {
     match a {
@@ -49,9 +84,7 @@ pub fn provider_line(maker: Option<&str>, model: &str) -> String {
 /// The worktree marker's tooltip: the worktree's path, then the thread that
 /// started the session when known.
 pub fn worktree_hint(path: &str, parent_title: Option<&str>) -> String {
-    let parent = parent_title
-        .filter(|t| !t.is_empty())
-        .map(|t| format!("Started by: {t}"));
+    let parent = parent_title.filter(|t| !t.is_empty()).map(started_by);
     std::iter::once(format!("Worktree: {path}"))
         .chain(parent)
         .collect::<Vec<_>>()
@@ -95,6 +128,22 @@ mod tests {
             assert_eq!(
                 provider_line(p["maker"].as_str(), s(&p["model"])),
                 s(&p["line"])
+            );
+        }
+        for b in rows("branches") {
+            assert_eq!(
+                shown_branch(b["gitBranch"].as_str(), b["worktreeBranch"].as_str()),
+                b["shown"].as_str()
+            );
+        }
+        for p in rows("projectLabels") {
+            assert_eq!(
+                project_label(
+                    p["worktreeProject"].as_str(),
+                    p["cwd"].as_str(),
+                    s(&p["slug"])
+                ),
+                s(&p["label"])
             );
         }
         for w in rows("worktreeHints") {

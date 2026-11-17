@@ -51,8 +51,8 @@ fn web_counts(s: &AnalyzedSession) -> String {
 /// The transcript's branch, else the worktree's.
 fn branch_of(s: &AnalyzedSession) -> Option<&str> {
     let p = &s.parsed;
-    marks::visible(p.git_branch.as_deref())
-        .or_else(|| marks::visible(p.worktree.as_ref().and_then(|wt| wt.branch.as_deref())))
+    let wt = p.worktree.as_ref().and_then(|wt| wt.branch.as_deref());
+    peektrace_protocol::marks::shown_branch(p.git_branch.as_deref(), wt)
 }
 
 /// Full names of where the session came from: launcher, harness and each
@@ -88,7 +88,7 @@ fn source_rows(s: &AnalyzedSession, w: usize) -> Vec<Vec<Seg>> {
         ));
     }
     if let Some(parent) = p.launcher.as_ref().and_then(|l| l.parent_title.as_deref()) {
-        rows.push(row("Started by", parent));
+        rows.push(row(peektrace_protocol::marks::STARTED_BY, parent));
     }
     rows
 }

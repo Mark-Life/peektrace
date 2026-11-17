@@ -3,13 +3,14 @@ import { describe, expect, test } from "bun:test";
 // The same cases the Rust `peektrace_protocol::marks` test reads, so the web
 // and the native UIs draw the same strings.
 import FIXTURE from "../../../tests/fixtures/session-marks.json";
-import type { Provider } from "../src/api-types.gen";
+import type { Provider, SessionHeader } from "../src/api-types.gen";
 import {
   harnessMark,
   launcherHint,
   launcherMark,
   providerLine,
   providerMark,
+  projectName,
   providerTooltip,
   sessionBranch,
   sessionModels,
@@ -104,6 +105,14 @@ describe("worktree", () => {
   });
 });
 
+/** Optional header fields, writable so a case sets only what it has. */
+type Fields<K extends keyof SessionHeader> = {
+  -readonly [P in K]?: NonNullable<SessionHeader[P]>;
+};
+
+/** A project-label case: the slug, plus the cwd and worktree it has. */
+type ProjectCase = Fields<"cwd" | "worktree"> & Pick<SessionHeader, "project">;
+
 const PROVIDERS: readonly Provider[] = [
   "claude-code",
   "codex",
@@ -138,6 +147,38 @@ describe("shared with the Rust UIs", () => {
         p.maker === null ? undefined : { id: "x", name: p.maker };
 
       expect(providerLine(provider, p.model)).toBe(p.line);
+    }
+  });
+
+  test("branches", () => {
+    for (const b of FIXTURE.branches) {
+      const h: Fields<"gitBranch" | "worktree"> = {};
+
+      if (b.gitBranch !== null) {
+        h.gitBranch = b.gitBranch;
+      }
+
+      if (b.worktreeBranch !== null) {
+        h.worktree = { branch: b.worktreeBranch, path: "/wt", project: "p" };
+      }
+
+      expect(sessionBranch(h)).toBe(b.shown ?? undefined);
+    }
+  });
+
+  test("project labels", () => {
+    for (const p of FIXTURE.projectLabels) {
+      const h: ProjectCase = { project: p.slug };
+
+      if (p.cwd !== null) {
+        h.cwd = p.cwd;
+      }
+
+      if (p.worktreeProject !== null) {
+        h.worktree = { path: "/wt", project: p.worktreeProject };
+      }
+
+      expect(projectName(h)).toBe(p.label);
     }
   });
 

@@ -4,7 +4,9 @@
 mod common;
 
 use common::TempDir;
+use peektrace_core::js::time::Utc;
 use peektrace_core::js::value::JsValue;
+use peektrace_core::search::{SearchEnv, SearchRequest, search_sessions};
 use peektrace_core::sessions::read::{listing_from_json, parsed_from_json};
 use peektrace_core::sessions::service::{Target, parse_full};
 use peektrace_core::sessions::write::{listing_json, parsed_json};
@@ -191,6 +193,24 @@ INSERT INTO orchestration_v2_projection_threads VALUES
         .len()
     };
     assert_eq!((filtered("-code-app"), filtered("-other")), (1, 0));
+    let searched = |project: &str| {
+        let req = SearchRequest {
+            q: "hi".into(),
+            agent: None,
+            project: Some(project.into()),
+            since_ms: None,
+            limit: 0,
+            redact: false,
+        };
+        let env = SearchEnv {
+            roots: &roots,
+            home: None,
+            local: &Utc,
+            headers: None,
+        };
+        search_sessions(env, &req).result.sessions.len()
+    };
+    assert_eq!((searched("-code-app"), searched("-other")), (1, 0));
 
     let parsed = parse_full(common::session_env(&roots), Target::Lookup("s-wt"), None)
         .expect("parsed")

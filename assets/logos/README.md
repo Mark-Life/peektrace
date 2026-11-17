@@ -5,6 +5,9 @@
 (<https://github.com/sst/models.dev>). Each draws in `currentColor`, so the
 app tints it for light and dark themes.
 
+MIT covers the models.dev code, not the marks. Each logo is a trademark of
+its owner and is used only to name that company's model.
+
 The ids match `peektrace_core::model_provider::ProviderMark::id`. The web
 inspector and the Rune app both read these files; keep one copy. To add a
 maker:

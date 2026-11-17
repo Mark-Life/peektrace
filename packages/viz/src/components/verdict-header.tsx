@@ -12,6 +12,7 @@ import { costSummary, providerLabel } from "@workspace/view-core/cost";
 import {
   sessionBranch,
   sessionModels,
+  startedBy,
 } from "@workspace/view-core/session-marks";
 import type { ReactNode } from "react";
 
@@ -212,8 +213,8 @@ const Origin = ({
         </>
       )}
       {parent === undefined || parent === "" ? null : (
-        <span className="min-w-0 truncate" title={parent}>
-          {worktree === undefined ? "" : "· "}started by: {parent}
+        <span className="min-w-0 shrink-[100] truncate" title={parent}>
+          {`${worktree === undefined ? "" : "· "}${startedBy(parent)}`}
         </span>
       )}
     </div>

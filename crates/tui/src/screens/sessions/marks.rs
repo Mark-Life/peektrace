@@ -3,7 +3,7 @@
 
 use peektrace_core::model::{Launcher, SessionHeader};
 use peektrace_core::model_provider::model_provider;
-use peektrace_protocol::marks::launcher_mono;
+use peektrace_protocol::marks::{self, launcher_mono};
 
 use crate::draw::{Seg, seg};
 use crate::fmt::{clip, sanitize, take_width, width};
@@ -35,35 +35,21 @@ pub fn glyphs(h: &SessionHeader) -> Vec<Seg> {
     out
 }
 
-/// The last folder of a path.
-pub fn leaf(path: &str) -> Option<&str> {
-    path.split(['/', '\\']).rfind(|s| !s.is_empty())
-}
-
 /// The main checkout's name for a worktree row, else the session folder,
 /// else the agent's project slug.
 pub fn project_label(h: &SessionHeader) -> String {
-    let label = h.worktree.as_ref().map_or_else(
-        || {
-            h.cwd
-                .as_deref()
-                .and_then(leaf)
-                .unwrap_or(h.project.as_str())
-        },
-        |w| w.project.as_str(),
-    );
-    sanitize(label)
-}
-
-pub fn visible(branch: Option<&str>) -> Option<&str> {
-    branch.filter(|b| !b.is_empty() && *b != "HEAD")
+    let wt = h.worktree.as_ref().map(|w| w.project.as_str());
+    sanitize(marks::project_label(
+        wt,
+        h.cwd.as_deref(),
+        h.project.as_str(),
+    ))
 }
 
 /// The transcript's branch, else the worktree's; never the worktree folder.
 pub fn branch(h: &SessionHeader) -> Option<String> {
-    visible(h.git_branch.as_deref())
-        .or_else(|| visible(h.worktree.as_ref().and_then(|w| w.branch.as_deref())))
-        .map(sanitize)
+    let wt = h.worktree.as_ref().and_then(|w| w.branch.as_deref());
+    marks::shown_branch(h.git_branch.as_deref(), wt).map(sanitize)
 }
 
 /// Project and branch fitted to `room` columns as `project · branch`. The
