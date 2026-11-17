@@ -1,4 +1,4 @@
-/** AVOIDABLE RETRIES: named causes, what each cost in round trips, and its fix.
+/** The Retries tab: named causes, what each cost in round trips, and its fix.
  *
  * Ranked by sessions with a retry, then sessions, then pairs — the order core
  * applied. Hits, retries, seconds and tokens stay separate columns: none is
@@ -16,16 +16,27 @@ import {
   TableRow,
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
-import type { CauseRow, StatsText } from "@workspace/view-core/api-types.gen";
-import { STATS_EMPTY } from "@workspace/view-core/constants.gen";
+import type {
+  CauseRow,
+  CauseTotals,
+  StatsText,
+} from "@workspace/view-core/api-types.gen";
+import {
+  STATS_DATA,
+  STATS_EMPTY,
+  STATS_FIX_IN,
+} from "@workspace/view-core/constants.gen";
 import { fmtK } from "@workspace/viz/lib/session-format";
 import { Fragment, useState } from "react";
 
-import { hms, NO_RULE, n, rateText } from "../../lib/stats-format";
+import { approxUsd, hms, NO_RULE, n, pct } from "../../lib/stats-format";
 import type { PromptFor } from "../../lib/stats-format";
 import { CopyButton } from "./copy-button";
+import { HeadTip } from "./head-tip";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
+
+const { columns } = STATS_DATA;
 
 /** A numeric column a phone drops; `NarrowSummary` says the same in a line. */
 const WIDE = "hidden text-right md:table-cell";
@@ -77,48 +88,33 @@ const isFixed = (text: StatsText, key: string) =>
  */
 const NarrowSummary = ({
   fixed,
-  row,
+  line,
   ruleLine,
 }: {
   readonly fixed: boolean;
-  readonly row: CauseRow;
+  readonly line: string | undefined;
   readonly ruleLine: string | undefined;
 }) => (
   <div
     className="mt-1 flex flex-col gap-1 md:hidden"
     data-testid="cause-narrow"
   >
-    <p className="text-muted-foreground font-mono text-xs">
-      {n(row.hits)} hits · {n(row.pairs)}{" "}
-      {row.failing ? "retries" : "read-backs"} in {n(row.retrySessions)}{" "}
-      sessions
-      {row.secMeasured === 0 ? "" : ` · ${hms(row.retrySec)}`}
-      {row.tokensMeasured === 0
-        ? ""
-        : ` · ${fmtK(row.retryCtxTokens)} ctx re-read`}
-    </p>
+    {line === undefined ? null : (
+      <p className="text-muted-foreground font-mono text-xs">{line}</p>
+    )}
     {ruleLine === undefined ? null : (
       <RuleBadge fixed={fixed} line={ruleLine} />
     )}
   </div>
 );
 
-/** Who made the calls and what the retries re-read: the split columns a
- * narrow screen hides, always shown once the row is open. */
-const SplitLine = ({ row }: { readonly row: CauseRow }) => (
-  <p
-    className="text-muted-foreground font-mono text-xs"
-    data-testid="cause-split"
-  >
-    hits main {n(row.hitsBy.main)} / sub {n(row.hitsBy.nested)} · per 1k calls
-    in this window main {rateText(row.per1k.main, row.hitsBy.main)} / sub{" "}
-    {rateText(row.per1k.nested, row.hitsBy.nested)} ·{" "}
-    {row.failing ? "retries" : "read-backs"} main {n(row.pairsBy.main)} / sub{" "}
-    {n(row.pairsBy.nested)} · exit 0 {n(row.hits - row.flagged)} · context
-    re-read{" "}
-    {row.tokensMeasured === 0 ? "not measured" : fmtK(row.retryCtxTokens)}
-  </p>
-);
+/** `32m14s · 2.8%`: retry time and its share. */
+export const timeCell = (sec: number, share: number) =>
+  `${hms(sec)} · ${pct(share)}`;
+
+/** `17.4M · ~$9`: re-read tokens and their approximate price. */
+export const rereadCell = (tokens: number, usd: number | null) =>
+  usd === null ? fmtK(tokens) : `${fmtK(tokens)} · ${approxUsd(usd)}`;
 
 /**
  * The fix, the rule check and the evidence of one cause, opened under it. It
@@ -192,7 +188,14 @@ const DetailRow = ({
               ))}
             </div>
           )}
-          <SplitLine row={row} />
+          {text.causeSplit[row.key] === undefined ? null : (
+            <p
+              className="text-muted-foreground font-mono text-xs"
+              data-testid="cause-split"
+            >
+              {text.causeSplit[row.key]}
+            </p>
+          )}
           {row.diffs.length === 0 ? null : (
             <p className="text-muted-foreground font-mono text-xs">
               learned:{" "}
@@ -231,18 +234,46 @@ const DetailRow = ({
  * "All pairs" opens the drill sheet. A row arrived at through a drill link
  * starts open.
  */
+/** Every cause added up, under the last row. */
+const TotalsRow = ({ totals }: { readonly totals: CauseTotals }) => (
+  <TableRow
+    className="bg-muted/20 hover:bg-muted/20 font-medium"
+    data-testid="cause-totals"
+  >
+    <TableCell className="text-sm">{STATS_DATA.totals}</TableCell>
+    <TableCell className={cn(WIDE, "font-mono text-sm")}>
+      {n(totals.hits)}
+    </TableCell>
+    <TableCell className={cn(WIDE, "font-mono text-sm")}>
+      {n(totals.pairs)}
+    </TableCell>
+    <TableCell className="hidden lg:table-cell" />
+    <TableCell className={cn(WIDE, "font-mono text-sm")}>
+      {timeCell(totals.retrySec, totals.retryShare)}
+    </TableCell>
+    <TableCell className="hidden text-right font-mono text-sm lg:table-cell">
+      {rereadCell(totals.retryCtxTokens, totals.retryUsd)}
+    </TableCell>
+    <TableCell className="hidden md:table-cell" />
+  </TableRow>
+);
+
 export const CauseTable = ({
+  debug,
   rows,
   onSelect,
   prompt,
   selectedKey,
   text,
+  totals,
 }: {
+  readonly debug: boolean;
   readonly onSelect: (key: string) => void;
   readonly prompt: PromptFor;
   readonly rows: readonly CauseRow[];
   readonly selectedKey: string | null;
   readonly text: StatsText;
+  readonly totals: CauseTotals;
 }) => {
   const [openKey, setOpenKey] = useState<string | null>(selectedKey);
 
@@ -264,16 +295,27 @@ export const CauseTable = ({
         <TableHeader>
           <TableRow>
             <TableHead>Cause</TableHead>
-            <TableHead className={WIDE}>Hits</TableHead>
-            <TableHead className={WIDE}>Retries</TableHead>
-            <TableHead className="hidden text-right lg:table-cell">
-              Hits main / sub
+            <TableHead className={WIDE}>
+              <HeadTip label="Hits" tip={columns.hits} />
             </TableHead>
-            <TableHead className={WIDE}>Retry time</TableHead>
-            <TableHead className="hidden text-right lg:table-cell">
-              Context re-read
+            <TableHead className={WIDE}>
+              <HeadTip label="Retries" tip={columns.retries} />
             </TableHead>
-            <TableHead className="hidden md:table-cell">Rule</TableHead>
+            <TableHead className="hidden text-right lg:table-cell">
+              <HeadTip
+                label={`${STATS_DATA.you} / ${STATS_DATA.subagents}`}
+                tip={columns.split}
+              />
+            </TableHead>
+            <TableHead className={WIDE}>
+              <HeadTip label="Retry time" tip={columns.retryTime} />
+            </TableHead>
+            <TableHead className="hidden text-right lg:table-cell">
+              <HeadTip label="Re-read" tip={columns.reread} />
+            </TableHead>
+            <TableHead className="hidden md:table-cell">
+              <HeadTip label="Rule" tip={columns.rule} />
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -306,15 +348,21 @@ export const CauseTable = ({
                   >
                     {row.label}
                   </button>
-                  <div className="mt-1 flex gap-1">
-                    <Badge className="font-mono" variant="outline">
-                      {row.key.replace("cause:", "")}
-                    </Badge>
-                    <Badge variant="secondary">{row.kind}</Badge>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {STATS_FIX_IN[row.kind] === null ? null : (
+                      <Badge variant="secondary">
+                        {STATS_FIX_IN[row.kind]}
+                      </Badge>
+                    )}
+                    {debug ? (
+                      <Badge className="font-mono" variant="outline">
+                        {row.key.replace("cause:", "")} · {row.kind}
+                      </Badge>
+                    ) : null}
                   </div>
                   <NarrowSummary
                     fixed={isFixed(text, row.key)}
-                    row={row}
+                    line={text.causeNarrow[row.key]}
                     ruleLine={text.ruleLines[row.key]}
                   />
                 </TableCell>
@@ -336,10 +384,14 @@ export const CauseTable = ({
                     "text-muted-foreground align-top font-mono text-sm"
                   )}
                 >
-                  {row.secMeasured === 0 ? "—" : hms(row.retrySec)}
+                  {row.secMeasured === 0
+                    ? "—"
+                    : timeCell(row.retrySec, row.retryShare)}
                 </TableCell>
                 <TableCell className="text-muted-foreground hidden text-right align-top font-mono text-sm lg:table-cell">
-                  {row.tokensMeasured === 0 ? "—" : fmtK(row.retryCtxTokens)}
+                  {row.tokensMeasured === 0
+                    ? "—"
+                    : rereadCell(row.retryCtxTokens, row.retryUsd)}
                 </TableCell>
                 <TableCell className="hidden min-w-[16ch] align-top text-xs whitespace-normal md:table-cell">
                   <RuleCell
@@ -360,6 +412,7 @@ export const CauseTable = ({
               ) : null}
             </Fragment>
           ))}
+          {rows.length > 1 ? <TotalsRow totals={totals} /> : null}
         </TableBody>
       </Table>
     </div>

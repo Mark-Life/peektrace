@@ -30,6 +30,7 @@ fn card(key: &str, title: &str, impact: String, note: String, spread: String) ->
         title: title.to_owned(),
         rule: None,
         table: None,
+        fix_in: None,
         samples: Vec::new(),
     }
 }

@@ -197,6 +197,24 @@ impl CorpusPanelSink {
         })
     }
 
+    /// USD per cache-read token of one session, at its own model's price;
+    /// `None` when the session has no model call to price.
+    pub fn read_rate(&self, sid: &str) -> Option<f64> {
+        let s = self.sessions.get(sid)?;
+        if s.tokens.cache_read <= 0.0 {
+            return None;
+        }
+        let usd = if self.usd_by_sid.contains_key(sid) {
+            self.read_usd_by_sid.get(sid).copied().unwrap_or(0.0)
+        } else {
+            part_cost(s, |t| Tokens {
+                cache_read: t.cache_read,
+                ..Tokens::default()
+            })
+        };
+        (usd > 0.0).then(|| usd / s.tokens.cache_read)
+    }
+
     pub(super) fn insights(&self, ctx: &FinishCtx<'_>) -> CostInsights {
         CostInsights {
             total_usd: self.sessions.values().map(|s| self.usd_of(s)).sum(),

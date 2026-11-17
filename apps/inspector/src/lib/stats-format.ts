@@ -19,7 +19,7 @@ const SEC_PER_HOUR = 3600;
 const PERCENT = 100;
 
 /** Decimals a share keeps once it is a percentage. */
-const PCT_DIGITS = 2;
+const PCT_DIGITS = 1;
 
 /** Under this many seconds a duration keeps two decimals. */
 const SUB_TEN_SECONDS = 10;
@@ -43,12 +43,21 @@ export const hms = (sec: number): string => {
   return `${h}h${String(Math.floor((sec - h * SEC_PER_HOUR) / SEC_PER_MIN)).padStart(PAD_WIDTH, "0")}m`;
 };
 
-/** A 0-1 share as a percentage string. */
-export const pct = (share: number): string =>
-  `${(share * PERCENT).toFixed(PCT_DIGITS)}%`;
+/** A 0-1 share as a percentage string; a share too small to show reads
+ * `<0.1%`, never `0.0%`. */
+export const pct = (share: number): string => {
+  const fixed = (share * PERCENT).toFixed(PCT_DIGITS);
+
+  return share > 0 && Number(fixed) === 0 ? "<0.1%" : `${fixed}%`;
+};
 
 /** Thousands separators, one call site for every count in the screen. */
 export const n = (value: number): string => value.toLocaleString();
+
+/** `~$26`, or `<$1`: a priced figure that is an estimate, spelled as core
+ * spells it. */
+export const approxUsd = (usd: number): string =>
+  usd < 1 ? "<$1" : `~$${n(Math.round(usd))}`;
 
 /** A short local timestamp for the report header. */
 export const at = (epochMs: number): string =>

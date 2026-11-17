@@ -21,10 +21,9 @@ pub fn hms(seconds: f64) -> String {
     format!("{}h{:02}m", total / 3600, (total % 3600) / 60)
 }
 
-/// Percentage from a 0..1 fraction: `12.5%`.
-pub fn percent(fraction: f64) -> String {
-    format!("{}%", to_fixed(fraction * 100.0, 1))
-}
+/// Percentage from a 0..1 fraction: `12.5%`, and `<0.1%` for a share too
+/// small to show.
+pub use crate::js::inspector::pct as percent;
 
 /// Compact token count: `950`, `12.3k`, `32.4M`.
 pub fn tokens(value: f64) -> String {
@@ -36,6 +35,18 @@ pub fn tokens(value: f64) -> String {
     } else {
         format!("{}M", to_fixed(n / 1e6, 1))
     }
+}
+
+/// How a waiting call parks, in plain words: `polling loop`.
+pub const fn shape_label(shape: super::schema::WaitShape) -> &'static str {
+    use super::schema::WaitShape as S;
+    use peektrace_protocol::wire::stats::WaitShape as W;
+    peektrace_protocol::stats_text::wait_shape_label(match shape {
+        S::LoopPoll => W::LoopPoll,
+        S::Watcher => W::Watcher,
+        S::CurlRetry => W::CurlRetry,
+        S::BareDelay => W::BareDelay,
+    })
 }
 
 /// First segment of a UUID-like id, for narrow columns.

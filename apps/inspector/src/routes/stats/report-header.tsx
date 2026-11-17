@@ -1,6 +1,5 @@
-/** What the report covers, and the knobs that change it.
+/** The knobs that change the report at the top; what it covers at the foot.
  *
- * The corpus line is first because every share below divides by a number in it.
  * The caveats ship with the numbers and are one click away, never dropped: the
  * durations include approval waits, and a silent-failure count is a floor.
  */
@@ -17,9 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select";
+import { Switch } from "@workspace/ui/components/switch";
 import { cn } from "@workspace/ui/lib/utils";
 import type { AgentId, StatsReport } from "@workspace/view-core/api-types.gen";
-import { AGENT_IDS, STATS_FINDINGS } from "@workspace/view-core/constants.gen";
+import {
+  AGENT_IDS,
+  STATS_DATA,
+  STATS_FINDINGS,
+} from "@workspace/view-core/constants.gen";
 import { RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 
 import { at, hms, n } from "../../lib/stats-format";
@@ -130,7 +134,7 @@ const Controls = ({
   </div>
 );
 
-/** The corpus every share below divides by, plus the caveats it carries. */
+/** The knobs that change the report, and the prompt for all of it. */
 export const ReportHeader = ({
   agent,
   days,
@@ -138,7 +142,6 @@ export const ReportHeader = ({
   onDays,
   onRescan,
   prompt,
-  report,
   rescanning,
 }: {
   readonly agent: AgentId | null;
@@ -150,49 +153,60 @@ export const ReportHeader = ({
   readonly rescanning: boolean;
   /** The whole-report investigation prompt. */
   readonly prompt: string | null;
+}) => (
+  <header
+    className="flex flex-wrap items-center gap-2"
+    data-testid="stats-header"
+  >
+    <Controls
+      agent={agent}
+      days={days}
+      onAgent={onAgent}
+      onDays={onDays}
+      onRescan={onRescan}
+      rescanning={rescanning}
+    />
+    <PromptButton subject="this report" testId="stats-prompt" text={prompt} />
+  </header>
+);
+
+/** What the report covers, how it was measured, and the switch that shows
+ * detector ids. Every share above divides by a number in the corpus line. */
+export const ReportFooter = ({
+  debug,
+  onDebug,
+  report,
+}: {
+  readonly debug: boolean;
+  readonly onDebug: (on: boolean) => void;
   readonly report: StatsReport;
 }) => {
   const { corpus } = report;
   const nestedRuns = corpus.transcripts - (corpus.kinds.main ?? 0);
 
   return (
-    <header className="flex flex-col gap-3" data-testid="stats-header">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="font-mono text-sm" data-testid="stats-corpus">
-          {n(corpus.sessions)} sessions + {n(nestedRuns)} subagent runs ·{" "}
-          {n(corpus.projects)} projects · {n(corpus.toolCalls)} tool calls ·{" "}
-          {n(corpus.bashCalls)} shell calls · {hms(corpus.bashSec)} of shell
-          time
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          <Controls
-            agent={agent}
-            days={days}
-            onAgent={onAgent}
-            onDays={onDays}
-            onRescan={onRescan}
-            rescanning={rescanning}
-          />
-          <PromptButton
-            subject="this report"
-            testId="stats-prompt"
-            text={prompt}
-          />
-        </div>
-      </div>
-      <p className="text-muted-foreground text-xs">
+    <footer
+      className="border-border text-muted-foreground flex flex-col gap-2 border-t pt-4 text-xs"
+      data-testid="stats-footer"
+    >
+      <p className="font-mono" data-testid="stats-corpus">
+        {n(corpus.sessions)} sessions + {n(nestedRuns)} subagent runs ·{" "}
+        {n(corpus.projects)} projects · {n(corpus.toolCalls)} tool calls ·{" "}
+        {n(corpus.bashCalls)} shell calls · {hms(corpus.bashSec)} of shell time
+        · {hms(corpus.toolSec)} of tool time
+      </p>
+      <p>
         {report.window.fromIso.slice(0, ISO_DATE_LENGTH)} →{" "}
         {report.window.toIso.slice(0, ISO_DATE_LENGTH)} · generated{" "}
         {at(report.generatedAt)} · {report.schemaVersion} · detector v
         {report.detectorVersion}
       </p>
-      <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+      <div className="flex items-center gap-1.5">
         <ShieldCheckIcon className="size-3.5 shrink-0" />
-        Secrets such as API keys and tokens are masked. Commands and paths are
-        shown as run.
+        {STATS_DATA.redacted}
       </div>
       <Collapsible>
-        <CollapsibleTrigger className="text-muted-foreground text-left text-xs underline decoration-dotted">
+        <CollapsibleTrigger className="text-left underline decoration-dotted">
           {STATS_FINDINGS.measuredTitle} ({n(report.caveats.length)}{" "}
           {report.caveats.length === 1 ? "note" : "notes"})
           {report.skipped.length > 0
@@ -201,7 +215,7 @@ export const ReportHeader = ({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <ul
-            className="text-muted-foreground mt-2 flex list-disc flex-col gap-1 pl-4 text-xs"
+            className="mt-2 flex list-disc flex-col gap-1 pl-4"
             data-testid="stats-caveats"
           >
             {report.caveats.map((caveat) => (
@@ -213,6 +227,14 @@ export const ReportHeader = ({
           </ul>
         </CollapsibleContent>
       </Collapsible>
-    </header>
+      <label className="flex items-center gap-2 self-start">
+        <Switch
+          checked={debug}
+          data-testid="stats-debug"
+          onCheckedChange={onDebug}
+        />
+        {STATS_DATA.debug}
+      </label>
+    </footer>
   );
 };

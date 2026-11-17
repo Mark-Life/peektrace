@@ -17,7 +17,7 @@ use self::drill::{Drill, DrillOut};
 use self::layout::{MIN_HEIGHT, MIN_WIDTH, columns_of, content_width, layout_of};
 use self::text::{
     DrillTarget, Pane, ago_of, caveat_lines, corpus_line, fail_target, finding_target, findings_of,
-    note_strip_of, provenance_line, scope_text, time_target,
+    note_strip_of, provenance_line, scope_text, time_target, verdict_line,
 };
 use super::{Ctx, Query};
 use crate::backend::{Reply, Request, Response};
@@ -323,6 +323,16 @@ impl State {
                 &[seg(
                     clip(&provenance_line(r, cols.wide), content),
                     fg(theme::TEXT_FAINT),
+                )],
+            );
+            put(
+                buf,
+                area.x,
+                area.y + 3,
+                area.width,
+                &[seg(
+                    clip(&verdict_line(r, &self.findings), content),
+                    fg(theme::TEXT),
                 )],
             );
         }

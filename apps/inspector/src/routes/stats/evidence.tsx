@@ -6,6 +6,7 @@
  * seconds of a backgrounded wait print beside the charged ones, never summed in.
  */
 import type { ClusterRow, WaitPanel } from "@workspace/view-core/api-types.gen";
+import { STATS_WAIT_LABELS } from "@workspace/view-core/constants.gen";
 import { RankBar } from "@workspace/viz/components/rank-bar";
 import type { RankRow } from "@workspace/viz/components/rank-bar";
 
@@ -31,7 +32,7 @@ const Figure = ({
 export const parkedRows = (panel: WaitPanel): readonly RankRow[] =>
   panel.byShape.map((parked) => ({
     key: parked.key,
-    label: parked.key,
+    label: STATS_WAIT_LABELS[parked.key],
     secondary: `${n(parked.calls)} calls · ${pct(parked.share)}`,
     value: parked.totalSec,
     valueText: hms(parked.totalSec),

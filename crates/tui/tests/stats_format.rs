@@ -73,6 +73,10 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         sessions: 30.0,
         projects: 3.0,
         retry_sec: 50.0,
+        shell: true,
+        retry_share: 0.0,
+        retry_usd: None,
+        ctx_by_sid: Vec::new(),
         sec_measured: 12.0,
         retry_ctx_tokens: 9000.0,
         tokens_measured: 12.0,
@@ -183,11 +187,7 @@ fn a_cause_finding_leads_and_drills_into_the_cause_table() {
         "{}",
         target.spread
     );
-    assert!(
-        target.spread.contains("12 retries (main"),
-        "{}",
-        target.spread
-    );
+    assert!(target.spread.contains("12 retries"), "{}", target.spread);
 }
 
 #[test]
@@ -200,6 +200,6 @@ fn a_cause_finding_spells_re_read_context_compactly() {
     let found = findings_of(&r);
     assert_eq!(
         found[0].impact,
-        "12 retries (main 2 / sub 10) · 50.0s · 32.4M ctx tokens re-read"
+        "12 retries · 50.0s (0.0% of shell time) · 32.4M tokens re-read"
     );
 }

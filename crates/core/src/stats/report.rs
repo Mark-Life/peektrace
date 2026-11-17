@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 
 use super::accumulate::{CorpusSummary, DrillHit, DrillTable, SampleRef, StatsWindow};
+use super::detectors::cause_row::CauseTotals;
 use super::detectors::clustering::ClusterRow;
 use super::detectors::corpus::CorpusPanels;
 use super::detectors::failures::FailRow;
@@ -112,6 +113,8 @@ impl StatsReport {
             };
         }
         rows!("causes", &self.causes);
+        w.key("causeTotals");
+        CauseTotals::of(&self.causes, &self.corpus).write(&mut w);
         rows!("fails", &self.fails);
         rows!("time", &self.time);
         w.key("waiting");

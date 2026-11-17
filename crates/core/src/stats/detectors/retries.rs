@@ -9,6 +9,7 @@ use indexmap::IndexMap;
 use super::cause_agg::{
     CauseAgg, Denominators, cause_key_of, compare_cause_rows, detail_of, line_of, pick_pair_samples,
 };
+use super::cause_row::retry_share;
 pub use super::cause_row::{CauseRow, PairSample};
 use super::causes::{GIT_DIFF_FIX, spec};
 use super::cells::{
@@ -126,6 +127,9 @@ impl<'a> CauseTable<'a> {
         agg.pairs += 1.0;
         add_to(&mut agg.pairs_by, is_nested(failed));
         agg.retry_sessions.insert(failed.base.root_sid().to_owned());
+        if failed.bash.is_some() {
+            agg.shell_pairs += 1.0;
+        }
         if let Some(g) = pair.gap_sec {
             agg.retry_sec += g;
             agg.sec_measured += 1.0;
@@ -142,6 +146,7 @@ impl<'a> CauseTable<'a> {
             );
             if agg.ctx_seen.insert(id) {
                 agg.retry_ctx_tokens += tok;
+                *agg.ctx_by_sid.entry(retry.base.sid.clone()).or_default() += tok;
             }
         }
         if let Some(d) = &pair.diff {
@@ -357,6 +362,14 @@ impl<'a> CauseTable<'a> {
             sessions: agg.sessions.len() as f64,
             projects: projects.len() as f64,
             retry_sec: round(agg.retry_sec),
+            shell: agg.shell_pairs == agg.pairs,
+            retry_share: retry_share(agg.retry_sec, agg.shell_pairs == agg.pairs, ctx.corpus),
+            retry_usd: None,
+            ctx_by_sid: agg
+                .ctx_by_sid
+                .iter()
+                .map(|(k, v)| (k.clone(), *v))
+                .collect(),
             sec_measured: agg.sec_measured,
             retry_ctx_tokens: agg.retry_ctx_tokens,
             tokens_measured: agg.tokens_measured,

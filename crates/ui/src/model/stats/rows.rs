@@ -6,7 +6,9 @@ use peektrace_protocol::stats::{
 };
 use peektrace_protocol::{AgentId, DrillTable};
 
-use super::format::{hms, n, pct, rate_text};
+use peektrace_protocol::stats_text::{approx_usd_text, wait_shape_label};
+
+use super::format::{hms, n, pct};
 use crate::model::format::fmt_k;
 use crate::model::utf16;
 
@@ -45,7 +47,7 @@ pub fn shape_rows(w: &WaitPanelView) -> Vec<RankRow> {
         .iter()
         .map(|s| RankRow {
             key: s.key.clone(),
-            label: s.key.clone(),
+            label: shape_label(&s.key),
             value: s.total_sec,
             value_text: hms(s.total_sec),
             secondary: format!("{} calls · {}", n(s.calls), pct(s.share)),
@@ -144,10 +146,6 @@ pub fn cause_badge(key: &str) -> String {
     key.replacen("cause:", "", 1)
 }
 
-const fn retries_word(failing: bool) -> &'static str {
-    if failing { "retries" } else { "read-backs" }
-}
-
 /// The cause table's cells, wide to narrow.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CauseCells {
@@ -159,6 +157,27 @@ pub struct CauseCells {
     pub ctx: String,
 }
 
+/// `17.4M · ~$9`: re-read tokens and their approximate price.
+pub fn reread_cell(tokens: f64, usd: Option<f64>) -> String {
+    usd.map_or_else(
+        || fmt_k(tokens),
+        |u| format!("{} · {}", fmt_k(tokens), approx_usd_text(u, n)),
+    )
+}
+
+/// A waiting shape in plain words; an unknown key prints as sent.
+fn shape_label(key: &str) -> String {
+    use peektrace_protocol::wire::stats::WaitShape as W;
+    let shape = match key {
+        "loop-poll" => W::LoopPoll,
+        "watcher" => W::Watcher,
+        "curl-retry" => W::CurlRetry,
+        "bare-delay" => W::BareDelay,
+        _ => return key.to_owned(),
+    };
+    wait_shape_label(shape).to_owned()
+}
+
 pub fn cause_cells(r: &CauseRowView) -> CauseCells {
     CauseCells {
         hits: n(r.hits),
@@ -168,54 +187,14 @@ pub fn cause_cells(r: &CauseRowView) -> CauseCells {
         retry_time: if r.sec_measured == 0.0 {
             NO_SHELL.to_owned()
         } else {
-            hms(r.retry_sec)
+            format!("{} · {}", hms(r.retry_sec), pct(r.retry_share))
         },
         ctx: if r.tokens_measured == 0.0 {
             NO_SHELL.to_owned()
         } else {
-            fmt_k(r.retry_ctx_tokens)
+            reread_cell(r.retry_ctx_tokens, r.retry_usd)
         },
     }
-}
-
-/// The row as one line, for a narrow column.
-pub fn cause_narrow(r: &CauseRowView) -> String {
-    let sec = if r.sec_measured == 0.0 {
-        String::new()
-    } else {
-        format!(" · {}", hms(r.retry_sec))
-    };
-    let ctx = if r.tokens_measured == 0.0 {
-        String::new()
-    } else {
-        format!(" · {} ctx re-read", fmt_k(r.retry_ctx_tokens))
-    };
-    format!(
-        "{} hits · {} {} in {} sessions{sec}{ctx}",
-        n(r.hits),
-        n(r.pairs),
-        retries_word(r.failing),
-        n(r.retry_sessions)
-    )
-}
-
-pub fn cause_split(r: &CauseRowView) -> String {
-    format!(
-        "hits main {} / sub {} · per 1k calls in this window main {} / sub {} · {} main {} / sub {} · exit 0 {} · context re-read {}",
-        n(r.hits_by.main),
-        n(r.hits_by.nested),
-        rate_text(r.per1k.main, r.hits_by.main),
-        rate_text(r.per1k.nested, r.hits_by.nested),
-        retries_word(r.failing),
-        n(r.pairs_by.main),
-        n(r.pairs_by.nested),
-        n(r.hits - r.flagged),
-        if r.tokens_measured == 0.0 {
-            "not measured".to_owned()
-        } else {
-            fmt_k(r.retry_ctx_tokens)
-        }
-    )
 }
 
 pub fn cause_learned(r: &CauseRowView) -> Option<String> {

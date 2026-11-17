@@ -1,19 +1,17 @@
-/** Stats header: the rescan button, and the corpus and redaction lines. */
+/** Stats header and footer: the rescan button, then the corpus and
+ * redaction lines at the foot. */
 import { expect, test } from "bun:test";
 
 import type { StatsReport } from "@workspace/view-core/api-types.gen";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { ReportHeader } from "../src/routes/stats/report-header";
+import { ReportFooter, ReportHeader } from "../src/routes/stats/report-header";
 import { report } from "./stats-report-fixture";
 
 const RESCAN_BUSY =
   /data-testid="stats-rescan"[^>]*\sdisabled=""|\sdisabled=""[^>]*data-testid="stats-rescan"/u;
 
-const header = (
-  rescanning: boolean,
-  data: StatsReport = report({ fails: [], time: [] })
-) =>
+const header = (rescanning: boolean) =>
   renderToStaticMarkup(
     <ReportHeader
       agent={null}
@@ -22,9 +20,13 @@ const header = (
       onDays={() => {}}
       onRescan={() => {}}
       prompt={null}
-      report={data}
       rescanning={rescanning}
     />
+  );
+
+const footer = (data: StatsReport, debug = false) =>
+  renderToStaticMarkup(
+    <ReportFooter debug={debug} onDebug={() => {}} report={data} />
   );
 
 test("a rescan in flight disables the button and says so", () => {
@@ -34,10 +36,10 @@ test("a rescan in flight disables the button and says so", () => {
   expect(header(true)).toMatch(RESCAN_BUSY);
 });
 
-test("the header counts main sessions apart from subagent runs", () => {
+test("the footer counts main sessions apart from subagent runs", () => {
   const base = report({ fails: [], time: [] });
 
-  const html = header(false, {
+  const html = footer({
     ...base,
     corpus: {
       ...base.corpus,
@@ -51,4 +53,11 @@ test("the header counts main sessions apart from subagent runs", () => {
   expect(html).toContain("subagent runs");
   expect(html).not.toContain("transcripts");
   expect(html).toContain("Commands and paths are");
+});
+
+test("the footer holds the debug switch that shows detector ids", () => {
+  const html = footer(report({ fails: [], time: [] }));
+
+  expect(html).toContain('data-testid="stats-debug"');
+  expect(html).toContain("Show detector ids");
 });

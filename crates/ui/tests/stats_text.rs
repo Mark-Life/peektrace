@@ -71,10 +71,7 @@ fn a_time_row_says_only_what_its_own_columns_measured() {
     );
     let notes = text(&r).time_notes;
     assert_eq!(notes.get("typecheck"), None);
-    assert!(
-        notes["test"].contains("agent's tool time limit"),
-        "{notes:?}"
-    );
+    assert!(notes["test"].contains("time limit"), "{notes:?}");
     assert!(notes["test"].contains("background"), "{notes:?}");
     assert!(notes["wait/poll"].contains("background"), "{notes:?}");
 }
@@ -179,7 +176,7 @@ fn a_fail_row_with_no_fix_is_not_a_finding() {
     assert_eq!(order, [(Some(DrillTable::Cause), "cause:zsh-glob-flag")]);
     assert_eq!(
         findings[0].impact,
-        "675 retries (main 41 / sub 634) · 44m20s · 32.3M ctx tokens re-read"
+        "675 retries · 44m20s (0.0% of shell time) · 32.3M tokens re-read"
     );
 }
 
@@ -189,7 +186,7 @@ fn a_rule_already_present_says_so_with_its_rate_since_the_edit() {
     let r = report(vec![cause_row(|c| c.rule = Some(firing()))], vec![], vec![]);
     assert_eq!(
         text(&r).rule_lines["cause:zsh-glob-flag"],
-        "rule in ~/.claude/CLAUDE.md:100 · still firing main 31/1k, sub 57/1k since 2026-10-15"
+        "rule in ~/.claude/CLAUDE.md:100 · still firing: You 31, subagents 57 per 1,000 calls since 2026-10-15"
     );
 }
 

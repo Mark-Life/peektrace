@@ -334,6 +334,12 @@ pub struct CauseRow {
     pub sessions: f64,
     pub projects: f64,
     pub retry_sec: f64,
+    /// Every pair's failed call was a shell command.
+    pub shell: bool,
+    /// `retry_sec` over shell time, or over tool time when not `shell`.
+    pub retry_share: f64,
+    /// Re-read tokens priced at each session's model; approximate.
+    pub retry_usd: Option<f64>,
     pub sec_measured: f64,
     pub retry_ctx_tokens: f64,
     pub tokens_measured: f64,
@@ -343,6 +349,25 @@ pub struct CauseRow {
     pub rule: Option<RuleCheck>,
     pub samples: Vec<SampleRef>,
     pub pair_samples: Vec<PairSample>,
+}
+
+/// Every cause added up, for the verdict and the totals row.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct CauseTotals {
+    pub hits: f64,
+    pub pairs: f64,
+    pub retry_sec: f64,
+    /// Every cause with a pair is a shell cause.
+    pub shell: bool,
+    pub retry_share: f64,
+    pub retry_ctx_tokens: f64,
+    pub retry_usd: Option<f64>,
+    /// Read-backs of large output: not failures.
+    pub non_failing_pairs: f64,
+    /// Pairs with no named cause.
+    pub unclassified_pairs: f64,
 }
 
 /// Corpus totals; every share in the report divides by one of them.
@@ -385,6 +410,7 @@ pub struct StatsReport {
     pub detector_version: f64,
     pub corpus: CorpusSummary,
     pub causes: Vec<CauseRow>,
+    pub cause_totals: CauseTotals,
     pub fails: Vec<FailRow>,
     pub time: Vec<TimeRow>,
     pub waiting: WaitPanel,

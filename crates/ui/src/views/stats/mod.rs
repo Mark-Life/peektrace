@@ -250,8 +250,9 @@ fn report_view(v: &V<'_>, layer: &mut Vec<El>) -> Vec<El> {
     ));
     let t = v.t;
     let note = |s: Section| s.note.map(|n| muted(n, t));
-    vec![
-        header::header(v, rescanning, layer),
+    let mut out = vec![header::header(v, rescanning, layer)];
+    out.extend(findings::verdict(v));
+    out.extend([
         section(
             "stats-findings-section",
             FINDINGS_SECTION,
@@ -294,7 +295,8 @@ fn report_view(v: &V<'_>, layer: &mut Vec<El>) -> Vec<El> {
             vec![evidence::clusters(v.s, &v.r.clusters, t)],
             t,
         ),
-    ]
+    ]);
+    out
 }
 
 fn body(s: &Ui, bp: Bp, t: &Theme, layer: &mut Vec<El>) -> Vec<El> {

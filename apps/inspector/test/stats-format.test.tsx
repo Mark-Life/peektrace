@@ -180,10 +180,13 @@ const causeRow = (over: Partial<CauseRow>): CauseRow => ({
   retryCtxTokens: 32_313_906,
   retrySec: 2660,
   retrySessions: 550,
+  retryShare: 0.012,
+  retryUsd: 41.6,
   rule: null,
   samples: [],
   secMeasured: 675,
   sessions: 914,
+  shell: true,
   tokensMeasured: 675,
   ...over,
 });
@@ -215,17 +218,26 @@ test("a per-1k rate keeps two digits and never reads 0 for a side with hits", ()
 
 /** The rule line core writes for `FIRING`. */
 const FIRING_LINE =
-  "rule in ~/.claude/CLAUDE.md:100 · still firing main 31/1k, sub 57/1k since 2026-10-15";
+  "rule in ~/.claude/CLAUDE.md:100 · still firing: You 31, subagents 57 per 1,000 calls since 2026-10-15";
+
+/** Core's split and narrow lines for `causeRow({})`. */
+const SPLIT_LINE =
+  "hits: You 125, subagents 1,363 · per 1,000 calls: You 26, subagents 53 · retries: You 41, subagents 634 · 34 exited OK · 32.3M tokens re-read (~$42)";
+
+const NARROW_LINE =
+  "1,488 hits · 675 retries in 550 sessions · 44m20s (1.2% of shell time) · 32.3M tokens re-read (~$42)";
 
 /** A cause finding as core writes it for `causeRow({})`. */
 const CAUSE_FINDING: Finding = {
   detector: "zsh-glob-flag",
-  impact: "675 retries (main 41 / sub 634) · 44m20s · 32.3M ctx tokens re-read",
+  fixIn: "Fix in: memory file",
+  impact:
+    "675 retries · 44m20s (1.2% of shell time) · 32.3M tokens re-read (~$42)",
   key: "cause:zsh-glob-flag",
   note: "quote every glob passed as a flag value",
   rule: "quote every glob passed as a flag value",
   samples: [],
-  spread: "1,488 hits (34 at exit 0) · 550 sessions with a retry",
+  spread: "1,488 commands, 1,454 exited OK · 550 sessions with a retry",
   table: "cause",
   title: "unquoted glob in a flag value",
 };
@@ -244,6 +256,7 @@ test("the findings band renders core's findings and suggested rules", () => {
 
   const html = renderToStaticMarkup(
     <Findings
+      debug={false}
       findings={text.findings}
       onDrill={() => {}}
       onShowAll={() => {}}
@@ -257,13 +270,15 @@ test("the findings band renders core's findings and suggested rules", () => {
   expect(html).toContain('data-testid="stats-copy-all"');
   expect(html).toContain('data-testid="finding-copy"');
   expect(html).toContain('data-testid="finding-prompt"');
-  expect(html).toContain("retries");
+  expect(html).toContain("Fix in: memory file");
+  expect(html).not.toContain(">zsh-glob-flag<");
   expect(html).toContain(CAUSE_FINDING.impact);
 });
 
 /** A cost finding as core writes it: no table, so no drill or prompt. */
 const COST_FINDING: Finding = {
   detector: null,
+  fixIn: null,
   impact: "~$95 of ~$129 (73.6%)",
   key: "fanout",
   note: "Spawn fewer agents per task, or give each a shorter prompt.",
@@ -284,6 +299,7 @@ test("a cost finding shows no drill, and the first three findings show before Sh
 
   const html = renderToStaticMarkup(
     <Findings
+      debug={false}
       findings={findings}
       onDrill={() => {}}
       onShowAll={() => {}}
@@ -296,13 +312,15 @@ test("a cost finding shows no drill, and the first three findings show before Sh
 
   expect(html.split('data-testid="stats-finding"').length - 1).toBe(3);
   expect(html).toContain("Show 1 more");
-  expect(html).toContain(">cost<");
+  // A cost card names no fix place; only the two cause cards do.
+  expect(html.split("Fix in: memory file").length - 1).toBe(2);
   expect(html.split("All calls").length - 1).toBe(2);
 });
 
 test("causes a rule stopped sit in a collapsed Working list", () => {
   const html = renderToStaticMarkup(
     <Findings
+      debug={false}
       findings={[CAUSE_FINDING]}
       onDrill={() => {}}
       onShowAll={() => {}}
@@ -322,6 +340,7 @@ test("causes a rule stopped sit in a collapsed Working list", () => {
 test("no finding says so in core's words", () => {
   const html = renderToStaticMarkup(
     <Findings
+      debug={false}
       findings={[]}
       onDrill={() => {}}
       onShowAll={() => {}}
@@ -338,44 +357,54 @@ test("no finding says so in core's words", () => {
 test("the cause table renders its rows, and the open one shows the rule check", () => {
   const html = renderToStaticMarkup(
     <CauseTable
+      debug={false}
+      totals={report({ fails: [], time: [] }).causeTotals}
       onSelect={() => {}}
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey="cause:zsh-glob-flag"
-      text={statsText({ ruleLines: { "cause:zsh-glob-flag": FIRING_LINE } })}
+      text={statsText({
+        causeSplit: { "cause:zsh-glob-flag": SPLIT_LINE },
+        ruleLines: { "cause:zsh-glob-flag": FIRING_LINE },
+      })}
     />
   );
 
   expect(html).toContain('data-testid="cause-row"');
   expect(html).toContain('data-testid="cause-detail"');
-  expect(html).toContain("still firing main 31/1k, sub 57/1k");
+  expect(html).toContain("still firing: You 31, subagents 57 per 1,000 calls");
   expect(html).toContain("setopt nonomatch");
   // The split and the context re-read are in the detail, whatever the width.
   expect(html).toContain('data-testid="cause-split"');
-  expect(html).toContain("hits main 125 / sub 1,363");
-  expect(html).toContain("context re-read 32.3M");
+  expect(html).toContain(SPLIT_LINE.replace("~$", "~$"));
   expect(html).toContain("--include=*.ts → --include=&#x27;*.ts&#x27; (135)");
-  // The split column says it counts hits, and the detail's rate names its
-  // window, apart from the rule line's rate since the file changed.
-  expect(html).toContain("Hits main / sub");
-  expect(html).toContain("per 1k calls in this window main 26 / sub 53");
+  // Plain words for who made the calls; the cells carry share and price.
+  expect(html).toContain("You / subagents");
+  expect(html).toContain("44m20s · 1.2%");
+  expect(html).toContain("32.3M · ~$42");
+  expect(html).toContain("Fix in: memory file");
+  // Detector ids stay behind the debug switch.
+  expect(html).not.toContain("zsh-glob-flag · rule");
 });
 
 test("a phone reads each cause row as one wrapped summary line", () => {
   const html = renderToStaticMarkup(
     <CauseTable
+      debug={false}
+      totals={report({ fails: [], time: [] }).causeTotals}
       onSelect={() => {}}
       prompt={NO_PROMPT}
       rows={[causeRow({ rule: FIRING })]}
       selectedKey={null}
-      text={statsText({ ruleLines: { "cause:zsh-glob-flag": FIRING_LINE } })}
+      text={statsText({
+        causeNarrow: { "cause:zsh-glob-flag": NARROW_LINE },
+        ruleLines: { "cause:zsh-glob-flag": FIRING_LINE },
+      })}
     />
   );
 
   expect(html).toContain('data-testid="cause-narrow"');
-  expect(html).toContain(
-    "1,488 hits · 675 retries in 550 sessions · 44m20s · 32.3M ctx re-read"
-  );
+  expect(html).toContain(NARROW_LINE);
   expect(html).toContain(FIRING_LINE);
 });
 
@@ -386,6 +415,7 @@ const IMPACT_CLASS =
 test("a finding's impact wraps instead of running past the card", () => {
   const html = renderToStaticMarkup(
     <Findings
+      debug={false}
       findings={[CAUSE_FINDING]}
       onDrill={() => {}}
       onShowAll={() => {}}
@@ -425,7 +455,6 @@ test("every open row and the header copy an agent prompt, each named for its row
     ruleLines: { [cause.key]: FIRING_LINE },
   });
 
-  const r = report({ causes: [cause], fails: [fail], text, time: [time] });
   const prompt = promptsOf(text);
 
   const html = [
@@ -437,12 +466,13 @@ test("every open row and the header copy an agent prompt, each named for its row
         onDays={() => {}}
         onRescan={() => {}}
         prompt={prompt({ table: "report" })}
-        report={r}
         rescanning={false}
       />
     ),
     renderToStaticMarkup(
       <CauseTable
+        debug={false}
+        totals={report({ fails: [], time: [] }).causeTotals}
         onSelect={() => {}}
         prompt={prompt}
         rows={[cause]}
@@ -452,6 +482,7 @@ test("every open row and the header copy an agent prompt, each named for its row
     ),
     renderToStaticMarkup(
       <FailTable
+        debug={false}
         onSelect={() => {}}
         prompt={prompt}
         rows={[fail]}
@@ -492,6 +523,7 @@ test("every open row and the header copy an agent prompt, each named for its row
 test("a closed row renders no prompt button", () => {
   const html = renderToStaticMarkup(
     <FailTable
+      debug={false}
       onSelect={() => {}}
       prompt={() => "Goal: x"}
       rows={[failRow({ key: "scan:tsc" })]}

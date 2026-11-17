@@ -3,7 +3,7 @@
 use super::causes::CauseKind;
 use super::rules::{RuleCheck, Split};
 use crate::js::json_out::Writer;
-use crate::stats::accumulate::{SampleRef, write_samples};
+use crate::stats::accumulate::{CorpusSummary, SampleRef, write_samples};
 use crate::stats::schema::{CauseId, WriteExt};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -32,6 +32,15 @@ pub struct CauseRow {
     pub sessions: f64,
     pub projects: f64,
     pub retry_sec: f64,
+    /// Every pair's failed call was a shell command, so its time is a share
+    /// of shell time; otherwise of all tool time.
+    pub shell: bool,
+    /// `retry_sec` over shell time, or over tool time when not `shell`.
+    pub retry_share: f64,
+    /// Re-read tokens priced at each session's own model; approximate.
+    pub retry_usd: Option<f64>,
+    /// Re-read tokens by transcript, for [`Self::retry_usd`]; not written.
+    pub ctx_by_sid: Vec<(String, f64)>,
     pub sec_measured: f64,
     pub retry_ctx_tokens: f64,
     pub tokens_measured: f64,
@@ -73,6 +82,12 @@ impl CauseRow {
         ] {
             w.key(k).num(v);
         }
+        w.key("shell").bool(self.shell);
+        w.key("retryShare").num(self.retry_share);
+        match self.retry_usd {
+            Some(usd) => w.key("retryUsd").num(usd),
+            None => w.key("retryUsd").null(),
+        }
         w.key("per1k");
         self.per1k.write(w);
         w.key("details").begin_arr();
@@ -111,6 +126,78 @@ impl CauseRow {
             w.end_obj();
         }
         w.end_arr();
+        w.end_obj();
+    }
+}
+
+/// Seconds over the time they are a share of: shell time for shell causes,
+/// all tool time otherwise.
+pub fn retry_share(sec: f64, shell: bool, corpus: &CorpusSummary) -> f64 {
+    let of = if shell {
+        corpus.bash_sec
+    } else {
+        corpus.tool_sec
+    };
+    if of > 0.0 { sec / of } else { 0.0 }
+}
+
+/// Every cause added up: what the verdict and the totals row state.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct CauseTotals {
+    pub hits: f64,
+    pub pairs: f64,
+    pub retry_sec: f64,
+    /// True when every cause with a pair is a shell cause.
+    pub shell: bool,
+    pub retry_share: f64,
+    pub retry_ctx_tokens: f64,
+    /// `None` when no cause could be priced.
+    pub retry_usd: Option<f64>,
+    /// Pairs that are read-backs of large output, not failures.
+    pub non_failing_pairs: f64,
+    /// Pairs with no named cause, so no fix.
+    pub unclassified_pairs: f64,
+}
+
+impl CauseTotals {
+    pub fn of(rows: &[CauseRow], corpus: &CorpusSummary) -> Self {
+        let sum = |f: fn(&CauseRow) -> f64| rows.iter().map(f).sum::<f64>();
+        let shell = rows.iter().filter(|r| r.pairs > 0.0).all(|r| r.shell);
+        let retry_sec = sum(|r| r.retry_sec);
+        let priced: Vec<f64> = rows.iter().filter_map(|r| r.retry_usd).collect();
+        Self {
+            hits: sum(|r| r.hits),
+            pairs: sum(|r| r.pairs),
+            retry_sec,
+            shell,
+            retry_share: retry_share(retry_sec, shell, corpus),
+            retry_ctx_tokens: sum(|r| r.retry_ctx_tokens),
+            retry_usd: (!priced.is_empty()).then(|| priced.iter().sum()),
+            non_failing_pairs: sum(|r| if r.failing { 0.0 } else { r.pairs }),
+            unclassified_pairs: sum(|r| {
+                if r.cause == CauseId::Unclassified {
+                    r.pairs
+                } else {
+                    0.0
+                }
+            }),
+        }
+    }
+
+    pub fn write(&self, w: &mut Writer) {
+        w.begin_obj();
+        w.key("hits").num(self.hits);
+        w.key("pairs").num(self.pairs);
+        w.key("retrySec").num(self.retry_sec);
+        w.key("shell").bool(self.shell);
+        w.key("retryShare").num(self.retry_share);
+        w.key("retryCtxTokens").num(self.retry_ctx_tokens);
+        match self.retry_usd {
+            Some(usd) => w.key("retryUsd").num(usd),
+            None => w.key("retryUsd").null(),
+        }
+        w.key("nonFailingPairs").num(self.non_failing_pairs);
+        w.key("unclassifiedPairs").num(self.unclassified_pairs);
         w.end_obj();
     }
 }

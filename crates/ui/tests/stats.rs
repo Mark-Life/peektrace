@@ -150,7 +150,7 @@ fn report_header_tables_and_findings() {
     );
     assert!(has_text(
         &rt,
-        "3 retries (main 2 / sub 1) · 21s · 6.6K ctx tokens re-read"
+        "3 retries · 21s (2.8% of shell time) · 6.6K tokens re-read (<$1)"
     ));
     assert!(!keys_with(&rt, "cause-row:").is_empty());
     assert_eq!(rt.state.title(), "Peektrace");
@@ -171,7 +171,7 @@ fn an_open_cause_row_shows_its_split_rule_and_prompt() {
     );
     assert!(has_text(
         &rt,
-        "hits main 2 / sub 1 · per 1k calls in this window main"
+        "hits: You 2, subagents 1 · per 1,000 calls: You 105, subagents 250"
     ));
     assert!(has_text(&rt, "rule in ~/.claude/CLAUDE.md:3"));
     assert!(

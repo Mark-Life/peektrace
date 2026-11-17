@@ -16,11 +16,12 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import type { FailRow } from "@workspace/view-core/api-types.gen";
-import { STATS_EMPTY } from "@workspace/view-core/constants.gen";
+import { STATS_DATA, STATS_EMPTY } from "@workspace/view-core/constants.gen";
 import { Fragment } from "react";
 
 import { n } from "../../lib/stats-format";
 import type { PromptFor } from "../../lib/stats-format";
+import { HeadTip } from "./head-tip";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
@@ -58,7 +59,9 @@ export const FailTable = ({
   onSelect,
   prompt,
   selectedKey,
+  debug,
 }: {
+  readonly debug: boolean;
   readonly onSelect: (key: string) => void;
   readonly prompt: PromptFor;
   readonly rows: readonly FailRow[];
@@ -81,7 +84,9 @@ export const FailTable = ({
             <TableHead>Where</TableHead>
             <TableHead className="text-right">Sessions</TableHead>
             <TableHead className="text-right">Calls</TableHead>
-            <TableHead className="text-right">Flagged</TableHead>
+            <TableHead className="text-right">
+              <HeadTip label="Flagged" tip={STATS_DATA.columns.flagged} />
+            </TableHead>
             <TableHead className="hidden text-right lg:table-cell">
               Projects
             </TableHead>
@@ -104,7 +109,7 @@ export const FailTable = ({
                   <div className="truncate text-sm font-medium">
                     {row.label}
                   </div>
-                  {row.detector === null ? null : (
+                  {!debug || row.detector === null ? null : (
                     <Badge className="mt-1 font-mono" variant="outline">
                       {row.detector}
                     </Badge>

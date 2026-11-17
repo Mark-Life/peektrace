@@ -3,18 +3,16 @@
 
 use peektrace_protocol::DrillTable;
 use peektrace_protocol::stats::CauseRowView;
-use peektrace_protocol::stats_text::EMPTY_CAUSES;
+use peektrace_protocol::stats_text::{EMPTY_CAUSES, StatsText, fix_in_of};
 use rune::{Align, Color, El, col, row, text};
 
 use super::copy::{copy_button, prompt_button};
 use super::links::links;
 use super::{
-    V, amber, amber_text, emerald, emerald_text, mono, muted, outline_badge, secondary_badge,
-    small_button,
+    V, amber, amber_text, emerald, emerald_text, mono, muted, secondary_badge, small_button,
 };
 use crate::model::stats::rows::{
-    cause_badge, cause_cells, cause_learned, cause_named, cause_narrow, cause_pairs, cause_split,
-    match_lines,
+    cause_cells, cause_learned, cause_named, cause_pairs, match_lines,
 };
 use crate::state::Ui;
 use crate::theme::{Theme, ty};
@@ -43,7 +41,7 @@ const COLUMNS: [Column; 6] = [
         right: true,
     },
     Column {
-        head: "Hits main / sub",
+        head: "You / subagents",
         w: 128.0,
         from: 2,
         right: true,
@@ -55,7 +53,7 @@ const COLUMNS: [Column; 6] = [
         right: true,
     },
     Column {
-        head: "Context re-read",
+        head: "Re-read",
         w: 128.0,
         from: 2,
         right: true,
@@ -151,6 +149,15 @@ fn is_fixed(v: &V<'_>, row: &CauseRowView) -> bool {
         .is_some_and(|x| x.working.iter().any(|w| w.key == row.key))
 }
 
+/// One cause's line from core's text, when the server sent text.
+fn text_line(
+    v: &V<'_>,
+    pick: fn(&StatsText) -> &std::collections::BTreeMap<String, String>,
+    key: &str,
+) -> Option<String> {
+    pick(v.text?).get(key).cloned()
+}
+
 fn rule_line<'a>(v: &V<'a>, row: &CauseRowView) -> Option<&'a str> {
     v.text?.rule_lines.get(&row.key).map(String::as_str)
 }
@@ -172,15 +179,14 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
             row()
                 .w_full()
                 .gap(4.0)
-                .child(outline_badge(cause_badge(&r.key), true, t))
-                .child(secondary_badge(r.kind.clone(), t)),
+                .children(fix_in_of(&r.kind).map(|place| secondary_badge(place, t))),
         );
     if !v.bp.md {
         let mut narrow = col()
             .key(format!("cause-narrow:{}", r.key))
             .w_full()
             .gap(4.0)
-            .child(mono(cause_narrow(r), t));
+            .children(text_line(v, |x| &x.cause_narrow, &r.key).map(|l| mono(l, t)));
         if let Some(l) = rule_line(v, r) {
             narrow = narrow.child(rule_badge(&r.key, l, is_fixed(v, r), v.t));
         }
@@ -301,7 +307,10 @@ fn detail(v: &V<'_>, r: &CauseRowView, layer: &mut Vec<El>) -> El {
                 .children(match_lines(r).into_iter().map(|m| mono(m, t))),
         );
     }
-    c = c.child(mono(cause_split(r), t).key(format!("cause-split:{}", r.key)));
+    c = c.children(
+        text_line(v, |x| &x.cause_split, &r.key)
+            .map(|l| mono(l, t).key(format!("cause-split:{}", r.key))),
+    );
     c = c.children(cause_learned(r).map(|l| mono(l, t)));
     c = c.children(cause_named(r).map(|l| mono(l, t)));
     let pairs = cause_pairs(r);

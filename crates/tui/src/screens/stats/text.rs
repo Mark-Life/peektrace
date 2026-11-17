@@ -11,7 +11,7 @@ use peektrace_core::stats::findings::{
     Finding, FindingFormat, NO_RULE, cause_impact_with, cause_note, cause_spread_with,
     fail_spread_with, findings_with, time_note_with, time_spread_with, working_with,
 };
-use peektrace_core::stats::format::{hms, percent, short_id};
+use peektrace_core::stats::format::{hms, percent, shape_label, short_id};
 use peektrace_core::stats::report::StatsReport;
 use peektrace_core::stats::schema::{DETECTOR_VERSION, Job, STATS_SCHEMA_VERSION};
 
@@ -107,7 +107,14 @@ fn wait_lines(r: &StatsReport) -> Vec<String> {
     let shapes = w
         .by_shape
         .iter()
-        .map(|s| format!("{} {}/{}", s.key.as_str(), fmt(s.calls), hms(s.total_sec)))
+        .map(|s| {
+            format!(
+                "{} {}/{}",
+                shape_label(s.key),
+                fmt(s.calls),
+                hms(s.total_sec)
+            )
+        })
         .collect::<Vec<_>>()
         .join(" · ");
     vec![
@@ -288,6 +295,17 @@ pub fn scope_text(
         parts.push("● stale · R".to_owned());
     }
     parts.join(" · ")
+}
+
+/// The line the screen opens with: what avoidable retries cost, and what
+/// the first findings cover.
+pub fn verdict_line(r: &StatsReport, findings: &[Finding]) -> String {
+    peektrace_core::stats::verdict::verdict_with(
+        r,
+        findings,
+        peektrace_core::stats::verdict::FINDINGS_VISIBLE,
+        &FORMAT,
+    )
 }
 
 pub fn corpus_line(r: &StatsReport, wide: bool) -> String {

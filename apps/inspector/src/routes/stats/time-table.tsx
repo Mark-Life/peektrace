@@ -18,11 +18,12 @@ import {
 } from "@workspace/ui/components/table";
 import { cn } from "@workspace/ui/lib/utils";
 import type { StatsText, TimeRow } from "@workspace/view-core/api-types.gen";
-import { STATS_EMPTY } from "@workspace/view-core/constants.gen";
+import { STATS_DATA, STATS_EMPTY } from "@workspace/view-core/constants.gen";
 import { Fragment } from "react";
 
 import { coPresentNote, hms, n, pct } from "../../lib/stats-format";
 import type { PromptFor } from "../../lib/stats-format";
+import { HeadTip } from "./head-tip";
 import { PromptButton } from "./prompt-button";
 import { SessionLinks } from "./session-links";
 
@@ -93,10 +94,15 @@ export const TimeTable = ({
           <TableRow>
             <TableHead>Job</TableHead>
             <TableHead className="text-right">Time</TableHead>
-            <TableHead className="text-right">Share</TableHead>
+            <TableHead className="text-right">
+              <HeadTip label="Share" tip={STATS_DATA.columns.share} />
+            </TableHead>
             <TableHead className="text-right">Runs</TableHead>
             <TableHead className="hidden text-right lg:table-cell">
-              In other jobs
+              <HeadTip
+                label="In other jobs"
+                tip={STATS_DATA.columns.otherJobs}
+              />
             </TableHead>
             <TableHead className="hidden text-right md:table-cell">
               Median
