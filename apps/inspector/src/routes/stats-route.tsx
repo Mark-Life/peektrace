@@ -31,7 +31,7 @@ import {
   useStatsRefresh,
   useStatsReport,
 } from "../lib/stats-atoms";
-import { promptsOf, samplesOf } from "../lib/stats-format";
+import { promptsOf } from "../lib/stats-format";
 import { CauseTable } from "./stats/cause-table";
 import { DrillPanel } from "./stats/drill-panel";
 import { Clusters, Waiting } from "./stats/evidence";
@@ -165,9 +165,9 @@ const ReportView = ({
             setShowAllFindings(true);
           }}
           prompt={prompt}
-          samples={(finding) => samplesOf(report, finding.table, finding.key)}
           showAll={showAllFindings}
           suggested={text.suggested}
+          working={text.working}
         />
       </section>
 

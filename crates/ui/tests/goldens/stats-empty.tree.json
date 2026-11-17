@@ -286,27 +286,27 @@
     },
     {
       "key": "trigger",
-      "label": "8 caveats travel with these numbers",
+      "label": "How these numbers are measured (8 notes)",
       "rect": [280, 192, 1136, 32],
       "role": "button"
     },
     {
-      "rect": [280, 196, 253, 24],
+      "rect": [280, 196, 296, 24],
       "role": "group"
     },
     {
       "key": "title",
-      "rect": [280, 198, 221, 20],
+      "rect": [280, 198, 264, 20],
       "role": "text",
-      "text": "8 caveats travel with these numbers"
+      "text": "How these numbers are measured (8 notes)"
     },
     {
       "key": "arrow",
-      "rect": [509, 196, 24, 24],
+      "rect": [552, 196, 24, 24],
       "role": "group"
     },
     {
-      "rect": [514, 201, 14, 14],
+      "rect": [557, 201, 14, 14],
       "role": "icon"
     },
     {
@@ -324,9 +324,13 @@
       "text": "Flagged findings"
     },
     {
-      "rect": [416, 261, 333, 15],
+      "rect": [416, 261, 368, 15],
       "role": "text",
-      "text": "ranked by cheapest fix first, then by each table's own impact"
+      "text": "ranked by largest share of the spend, then hits a fix would still save"
+    },
+    {
+      "rect": [280, 288, 1136, 18],
+      "role": "group"
     },
     {
       "key": "stats-no-findings",

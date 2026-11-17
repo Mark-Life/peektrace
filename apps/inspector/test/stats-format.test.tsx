@@ -224,6 +224,7 @@ const CAUSE_FINDING: Finding = {
   key: "cause:zsh-glob-flag",
   note: "quote every glob passed as a flag value",
   rule: "quote every glob passed as a flag value",
+  samples: [],
   spread: "1,488 hits (34 at exit 0) · 550 sessions with a retry",
   table: "cause",
   title: "unquoted glob in a flag value",
@@ -247,7 +248,7 @@ test("the findings band renders core's findings and suggested rules", () => {
       onDrill={() => {}}
       onShowAll={() => {}}
       prompt={promptsOf(text)}
-      samples={() => []}
+      working={[]}
       showAll={false}
       suggested={text.suggested}
     />
@@ -260,6 +261,64 @@ test("the findings band renders core's findings and suggested rules", () => {
   expect(html).toContain(CAUSE_FINDING.impact);
 });
 
+/** A cost finding as core writes it: no table, so no drill or prompt. */
+const COST_FINDING: Finding = {
+  detector: null,
+  impact: "~$95 of ~$129 (73.6%)",
+  key: "fanout",
+  note: "Spawn fewer agents per task, or give each a shorter prompt.",
+  rule: null,
+  samples: [],
+  spread: "43 agent transcripts from 8 sessions",
+  table: null,
+  title: "Subagents and workflow agents",
+};
+
+test("a cost finding shows no drill, and the first three findings show before Show more", () => {
+  const findings = [
+    COST_FINDING,
+    CAUSE_FINDING,
+    { ...CAUSE_FINDING, key: "cause:b" },
+    { ...CAUSE_FINDING, key: "cause:c" },
+  ];
+
+  const html = renderToStaticMarkup(
+    <Findings
+      findings={findings}
+      onDrill={() => {}}
+      onShowAll={() => {}}
+      prompt={NO_PROMPT}
+      showAll={false}
+      suggested={[]}
+      working={[]}
+    />
+  );
+
+  expect(html.split('data-testid="stats-finding"').length - 1).toBe(3);
+  expect(html).toContain("Show 1 more");
+  expect(html).toContain(">cost<");
+  expect(html.split("All calls").length - 1).toBe(2);
+});
+
+test("causes a rule stopped sit in a collapsed Working list", () => {
+  const html = renderToStaticMarkup(
+    <Findings
+      findings={[CAUSE_FINDING]}
+      onDrill={() => {}}
+      onShowAll={() => {}}
+      prompt={NO_PROMPT}
+      showAll={false}
+      suggested={[]}
+      working={[{ ...CAUSE_FINDING, key: "cause:zsh-glob-path" }]}
+    />
+  );
+
+  expect(html).toContain('data-testid="stats-working"');
+  expect(html).toContain("Working (1)");
+  // Collapsed: the stopped cause's card is not rendered until opened.
+  expect(html).not.toContain('data-testid="stats-working-finding"');
+});
+
 test("no finding says so in core's words", () => {
   const html = renderToStaticMarkup(
     <Findings
@@ -267,7 +326,7 @@ test("no finding says so in core's words", () => {
       onDrill={() => {}}
       onShowAll={() => {}}
       prompt={NO_PROMPT}
-      samples={() => []}
+      working={[]}
       showAll={false}
       suggested={[]}
     />
@@ -331,7 +390,7 @@ test("a finding's impact wraps instead of running past the card", () => {
       onDrill={() => {}}
       onShowAll={() => {}}
       prompt={NO_PROMPT}
-      samples={() => []}
+      working={[]}
       showAll={false}
       suggested={[]}
     />

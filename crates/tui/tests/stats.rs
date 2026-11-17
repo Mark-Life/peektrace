@@ -6,11 +6,14 @@ mod common;
 use common::{NOW_MS, config, key, text};
 use peektrace_core::Agent;
 use peektrace_core::stats::accumulate::{DrillHit, DrillTable, SampleRef};
+use peektrace_core::stats::detectors::causes::CauseKind;
 use peektrace_core::stats::detectors::failures::FailRow;
+use peektrace_core::stats::detectors::retries::CauseRow;
+use peektrace_core::stats::detectors::rules::Split;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::waiting::WaitShapeRow;
 use peektrace_core::stats::report::{DrillResult, StatsReport};
-use peektrace_core::stats::schema::{Job, Kind, WaitShape};
+use peektrace_core::stats::schema::{CauseId, Job, Kind, WaitShape};
 use peektrace_tui::backend::{Backend, Request, Response};
 use peektrace_tui::runtime::settle;
 use peektrace_tui::theme::ColorMode;
@@ -76,6 +79,7 @@ fn fat() -> StatsReport {
         key: "k".into(),
         label: "a failing thing".into(),
         r#where: "Bash".into(),
+        piped: 0.0,
         rows: 3.0,
         sessions: 2.0,
         projects: 1.0,
@@ -107,6 +111,7 @@ fn fail(key: &str, label: &str, edit: impl FnOnce(&mut FailRow)) -> FailRow {
         key: key.into(),
         label: label.into(),
         r#where: "Bash".into(),
+        piped: 0.0,
         rows: 0.0,
         sessions: 0.0,
         projects: 0.0,
@@ -282,8 +287,34 @@ fn no_escape_sequence_from_a_transcript_reaches_the_drill() {
 #[test]
 fn a_finding_title_never_runs_into_a_wide_impact() {
     let mut r = fat();
-    r.fails[0].label = "shell output too large: persisted".into();
-    r.fails[0].sessions = 123_456_789.0;
+    let none = Split::default();
+    r.causes = vec![CauseRow {
+        key: "cause:zsh-glob-flag".into(),
+        cause: CauseId::ZshGlobFlag,
+        kind: CauseKind::Rule,
+        label: "shell output too large: persisted".into(),
+        fix: Some("quote the glob".into()),
+        failing: true,
+        hits: 5.0,
+        live_hits: None,
+        flagged: 0.0,
+        hits_by: none,
+        pairs: 0.0,
+        pairs_by: none,
+        retry_sessions: 0.0,
+        sessions: 123_456_789.0,
+        projects: 1.0,
+        retry_sec: 0.0,
+        sec_measured: 0.0,
+        retry_ctx_tokens: 0.0,
+        tokens_measured: 0.0,
+        per1k: none,
+        details: Vec::new(),
+        diffs: Vec::new(),
+        rule: None,
+        samples: Vec::new(),
+        pair_samples: Vec::new(),
+    }];
     let frame = open(r, 160, 48, &[]);
     let row = frame
         .lines()

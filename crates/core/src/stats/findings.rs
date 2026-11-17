@@ -1,9 +1,11 @@
 //! What a cold start leads with: rows that name a change, with what they
-//! cost and how far they reach.
+//! cost and how far they reach. A cause its rule already stopped moves to a
+//! separate "working" list instead of ranking with live ones.
 
 use super::accumulate::{DrillTable, SampleRef};
+use super::cost_findings::cost_findings;
 use super::detectors::causes::CauseKind;
-use super::detectors::failures::FailRow;
+use super::detectors::failures::{FailRow, PIPED_EXIT_CODE};
 use super::detectors::retries::CauseRow;
 use super::detectors::rules::{RuleCheck, Split};
 use super::detectors::timing::TimeRow;
@@ -42,8 +44,9 @@ pub struct Finding {
     pub title: String,
     /// The memory line a cause suggests ([`suggested_rule_of`]); `None` for other rows.
     pub rule: Option<String>,
-    /// The table the row came from: cause, fail or time.
-    pub table: DrillTable,
+    /// The table the row came from; `None` for a cost finding, which has no
+    /// drill.
+    pub table: Option<DrillTable>,
     pub samples: Vec<SampleRef>,
 }
 
@@ -61,7 +64,9 @@ pub fn cause_spread(row: &CauseRow) -> String {
 
 pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
     let exit0 = row.hits - row.flagged;
-    let hits = if exit0 > 0.0 {
+    let hits = if let Some(split) = rule_split(row, f) {
+        split
+    } else if exit0 > 0.0 {
         format!(
             "{} hits ({} at exit 0)",
             (f.count)(row.hits),
@@ -69,6 +74,12 @@ pub fn cause_spread_with(row: &CauseRow, f: &FindingFormat) -> String {
         )
     } else {
         format!("{} hits", (f.count)(row.hits))
+    };
+    let fixed = row.live_hits.map_or(0.0, |live| row.hits - live);
+    let hits = if fixed > 0.0 && row.rule.is_none() {
+        format!("{hits}, {} from binaries installed since", (f.count)(fixed))
+    } else {
+        hits
     };
     let retries = if row.failing {
         format!(" · {} sessions with a retry", (f.count)(row.retry_sessions))
@@ -130,6 +141,75 @@ pub fn rule_state(rule: &RuleCheck) -> RuleState {
     } else {
         RuleState::Firing
     }
+}
+
+const MONTHS: [&str; 12] = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+/// `Oct 21` from an ISO stamp.
+fn short_day(iso: &str) -> String {
+    let month = iso
+        .get(5..7)
+        .and_then(|m| m.parse::<usize>().ok())
+        .and_then(|m| MONTHS.get(m.wrapping_sub(1)));
+    let day = iso.get(8..10).and_then(|d| d.parse::<u32>().ok());
+    match (month, day) {
+        (Some(m), Some(d)) => format!("{m} {d}"),
+        _ => crate::js::units::slice(iso, 0, 10),
+    }
+}
+
+/// `72 hits up to the rule (Oct 21), 0 since`, when the rule has a date;
+/// hits with no day are named apart.
+pub fn rule_split(row: &CauseRow, f: &FindingFormat) -> Option<String> {
+    let rule = row.rule.as_ref()?;
+    let day = short_day(rule.since_iso.as_deref()?);
+    let none = undated(row, rule);
+    let tail = if none > 0.0 {
+        format!(", {} with no date", (f.count)(none))
+    } else {
+        String::new()
+    };
+    Some(format!(
+        "{} hits up to the rule ({day}), {} since{tail}",
+        (f.count)(rule.hits_through.total()),
+        (f.count)(rule.hits_after.total())
+    ))
+}
+
+/// Hits with no day: neither before nor after the rule.
+fn undated(row: &CauseRow, rule: &RuleCheck) -> f64 {
+    (row.hits - rule.hits_through.total() - rule.hits_after.total()).max(0.0)
+}
+
+/// Hits a fix could still save: those after the rule's day plus any with no
+/// day, or, with no dated rule, the hits whose culprit is not fixed yet.
+pub fn live_hits(row: &CauseRow) -> f64 {
+    match &row.rule {
+        Some(r) if r.since_iso.is_some() && rule_state(r) != RuleState::Unmeasured => {
+            r.hits_after.total() + undated(row, r)
+        }
+        _ => row.live_hits.unwrap_or(row.hits),
+    }
+}
+
+/// Hits the rule's calls since would have shown at the window's rate, below
+/// which "quiet" proves nothing.
+const QUIET_EVIDENCE: f64 = 3.0;
+
+/// The rule stopped the cause: no hit anywhere since its day, over enough
+/// calls that the old rate would have shown some.
+pub fn is_working(row: &CauseRow) -> bool {
+    row.rule.as_ref().is_some_and(|r| {
+        let expected = (row.per1k.main * r.calls_since.main
+            + row.per1k.nested * r.calls_since.nested)
+            / 1000.0;
+        r.since_iso.is_some()
+            && rule_state(r) == RuleState::Quiet
+            && r.hits_after.total() + undated(row, r) == 0.0
+            && expected >= QUIET_EVIDENCE
+    })
 }
 
 /// `rule in <path>:<line> · quiet since D`, and the other two states.
@@ -243,78 +323,122 @@ pub fn time_note(row: &TimeRow) -> Option<String> {
 }
 
 pub fn time_note_with(row: &TimeRow, f: &FindingFormat) -> Option<String> {
-    if row.capped_runs > 0.0 {
-        return Some(format!(
-            "{} of {} runs returned at a harness ceiling ({} of {}): these seconds are a floor",
+    let capped = (row.capped_runs > 0.0).then(|| {
+        format!(
+            "{} of {} runs hit the agent's tool time limit ({} of {}), so this time is a floor",
             (f.count)(row.capped_runs),
             (f.count)(row.runs),
             (f.hms)(row.capped_sec),
             (f.hms)(row.total_sec)
-        ));
-    }
-    (row.bg_runs > 0.0).then(|| {
+        )
+    });
+    let bg = (row.bg_runs > 0.0).then(|| {
         format!(
-            "{} runs were backgrounded and charged only the seconds they took, which understates the wait they started",
+            "{} runs went to the background and count only the seconds they ran",
             (f.count)(row.bg_runs)
         )
+    });
+    let notes: Vec<String> = capped.into_iter().chain(bg).collect();
+    (!notes.is_empty()).then(|| notes.join(". "))
+}
+
+fn cause_finding(row: &CauseRow, note: String, f: &FindingFormat) -> Finding {
+    Finding {
+        detector: Some(row.cause.as_str().to_owned()),
+        impact: cause_impact_with(row, f),
+        key: row.key.clone(),
+        note,
+        spread: cause_spread_with(row, f),
+        title: row.label.clone(),
+        rule: suggested_rule_of(row).map(str::to_owned),
+        table: Some(DrillTable::Cause),
+        samples: row.samples.clone(),
+    }
+}
+
+/// Fewest piped calls worth a finding.
+const PIPED_MIN: f64 = 3.0;
+const PIPED_LABELS: usize = 3;
+
+/// Every fail row whose output was piped, folded into one change.
+fn piped_finding(report: &StatsReport, f: &FindingFormat) -> Option<Finding> {
+    let mut rows: Vec<&FailRow> = report
+        .fails
+        .iter()
+        .filter(|r| r.detector.as_deref() == Some(PIPED_EXIT_CODE))
+        .collect();
+    let piped: f64 = rows.iter().map(|r| r.piped).sum();
+    if piped < PIPED_MIN {
+        return None;
+    }
+    rows.sort_by(|a, b| super::rank::desc(a.piped, b.piped));
+    let top = rows.first()?;
+    let labels: Vec<&str> = rows
+        .iter()
+        .take(PIPED_LABELS)
+        .map(|r| r.label.as_str())
+        .collect();
+    Some(Finding {
+        detector: Some(PIPED_EXIT_CODE.to_owned()),
+        impact: format!("{} calls", (f.count)(piped)),
+        key: top.key.clone(),
+        note: "These commands printed a failure but exited 0, because the exit code came from head, tail or grep at the end of the pipe. Add `set -o pipefail`, or do not pipe test output.".to_owned(),
+        spread: format!(
+            "{} of {} failing calls piped · {}",
+            (f.count)(piped),
+            (f.count)(rows.iter().map(|r| r.rows).sum()),
+            labels.join(", ")
+        ),
+        title: "Piped output hides failed exit codes".to_owned(),
+        rule: None,
+        table: Some(DrillTable::Fail),
+        samples: top.samples.clone(),
     })
 }
 
-/// Cause findings first, then fail rows with a detector, then the other
-/// fail rows with a note, then time rows with a note.
+/// Live cause findings, most live hits first; ties keep the table's order.
+fn live_causes(report: &StatsReport, f: &FindingFormat) -> Vec<Finding> {
+    let mut rows: Vec<(&CauseRow, String)> = report
+        .causes
+        .iter()
+        .filter(|row| row.hits > 0.0 && !is_working(row))
+        .filter_map(|row| Some((row, cause_note(row)?)))
+        .collect();
+    rows.sort_by(|a, b| super::rank::desc(live_hits(a.0), live_hits(b.0)));
+    rows.into_iter()
+        .map(|(row, note)| cause_finding(row, note, f))
+        .collect()
+}
+
+/// Causes a rule already stopped, for the collapsed "working" list.
+pub fn working_with(report: &StatsReport, f: &FindingFormat) -> Vec<Finding> {
+    report
+        .causes
+        .iter()
+        .filter(|row| is_working(row))
+        .filter_map(|row| {
+            let rule = row.rule.as_ref()?;
+            Some(cause_finding(row, rule_line(rule), f))
+        })
+        .collect()
+}
+
+pub fn working_of(report: &StatsReport) -> Vec<Finding> {
+    working_with(report, &FindingFormat::CLI)
+}
+
+/// Cost findings that hold a large share of the spend, then live causes,
+/// then the piped-exit finding, then the smaller cost findings.
 pub fn findings_of(report: &StatsReport) -> Vec<Finding> {
     findings_with(report, &FindingFormat::CLI)
 }
 
 /// [`findings_of`] with a surface's own number format.
 pub fn findings_with(report: &StatsReport, f: &FindingFormat) -> Vec<Finding> {
-    let causes = report.causes.iter().filter_map(|row| {
-        let note = cause_note(row).filter(|_| row.hits > 0.0)?;
-        Some(Finding {
-            detector: Some(row.cause.as_str().to_owned()),
-            impact: cause_impact_with(row, f),
-            key: row.key.clone(),
-            note,
-            spread: cause_spread_with(row, f),
-            title: row.label.clone(),
-            rule: suggested_rule_of(row).map(str::to_owned),
-            table: DrillTable::Cause,
-            samples: row.samples.clone(),
-        })
-    });
-    let fails: Vec<Finding> = report
-        .fails
-        .iter()
-        .filter_map(|row| {
-            Some(Finding {
-                detector: row.detector.clone(),
-                impact: format!("{} sessions", (f.count)(row.sessions)),
-                key: row.key.clone(),
-                note: row.note.clone()?,
-                spread: fail_spread_with(row, f),
-                title: row.label.clone(),
-                rule: None,
-                table: DrillTable::Fail,
-                samples: row.samples.clone(),
-            })
-        })
-        .collect();
-    let times = report.time.iter().filter_map(|row| {
-        Some(Finding {
-            detector: None,
-            impact: (f.hms)(row.total_sec),
-            key: row.key.as_str().to_owned(),
-            note: time_note_with(row, f)?,
-            spread: time_spread_with(row, report.corpus.bash_sec, f),
-            title: row.label.to_owned(),
-            rule: None,
-            table: DrillTable::Time,
-            samples: row.samples.clone(),
-        })
-    });
-    causes
-        .chain(fails.iter().filter(|f| f.detector.is_some()).cloned())
-        .chain(fails.iter().filter(|f| f.detector.is_none()).cloned())
-        .chain(times)
+    let (lead, rest) = cost_findings(report, f);
+    lead.into_iter()
+        .chain(live_causes(report, f))
+        .chain(piped_finding(report, f))
+        .chain(rest)
         .collect()
 }

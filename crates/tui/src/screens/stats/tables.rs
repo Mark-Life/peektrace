@@ -101,8 +101,9 @@ pub fn findings_band(
 ) {
     let content = cols.content;
     if shown == 0 {
+        let verb = if findings.len() == 1 { "names" } else { "name" };
         let note = format!(
-            "{} name a change · f to open",
+            "{} {verb} a change · f to open",
             plural(findings.len(), "row")
         );
         pane_title(r, focused, "FIX FIRST", &note, content);

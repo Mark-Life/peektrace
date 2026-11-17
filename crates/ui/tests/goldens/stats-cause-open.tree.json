@@ -145,12 +145,12 @@
     },
     {
       "key": "stats-route",
-      "rect": [256, 44, 1184, 3143],
+      "rect": [256, 44, 1184, 2909],
       "role": "group"
     },
     {
       "key": "stats-col",
-      "rect": [280, 68, 1136, 3095],
+      "rect": [280, 68, 1136, 2861],
       "role": "group"
     },
     {
@@ -286,32 +286,32 @@
     },
     {
       "key": "trigger",
-      "label": "10 caveats travel with these numbers",
+      "label": "How these numbers are measured (9 notes)",
       "rect": [280, 192, 1136, 32],
       "role": "button"
     },
     {
-      "rect": [280, 196, 259, 24],
+      "rect": [280, 196, 296, 24],
       "role": "group"
     },
     {
       "key": "title",
-      "rect": [280, 198, 227, 20],
+      "rect": [280, 198, 264, 20],
       "role": "text",
-      "text": "10 caveats travel with these numbers"
+      "text": "How these numbers are measured (9 notes)"
     },
     {
       "key": "arrow",
-      "rect": [515, 196, 24, 24],
+      "rect": [552, 196, 24, 24],
       "role": "group"
     },
     {
-      "rect": [520, 201, 14, 14],
+      "rect": [557, 201, 14, 14],
       "role": "icon"
     },
     {
       "key": "stats-findings-section",
-      "rect": [280, 256, 1136, 985],
+      "rect": [280, 256, 1136, 751],
       "role": "group"
     },
     {
@@ -324,21 +324,21 @@
       "text": "Flagged findings"
     },
     {
-      "rect": [416, 261, 333, 15],
+      "rect": [416, 261, 368, 15],
       "role": "text",
-      "text": "ranked by cheapest fix first, then by each table's own impact"
+      "text": "ranked by largest share of the spend, then hits a fix would still save"
     },
     {
       "key": "stats-findings",
-      "rect": [280, 288, 1136, 953],
+      "rect": [280, 288, 1136, 719],
       "role": "group"
     },
     {
-      "rect": [280, 288, 1136, 760],
+      "rect": [280, 288, 1136, 526],
       "role": "group"
     },
     {
-      "rect": [280, 288, 1136, 282],
+      "rect": [280, 288, 1136, 297],
       "role": "group"
     },
     {
@@ -528,7 +528,7 @@
     },
     {
       "key": "stats-finding:cause:cause:command-not-found",
-      "rect": [854, 288, 562, 282],
+      "rect": [854, 288, 562, 297],
       "role": "group"
     },
     {
@@ -574,2892 +574,2477 @@
       "text": "rule in ~/.claude/CLAUDE.md:3 · still firing main 105/1k, sub 250/1k since 2026-05-28: install the binaries on this host, or fix PATH (~/.zshenv for zsh (every zsh reads it); ~/.bashrc for bash under Claude Code, whose shell snapshot captures it; other agents' bash reads no rc file, so export PATH before starting them): a memory line cannot add a binary"
     },
     {
-      "rect": [866, 421, 538, 15],
+      "rect": [866, 421, 538, 30],
       "role": "text",
-      "text": "3 hits · 2 sessions with a retry · 1 projects · hits main 2 / sub 1"
+      "text": "0 hits up to the rule (May 28), 3 since · 2 sessions with a retry · 1 projects · hits main 2 / sub 1"
     },
     {
-      "rect": [866, 444, 538, 113],
+      "rect": [866, 459, 538, 113],
       "role": "group"
     },
     {
       "key": "stats-session-links",
-      "rect": [866, 444, 538, 77],
+      "rect": [866, 459, 538, 77],
       "role": "group"
     },
     {
-      "rect": [866, 444, 538, 58],
+      "rect": [866, 459, 538, 58],
       "role": "group"
     },
     {
-      "rect": [866, 444, 348, 28],
+      "rect": [866, 459, 348, 28],
       "role": "group"
     },
     {
       "key": "stats-session-link:agent-a1:2",
       "label": "-Users-demo-stats/77777777",
-      "rect": [866, 446, 303, 24],
+      "rect": [866, 461, 303, 24],
       "role": "link"
     },
     {
-      "rect": [874, 452, 12, 12],
+      "rect": [874, 467, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [890, 451, 188, 15],
+      "rect": [890, 466, 188, 15],
       "role": "text",
       "text": "-Users-demo-stats/77777777"
     },
     {
-      "rect": [1082, 451, 80, 15],
+      "rect": [1082, 466, 80, 15],
       "role": "text",
       "text": " · subagent"
     },
     {
       "key": "stats-targets-finding-cause-cause-command-not-found-agent-a1-2-trigger",
-      "rect": [1171, 444, 43, 28],
+      "rect": [1171, 459, 43, 28],
       "role": "group"
     },
     {
       "key": "stats-session-more:agent-a1:2",
       "label": "Open one of 2 samples",
-      "rect": [1171, 444, 43, 28],
+      "rect": [1171, 459, 43, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [1185, 448, 15, 20],
+      "rect": [1185, 463, 15, 20],
       "role": "text",
       "text": "×2"
     },
     {
-      "rect": [866, 478, 220, 24],
+      "rect": [866, 493, 220, 24],
       "role": "group"
     },
     {
       "key": "stats-session-link:88888888-8888-4888-8888-888888888888:2",
       "label": "-Users-demo-stats/88888888",
-      "rect": [866, 478, 220, 24],
+      "rect": [866, 493, 220, 24],
       "role": "link"
     },
     {
-      "rect": [874, 484, 12, 12],
+      "rect": [874, 499, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [890, 483, 188, 15],
+      "rect": [890, 498, 188, 15],
       "role": "text",
       "text": "-Users-demo-stats/88888888"
     },
     {
-      "rect": [866, 506, 538, 15],
+      "rect": [866, 521, 538, 15],
       "role": "text",
       "text": "fdd src"
     },
     {
       "key": "finding-prompt",
       "label": "Copy prompt",
-      "rect": [866, 529, 129, 28],
+      "rect": [866, 544, 129, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [880, 535, 16, 16],
+      "rect": [880, 550, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [902, 533, 79, 20],
+      "rect": [902, 548, 79, 20],
       "role": "text",
       "text": "Copy prompt"
     },
     {
-      "rect": [1003, 557, 295, 0],
+      "rect": [1003, 572, 295, 0],
       "role": "group"
     },
     {
       "key": "finding-drill",
       "label": "All calls",
-      "rect": [1306, 529, 98, 28],
+      "rect": [1306, 544, 98, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [1320, 535, 16, 16],
+      "rect": [1320, 550, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [1342, 533, 48, 20],
+      "rect": [1342, 548, 48, 20],
       "role": "text",
       "text": "All calls"
     },
     {
-      "rect": [280, 581, 1136, 248],
+      "rect": [280, 596, 1136, 218],
       "role": "group"
     },
     {
       "key": "stats-finding:cause:cause:sleep-blocked",
-      "rect": [280, 581, 562, 218],
+      "rect": [280, 596, 574, 218],
       "role": "group"
     },
     {
-      "rect": [292, 593, 538, 46],
+      "rect": [292, 608, 550, 46],
       "role": "group"
     },
     {
-      "rect": [292, 593, 320, 18],
+      "rect": [292, 608, 320, 18],
       "role": "text",
       "text": "harness blocked sleep N followed by a command"
     },
     {
-      "rect": [620, 593, 53, 20],
+      "rect": [620, 608, 53, 20],
       "role": "group"
     },
     {
-      "rect": [628, 596, 37, 15],
+      "rect": [628, 611, 37, 15],
       "role": "text",
       "text": "retries"
     },
     {
-      "rect": [680, 593, 110, 20],
+      "rect": [680, 608, 110, 20],
       "role": "group"
     },
     {
-      "rect": [688, 596, 94, 15],
+      "rect": [688, 611, 94, 15],
       "role": "text",
       "text": "sleep-blocked"
     },
     {
-      "rect": [798, 593, 32, 0],
+      "rect": [798, 608, 44, 0],
       "role": "group"
     },
     {
       "key": "stats-finding-impact",
-      "rect": [292, 621, 496, 18],
+      "rect": [292, 636, 496, 18],
       "role": "text",
       "text": "2 retries (main 2 / sub 0) · 14s · 12.4K ctx tokens re-read"
     },
     {
-      "rect": [292, 647, 538, 30],
+      "rect": [292, 662, 550, 30],
       "role": "text",
       "text": "Don't sleep N && cmd: wait with an until-loop (until grep -q DONE f; do sleep 2; done), Monitor, or run_in_background."
     },
     {
-      "rect": [292, 685, 538, 15],
+      "rect": [292, 700, 550, 15],
       "role": "text",
       "text": "2 hits · 2 sessions with a retry · 1 projects · hits main 2 / sub 0"
     },
     {
-      "rect": [292, 708, 538, 79],
+      "rect": [292, 723, 550, 79],
       "role": "group"
     },
     {
       "key": "stats-session-links",
-      "rect": [292, 708, 538, 43],
+      "rect": [292, 723, 550, 43],
       "role": "group"
     },
     {
-      "rect": [292, 708, 538, 24],
+      "rect": [292, 723, 550, 24],
       "role": "group"
     },
     {
-      "rect": [292, 708, 220, 24],
+      "rect": [292, 723, 220, 24],
       "role": "group"
     },
     {
       "key": "stats-session-link:77777777-7777-4777-8777-777777777777:4",
       "label": "-Users-demo-stats/77777777",
-      "rect": [292, 708, 220, 24],
+      "rect": [292, 723, 220, 24],
       "role": "link"
     },
     {
-      "rect": [300, 714, 12, 12],
+      "rect": [300, 729, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [316, 712, 188, 15],
+      "rect": [316, 727, 188, 15],
       "role": "text",
       "text": "-Users-demo-stats/77777777"
     },
     {
-      "rect": [518, 708, 220, 24],
+      "rect": [518, 723, 220, 24],
       "role": "group"
     },
     {
       "key": "stats-session-link:88888888-8888-4888-8888-888888888888:4",
       "label": "-Users-demo-stats/88888888",
-      "rect": [518, 708, 220, 24],
+      "rect": [518, 723, 220, 24],
       "role": "link"
     },
     {
-      "rect": [526, 714, 12, 12],
+      "rect": [526, 729, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [542, 712, 188, 15],
+      "rect": [542, 727, 188, 15],
       "role": "text",
       "text": "-Users-demo-stats/88888888"
     },
     {
-      "rect": [292, 736, 538, 15],
+      "rect": [292, 751, 550, 15],
       "role": "text",
       "text": "sleep 30 && curl -s localhost:3000/health"
     },
     {
       "key": "finding-copy",
       "label": "Copy rule",
-      "rect": [292, 759, 109, 28],
+      "rect": [292, 774, 109, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [306, 765, 16, 16],
+      "rect": [306, 780, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [328, 763, 59, 20],
+      "rect": [328, 778, 59, 20],
       "role": "text",
       "text": "Copy rule"
     },
     {
       "key": "finding-prompt",
       "label": "Copy prompt",
-      "rect": [409, 759, 129, 28],
+      "rect": [409, 774, 129, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [423, 765, 16, 16],
+      "rect": [423, 780, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [445, 763, 79, 20],
+      "rect": [445, 778, 79, 20],
       "role": "text",
       "text": "Copy prompt"
     },
     {
-      "rect": [546, 787, 179, 0],
+      "rect": [546, 802, 191, 0],
       "role": "group"
     },
     {
       "key": "finding-drill",
       "label": "All calls",
-      "rect": [732, 759, 98, 28],
+      "rect": [744, 774, 98, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [746, 765, 16, 16],
+      "rect": [758, 780, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [768, 763, 48, 20],
+      "rect": [780, 778, 48, 20],
       "role": "text",
       "text": "All calls"
     },
     {
-      "key": "stats-finding:cause:cause:pkill-self-kill",
-      "rect": [854, 581, 562, 248],
+      "rect": [866, 596, 550, 0],
       "role": "group"
     },
     {
-      "rect": [866, 593, 538, 46],
-      "role": "group"
-    },
-    {
-      "rect": [866, 593, 317, 18],
-      "role": "text",
-      "text": "pkill -f matched and killed its own shell (exit 144)"
-    },
-    {
-      "rect": [1191, 593, 53, 20],
-      "role": "group"
-    },
-    {
-      "rect": [1199, 596, 37, 15],
-      "role": "text",
-      "text": "retries"
-    },
-    {
-      "rect": [1252, 593, 124, 20],
-      "role": "group"
-    },
-    {
-      "rect": [1260, 596, 108, 15],
-      "role": "text",
-      "text": "pkill-self-kill"
-    },
-    {
-      "rect": [1384, 593, 21, 0],
-      "role": "group"
-    },
-    {
-      "key": "stats-finding-impact",
-      "rect": [866, 621, 513, 18],
-      "role": "text",
-      "text": "1 retries (main 1 / sub 0) · 7.00s · 13.2K ctx tokens re-read"
-    },
-    {
-      "rect": [866, 647, 538, 60],
-      "role": "text",
-      "text": "pkill -f PAT matches the harness shell, whose command line holds the whole call, and kills it (exit 144). Kill by name (pkill -x NAME) or by a saved PID (kill \"$(cat srv.pid)\"). A bracketed '[p]attern' helps only when no other part of the call repeats the plain text: pkill -f '[b]un run dev'; bun run dev & still dies."
-    },
-    {
-      "rect": [866, 715, 538, 15],
-      "role": "text",
-      "text": "1 hits · 1 sessions with a retry · 1 projects · hits main 1 / sub 0"
-    },
-    {
-      "rect": [866, 738, 538, 79],
-      "role": "group"
-    },
-    {
-      "key": "stats-session-links",
-      "rect": [866, 738, 538, 43],
-      "role": "group"
-    },
-    {
-      "rect": [866, 738, 538, 24],
-      "role": "group"
-    },
-    {
-      "rect": [866, 738, 220, 24],
-      "role": "group"
-    },
-    {
-      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:11",
-      "label": "-Users-demo-stats/77777777",
-      "rect": [866, 738, 220, 24],
-      "role": "link"
-    },
-    {
-      "rect": [874, 744, 12, 12],
-      "role": "icon"
-    },
-    {
-      "rect": [890, 742, 188, 15],
-      "role": "text",
-      "text": "-Users-demo-stats/77777777"
-    },
-    {
-      "rect": [866, 766, 538, 15],
-      "role": "text",
-      "text": "pkill -f 'bun run dev'"
-    },
-    {
-      "key": "finding-copy",
-      "label": "Copy rule",
-      "rect": [866, 789, 109, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [880, 795, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [902, 793, 59, 20],
-      "role": "text",
-      "text": "Copy rule"
-    },
-    {
-      "key": "finding-prompt",
-      "label": "Copy prompt",
-      "rect": [983, 789, 129, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [997, 795, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [1019, 793, 79, 20],
-      "role": "text",
-      "text": "Copy prompt"
-    },
-    {
-      "rect": [1120, 817, 179, 0],
-      "role": "group"
-    },
-    {
-      "key": "finding-drill",
-      "label": "All calls",
-      "rect": [1306, 789, 98, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [1320, 795, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [1342, 793, 48, 20],
-      "role": "text",
-      "text": "All calls"
-    },
-    {
-      "rect": [280, 841, 1136, 207],
-      "role": "group"
-    },
-    {
-      "key": "stats-finding:cause:cause:rm-guard",
-      "rect": [280, 841, 562, 207],
-      "role": "group"
-    },
-    {
-      "rect": [292, 853, 538, 35],
-      "role": "group"
-    },
-    {
-      "rect": [292, 853, 190, 18],
-      "role": "text",
-      "text": "harness dangerous-rm guard"
-    },
-    {
-      "rect": [490, 853, 53, 20],
-      "role": "group"
-    },
-    {
-      "rect": [498, 855, 37, 15],
-      "role": "text",
-      "text": "retries"
-    },
-    {
-      "rect": [550, 853, 74, 20],
-      "role": "group"
-    },
-    {
-      "rect": [558, 855, 58, 15],
-      "role": "text",
-      "text": "rm-guard"
-    },
-    {
-      "rect": [632, 853, 106, 0],
-      "role": "group"
-    },
-    {
-      "key": "stats-finding-impact",
-      "rect": [746, 853, 84, 35],
-      "role": "text",
-      "text": "1 sessions"
-    },
-    {
-      "rect": [292, 896, 538, 30],
-      "role": "text",
-      "text": "rm absolute paths, never $VAR/* or a path behind cd: write rm -rf -- \"${D:?}\"/x so an empty variable cannot widen the target."
-    },
-    {
-      "rect": [292, 934, 538, 15],
-      "role": "text",
-      "text": "1 hits · 0 sessions with a retry · 1 projects · hits main 1 / sub 0"
-    },
-    {
-      "rect": [292, 957, 538, 79],
-      "role": "group"
-    },
-    {
-      "key": "stats-session-links",
-      "rect": [292, 957, 538, 43],
-      "role": "group"
-    },
-    {
-      "rect": [292, 957, 538, 24],
-      "role": "group"
-    },
-    {
-      "rect": [292, 957, 220, 24],
-      "role": "group"
-    },
-    {
-      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:10",
-      "label": "-Users-demo-stats/77777777",
-      "rect": [292, 957, 220, 24],
-      "role": "link"
-    },
-    {
-      "rect": [300, 963, 12, 12],
-      "role": "icon"
-    },
-    {
-      "rect": [316, 961, 188, 15],
-      "role": "text",
-      "text": "-Users-demo-stats/77777777"
-    },
-    {
-      "rect": [292, 985, 538, 15],
-      "role": "text",
-      "text": "rm -rf $DIR/*"
-    },
-    {
-      "key": "finding-copy",
-      "label": "Copy rule",
-      "rect": [292, 1008, 109, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [306, 1014, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [328, 1012, 59, 20],
-      "role": "text",
-      "text": "Copy rule"
-    },
-    {
-      "key": "finding-prompt",
-      "label": "Copy prompt",
-      "rect": [409, 1008, 129, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [423, 1014, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [445, 1012, 79, 20],
-      "role": "text",
-      "text": "Copy prompt"
-    },
-    {
-      "rect": [546, 1036, 179, 0],
-      "role": "group"
-    },
-    {
-      "key": "finding-drill",
-      "label": "All calls",
-      "rect": [732, 1008, 98, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [746, 1014, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [768, 1012, 48, 20],
-      "role": "text",
-      "text": "All calls"
-    },
-    {
-      "key": "stats-finding:fail:scan:test",
-      "rect": [854, 841, 562, 192],
-      "role": "group"
-    },
-    {
-      "rect": [866, 853, 538, 35],
-      "role": "group"
-    },
-    {
-      "rect": [866, 853, 92, 18],
-      "role": "text",
-      "text": "N failing tests"
-    },
-    {
-      "rect": [966, 853, 40, 20],
-      "role": "group"
-    },
-    {
-      "rect": [974, 855, 24, 15],
-      "role": "text",
-      "text": "fails"
-    },
-    {
-      "rect": [1014, 853, 124, 20],
-      "role": "group"
-    },
-    {
-      "rect": [1022, 855, 108, 15],
-      "role": "text",
-      "text": "piped-exit-code"
-    },
-    {
-      "rect": [1146, 853, 166, 0],
-      "role": "group"
-    },
-    {
-      "key": "stats-finding-impact",
-      "rect": [1320, 853, 84, 35],
-      "role": "text",
-      "text": "1 sessions"
-    },
-    {
-      "rect": [866, 896, 538, 15],
-      "role": "text",
-      "text": "1 of 1 pipe into head/tail/grep, so the exit code is the pipe's"
-    },
-    {
-      "rect": [866, 919, 538, 15],
-      "role": "text",
-      "text": "1 calls · 1 projects · 0 flagged"
-    },
-    {
-      "rect": [866, 942, 538, 79],
-      "role": "group"
-    },
-    {
-      "key": "stats-session-links",
-      "rect": [866, 942, 538, 43],
-      "role": "group"
-    },
-    {
-      "rect": [866, 942, 538, 24],
-      "role": "group"
-    },
-    {
-      "rect": [866, 942, 220, 24],
-      "role": "group"
-    },
-    {
-      "key": "stats-session-link:77777777-7777-4777-8777-777777777777:8",
-      "label": "-Users-demo-stats/77777777",
-      "rect": [866, 942, 220, 24],
-      "role": "link"
-    },
-    {
-      "rect": [874, 948, 12, 12],
-      "role": "icon"
-    },
-    {
-      "rect": [890, 946, 188, 15],
-      "role": "text",
-      "text": "-Users-demo-stats/77777777"
-    },
-    {
-      "rect": [866, 970, 538, 15],
-      "role": "text",
-      "text": "bun test | tail -5"
-    },
-    {
-      "key": "finding-prompt",
-      "label": "Copy prompt",
-      "rect": [866, 993, 129, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [880, 999, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [902, 997, 79, 20],
-      "role": "text",
-      "text": "Copy prompt"
-    },
-    {
-      "rect": [1003, 1021, 295, 0],
-      "role": "group"
-    },
-    {
-      "key": "finding-drill",
-      "label": "All calls",
-      "rect": [1306, 993, 98, 28],
-      "role": "button"
-    },
-    {
-      "key": "icon",
-      "rect": [1320, 999, 16, 16],
-      "role": "icon"
-    },
-    {
-      "key": "label",
-      "rect": [1342, 997, 48, 20],
-      "role": "text",
-      "text": "All calls"
-    },
-    {
-      "rect": [280, 1060, 1136, 28],
+      "rect": [280, 826, 1136, 28],
       "role": "group"
     },
     {
       "key": "stats-show-all",
       "label": "Show 2 more",
-      "rect": [280, 1060, 108, 28],
+      "rect": [280, 826, 108, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [294, 1064, 80, 20],
+      "rect": [294, 830, 80, 20],
       "role": "text",
       "text": "Show 2 more"
     },
     {
       "key": "stats-suggested-rules",
-      "rect": [280, 1100, 1136, 141],
+      "rect": [280, 866, 1136, 141],
       "role": "group"
     },
     {
-      "rect": [292, 1112, 1112, 28],
+      "rect": [292, 878, 1112, 28],
       "role": "group"
     },
     {
-      "rect": [292, 1117, 108, 18],
+      "rect": [292, 883, 108, 18],
       "role": "text",
       "text": "Suggested rules"
     },
     {
-      "rect": [408, 1118, 247, 15],
+      "rect": [408, 884, 247, 15],
       "role": "text",
       "text": "lines no CLAUDE.md / AGENTS.md states yet"
     },
     {
-      "rect": [662, 1126, 534, 0],
+      "rect": [662, 892, 534, 0],
       "role": "group"
     },
     {
       "key": "stats-copy-all",
       "label": "Copy all suggested rules",
-      "rect": [1204, 1112, 200, 28],
+      "rect": [1204, 878, 200, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [1218, 1118, 16, 16],
+      "rect": [1218, 884, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [1240, 1116, 150, 20],
+      "rect": [1240, 882, 150, 20],
       "role": "text",
       "text": "Copy all suggested rules"
     },
     {
-      "rect": [292, 1148, 1112, 81],
+      "rect": [292, 914, 1112, 81],
       "role": "group"
     },
     {
-      "rect": [300, 1148, 1104, 15],
+      "rect": [300, 914, 1104, 15],
       "role": "text",
       "text": "• zsh: an unmatched glob aborts the command even with 2>/dev/null. List with find or fd, or quote the pattern."
     },
     {
-      "rect": [300, 1165, 1104, 15],
+      "rect": [300, 931, 1104, 15],
       "role": "text",
       "text": "• Don't sleep N && cmd: wait with an until-loop (until grep -q DONE f; do sleep 2; done), Monitor, or run_in_background."
     },
     {
-      "rect": [300, 1182, 1104, 30],
+      "rect": [300, 948, 1104, 30],
       "role": "text",
       "text": "• pkill -f PAT matches the harness shell, whose command line holds the whole call, and kills it (exit 144). Kill by name (pkill -x NAME) or by a saved PID (kill \"$(cat srv.pid)\"). A bracketed '[p]attern' helps only when no other part of the call repeats the plain text: pkill -f '[b]un run dev'; bun run dev & still dies."
     },
     {
-      "rect": [300, 1214, 1104, 15],
+      "rect": [300, 980, 1104, 15],
       "role": "text",
       "text": "• rm absolute paths, never $VAR/* or a path behind cd: write rm -rf -- \"${D:?}\"/x so an empty variable cannot widen the target."
     },
     {
       "key": "stats-causes-section",
-      "rect": [280, 1273, 1136, 627],
+      "rect": [280, 1039, 1136, 627],
       "role": "group"
     },
     {
-      "rect": [280, 1273, 1136, 20],
+      "rect": [280, 1039, 1136, 20],
       "role": "group"
     },
     {
-      "rect": [280, 1273, 130, 20],
+      "rect": [280, 1039, 130, 20],
       "role": "text",
       "text": "Avoidable retries"
     },
     {
-      "rect": [418, 1278, 319, 15],
+      "rect": [418, 1044, 319, 15],
       "role": "text",
       "text": "ranked by sessions with a retry, then sessions, then retries"
     },
     {
-      "rect": [280, 1305, 1136, 30],
+      "rect": [280, 1071, 1136, 30],
       "role": "text",
       "text": "A retry is a failed call followed within 3 calls by a similar call of the same tool that succeeded: a round trip a rule or an env fix would have saved. Retry time is the call-to-call gap; context re-read is what the retrying model call carried. Neither is added to the other."
     },
     {
       "key": "cause-table",
-      "rect": [280, 1347, 1136, 553],
+      "rect": [280, 1113, 1136, 553],
       "role": "group"
     },
     {
-      "rect": [280, 1347, 1136, 36],
+      "rect": [280, 1113, 1136, 36],
       "role": "group"
     },
     {
-      "rect": [288, 1357, 352, 15],
+      "rect": [288, 1123, 352, 15],
       "role": "text",
       "text": "Cause"
     },
     {
-      "rect": [648, 1357, 72, 15],
+      "rect": [648, 1123, 72, 15],
       "role": "text",
       "text": "Hits"
     },
     {
-      "rect": [728, 1357, 96, 15],
+      "rect": [728, 1123, 96, 15],
       "role": "text",
       "text": "Retries"
     },
     {
-      "rect": [832, 1357, 128, 15],
+      "rect": [832, 1123, 128, 15],
       "role": "text",
       "text": "Hits main / sub"
     },
     {
-      "rect": [968, 1357, 96, 15],
+      "rect": [968, 1123, 96, 15],
       "role": "text",
       "text": "Retry time"
     },
     {
-      "rect": [1072, 1357, 128, 15],
+      "rect": [1072, 1123, 128, 15],
       "role": "text",
       "text": "Context re-read"
     },
     {
-      "rect": [1208, 1357, 200, 15],
+      "rect": [1208, 1123, 200, 15],
       "role": "text",
       "text": "Rule"
     },
     {
       "key": "cause-row:cause:zsh-glob-path",
       "label": "unmatched path glob (zsh no matches found)",
-      "rect": [280, 1383, 1136, 58],
+      "rect": [280, 1149, 1136, 58],
       "role": "button"
     },
     {
-      "rect": [288, 1391, 352, 42],
+      "rect": [288, 1157, 352, 42],
       "role": "group"
     },
     {
       "key": "cause-toggle:cause:zsh-glob-path",
-      "rect": [288, 1391, 352, 18],
+      "rect": [288, 1157, 352, 18],
       "role": "text",
       "text": "unmatched path glob (zsh no matches found)"
     },
     {
-      "rect": [288, 1412, 352, 20],
+      "rect": [288, 1178, 352, 20],
       "role": "group"
     },
     {
-      "rect": [288, 1412, 110, 20],
+      "rect": [288, 1178, 110, 20],
       "role": "group"
     },
     {
-      "rect": [296, 1415, 94, 15],
+      "rect": [296, 1181, 94, 15],
       "role": "text",
       "text": "zsh-glob-path"
     },
     {
-      "rect": [402, 1412, 38, 20],
+      "rect": [402, 1178, 38, 20],
       "role": "group"
     },
     {
-      "rect": [410, 1415, 22, 15],
+      "rect": [410, 1181, 22, 15],
       "role": "text",
       "text": "rule"
     },
     {
-      "rect": [648, 1391, 72, 18],
+      "rect": [648, 1157, 72, 18],
       "role": "group"
     },
     {
-      "rect": [712, 1391, 9, 18],
+      "rect": [712, 1157, 9, 18],
       "role": "text",
       "text": "3"
     },
     {
-      "rect": [728, 1391, 96, 35],
+      "rect": [728, 1157, 96, 35],
       "role": "group"
     },
     {
-      "rect": [816, 1391, 9, 18],
+      "rect": [816, 1157, 9, 18],
       "role": "text",
       "text": "3"
     },
     {
-      "rect": [766, 1410, 59, 15],
+      "rect": [766, 1176, 59, 15],
       "role": "text",
       "text": "2 sessions"
     },
     {
-      "rect": [832, 1391, 128, 18],
+      "rect": [832, 1157, 128, 18],
       "role": "group"
     },
     {
-      "rect": [918, 1391, 42, 18],
+      "rect": [918, 1157, 42, 18],
       "role": "text",
       "text": "2 / 1"
     },
     {
-      "rect": [968, 1391, 96, 18],
+      "rect": [968, 1157, 96, 18],
       "role": "group"
     },
     {
-      "rect": [1039, 1391, 26, 18],
+      "rect": [1039, 1157, 26, 18],
       "role": "text",
       "text": "21s"
     },
     {
-      "rect": [1072, 1391, 128, 18],
+      "rect": [1072, 1157, 128, 18],
       "role": "group"
     },
     {
-      "rect": [1166, 1391, 34, 18],
+      "rect": [1166, 1157, 34, 18],
       "role": "text",
       "text": "6.6K"
     },
     {
-      "rect": [1208, 1391, 200, 15],
+      "rect": [1208, 1157, 200, 15],
       "role": "group"
     },
     {
-      "rect": [1208, 1391, 200, 15],
+      "rect": [1208, 1157, 200, 15],
       "role": "text",
       "text": "—"
     },
     {
       "key": "cause-detail:cause:zsh-glob-path",
-      "rect": [280, 1440, 1136, 229],
+      "rect": [280, 1206, 1136, 229],
       "role": "group"
     },
     {
-      "rect": [292, 1450, 1112, 28],
+      "rect": [292, 1216, 1112, 28],
       "role": "group"
     },
     {
-      "rect": [292, 1450, 773, 15],
+      "rect": [292, 1216, 773, 15],
       "role": "text",
       "text": "zsh: an unmatched glob aborts the command even with 2>/dev/null. List with find or fd, or quote the pattern."
     },
     {
       "key": "cause-copy",
       "label": "Copy rule",
-      "rect": [1073, 1450, 109, 28],
+      "rect": [1073, 1216, 109, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [1087, 1456, 16, 16],
+      "rect": [1087, 1222, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [1109, 1454, 59, 20],
+      "rect": [1109, 1220, 59, 20],
       "role": "text",
       "text": "Copy rule"
     },
     {
       "key": "cause-prompt",
       "label": "Copy prompt",
-      "rect": [1190, 1450, 129, 28],
+      "rect": [1190, 1216, 129, 28],
       "role": "button"
     },
     {
       "key": "icon",
-      "rect": [1204, 1456, 16, 16],
+      "rect": [1204, 1222, 16, 16],
       "role": "icon"
     },
     {
       "key": "label",
-      "rect": [1226, 1454, 79, 20],
+      "rect": [1226, 1220, 79, 20],
       "role": "text",
       "text": "Copy prompt"
     },
     {
       "key": "cause-drill",
       "label": "All pairs",
-      "rect": [1327, 1450, 78, 28],
+      "rect": [1327, 1216, 78, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [1341, 1454, 50, 20],
+      "rect": [1341, 1220, 50, 20],
       "role": "text",
       "text": "All pairs"
     },
     {
       "key": "cause-split:cause:zsh-glob-path",
-      "rect": [292, 1486, 1112, 15],
+      "rect": [292, 1252, 1112, 15],
       "role": "text",
       "text": "hits main 2 / sub 1 · per 1k calls in this window main 105 / sub 250 · retries main 2 / sub 1 · exit 0 0 · context re-read 6.6K"
     },
     {
-      "rect": [292, 1509, 1112, 15],
+      "rect": [292, 1275, 1112, 15],
       "role": "text",
       "text": "learned: dist/*.js → dist (2) · src/*.ts → src (1)"
     },
     {
-      "rect": [292, 1532, 1112, 15],
+      "rect": [292, 1298, 1112, 15],
       "role": "text",
       "text": "named: dist/*.js 2 · src/*.ts 1"
     },
     {
       "key": "cause-pairs",
-      "rect": [292, 1555, 1112, 49],
+      "rect": [292, 1321, 1112, 49],
       "role": "group"
     },
     {
-      "rect": [292, 1555, 1112, 15],
+      "rect": [292, 1321, 1112, 15],
       "role": "text",
       "text": "ls src/*.ts → ls src"
     },
     {
-      "rect": [292, 1572, 1112, 15],
+      "rect": [292, 1338, 1112, 15],
       "role": "text",
       "text": "ls dist/*.js → ls dist"
     },
     {
-      "rect": [292, 1589, 1112, 15],
+      "rect": [292, 1355, 1112, 15],
       "role": "text",
       "text": "ls dist/*.js → ls dist"
     },
     {
       "key": "stats-session-links",
-      "rect": [292, 1612, 1112, 47],
+      "rect": [292, 1378, 1112, 47],
       "role": "group"
     },
     {
-      "rect": [292, 1612, 1112, 28],
+      "rect": [292, 1378, 1112, 28],
       "role": "group"
     },
     {
-      "rect": [292, 1612, 348, 28],
+      "rect": [292, 1378, 348, 28],
       "role": "group"
     },
     {
       "key": "stats-session-link:agent-a1:0",
       "label": "-Users-demo-stats/77777777",
-      "rect": [292, 1614, 303, 24],
+      "rect": [292, 1380, 303, 24],
       "role": "link"
     },
     {
-      "rect": [300, 1620, 12, 12],
+      "rect": [300, 1386, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [316, 1619, 188, 15],
+      "rect": [316, 1385, 188, 15],
       "role": "text",
       "text": "-Users-demo-stats/77777777"
     },
     {
-      "rect": [508, 1619, 80, 15],
+      "rect": [508, 1385, 80, 15],
       "role": "text",
       "text": " · subagent"
     },
     {
       "key": "stats-targets-cause-cause-zsh-glob-path-agent-a1-0-trigger",
-      "rect": [597, 1612, 43, 28],
+      "rect": [597, 1378, 43, 28],
       "role": "group"
     },
     {
       "key": "stats-session-more:agent-a1:0",
       "label": "Open one of 2 samples",
-      "rect": [597, 1612, 43, 28],
+      "rect": [597, 1378, 43, 28],
       "role": "button"
     },
     {
       "key": "label",
-      "rect": [611, 1616, 15, 20],
+      "rect": [611, 1382, 15, 20],
       "role": "text",
       "text": "×2"
     },
     {
-      "rect": [646, 1612, 220, 28],
+      "rect": [646, 1378, 220, 28],
       "role": "group"
     },
     {
       "key": "stats-session-link:88888888-8888-4888-8888-888888888888:0",
       "label": "-Users-demo-stats/88888888",
-      "rect": [646, 1614, 220, 24],
+      "rect": [646, 1380, 220, 24],
       "role": "link"
     },
     {
-      "rect": [654, 1620, 12, 12],
+      "rect": [654, 1386, 12, 12],
       "role": "icon"
     },
     {
-      "rect": [670, 1619, 188, 15],
+      "rect": [670, 1385, 188, 15],
       "role": "text",
       "text": "-Users-demo-stats/88888888"
     },
     {
-      "rect": [292, 1644, 1112, 15],
+      "rect": [292, 1410, 1112, 15],
       "role": "text",
       "text": "ls src/*.ts"
     },
     {
       "key": "cause-row:cause:command-not-found",
       "label": "command not found",
-      "rect": [280, 1669, 1136, 58],
+      "rect": [280, 1435, 1136, 58],
       "role": "button"
     },
     {
-      "rect": [288, 1677, 352, 42],
+      "rect": [288, 1443, 352, 42],
       "role": "group"
     },
     {
       "key": "cause-toggle:cause:command-not-found",
-      "rect": [288, 1677, 352, 18],
+      "rect": [288, 1443, 352, 18],
       "role": "text",
       "text": "command not found"
     },
     {
-      "rect": [288, 1699, 352, 20],
+      "rect": [288, 1465, 352, 20],
       "role": "group"
     },
     {
-      "rect": [288, 1699, 139, 20],
+      "rect": [288, 1465, 139, 20],
       "role": "group"
     },
     {
-      "rect": [296, 1701, 123, 15],
+      "rect": [296, 1467, 123, 15],
       "role": "text",
       "text": "command-not-found"
     },
     {
-      "rect": [431, 1699, 37, 20],
+      "rect": [431, 1465, 37, 20],
       "role": "group"
     },
     {
-      "rect": [439, 1701, 21, 15],
+      "rect": [439, 1467, 21, 15],
       "role": "text",
       "text": "env"
     },
     {
-      "rect": [648, 1677, 72, 18],
+      "rect": [648, 1443, 72, 18],
       "role": "group"
     },
     {
-      "rect": [712, 1677, 9, 18],
+      "rect": [712, 1443, 9, 18],
       "role": "text",
       "text": "3"
     },
     {
-      "rect": [728, 1677, 96, 35],
+      "rect": [728, 1443, 96, 35],
       "role": "group"
     },
     {
-      "rect": [816, 1677, 9, 18],
+      "rect": [816, 1443, 9, 18],
       "role": "text",
       "text": "2"
     },
     {
-      "rect": [766, 1697, 59, 15],
+      "rect": [766, 1463, 59, 15],
       "role": "text",
       "text": "2 sessions"
     },
     {
-      "rect": [832, 1677, 128, 18],
+      "rect": [832, 1443, 128, 18],
       "role": "group"
     },
     {
-      "rect": [918, 1677, 42, 18],
+      "rect": [918, 1443, 42, 18],
       "role": "text",
       "text": "2 / 1"
     },
     {
-      "rect": [968, 1677, 96, 18],
+      "rect": [968, 1443, 96, 18],
       "role": "group"
     },
     {
-      "rect": [1039, 1677, 26, 18],
+      "rect": [1039, 1443, 26, 18],
       "role": "text",
       "text": "14s"
     },
     {
-      "rect": [1072, 1677, 128, 18],
+      "rect": [1072, 1443, 128, 18],
       "role": "group"
     },
     {
-      "rect": [1166, 1677, 34, 18],
+      "rect": [1166, 1443, 34, 18],
       "role": "text",
       "text": "8.4K"
     },
     {
-      "rect": [1208, 1677, 200, 19],
+      "rect": [1208, 1443, 200, 19],
       "role": "group"
     },
     {
-      "rect": [1208, 1677, 200, 19],
+      "rect": [1208, 1443, 200, 19],
       "role": "group"
     },
     {
       "key": "cause-rule:cause:command-not-found",
-      "rect": [1208, 1677, 200, 19],
+      "rect": [1208, 1443, 200, 19],
       "role": "group"
     },
     {
-      "rect": [1216, 1679, 184, 15],
+      "rect": [1216, 1445, 184, 15],
       "role": "text",
       "text": "rule in ~/.claude/CLAUDE.md:3 · still firing main 105/1k, sub 250/1k since 2026-05-28"
     },
     {
       "key": "cause-row:cause:sleep-blocked",
       "label": "harness blocked sleep N followed by a command",
-      "rect": [280, 1727, 1136, 58],
+      "rect": [280, 1493, 1136, 58],
       "role": "button"
     },
     {
-      "rect": [288, 1735, 352, 42],
+      "rect": [288, 1501, 352, 42],
       "role": "group"
     },
     {
       "key": "cause-toggle:cause:sleep-blocked",
-      "rect": [288, 1735, 352, 18],
+      "rect": [288, 1501, 352, 18],
       "role": "text",
       "text": "harness blocked sleep N followed by a command"
     },
     {
-      "rect": [288, 1756, 352, 20],
+      "rect": [288, 1522, 352, 20],
       "role": "group"
     },
     {
-      "rect": [288, 1756, 110, 20],
+      "rect": [288, 1522, 110, 20],
       "role": "group"
     },
     {
-      "rect": [296, 1759, 94, 15],
+      "rect": [296, 1525, 94, 15],
       "role": "text",
       "text": "sleep-blocked"
     },
     {
-      "rect": [402, 1756, 38, 20],
+      "rect": [402, 1522, 38, 20],
       "role": "group"
     },
     {
-      "rect": [410, 1759, 22, 15],
+      "rect": [410, 1525, 22, 15],
       "role": "text",
       "text": "rule"
     },
     {
-      "rect": [648, 1735, 72, 18],
+      "rect": [648, 1501, 72, 18],
       "role": "group"
     },
     {
-      "rect": [712, 1735, 9, 18],
+      "rect": [712, 1501, 9, 18],
       "role": "text",
       "text": "2"
     },
     {
-      "rect": [728, 1735, 96, 35],
+      "rect": [728, 1501, 96, 35],
       "role": "group"
     },
     {
-      "rect": [816, 1735, 9, 18],
+      "rect": [816, 1501, 9, 18],
       "role": "text",
       "text": "2"
     },
     {
-      "rect": [766, 1754, 59, 15],
+      "rect": [766, 1520, 59, 15],
       "role": "text",
       "text": "2 sessions"
     },
     {
-      "rect": [832, 1735, 128, 18],
+      "rect": [832, 1501, 128, 18],
       "role": "group"
     },
     {
-      "rect": [918, 1735, 42, 18],
+      "rect": [918, 1501, 42, 18],
       "role": "text",
       "text": "2 / 0"
     },
     {
-      "rect": [968, 1735, 96, 18],
+      "rect": [968, 1501, 96, 18],
       "role": "group"
     },
     {
-      "rect": [1039, 1735, 26, 18],
+      "rect": [1039, 1501, 26, 18],
       "role": "text",
       "text": "14s"
     },
     {
-      "rect": [1072, 1735, 128, 18],
+      "rect": [1072, 1501, 128, 18],
       "role": "group"
     },
     {
-      "rect": [1158, 1735, 42, 18],
+      "rect": [1158, 1501, 42, 18],
       "role": "text",
       "text": "12.4K"
     },
     {
-      "rect": [1208, 1735, 200, 15],
+      "rect": [1208, 1501, 200, 15],
       "role": "group"
     },
     {
-      "rect": [1208, 1735, 200, 15],
+      "rect": [1208, 1501, 200, 15],
       "role": "text",
       "text": "—"
     },
     {
       "key": "cause-row:cause:pkill-self-kill",
       "label": "pkill -f matched and killed its own shell (exit 144)",
-      "rect": [280, 1784, 1136, 58],
+      "rect": [280, 1550, 1136, 58],
       "role": "button"
     },
     {
-      "rect": [288, 1792, 352, 42],
+      "rect": [288, 1558, 352, 42],
       "role": "group"
     },
     {
       "key": "cause-toggle:cause:pkill-self-kill",
-      "rect": [288, 1792, 352, 18],
+      "rect": [288, 1558, 352, 18],
       "role": "text",
       "text": "pkill -f matched and killed its own shell (exit 144)"
     },
     {
-      "rect": [288, 1814, 352, 20],
+      "rect": [288, 1580, 352, 20],
       "role": "group"
     },
     {
-      "rect": [288, 1814, 124, 20],
+      "rect": [288, 1580, 124, 20],
       "role": "group"
     },
     {
-      "rect": [296, 1816, 108, 15],
+      "rect": [296, 1582, 108, 15],
       "role": "text",
       "text": "pkill-self-kill"
     },
     {
-      "rect": [416, 1814, 38, 20],
+      "rect": [416, 1580, 38, 20],
       "role": "group"
     },
     {
-      "rect": [424, 1816, 22, 15],
+      "rect": [424, 1582, 22, 15],
       "role": "text",
       "text": "rule"
     },
     {
-      "rect": [648, 1792, 72, 18],
+      "rect": [648, 1558, 72, 18],
       "role": "group"
     },
     {
-      "rect": [712, 1792, 9, 18],
+      "rect": [712, 1558, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [728, 1792, 96, 35],
+      "rect": [728, 1558, 96, 35],
       "role": "group"
     },
     {
-      "rect": [816, 1792, 9, 18],
+      "rect": [816, 1558, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [769, 1812, 56, 15],
+      "rect": [769, 1578, 56, 15],
       "role": "text",
       "text": "1 sessions"
     },
     {
-      "rect": [832, 1792, 128, 18],
+      "rect": [832, 1558, 128, 18],
       "role": "group"
     },
     {
-      "rect": [918, 1792, 42, 18],
+      "rect": [918, 1558, 42, 18],
       "role": "text",
       "text": "1 / 0"
     },
     {
-      "rect": [968, 1792, 96, 18],
+      "rect": [968, 1558, 96, 18],
       "role": "group"
     },
     {
-      "rect": [1022, 1792, 42, 18],
+      "rect": [1022, 1558, 42, 18],
       "role": "text",
       "text": "7.00s"
     },
     {
-      "rect": [1072, 1792, 128, 18],
+      "rect": [1072, 1558, 128, 18],
       "role": "group"
     },
     {
-      "rect": [1158, 1792, 42, 18],
+      "rect": [1158, 1558, 42, 18],
       "role": "text",
       "text": "13.2K"
     },
     {
-      "rect": [1208, 1792, 200, 15],
+      "rect": [1208, 1558, 200, 15],
       "role": "group"
     },
     {
-      "rect": [1208, 1792, 200, 15],
+      "rect": [1208, 1558, 200, 15],
       "role": "text",
       "text": "—"
     },
     {
       "key": "cause-row:cause:rm-guard",
       "label": "harness dangerous-rm guard",
-      "rect": [280, 1842, 1136, 58],
+      "rect": [280, 1608, 1136, 58],
       "role": "button"
     },
     {
-      "rect": [288, 1850, 352, 42],
+      "rect": [288, 1616, 352, 42],
       "role": "group"
     },
     {
       "key": "cause-toggle:cause:rm-guard",
-      "rect": [288, 1850, 352, 18],
+      "rect": [288, 1616, 352, 18],
       "role": "text",
       "text": "harness dangerous-rm guard"
     },
     {
-      "rect": [288, 1871, 352, 20],
+      "rect": [288, 1637, 352, 20],
       "role": "group"
     },
     {
-      "rect": [288, 1871, 74, 20],
+      "rect": [288, 1637, 74, 20],
       "role": "group"
     },
     {
-      "rect": [296, 1874, 58, 15],
+      "rect": [296, 1640, 58, 15],
       "role": "text",
       "text": "rm-guard"
     },
     {
-      "rect": [366, 1871, 38, 20],
+      "rect": [366, 1637, 38, 20],
       "role": "group"
     },
     {
-      "rect": [374, 1874, 22, 15],
+      "rect": [374, 1640, 22, 15],
       "role": "text",
       "text": "rule"
     },
     {
-      "rect": [648, 1850, 72, 18],
+      "rect": [648, 1616, 72, 18],
       "role": "group"
     },
     {
-      "rect": [712, 1850, 9, 18],
+      "rect": [712, 1616, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [728, 1850, 96, 35],
+      "rect": [728, 1616, 96, 35],
       "role": "group"
     },
     {
-      "rect": [816, 1850, 9, 18],
+      "rect": [816, 1616, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [765, 1869, 59, 15],
+      "rect": [765, 1635, 59, 15],
       "role": "text",
       "text": "0 sessions"
     },
     {
-      "rect": [832, 1850, 128, 18],
+      "rect": [832, 1616, 128, 18],
       "role": "group"
     },
     {
-      "rect": [918, 1850, 42, 18],
+      "rect": [918, 1616, 42, 18],
       "role": "text",
       "text": "1 / 0"
     },
     {
-      "rect": [968, 1850, 96, 18],
+      "rect": [968, 1616, 96, 18],
       "role": "group"
     },
     {
-      "rect": [1056, 1850, 9, 18],
+      "rect": [1056, 1616, 9, 18],
       "role": "text",
       "text": "—"
     },
     {
-      "rect": [1072, 1850, 128, 18],
+      "rect": [1072, 1616, 128, 18],
       "role": "group"
     },
     {
-      "rect": [1192, 1850, 9, 18],
+      "rect": [1192, 1616, 9, 18],
       "role": "text",
       "text": "—"
     },
     {
-      "rect": [1208, 1850, 200, 15],
+      "rect": [1208, 1616, 200, 15],
       "role": "group"
     },
     {
-      "rect": [1208, 1850, 200, 15],
+      "rect": [1208, 1616, 200, 15],
       "role": "text",
       "text": "—"
     },
     {
       "key": "stats-fails-section",
-      "rect": [280, 1931, 1136, 220],
+      "rect": [280, 1697, 1136, 220],
       "role": "group"
     },
     {
-      "rect": [280, 1931, 1136, 20],
+      "rect": [280, 1697, 1136, 20],
       "role": "group"
     },
     {
-      "rect": [280, 1931, 78, 20],
+      "rect": [280, 1697, 78, 20],
       "role": "text",
       "text": "What fails"
     },
     {
-      "rect": [366, 1936, 214, 15],
+      "rect": [366, 1702, 214, 15],
       "role": "text",
       "text": "ranked by sessions spanned, then calls"
     },
     {
-      "rect": [280, 1963, 1136, 15],
+      "rect": [280, 1729, 1136, 15],
       "role": "text",
       "text": "A row says a call printed a failure — never that something broke. Flagged counts the calls that set the agent's own error flag; the gap between it and Calls is what an error panel alone would miss."
     },
     {
       "key": "fail-table",
-      "rect": [280, 1990, 1136, 161],
+      "rect": [280, 1756, 1136, 161],
       "role": "group"
     },
     {
-      "rect": [280, 1990, 1136, 36],
+      "rect": [280, 1756, 1136, 36],
       "role": "group"
     },
     {
-      "rect": [288, 2001, 616, 15],
+      "rect": [288, 1767, 616, 15],
       "role": "text",
       "text": "What"
     },
     {
-      "rect": [912, 2001, 160, 15],
+      "rect": [912, 1767, 160, 15],
       "role": "text",
       "text": "Where"
     },
     {
-      "rect": [1080, 2001, 80, 15],
+      "rect": [1080, 1767, 80, 15],
       "role": "text",
       "text": "Sessions"
     },
     {
-      "rect": [1168, 2001, 72, 15],
+      "rect": [1168, 1767, 72, 15],
       "role": "text",
       "text": "Calls"
     },
     {
-      "rect": [1248, 2001, 72, 15],
+      "rect": [1248, 1767, 72, 15],
       "role": "text",
       "text": "Flagged"
     },
     {
-      "rect": [1328, 2001, 80, 15],
+      "rect": [1328, 1767, 80, 15],
       "role": "text",
       "text": "Projects"
     },
     {
       "key": "fail-row:flag:Bash",
       "label": "Bash errors",
-      "rect": [280, 2026, 1136, 34],
+      "rect": [280, 1792, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2034, 420, 18],
+      "rect": [288, 1800, 420, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2034, 420, 18],
+      "rect": [288, 1800, 420, 18],
       "role": "text",
       "text": "Bash errors"
     },
     {
-      "rect": [716, 2034, 160, 15],
+      "rect": [716, 1800, 160, 15],
       "role": "group"
     },
     {
-      "rect": [716, 2034, 160, 15],
+      "rect": [716, 1800, 160, 15],
       "role": "text",
       "text": "Bash"
     },
     {
-      "rect": [884, 2034, 80, 18],
+      "rect": [884, 1800, 80, 18],
       "role": "group"
     },
     {
-      "rect": [956, 2034, 9, 18],
+      "rect": [956, 1800, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [972, 2034, 72, 18],
+      "rect": [972, 1800, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1036, 2034, 9, 18],
+      "rect": [1036, 1800, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1052, 2034, 72, 18],
+      "rect": [1052, 1800, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1116, 2034, 9, 18],
+      "rect": [1116, 1800, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1132, 2034, 80, 18],
+      "rect": [1132, 1800, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1204, 2034, 9, 18],
+      "rect": [1204, 1800, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
       "key": "fail-row:scan:test",
       "label": "N failing tests",
-      "rect": [280, 2060, 1136, 58],
+      "rect": [280, 1826, 1136, 58],
       "role": "button"
     },
     {
-      "rect": [288, 2068, 420, 42],
+      "rect": [288, 1834, 420, 42],
       "role": "group"
     },
     {
-      "rect": [288, 2068, 420, 18],
+      "rect": [288, 1834, 420, 18],
       "role": "text",
       "text": "N failing tests"
     },
     {
-      "rect": [288, 2089, 420, 20],
+      "rect": [288, 1855, 420, 20],
       "role": "group"
     },
     {
-      "rect": [288, 2089, 124, 20],
+      "rect": [288, 1855, 124, 20],
       "role": "group"
     },
     {
-      "rect": [296, 2092, 108, 15],
+      "rect": [296, 1858, 108, 15],
       "role": "text",
       "text": "piped-exit-code"
     },
     {
-      "rect": [716, 2068, 160, 15],
+      "rect": [716, 1834, 160, 15],
       "role": "group"
     },
     {
-      "rect": [716, 2068, 160, 15],
+      "rect": [716, 1834, 160, 15],
       "role": "text",
       "text": "Bash exit 0"
     },
     {
-      "rect": [884, 2068, 80, 18],
+      "rect": [884, 1834, 80, 18],
       "role": "group"
     },
     {
-      "rect": [956, 2068, 9, 18],
+      "rect": [956, 1834, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [972, 2068, 72, 18],
+      "rect": [972, 1834, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1036, 2068, 9, 18],
+      "rect": [1036, 1834, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1052, 2068, 72, 18],
+      "rect": [1052, 1834, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1116, 2068, 9, 18],
+      "rect": [1116, 1834, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1132, 2068, 80, 18],
+      "rect": [1132, 1834, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1204, 2068, 9, 18],
+      "rect": [1204, 1834, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
       "key": "fail-row:scan:tsc",
       "label": "error TS####",
-      "rect": [280, 2117, 1136, 34],
+      "rect": [280, 1883, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2125, 420, 18],
+      "rect": [288, 1891, 420, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2125, 420, 18],
+      "rect": [288, 1891, 420, 18],
       "role": "text",
       "text": "error TS####"
     },
     {
-      "rect": [716, 2125, 160, 15],
+      "rect": [716, 1891, 160, 15],
       "role": "group"
     },
     {
-      "rect": [716, 2125, 160, 15],
+      "rect": [716, 1891, 160, 15],
       "role": "text",
       "text": "Bash exit 0"
     },
     {
-      "rect": [884, 2125, 80, 18],
+      "rect": [884, 1891, 80, 18],
       "role": "group"
     },
     {
-      "rect": [956, 2125, 9, 18],
+      "rect": [956, 1891, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [972, 2125, 72, 18],
+      "rect": [972, 1891, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1036, 2125, 9, 18],
+      "rect": [1036, 1891, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1052, 2125, 72, 18],
+      "rect": [1052, 1891, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1116, 2125, 9, 18],
+      "rect": [1116, 1891, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1132, 2125, 80, 18],
+      "rect": [1132, 1891, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1204, 2125, 9, 18],
+      "rect": [1204, 1891, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
       "key": "stats-time-section",
-      "rect": [280, 2183, 1136, 299],
+      "rect": [280, 1949, 1136, 299],
       "role": "group"
     },
     {
-      "rect": [280, 2183, 1136, 20],
+      "rect": [280, 1949, 1136, 20],
       "role": "group"
     },
     {
-      "rect": [280, 2183, 125, 20],
+      "rect": [280, 1949, 125, 20],
       "role": "text",
       "text": "What costs time"
     },
     {
-      "rect": [413, 2188, 151, 15],
+      "rect": [413, 1954, 151, 15],
       "role": "text",
       "text": "ranked by seconds charged"
     },
     {
-      "rect": [280, 2215, 1136, 15],
+      "rect": [280, 1981, 1136, 15],
       "role": "text",
       "text": "Each command line is charged to exactly one job; “In other jobs” counts the lines that also run the job but are charged to a higher-priority one. Tools that wait on a human are out of the denominator."
     },
     {
       "key": "time-table",
-      "rect": [280, 2242, 1136, 240],
+      "rect": [280, 2008, 1136, 240],
       "role": "group"
     },
     {
-      "rect": [280, 2242, 1136, 36],
+      "rect": [280, 2008, 1136, 36],
       "role": "group"
     },
     {
-      "rect": [288, 2252, 600, 15],
+      "rect": [288, 2018, 600, 15],
       "role": "text",
       "text": "Job"
     },
     {
-      "rect": [896, 2252, 80, 15],
+      "rect": [896, 2018, 80, 15],
       "role": "text",
       "text": "Time"
     },
     {
-      "rect": [984, 2252, 80, 15],
+      "rect": [984, 2018, 80, 15],
       "role": "text",
       "text": "Share"
     },
     {
-      "rect": [1072, 2252, 64, 15],
+      "rect": [1072, 2018, 64, 15],
       "role": "text",
       "text": "Runs"
     },
     {
-      "rect": [1144, 2252, 104, 15],
+      "rect": [1144, 2018, 104, 15],
       "role": "text",
       "text": "In other jobs"
     },
     {
-      "rect": [1256, 2252, 72, 15],
+      "rect": [1256, 2018, 72, 15],
       "role": "text",
       "text": "Median"
     },
     {
-      "rect": [1336, 2252, 72, 15],
+      "rect": [1336, 2018, 72, 15],
       "role": "text",
       "text": "p95"
     },
     {
       "key": "time-row:build",
       "label": "build",
-      "rect": [280, 2278, 1136, 36],
+      "rect": [280, 2044, 1136, 36],
       "role": "button"
     },
     {
-      "rect": [288, 2286, 600, 20],
+      "rect": [288, 2052, 600, 20],
       "role": "group"
     },
     {
-      "rect": [288, 2287, 33, 18],
+      "rect": [288, 2053, 33, 18],
       "role": "text",
       "text": "build"
     },
     {
-      "rect": [329, 2286, 66, 20],
+      "rect": [329, 2052, 66, 20],
       "role": "group"
     },
     {
-      "rect": [337, 2288, 50, 15],
+      "rect": [337, 2054, 50, 15],
       "role": "text",
       "text": "1 capped"
     },
     {
-      "rect": [896, 2286, 80, 18],
+      "rect": [896, 2052, 80, 18],
       "role": "group"
     },
     {
-      "rect": [926, 2286, 51, 18],
+      "rect": [926, 2052, 51, 18],
       "role": "text",
       "text": "10m00s"
     },
     {
-      "rect": [984, 2286, 80, 18],
+      "rect": [984, 2052, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1014, 2286, 51, 18],
+      "rect": [1014, 2052, 51, 18],
       "role": "text",
       "text": "78.95%"
     },
     {
-      "rect": [1072, 2286, 64, 18],
+      "rect": [1072, 2052, 64, 18],
       "role": "group"
     },
     {
-      "rect": [1128, 2286, 9, 18],
+      "rect": [1128, 2052, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1144, 2286, 104, 18],
+      "rect": [1144, 2052, 104, 18],
       "role": "group"
     },
     {
-      "rect": [1240, 2286, 9, 18],
+      "rect": [1240, 2052, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1256, 2286, 72, 18],
+      "rect": [1256, 2052, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1278, 2286, 51, 18],
+      "rect": [1278, 2052, 51, 18],
       "role": "text",
       "text": "10m00s"
     },
     {
-      "rect": [1336, 2286, 72, 18],
+      "rect": [1336, 2052, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1358, 2286, 51, 18],
+      "rect": [1358, 2052, 51, 18],
       "role": "text",
       "text": "10m00s"
     },
     {
       "key": "time-row:wait/poll",
       "label": "waiting",
-      "rect": [280, 2314, 1136, 34],
+      "rect": [280, 2080, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2322, 600, 18],
+      "rect": [288, 2088, 600, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2322, 48, 18],
+      "rect": [288, 2088, 48, 18],
       "role": "text",
       "text": "waiting"
     },
     {
-      "rect": [896, 2322, 80, 18],
+      "rect": [896, 2088, 80, 18],
       "role": "group"
     },
     {
-      "rect": [934, 2322, 42, 18],
+      "rect": [934, 2088, 42, 18],
       "role": "text",
       "text": "2m06s"
     },
     {
-      "rect": [984, 2322, 80, 18],
+      "rect": [984, 2088, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1014, 2322, 51, 18],
+      "rect": [1014, 2088, 51, 18],
       "role": "text",
       "text": "16.58%"
     },
     {
-      "rect": [1072, 2322, 64, 18],
+      "rect": [1072, 2088, 64, 18],
       "role": "group"
     },
     {
-      "rect": [1128, 2322, 9, 18],
+      "rect": [1128, 2088, 9, 18],
       "role": "text",
       "text": "5"
     },
     {
-      "rect": [1144, 2322, 104, 18],
+      "rect": [1144, 2088, 104, 18],
       "role": "group"
     },
     {
-      "rect": [1240, 2322, 9, 18],
+      "rect": [1240, 2088, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1256, 2322, 72, 18],
+      "rect": [1256, 2088, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1286, 2322, 42, 18],
+      "rect": [1286, 2088, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [1336, 2322, 72, 18],
+      "rect": [1336, 2088, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1366, 2322, 42, 18],
+      "rect": [1366, 2088, 42, 18],
       "role": "text",
       "text": "1m00s"
     },
     {
       "key": "time-row:file-io",
       "label": "file i/o",
-      "rect": [280, 2347, 1136, 34],
+      "rect": [280, 2113, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2355, 600, 18],
+      "rect": [288, 2121, 600, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2355, 43, 18],
+      "rect": [288, 2121, 43, 18],
       "role": "text",
       "text": "file i/o"
     },
     {
-      "rect": [896, 2355, 80, 18],
+      "rect": [896, 2121, 80, 18],
       "role": "group"
     },
     {
-      "rect": [951, 2355, 26, 18],
+      "rect": [951, 2121, 26, 18],
       "role": "text",
       "text": "18s"
     },
     {
-      "rect": [984, 2355, 80, 18],
+      "rect": [984, 2121, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1022, 2355, 42, 18],
+      "rect": [1022, 2121, 42, 18],
       "role": "text",
       "text": "2.37%"
     },
     {
-      "rect": [1072, 2355, 64, 18],
+      "rect": [1072, 2121, 64, 18],
       "role": "group"
     },
     {
-      "rect": [1128, 2355, 9, 18],
+      "rect": [1128, 2121, 9, 18],
       "role": "text",
       "text": "9"
     },
     {
-      "rect": [1144, 2355, 104, 18],
+      "rect": [1144, 2121, 104, 18],
       "role": "group"
     },
     {
-      "rect": [1240, 2355, 9, 18],
+      "rect": [1240, 2121, 9, 18],
       "role": "text",
       "text": "2"
     },
     {
-      "rect": [1256, 2355, 72, 18],
+      "rect": [1256, 2121, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1286, 2355, 42, 18],
+      "rect": [1286, 2121, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [1336, 2355, 72, 18],
+      "rect": [1336, 2121, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1366, 2355, 42, 18],
+      "rect": [1366, 2121, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
       "key": "time-row:other",
       "label": "other",
-      "rect": [280, 2381, 1136, 34],
+      "rect": [280, 2147, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2389, 600, 18],
+      "rect": [288, 2155, 600, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2389, 35, 18],
+      "rect": [288, 2155, 35, 18],
       "role": "text",
       "text": "other"
     },
     {
-      "rect": [896, 2389, 80, 18],
+      "rect": [896, 2155, 80, 18],
       "role": "group"
     },
     {
-      "rect": [951, 2389, 26, 18],
+      "rect": [951, 2155, 26, 18],
       "role": "text",
       "text": "10s"
     },
     {
-      "rect": [984, 2389, 80, 18],
+      "rect": [984, 2155, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1022, 2389, 42, 18],
+      "rect": [1022, 2155, 42, 18],
       "role": "text",
       "text": "1.32%"
     },
     {
-      "rect": [1072, 2389, 64, 18],
+      "rect": [1072, 2155, 64, 18],
       "role": "group"
     },
     {
-      "rect": [1128, 2389, 9, 18],
+      "rect": [1128, 2155, 9, 18],
       "role": "text",
       "text": "5"
     },
     {
-      "rect": [1144, 2389, 104, 18],
+      "rect": [1144, 2155, 104, 18],
       "role": "group"
     },
     {
-      "rect": [1240, 2389, 9, 18],
+      "rect": [1240, 2155, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1256, 2389, 72, 18],
+      "rect": [1256, 2155, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1286, 2389, 42, 18],
+      "rect": [1286, 2155, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [1336, 2389, 72, 18],
+      "rect": [1336, 2155, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1366, 2389, 42, 18],
+      "rect": [1366, 2155, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
       "key": "time-row:test",
       "label": "tests",
-      "rect": [280, 2414, 1136, 34],
+      "rect": [280, 2180, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2422, 600, 18],
+      "rect": [288, 2188, 600, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2422, 34, 18],
+      "rect": [288, 2188, 34, 18],
       "role": "text",
       "text": "tests"
     },
     {
-      "rect": [896, 2422, 80, 18],
+      "rect": [896, 2188, 80, 18],
       "role": "group"
     },
     {
-      "rect": [934, 2422, 42, 18],
+      "rect": [934, 2188, 42, 18],
       "role": "text",
       "text": "4.00s"
     },
     {
-      "rect": [984, 2422, 80, 18],
+      "rect": [984, 2188, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1022, 2422, 42, 18],
+      "rect": [1022, 2188, 42, 18],
       "role": "text",
       "text": "0.53%"
     },
     {
-      "rect": [1072, 2422, 64, 18],
+      "rect": [1072, 2188, 64, 18],
       "role": "group"
     },
     {
-      "rect": [1128, 2422, 9, 18],
+      "rect": [1128, 2188, 9, 18],
       "role": "text",
       "text": "2"
     },
     {
-      "rect": [1144, 2422, 104, 18],
+      "rect": [1144, 2188, 104, 18],
       "role": "group"
     },
     {
-      "rect": [1240, 2422, 9, 18],
+      "rect": [1240, 2188, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1256, 2422, 72, 18],
+      "rect": [1256, 2188, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1286, 2422, 42, 18],
+      "rect": [1286, 2188, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [1336, 2422, 72, 18],
+      "rect": [1336, 2188, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1366, 2422, 42, 18],
+      "rect": [1366, 2188, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
       "key": "time-row:typecheck",
       "label": "typecheck",
-      "rect": [280, 2448, 1136, 34],
+      "rect": [280, 2214, 1136, 34],
       "role": "button"
     },
     {
-      "rect": [288, 2456, 600, 18],
+      "rect": [288, 2222, 600, 18],
       "role": "group"
     },
     {
-      "rect": [288, 2456, 70, 18],
+      "rect": [288, 2222, 70, 18],
       "role": "text",
       "text": "typecheck"
     },
     {
-      "rect": [896, 2456, 80, 18],
+      "rect": [896, 2222, 80, 18],
       "role": "group"
     },
     {
-      "rect": [934, 2456, 42, 18],
+      "rect": [934, 2222, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [984, 2456, 80, 18],
+      "rect": [984, 2222, 80, 18],
       "role": "group"
     },
     {
-      "rect": [1022, 2456, 42, 18],
+      "rect": [1022, 2222, 42, 18],
       "role": "text",
       "text": "0.26%"
     },
     {
-      "rect": [1072, 2456, 64, 18],
+      "rect": [1072, 2222, 64, 18],
       "role": "group"
     },
     {
-      "rect": [1128, 2456, 9, 18],
+      "rect": [1128, 2222, 9, 18],
       "role": "text",
       "text": "1"
     },
     {
-      "rect": [1144, 2456, 104, 18],
+      "rect": [1144, 2222, 104, 18],
       "role": "group"
     },
     {
-      "rect": [1240, 2456, 9, 18],
+      "rect": [1240, 2222, 9, 18],
       "role": "text",
       "text": "0"
     },
     {
-      "rect": [1256, 2456, 72, 18],
+      "rect": [1256, 2222, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1286, 2456, 42, 18],
+      "rect": [1286, 2222, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [1336, 2456, 72, 18],
+      "rect": [1336, 2222, 72, 18],
       "role": "group"
     },
     {
-      "rect": [1366, 2456, 42, 18],
+      "rect": [1366, 2222, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
       "key": "stats-waiting-section",
-      "rect": [280, 2513, 1136, 201],
+      "rect": [280, 2279, 1136, 201],
       "role": "group"
     },
     {
-      "rect": [280, 2513, 1136, 20],
+      "rect": [280, 2279, 1136, 20],
       "role": "group"
     },
     {
-      "rect": [280, 2513, 59, 20],
+      "rect": [280, 2279, 59, 20],
       "role": "text",
       "text": "Waiting"
     },
     {
-      "rect": [347, 2518, 145, 15],
+      "rect": [347, 2284, 145, 15],
       "role": "text",
       "text": "ranked by seconds parked"
     },
     {
       "key": "stats-waiting",
-      "rect": [280, 2545, 1136, 169],
+      "rect": [280, 2311, 1136, 169],
       "role": "group"
     },
     {
-      "rect": [280, 2545, 1136, 33],
+      "rect": [280, 2311, 1136, 33],
       "role": "group"
     },
     {
-      "rect": [280, 2545, 42, 33],
+      "rect": [280, 2311, 42, 33],
       "role": "group"
     },
     {
-      "rect": [280, 2545, 42, 18],
+      "rect": [280, 2311, 42, 18],
       "role": "text",
       "text": "2m06s"
     },
     {
-      "rect": [280, 2563, 42, 15],
+      "rect": [280, 2329, 42, 15],
       "role": "text",
       "text": "waiting"
     },
     {
-      "rect": [346, 2545, 69, 33],
+      "rect": [346, 2311, 69, 33],
       "role": "group"
     },
     {
-      "rect": [346, 2545, 69, 18],
+      "rect": [346, 2311, 69, 18],
       "role": "text",
       "text": "16.58%"
     },
     {
-      "rect": [346, 2563, 69, 15],
+      "rect": [346, 2329, 69, 15],
       "role": "text",
       "text": "of bash time"
     },
     {
-      "rect": [439, 2545, 26, 33],
+      "rect": [439, 2311, 26, 33],
       "role": "group"
     },
     {
-      "rect": [439, 2545, 26, 18],
+      "rect": [439, 2311, 26, 18],
       "role": "text",
       "text": "5"
     },
     {
-      "rect": [439, 2563, 26, 15],
+      "rect": [439, 2329, 26, 15],
       "role": "text",
       "text": "calls"
     },
     {
-      "rect": [489, 2545, 48, 33],
+      "rect": [489, 2311, 48, 33],
       "role": "group"
     },
     {
-      "rect": [489, 2545, 48, 18],
+      "rect": [489, 2311, 48, 18],
       "role": "text",
       "text": "2"
     },
     {
-      "rect": [489, 2563, 48, 15],
+      "rect": [489, 2329, 48, 15],
       "role": "text",
       "text": "sessions"
     },
     {
-      "rect": [561, 2545, 42, 33],
+      "rect": [561, 2311, 42, 33],
       "role": "group"
     },
     {
-      "rect": [561, 2545, 42, 18],
+      "rect": [561, 2311, 42, 18],
       "role": "text",
       "text": "2.00s"
     },
     {
-      "rect": [561, 2563, 42, 15],
+      "rect": [561, 2329, 42, 15],
       "role": "text",
       "text": "median"
     },
     {
-      "rect": [627, 2545, 42, 33],
+      "rect": [627, 2311, 42, 33],
       "role": "group"
     },
     {
-      "rect": [627, 2545, 42, 18],
+      "rect": [627, 2311, 42, 18],
       "role": "text",
       "text": "1m00s"
     },
     {
-      "rect": [627, 2563, 42, 15],
+      "rect": [627, 2329, 42, 15],
       "role": "text",
       "text": "p95"
     },
     {
       "key": "rank-bar",
-      "rect": [280, 2590, 1136, 124],
+      "rect": [280, 2356, 1136, 124],
       "role": "group"
     },
     {
       "key": "rank-row:wait:loop-poll",
-      "rect": [280, 2590, 1136, 25],
+      "rect": [280, 2356, 1136, 25],
       "role": "group"
     },
     {
-      "rect": [280, 2590, 1136, 15],
+      "rect": [280, 2356, 1136, 15],
       "role": "group"
     },
     {
-      "rect": [280, 2590, 51, 15],
+      "rect": [280, 2356, 51, 15],
       "role": "text",
       "text": "loop-poll"
     },
     {
-      "rect": [343, 2605, 898, 0],
+      "rect": [343, 2371, 898, 0],
       "role": "group"
     },
     {
-      "rect": [1253, 2590, 36, 15],
+      "rect": [1253, 2356, 36, 15],
       "role": "text",
       "text": "2m00s"
     },
     {
-      "rect": [1301, 2590, 116, 15],
+      "rect": [1301, 2356, 116, 15],
       "role": "text",
       "text": "2 calls · 15.79%"
     },
     {
-      "rect": [280, 2609, 1136, 6],
+      "rect": [280, 2375, 1136, 6],
       "role": "group"
     },
     {
-      "rect": [280, 2609, 1082, 6],
+      "rect": [280, 2375, 1082, 6],
       "role": "group"
     },
     {
       "key": "rank-row:wait:bare-delay",
-      "rect": [280, 2623, 1136, 25],
+      "rect": [280, 2389, 1136, 25],
       "role": "group"
     },
     {
-      "rect": [280, 2623, 1136, 15],
+      "rect": [280, 2389, 1136, 15],
       "role": "group"
     },
     {
-      "rect": [280, 2623, 61, 15],
+      "rect": [280, 2389, 61, 15],
       "role": "text",
       "text": "bare-delay"
     },
     {
-      "rect": [353, 2638, 895, 0],
+      "rect": [353, 2404, 895, 0],
       "role": "group"
     },
     {
-      "rect": [1260, 2623, 36, 15],
+      "rect": [1260, 2389, 36, 15],
       "role": "text",
       "text": "6.00s"
     },
     {
-      "rect": [1308, 2623, 108, 15],
+      "rect": [1308, 2389, 108, 15],
       "role": "text",
       "text": "3 calls · 0.79%"
     },
     {
-      "rect": [280, 2642, 1136, 6],
+      "rect": [280, 2408, 1136, 6],
       "role": "group"
     },
     {
-      "rect": [280, 2642, 54, 6],
+      "rect": [280, 2408, 54, 6],
       "role": "group"
     },
     {
       "key": "rank-row:wait:curl-retry",
-      "rect": [280, 2656, 1136, 25],
+      "rect": [280, 2422, 1136, 25],
       "role": "group"
     },
     {
-      "rect": [280, 2656, 1136, 15],
+      "rect": [280, 2422, 1136, 15],
       "role": "group"
     },
     {
-      "rect": [280, 2656, 54, 15],
+      "rect": [280, 2422, 54, 15],
       "role": "text",
       "text": "curl-retry"
     },
     {
-      "rect": [346, 2671, 903, 0],
+      "rect": [346, 2437, 903, 0],
       "role": "group"
     },
     {
-      "rect": [1260, 2656, 36, 15],
+      "rect": [1260, 2422, 36, 15],
       "role": "text",
       "text": "0.00s"
     },
     {
-      "rect": [1308, 2656, 108, 15],
+      "rect": [1308, 2422, 108, 15],
       "role": "text",
       "text": "0 calls · 0.00%"
     },
     {
-      "rect": [280, 2675, 1136, 6],
+      "rect": [280, 2441, 1136, 6],
       "role": "group"
     },
     {
-      "rect": [280, 2675, 6, 6],
+      "rect": [280, 2441, 6, 6],
       "role": "group"
     },
     {
       "key": "rank-row:wait:watcher",
-      "rect": [280, 2689, 1136, 25],
+      "rect": [280, 2455, 1136, 25],
       "role": "group"
     },
     {
-      "rect": [280, 2689, 1136, 15],
+      "rect": [280, 2455, 1136, 15],
       "role": "group"
     },
     {
-      "rect": [280, 2689, 46, 15],
+      "rect": [280, 2455, 46, 15],
       "role": "text",
       "text": "watcher"
     },
     {
-      "rect": [338, 2704, 910, 0],
+      "rect": [338, 2470, 910, 0],
       "role": "group"
     },
     {
-      "rect": [1260, 2689, 36, 15],
+      "rect": [1260, 2455, 36, 15],
       "role": "text",
       "text": "0.00s"
     },
     {
-      "rect": [1308, 2689, 108, 15],
+      "rect": [1308, 2455, 108, 15],
       "role": "text",
       "text": "0 calls · 0.00%"
     },
     {
-      "rect": [280, 2708, 1136, 6],
+      "rect": [280, 2474, 1136, 6],
       "role": "group"
     },
     {
-      "rect": [280, 2708, 6, 6],
+      "rect": [280, 2474, 6, 6],
       "role": "group"
     },
     {
       "key": "stats-clusters-section",
-      "rect": [280, 2746, 1136, 393],
+      "rect": [280, 2512, 1136, 393],
       "role": "group"
     },
     {
-      "rect": [280, 2746, 1136, 20],
+      "rect": [280, 2512, 1136, 20],
       "role": "group"
     },
     {
-      "rect": [280, 2746, 104, 20],
+      "rect": [280, 2512, 104, 20],
       "role": "text",
       "text": "Error clusters"
     },
     {
-      "rect": [392, 2751, 215, 15],
+      "rect": [392, 2517, 215, 15],
       "role": "text",
       "text": "ranked by rows, then sessions spanned"
     },
     {
       "key": "stats-clusters",
-      "rect": [280, 2778, 1136, 361],
+      "rect": [280, 2544, 1136, 361],
       "role": "group"
     },
     {
       "key": "rank-bar",
-      "rect": [280, 2778, 1136, 361],
+      "rect": [280, 2544, 1136, 361],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:Blocked: sleep <n>",
       "label": "Blocked: sleep <n>",
-      "rect": [280, 2778, 1136, 33],
+      "rect": [280, 2544, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 2782, 1120, 15],
+      "rect": [288, 2548, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 2782, 106, 15],
+      "rect": [288, 2548, 106, 15],
       "role": "text",
       "text": "Blocked: sleep <n>"
     },
     {
-      "rect": [406, 2797, 812, 0],
+      "rect": [406, 2563, 812, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 2782, 44, 15],
+      "rect": [1230, 2548, 44, 15],
       "role": "text",
       "text": "2 rows"
     },
     {
-      "rect": [1286, 2782, 123, 15],
+      "rect": [1286, 2548, 123, 15],
       "role": "text",
       "text": "2 sessions · Bash"
     },
     {
-      "rect": [288, 2801, 1120, 6],
+      "rect": [288, 2567, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 2801, 1120, 6],
+      "rect": [288, 2567, 1120, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:zsh:<n>: command not found: jqq",
       "label": "zsh:<n>: command not found: jqq",
-      "rect": [280, 2819, 1136, 33],
+      "rect": [280, 2585, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 2823, 1120, 15],
+      "rect": [288, 2589, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 2823, 187, 15],
+      "rect": [288, 2589, 187, 15],
       "role": "text",
       "text": "zsh:<n>: command not found: jqq"
     },
     {
-      "rect": [487, 2838, 731, 0],
+      "rect": [487, 2604, 731, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 2823, 44, 15],
+      "rect": [1230, 2589, 44, 15],
       "role": "text",
       "text": "2 rows"
     },
     {
-      "rect": [1286, 2823, 123, 15],
+      "rect": [1286, 2589, 123, 15],
       "role": "text",
       "text": "2 sessions · Bash"
     },
     {
-      "rect": [288, 2842, 1120, 6],
+      "rect": [288, 2608, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 2842, 1120, 6],
+      "rect": [288, 2608, 1120, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:zsh:<n>: no matches found: <path>*.js",
       "label": "zsh:<n>: no matches found: <path>*.js",
-      "rect": [280, 2860, 1136, 33],
+      "rect": [280, 2626, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 2864, 1120, 15],
+      "rect": [288, 2630, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 2864, 213, 15],
+      "rect": [288, 2630, 213, 15],
       "role": "text",
       "text": "zsh:<n>: no matches found: <path>*.js"
     },
     {
-      "rect": [513, 2879, 705, 0],
+      "rect": [513, 2645, 705, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 2864, 44, 15],
+      "rect": [1230, 2630, 44, 15],
       "role": "text",
       "text": "2 rows"
     },
     {
-      "rect": [1286, 2864, 123, 15],
+      "rect": [1286, 2630, 123, 15],
       "role": "text",
       "text": "2 sessions · Bash"
     },
     {
-      "rect": [288, 2883, 1120, 6],
+      "rect": [288, 2649, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 2883, 1120, 6],
+      "rect": [288, 2649, 1120, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:<n> fail",
       "label": "<n> fail",
-      "rect": [280, 2901, 1136, 33],
+      "rect": [280, 2667, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 2905, 1120, 15],
+      "rect": [288, 2671, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 2905, 41, 15],
+      "rect": [288, 2671, 41, 15],
       "role": "text",
       "text": "<n> fail"
     },
     {
-      "rect": [341, 2920, 877, 0],
+      "rect": [341, 2686, 877, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 2905, 44, 15],
+      "rect": [1230, 2671, 44, 15],
       "role": "text",
       "text": "2 rows"
     },
     {
-      "rect": [1286, 2905, 123, 15],
+      "rect": [1286, 2671, 123, 15],
       "role": "text",
       "text": "1 sessions · Bash"
     },
     {
-      "rect": [288, 2924, 1120, 6],
+      "rect": [288, 2690, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 2924, 1120, 6],
+      "rect": [288, 2690, 1120, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:<path>(<n>): error TS2304: Cannot find name <str>.",
       "label": "<path>(<n>): error TS2304: Cannot find name <str>. — x",
-      "rect": [280, 2942, 1136, 33],
+      "rect": [280, 2708, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 2946, 1120, 15],
+      "rect": [288, 2712, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 2946, 311, 15],
+      "rect": [288, 2712, 311, 15],
       "role": "text",
       "text": "<path>(<n>): error TS2304: Cannot find name <str>. — x"
     },
     {
-      "rect": [611, 2961, 607, 0],
+      "rect": [611, 2727, 607, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 2946, 44, 15],
+      "rect": [1230, 2712, 44, 15],
       "role": "text",
       "text": "1 rows"
     },
     {
-      "rect": [1286, 2946, 123, 15],
+      "rect": [1286, 2712, 123, 15],
       "role": "text",
       "text": "1 sessions · Bash"
     },
     {
-      "rect": [288, 2965, 1120, 6],
+      "rect": [288, 2731, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 2965, 560, 6],
+      "rect": [288, 2731, 560, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:Dangerous rm operation detected: refusing",
       "label": "Dangerous rm operation detected: refusing",
-      "rect": [280, 2983, 1136, 33],
+      "rect": [280, 2749, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 2987, 1120, 15],
+      "rect": [288, 2753, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 2987, 241, 15],
+      "rect": [288, 2753, 241, 15],
       "role": "text",
       "text": "Dangerous rm operation detected: refusing"
     },
     {
-      "rect": [541, 3002, 677, 0],
+      "rect": [541, 2768, 677, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 2987, 44, 15],
+      "rect": [1230, 2753, 44, 15],
       "role": "text",
       "text": "1 rows"
     },
     {
-      "rect": [1286, 2987, 123, 15],
+      "rect": [1286, 2753, 123, 15],
       "role": "text",
       "text": "1 sessions · Bash"
     },
     {
-      "rect": [288, 3006, 1120, 6],
+      "rect": [288, 2772, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 3006, 560, 6],
+      "rect": [288, 2772, 560, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:Exit code 144",
       "label": "Exit code 144",
-      "rect": [280, 3024, 1136, 33],
+      "rect": [280, 2790, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 3028, 1120, 15],
+      "rect": [288, 2794, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 3028, 75, 15],
+      "rect": [288, 2794, 75, 15],
       "role": "text",
       "text": "Exit code 144"
     },
     {
-      "rect": [375, 3043, 844, 0],
+      "rect": [375, 2809, 844, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 3028, 44, 15],
+      "rect": [1230, 2794, 44, 15],
       "role": "text",
       "text": "1 rows"
     },
     {
-      "rect": [1286, 3028, 123, 15],
+      "rect": [1286, 2794, 123, 15],
       "role": "text",
       "text": "1 sessions · Bash"
     },
     {
-      "rect": [288, 3047, 1120, 6],
+      "rect": [288, 2813, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 3047, 560, 6],
+      "rect": [288, 2813, 560, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:zsh:<n>: command not found: fdd",
       "label": "zsh:<n>: command not found: fdd",
-      "rect": [280, 3065, 1136, 33],
+      "rect": [280, 2831, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 3069, 1120, 15],
+      "rect": [288, 2835, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 3069, 189, 15],
+      "rect": [288, 2835, 189, 15],
       "role": "text",
       "text": "zsh:<n>: command not found: fdd"
     },
     {
-      "rect": [489, 3084, 730, 0],
+      "rect": [489, 2850, 730, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 3069, 44, 15],
+      "rect": [1230, 2835, 44, 15],
       "role": "text",
       "text": "1 rows"
     },
     {
-      "rect": [1286, 3069, 123, 15],
+      "rect": [1286, 2835, 123, 15],
       "role": "text",
       "text": "1 sessions · Bash"
     },
     {
-      "rect": [288, 3088, 1120, 6],
+      "rect": [288, 2854, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 3088, 560, 6],
+      "rect": [288, 2854, 560, 6],
       "role": "group"
     },
     {
       "key": "rank-row:cluster:zsh:<n>: no matches found: <path>*.ts",
       "label": "zsh:<n>: no matches found: <path>*.ts",
-      "rect": [280, 3106, 1136, 33],
+      "rect": [280, 2872, 1136, 33],
       "role": "button"
     },
     {
-      "rect": [288, 3110, 1120, 15],
+      "rect": [288, 2876, 1120, 15],
       "role": "group"
     },
     {
-      "rect": [288, 3110, 215, 15],
+      "rect": [288, 2876, 215, 15],
       "role": "text",
       "text": "zsh:<n>: no matches found: <path>*.ts"
     },
     {
-      "rect": [515, 3125, 704, 0],
+      "rect": [515, 2891, 704, 0],
       "role": "group"
     },
     {
-      "rect": [1230, 3110, 44, 15],
+      "rect": [1230, 2876, 44, 15],
       "role": "text",
       "text": "1 rows"
     },
     {
-      "rect": [1286, 3110, 123, 15],
+      "rect": [1286, 2876, 123, 15],
       "role": "text",
       "text": "1 sessions · Bash"
     },
     {
-      "rect": [288, 3129, 1120, 6],
+      "rect": [288, 2895, 1120, 6],
       "role": "group"
     },
     {
-      "rect": [288, 3129, 560, 6],
+      "rect": [288, 2895, 560, 6],
       "role": "group"
     }
   ],

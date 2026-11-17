@@ -16,7 +16,7 @@ use crate::stats::accumulate::{
 use crate::stats::rank::{asc, bump, cmp_str, desc, rank, round_to, share, top_key};
 use crate::stats::schema::{CallFact, Fact, WriteExt};
 
-const PIPED_EXIT_CODE: &str = "piped-exit-code";
+pub const PIPED_EXIT_CODE: &str = "piped-exit-code";
 
 /// The TS pattern opens with `(?<![\w./-])`; for a yes/no test that
 /// lookbehind changes nothing (a match inside a path run also matches from
@@ -224,6 +224,8 @@ pub struct FailRow {
     pub sessions: f64,
     pub projects: f64,
     pub flagged: f64,
+    /// Calls that piped their output into another command.
+    pub piped: f64,
     pub note: Option<String>,
     pub detector: Option<String>,
     pub samples: Vec<SampleRef>,
@@ -331,6 +333,7 @@ impl FailTable {
                     sessions: tally.session_count(),
                     projects: tally.project_count(),
                     flagged: tally.flagged,
+                    piped: meta.piped,
                     note: note.map(|n| ctx.redact.line(&n)),
                     detector: (scan && meta.piped > 0.0).then(|| PIPED_EXIT_CODE.to_owned()),
                     samples: samples_of(&tally.samples, ctx),
@@ -347,12 +350,16 @@ impl FailTable {
             ctx.limit,
         );
         if ranked.dropped > 0 {
-            ctx.caveat(format!("fail table: {} rows not shown", ranked.dropped));
+            ctx.caveat(format!(
+                "\"What fails\" shows the top {} of {} rows",
+                ranked.rows.len(),
+                ranked.total
+            ));
         }
         if self.suppressed > 0.0 {
             let pct = round_to(share(self.suppressed, self.errored_bash) * 100.0, 1);
             ctx.caveat(format!(
-                "{} of {} errored bash rows ({}%) are suppressed as benign, at a precision of 78% measured before the cause catalog took {} rows (zsh glob aborts among them) out of the benign set",
+                "{} of {} shell calls that exited with an error ({}%) count as harmless, such as a grep that found nothing. A hand check found this right 78% of the time, before {} of them moved to named retry causes",
                 self.suppressed,
                 self.errored_bash,
                 crate::js::num::to_js_string(pct),

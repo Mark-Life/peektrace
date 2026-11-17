@@ -8,7 +8,6 @@ import type {
   AgentId,
   DrillTable,
   SampleRef,
-  StatsReport,
   StatsText,
   TimeRow,
 } from "@workspace/view-core/api-types.gen";
@@ -105,22 +104,6 @@ export const promptsOf =
   (text: StatsText): PromptFor =>
   (target) =>
     promptIn(text, target);
-
-/** The samples of the row a finding names. */
-export const samplesOf = (
-  report: StatsReport,
-  table: DrillTable,
-  key: string
-): readonly SampleRef[] => {
-  const rows: Partial<
-    Record<
-      DrillTable,
-      readonly { key: string; samples: readonly SampleRef[] }[]
-    >
-  > = { cause: report.causes, fail: report.fails, time: report.time };
-
-  return rows[table]?.find((row) => row.key === key)?.samples ?? [];
-};
 
 /** Chars of a project slug a session chip keeps. */
 const PROJECT_TAIL = 18;

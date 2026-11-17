@@ -5,17 +5,21 @@ use std::collections::BTreeMap;
 
 use peektrace_protocol::DrillTable as WireTable;
 use peektrace_protocol::stats_text::{Finding, StatsPrompts, StatsText};
+use peektrace_protocol::wire::stats::{SampleRef as WireSample, TranscriptKind};
 
-use super::accumulate::DrillTable;
+use super::accumulate::{DrillTable, SampleRef};
 use super::findings::{
-    FindingFormat, findings_with, rule_line, suggested_rule_of, suggested_rules, time_note_with,
+    self, FindingFormat, findings_with, is_working, rule_line, suggested_rule_of, suggested_rules,
+    time_note_with, working_with,
 };
 use super::format::count;
 use super::prompts::{PromptTarget, stats_prompt_with};
 use super::report::StatsReport;
+use super::schema::{Kind, WriteExt};
 use crate::js::inspector::{fmt_k, hms, pct};
 use crate::js::json_out::Writer;
 use crate::model::Agent;
+use crate::wire::agent_id;
 
 impl FindingFormat {
     /// The inspector's spelling: `39.6K` tokens, `0.42s`, `15.71%`.
@@ -34,6 +38,42 @@ const fn wire_table(t: DrillTable) -> WireTable {
         DrillTable::Time => WireTable::Time,
         DrillTable::Cluster => WireTable::Cluster,
         DrillTable::Wait => WireTable::Wait,
+    }
+}
+
+const fn wire_kind(k: Kind) -> TranscriptKind {
+    match k {
+        Kind::Main => TranscriptKind::Main,
+        Kind::Subagent => TranscriptKind::Subagent,
+        Kind::WorkflowAgent => TranscriptKind::WorkflowAgent,
+    }
+}
+
+fn wire_sample(s: &SampleRef) -> WireSample {
+    WireSample {
+        sid: s.sid.clone(),
+        agent: agent_id(s.agent),
+        project: s.project.clone(),
+        kind: wire_kind(s.kind),
+        parent: s.parent.clone(),
+        seq: s.seq,
+        tool_use_id: s.tool_use_id.clone(),
+        ts: s.ts.clone(),
+        line: s.line.clone(),
+    }
+}
+
+fn wire_finding(x: findings::Finding) -> Finding {
+    Finding {
+        detector: x.detector,
+        impact: x.impact,
+        key: x.key,
+        note: x.note,
+        rule: x.rule,
+        spread: x.spread,
+        table: x.table.map(wire_table),
+        title: x.title,
+        samples: x.samples.iter().map(wire_sample).collect(),
     }
 }
 
@@ -65,27 +105,23 @@ fn prompts_of(r: &StatsReport, agent: Option<Agent>) -> StatsPrompts {
 /// Everything core writes for `r`, with prompts scoped to `agent`.
 pub fn text_of(r: &StatsReport, agent: Option<Agent>) -> StatsText {
     let f = &FindingFormat::INSPECTOR;
-    let findings = findings_with(r, f)
-        .into_iter()
-        .map(|x| Finding {
-            detector: x.detector,
-            impact: x.impact,
-            key: x.key,
-            note: x.note,
-            rule: x.rule,
-            spread: x.spread,
-            table: wire_table(x.table),
-            title: x.title,
-        })
-        .collect();
     StatsText {
-        findings,
+        findings: findings_with(r, f).into_iter().map(wire_finding).collect(),
+        working: working_with(r, f).into_iter().map(wire_finding).collect(),
         suggested: suggested_rules(r).into_iter().map(str::to_owned).collect(),
         prompts: prompts_of(r, agent),
         rule_lines: r
             .causes
             .iter()
-            .filter_map(|c| Some((c.key.clone(), rule_line(c.rule.as_ref()?))))
+            .filter_map(|c| {
+                let line = rule_line(c.rule.as_ref()?);
+                let line = if is_working(c) {
+                    format!("fixed · {line}")
+                } else {
+                    line
+                };
+                Some((c.key.clone(), line))
+            })
             .collect(),
         suggested_rule: r
             .causes
@@ -115,11 +151,28 @@ fn map_json(w: &mut Writer, m: &BTreeMap<String, String>) {
     w.end_obj();
 }
 
-/// Write `t` as the `text` member of `GET /api/stats/report`.
-pub fn write_text(w: &mut Writer, t: &StatsText) {
-    w.begin_obj();
-    w.key("findings").begin_arr();
-    for x in &t.findings {
+fn sample_json(w: &mut Writer, s: &WireSample) {
+    let kind = match s.kind {
+        TranscriptKind::Main => Kind::Main,
+        TranscriptKind::Subagent => Kind::Subagent,
+        TranscriptKind::WorkflowAgent => Kind::WorkflowAgent,
+    };
+    w.elem().begin_obj();
+    w.key("sid").text(&s.sid);
+    w.key("agent").str(s.agent.as_str());
+    w.key("project").text(&s.project);
+    w.key("kind").str(kind.as_str());
+    w.key("parent").opt_text(s.parent.as_deref());
+    w.key("seq").num(s.seq);
+    w.key("toolUseId").opt_text(s.tool_use_id.as_deref());
+    w.key("ts").opt_text(s.ts.as_deref());
+    w.key("line").text(&s.line);
+    w.end_obj();
+}
+
+fn findings_json(w: &mut Writer, all: &[Finding]) {
+    w.begin_arr();
+    for x in all {
         w.elem().begin_obj();
         w.key("detector");
         opt_text(w, x.detector.as_deref());
@@ -129,11 +182,28 @@ pub fn write_text(w: &mut Writer, t: &StatsText) {
         w.key("rule");
         opt_text(w, x.rule.as_deref());
         w.key("spread").text(&x.spread);
-        w.key("table").str(x.table.as_str());
+        match x.table {
+            Some(t) => w.key("table").str(t.as_str()),
+            None => w.key("table").null(),
+        }
         w.key("title").text(&x.title);
+        w.key("samples").begin_arr();
+        for sample in &x.samples {
+            sample_json(w, sample);
+        }
+        w.end_arr();
         w.end_obj();
     }
     w.end_arr();
+}
+
+/// Write `t` as the `text` member of `GET /api/stats/report`.
+pub fn write_text(w: &mut Writer, t: &StatsText) {
+    w.begin_obj();
+    w.key("findings");
+    findings_json(w, &t.findings);
+    w.key("working");
+    findings_json(w, &t.working);
     w.key("suggested")
         .texts(t.suggested.iter().map(String::as_str));
     w.key("prompts").begin_obj();
@@ -168,8 +238,30 @@ mod tests {
             note: "note".into(),
             rule: Some("rule".into()),
             spread: "spread".into(),
-            table: WireTable::Fail,
+            table: Some(WireTable::Fail),
             title: "title".into(),
+            samples: Vec::new(),
+        });
+        t.working.push(Finding {
+            detector: Some("zsh-glob-path".into()),
+            impact: "1 retries".into(),
+            key: "cause:zsh-glob-path".into(),
+            note: "rule".into(),
+            rule: None,
+            spread: "spread".into(),
+            table: None,
+            title: "working".into(),
+            samples: vec![WireSample {
+                sid: "s1".into(),
+                agent: peektrace_protocol::AgentId::Claude,
+                project: "p".into(),
+                kind: TranscriptKind::Main,
+                parent: None,
+                seq: 0.0,
+                tool_use_id: None,
+                ts: None,
+                line: "line".into(),
+            }],
         });
         t.suggested.push("line".into());
         t.prompts.report = "report".into();

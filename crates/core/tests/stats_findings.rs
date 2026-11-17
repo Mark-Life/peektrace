@@ -3,7 +3,7 @@
 //! one set, so the expected strings use the real ones (`50.0s`, `900`).
 #![allow(clippy::float_cmp, reason = "counts are whole numbers")]
 
-use peektrace_core::stats::accumulate::{CorpusSummary, StatsWindow};
+use peektrace_core::stats::accumulate::{CorpusSummary, DrillTable, StatsWindow};
 use peektrace_core::stats::detectors::causes::CauseKind;
 use peektrace_core::stats::detectors::corpus::CorpusPanels;
 use peektrace_core::stats::detectors::failures::FailRow;
@@ -12,7 +12,8 @@ use peektrace_core::stats::detectors::rules::{RuleCheck, RuleMatch, Split};
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::waiting::WaitPanel;
 use peektrace_core::stats::findings::{
-    NO_RULE, cause_note, findings_of, no_suggestion_reason, rule_line, time_note, time_spread,
+    NO_RULE, cause_note, cause_spread, findings_of, no_suggestion_reason, rule_line, time_note,
+    time_spread, working_of,
 };
 use peektrace_core::stats::format::rate_text;
 use peektrace_core::stats::schema::{CauseId, Job};
@@ -27,6 +28,7 @@ fn fail_row(key: &str, edit: impl FnOnce(&mut FailRow)) -> FailRow {
         key: key.to_owned(),
         label: "label".into(),
         r#where: "Bash".into(),
+        piped: 0.0,
         rows: 10.0,
         sessions: 5.0,
         projects: 2.0,
@@ -68,6 +70,7 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         fix: Some("quote the glob".into()),
         failing: true,
         hits: 40.0,
+        live_hits: None,
         flagged: 2.0,
         hits_by: split(10.0, 30.0),
         pairs: 12.0,
@@ -142,7 +145,7 @@ fn capped(r: &mut TimeRow) {
 }
 
 #[test]
-fn a_named_rule_leads_then_a_note_then_time_rows() {
+fn time_and_fail_rows_are_never_findings() {
     let r = report(
         100.0,
         vec![],
@@ -155,11 +158,10 @@ fn a_named_rule_leads_then_a_note_then_time_rows() {
                 r.note = Some("quote the separator".into());
                 r.detector = Some("zsh-equals-abort".into());
             }),
-            fail_row("quiet", |_| {}),
         ],
         vec![time_row(capped)],
     );
-    assert_eq!(keys(&r), ["named", "plain", "test"]);
+    assert_eq!(keys(&r), Vec::<String>::new());
 }
 
 #[test]
@@ -173,47 +175,137 @@ fn a_row_with_no_note_is_never_a_finding() {
     assert_eq!(findings_of(&r), []);
 }
 
-#[test]
-fn the_two_tables_keep_their_own_units() {
-    let r = report(
-        100.0,
-        vec![],
-        vec![fail_row("k", |r| {
-            r.note = Some("printed a failure".into());
-            r.sessions = 9.0;
-        })],
-        vec![time_row(capped)],
-    );
-    let f = findings_of(&r);
-    assert_eq!(f[0].impact, "9 sessions");
-    assert_eq!(f[1].impact, "1h00m");
+fn piped(key: &str, piped: f64) -> FailRow {
+    fail_row(key, |r| {
+        r.detector = Some("piped-exit-code".into());
+        r.piped = piped;
+        r.rows = 10.0;
+    })
 }
 
 #[test]
-fn cause_findings_lead_in_the_cause_tables_order() {
+fn piped_rows_fold_into_one_finding_keyed_on_the_top_row() {
+    let r = report(
+        100.0,
+        vec![],
+        vec![piped("few", 1.0), piped("most", 3.0), piped("some", 2.0)],
+        vec![],
+    );
+    let f = findings_of(&r);
+    assert_eq!(f.len(), 1);
+    assert_eq!(f[0].title, "Piped output hides failed exit codes");
+    assert_eq!(f[0].detector.as_deref(), Some("piped-exit-code"));
+    assert_eq!(f[0].key, "most");
+    assert_eq!(f[0].table, Some(DrillTable::Fail));
+    assert_eq!(f[0].impact, "6 calls");
+}
+
+#[test]
+fn fewer_than_three_piped_calls_make_no_finding() {
+    let r = report(
+        100.0,
+        vec![],
+        vec![piped("a", 1.0), piped("b", 1.0)],
+        vec![],
+    );
+    assert_eq!(findings_of(&r), []);
+}
+
+fn named_cause(key: &str, id: CauseId, hits: f64) -> CauseRow {
+    cause_row(|r| {
+        r.key = key.into();
+        r.cause = id;
+        r.hits = hits;
+    })
+}
+
+#[test]
+fn cause_findings_rank_by_live_hits_and_ties_keep_table_order() {
     let r = report(
         100.0,
         vec![
-            cause_row(|_| {}),
-            cause_row(|r| {
-                r.key = "cause:pkill-self-kill".into();
-                r.cause = CauseId::PkillSelfKill;
-            }),
+            named_cause("cause:a", CauseId::ZshGlobFlag, 40.0),
+            named_cause("cause:b", CauseId::PkillSelfKill, 40.0),
+            named_cause("cause:c", CauseId::ZshGlobPath, 90.0),
         ],
-        vec![fail_row("named", |r| {
-            r.note = Some("x".into());
-            r.detector = Some("piped-exit-code".into());
-        })],
-        vec![time_row(capped)],
+        vec![],
+        vec![],
     );
-    assert_eq!(
-        keys(&r),
-        [
-            "cause:zsh-glob-flag",
-            "cause:pkill-self-kill",
-            "named",
-            "test"
-        ]
+    assert_eq!(keys(&r), ["cause:c", "cause:a", "cause:b"]);
+}
+
+#[test]
+fn misses_of_installed_binaries_stop_ranking_command_not_found() {
+    let mut cnf = named_cause("cause:cnf", CauseId::CommandNotFound, 90.0);
+    cnf.live_hits = Some(10.0);
+    let r = report(
+        100.0,
+        vec![cnf, named_cause("cause:a", CauseId::ZshGlobFlag, 40.0)],
+        vec![],
+        vec![],
+    );
+    assert_eq!(keys(&r), ["cause:a", "cause:cnf"]);
+    assert!(
+        cause_spread(&r.causes[0]).contains("), 80 from binaries installed since · "),
+        "{}",
+        cause_spread(&r.causes[0])
+    );
+}
+
+#[test]
+fn a_dated_rule_ranks_by_hits_after_its_day() {
+    let after = |before: f64, n: f64| RuleCheck {
+        hits_through: split(before, 0.0),
+        hits_after: split(n, 0.0),
+        hits_since: split(n, 0.0),
+        ..firing()
+    };
+    let mut a = named_cause("cause:a", CauseId::ZshGlobFlag, 200.0);
+    a.rule = Some(after(199.0, 1.0));
+    let mut b = named_cause("cause:b", CauseId::PkillSelfKill, 50.0);
+    b.rule = Some(after(30.0, 20.0));
+    let r = report(100.0, vec![a, b], vec![], vec![]);
+    assert_eq!(keys(&r), ["cause:b", "cause:a"]);
+}
+
+#[test]
+fn a_quiet_dated_rule_with_enough_calls_moves_to_working() {
+    let quiet = |calls: f64| RuleCheck {
+        hits_through: split(40.0, 0.0),
+        hits_after: Split::default(),
+        hits_since: Split::default(),
+        calls_since: split(calls, calls),
+        per1k_since: Split::default(),
+        ..firing()
+    };
+    let mut done = named_cause("cause:a", CauseId::ZshGlobFlag, 40.0);
+    done.rule = Some(quiet(2000.0));
+    let mut thin = named_cause("cause:b", CauseId::PkillSelfKill, 40.0);
+    thin.rule = Some(quiet(10.0));
+    let r = report(100.0, vec![done, thin], vec![], vec![]);
+    assert_eq!(keys(&r), ["cause:b"]);
+    let working: Vec<String> = working_of(&r).into_iter().map(|f| f.key).collect();
+    assert_eq!(working, ["cause:a"]);
+}
+
+#[test]
+fn hits_with_no_date_stay_live_and_keep_a_cause_out_of_working() {
+    let mut a = named_cause("cause:a", CauseId::ZshGlobFlag, 50.0);
+    a.rule = Some(RuleCheck {
+        hits_through: split(40.0, 0.0),
+        hits_after: Split::default(),
+        hits_since: Split::default(),
+        calls_since: split(2000.0, 2000.0),
+        per1k_since: Split::default(),
+        ..firing()
+    });
+    let r = report(100.0, vec![a], vec![], vec![]);
+    assert_eq!(keys(&r), ["cause:a"]);
+    assert_eq!(working_of(&r).len(), 0);
+    let spread = &findings_of(&r)[0].spread;
+    assert!(
+        spread.starts_with("40 hits up to the rule (Aug 1), 0 since, 10 with no date"),
+        "{spread}"
     );
 }
 
@@ -272,6 +364,8 @@ fn firing() -> RuleCheck {
             excerpt: "Quote globs".into(),
         }],
         since_iso: Some("2026-08-01T00:00:00.000Z".into()),
+        hits_through: Split::default(),
+        hits_after: Split::default(),
         hits_since: split(1.0, 9.0),
         calls_since: split(100.0, 100.0),
         per1k_since: split(10.0, 90.0),
@@ -297,6 +391,8 @@ fn a_rule_present_and_firing_says_so_instead_of_the_fix() {
     );
     assert_eq!(
         rule_line(&RuleCheck {
+            hits_through: Split::default(),
+            hits_after: Split::default(),
             hits_since: split(0.0, 0.0),
             ..firing()
         }),
@@ -304,6 +400,8 @@ fn a_rule_present_and_firing_says_so_instead_of_the_fix() {
     );
     let fresh = cause_row(|r| {
         r.rule = Some(RuleCheck {
+            hits_through: Split::default(),
+            hits_after: Split::default(),
             hits_since: split(0.0, 0.0),
             calls_since: split(0.0, 0.0),
             per1k_since: split(0.0, 0.0),
@@ -333,6 +431,8 @@ fn no_suggestion_says_why() {
         r.rule = Some(RuleCheck {
             matches: vec![],
             since_iso: None,
+            hits_through: Split::default(),
+            hits_after: Split::default(),
             hits_since: split(0.0, 0.0),
             calls_since: split(0.0, 0.0),
             per1k_since: split(0.0, 0.0),
@@ -360,7 +460,19 @@ fn a_share_of_no_shell_seconds_says_so() {
 #[test]
 fn a_ceiling_is_stated_as_a_floor() {
     let note = time_note(&time_row(capped)).unwrap_or_default();
-    assert!(note.contains("harness ceiling") && note.contains("these seconds are a floor"));
+    assert_eq!(
+        note,
+        "3 of 10 runs hit the agent's tool time limit (1m00s of 1h00m), so this time is a floor"
+    );
+    let both = time_note(&time_row(|r| {
+        capped(r);
+        r.bg_runs = 2.0;
+    }))
+    .unwrap_or_default();
+    assert!(
+        both.ends_with(". 2 runs went to the background and count only the seconds they ran"),
+        "{both}"
+    );
     assert_eq!(time_note(&time_row(|_| {})), None);
 }
 
@@ -382,6 +494,8 @@ fn a_side_with_hits_never_reads_zero() {
             excerpt: "x".into(),
         }],
         since_iso: Some("2026-08-01T00:00:00.000Z".into()),
+        hits_through: Split::default(),
+        hits_after: Split::default(),
         hits_since: split(0.0, 1.0),
         calls_since: split(10.0, 4000.0),
         per1k_since: split(0.0, 0.25),
@@ -404,9 +518,9 @@ fn a_cause_finding_carries_its_suggested_rule() {
                 r.rule = Some(firing());
             }),
         ],
-        vec![fail_row("named", |r| r.note = Some("n".into()))],
-        vec![time_row(capped)],
+        vec![],
+        vec![],
     );
     let rules: Vec<Option<String>> = findings_of(&r).into_iter().map(|f| f.rule).collect();
-    assert_eq!(rules, [Some("quote the glob".to_owned()), None, None, None]);
+    assert_eq!(rules, [Some("quote the glob".to_owned()), None]);
 }

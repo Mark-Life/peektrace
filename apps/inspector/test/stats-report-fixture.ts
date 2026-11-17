@@ -16,6 +16,7 @@ export const statsText = (over: Partial<StatsText> = {}): StatsText => ({
   suggested: [],
   suggestedRule: {},
   timeNotes: {},
+  working: [],
   ...over,
 });
 

@@ -1,9 +1,9 @@
  Peektrace   1    2    3    4    5                                loopback only
  Stats ▸ what fails, what costs time        60d · all agents · scanned just now
  5 sessions + 0 subagent runs · 3 projects · 50 shell calls · 16m40s shell time
- stats/v2 · detector v2 · durations ≈ call→result gap · 10 caveats (c)
+ stats/v2 · detector v2 · durations ≈ call→result gap · 9 caveats (c)
 
- ▌FIX FIRST  0 rows name a change · f to open
+ ▌FIX FIRST  1 row names a change · f to open
 
  ▌WHAT FAILS  ranked by sessions spanned  ·  2 rows kept
    SESSIONS▼  CALLS FLAGGED PROJ WHAT

@@ -141,8 +141,12 @@ fn report_header_tables_and_findings() {
     assert!(has_text(&rt, "What fails, what costs time"));
     let cards = keys_with(&rt, "stats-finding:");
     assert_eq!(
-        cards.first().map(String::as_str),
-        Some("stats-finding:cause:cause:zsh-glob-path")
+        cards,
+        [
+            "stats-finding:cause:cause:zsh-glob-path",
+            "stats-finding:cause:cause:command-not-found",
+            "stats-finding:cause:cause:sleep-blocked"
+        ]
     );
     assert!(has_text(
         &rt,

@@ -8,7 +8,10 @@ use rune::{Align, Color, El, col, row, text};
 
 use super::copy::{copy_button, prompt_button};
 use super::links::links;
-use super::{V, amber, amber_text, mono, muted, outline_badge, secondary_badge, small_button};
+use super::{
+    V, amber, amber_text, emerald, emerald_text, mono, muted, outline_badge, secondary_badge,
+    small_button,
+};
 use crate::model::stats::rows::{
     cause_badge, cause_cells, cause_learned, cause_named, cause_narrow, cause_pairs, cause_split,
     match_lines,
@@ -115,25 +118,37 @@ pub fn cell(c: &Column, lines: Vec<(String, Color)>, sub: Option<String>, t: &Th
 }
 
 /// The rule that should have prevented the cause, cut to one line; the
-/// full line is its tooltip and heads the open row's rule check.
-fn rule_badge(key: &str, line: &str) -> El {
+/// full line is its tooltip and heads the open row's rule check. Green when
+/// the rule stopped the cause, amber otherwise.
+fn rule_badge(key: &str, line: &str, fixed: bool, t: &Theme) -> El {
+    let (edge, ink) = if fixed {
+        (emerald(), emerald_text(t))
+    } else {
+        (amber(), amber_text())
+    };
     let badge = row()
         .key(format!("cause-rule:{key}"))
         .shrink()
         .px(8.0)
         .py(2.0)
         .radius(6.0)
-        .border(1.0, amber().alpha(0.4))
-        .fill(amber().alpha(0.1))
+        .border(1.0, edge.alpha(0.4))
+        .fill(edge.alpha(0.1))
         .help(line.to_owned())
         .child(
             text(line.to_owned())
                 .font(ty::XS_MEDIUM)
-                .color(amber_text())
+                .color(ink)
                 .truncate()
                 .min_w(0.0),
         );
     row().w_full().min_w(0.0).child(badge)
+}
+
+/// The cause's rule stopped it: it sits in the "working" list.
+fn is_fixed(v: &V<'_>, row: &CauseRowView) -> bool {
+    v.text
+        .is_some_and(|x| x.working.iter().any(|w| w.key == row.key))
 }
 
 fn rule_line<'a>(v: &V<'a>, row: &CauseRowView) -> Option<&'a str> {
@@ -167,7 +182,7 @@ fn cause_cell(v: &V<'_>, r: &CauseRowView) -> El {
             .gap(4.0)
             .child(mono(cause_narrow(r), t));
         if let Some(l) = rule_line(v, r) {
-            narrow = narrow.child(rule_badge(&r.key, l));
+            narrow = narrow.child(rule_badge(&r.key, l, is_fixed(v, r), v.t));
         }
         c = c.child(narrow);
     }
@@ -201,7 +216,7 @@ fn cause_row(v: &V<'_>, r: &CauseRowView, open: bool, selected: bool) -> El {
     if shown(&COLUMNS[5], v) {
         let rule = rule_line(v, r).map_or_else(
             || text("—").font(ty::XS).color(t.muted_fg),
-            |l| rule_badge(&r.key, l),
+            |l| rule_badge(&r.key, l, is_fixed(v, r), v.t),
         );
         line = line.child(col().w(COLUMNS[5].w).child(rule));
     }

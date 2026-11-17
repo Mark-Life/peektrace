@@ -13,7 +13,7 @@ use crate::model::utf16;
 /// Clusters drawn as bars.
 pub const CLUSTER_ROWS: usize = 10;
 /// Finding cards shown before "Show N more".
-pub const VISIBLE_FINDINGS: usize = 6;
+pub const VISIBLE_FINDINGS: usize = peektrace_protocol::stats_text::FINDINGS_VISIBLE;
 /// Hits fetched per drill page.
 pub const DRILL_PAGE: f64 = 200.0;
 /// Windows offered, shortest first, and the default.
@@ -134,8 +134,8 @@ pub fn caveats_line(r: &StatsReportView) -> String {
         format!(" · {} files skipped", n(r.skipped.len() as f64))
     };
     format!(
-        "{} caveats travel with these numbers{skipped}",
-        n(r.caveats.len() as f64)
+        "{}{skipped}",
+        peektrace_protocol::stats_text::measured_link(r.caveats.len())
     )
 }
 

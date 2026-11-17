@@ -10,7 +10,7 @@ use peektrace_core::stats::detectors::retries::CauseRow;
 use peektrace_core::stats::detectors::timing::TimeRow;
 use peektrace_core::stats::detectors::usage::{UsageBy, UsageTotals};
 use peektrace_core::stats::findings::{
-    NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules,
+    NO_RULE, findings_of, no_suggestion_reason, rule_line, suggested_rules, working_of,
 };
 use peektrace_core::stats::format::{count, hms, percent, rate_text, tokens};
 use peektrace_core::stats::schema::{DETECTOR_VERSION, STATS_SCHEMA_VERSION};
@@ -78,12 +78,29 @@ fn n(x: f64) -> String {
     to_js_string(x)
 }
 
+/// `WORKING  2 (causes with no hit since their memory rule): a, b`.
+fn working_line(r: &StatsReport) -> Option<String> {
+    let working = working_of(r);
+    (!working.is_empty()).then(|| {
+        let titles: Vec<&str> = working.iter().map(|f| f.title.as_str()).collect();
+        format!(
+            "WORKING  {} ({}): {}",
+            working.len(),
+            peektrace_protocol::stats_text::WORKING_NOTE,
+            titles.join(", ")
+        )
+    })
+}
+
 fn findings_block(r: &StatsReport) -> String {
     let found = findings_of(r);
     if found.is_empty() {
-        return "FIX FIRST  no row names a change in this window".to_owned();
+        let none = "FIX FIRST  no row names a change in this window".to_owned();
+        return working_line(r).map_or_else(|| none.clone(), |w| format!("{none}\n{w}"));
     }
-    let mut lines = vec!["FIX FIRST  (named causes lead; never a blended score)".to_owned()];
+    let mut lines = vec![
+        "FIX FIRST  (largest share of the spend, then hits a fix would still save)".to_owned(),
+    ];
     for (i, f) in found.iter().take(FINDINGS_SHOWN).enumerate() {
         lines.push(format!("{}. {}  [{}]", i + 1, f.title, f.impact));
         lines.push(format!("   {}", f.note));
@@ -95,6 +112,7 @@ fn findings_block(r: &StatsReport) -> String {
             found.len() - FINDINGS_SHOWN
         ));
     }
+    lines.extend(working_line(r));
     lines.join("\n")
 }
 

@@ -57,6 +57,8 @@ fn firing() -> RuleCheck {
             excerpt: "Quote globs".into(),
         }],
         since_iso: Some("2026-10-01T00:00:00.000Z".into()),
+        hits_through: split(122.0, 1327.0),
+        hits_after: split(3.0, 40.0),
         hits_since: split(3.0, 40.0),
         calls_since: split(1000.0, 2000.0),
         per1k_since: split(3.0, 20.0),
@@ -67,6 +69,8 @@ fn firing() -> RuleCheck {
 fn unmeasured() -> RuleCheck {
     RuleCheck {
         calls_since: split(0.0, 0.0),
+        hits_through: split(125.0, 1367.0),
+        hits_after: split(0.0, 0.0),
         hits_since: split(0.0, 0.0),
         ..firing()
     }
@@ -81,6 +85,7 @@ fn cause_row(edit: impl FnOnce(&mut CauseRow)) -> CauseRow {
         fix: Some("quote the glob".into()),
         failing: true,
         hits: 1492.0,
+        live_hits: None,
         flagged: 35.0,
         hits_by: split(125.0, 1367.0),
         pairs: 678.0,
@@ -108,6 +113,7 @@ fn fail_row(edit: impl FnOnce(&mut FailRow)) -> FailRow {
         key: "scan:tsc".into(),
         label: "error TS####".into(),
         r#where: "Bash exit 0".into(),
+        piped: 0.0,
         rows: 206.0,
         sessions: 137.0,
         projects: 2.0,
@@ -285,6 +291,7 @@ fn report_prompt_names_a_rule_that_still_fires() {
         "rules in memory but still firing: zsh-glob-flag (rule in ~/.claude/CLAUDE.md:101 · still firing"
     ));
     let quiet = RuleCheck {
+        hits_after: split(0.0, 0.0),
         hits_since: split(0.0, 0.0),
         per1k_since: split(0.0, 0.0),
         ..firing()
@@ -495,7 +502,7 @@ fn the_waiting_row_carries_the_waiting_shapes() {
     );
     let text = prompt(&r, &PromptTarget::Time("wait/poll".into()));
     assert_eq!(text, golden("time"));
-    assert!(text.contains("- note: 8 of 643 runs returned at a harness ceiling"));
+    assert!(text.contains("- note: 8 of 643 runs hit the agent's tool time limit (48m00s of 3h39m), so this time is a floor"));
     assert!(text.contains("peektrace stats drill --days 30 --time wait/poll --json"));
 }
 

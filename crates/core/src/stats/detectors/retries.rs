@@ -42,10 +42,31 @@ pub struct CauseTable<'a> {
     drill_key: Option<String>,
     last_miss: HashMap<String, f64>,
     last_ran: HashMap<String, f64>,
+    /// Missing names some call ran as a command, not only as backticked text.
+    bare_miss: HashSet<String>,
     on_host: HashSet<String>,
     pairer: Pairer<'a>,
     flushed: bool,
     local: &'a dyn LocalZone,
+}
+
+/// `name` opens an unescaped backtick span: `` `name` `` or `` `name args` ``.
+fn in_backticks(cmd: &str, name: &str) -> bool {
+    let open = format!("`{name}");
+    cmd.match_indices(&open).any(|(i, _)| {
+        let escaped = cmd[..i].ends_with('\\');
+        let next = cmd[i + open.len()..].chars().next();
+        !escaped && matches!(next, Some('`' | ' '))
+    })
+}
+
+/// The fix when every missing name ran only inside backticks.
+fn backtick_fix(names: &[(String, f64)]) -> String {
+    let names: Vec<&str> = names.iter().take(4).map(|(n, _)| n.as_str()).collect();
+    format!(
+        "{} ran inside backticks in double-quoted text, so the shell ran them as commands. Use single quotes, or escape the backticks",
+        names.join(", ")
+    )
 }
 
 impl<'a> CauseTable<'a> {
@@ -61,6 +82,7 @@ impl<'a> CauseTable<'a> {
                 .map(|d| d.key.clone()),
             last_miss: HashMap::new(),
             last_ran: HashMap::new(),
+            bare_miss: HashSet::new(),
             on_host: HashSet::new(),
             pairer: Pairer::new(local),
             flushed: false,
@@ -152,7 +174,12 @@ impl<'a> CauseTable<'a> {
         let drill = self.drill_key.as_deref() == Some(cause_key_of(cause, &f.tool).as_str());
         let detail = detail_of(cause, f);
         if let (Some(d), CauseId::CommandNotFound) = (&detail, cause) {
-            Self::latest(&mut self.last_miss, bin_name(d), f, local);
+            let name = bin_name(d);
+            Self::latest(&mut self.last_miss, name, f, local);
+            let cmd = f.bash.as_ref().map_or("", |b| b.cmd.as_str());
+            if !in_backticks(cmd, name) {
+                self.bare_miss.insert(name.to_owned());
+            }
         }
         let agg = self.agg_for(cause, &f.tool);
         if f.err {
@@ -245,16 +272,19 @@ impl<'a> CauseTable<'a> {
         let s = spec(agg.cause());
         match agg.cause() {
             CauseId::CommandNotFound => {
-                let bins: Vec<String> = top_counts(&agg.details, agg.details.len())
+                let bins: Vec<(String, f64)> = top_counts(&agg.details, agg.details.len())
                     .into_iter()
-                    .map(|(b, _)| b)
+                    .filter(|(b, _)| self.bare_miss.contains(bin_name(b)))
                     .collect();
-                let missing: Vec<String> = bins
+                let missing: Vec<(String, f64)> = bins
                     .iter()
-                    .filter(|b| !self.installed(b))
+                    .filter(|(b, _)| !self.installed(b))
                     .take(4)
                     .cloned()
                     .collect();
+                if bins.is_empty() && !agg.details.is_empty() {
+                    return Some(backtick_fix(&top_counts(&agg.details, 4)));
+                }
                 if !bins.is_empty() && missing.is_empty() {
                     return None;
                 }
@@ -277,6 +307,20 @@ impl<'a> CauseTable<'a> {
             }
             _ => s.fix.map(str::to_owned),
         }
+    }
+
+    /// Command-not-found hits minus misses of binaries installed since.
+    fn live_of(&self, agg: &CauseAgg) -> Option<f64> {
+        if agg.cause() != CauseId::CommandNotFound {
+            return None;
+        }
+        let fixed: f64 = agg
+            .details
+            .iter()
+            .filter(|(b, _)| self.bare_miss.contains(bin_name(b)) && self.installed(b))
+            .map(|(_, n)| *n)
+            .sum();
+        (fixed > 0.0).then(|| (agg.hits().total() - fixed).max(0.0))
     }
 
     #[expect(clippy::cast_precision_loss)]
@@ -304,6 +348,7 @@ impl<'a> CauseTable<'a> {
             fix: self.fix_of(agg).map(|f| redact.line_max(&f, FIX_MAX)),
             failing: s.failing,
             hits: hits_by.total(),
+            live_hits: self.live_of(agg),
             flagged: agg.flagged,
             hits_by,
             pairs: agg.pairs,
@@ -359,7 +404,11 @@ impl<'a> CauseTable<'a> {
             .collect();
         let ranked = rank(rows, compare_cause_rows, ctx.limit);
         if ranked.dropped > 0 {
-            ctx.caveat(format!("cause table: {} rows not shown", ranked.dropped));
+            ctx.caveat(format!(
+                "\"Avoidable retries\" shows the top {} of {} causes",
+                ranked.rows.len(),
+                ranked.total
+            ));
         }
         ranked.rows
     }
@@ -456,6 +505,17 @@ impl CauseCounts for CauseTable<'_> {
         (
             sum_cells([&agg.hits_by_cell], &keep),
             sum_cells(self.den.of(agg), &keep),
+        )
+    }
+
+    fn around(&self, key: &str, day: &str) -> (Split, Split) {
+        let Some(agg) = self.aggs.get(key) else {
+            return (Split::default(), Split::default());
+        };
+        let dated = |c: &super::cells::Cell| !c.day.is_empty();
+        (
+            sum_cells([&agg.hits_by_cell], &|c| dated(c) && c.day.as_str() <= day),
+            sum_cells([&agg.hits_by_cell], &|c| dated(c) && c.day.as_str() > day),
         )
     }
 }

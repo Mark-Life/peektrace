@@ -142,8 +142,9 @@ impl ClusterTable {
         );
         if ranked.dropped > 0 {
             ctx.caveat(format!(
-                "{} of {} error clusters not shown",
-                ranked.dropped, ranked.total
+                "Error clusters show the top {} of {}",
+                ranked.rows.len(),
+                ranked.total
             ));
         }
         ranked.rows

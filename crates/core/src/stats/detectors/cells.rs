@@ -122,9 +122,12 @@ fn sourced_fix(b: &str) -> Option<String> {
     (b == "nvm").then(|| format!("nvm is a shell function, not a binary: source $NVM_DIR/nvm.sh in {PATH_FILES}, or put a node version's bin dir on PATH instead"))
 }
 
-/// "install jq, binutils (strings); or put node on PATH in ..." for missing bins.
-pub fn command_not_found_fix(bins: &[String]) -> Option<String> {
-    let top = &bins[..bins.len().min(FIX_BINS)];
+/// "install jq, binutils (strings); or put node on PATH in ..." for missing
+/// bins, then how often each was missed when a count is known.
+pub fn command_not_found_fix(missed: &[(String, f64)]) -> Option<String> {
+    let missed = &missed[..missed.len().min(FIX_BINS)];
+    let bins: Vec<String> = missed.iter().map(|(b, _)| b.clone()).collect();
+    let top = bins.as_slice();
     let sourced: Vec<String> = top.iter().filter_map(|b| sourced_fix(b)).collect();
     let install: Vec<&String> = top
         .iter()
@@ -161,7 +164,19 @@ pub fn command_not_found_fix(bins: &[String]) -> Option<String> {
         all.push(parts.join(if linked { "; then " } else { "; or " }));
     }
     all.extend(sourced);
-    (!all.is_empty()).then(|| all.join("; "))
+    let counts: Vec<String> = missed
+        .iter()
+        .filter(|(_, n)| *n > 0.0)
+        .map(|(b, n)| format!("{b} {}", crate::js::num::to_js_string(*n)))
+        .collect();
+    (!all.is_empty()).then(|| {
+        let fix = all.join("; ");
+        if counts.is_empty() {
+            fix
+        } else {
+            format!("{fix}. Misses: {}", counts.join(", "))
+        }
+    })
 }
 
 /// The fix for one call's cause, sharpened by its culprit.
@@ -169,7 +184,7 @@ pub fn call_fix_of(cause: CauseId, arg: Option<&str>) -> Option<String> {
     let fix = spec(cause).fix.map(str::to_owned);
     let Some(arg) = arg else { return fix };
     match cause {
-        CauseId::CommandNotFound => command_not_found_fix(&[arg.to_owned()]).or(fix),
+        CauseId::CommandNotFound => command_not_found_fix(&[(arg.to_owned(), 0.0)]).or(fix),
         CauseId::StructuredOutputSchema => {
             Some(format!("{} Missing: '{arg}'.", fix.unwrap_or_default()))
         }

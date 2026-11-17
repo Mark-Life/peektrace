@@ -7,6 +7,7 @@
 
 pub mod accumulate;
 pub mod cache;
+pub mod cost_findings;
 pub mod detectors;
 pub mod extract;
 pub mod findings;

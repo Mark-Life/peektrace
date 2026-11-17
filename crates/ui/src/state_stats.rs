@@ -90,6 +90,8 @@ pub struct StatsState {
     pub show_all: bool,
     pub open_cause: Option<String>,
     pub caveats_open: bool,
+    /// The "working" list of causes a rule stopped is open.
+    pub working_open: bool,
     pub days_open: bool,
     pub agent_open: bool,
     /// The open `×N` sample list, by its chip key.
